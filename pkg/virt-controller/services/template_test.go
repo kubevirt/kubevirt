@@ -195,7 +195,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
-				Expect(ok).To(Equal(true))
+				Expect(ok).To(BeTrue())
 				expectedIfaces := ("[" +
 					"{\"interface\":\"net1\",\"name\":\"default\",\"namespace\":\"default\"}," +
 					"{\"interface\":\"net2\",\"name\":\"test1\",\"namespace\":\"default\"}," +
@@ -228,10 +228,10 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				value, ok := pod.Annotations["v1.multus-cni.io/default-network"]
-				Expect(ok).To(Equal(true))
+				Expect(ok).To(BeTrue())
 				Expect(value).To(Equal("default"))
 				value, ok = pod.Annotations["k8s.v1.cni.cncf.io/networks"]
-				Expect(ok).To(Equal(true))
+				Expect(ok).To(BeTrue())
 				Expect(value).To(Equal("[{\"interface\":\"net1\",\"name\":\"test1\",\"namespace\":\"default\"}]"))
 			})
 			It("should add MAC address in the pod annotation", func() {
@@ -271,7 +271,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
-				Expect(ok).To(Equal(true))
+				Expect(ok).To(BeTrue())
 				expectedIfaces := ("[" +
 					"{\"interface\":\"net1\",\"name\":\"default\",\"namespace\":\"default\"}," +
 					"{\"interface\":\"net2\",\"mac\":\"de:ad:00:00:be:af\",\"name\":\"test1\",\"namespace\":\"default\"}" +
@@ -305,7 +305,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				value, ok := pod.Annotations["cni"]
-				Expect(ok).To(Equal(true))
+				Expect(ok).To(BeTrue())
 				Expect(value).To(Equal("default,test1"))
 			})
 		})
@@ -332,7 +332,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				value, ok := pod.Annotations[ISTIO_KUBEVIRT_ANNOTATION]
-				Expect(ok).To(Equal(true))
+				Expect(ok).To(BeTrue())
 				Expect(value).To(Equal("k6t-eth0"))
 			})
 		})
@@ -1125,7 +1125,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
-				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(Equal(false))
+				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
 			})
 			It("should mount pci related host directories", func() {
 				sriovInterface := v1.InterfaceSRIOV{}

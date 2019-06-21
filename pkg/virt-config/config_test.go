@@ -141,7 +141,7 @@ var _ = Describe("ConfigMap", func() {
 		Expect(result.BandwidthPerMigration.String()).To(Equal("110Mi"))
 		Expect(*result.ProgressTimeout).To(BeNumerically("==", 5))
 		Expect(*result.CompletionTimeoutPerGiB).To(BeNumerically("==", 5))
-		Expect(result.UnsafeMigrationOverride).To(Equal(true))
+		Expect(result.UnsafeMigrationOverride).To(BeTrue())
 	})
 
 	It("Should return migration config values if specified as yaml", func() {

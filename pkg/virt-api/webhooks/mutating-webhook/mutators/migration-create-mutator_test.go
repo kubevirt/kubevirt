@@ -50,7 +50,7 @@ var _ = Describe("VirtualMachineInstanceMigration Mutator", func() {
 		By("Mutating the Migration")
 		mutator := &MigrationCreateMutator{}
 		resp := mutator.Mutate(ar)
-		Expect(resp.Allowed).To(Equal(true))
+		Expect(resp.Allowed).To(BeTrue())
 
 		By("Getting the VMI spec from the response")
 		migrationSpec := &v1.VirtualMachineInstanceMigrationSpec{}

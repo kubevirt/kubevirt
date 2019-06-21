@@ -90,7 +90,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		}
 
 		resp := migrationUpdateAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(false))
+		Expect(resp.Allowed).To(BeFalse())
 	})
 
 	It("should accept Migration on update if spec doesn't change", func() {
@@ -128,6 +128,6 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		}
 
 		resp := migrationUpdateAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(true))
+		Expect(resp.Allowed).To(BeTrue())
 	})
 })

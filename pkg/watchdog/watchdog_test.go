@@ -84,7 +84,7 @@ var _ = Describe("Watchdog", func() {
 
 			expired, err := WatchdogFileIsExpired(1, tmpVirtShareDir, vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(expired).To(Equal(false))
+			Expect(expired).To(BeFalse())
 
 			time.Sleep(time.Second * 3)
 
@@ -94,11 +94,11 @@ var _ = Describe("Watchdog", func() {
 
 			expired, err = WatchdogFileIsExpired(1, tmpVirtShareDir, vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(expired).To(Equal(true))
+			Expect(expired).To(BeTrue())
 
 			exists, err := WatchdogFileExists(tmpVirtShareDir, vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(Equal(true))
+			Expect(exists).To(BeTrue())
 
 			err = WatchdogFileRemove(tmpVirtShareDir, vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -109,7 +109,7 @@ var _ = Describe("Watchdog", func() {
 
 			exists, err = WatchdogFileExists(tmpVirtShareDir, vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(Equal(false))
+			Expect(exists).To(BeFalse())
 		})
 
 		It("should not expire updated files", func() {

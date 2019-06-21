@@ -82,7 +82,7 @@ var _ = Describe("Domain informer", func() {
 
 			eventDomain := obj.(*api.Domain)
 			eventDomain.Spec.XMLName = xml.Name{}
-			Expect(reflect.DeepEqual(&domain.Spec, &eventDomain.Spec)).To(Equal(true))
+			Expect(reflect.DeepEqual(&domain.Spec, &eventDomain.Spec)).To(BeTrue())
 		} else {
 
 			Expect(exists).To(BeFalse())
@@ -166,7 +166,7 @@ var _ = Describe("Domain informer", func() {
 				timedOut = true
 			}
 
-			Expect(timedOut).To(Equal(false))
+			Expect(timedOut).To(BeFalse())
 
 		}, 5)
 

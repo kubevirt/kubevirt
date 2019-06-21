@@ -90,7 +90,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		}
 
 		resp := vmiUpdateAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(false))
+		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Details.Causes[0].Message).To(Equal("update of VMI object is restricted"))
 	})

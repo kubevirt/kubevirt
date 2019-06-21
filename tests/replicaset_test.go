@@ -413,7 +413,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				return true
 			}
 			return false
-		}, 120*time.Second, time.Second).Should(Equal(true))
+		}, 120*time.Second, time.Second).Should(BeTrue())
 
 		By("Checking number of RS VM's")
 		vmis, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v12.ListOptions{})

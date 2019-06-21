@@ -63,7 +63,7 @@ var _ = Describe("HooksAPI", func() {
 			}
 			hookSidecarList, err := hooks.UnmarshalHookSidecarList(vmiHookObject)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(reflect.DeepEqual(hookSidecarList, expectedHookSidecarList)).To(Equal(true))
+			Expect(reflect.DeepEqual(hookSidecarList, expectedHookSidecarList)).To(BeTrue())
 		})
 	})
 })

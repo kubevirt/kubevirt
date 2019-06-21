@@ -103,10 +103,10 @@ var _ = Describe("Inotify", func() {
 
 			for i := 0; i < num; i++ {
 				Expect(os.Create(fileName)).ToNot(BeNil())
-				Expect(TestForKeyEvent(key, true)).To(Equal(true))
+				Expect(TestForKeyEvent(key, true)).To(BeTrue())
 
 				Expect(os.Remove(fileName)).To(Succeed())
-				Expect(TestForKeyEvent(key, false)).To(Equal(true))
+				Expect(TestForKeyEvent(key, false)).To(BeTrue())
 			}
 
 		})

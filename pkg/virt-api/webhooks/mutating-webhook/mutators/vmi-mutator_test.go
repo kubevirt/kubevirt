@@ -66,7 +66,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		}
 		By("Mutating the VMI")
 		resp := mutator.Mutate(ar)
-		Expect(resp.Allowed).To(Equal(true))
+		Expect(resp.Allowed).To(BeTrue())
 
 		By("Getting the VMI spec from the response")
 		vmiSpec := &v1.VirtualMachineInstanceSpec{}

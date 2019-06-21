@@ -76,7 +76,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(Equal(true))
+				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.clusterRoles {
@@ -86,7 +86,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(Equal(true))
+				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.clusterRoleBindings {
@@ -96,7 +96,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(Equal(true))
+				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.roles {
@@ -106,7 +106,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(Equal(true))
+				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.roleBindings {
@@ -116,7 +116,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(Equal(true))
+				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.crds {
@@ -126,7 +126,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(Equal(true))
+				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.services {
@@ -136,7 +136,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(Equal(true))
+				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.daemonSets {
@@ -146,7 +146,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(Equal(true))
+				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
 			}
 
 			for _, original := range strategy.deployments {
@@ -156,7 +156,7 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				Expect(reflect.DeepEqual(original, converted)).To(Equal(true))
+				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
 			}
 		})
 	})

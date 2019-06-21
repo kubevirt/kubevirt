@@ -113,7 +113,7 @@ var _ = Describe("Virt remote commands", func() {
 			domain, exists, err := client.GetDomain()
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(exists).To(Equal(true))
+			Expect(exists).To(BeTrue())
 			Expect(domain).ToNot(Equal(nil))
 			Expect(domain.ObjectMeta.Name).To(Equal("testvmi1"))
 		})
@@ -130,7 +130,7 @@ var _ = Describe("Virt remote commands", func() {
 
 			err = client.Ping()
 			Expect(err).To(HaveOccurred())
-			Expect(cmdclient.IsDisconnected(err)).To(Equal(true))
+			Expect(cmdclient.IsDisconnected(err)).To(BeTrue())
 
 			_, err = cmdclient.NewClient(shareDir + "/server.sock")
 			Expect(err).To(HaveOccurred())
@@ -148,7 +148,7 @@ var _ = Describe("Virt remote commands", func() {
 			domStats, exists, err := client.GetDomainStats()
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(exists).To(Equal(true))
+			Expect(exists).To(BeTrue())
 			Expect(domStats).ToNot(Equal(nil))
 			Expect(domStats.Name).To(Equal(list[0].Name))
 			Expect(domStats.UUID).To(Equal(list[0].UUID))

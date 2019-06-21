@@ -85,7 +85,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 
 		resp := vmsAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(false))
+		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].name"))
 	})
@@ -121,7 +121,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 
 		resp := vmsAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(true))
+		Expect(resp.Allowed).To(BeTrue())
 	})
 
 	It("should accept valid DataVolumeTemplate", func() {
@@ -166,7 +166,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		enableFeatureGate("DataVolumes")
 		resp := vmsAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(true))
+		Expect(resp.Allowed).To(BeTrue())
 	})
 
 	It("should reject invalid DataVolumeTemplate with no Volume reference in VMI template", func() {
@@ -211,7 +211,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		enableFeatureGate("DataVolumes")
 		resp := vmsAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(false))
+		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
 	})
