@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/version"
+	kubecontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
@@ -993,6 +994,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			shouldExpectInstallStrategyDeletion()
 
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategy(defaultImageTag, defaultRegistry)
 			controller.Execute()
@@ -1031,6 +1033,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 
 			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addAll("custom.tag", defaultRegistry)
 			// install strategy config
@@ -1081,6 +1084,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			deleteFromCache = false
 
 			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addDummyValidationWebhook()
 			addInstallStrategy(defaultImageTag, defaultRegistry)
@@ -1130,6 +1134,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 
 			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategy(defaultImageTag, defaultRegistry)
 			addAll(defaultImageTag, defaultRegistry)
@@ -1171,6 +1176,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			deleteFromCache = false
 
 			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategy(defaultImageTag, defaultRegistry)
 			addAll(defaultImageTag, defaultRegistry)
@@ -1225,7 +1231,9 @@ var _ = Describe("KubeVirt Operator", func() {
 				Status: v1.KubeVirtStatus{},
 			}
 
+			kubecontroller.SetLatestApiVersionAnnotation(kv1)
 			addKubeVirt(kv1)
+			kubecontroller.SetLatestApiVersionAnnotation(kv2)
 			addKubeVirt(kv2)
 
 			shouldExpectKubeVirtUpdateFailureCondition(ConditionReasonDeploymentFailedExisting)
@@ -1275,6 +1283,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 
 			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategy(defaultImageTag, defaultRegistry)
 
@@ -1297,6 +1306,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 
 			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			shouldExpectKubeVirtUpdate(1)
 			shouldExpectJobCreation()
@@ -1325,6 +1335,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			job.Status.CompletionTime = &metav1.Time{Time: completionTime}
 
 			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategyJob(job)
 
@@ -1352,6 +1363,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			job.Status.CompletionTime = now()
 
 			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategyJob(job)
 
@@ -1370,6 +1382,7 @@ var _ = Describe("KubeVirt Operator", func() {
 					Namespace: NAMESPACE,
 				},
 			}
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategy(defaultImageTag, defaultRegistry)
 
@@ -1451,6 +1464,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 
 			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategy(defaultImageTag, defaultRegistry)
 			addInstallStrategy(rollbackVersion, rollbackRegistry)
@@ -1518,6 +1532,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 
 			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategy(defaultImageTag, defaultRegistry)
 			addInstallStrategy(updatedVersion, updatedRegistry)
@@ -1583,6 +1598,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 
 			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategy(defaultImageTag, defaultRegistry)
 			addInstallStrategy(updatedVersion, updatedRegistry)
@@ -1652,6 +1668,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 
 			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addInstallStrategy(defaultImageTag, defaultRegistry)
 			addInstallStrategy(updatedVersion, updatedRegistry)
@@ -1690,6 +1707,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			}
 			kv.DeletionTimestamp = now()
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 
 			// create all resources which should be deleted

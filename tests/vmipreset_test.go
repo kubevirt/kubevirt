@@ -89,7 +89,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Context("CRD Validation", func() {
 		It("[test_id:1595]Should reject POST if schema is invalid", func() {
 			// Preset with missing selector should fail CRD validation
-			jsonString := "{\"kind\":\"VirtualMachineInstancePreset\",\"apiVersion\":\"kubevirt.io/v1alpha3\",\"metadata\":{\"generateName\":\"test-memory-\",\"creationTimestamp\":null},\"spec\":{}}"
+			jsonString := fmt.Sprintf("{\"kind\":\"VirtualMachineInstancePreset\",\"apiVersion\":\"%s\",\"metadata\":{\"generateName\":\"test-memory-\",\"creationTimestamp\":null},\"spec\":{}}", v1.StorageGroupVersion.String())
 
 			result := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
 

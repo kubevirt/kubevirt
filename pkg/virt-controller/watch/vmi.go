@@ -222,6 +222,15 @@ func (c *VMIController) execute(key string) error {
 
 	logger := log.Log.Object(vmi)
 
+	// this must be first step in execution. Writting the object
+	// when api version changes ensures our api stored version is updated.
+	if !controller.ObservedLatestApiVersionAnnotation(vmi) {
+		vmi := vmi.DeepCopy()
+		controller.SetLatestApiVersionAnnotation(vmi)
+		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
+		return err
+	}
+
 	// Only consider pods which belong to this vmi
 	// excluding unfinalized migration targets from this list.
 	pod, err := c.currentPod(vmi)

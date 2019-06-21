@@ -447,6 +447,15 @@ func (c *KubeVirtController) execute(key string) error {
 	kv := obj.(*v1.KubeVirt)
 	logger := log.Log.Object(kv)
 
+	// this must be first step in execution. Writting the object
+	// when api version changes ensures our api stored version is updated.
+	if !controller.ObservedLatestApiVersionAnnotation(kv) {
+		kv := kv.DeepCopy()
+		controller.SetLatestApiVersionAnnotation(kv)
+		_, err = c.clientset.KubeVirt(kv.ObjectMeta.Namespace).Update(kv)
+		return err
+	}
+
 	// If we can't extract the key we can't do anything
 	_, err = controller.KeyFunc(kv)
 	if err != nil {
@@ -541,6 +550,10 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 								{
 									Name:  util.TargetInstallNamespace,
 									Value: kv.Namespace,
+								},
+								{
+									Name:  util.TargetImagePullPolicy,
+									Value: string(pullPolicy),
 								},
 								{
 									Name:  util.TargetImagePullPolicy,

@@ -158,6 +158,15 @@ func (c *VMController) execute(key string) error {
 
 	logger.V(4).Info("Started processing VM")
 
+	// this must be first step in execution. Writting the object
+	// when api version changes ensures our api stored version is updated.
+	if !controller.ObservedLatestApiVersionAnnotation(VM) {
+		vm := VM.DeepCopy()
+		controller.SetLatestApiVersionAnnotation(vm)
+		_, err = c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Update(vm)
+		return err
+	}
+
 	//TODO default vm if necessary, the aggregated apiserver will do that in the future
 	if VM.Spec.Template == nil {
 		logger.Error("Invalid controller spec, will not re-enqueue.")

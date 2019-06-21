@@ -1012,7 +1012,7 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, vmi *v1.Virtua
 
 func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstance, old *v1.VirtualMachineInstance, err error) {
 
-	if ar.Request.Resource != webhooks.VirtualMachineInstanceGroupVersionResource {
+	if !webhooks.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstanceGroupVersionResource.Group, webhooks.VirtualMachineInstanceGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
 	}
 

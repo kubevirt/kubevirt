@@ -66,7 +66,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			newVMI := NewRandomVirtualMachine(template, false)
 			newVMI.TypeMeta = v12.TypeMeta{
-				APIVersion: v1.GroupVersion.String(),
+				APIVersion: v1.StorageGroupVersion.String(),
 				Kind:       "VirtualMachine",
 			}
 
