@@ -4,9 +4,6 @@ set -x
 #############################################################
 # This is based on https://github.com/SchSeba/kubevirt-docker
 #############################################################
-#TODO FEDE Cleanup
-apt update
-apt install -y kmod pciutils
 
 export NO_PROXY="localhost,127.0.0.1,172.17.0.2"
 
@@ -210,6 +207,10 @@ kubectl patch configmap kubevirt-config -n kubevirt --patch "data:
 # delete all virt- pods so that they have a chance to catch up with feature gate change
 kubectl get pods -n kubevirt | grep virt | awk '{print $1}' | xargs kubectl delete pods -n kubevirt
 wait_kubevirt_up
+
+# TODO FEDE Remove empty cni
+${CLUSTER_CMD} rm /opt/cni/bin/sriov
+${CLUSTER_CMD} mv /emptycni/emptycni /opt/cni/bin/sriov
 
 # ========================
 # execute functional tests
