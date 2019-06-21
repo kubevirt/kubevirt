@@ -20,6 +20,9 @@
 package tests_test
 
 import (
+	"encoding/json"
+
+	"fmt"
 	"strings"
 	"time"
 
@@ -28,6 +31,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -45,8 +50,24 @@ var _ = Describe("Slirp Networking", func() {
 	var genericVmi *v1.VirtualMachineInstance
 	var deadbeafVmi *v1.VirtualMachineInstance
 	var container k8sv1.Container
+	setSlirpEnabled := func(enable bool) {
+
+		cfg, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		cfg.Data["disableSlirp"] = fmt.Sprintf("%t", !enable)
+
+		newData, err := json.Marshal(cfg.Data)
+		Expect(err).ToNot(HaveOccurred())
+
+		data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
+
+		_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
+		Expect(err).ToNot(HaveOccurred())
+	}
 
 	tests.BeforeAll(func() {
+		setSlirpEnabled(true)
 		ports := []v1.Port{{Name: "http", Port: 80}}
 		genericVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 		deadbeafVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
@@ -58,6 +79,9 @@ var _ = Describe("Slirp Networking", func() {
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 			tests.GenerateHelloWorldServer(vmi, 80, "tcp")
 		}
+	})
+	AfterEach(func() {
+		setSlirpEnabled(false)
 	})
 
 	table.DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
