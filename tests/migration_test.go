@@ -387,7 +387,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 			})
 		})
-		FContext("with auto converge enabled", func() {
+		Context("with auto converge enabled", func() {
 			var options metav1.GetOptions
 			var cfgMap *k8sv1.ConfigMap
 			var originalMigrationConfig string
@@ -395,24 +395,24 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
 
-				// set unsafe migration flag
+				// set autoconverge flag
 				options = metav1.GetOptions{}
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, options)
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
 				Expect(err).ToNot(HaveOccurred())
 				originalMigrationConfig = cfgMap.Data["migrations"]
 				cfgMap.Data["migrations"] = `{"allowAutoConverge": true}`
 
-				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(5 * time.Second)
 
 			}, 60)
 
 			AfterEach(func() {
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, options)
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
 				Expect(err).ToNot(HaveOccurred())
 				cfgMap.Data["migrations"] = originalMigrationConfig
-				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
 				Expect(err).ToNot(HaveOccurred())
 			}, 60)
 
