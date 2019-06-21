@@ -50,6 +50,8 @@ done
 if [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
     nodes=("master-0" "worker-0")
     pull_command="podman"
+elif [[ $KUBEVIRT_PROVIDER == "external" ]]; then
+    nodes=() # in case of external provider we have no control over the nodes
 else
     nodes=()
     for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
