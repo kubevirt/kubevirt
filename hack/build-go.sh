@@ -49,6 +49,9 @@ if [ $# -eq 0 ]; then
         (
             cd ${KUBEVIRT_DIR}/pkg
             go $target ./...
+
+            cd ${KUBEVIRT_DIR}/staging/src/kubevirt.io
+            go $target ./...
         )
         (
             cd ${KUBEVIRT_DIR}/tests
