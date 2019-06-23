@@ -136,7 +136,6 @@ olm-push:
 	bazel-build-images \
 	bazel-push-images \
 	bazel-tests \
-	build \
 	test \
 	clean \
 	distclean \
