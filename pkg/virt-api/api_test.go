@@ -118,10 +118,6 @@ var _ = Describe("Virt-api", func() {
 		It("should generate certs the first time it is run", func() {
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/secrets/"+virtApiCertSecretName),
-					ghttp.RespondWithJSONEncoded(http.StatusNotFound, nil),
-				),
-				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/api/v1/namespaces/kubevirt/secrets"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 				),
@@ -165,6 +161,10 @@ var _ = Describe("Virt-api", func() {
 			}
 
 			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", "/api/v1/namespaces/kubevirt/secrets"),
+					ghttp.RespondWithJSONEncoded(http.StatusConflict, nil),
+				),
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/secrets/"+virtApiCertSecretName),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, secret),

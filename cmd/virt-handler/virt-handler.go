@@ -30,9 +30,9 @@ import (
 
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -113,62 +113,48 @@ var _ service.Service = &virtHandlerApp{}
 func (app *virtHandlerApp) getSelfSignedCert() error {
 	var ok bool
 
-	generateCerts := false
-	secret, err := app.virtCli.CoreV1().Secrets(app.namespace).Get(virtHandlerCertSecretName, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			generateCerts = true
-		} else {
-			return err
-		}
+	caKeyPair, _ := triple.NewCA("kubevirt.io")
+	clientKeyPair, _ := triple.NewClientKeyPair(caKeyPair,
+		"kubevirt.io:system:node:virt-handler",
+		nil,
+	)
+
+	secret := &k8sv1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      virtHandlerCertSecretName,
+			Namespace: app.namespace,
+			Labels: map[string]string{
+				v1.AppLabel: "virt-api-aggregator",
+			},
+		},
+		Type: "Opaque",
+		Data: map[string][]byte{
+			clientCertBytesValue:  cert.EncodeCertPEM(clientKeyPair.Cert),
+			clientKeyBytesValue:   cert.EncodePrivateKeyPEM(clientKeyPair.Key),
+			signingCertBytesValue: cert.EncodeCertPEM(caKeyPair.Cert),
+		},
 	}
-
-	if generateCerts {
-		// Generate new certs if secret doesn't already exist
-		caKeyPair, _ := triple.NewCA("kubevirt.io")
-
-		clientKeyPair, _ := triple.NewClientKeyPair(caKeyPair,
-			"kubevirt.io:system:node:virt-handler",
-			nil,
-		)
-
-		app.clientKeyBytes = cert.EncodePrivateKeyPEM(clientKeyPair.Key)
-		app.clientCertBytes = cert.EncodeCertPEM(clientKeyPair.Cert)
-		app.signingCertBytes = cert.EncodeCertPEM(caKeyPair.Cert)
-
-		secret := k8sv1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      virtHandlerCertSecretName,
-				Namespace: app.namespace,
-				Labels: map[string]string{
-					v1.AppLabel: "virt-api-aggregator",
-				},
-			},
-			Type: "Opaque",
-			Data: map[string][]byte{
-				clientCertBytesValue:  app.clientCertBytes,
-				clientKeyBytesValue:   app.clientKeyBytes,
-				signingCertBytesValue: app.signingCertBytes,
-			},
-		}
-		_, err := app.virtCli.CoreV1().Secrets(app.namespace).Create(&secret)
+	_, err := app.virtCli.CoreV1().Secrets(app.namespace).Create(secret)
+	if errors.IsAlreadyExists(err) {
+		secret, err = app.virtCli.CoreV1().Secrets(app.namespace).Get(virtHandlerCertSecretName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
-	} else {
-		// retrieve self signed cert info from secret
-		app.clientCertBytes, ok = secret.Data[clientCertBytesValue]
-		if !ok {
-			return fmt.Errorf("%s value not found in %s virt-api secret", clientCertBytesValue, virtHandlerCertSecretName)
-		}
-		app.clientKeyBytes, ok = secret.Data[clientKeyBytesValue]
-		if !ok {
-			return fmt.Errorf("%s value not found in %s virt-api secret", clientKeyBytesValue, virtHandlerCertSecretName)
-		}
-		app.signingCertBytes, ok = secret.Data[signingCertBytesValue]
-		if !ok {
-			return fmt.Errorf("%s value not found in %s virt-api secret", signingCertBytesValue, virtHandlerCertSecretName)
-		}
+	} else if err != nil {
+		return err
+	}
+	// retrieve self signed cert info from secret
+	app.clientCertBytes, ok = secret.Data[clientCertBytesValue]
+	if !ok {
+		return fmt.Errorf("%s value not found in %s virt-api secret", clientCertBytesValue, virtHandlerCertSecretName)
+	}
+	app.clientKeyBytes, ok = secret.Data[clientKeyBytesValue]
+	if !ok {
+		return fmt.Errorf("%s value not found in %s virt-api secret", clientKeyBytesValue, virtHandlerCertSecretName)
+	}
+	app.signingCertBytes, ok = secret.Data[signingCertBytesValue]
+	if !ok {
+		return fmt.Errorf("%s value not found in %s virt-api secret", signingCertBytesValue, virtHandlerCertSecretName)
 	}
 	return nil
 }
