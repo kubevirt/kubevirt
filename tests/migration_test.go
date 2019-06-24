@@ -963,6 +963,34 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
 			})
 
+			It("should recreate the PDB if VMIs with similar names are recreated", func() {
+				for x := 0; x < 3; x++ {
+					By("creating the VMI")
+					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					By("checking that the PDB appeared")
+					Eventually(func() []v1beta1.PodDisruptionBudget {
+						pdbs, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(tests.NamespaceTestDefault).List(metav1.ListOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return pdbs.Items
+					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
+					By("deleting the VMI")
+					err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					By("checking that the PDB disappeared")
+					Eventually(func() []v1beta1.PodDisruptionBudget {
+						pdbs, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(tests.NamespaceTestDefault).List(metav1.ListOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return pdbs.Items
+					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(0))
+					Eventually(func() bool {
+						_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+						return errors.IsNotFound(err)
+					}, 30*time.Second, 500*time.Millisecond).Should(BeTrue())
+				}
+			})
+
 			It("should block the eviction api while a slow migration is in progress", func() {
 				vmi = fedoraVMIWithEvictionStrategy()
 
