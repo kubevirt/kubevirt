@@ -4,13 +4,6 @@ go:
 sudo: required
 dist: trusty
 
-install:
-    - go get github.com/mattn/goveralls
-    - go get -v github.com/onsi/ginkgo/ginkgo
-    - go get -v github.com/onsi/gomega
-    - go get -v -t ./...
-    - export PATH=$PATH:$HOME/gopath/bin
-
 services:
 - docker
 

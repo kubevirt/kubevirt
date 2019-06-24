@@ -59,11 +59,8 @@ help: ## Show this help screen
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ''
 
-test-unit-install:
-	go get -u github.com/evanphx/json-patch 
-
-test-unit: test-unit-install
-	ginkgo -r -cover
+test-unit: 
+	./hack/unit-test.sh
 
 test: test-unit
 
