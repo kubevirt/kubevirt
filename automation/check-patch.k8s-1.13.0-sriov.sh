@@ -208,4 +208,4 @@ ${CLUSTER_CMD} chmod 666 /dev/vfio/vfio
 # ========================
 # execute functional tests
 # ========================
-/${CLUSTER_DIR}/test.sh
+${CLUSTER_DIR}/test.sh
