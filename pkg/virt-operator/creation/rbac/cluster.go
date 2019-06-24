@@ -19,70 +19,11 @@
 package rbac
 
 import (
-	"fmt"
-
-	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/virt-operator/util"
-
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
 )
-
-func CreateClusterRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores util.Stores, expectations *util.Expectations) (int, error) {
-
-	objectsAdded := 0
-	kvkey, err := controller.KeyFunc(kv)
-	if err != nil {
-		return 0, err
-	}
-
-	rbac := clientset.RbacV1()
-
-	clusterRoles := []*rbacv1.ClusterRole{
-		newDefaultClusterRole(),
-		newAdminClusterRole(),
-		newEditClusterRole(),
-		newViewClusterRole(),
-	}
-	for _, cr := range clusterRoles {
-		if _, exists, _ := stores.ClusterRoleCache.Get(cr); !exists {
-			expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
-			_, err := rbac.ClusterRoles().Create(cr)
-			if err != nil {
-				expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("clusterrole %v already exists", cr.GetName())
-		}
-	}
-
-	clusterRoleBindings := []*rbacv1.ClusterRoleBinding{
-		newDefaultClusterRoleBinding(),
-	}
-	for _, crb := range clusterRoleBindings {
-		if _, exists, _ := stores.ClusterRoleBindingCache.Get(crb); !exists {
-			expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
-			_, err := rbac.ClusterRoleBindings().Create(crb)
-			if err != nil {
-				expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("clusterrolebinding %v already exists", crb.GetName())
-		}
-	}
-
-	return objectsAdded, nil
-}
 
 func GetAllCluster(namespace string) []interface{} {
 	return []interface{}{
