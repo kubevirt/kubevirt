@@ -22,7 +22,8 @@ function build_func_tests() {
     ginkgo build ${KUBEVIRT_DIR}/tests
     mv ${KUBEVIRT_DIR}/tests/tests.test ${TESTS_OUT_DIR}/
 }
-function build_func_tests_container() {
+
+function build_func_tests_images() {
     local bin_name=tests
     cp ${KUBEVIRT_DIR}/tests/{Dockerfile,entrypoint.sh} \
         ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
