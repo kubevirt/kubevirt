@@ -59,7 +59,7 @@ functest:
 functest-image-build:
 	hack/func-tests-image.sh build
 
-functest-image-push: functest-build-image
+functest-image-push: functest-image-build
 	hack/func-tests-image.sh push
 
 clean:
