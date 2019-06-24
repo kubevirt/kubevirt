@@ -56,6 +56,12 @@ functest:
 	hack/dockerized "hack/build-func-tests.sh"
 	hack/functests.sh
 
+functest-image-build:
+	hack/func-tests-image.sh build
+
+functest-image-push: functest-build-image
+	hack/func-tests-image.sh push
+
 clean:
 	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
 	hack/dockerized "bazel clean --expunge"
@@ -71,20 +77,14 @@ deps-update:
 check:
 	hack/dockerized "./hack/check.sh"
 
-docker: build
-	hack/build-docker.sh build ${WHAT}
+builder-cache-push:
+	hack/builder-cache.sh push
 
-push-cache: docker verify-build
-	hack/build-docker.sh push-cache ${WHAT}
+builder-cache-pull:
+	hack/builder-cache.sh pull
 
-pull-cache:
-	hack/build-docker.sh pull-cache ${WHAT}
-
-publish: docker verify-build
-	hack/build-docker.sh push ${WHAT}
-
-verify-build:
-	hack/verify-build.sh
+build-verify:
+	hack/build-verify.sh
 
 manifests:
 	hack/dockerized "CSV_VERSION=${CSV_VERSION} QUAY_REPOSITORY=${QUAY_REPOSITORY} \
@@ -128,6 +128,7 @@ olm-push:
 	    QUAY_PASSWORD=${QUAY_PASSWORD} QUAY_REPOSITORY=${QUAY_REPOSITORY} PACKAGE_NAME=${PACKAGE_NAME} ./hack/olm.sh push"
 
 .PHONY: \
+	build-verify \
 	go-build \
 	go-test \
 	go-all \
@@ -136,14 +137,13 @@ olm-push:
 	bazel-build-images \
 	bazel-push-images \
 	bazel-tests \
+	functest-image-build \
+	functest-image-push \
 	test \
 	clean \
 	distclean \
-	checksync \
 	sync \
-	docker \
 	manifests \
-	publish \
 	functest \
 	release-announce \
 	cluster-up \
