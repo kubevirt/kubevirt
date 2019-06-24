@@ -989,11 +989,12 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 
 	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
 	// overhead per vcpu in MiB
-	coresMemory := uint32(8)
+	coresMemory := resource.MustParse("8Mi")
 	if domain.CPU != nil {
-		coresMemory *= domain.CPU.Cores
+		value := coresMemory.Value() * int64(domain.CPU.Cores)
+		coresMemory = *resource.NewQuantity(value, coresMemory.Format)
 	}
-	overhead.Add(resource.MustParse(strconv.Itoa(int(coresMemory)) + "Mi"))
+	overhead.Add(coresMemory)
 
 	// static overhead for IOThread
 	overhead.Add(resource.MustParse("8Mi"))

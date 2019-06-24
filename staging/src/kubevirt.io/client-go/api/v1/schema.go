@@ -209,7 +209,7 @@ type ResourceRequirements struct {
 	// +optional
 	Limits v1.ResourceList `json:"limits,omitempty"`
 	// Don't ask the scheduler to take the guest-management overhead into account. Instead
-	// put the overhead only into the requested memory limits. This can lead to crashes if
+	// put the overhead only into the container's memory limit. This can lead to crashes if
 	// all memory is in use on a node. Defaults to false.
 	OvercommitGuestOverhead bool `json:"overcommitGuestOverhead,omitempty"`
 }

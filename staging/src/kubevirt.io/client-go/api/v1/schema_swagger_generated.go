@@ -96,7 +96,7 @@ func (ResourceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"requests":                "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
 		"limits":                  "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
-		"overcommitGuestOverhead": "Don't ask the scheduler to take the guest-management overhead into account. Instead\nput the overhead only into the requested memory limits. This can lead to crashes if\nall memory is in use on a node. Defaults to false.",
+		"overcommitGuestOverhead": "Don't ask the scheduler to take the guest-management overhead into account. Instead\nput the overhead only into the container's memory limit. This can lead to crashes if\nall memory is in use on a node. Defaults to false.",
 	}
 }
 
