@@ -61,22 +61,10 @@ function finish {
     collect_artifacts
     kind delete cluster --name=${CLUSTER_NAME}
 }
-
-#trap finish EXIT
-
-# TODO Fede: this may not be needed because of prow
-
-# serialize all sriov jobs running on the same ci node
-#[ -d "${SHARED_DIR}" ] || mkdir -p "${SHARED_DIR}"
-#touch "$SRIOV_JOB_LOCKFILE"
-#exec {fd}< "$SRIOV_JOB_LOCKFILE"
-#flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
-#    echo "ERROR: Timed out after $SRIOV_TIMEOUT_SEC seconds waiting for sriov.lock" >&2
-#    exit 1
-#}
+exit
+trap finish EXIT
 
 tools/util/vfio.sh
-
 
 # ================
 # bring up cluster
@@ -85,6 +73,7 @@ tools/util/vfio.sh
 #go get -u sigs.k8s.io/kind 
 
 
+# Create the cluster...
 kind --loglevel debug create cluster --wait=$((60*60))s --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml --image=onesourceintegrations/node:multus
 
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
@@ -210,9 +199,13 @@ wait_kubevirt_up
 
 # TODO FEDE Remove empty cni
 ${CLUSTER_CMD} rm /opt/cni/bin/sriov
-${CLUSTER_CMD} mv /emptycni/emptycni /opt/cni/bin/sriov
+docker cp /emptycni/emptycni ${CLUSTER_CONTROL_PLANE}:/opt/cni/bin/sriov
+
+# TODO FEDE understand if there is a better way
+${CLUSTER_CMD} chmod 666 /dev/vfio/vfio
+
 
 # ========================
 # execute functional tests
 # ========================
-#./${CLUSTER_DIR}/test.sh
+/${CLUSTER_DIR}/test.sh
