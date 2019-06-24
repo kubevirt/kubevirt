@@ -754,7 +754,8 @@ func (c *VMController) addVirtualMachine(obj interface{}) {
 		log.Log.Object(vmi).V(4).Info("Looking for VirtualMachineInstance Ref")
 		vm := c.resolveControllerRef(vmi.Namespace, controllerRef)
 		if vm == nil {
-			log.Log.Object(vmi).Errorf("Cant find the matching VM for VirtualMachineInstance: %s", vmi.Name)
+			// not managed by us
+			log.Log.Object(vmi).V(4).Infof("Cant find the matching VM for VirtualMachineInstance: %s", vmi.Name)
 			return
 		}
 		vmKey, err := controller.KeyFunc(vm)
