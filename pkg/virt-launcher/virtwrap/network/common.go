@@ -82,7 +82,7 @@ type NetworkHandler interface {
 	GetMacDetails(iface string) (net.HardwareAddr, error)
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions)
-	UseIptables() error
+	UseIptables() bool
 	IptablesNewChain(table, chain string) error
 	IptablesAppendRule(table, chain string, rulespec ...string) error
 	NftablesNewChain(table, chain string) error
@@ -128,15 +128,18 @@ func (h *NetworkUtilsHandler) AddrAdd(link netlink.Link, addr *netlink.Addr) err
 func (h *NetworkUtilsHandler) LinkSetMaster(link netlink.Link, master *netlink.Bridge) error {
 	return netlink.LinkSetMaster(link, master)
 }
-func (h *NetworkUtilsHandler) UseIptables() error {
+func (h *NetworkUtilsHandler) UseIptables() bool {
 	iptablesObject, err := iptables.New()
 	if err != nil {
-		return err
+		return false
 	}
 
 	_, err = iptablesObject.List("nat", "OUTPUT")
+	if err != nil {
+		return false
+	}
 
-	return err
+	return true
 }
 func (h *NetworkUtilsHandler) IptablesNewChain(table, chain string) error {
 	iptablesObject, err := iptables.New()

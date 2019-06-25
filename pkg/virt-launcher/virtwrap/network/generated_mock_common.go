@@ -200,6 +200,16 @@ func (_mr *_MockNetworkHandlerRecorder) StartDHCP(arg0, arg1, arg2, arg3 interfa
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDHCP", arg0, arg1, arg2, arg3)
 }
 
+func (_m *MockNetworkHandler) UseIptables() bool {
+	ret := _m.ctrl.Call(_m, "UseIptables")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) UseIptables() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UseIptables")
+}
+
 func (_m *MockNetworkHandler) IptablesNewChain(table string, chain string) error {
 	ret := _m.ctrl.Call(_m, "IptablesNewChain", table, chain)
 	ret0, _ := ret[0].(error)
@@ -223,4 +233,49 @@ func (_m *MockNetworkHandler) IptablesAppendRule(table string, chain string, rul
 func (_mr *_MockNetworkHandlerRecorder) IptablesAppendRule(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "IptablesAppendRule", _s...)
+}
+
+func (_m *MockNetworkHandler) NftablesNewChain(table string, chain string) error {
+	ret := _m.ctrl.Call(_m, "NftablesNewChain", table, chain)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) NftablesNewChain(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "NftablesNewChain", arg0, arg1)
+}
+
+func (_m *MockNetworkHandler) NftablesAppendRule(table string, chain string, rulespec ...string) error {
+	_s := []interface{}{table, chain}
+	for _, _x := range rulespec {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "NftablesAppendRule", _s...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) NftablesAppendRule(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "NftablesAppendRule", _s...)
+}
+
+func (_m *MockNetworkHandler) NftablesNewTable(table string) error {
+	ret := _m.ctrl.Call(_m, "NftablesNewTable", table)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) NftablesNewTable(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "NftablesNewTable", arg0)
+}
+
+func (_m *MockNetworkHandler) NftablesLoad(fnName string) error {
+	ret := _m.ctrl.Call(_m, "NftablesLoad", fnName)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) NftablesLoad(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "NftablesLoad", arg0)
 }
