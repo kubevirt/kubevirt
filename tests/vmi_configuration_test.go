@@ -41,6 +41,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -54,6 +55,85 @@ var _ = Describe("Configurations", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+	})
+
+	Context("for CPU and memory limits should", func() {
+
+		It("lead to get the burstable QOS class assigned when limit and requests differ", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+
+			Eventually(func() kubev1.PodQOSClass {
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.IsFinal()).To(BeFalse())
+				if vmi.Status.QOSClass == nil {
+					return ""
+				}
+				return *vmi.Status.QOSClass
+			}, 10*time.Second, 1*time.Second).Should(Equal(kubev1.PodQOSBurstable))
+		})
+
+		It("lead to get the guaranteed QOS class assigned when limit and requests are identical", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			By("specifying identical limits and requests")
+			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+				Requests: kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("1"),
+					kubev1.ResourceMemory: resource.MustParse("64M"),
+				},
+				Limits: kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("1"),
+					kubev1.ResourceMemory: resource.MustParse("64M"),
+				},
+			}
+
+			By("adding a sidecar to ensure it gets limits assigned too")
+			vmi.ObjectMeta.Annotations = RenderSidecar(kubevirt_hooks_v1alpha2.Version)
+			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+
+			Eventually(func() kubev1.PodQOSClass {
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.IsFinal()).To(BeFalse())
+				if vmi.Status.QOSClass == nil {
+					return ""
+				}
+				return *vmi.Status.QOSClass
+			}, 10*time.Second, 1*time.Second).Should(Equal(kubev1.PodQOSGuaranteed))
+		})
+
+		It("lead to get the guaranteed QOS class assigned when only limits are set", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			By("specifying identical limits and requests")
+			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+				Requests: kubev1.ResourceList{},
+				Limits: kubev1.ResourceList{
+					kubev1.ResourceCPU:    resource.MustParse("1"),
+					kubev1.ResourceMemory: resource.MustParse("64M"),
+				},
+			}
+
+			By("adding a sidecar to ensure it gets limits assigned too")
+			vmi.ObjectMeta.Annotations = RenderSidecar(kubevirt_hooks_v1alpha2.Version)
+			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
+
+			Eventually(func() kubev1.PodQOSClass {
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.IsFinal()).To(BeFalse())
+				if vmi.Status.QOSClass == nil {
+					return ""
+				}
+				return *vmi.Status.QOSClass
+			}, 10*time.Second, 1*time.Second).Should(Equal(kubev1.PodQOSGuaranteed))
+
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Spec.Domain.Resources.Requests.Cpu().Cmp(*vmi.Spec.Domain.Resources.Limits.Cpu())).To(BeZero())
+			Expect(vmi.Spec.Domain.Resources.Requests.Memory().Cmp(*vmi.Spec.Domain.Resources.Limits.Memory())).To(BeZero())
+		})
+
 	})
 
 	Describe("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance definition", func() {
@@ -1454,6 +1534,12 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+
+				By("Checking that the VMI QOS is guaranteed")
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(cpuVmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.QOSClass).ToNot(BeNil())
+				Expect(*vmi.Status.QOSClass).To(Equal(kubev1.PodQOSGuaranteed))
 
 				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 

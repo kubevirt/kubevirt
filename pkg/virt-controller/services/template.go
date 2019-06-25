@@ -794,7 +794,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources := k8sv1.ResourceRequirements{}
 		// add default cpu and memory limits to enable cpu pinning if requested
 		// TODO(vladikr): make the hookSidecar express resources
-		if vmi.IsCPUDedicated() {
+		if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
 			resources.Limits = make(k8sv1.ResourceList)
 			resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("200m")
 			resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")

@@ -294,6 +294,13 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	case vmi.IsScheduling():
 		switch {
 		case podExists:
+			// ensure that the QOS class on the VMI matches to Pods QOS class
+			if pod.Status.QOSClass == "" {
+				vmiCopy.Status.QOSClass = nil
+			} else {
+				vmiCopy.Status.QOSClass = &pod.Status.QOSClass
+			}
+
 			// Add PodScheduled False condition to the VM
 			if cond := conditionManager.GetPodConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse); cond != nil {
 				conditionManager.AddPodCondition(vmiCopy, cond)

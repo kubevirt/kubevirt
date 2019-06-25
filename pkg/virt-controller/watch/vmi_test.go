@@ -715,6 +715,21 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			controller.Execute()
 		})
+		It("should update the virtual machine QOS class if the pod finally has a QOS class assigned", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Scheduling
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Status.QOSClass = k8sv1.PodQOSGuaranteed
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(*arg.(*v1.VirtualMachineInstance).Status.QOSClass).To(Equal(k8sv1.PodQOSGuaranteed))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
 		It("should update the virtual machine to scheduled if pod is ready, triggered by pod change", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Scheduling
