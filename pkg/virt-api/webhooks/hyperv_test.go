@@ -33,7 +33,7 @@ import (
 
 var _false bool = false
 
-var _ = Describe("Validating Webhook HyperV utils", func() {
+var _ = Describe("Mutating Webhook HyperV utils", func() {
 
 	It("Should not mutate VMIs without HyperV configuration", func() {
 		vmi := v1.NewMinimalVMI("testvmi")
@@ -176,6 +176,10 @@ var _ = Describe("Validating Webhook HyperV utils", func() {
 		}
 		Expect(ok).To(BeTrue())
 	})
+
+})
+
+var _ = Describe("Validating Webhook HyperV utils", func() {
 
 	It("Should validate VMIs without HyperV configuration", func() {
 		vmi := v1.NewMinimalVMI("testvmi")

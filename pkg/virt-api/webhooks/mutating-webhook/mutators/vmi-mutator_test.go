@@ -46,6 +46,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	var namespaceLimitInformer cache.SharedIndexInformer
 	var configMapInformer cache.SharedIndexInformer
 	var mutator *VMIsMutator
+	var _true bool = true
 
 	memoryLimit := "128M"
 	cpuModelFromConfig := "Haswell"
@@ -435,5 +436,19 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmiSpec, _ := getVMISpecMetaFromResponse()
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
+	})
+
+	It("should set the hyperv dependencies", func() {
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				SyNICTimer: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(*(vmiSpec.Domain.Features.Hyperv.VPIndex.Enabled)).To(BeTrue())
+		Expect(*(vmiSpec.Domain.Features.Hyperv.SyNIC.Enabled)).To(BeTrue())
+		Expect(*(vmiSpec.Domain.Features.Hyperv.SyNICTimer.Enabled)).To(BeTrue())
 	})
 })
