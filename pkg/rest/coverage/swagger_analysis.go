@@ -85,12 +85,13 @@ func countRefParams(schema *spec.Schema, definitions spec.Definitions) int {
 	if tokens = ptr.DecodedTokens(); len(tokens) < 2 {
 		return 0
 	}
+	refType, refName := tokens[0], tokens[1]
 
-	if tokens[0] != "definitions" {
+	if refType != "definitions" {
 		return 0
 	}
 
-	def, ok := definitions[tokens[1]]
+	def, ok := definitions[refName]
 	// did not find swagger definition
 	if !ok {
 		return 0
