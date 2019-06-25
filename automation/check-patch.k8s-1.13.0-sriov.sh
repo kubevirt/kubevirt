@@ -61,7 +61,7 @@ function finish {
     collect_artifacts
     kind delete cluster --name=${CLUSTER_NAME}
 }
-exit
+
 trap finish EXIT
 
 tools/util/vfio.sh
