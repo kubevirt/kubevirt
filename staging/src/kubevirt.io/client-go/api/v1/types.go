@@ -1074,6 +1074,19 @@ const (
 
 // ---
 // +k8s:openapi-gen=true
+type NetworkInterfaceType string
+
+const (
+	// Virtual machine instance bride interface
+	BridgeInterface NetworkInterfaceType = "bridge"
+	// Virtual machine instance slirp interface
+	SlirpInterface NetworkInterfaceType = "slirp"
+	// Virtual machine instance masquerade interface
+	MasqueradeInterface NetworkInterfaceType = "masquerade"
+)
+
+// ---
+// +k8s:openapi-gen=true
 type DriverCache string
 
 const (

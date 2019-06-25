@@ -125,11 +125,11 @@ func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineIns
 	if len(obj.Spec.Networks) == 0 {
 		iface := mutator.ClusterConfig.GetDefaultNetworkInterface()
 		switch iface {
-		case "bridge":
+		case v1.BridgeInterface:
 			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-		case "masquerade":
+		case v1.MasqueradeInterface:
 			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		case "slirp":
+		case v1.SlirpInterface:
 			defaultIface := v1.DefaultSlirpNetworkInterface()
 			if mutator.ClusterConfig.IsSlirpInterfaceDisabled() {
 				defaultIface = v1.DefaultMasqueradeNetworkInterface()

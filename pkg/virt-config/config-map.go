@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -355,7 +356,7 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	switch iface {
 	case "":
 		// keep the default
-	case "bridge", "slirp", "masquerade":
+	case string(v1.BridgeInterface), string(v1.SlirpInterface), string(v1.MasqueradeInterface):
 		config.NetworkInterface = iface
 	default:
 		return fmt.Errorf("invalid default-network-interface in config: %v", iface)
