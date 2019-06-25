@@ -39,16 +39,16 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when invalid, it should return the default", "invalid", false),
 	)
 
-	table.DescribeTable(" when disableSlirp", func(value string, result bool) {
+	table.DescribeTable(" when permitSlirpInterface", func(value string, result bool) {
 		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
-			Data: map[string]string{"disableSlirp": value},
+			Data: map[string]string{"permitSlirpInterface": value},
 		})
-		Expect(clusterConfig.IsSlirpInterfaceDisabled()).To(Equal(result))
+		Expect(clusterConfig.IsSlirpInterfaceEnabled()).To(Equal(result))
 	},
 		table.Entry("is true, it should return true", "true", true),
 		table.Entry("is false, it should return false", "false", false),
-		table.Entry("when unset, it should return false", "", true),
-		table.Entry("when invalid, it should return the default", "invalid", true),
+		table.Entry("when unset, it should return false", "", false),
+		table.Entry("when invalid, it should return the default", "invalid", false),
 	)
 
 	table.DescribeTable(" when imagePullPolicy", func(value string, result kubev1.PullPolicy) {

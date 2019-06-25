@@ -465,6 +465,10 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
+			tests.UpdateClusterConfigValue("permitSlirpInterface", "true")
+		})
+		AfterEach(func() {
+			tests.UpdateClusterConfigValue("permitSlirpInterface", "false")
 		})
 
 		It("[test_id:1773]should configure custom MAC address", func() {

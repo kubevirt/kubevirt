@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/client-go/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -54,7 +54,7 @@ const (
 	LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
 	NodeSelectorsKey          = "node-selectors"
 	NetworkInterfaceKey       = "default-network-interface"
-	DisableSlirp              = "disableSlirp"
+	PermitSlirpInterface      = "permitSlirpInterface"
 
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
@@ -156,7 +156,7 @@ func defaultClusterConfig() *Config {
 		LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
 		NodeSelectors:          nodeSelectorsDefault,
 		NetworkInterface:       defaultNetworkInterface,
-		DisableSlirpInterface:  true,
+		PermitSlirpInterface:   false,
 	}
 }
 
@@ -174,7 +174,7 @@ type Config struct {
 	LessPVCSpaceToleration int
 	NodeSelectors          map[string]string
 	NetworkInterface       string
-	DisableSlirpInterface  bool
+	PermitSlirpInterface   bool
 }
 
 type MigrationConfig struct {
@@ -240,8 +240,8 @@ func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 	return c.getConfig().NetworkInterface
 }
 
-func (c *ClusterConfig) IsSlirpInterfaceDisabled() bool {
-	return c.getConfig().DisableSlirpInterface
+func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
+	return c.getConfig().PermitSlirpInterface
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -339,16 +339,16 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	}
 
 	// disable slirp
-	disableSlirp := strings.TrimSpace(configMap.Data[DisableSlirp])
-	switch disableSlirp {
+	permitSlirp := strings.TrimSpace(configMap.Data[PermitSlirpInterface])
+	switch permitSlirp {
 	case "":
 		// keep the default
 	case "true":
-		config.DisableSlirpInterface = true
+		config.PermitSlirpInterface = true
 	case "false":
-		config.DisableSlirpInterface = false
+		config.PermitSlirpInterface = false
 	default:
-		return fmt.Errorf("invalid value for disableSlirp in config: %v", disableSlirp)
+		return fmt.Errorf("invalid value for permitSlirpInterfaces in config: %v", permitSlirp)
 	}
 
 	// set default network interface

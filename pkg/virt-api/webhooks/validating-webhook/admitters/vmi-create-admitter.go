@@ -619,7 +619,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					Message: fmt.Sprintf("Slirp interface only implemented with pod network"),
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
-			} else if iface.Slirp != nil && networkData.Pod != nil && config.IsSlirpInterfaceDisabled() {
+			} else if iface.Slirp != nil && networkData.Pod != nil && !config.IsSlirpInterfaceEnabled() {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("Slirp interface is not enabled in kubevirt-config"),

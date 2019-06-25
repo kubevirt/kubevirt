@@ -80,7 +80,10 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	mutator.setDefaultMachineType(&vmi)
 	mutator.setDefaultResourceRequests(&vmi)
 	mutator.setDefaultPullPoliciesOnContainerDisks(&vmi)
-	mutator.setDefaultNetworkInterface(&vmi)
+	err = mutator.setDefaultNetworkInterface(&vmi)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
 	v1.SetObjectDefaults_VirtualMachineInstance(&vmi)
 
 	// Add foreground finalizer
@@ -115,30 +118,31 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	}
 }
 
-func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineInstance) {
+func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineInstance) error {
 	autoAttach := obj.Spec.Domain.Devices.AutoattachPodInterface
 	if autoAttach != nil && *autoAttach == false {
-		return
+		return nil
 	}
 
 	// Override only when nothing is specified
 	if len(obj.Spec.Networks) == 0 {
-		iface := mutator.ClusterConfig.GetDefaultNetworkInterface()
+		iface := v1.NetworkInterfaceType(mutator.ClusterConfig.GetDefaultNetworkInterface())
 		switch iface {
 		case v1.BridgeInterface:
 			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		case v1.MasqueradeInterface:
 			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 		case v1.SlirpInterface:
-			defaultIface := v1.DefaultSlirpNetworkInterface()
-			if mutator.ClusterConfig.IsSlirpInterfaceDisabled() {
-				defaultIface = v1.DefaultMasqueradeNetworkInterface()
+			if !mutator.ClusterConfig.IsSlirpInterfaceEnabled() {
+				return fmt.Errorf("Slirp interface is not enabled in kubevirt-config")
 			}
+			defaultIface := v1.DefaultSlirpNetworkInterface()
 			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
 		}
 
 		obj.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	}
+	return nil
 }
 
 func (mutator *VMIsMutator) setDefaultCPUModel(vmi *v1.VirtualMachineInstance) {

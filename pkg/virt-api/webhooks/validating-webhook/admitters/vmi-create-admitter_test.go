@@ -58,7 +58,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	}
 	enableSlirpInterface := func() {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
-			Data: map[string]string{virtconfig.DisableSlirp: "false"},
+			Data: map[string]string{virtconfig.PermitSlirpInterface: "true"},
 		})
 	}
 
