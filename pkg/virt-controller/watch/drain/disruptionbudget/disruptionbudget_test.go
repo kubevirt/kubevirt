@@ -156,6 +156,56 @@ var _ = Describe("Disruptionbudget", func() {
 			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
 		})
 
+		It("should recreate the PDB if the VMI is recreated", func() {
+			vmi := newVirtualMachine("testvm")
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
+			addVirtualMachine(vmi)
+			pdb := newPodDisruptionBudget(vmi)
+			pdbFeeder.Add(pdb)
+
+			controller.Execute()
+
+			vmiFeeder.Delete(vmi)
+			shouldExpectPDBDeletion(pdb)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
+
+			pdbFeeder.Delete(pdb)
+			vmi.UID = "45356"
+			vmiFeeder.Add(vmi)
+			shouldExpectPDBCreation(vmi.UID)
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulCreatePodDisruptionBudgetReason)
+		})
+
+		It("should delete a PDB which belongs to an old VMI", func() {
+			vmi := newVirtualMachine("testvm")
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
+			pdb := newPodDisruptionBudget(vmi)
+			pdbFeeder.Add(pdb)
+			// new UID means new VMI
+			vmi.UID = "changed"
+			addVirtualMachine(vmi)
+
+			shouldExpectPDBDeletion(pdb)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
+		})
+
+		It("should not create a PDB for VMIs which are already marked for deletion", func() {
+			vmi := newVirtualMachine("testvm")
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
+			now := v13.Now()
+			vmi.DeletionTimestamp = &now
+			addVirtualMachine(vmi)
+
+			controller.Execute()
+
+			vmiFeeder.Delete(vmi)
+			controller.Execute()
+		})
+
 		It("should remove the pdb if the VMI does not want to be migrated anymore", func() {
 			vmi := newVirtualMachine("testvm")
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
