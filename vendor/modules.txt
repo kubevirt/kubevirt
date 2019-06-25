@@ -149,7 +149,7 @@ github.com/kr/logfmt
 # github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 github.com/krolaw/dhcp4
 github.com/krolaw/dhcp4/conn
-# github.com/libvirt/libvirt-go v5.0.0+incompatible
+# github.com/libvirt/libvirt-go v5.0.0+incompatible => github.com/libvirt/libvirt-go v5.4.0+incompatible
 github.com/libvirt/libvirt-go
 # github.com/mailru/easyjson v0.0.0-20180823135443-60711f1a8329
 github.com/mailru/easyjson/jlexer

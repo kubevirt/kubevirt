@@ -365,19 +365,21 @@ const (
 type DomainMemoryStatTags int
 
 const (
-	DOMAIN_MEMORY_STAT_LAST           = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_NR)
-	DOMAIN_MEMORY_STAT_SWAP_IN        = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_SWAP_IN)
-	DOMAIN_MEMORY_STAT_SWAP_OUT       = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_SWAP_OUT)
-	DOMAIN_MEMORY_STAT_MAJOR_FAULT    = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_MAJOR_FAULT)
-	DOMAIN_MEMORY_STAT_MINOR_FAULT    = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_MINOR_FAULT)
-	DOMAIN_MEMORY_STAT_UNUSED         = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_UNUSED)
-	DOMAIN_MEMORY_STAT_AVAILABLE      = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_AVAILABLE)
-	DOMAIN_MEMORY_STAT_ACTUAL_BALLOON = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_ACTUAL_BALLOON)
-	DOMAIN_MEMORY_STAT_RSS            = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_RSS)
-	DOMAIN_MEMORY_STAT_USABLE         = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_USABLE)
-	DOMAIN_MEMORY_STAT_LAST_UPDATE    = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_LAST_UPDATE)
-	DOMAIN_MEMORY_STAT_DISK_CACHES    = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_DISK_CACHES)
-	DOMAIN_MEMORY_STAT_NR             = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_NR)
+	DOMAIN_MEMORY_STAT_LAST            = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_NR)
+	DOMAIN_MEMORY_STAT_SWAP_IN         = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_SWAP_IN)
+	DOMAIN_MEMORY_STAT_SWAP_OUT        = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_SWAP_OUT)
+	DOMAIN_MEMORY_STAT_MAJOR_FAULT     = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_MAJOR_FAULT)
+	DOMAIN_MEMORY_STAT_MINOR_FAULT     = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_MINOR_FAULT)
+	DOMAIN_MEMORY_STAT_UNUSED          = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_UNUSED)
+	DOMAIN_MEMORY_STAT_AVAILABLE       = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_AVAILABLE)
+	DOMAIN_MEMORY_STAT_ACTUAL_BALLOON  = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_ACTUAL_BALLOON)
+	DOMAIN_MEMORY_STAT_RSS             = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_RSS)
+	DOMAIN_MEMORY_STAT_USABLE          = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_USABLE)
+	DOMAIN_MEMORY_STAT_LAST_UPDATE     = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_LAST_UPDATE)
+	DOMAIN_MEMORY_STAT_DISK_CACHES     = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_DISK_CACHES)
+	DOMAIN_MEMORY_STAT_HUGETLB_PGALLOC = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_HUGETLB_PGALLOC)
+	DOMAIN_MEMORY_STAT_HUGETLB_PGFAIL  = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_HUGETLB_PGFAIL)
+	DOMAIN_MEMORY_STAT_NR              = DomainMemoryStatTags(C.VIR_DOMAIN_MEMORY_STAT_NR)
 )
 
 type DomainCPUStatsTags string
@@ -809,6 +811,19 @@ const (
 	MIGRATE_RDMA_PIN_ALL      = DomainMigrateFlags(C.VIR_MIGRATE_RDMA_PIN_ALL)
 	MIGRATE_POSTCOPY          = DomainMigrateFlags(C.VIR_MIGRATE_POSTCOPY)
 	MIGRATE_TLS               = DomainMigrateFlags(C.VIR_MIGRATE_TLS)
+	MIGRATE_PARALLEL          = DomainMigrateFlags(C.VIR_MIGRATE_PARALLEL)
+)
+
+type DomainMigrateMaxSpeedFlags int
+
+const (
+	MIGRATE_MAX_SPEED_POSTCOPY = DomainMigrateMaxSpeedFlags(C.VIR_DOMAIN_MIGRATE_MAX_SPEED_POSTCOPY)
+)
+
+type DomainSaveImageXMLFlags int
+
+const (
+	DOMAIN_SAVE_IMAGE_XML_SECURE = DomainSaveImageXMLFlags(C.VIR_DOMAIN_SAVE_IMAGE_XML_SECURE)
 )
 
 type VcpuState int
@@ -1173,29 +1188,29 @@ func (d *Domain) GetCPUStats(startCpu int, nCpus uint, flags uint32) ([]DomainCP
 	if ret == -1 {
 		return []DomainCPUStats{}, makeError(&err)
 	}
-	nparams := uint(ret)
+	cnparams := C.int(ret)
 
-	var cparams []C.virTypedParameter
-	var nallocparams uint
+	var cnallocparams C.int
 	if startCpu == -1 {
-		nallocparams = nparams
+		cnallocparams = cnparams
 	} else {
-		nallocparams = nparams * nCpus
+		cnallocparams = cnparams * C.int(nCpus)
 	}
-	cparams = make([]C.virTypedParameter, nallocparams)
-	ret = C.virDomainGetCPUStatsWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), C.uint(nparams), C.int(startCpu), C.uint(nCpus), C.uint(flags), &err)
+	cparams := typedParamsNew(cnallocparams)
+	defer C.virTypedParamsFree(cparams, cnallocparams)
+	ret = C.virDomainGetCPUStatsWrapper(d.ptr, cparams, C.uint(cnparams), C.int(startCpu), C.uint(nCpus), C.uint(flags), &err)
 	if ret == -1 {
 		return []DomainCPUStats{}, makeError(&err)
 	}
 
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), C.int(nallocparams))
-
 	stats := make([]DomainCPUStats, nCpus)
 	for i := 0; i < int(nCpus); i++ {
-		offset := i * int(nparams)
+		coffset := C.int(i) * cnparams
 		info := getCPUStatsFieldInfo(&stats[i])
-		cparamscpu := cparams[offset : offset+int(ret)]
-		_, gerr := typedParamsUnpack(cparamscpu, info)
+		var cparamscpu *C.virTypedParameter
+		cparamscpu = (*C.virTypedParameter)(unsafe.Pointer(uintptr(unsafe.Pointer(cparams)) +
+			(unsafe.Sizeof(*cparams) * uintptr(coffset))))
+		_, gerr := typedParamsUnpack(cparamscpu, cnparams, info)
 		if gerr != nil {
 			return []DomainCPUStats{}, gerr
 		}
@@ -1258,25 +1273,24 @@ func (d *Domain) GetInterfaceParameters(device string, flags DomainModificationI
 	params := &DomainInterfaceParameters{}
 	info := getInterfaceParameterFieldInfo(params)
 
-	var nparams C.int
+	var cnparams C.int
 
 	cdevice := C.CString(device)
 	defer C.free(unsafe.Pointer(cdevice))
 	var err C.virError
-	ret := C.virDomainGetInterfaceParametersWrapper(d.ptr, cdevice, nil, &nparams, C.uint(0), &err)
+	ret := C.virDomainGetInterfaceParametersWrapper(d.ptr, cdevice, nil, &cnparams, C.uint(0), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virDomainGetInterfaceParametersWrapper(d.ptr, cdevice, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, C.uint(flags), &err)
+	cparams := typedParamsNew(cnparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
+	ret = C.virDomainGetInterfaceParametersWrapper(d.ptr, cdevice, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	_, gerr := typedParamsUnpack(cparams, info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}
@@ -1288,30 +1302,21 @@ func (d *Domain) GetInterfaceParameters(device string, flags DomainModificationI
 func (d *Domain) SetInterfaceParameters(device string, params *DomainInterfaceParameters, flags DomainModificationImpact) error {
 	info := getInterfaceParameterFieldInfo(params)
 
-	var nparams C.int
-
 	cdevice := C.CString(device)
 	defer C.free(unsafe.Pointer(cdevice))
-	var err C.virError
-	ret := C.virDomainGetInterfaceParametersWrapper(d.ptr, cdevice, nil, &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
 
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virDomainGetInterfaceParametersWrapper(d.ptr, cdevice, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	gerr := typedParamsPack(cparams, info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return gerr
 	}
 
-	ret = C.virDomainSetInterfaceParametersWrapper(d.ptr, cdevice, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams, C.uint(flags), &err)
+	defer C.virTypedParamsFree(cparams, cnparams)
+
+	var err C.virError
+	ret := C.virDomainSetInterfaceParametersWrapper(d.ptr, cdevice, cparams, cnparams, C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
 
 	return nil
 }
@@ -1658,25 +1663,24 @@ func (d *Domain) BlockStatsFlags(disk string, flags uint32) (*DomainBlockStats, 
 	params := &DomainBlockStats{}
 	info := getBlockStatsFieldInfo(params)
 
-	var nparams C.int
+	var cnparams C.int
 
 	cdisk := C.CString(disk)
 	defer C.free(unsafe.Pointer(cdisk))
 	var err C.virError
-	ret := C.virDomainBlockStatsFlagsWrapper(d.ptr, cdisk, nil, &nparams, C.uint(0), &err)
+	ret := C.virDomainBlockStatsFlagsWrapper(d.ptr, cdisk, nil, &cnparams, C.uint(0), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virDomainBlockStatsFlagsWrapper(d.ptr, cdisk, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, C.uint(flags), &err)
+	cparams := typedParamsNew(cnparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
+	ret = C.virDomainBlockStatsFlagsWrapper(d.ptr, cdisk, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	_, gerr := typedParamsUnpack(cparams, info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}
@@ -2101,16 +2105,15 @@ func (d *Domain) BlockCopy(disk string, destxml string, params *DomainBlockCopyP
 
 	info := getBlockCopyParameterFieldInfo(params)
 
-	cparams, gerr := typedParamsPackNew(info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return gerr
 	}
-	nparams := len(*cparams)
 
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&(*cparams)[0])), C.int(nparams))
+	defer C.virTypedParamsFree(cparams, cnparams)
 
 	var err C.virError
-	ret := C.virDomainBlockCopyWrapper(d.ptr, cdisk, cdestxml, (*C.virTypedParameter)(unsafe.Pointer(&(*cparams)[0])), C.int(nparams), C.uint(flags), &err)
+	ret := C.virDomainBlockCopyWrapper(d.ptr, cdisk, cdestxml, cparams, cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return makeError(&err)
 	}
@@ -2297,6 +2300,8 @@ type DomainMigrateParameters struct {
 	AutoConvergeInitial       int
 	AutoConvergeIncrementSet  bool
 	AutoConvergeIncrement     int
+	ParallelConnectionsSet    bool
+	ParallelConnections       int
 }
 
 func getMigrateParameterFieldInfo(params *DomainMigrateParameters) map[string]typedParamsFieldInfo {
@@ -2318,6 +2323,10 @@ func getMigrateParameterFieldInfo(params *DomainMigrateParameters) map[string]ty
 			s:   &params.PersistXML,
 		},
 		C.VIR_MIGRATE_PARAM_BANDWIDTH: typedParamsFieldInfo{
+			set: &params.BandwidthSet,
+			ul:  &params.Bandwidth,
+		},
+		C.VIR_MIGRATE_PARAM_BANDWIDTH_POSTCOPY: typedParamsFieldInfo{
 			set: &params.BandwidthSet,
 			ul:  &params.Bandwidth,
 		},
@@ -2365,6 +2374,10 @@ func getMigrateParameterFieldInfo(params *DomainMigrateParameters) map[string]ty
 			set: &params.AutoConvergeIncrementSet,
 			i:   &params.AutoConvergeIncrement,
 		},
+		C.VIR_MIGRATE_PARAM_PARALLEL_CONNECTIONS: typedParamsFieldInfo{
+			set: &params.ParallelConnectionsSet,
+			i:   &params.ParallelConnections,
+		},
 	}
 }
 
@@ -2372,16 +2385,15 @@ func getMigrateParameterFieldInfo(params *DomainMigrateParameters) map[string]ty
 func (d *Domain) Migrate3(dconn *Connect, params *DomainMigrateParameters, flags DomainMigrateFlags) (*Domain, error) {
 
 	info := getMigrateParameterFieldInfo(params)
-	cparams, gerr := typedParamsPackNew(info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return nil, gerr
 	}
-	nparams := len(*cparams)
 
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&(*cparams)[0])), C.int(nparams))
+	defer C.virTypedParamsFree(cparams, cnparams)
 
 	var err C.virError
-	ret := C.virDomainMigrate3Wrapper(d.ptr, dconn.ptr, (*C.virTypedParameter)(unsafe.Pointer(&(*cparams)[0])), C.uint(nparams), C.uint(flags), &err)
+	ret := C.virDomainMigrate3Wrapper(d.ptr, dconn.ptr, cparams, C.uint(cnparams), C.uint(flags), &err)
 	if ret == nil {
 		return nil, makeError(&err)
 	}
@@ -2452,16 +2464,15 @@ func (d *Domain) MigrateToURI3(dconnuri string, params *DomainMigrateParameters,
 	}
 
 	info := getMigrateParameterFieldInfo(params)
-	cparams, gerr := typedParamsPackNew(info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return gerr
 	}
-	nparams := len(*cparams)
 
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&(*cparams)[0])), C.int(nparams))
+	defer C.virTypedParamsFree(cparams, cnparams)
 
 	var err C.virError
-	ret := C.virDomainMigrateToURI3Wrapper(d.ptr, cdconnuri, (*C.virTypedParameter)(unsafe.Pointer(&(*cparams)[0])), C.uint(nparams), C.uint(flags), &err)
+	ret := C.virDomainMigrateToURI3Wrapper(d.ptr, cdconnuri, cparams, C.uint(cnparams), C.uint(flags), &err)
 	if ret == -1 {
 		return makeError(&err)
 	}
@@ -2494,7 +2505,7 @@ func (d *Domain) MigrateSetCompressionCache(size uint64, flags uint32) error {
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainMigrateGetMaxSpeed
-func (d *Domain) MigrateGetMaxSpeed(flags uint32) (uint64, error) {
+func (d *Domain) MigrateGetMaxSpeed(flags DomainMigrateMaxSpeedFlags) (uint64, error) {
 	var maxSpeed C.ulong
 
 	var err C.virError
@@ -2507,7 +2518,7 @@ func (d *Domain) MigrateGetMaxSpeed(flags uint32) (uint64, error) {
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainMigrateSetMaxSpeed
-func (d *Domain) MigrateSetMaxSpeed(speed uint64, flags uint32) error {
+func (d *Domain) MigrateSetMaxSpeed(speed uint64, flags DomainMigrateMaxSpeedFlags) error {
 	var err C.virError
 	ret := C.virDomainMigrateSetMaxSpeedWrapper(d.ptr, C.ulong(speed), C.uint(flags), &err)
 	if ret == -1 {
@@ -2609,22 +2620,21 @@ func (d *Domain) GetBlkioParameters(flags DomainModificationImpact) (*DomainBlki
 	params := &DomainBlkioParameters{}
 	info := getBlkioParametersFieldInfo(params)
 
-	var nparams C.int
+	var cnparams C.int
 	var err C.virError
-	ret := C.virDomainGetBlkioParametersWrapper(d.ptr, nil, &nparams, 0, &err)
+	ret := C.virDomainGetBlkioParametersWrapper(d.ptr, nil, &cnparams, 0, &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virDomainGetBlkioParametersWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, C.uint(flags), &err)
+	cparams := typedParamsNew(cnparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
+	ret = C.virDomainGetBlkioParametersWrapper(d.ptr, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	_, gerr := typedParamsUnpack(cparams, info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}
@@ -2636,28 +2646,18 @@ func (d *Domain) GetBlkioParameters(flags DomainModificationImpact) (*DomainBlki
 func (d *Domain) SetBlkioParameters(params *DomainBlkioParameters, flags DomainModificationImpact) error {
 	info := getBlkioParametersFieldInfo(params)
 
-	var nparams C.int
-
-	var err C.virError
-	ret := C.virDomainGetBlkioParametersWrapper(d.ptr, nil, &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virDomainGetBlkioParametersWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	gerr := typedParamsPack(cparams, info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return gerr
 	}
 
-	ret = C.virDomainSetBlkioParametersWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams, C.uint(flags), &err)
+	defer C.virTypedParamsFree(cparams, cnparams)
+
+	var err C.virError
+	ret := C.virDomainSetBlkioParametersWrapper(d.ptr, cparams, cnparams, C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
 
 	return nil
 }
@@ -2798,22 +2798,21 @@ func (d *Domain) GetBlockIoTune(disk string, flags DomainModificationImpact) (*D
 	params := &DomainBlockIoTuneParameters{}
 	info := getBlockIoTuneParametersFieldInfo(params)
 
-	var nparams C.int
+	var cnparams C.int
 	var err C.virError
-	ret := C.virDomainGetBlockIoTuneWrapper(d.ptr, cdisk, nil, &nparams, 0, &err)
+	ret := C.virDomainGetBlockIoTuneWrapper(d.ptr, cdisk, nil, &cnparams, 0, &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virDomainGetBlockIoTuneWrapper(d.ptr, cdisk, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, C.uint(flags), &err)
+	cparams := typedParamsNew(cnparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
+	ret = C.virDomainGetBlockIoTuneWrapper(d.ptr, cdisk, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	_, gerr := typedParamsUnpack(cparams, info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}
@@ -2828,28 +2827,18 @@ func (d *Domain) SetBlockIoTune(disk string, params *DomainBlockIoTuneParameters
 
 	info := getBlockIoTuneParametersFieldInfo(params)
 
-	var nparams C.int
-
-	var err C.virError
-	ret := C.virDomainGetBlockIoTuneWrapper(d.ptr, cdisk, nil, &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virDomainGetBlockIoTuneWrapper(d.ptr, cdisk, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	gerr := typedParamsPack(cparams, info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return gerr
 	}
 
-	ret = C.virDomainSetBlockIoTuneWrapper(d.ptr, cdisk, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams, C.uint(flags), &err)
+	defer C.virTypedParamsFree(cparams, cnparams)
+
+	var err C.virError
+	ret := C.virDomainSetBlockIoTuneWrapper(d.ptr, cdisk, cparams, cnparams, C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
 
 	return nil
 }
@@ -3188,20 +3177,20 @@ func getDomainJobInfoFieldInfo(params *DomainJobInfo) map[string]typedParamsFiel
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainGetJobStats
 func (d *Domain) GetJobStats(flags DomainGetJobStatsFlags) (*DomainJobInfo, error) {
-	var cparams *C.virTypedParameter
-	var nparams C.int
+	var cparams C.virTypedParameterPtr
+	var cnparams C.int
 	var jobtype C.int
 	var err C.virError
-	ret := C.virDomainGetJobStatsWrapper(d.ptr, &jobtype, (*C.virTypedParameterPtr)(unsafe.Pointer(&cparams)), &nparams, C.uint(flags), &err)
+	ret := C.virDomainGetJobStatsWrapper(d.ptr, &jobtype, &cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
-	defer C.virTypedParamsFree(cparams, nparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
 
 	params := DomainJobInfo{}
 	info := getDomainJobInfoFieldInfo(&params)
 
-	_, gerr := typedParamsUnpackLen(cparams, int(nparams), info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}
@@ -3281,22 +3270,21 @@ func (d *Domain) GetMemoryParameters(flags DomainModificationImpact) (*DomainMem
 	params := &DomainMemoryParameters{}
 	info := getDomainMemoryParametersFieldInfo(params)
 
-	var nparams C.int
+	var cnparams C.int
 	var err C.virError
-	ret := C.virDomainGetMemoryParametersWrapper(d.ptr, nil, &nparams, 0, &err)
+	ret := C.virDomainGetMemoryParametersWrapper(d.ptr, nil, &cnparams, 0, &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virDomainGetMemoryParametersWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, C.uint(flags), &err)
+	cparams := typedParamsNew(cnparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
+	ret = C.virDomainGetMemoryParametersWrapper(d.ptr, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	_, gerr := typedParamsUnpack(cparams, info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}
@@ -3308,28 +3296,18 @@ func (d *Domain) GetMemoryParameters(flags DomainModificationImpact) (*DomainMem
 func (d *Domain) SetMemoryParameters(params *DomainMemoryParameters, flags DomainModificationImpact) error {
 	info := getDomainMemoryParametersFieldInfo(params)
 
-	var nparams C.int
-
-	var err C.virError
-	ret := C.virDomainGetMemoryParametersWrapper(d.ptr, nil, &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virDomainGetMemoryParametersWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	gerr := typedParamsPack(cparams, info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return gerr
 	}
 
-	ret = C.virDomainSetMemoryParametersWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams, C.uint(flags), &err)
+	defer C.virTypedParamsFree(cparams, cnparams)
+
+	var err C.virError
+	ret := C.virDomainSetMemoryParametersWrapper(d.ptr, cparams, cnparams, C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
 
 	return nil
 }
@@ -3359,22 +3337,21 @@ func (d *Domain) GetNumaParameters(flags DomainModificationImpact) (*DomainNumaP
 	params := &DomainNumaParameters{}
 	info := getDomainNumaParametersFieldInfo(params)
 
-	var nparams C.int
+	var cnparams C.int
 	var err C.virError
-	ret := C.virDomainGetNumaParametersWrapper(d.ptr, nil, &nparams, 0, &err)
+	ret := C.virDomainGetNumaParametersWrapper(d.ptr, nil, &cnparams, 0, &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virDomainGetNumaParametersWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, C.uint(flags), &err)
+	cparams := typedParamsNew(cnparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
+	ret = C.virDomainGetNumaParametersWrapper(d.ptr, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	_, gerr := typedParamsUnpack(cparams, info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}
@@ -3386,28 +3363,18 @@ func (d *Domain) GetNumaParameters(flags DomainModificationImpact) (*DomainNumaP
 func (d *Domain) SetNumaParameters(params *DomainNumaParameters, flags DomainModificationImpact) error {
 	info := getDomainNumaParametersFieldInfo(params)
 
-	var nparams C.int
-
-	var err C.virError
-	ret := C.virDomainGetNumaParametersWrapper(d.ptr, nil, &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virDomainGetNumaParametersWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	gerr := typedParamsPack(cparams, info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return gerr
 	}
 
-	ret = C.virDomainSetNumaParametersWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams, C.uint(flags), &err)
+	defer C.virTypedParamsFree(cparams, cnparams)
+
+	var err C.virError
+	ret := C.virDomainSetNumaParametersWrapper(d.ptr, cparams, cnparams, C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
 
 	return nil
 }
@@ -3563,17 +3530,17 @@ func (d *Domain) GetPerfEvents(flags DomainModificationImpact) (*DomainPerfEvent
 	params := &DomainPerfEvents{}
 	info := getDomainPerfEventsFieldInfo(params)
 
-	var cparams *C.virTypedParameter
-	var nparams C.int
+	var cparams C.virTypedParameterPtr
+	var cnparams C.int
 	var err C.virError
-	ret := C.virDomainGetPerfEventsWrapper(d.ptr, (*C.virTypedParameterPtr)(unsafe.Pointer(&cparams)), &nparams, C.uint(flags), &err)
+	ret := C.virDomainGetPerfEventsWrapper(d.ptr, &cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsFree(cparams, nparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
 
-	_, gerr := typedParamsUnpackLen(cparams, int(nparams), info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}
@@ -3589,22 +3556,17 @@ func (d *Domain) SetPerfEvents(params *DomainPerfEvents, flags DomainModificatio
 
 	info := getDomainPerfEventsFieldInfo(params)
 
-	var cparams *C.virTypedParameter
-	var nparams C.int
-	var err C.virError
-	ret := C.virDomainGetPerfEventsWrapper(d.ptr, (*C.virTypedParameterPtr)(unsafe.Pointer(&cparams)), &nparams, C.uint(flags), &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-
-	defer C.virTypedParamsFree(cparams, nparams)
-
-	gerr := typedParamsPackLen(cparams, int(nparams), info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return gerr
 	}
+	defer C.virTypedParamsFree(cparams, cnparams)
 
-	ret = C.virDomainSetPerfEventsWrapper(d.ptr, cparams, nparams, C.uint(flags), &err)
+	var err C.virError
+	ret := C.virDomainSetPerfEventsWrapper(d.ptr, cparams, cnparams, C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
 
 	return nil
 }
@@ -3707,28 +3669,28 @@ func (d *Domain) GetSchedulerParameters() (*DomainSchedulerParameters, error) {
 	params := &DomainSchedulerParameters{}
 	info := getDomainSchedulerParametersFieldInfo(params)
 
-	var nparams C.int
+	var cnparams C.int
 	var err C.virError
-	schedtype := C.virDomainGetSchedulerTypeWrapper(d.ptr, &nparams, &err)
+	schedtype := C.virDomainGetSchedulerTypeWrapper(d.ptr, &cnparams, &err)
 	if schedtype == nil {
 		return nil, makeError(&err)
 	}
 
 	defer C.free(unsafe.Pointer(schedtype))
-	if nparams == 0 {
+	if cnparams == 0 {
 		return &DomainSchedulerParameters{
 			Type: C.GoString(schedtype),
 		}, nil
 	}
 
-	cparams := make([]C.virTypedParameter, nparams)
-	ret := C.virDomainGetSchedulerParametersWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, &err)
+	cparams := typedParamsNew(cnparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
+	ret := C.virDomainGetSchedulerParametersWrapper(d.ptr, cparams, &cnparams, &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
 
-	_, gerr := typedParamsUnpack(cparams, info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}
@@ -3741,28 +3703,28 @@ func (d *Domain) GetSchedulerParametersFlags(flags DomainModificationImpact) (*D
 	params := &DomainSchedulerParameters{}
 	info := getDomainSchedulerParametersFieldInfo(params)
 
-	var nparams C.int
+	var cnparams C.int
 	var err C.virError
-	schedtype := C.virDomainGetSchedulerTypeWrapper(d.ptr, &nparams, &err)
+	schedtype := C.virDomainGetSchedulerTypeWrapper(d.ptr, &cnparams, &err)
 	if schedtype == nil {
 		return nil, makeError(&err)
 	}
 
 	defer C.free(unsafe.Pointer(schedtype))
-	if nparams == 0 {
+	if cnparams == 0 {
 		return &DomainSchedulerParameters{
 			Type: C.GoString(schedtype),
 		}, nil
 	}
 
-	cparams := make([]C.virTypedParameter, nparams)
-	ret := C.virDomainGetSchedulerParametersFlagsWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, C.uint(flags), &err)
+	cparams := typedParamsNew(cnparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
+	ret := C.virDomainGetSchedulerParametersFlagsWrapper(d.ptr, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
 
-	_, gerr := typedParamsUnpack(cparams, info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}
@@ -3774,31 +3736,18 @@ func (d *Domain) GetSchedulerParametersFlags(flags DomainModificationImpact) (*D
 func (d *Domain) SetSchedulerParameters(params *DomainSchedulerParameters) error {
 	info := getDomainSchedulerParametersFieldInfo(params)
 
-	var nparams C.int
-	var err C.virError
-	schedtype := C.virDomainGetSchedulerTypeWrapper(d.ptr, &nparams, &err)
-	if schedtype == nil {
-		return makeError(&err)
-	}
-
-	defer C.free(unsafe.Pointer(schedtype))
-	if nparams == 0 {
-		return nil
-	}
-
-	cparams := make([]C.virTypedParameter, nparams)
-	ret := C.virDomainGetSchedulerParametersWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	gerr := typedParamsPack(cparams, info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return gerr
 	}
 
-	ret = C.virDomainSetSchedulerParametersWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams, &err)
+	defer C.virTypedParamsFree(cparams, cnparams)
+
+	var err C.virError
+	ret := C.virDomainSetSchedulerParametersWrapper(d.ptr, cparams, cnparams, &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
 
 	return nil
 }
@@ -3807,31 +3756,18 @@ func (d *Domain) SetSchedulerParameters(params *DomainSchedulerParameters) error
 func (d *Domain) SetSchedulerParametersFlags(params *DomainSchedulerParameters, flags DomainModificationImpact) error {
 	info := getDomainSchedulerParametersFieldInfo(params)
 
-	var nparams C.int
-	var err C.virError
-	schedtype := C.virDomainGetSchedulerTypeWrapper(d.ptr, &nparams, &err)
-	if schedtype == nil {
-		return makeError(&err)
-	}
-
-	defer C.free(unsafe.Pointer(schedtype))
-	if nparams == 0 {
-		return nil
-	}
-
-	cparams := make([]C.virTypedParameter, nparams)
-	ret := C.virDomainGetSchedulerParametersFlagsWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	gerr := typedParamsPack(cparams, info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return gerr
 	}
 
-	ret = C.virDomainSetSchedulerParametersFlagsWrapper(d.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams, C.uint(flags), &err)
+	defer C.virTypedParamsFree(cparams, cnparams)
+
+	var err C.virError
+	ret := C.virDomainSetSchedulerParametersFlagsWrapper(d.ptr, cparams, cnparams, C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
 
 	return nil
 }
@@ -4248,16 +4184,15 @@ func (d *Domain) SetIOThreadParams(iothreadid uint, params *DomainSetIOThreadPar
 	}
 	info := getSetIOThreadParamsFieldInfo(params)
 
-	cparams, gerr := typedParamsPackNew(info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return gerr
 	}
-	nparams := len(*cparams)
 
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&(*cparams)[0])), C.int(nparams))
+	defer C.virTypedParamsFree(cparams, cnparams)
 
 	var err C.virError
-	ret := C.virDomainSetIOThreadParamsWrapper(d.ptr, C.uint(iothreadid), (*C.virTypedParameter)(unsafe.Pointer(&(*cparams)[0])), C.int(nparams), C.uint(flags), &err)
+	ret := C.virDomainSetIOThreadParamsWrapper(d.ptr, C.uint(iothreadid), cparams, cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return makeError(&err)
 	}
@@ -4522,23 +4457,26 @@ func (d *Domain) SaveFlags(destFile string, destXml string, flags DomainSaveRest
 }
 
 type DomainGuestVcpus struct {
-	Vcpus      []bool
-	Online     []bool
-	Offlinable []bool
+	VcpusSet      bool
+	Vcpus         []bool
+	OnlineSet     bool
+	Online        []bool
+	OfflinableSet bool
+	Offlinable    []bool
 }
 
-func getDomainGuestVcpusParametersFieldInfo(VcpusSet *bool, Vcpus *string, OnlineSet *bool, Online *string, OfflinableSet *bool, Offlinable *string) map[string]typedParamsFieldInfo {
+func getDomainGuestVcpusParametersFieldInfo(vcpus *DomainGuestVcpus, Vcpus *string, Online *string, Offlinable *string) map[string]typedParamsFieldInfo {
 	return map[string]typedParamsFieldInfo{
 		"vcpus": typedParamsFieldInfo{
-			set: VcpusSet,
+			set: &vcpus.VcpusSet,
 			s:   Vcpus,
 		},
 		"online": typedParamsFieldInfo{
-			set: OnlineSet,
+			set: &vcpus.OnlineSet,
 			s:   Online,
 		},
 		"offlinable": typedParamsFieldInfo{
-			set: OfflinableSet,
+			set: &vcpus.OfflinableSet,
 			s:   Offlinable,
 		},
 	}
@@ -4607,26 +4545,48 @@ func (d *Domain) GetGuestVcpus(flags uint32) (*DomainGuestVcpus, error) {
 		return nil, makeNotImplementedError("virDomainGetGuestVcpus")
 	}
 
-	var VcpusSet, OnlineSet, OfflinableSet bool
+	vcpus := &DomainGuestVcpus{}
 	var VcpusStr, OnlineStr, OfflinableStr string
-	info := getDomainGuestVcpusParametersFieldInfo(&VcpusSet, &VcpusStr, &OnlineSet, &OnlineStr, &OfflinableSet, &OfflinableStr)
+	info := getDomainGuestVcpusParametersFieldInfo(vcpus, &VcpusStr, &OnlineStr, &OfflinableStr)
 
 	var cparams C.virTypedParameterPtr
-	var nparams C.uint
+	var cnparams C.uint
 	var err C.virError
-	ret := C.virDomainGetGuestVcpusWrapper(d.ptr, &cparams, &nparams, C.uint(flags), &err)
+	ret := C.virDomainGetGuestVcpusWrapper(d.ptr, &cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsFree(cparams, C.int(nparams))
+	defer C.virTypedParamsFree(cparams, C.int(cnparams))
 
-	_, gerr := typedParamsUnpackLen(cparams, int(nparams), info)
+	_, gerr := typedParamsUnpack(cparams, C.int(cnparams), info)
 	if gerr != nil {
 		return nil, gerr
 	}
 
-	return &DomainGuestVcpus{}, nil
+	if vcpus.VcpusSet {
+		mask, gerr := parseCPUString(VcpusStr)
+		if gerr != nil {
+			return nil, gerr
+		}
+		vcpus.Vcpus = mask
+	}
+	if vcpus.OnlineSet {
+		mask, gerr := parseCPUString(OnlineStr)
+		if gerr != nil {
+			return nil, gerr
+		}
+		vcpus.Online = mask
+	}
+	if vcpus.OfflinableSet {
+		mask, gerr := parseCPUString(OfflinableStr)
+		if gerr != nil {
+			return nil, gerr
+		}
+		vcpus.Offlinable = mask
+	}
+
+	return vcpus, nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainSetGuestVcpus
@@ -4732,7 +4692,7 @@ func (d *Domain) ManagedSaveDefineXML(xml string, flags uint32) error {
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainManagedSaveGetXMLDesc
-func (d *Domain) ManagedSaveGetXMLDesc(flags uint32) (string, error) {
+func (d *Domain) ManagedSaveGetXMLDesc(flags DomainSaveImageXMLFlags) (string, error) {
 	if C.LIBVIR_VERSION_NUMBER < 3007000 {
 		return "", makeNotImplementedError("virDomainManagedSaveGetXMLDesc")
 	}
@@ -4806,17 +4766,17 @@ func (d *Domain) GetLaunchSecurityInfo(flags uint32) (*DomainLaunchSecurityParam
 	info := getDomainLaunchSecurityFieldInfo(params)
 
 	var cparams *C.virTypedParameter
-	var nparams C.int
+	var cnparams C.int
 
 	var err C.virError
-	ret := C.virDomainGetLaunchSecurityInfoWrapper(d.ptr, (*C.virTypedParameterPtr)(unsafe.Pointer(&cparams)), &nparams, C.uint(flags), &err)
+	ret := C.virDomainGetLaunchSecurityInfoWrapper(d.ptr, (*C.virTypedParameterPtr)(unsafe.Pointer(&cparams)), &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsFree(cparams, nparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
 
-	_, gerr := typedParamsUnpackLen(cparams, int(nparams), info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}

@@ -111,3 +111,5 @@ replace kubevirt.io/containerized-data-importer => kubevirt.io/containerized-dat
 replace github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20190401163519-84c2b942258a
 
 replace kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
+
+replace github.com/libvirt/libvirt-go => github.com/libvirt/libvirt-go v5.4.0+incompatible
