@@ -162,10 +162,10 @@ container_pull(
 # Pull base image libvirt
 container_pull(
     name = "libvirt",
-    digest = "sha256:081f113a73748775e5f37d8fb877a574f595df1551e39e48ebbe8e8afd501d3b",
+    digest = "sha256:861de5b3ee4315c08238f31d979a56c562f5108164c666e00c9405c52ea35073",
     registry = "index.docker.io",
     repository = "kubevirt/libvirt",
-    #tag = "5.0.0",
+    #tag = "5.4.0",
 )
 
 # Pull kubevirt-testing image
