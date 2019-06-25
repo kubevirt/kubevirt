@@ -25,6 +25,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"os/exec"
 
 	"io/ioutil"
 	"net"
@@ -81,8 +82,13 @@ type NetworkHandler interface {
 	GetMacDetails(iface string) (net.HardwareAddr, error)
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions)
+	UseIptables() error
 	IptablesNewChain(table, chain string) error
 	IptablesAppendRule(table, chain string, rulespec ...string) error
+	NftablesNewChain(table, chain string) error
+	NftablesAppendRule(table, chain string, rulespec ...string) error
+	NftablesNewTable(table string) error
+	NftablesLoad(fnName string) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -122,6 +128,16 @@ func (h *NetworkUtilsHandler) AddrAdd(link netlink.Link, addr *netlink.Addr) err
 func (h *NetworkUtilsHandler) LinkSetMaster(link netlink.Link, master *netlink.Bridge) error {
 	return netlink.LinkSetMaster(link, master)
 }
+func (h *NetworkUtilsHandler) UseIptables() error {
+	iptablesObject, err := iptables.New()
+	if err != nil {
+		return err
+	}
+
+	_, err = iptablesObject.List("nat", "OUTPUT")
+
+	return err
+}
 func (h *NetworkUtilsHandler) IptablesNewChain(table, chain string) error {
 	iptablesObject, err := iptables.New()
 	if err != nil {
@@ -137,6 +153,26 @@ func (h *NetworkUtilsHandler) IptablesAppendRule(table, chain string, rulespec .
 	}
 
 	return iptablesObject.Append(table, chain, rulespec...)
+}
+func (h *NetworkUtilsHandler) NftablesNewChain(table, chain string) error {
+	output, err := exec.Command("nft", "add", "chain", "ip", table, chain).CombinedOutput()
+	if err == nil {
+		return err
+	}
+
+	log.Log.Info(string(output))
+	return nil
+
+}
+func (h *NetworkUtilsHandler) NftablesAppendRule(table, chain string, rulespec ...string) error {
+	cmd := append([]string{"add", "rule", "ip", table, chain}, rulespec...)
+	return exec.Command("nft", cmd...).Run()
+}
+func (h *NetworkUtilsHandler) NftablesNewTable(table string) error {
+	return exec.Command("nft", "add", "table", table).Run()
+}
+func (h *NetworkUtilsHandler) NftablesLoad(fnName string) error {
+	return exec.Command("nft", "-f", fmt.Sprintf("/etc/nftables/%s.nft", fnName)).Run()
 }
 func (h *NetworkUtilsHandler) GetHostAndGwAddressesFromCIDR(s string) (string, string, error) {
 	ip, ipnet, err := net.ParseCIDR(s)
