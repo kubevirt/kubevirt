@@ -47,17 +47,17 @@ http_archive(
 # Libvirt dependencies
 http_file(
     name = "libvirt_libs",
-    sha256 = "95d317fd645fb52745d642578263a9bcb0d796beadf00aeadebc0d692f5529ba",
+    sha256 = "360b00a76b111d5b2b41af3b355ff43a5c1c8f4c83d341be45bcc7005e136dbc",
     urls = [
-        "https://libvirt.org/sources/libvirt-libs-5.0.0-1.fc28.x86_64.rpm",
+        "https://copr-be.cloud.fedoraproject.org/results/%40virtmaint-sig/virt-preview/fedora-28-x86_64/00935280-libvirt/libvirt-libs-5.4.0-1.fc28.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "libvirt_devel",
-    sha256 = "6573a047d777ed00f6858c2e75c780053b1f898ae1c3f7415e991c94c5ccdd70",
+    sha256 = "b4e732ea77123af0ffc9eaafa2b084bfe3a00dee7804ad8d71489bf13efd7ea4",
     urls = [
-        "https://libvirt.org/sources/libvirt-devel-5.0.0-1.fc28.x86_64.rpm",
+        "https://copr-be.cloud.fedoraproject.org/results/%40virtmaint-sig/virt-preview/fedora-28-x86_64/00935280-libvirt/libvirt-devel-5.4.0-1.fc28.x86_64.rpm",
     ],
 )
 
@@ -162,10 +162,10 @@ container_pull(
 # Pull base image libvirt
 container_pull(
     name = "libvirt",
-    digest = "sha256:081f113a73748775e5f37d8fb877a574f595df1551e39e48ebbe8e8afd501d3b",
+    digest = "sha256:861de5b3ee4315c08238f31d979a56c562f5108164c666e00c9405c52ea35073",
     registry = "index.docker.io",
     repository = "kubevirt/libvirt",
-    #tag = "5.0.0",
+    #tag = "5.4.0",
 )
 
 # Pull kubevirt-testing image

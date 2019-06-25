@@ -362,6 +362,15 @@ const (
 
 	// Requested nwfilter binding does not exist
 	ERR_NO_NWFILTER_BINDING = ErrorNumber(C.VIR_ERR_NO_NWFILTER_BINDING)
+
+	// invalid domain checkpoint
+	ERR_INVALID_DOMAIN_CHECKPOINT = ErrorNumber(C.VIR_ERR_INVALID_DOMAIN_CHECKPOINT)
+
+	// domain checkpoint not found
+	ERR_NO_DOMAIN_CHECKPOINT = ErrorNumber(C.VIR_ERR_NO_DOMAIN_CHECKPOINT)
+
+	// domain backup job id not found *
+	ERR_NO_DOMAIN_BACKUP = ErrorNumber(C.VIR_ERR_NO_DOMAIN_BACKUP)
 )
 
 type ErrorDomain int
@@ -569,6 +578,12 @@ const (
 
 	// Error from resoruce control
 	FROM_RESCTRL = ErrorDomain(C.VIR_FROM_RESCTRL)
+
+	// Error from firewalld
+	FROM_FIREWALLD = ErrorDomain(C.VIR_FROM_FIREWALLD)
+
+	// Error from domain checkpoint
+	FROM_DOMAIN_CHECKPOINT = ErrorDomain(C.VIR_FROM_DOMAIN_CHECKPOINT)
 )
 
 type Error struct {

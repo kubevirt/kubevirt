@@ -1761,6 +1761,23 @@ virStreamNewWrapper(virConnectPtr conn,
 }
 
 
+char *
+virConnectGetStoragePoolCapabilitiesWrapper(virConnectPtr conn,
+                                            unsigned int flags,
+                                            virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 5002000
+    assert(0); // Caller should have checked version
+#else
+    char *ret = virConnectGetStoragePoolCapabilities(conn, flags);
+    if (!ret) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+
 ////////////////////////////////////////////////
 */
 import "C"

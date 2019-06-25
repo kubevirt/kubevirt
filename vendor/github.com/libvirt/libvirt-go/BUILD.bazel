@@ -17,6 +17,7 @@ go_library(
         "domain_events_wrapper.go",
         "domain_events_wrapper.h",
         "domain_snapshot.go",
+        "domain_snapshot_compat.h",
         "domain_snapshot_wrapper.go",
         "domain_snapshot_wrapper.h",
         "domain_wrapper.go",
@@ -80,6 +81,8 @@ go_library(
         "stream_wrapper.go",
         "stream_wrapper.h",
         "typedparams.go",
+        "typedparams_wrapper.go",
+        "typedparams_wrapper.h",
     ],
     cdeps = [
         "//:libvirt-headers",
