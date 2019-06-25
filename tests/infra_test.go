@@ -245,6 +245,45 @@ var _ = Describe("Infrastructure", func() {
 			}
 		}, 300)
 
+		It("should include the network metrics for a running VM", func() {
+			By("Creating the VirtualMachineInstance")
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+
+			By("Starting a new VirtualMachineInstance")
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+			By("Waiting until the VM is ready")
+			nodeName := tests.WaitForSuccessfulVMIStart(obj)
+
+			By("Expecting the VirtualMachineInstance console")
+			expecter, err := tests.LoggedInAlpineExpecter(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			By("Finding the prometheus endpoint")
+			pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+
+			By("Scraping the Prometheus endpoint")
+			// the VM *is* running, so we must have metrics promptly reported
+			out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
+			lines := takeMetricsWithPrefix(out, "kubevirt")
+			metrics, err := parseMetricsToMap(lines)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(metrics).To(HaveKey(ContainSubstring("kubevirt_vm_network_")))
+
+			By("Checking the collected metrics")
+			keys := getKeysFromMetrics(metrics)
+			for _, key := range keys {
+				if strings.HasPrefix(key, "kubevirt_vm_network_") {
+					value := metrics[key]
+					Expect(value).To(BeNumerically(">=", float64(0.0)))
+				}
+			}
+		}, 300)
+
 		It("should include the memory metrics for a running VM", func() {
 			_, _, _, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vm_memory_")
 			By("Checking the collected metrics")
