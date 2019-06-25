@@ -23,7 +23,7 @@ function build_func_tests() {
     mv ${KUBEVIRT_DIR}/tests/tests.test ${TESTS_OUT_DIR}/
 }
 
-function build_func_tests_images() {
+function build_func_tests_image() {
     local bin_name=tests
     cp ${KUBEVIRT_DIR}/tests/{Dockerfile,entrypoint.sh} \
         ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
