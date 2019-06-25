@@ -599,8 +599,8 @@ var _ = Describe("Storage", func() {
 			})
 		})
 
-		Context("With not existing PVC", func() {
-			It("should get unschedulable condition", func() {
+		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component] With not existing PVC", func() {
+			It("[test_id:1040] should get unschedulable condition", func() {
 				// Start the VirtualMachineInstance
 				pvcName := "nonExistingPVC"
 				vmi := tests.NewRandomVMIWithPVC(pvcName)
