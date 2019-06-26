@@ -3,5 +3,4 @@
 make cluster-down
 make cluster-up
 make cluster-sync
-make functest
-make docker-push
+CMD='cluster/kubectl.sh' make functest
