@@ -487,6 +487,44 @@ var _ = Describe("Configurations", func() {
 
 		})
 
+		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("128M")
+			vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
+
+			// Create VMI inside BeforeEach because it gets cleanedup, see BeforeEach at the top
+			BeforeEach(func() {
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+			})
+
+			It("[test_id:730]Check OverCommit VM Created and Started", func() {
+				overcommitVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(overcommitVmi)
+			})
+			It("[test_id:731]Check OverCommit status on VMI", func() {
+				overcommitVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(overcommitVmi.Spec.Domain.Resources.OvercommitGuestOverhead).To(BeTrue())
+			})
+			It("[test_id:731]Check Free memory on the VMI", func() {
+				By("Expecting console")
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				// Check on the VM, if the Free memory is roughly what we expected
+				res, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 95 ] && echo 'pass' || echo 'fail'\n"},
+					&expect.BExp{R: "pass"},
+				}, 15*time.Second)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
 		Context("with usb controller", func() {
 			It("should start the VMI with usb controller when usb device is present", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
