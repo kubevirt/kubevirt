@@ -119,6 +119,11 @@ func getBaseVMI(name string) *v1.VirtualMachineInstance {
 	}
 }
 
+func addRNG(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
+	spec.Domain.Devices.Rng = &v1.Rng{}
+	return spec
+}
+
 func addContainerDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices = v1.Devices{
 		Disks: []v1.Disk{
@@ -304,6 +309,8 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
 	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addRNG(&vmi.Spec) // without RNG, newer fedora images may hang waiting for entropy sources
+
 	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 	return vmi
 }
@@ -328,6 +335,7 @@ func GetVMISlirp() *v1.VirtualMachineInstance {
 	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testSlirp", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addRNG(&vm.Spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
 
 	slirp := &v1.InterfaceSlirp{}
@@ -343,6 +351,7 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addRNG(&vm.Spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
 
 	masquerade := &v1.InterfaceMasquerade{}
@@ -357,6 +366,7 @@ func GetVMISRIOV() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov/sriov-network"}}}}
 	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addRNG(&vm.Spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
@@ -370,6 +380,7 @@ func GetVMIMultusPtp() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
 	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addRNG(&vm.Spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\n")
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
@@ -382,6 +393,7 @@ func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
 	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addRNG(&vm.Spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
@@ -397,6 +409,7 @@ func GetVMIGeniePtp() *v1.VirtualMachineInstance {
 		{Name: "ptp", NetworkSource: v1.NetworkSource{Genie: &v1.GenieNetwork{NetworkName: "ptp"}}},
 	}
 	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addRNG(&vm.Spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -414,6 +427,7 @@ func GetVMIGenieMultipleNet() *v1.VirtualMachineInstance {
 		{Name: "ptp", NetworkSource: v1.NetworkSource{Genie: &v1.GenieNetwork{NetworkName: "ptp"}}},
 	}
 	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addRNG(&vm.Spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\ndhclient eth1\n")
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -550,6 +564,7 @@ func GetVMCirros() *v1.VirtualMachine {
 func GetTemplateFedora() *Template {
 	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "fedora27"})
 	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addRNG(&vm.Spec.Template.Spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	addNoCloudDiskWitUserData(&vm.Spec.Template.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
 	template := getBaseTemplate(vm, "4096Mi", "4")
@@ -837,6 +852,7 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
 	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addRNG(&vmi.Spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
 	vmi.ObjectMeta.Annotations = map[string]string{

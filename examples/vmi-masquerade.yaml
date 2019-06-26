@@ -22,6 +22,7 @@ spec:
         - name: http
           port: 80
           protocol: TCP
+      rng: {}
     machine:
       type: ""
     resources:

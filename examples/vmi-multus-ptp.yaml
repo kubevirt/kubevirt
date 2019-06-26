@@ -18,6 +18,7 @@ spec:
       interfaces:
       - bridge: {}
         name: ptp
+      rng: {}
     machine:
       type: ""
     resources:
