@@ -368,7 +368,7 @@ var _ = Describe("Operator", func() {
 			}
 			return nil
 
-		}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 240*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 	}
 

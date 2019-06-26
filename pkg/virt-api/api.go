@@ -314,25 +314,28 @@ func (app *virtAPIApp) composeSubresources() {
 	ws := new(restful.WebService)
 
 	// K8s needs the ability to query the root paths
-	for _, version := range v1.SubresourceGroupVersions {
-		ws.Route(ws.GET("/").
-			Produces(restful.MIME_JSON).Writes(metav1.RootPaths{}).
-			To(func(request *restful.Request, response *restful.Response) {
-				response.WriteAsJson(&metav1.RootPaths{
-					Paths: []string{
-						"/apis",
-						"/apis/",
-						rest.GroupBasePath(version),
-						rest.GroupVersionBasePath(version),
-						"/openapi/v2",
-					},
-				})
-			}).
-			Operation("getRootPaths").
-			Doc("Get KubeVirt API root paths").
-			Returns(http.StatusOK, "OK", metav1.RootPaths{}).
-			Returns(http.StatusNotFound, "Not Found", nil))
+	ws.Route(ws.GET("/").
+		Produces(restful.MIME_JSON).Writes(metav1.RootPaths{}).
+		To(func(request *restful.Request, response *restful.Response) {
+			paths := []string{"/apis",
+				"/apis/",
+				rest.GroupBasePath(v1.SubresourceGroupVersions[0]),
+				"/openapi/v2",
+			}
+			for _, version := range v1.SubresourceGroupVersions {
+				paths = append(paths, rest.GroupBasePath(version))
+				paths = append(paths, rest.GroupVersionBasePath(version))
+			}
+			response.WriteAsJson(&metav1.RootPaths{
+				Paths: paths,
+			})
+		}).
+		Operation("getRootPaths").
+		Doc("Get KubeVirt API root paths").
+		Returns(http.StatusOK, "OK", metav1.RootPaths{}).
+		Returns(http.StatusNotFound, "Not Found", nil))
 
+	for _, version := range v1.SubresourceGroupVersions {
 		// K8s needs the ability to query info about a specific API group
 		ws.Route(ws.GET(rest.GroupBasePath(version)).
 			Produces(restful.MIME_JSON).Writes(metav1.APIGroup{}).

@@ -216,7 +216,8 @@ var _ = Describe("Subresource Api", func() {
 				spec, err := virtCli.RestClient().Get().AbsPath("/openapi/v2").DoRaw()
 				Expect(err).ToNot(HaveOccurred())
 				return string(spec)
-			}, 60*time.Second, 1*time.Second).Should(ContainSubstring("subresources.kubevirt.io"))
+				// The first item in the SubresourceGroupVersions array is the preferred version
+			}, 60*time.Second, 1*time.Second).Should(ContainSubstring("subresources.kubevirt.io/" + v1.SubresourceGroupVersions[0].Version))
 		})
 	})
 })
