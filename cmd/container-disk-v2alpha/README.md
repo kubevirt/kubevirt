@@ -6,8 +6,7 @@ KubeVirt runtime.
 
 This Base Container is compatible with disk type ContainerDisk:v1alpha
 
-# ContainerDisk:v1alpha
-## Storing Disks in Container Registry
+# Storing Disks in Container Registry
 
 VMI disks can be stored in either qcow2 format or raw format by copying the vm
 disk into a container image and uploading that container image to a container
@@ -17,7 +16,7 @@ Example: Place a bootable VMI disk into a container image in the /disk directory
 and upload to the container registry.
 ```
 cat << END > Dockerfile 
-FROM kubevirt.io:container-disk-v1alpha
+FROM scratch
 ADD fedora25.qcow2 /disk
 END
 
@@ -25,17 +24,17 @@ docker build -t vmdisks/fedora25:latest .
 docker push vmdisks/fedora25:latest
 ```
 
-## Assigning Ephemeral Disks to VMIs
+# Assigning Ephemeral Disks to VMIs
 
 Assign an ephemeral disk backed by an image in the container registry by
-adding a ContainerDisk:v1alpha disk to the VMI definition and supplying
+adding a ContainerDisk:v2alpha disk to the VMI definition and supplying
 the container image as the disk's source name.
 
 Example: Create a KubeVirt VMI definition with container backed ephemeral disk.
 
 ```
 cat << END > vm.yaml
-apiVersion: kubevirt.io/v1alpha2
+apiVersion: kubevirt.io/v1alpha3
 kind: VirtualMachine
 metadata:
   creationTimestamp: null
@@ -67,4 +66,3 @@ After creating the VMI definition, starting the VMI is as simple starting a pod.
 ```
 kubectl create -f vm.yaml
 ```
-
