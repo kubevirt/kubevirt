@@ -109,10 +109,10 @@ func GetImage(root string, imagePath string) (string, error) {
 func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) []kubev1.Container {
 	var containers []kubev1.Container
 
-	initialDelaySeconds := 2
-	timeoutSeconds := 5
-	periodSeconds := 5
-	successThreshold := 2
+	initialDelaySeconds := 1
+	timeoutSeconds := 1
+	periodSeconds := 1
+	successThreshold := 1
 	failureThreshold := 5
 
 	// Make VirtualMachineInstance Image Wrapper Containers
