@@ -338,6 +338,37 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		),
 	)
 
+	table.DescribeTable("should set default network interface",
+		func(iface string) {
+			expectedIface := "bridge"
+			switch iface {
+			case "masquerade":
+				expectedIface = "masquerade"
+			case "slirp":
+				expectedIface = "slirp"
+			}
+
+			testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
+				Data: map[string]string{
+					virtconfig.NetworkInterfaceKey:  expectedIface,
+					virtconfig.PermitSlirpInterface: "true",
+				},
+			})
+
+			vmiSpec, _ := getVMISpecMetaFromResponse()
+			switch expectedIface {
+			case "bridge":
+				Expect(vmiSpec.Domain.Devices.Interfaces[0].Bridge).NotTo(BeNil())
+			case "masquerade":
+				Expect(vmiSpec.Domain.Devices.Interfaces[0].Masquerade).NotTo(BeNil())
+			case "slirp":
+				Expect(vmiSpec.Domain.Devices.Interfaces[0].Slirp).NotTo(BeNil())
+			}
+		},
+		table.Entry("as bridge", "bridge"),
+		table.Entry("as masquerade", "masquerade"),
+		table.Entry("as slirp", "slirp"),
+	)
 	It("should not override specified properties with defaults on VMI create", func() {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 			Data: map[string]string{

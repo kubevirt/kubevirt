@@ -353,7 +353,7 @@ var _ = Describe("Converter", func() {
 			}
 
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				UUID:   "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
@@ -932,7 +932,7 @@ var _ = Describe("Converter", func() {
 		It("should fail to convert if non network source are present", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name := "otherName"
-			iface := v1.DefaultNetworkInterface()
+			iface := v1.DefaultBridgeNetworkInterface()
 			net := v1.DefaultPodNetwork()
 			iface.Name = name
 			net.Name = name
@@ -1000,7 +1000,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name"
 
-			iface1 := v1.DefaultNetworkInterface()
+			iface1 := v1.DefaultBridgeNetworkInterface()
 			iface1.Name = name1
 			net1 := v1.DefaultPodNetwork()
 			net1.Name = name1
@@ -1026,9 +1026,9 @@ var _ = Describe("Converter", func() {
 		It("Should set domain interface source correctly for multus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultNetworkInterface(),
-				*v1.DefaultNetworkInterface(),
-				*v1.DefaultNetworkInterface(),
+				*v1.DefaultBridgeNetworkInterface(),
+				*v1.DefaultBridgeNetworkInterface(),
+				*v1.DefaultBridgeNetworkInterface(),
 			}
 			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
 			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
@@ -1064,8 +1064,8 @@ var _ = Describe("Converter", func() {
 		It("Should set domain interface source correctly for default multus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultNetworkInterface(),
-				*v1.DefaultNetworkInterface(),
+				*v1.DefaultBridgeNetworkInterface(),
+				*v1.DefaultBridgeNetworkInterface(),
 			}
 			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
 			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
@@ -1093,8 +1093,8 @@ var _ = Describe("Converter", func() {
 		It("Should set domain interface source correctly for genie", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultNetworkInterface(),
-				*v1.DefaultNetworkInterface(),
+				*v1.DefaultBridgeNetworkInterface(),
+				*v1.DefaultBridgeNetworkInterface(),
 			}
 			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
 			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
@@ -1123,8 +1123,8 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name1"
 			name2 := "Name2"
-			iface1 := v1.DefaultNetworkInterface()
-			iface2 := v1.DefaultNetworkInterface()
+			iface1 := v1.DefaultBridgeNetworkInterface()
+			iface2 := v1.DefaultBridgeNetworkInterface()
 			net1 := v1.DefaultPodNetwork()
 			net2 := v1.DefaultPodNetwork()
 			iface1.Name = name1
@@ -1168,7 +1168,7 @@ var _ = Describe("Converter", func() {
 			net1 := v1.DefaultPodNetwork()
 			net1.Name = name1
 
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1, *v1.DefaultNetworkInterface()}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1, *v1.DefaultBridgeNetworkInterface()}
 			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red1"
 
 			vmi.Spec.Networks = []v1.Network{*net1,
@@ -1557,6 +1557,8 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = True()
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
@@ -1589,6 +1591,8 @@ var _ = Describe("Converter", func() {
 			},
 		}
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 
 		sriovInterface := v1.Interface{
 			Name: "sriov",

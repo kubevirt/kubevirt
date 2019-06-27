@@ -314,6 +314,8 @@ const (
 	VirtualMachineInstanceIsMigratable VirtualMachineInstanceConditionType = "LiveMigratable"
 	// Reason means that VMI is not live migratioable because of it's disks collection
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
+	// Reason means that VMI is not live migratioable because of it's network interfaces collection
+	VirtualMachineInstanceReasonInterfaceNotMigratable = "InterfaceNotLiveMigratable"
 )
 
 // +k8s:openapi-gen=true
@@ -1068,6 +1070,19 @@ const (
 	HostDiskExistsOrCreate HostDiskType = "DiskOrCreate"
 	// a disk image must exist at given disk path
 	HostDiskExists HostDiskType = "Disk"
+)
+
+// ---
+// +k8s:openapi-gen=true
+type NetworkInterfaceType string
+
+const (
+	// Virtual machine instance bride interface
+	BridgeInterface NetworkInterfaceType = "bridge"
+	// Virtual machine instance slirp interface
+	SlirpInterface NetworkInterfaceType = "slirp"
+	// Virtual machine instance masquerade interface
+	MasqueradeInterface NetworkInterfaceType = "masquerade"
 )
 
 // ---

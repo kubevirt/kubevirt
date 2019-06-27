@@ -499,7 +499,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 				},
 			},
 			Devices: v1.Devices{
-				Interfaces: []v1.Interface{*v1.DefaultNetworkInterface()},
+				Interfaces: []v1.Interface{*v1.DefaultBridgeNetworkInterface()},
 			},
 		},
 		Networks: []v1.Network{*v1.DefaultPodNetwork()},

@@ -39,6 +39,18 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when invalid, it should return the default", "invalid", false),
 	)
 
+	table.DescribeTable(" when permitSlirpInterface", func(value string, result bool) {
+		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{"permitSlirpInterface": value},
+		})
+		Expect(clusterConfig.IsSlirpInterfaceEnabled()).To(Equal(result))
+	},
+		table.Entry("is true, it should return true", "true", true),
+		table.Entry("is false, it should return false", "false", false),
+		table.Entry("when unset, it should return false", "", false),
+		table.Entry("when invalid, it should return the default", "invalid", false),
+	)
+
 	table.DescribeTable(" when imagePullPolicy", func(value string, result kubev1.PullPolicy) {
 		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.ImagePullPolicyKey: value},
@@ -61,6 +73,19 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("is set, it should return correct value", "5", 5),
 		table.Entry("is unset, it should return the default", "", virtconfig.DefaultLessPVCSpaceToleration),
 		table.Entry("is invalid, it should return the default", "-1", virtconfig.DefaultLessPVCSpaceToleration),
+	)
+
+	table.DescribeTable(" when defaultNetworkInterface", func(value string, result string) {
+		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.NetworkInterfaceKey: value},
+		})
+		Expect(clusterConfig.GetDefaultNetworkInterface()).To(Equal(result))
+	},
+		table.Entry("is bridge, it should return bridge", "bridge", "bridge"),
+		table.Entry("is slirp, it should return slirp", "slirp", "slirp"),
+		table.Entry("is masquerade, it should return masquerade", "masquerade", "masquerade"),
+		table.Entry("when unset, it should return the default", "", "bridge"),
+		table.Entry("when invalid, it should return the default", "invalid", "bridge"),
 	)
 
 	nodeSelectorsStr := "kubernetes.io/hostname=node02\nnode-role.kubernetes.io/compute=true\n"

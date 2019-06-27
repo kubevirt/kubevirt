@@ -431,8 +431,21 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			liveMigrationCondition.Status = k8sv1.ConditionFalse
 			liveMigrationCondition.Message = err.Error()
 			liveMigrationCondition.Reason = v1.VirtualMachineInstanceReasonDisksNotMigratable
+			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
 		}
-		vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+		err = d.checkNetworkInterfacesForMigration(vmi)
+		if err != nil {
+			liveMigrationCondition = v1.VirtualMachineInstanceCondition{
+				Type:    v1.VirtualMachineInstanceIsMigratable,
+				Status:  k8sv1.ConditionFalse,
+				Message: err.Error(),
+				Reason:  v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
+			}
+			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+		}
+		if liveMigrationCondition.Status == k8sv1.ConditionTrue {
+			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+		}
 
 		// Set VMI Migration Method
 		if isBlockMigration {
@@ -1185,6 +1198,19 @@ func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 	}
 
 	return false
+}
+
+func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
+	networks := map[string]*v1.Network{}
+	for _, network := range vmi.Spec.Networks {
+		networks[network.Name] = network.DeepCopy()
+	}
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Bridge != nil && networks[iface.Name].Pod != nil {
+			return fmt.Errorf("cannot migrate VMI with a bridge interface connected to a pod network")
+		}
+	}
+	return nil
 }
 
 func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachineInstance) (blockMigrate bool, err error) {

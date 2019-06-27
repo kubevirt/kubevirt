@@ -117,7 +117,6 @@ func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 	}
 
 	setDefaults_Disk(obj)
-	SetDefaults_NetworkInterface(obj)
 }
 
 func setDefaults_Disk(obj *VirtualMachineInstance) {
@@ -151,12 +150,12 @@ func SetDefaults_NetworkInterface(obj *VirtualMachineInstance) {
 
 	// Override only when nothing is specified
 	if len(obj.Spec.Networks) == 0 {
-		obj.Spec.Domain.Devices.Interfaces = []Interface{*DefaultNetworkInterface()}
+		obj.Spec.Domain.Devices.Interfaces = []Interface{*DefaultBridgeNetworkInterface()}
 		obj.Spec.Networks = []Network{*DefaultPodNetwork()}
 	}
 }
 
-func DefaultNetworkInterface() *Interface {
+func DefaultBridgeNetworkInterface() *Interface {
 	iface := &Interface{
 		Name: "default",
 		InterfaceBindingMethod: InterfaceBindingMethod{
@@ -171,6 +170,16 @@ func DefaultSlirpNetworkInterface() *Interface {
 		Name: "default",
 		InterfaceBindingMethod: InterfaceBindingMethod{
 			Slirp: &InterfaceSlirp{},
+		},
+	}
+	return iface
+}
+
+func DefaultMasqueradeNetworkInterface() *Interface {
+	iface := &Interface{
+		Name: "default",
+		InterfaceBindingMethod: InterfaceBindingMethod{
+			Masquerade: &InterfaceMasquerade{},
 		},
 	}
 	return iface
