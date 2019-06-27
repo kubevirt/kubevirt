@@ -38,10 +38,10 @@ if [ -z "$(docker volume list | grep ${BUILDER})" ]; then
 fi
 
 # Make sure that the output directory exists
-docker run -v "${BUILDER}:/root:rw,z" --security-opt label:disable --rm ${BUILDER} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
+docker run -v "${BUILDER}:/root:rw,z" --security-opt label=disable --rm ${BUILDER} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
 
 # Start an rsyncd instance and make sure it gets stopped after the script exits
-RSYNC_CID=$(docker run -d -v "${BUILDER}:/root:rw,z" --security-opt label:disable --expose 873 -P ${BUILDER} /usr/bin/rsync --no-detach --daemon --verbose)
+RSYNC_CID=$(docker run -d -v "${BUILDER}:/root:rw,z" --security-opt label=disable --expose 873 -P ${BUILDER} /usr/bin/rsync --no-detach --daemon --verbose)
 
 function finish() {
     docker stop ${RSYNC_CID} >/dev/null 2>&1 &
@@ -100,7 +100,7 @@ volumes="$volumes -v ${HOME}/.docker:/root/.docker:ro,z"
 # Ensure that a bazel server is running
 
 if [ -z "$(docker ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
-    docker run --network host -d ${volumes} --security-opt label:disable --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${BUILDER} hack/bazel-server.sh
+    docker run --network host -d ${volumes} --security-opt label=disable --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${BUILDER} hack/bazel-server.sh
 fi
 
 # Run the command
