@@ -22,7 +22,6 @@ package main
 import (
 	goflag "flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -313,21 +312,11 @@ func writeProtectPrivateDir(uid string) {
 	}
 }
 
-func cleanupEphemeralDiskDirectory(ephemeralDiskDir string) {
+func cleanupContainerDiskDirectory(ephemeralDiskDir string) {
 	// Cleanup the content of ephemeralDiskDir, to make sure that all containerDisk containers terminate
-	if _, err := os.Stat(ephemeralDiskDir); !os.IsNotExist(err) {
-		dir, err := ioutil.ReadDir(ephemeralDiskDir)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to read content of the ephemeral disk directory: %s", ephemeralDiskDir)
-			return
-		}
-		for _, d := range dir {
-			removePath := filepath.Join(ephemeralDiskDir, d.Name())
-			err := os.RemoveAll(removePath)
-			if err != nil {
-				log.Log.Reason(err).Errorf("could not clean up ephemeral disk directory: %s", removePath)
-			}
-		}
+	err := os.RemoveAll(ephemeralDiskDir)
+	if err != nil {
+		log.Log.Reason(err).Errorf("could not clean up ephemeral disk directory: %s", ephemeralDiskDir)
 	}
 }
 
@@ -489,8 +478,8 @@ func main() {
 // ForkAndMonitor itself to give qemu an extra grace period to properly terminate
 // in case of virt-launcher crashes
 func ForkAndMonitor(qemuProcessCommandPrefix string, ephemeralDiskDir string, containerDiskDir string) (int, error) {
-	defer cleanupEphemeralDiskDirectory(ephemeralDiskDir)
-	defer cleanupEphemeralDiskDirectory(containerDiskDir)
+	defer cleanupContainerDiskDirectory(ephemeralDiskDir)
+	defer cleanupContainerDiskDirectory(containerDiskDir)
 	cmd := exec.Command(os.Args[0], append(os.Args[1:], "--no-fork", "true")...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

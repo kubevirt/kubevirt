@@ -1010,6 +1010,11 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 		}
 	}
 
+	// let containerdisks gracefully terminate if they still managed to run somehow
+	if err := os.RemoveAll(mountDir); err != nil {
+		return fmt.Errorf("failed to remove containerDisk files: %v", err)
+	}
+
 	// Watch dog file must be the last thing removed here
 	err = watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
 	if err != nil {
@@ -1422,26 +1427,20 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 					if err != nil {
 						return fmt.Errorf("failed to detect root mount info of containerDisk  %v: %v", volume.Name, err)
 					}
-					fmt.Printf("mountInfo: %v,%v,%v\n", mountInfo.DeviceContainingFile, mountInfo.Root, mountInfo.MountPoint)
 					nodeRes := isolation.NodeIsolationResult()
 					nodeMountInfo, err := nodeRes.ParentMountInfoFor(mountInfo)
 					if err != nil {
 						return fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
 					}
 
-					fmt.Printf("root is %v\n", nodeMountInfo.MountPoint)
-					// XXX don't do this if it is already mounted
-					sourceFile, err := containerdisk.GetImage(filepath.Join(nodeRes.MountRoot(), nodeMountInfo.MountPoint), volume.ContainerDisk.Path)
-					if err != nil {
-						return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
-					}
-					fmt.Printf("found disk %s\n", sourceFile)
-
 					targetFile := containerdisk.GenerateDiskTargetPathFromHostView(vmi, i)
-					fmt.Printf("target %s\n", targetFile)
 					if isMounted, err := nodeRes.IsMounted(targetFile); err != nil {
 						return fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
 					} else if !isMounted {
+						sourceFile, err := containerdisk.GetImage(filepath.Join(nodeRes.MountRoot(), nodeMountInfo.MountPoint), volume.ContainerDisk.Path)
+						if err != nil {
+							return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
+						}
 						f, err := os.Create(targetFile)
 						if err != nil {
 							return fmt.Errorf("failed to create mount point target %v: %v", targetFile, err)
@@ -1466,7 +1465,6 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 					if err := containerdisk.VerifyImage(imageInfo); err != nil {
 						return fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
 					}
-					fmt.Printf("detected extension %s\n", imageInfo.Format)
 				}
 			}
 		}

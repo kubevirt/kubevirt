@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"kubevirt.io/client-go/log"
 )
@@ -46,7 +47,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	ln, err := net.Listen("unix", fmt.Sprintf("%s.%s", copyPath, "sock"))
+	socket := fmt.Sprintf("%s.%s", copyPath, "sock")
+	ln, err := net.Listen("unix", socket)
 	if err != nil {
 		logger.Reason(err).Error("Failed to create socket.")
 		os.Exit(1)
@@ -60,10 +62,24 @@ func main() {
 	}
 	f.Close()
 
+	go func() {
+		for {
+			_, err := ln.Accept()
+			if err != nil {
+				logger.Reason(err).Error("Unrecoverable error on socket.")
+				if _, err := os.Stat(socket); os.IsNotExist(err) {
+					os.Exit(0)
+				}
+				os.Exit(1)
+			}
+		}
+	}()
+
 	for {
-		_, err := ln.Accept()
-		if err != nil {
-			logger.Reason(err).Error("Unrecoverable error on socket.")
+		time.Sleep(1 * time.Second)
+		if _, err := os.Stat(socket); os.IsNotExist(err) {
+			os.Exit(0)
+		} else if err != nil {
 			os.Exit(1)
 		}
 	}
