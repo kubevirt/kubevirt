@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/user"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -45,14 +46,12 @@ var _ = Describe("ContainerDisk", func() {
 		appendContainerDisk(vmi, "r0")
 
 		// create a fake disk file
-		volumeMountDir := generateVMIBaseDir(vmi)
-		err = os.MkdirAll(volumeMountDir+"/disk_r0", 0750)
+		volumeMountDir := GenerateVolumeMountDir(vmi)
+		err = os.MkdirAll(volumeMountDir, 0750)
 		Expect(err).ToNot(HaveOccurred())
 
-		filePath := volumeMountDir + "/disk_r0/disk-image." + diskExtension
+		filePath := filepath.Join(volumeMountDir + "/disk_0.img")
 		_, err := os.Create(filePath)
-
-		err = SetFilePermissions(vmi)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -82,9 +81,6 @@ var _ = Describe("ContainerDisk", func() {
 
 				vmi := v1.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r0")
-
-				err := SetFilePermissions(vmi)
-				Expect(err).To(HaveOccurred())
 			})
 			It("by verifying that resources are set if the VMI wants the guaranteed QOS class", func() {
 
@@ -107,7 +103,7 @@ var _ = Describe("ContainerDisk", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r1")
 				appendContainerDisk(vmi, "r0")
-				containers := GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
+				containers := GenerateContainers(vmi, "libvirt-runtime", "bin-volume")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(containers)).To(Equal(2))

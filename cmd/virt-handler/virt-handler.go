@@ -23,9 +23,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/golang/glog"
@@ -74,8 +76,6 @@ const (
 	hostOverride = ""
 
 	podIpAddress = ""
-
-	virtShareDir = "/var/run/kubevirt"
 
 	// This value is derived from default MaxPods in Kubelet Config
 	maxDevices = 110
@@ -175,9 +175,20 @@ func (app *virtHandlerApp) Run() {
 
 	logger := log.Log
 	logger.V(1).Level(log.INFO).Log("hostname", app.HostOverride)
+	var err error
+
+	// Copy container-disk binary
+	targetFile := filepath.Join(util.VirtShareDir, "/init/usr/bin/container-disk")
+	err = os.MkdirAll(filepath.Dir(targetFile), os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+	err = copy("/usr/bin/container-disk", targetFile)
+	if err != nil {
+		panic(err)
+	}
 
 	// Create event recorder
-	var err error
 	app.virtCli, err = kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
@@ -303,7 +314,7 @@ func (app *virtHandlerApp) AddFlags() {
 	flag.StringVar(&app.PodIpAddress, "pod-ip-address", podIpAddress,
 		"The pod ip address")
 
-	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", virtShareDir,
+	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", util.VirtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
@@ -381,4 +392,27 @@ func main() {
 	service.Setup(app)
 	log.InitializeLogging("virt-handler")
 	app.Run()
+}
+
+func copy(sourceFile string, targetFile string) error {
+
+	target, err := os.Create(targetFile)
+	if err != nil {
+		return fmt.Errorf("failed to crate target file: %v", err)
+	}
+	defer target.Close()
+	source, err := os.Open(sourceFile)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %v", err)
+	}
+	defer source.Close()
+	_, err = io.Copy(target, source)
+	if err != nil {
+		return fmt.Errorf("failed to copy file: %v", err)
+	}
+	err = os.Chmod(targetFile, 0555)
+	if err != nil {
+		return fmt.Errorf("failed to make file executable: %v", err)
+	}
+	return nil
 }

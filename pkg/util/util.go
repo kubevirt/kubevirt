@@ -11,6 +11,7 @@ const ServiceAccountNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccou
 const namespaceKubevirt = "kubevirt"
 const ExtensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentication"
 const RequestHeaderClientCAFileKey = "requestheader-client-ca-file"
+const VirtShareDir = "/var/run/kubevirt"
 
 func GetNamespace() (string, error) {
 	if data, err := ioutil.ReadFile(ServiceAccountNamespaceFile); err == nil {

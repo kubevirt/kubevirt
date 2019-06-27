@@ -25,6 +25,7 @@ import (
 	golog "log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
@@ -72,6 +73,10 @@ const (
 	controllerThreads = 3
 )
 
+var (
+	containerDiskDir = filepath.Join(util.VirtShareDir, "/container-disks")
+)
+
 type VirtControllerApp struct {
 	service.ServiceListen
 
@@ -111,6 +116,7 @@ type VirtControllerApp struct {
 	imagePullSecret            string
 	virtShareDir               string
 	ephemeralDiskDir           string
+	containerDiskDir           string
 	readyChan                  chan bool
 	kubevirtNamespace          string
 	evacuationController       *evacuation.EvacuationController
@@ -322,6 +328,7 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.virtShareDir,
 		vca.ephemeralDiskDir,
+		vca.containerDiskDir,
 		vca.imagePullSecret,
 		vca.persistentVolumeClaimCache,
 		virtClient,
@@ -405,9 +412,11 @@ func (vca *VirtControllerApp) AddFlags() {
 	flag.StringVar(&vca.imagePullSecret, "image-pull-secret", imagePullSecret,
 		"Secret to use for pulling virt-launcher and/or registry disks")
 
-	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", virtShareDir,
+	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", util.VirtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
 
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")
+	flag.StringVar(&vca.containerDiskDir, "container-disk-dir", containerDiskDir,
+		"Base directory for container disk data")
 }

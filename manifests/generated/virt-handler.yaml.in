@@ -56,6 +56,7 @@ spec:
         - mountPath: /var/run/kubevirt-libvirt-runtimes
           name: libvirt-runtimes
         - mountPath: /var/run/kubevirt
+          mountPropagation: Bidirectional
           name: virt-share-dir
         - mountPath: /var/run/kubevirt-private
           name: virt-private-dir

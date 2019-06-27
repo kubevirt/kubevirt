@@ -176,7 +176,6 @@ container_bundle(
     name = "build-images",
     images = {
         # cmd images
-        "$(container_prefix)/container-disk-v1alpha:$(container_tag)": "//cmd/container-disk-v1alpha:container-disk-v1alpha-image",
         "$(container_prefix)/example-hook-sidecar:$(container_tag)": "//cmd/example-hook-sidecar:example-hook-sidecar-image",
         "$(container_prefix)/example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/example-cloudinit-hook-sidecar:example-cloudinit-hook-sidecar-image",
         "$(container_prefix)/subresource-access-test:$(container_tag)": "//cmd/subresource-access-test:subresource-access-test-image",
@@ -186,11 +185,11 @@ container_bundle(
         "$(container_prefix)/virt-api:$(container_tag)": "//cmd/virt-api:virt-api-image",
         "$(container_prefix)/virt-operator:$(container_tag)": "//cmd/virt-operator:virt-operator-image",
         # container-disk images
-        "$(container_prefix)/alpine-container-disk-demo:$(container_tag)": "//cmd/container-disk-v1alpha:alpine-container-disk-image",
-        "$(container_prefix)/cirros-container-disk-demo:$(container_tag)": "//cmd/container-disk-v1alpha:cirros-container-disk-image",
-        "$(container_prefix)/fedora-cloud-container-disk-demo:$(container_tag)": "//cmd/container-disk-v1alpha:fedora-cloud-container-disk-image",
-        "$(container_prefix)/fedora30-cloud-container-disk-demo:$(container_tag)": "//cmd/container-disk-v1alpha:fedora30-cloud-container-disk-image",
-        "$(container_prefix)/virtio-container-disk:$(container_tag)": "//cmd/container-disk-v1alpha:virtio-container-disk-image",
+        "$(container_prefix)/alpine-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:alpine-container-disk-image",
+        "$(container_prefix)/cirros-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:cirros-container-disk-image",
+        "$(container_prefix)/fedora-cloud-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:fedora-cloud-container-disk-image",
+        "$(container_prefix)/fedora30-cloud-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:fedora30-cloud-container-disk-image",
+        "$(container_prefix)/virtio-container-disk:$(container_tag)": "//cmd/container-disk-v2alpha:virtio-container-disk-image",
         # testing images
         "$(container_prefix)/disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
         "$(container_prefix)/cdi-http-import-server:$(container_tag)": "//images/cdi-http-import-server:cdi-http-import-server-image",
