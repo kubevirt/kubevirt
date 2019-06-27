@@ -27,6 +27,7 @@ import (
 	"github.com/pborman/uuid"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -34,6 +35,8 @@ import (
 var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component]Config", func() {
 
 	tests.FlagParse()
+	virtClient, err := kubecli.GetKubevirtClient()
+	tests.PanicOnError(err)
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
@@ -46,9 +49,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				configMapName string
 				configMapPath string
 			)
-
-			virtClient, err := kubecli.GetKubevirtClient()
-			tests.PanicOnError(err)
 
 			BeforeEach(func() {
 				configMapName = "configmap-" + uuid.NewRandom().String()
@@ -143,9 +143,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				secretName string
 				secretPath string
 			)
-
-			virtClient, err := kubecli.GetKubevirtClient()
-			tests.PanicOnError(err)
 
 			BeforeEach(func() {
 				secretName = "secret-" + uuid.NewRandom().String()
@@ -285,5 +282,205 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+	})
+
+	Context("With a Secret and a ConfigMap defined", func() {
+
+		Context("With a single volume", func() {
+			var (
+				configMapName string
+				configMapPath string
+				secretName    string
+				secretPath    string
+			)
+
+			BeforeEach(func() {
+				configMapName = "configmap-" + uuid.NewRandom().String()
+				configMapPath = config.GetConfigMapSourcePath(configMapName + "-disk")
+				secretName = "secret-" + uuid.NewRandom().String()
+				secretPath = config.GetSecretSourcePath(secretName + "-disk")
+
+				configData := map[string]string{
+					"config1": "value1",
+					"config2": "value2",
+					"config3": "value3",
+				}
+
+				secretData := map[string]string{
+					"user":     "admin",
+					"password": "redhat",
+				}
+
+				tests.CreateConfigMap(configMapName, configData)
+
+				tests.CreateSecret(secretName, secretData)
+			})
+
+			AfterEach(func() {
+				tests.DeleteConfigMap(configMapName)
+				tests.DeleteSecret(secretName)
+			})
+
+			It("[test_id:786]Should be that cfgMap and secret fs layout same for the pod and vmi", func() {
+				expectedOutputCfgMap := "value1value2value3"
+				expectedOutputSecret := "adminredhat"
+
+				By("Running VMI")
+
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(
+					tests.ContainerDiskFor(
+						tests.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+				tests.AddConfigMapDisk(vmi, configMapName)
+				tests.AddSecretDisk(vmi, secretName)
+				tests.RunVMIAndExpectLaunch(vmi, 90)
+
+				By("Checking if ConfigMap has been attached to the pod")
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				podOutputCfgMap, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					vmiPod.Spec.Containers[1].Name,
+					[]string{"cat",
+						configMapPath + "/config1",
+						configMapPath + "/config2",
+						configMapPath + "/config3",
+					},
+				)
+				Expect(err).To(BeNil())
+				Expect(podOutputCfgMap).To(Equal(expectedOutputCfgMap), "Expected %s to Equal value1value2value3", podOutputCfgMap)
+
+				By("Checking mounted ConfigMap image")
+				expecter, err := tests.LoggedInFedoraExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				res1, err := expecter.ExpectBatch([]expect.Batcher{
+					// mount ConfigMap image
+					&expect.BSnd{S: "sudo su -\n"},
+					&expect.BExp{R: "#"},
+					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+					&expect.BSnd{S: "cat /mnt/config1 /mnt/config2 /mnt/config3\n"},
+					&expect.BExp{R: expectedOutputCfgMap},
+				}, 200*time.Second)
+				log.DefaultLogger().Object(vmi).Infof("%v", res1)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Checking if Secret has also been attached to the same pod")
+				podOutputSecret, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					vmiPod.Spec.Containers[1].Name,
+					[]string{"cat",
+						secretPath + "/user",
+						secretPath + "/password",
+					},
+				)
+				Expect(err).To(BeNil())
+				Expect(podOutputSecret).To(Equal(expectedOutputSecret), "Expected %s to Equal adminredhat", podOutputSecret)
+
+				By("Checking mounted secret image")
+
+				res2, err := expecter.ExpectBatch([]expect.Batcher{
+					// mount Secret image
+					&expect.BSnd{S: "mount /dev/sdb /mnt\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+					&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
+					&expect.BExp{R: expectedOutputSecret},
+				}, 200*time.Second)
+				log.DefaultLogger().Object(vmi).Infof("%v", res2)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+	})
+
+	Context("With SSH Keys as a Secret defined", func() {
+
+		Context("With a single volume", func() {
+			var (
+				secretName string
+				secretPath string
+			)
+
+			var bitSize int = 2048
+			privateKey, _ := tests.GeneratePrivateKey(bitSize)
+			publicKeyBytes, _ := tests.GeneratePublicKey(&privateKey.PublicKey)
+			privateKeyBytes := tests.EncodePrivateKeyToPEM(privateKey)
+
+			BeforeEach(func() {
+				secretName = "secret-" + uuid.NewRandom().String()
+				secretPath = config.GetSecretSourcePath(secretName + "-disk")
+
+				data := map[string]string{
+					"ssh-privatekey": string(privateKeyBytes),
+					"ssh-publickey":  string(publicKeyBytes),
+				}
+				tests.CreateSecret(secretName, data)
+			})
+
+			AfterEach(func() {
+				tests.DeleteSecret(secretName)
+			})
+
+			It("[test_id:778]Should be the fs layout the same for a pod and vmi", func() {
+				expectedPrivateKey := string(privateKeyBytes)
+				expectedPublicKey := string(publicKeyBytes)
+
+				By("Running VMI")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(
+					tests.ContainerDiskFor(
+						tests.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+				tests.AddSecretDisk(vmi, secretName)
+				tests.RunVMIAndExpectLaunch(vmi, 90)
+
+				By("Checking if Secret has been attached to the pod")
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				podOutput1, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					vmiPod.Spec.Containers[1].Name,
+					[]string{"cat",
+						secretPath + "/ssh-privatekey",
+					},
+				)
+				Expect(err).To(BeNil())
+				Expect(podOutput1).To(Equal(expectedPrivateKey), "Expected pod output of private key to match genereated one.")
+
+				podOutput2, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					vmiPod.Spec.Containers[1].Name,
+					[]string{"cat",
+						secretPath + "/ssh-publickey",
+					},
+				)
+				Expect(err).To(BeNil())
+				Expect(podOutput2).To(Equal(expectedPublicKey), "Expected pod output of public key to match genereated one.")
+
+				By("Checking mounted secrets sshkeys image")
+				expecter, err := tests.LoggedInFedoraExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				res, err := expecter.ExpectBatch([]expect.Batcher{
+					// mount iso Secret image
+					&expect.BSnd{S: "sudo su -\n"},
+					&expect.BExp{R: "#"},
+					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+					&expect.BSnd{S: "grep \"PRIVATE KEY\" /mnt/ssh-privatekey\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+					&expect.BSnd{S: "grep ssh-rsa /mnt/ssh-publickey\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+				}, 200*time.Second)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
 	})
 })
