@@ -30,26 +30,27 @@ EOF
 fi
 
 # Build the build container
-(cd ${DOCKER_DIR} && docker build . ${BUILDER_EXTRA_ARGS} -t ${BUILDER})
+(cd ${DOCKER_DIR} && podman build . ${BUILDER_EXTRA_ARGS} -t ${BUILDER})
 
-# Create the persistent docker volume
-if [ -z "$(docker volume list | grep ${BUILDER})" ]; then
-    docker volume create --name ${BUILDER}
+# Create the persistent podman volume
+if [ -z "$(podman volume list | grep ${BUILDER})" ]; then
+    podman volume create ${BUILDER}
 fi
 
 # Make sure that the output directory exists
-docker run -v "${BUILDER}:/root:rw,z" --security-opt label=disable --rm ${BUILDER} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
+podman run -v "${BUILDER}:/root:rw,z" --security-opt label=disable --rm ${BUILDER} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
 
 # Start an rsyncd instance and make sure it gets stopped after the script exits
-RSYNC_CID=$(docker run -d -v "${BUILDER}:/root:rw,z" --security-opt label=disable --expose 873 -P ${BUILDER} /usr/bin/rsync --no-detach --daemon --verbose)
+RSYNC_CID=$(podman run -d -v "${BUILDER}:/root:rw,z" --security-opt label=disable --expose 873 -P ${BUILDER} /usr/bin/rsync --no-detach --daemon --verbose)
 
 function finish() {
-    docker stop ${RSYNC_CID} >/dev/null 2>&1 &
-    docker rm -f ${RSYNC_CID} >/dev/null 2>&1 &
+    podman stop ${RSYNC_CID} >/dev/null 2>&1 &
+    podman rm -f ${RSYNC_CID} >/dev/null 2>&1 &
 }
 trap finish EXIT
 
-RSYNCD_PORT=$(docker port $RSYNC_CID 873 | cut -d':' -f2)
+# TODO "podman port" looks broken. File a bug
+RSYNCD_PORT=$(podman port $RSYNC_CID | cut -d':' -f2)
 
 rsynch_fail_count=0
 
@@ -75,7 +76,7 @@ _rsync() {
     rsync -al "$@"
 }
 
-# Copy kubevirt into the persistent docker volume
+# Copy kubevirt into the persistent podman volume
 _rsync \
     --delete \
     --exclude 'bazel-bin' \
@@ -93,19 +94,19 @@ _rsync \
 
 volumes="-v ${BUILDER}:/root:rw,z"
 
-# append .docker directory as volume
-mkdir -p "${HOME}/.docker"
-volumes="$volumes -v ${HOME}/.docker:/root/.docker:ro,z"
+# append .podman directory as volume
+mkdir -p "${HOME}/.podman"
+volumes="$volumes -v ${HOME}/.podman:/root/.podman:ro,z"
 
 # Ensure that a bazel server is running
 
-if [ -z "$(docker ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
-    docker run --network host -d ${volumes} --security-opt label=disable --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${BUILDER} hack/bazel-server.sh
+if [ -z "$(podman ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
+    podman run --network host -d ${volumes} --security-opt label=disable --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${BUILDER} hack/bazel-server.sh
 fi
 
 # Run the command
 test -t 1 && USE_TTY="-it"
-docker exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"
+podman exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
 _rsync \

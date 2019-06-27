@@ -29,7 +29,7 @@ function build_func_tests_container() {
         ${TESTS_OUT_DIR}/
     rsync -ar ${KUBEVIRT_DIR}/manifests/ ${TESTS_OUT_DIR}/manifests
     cd ${TESTS_OUT_DIR}
-    docker build \
+    podman build \
         -t ${docker_prefix}/${bin_name}:${docker_tag} \
         --label ${job_prefix} \
         --label ${bin_name} .
