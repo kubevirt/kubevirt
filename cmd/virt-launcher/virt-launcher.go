@@ -77,19 +77,6 @@ func startCmdServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
 	options *cmdserver.ServerOptions) chan struct{} {
-
-	err := os.RemoveAll(socketPath)
-	if err != nil {
-		log.Log.Reason(err).Error("Could not clean up virt-launcher cmd socket")
-		panic(err)
-	}
-
-	err = os.MkdirAll(filepath.Dir(socketPath), 0755)
-	if err != nil {
-		log.Log.Reason(err).Error("Could not create directory for socket.")
-		panic(err)
-	}
-
 	done, err := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
