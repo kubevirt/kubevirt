@@ -56,6 +56,7 @@ const (
 	NetworkInterfaceKey       = "default-network-interface"
 	PermitSlirpInterface      = "permitSlirpInterface"
 	NodeDrainTaintDefaultKey  = "kubevirt.io/drain"
+	KubevirtMemoryOverheadKey = "platform-memory-overhead"
 )
 
 func getConfigMap() *k8sv1.ConfigMap {
@@ -123,6 +124,7 @@ func defaultClusterConfig() *Config {
 	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	defaultNetworkInterface := DefaultNetworkInterface
+	kubevirtMemoryOverheadDefault := resource.MustParse(DefaultKubevirtMemoryOverhead)
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: DefaultImagePullPolicy,
@@ -145,6 +147,7 @@ func defaultClusterConfig() *Config {
 		NodeSelectors:          nodeSelectorsDefault,
 		NetworkInterface:       defaultNetworkInterface,
 		PermitSlirpInterface:   DefaultPermitSlirpInterface,
+		KubevirtMemoryOverhead: kubevirtMemoryOverheadDefault,
 	}
 }
 
@@ -163,6 +166,7 @@ type Config struct {
 	NodeSelectors          map[string]string
 	NetworkInterface       string
 	PermitSlirpInterface   bool
+	KubevirtMemoryOverhead resource.Quantity
 }
 
 type MigrationConfig struct {
@@ -302,6 +306,11 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	default:
 		return fmt.Errorf("invalid default-network-interface in config: %v", iface)
 	}
+
+	if kubevirtMemoryOverhead := strings.TrimSpace(configMap.Data[KubevirtMemoryOverheadKey]); kubevirtMemoryOverhead != "" {
+		config.KubevirtMemoryOverhead = resource.MustParse(kubevirtMemoryOverhead)
+	}
+
 	return nil
 }
 

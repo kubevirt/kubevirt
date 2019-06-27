@@ -135,6 +135,17 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when unset, it should return the default", "", virtconfig.DefaultCPURequest),
 	)
 
+	table.DescribeTable(" when kubevirtMemoryOverhead", func(value string, result string) {
+		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.KubevirtMemoryOverheadKey: value},
+		})
+		memoryOverhead := clusterConfig.GetKubevirtMemoryOverhead()
+		Expect(memoryOverhead.String()).To(Equal(result))
+	},
+		table.Entry("when set, it should return the value", "512Mi", "512Mi"),
+		table.Entry("when unset, it should return the default", "", virtconfig.DefaultKubevirtMemoryOverhead),
+	)
+
 	table.DescribeTable(" when memoryOvercommit", func(value string, result int) {
 		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.MemoryOvercommitKey: value},

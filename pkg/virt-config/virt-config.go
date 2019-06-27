@@ -46,6 +46,7 @@ const (
 	DefaultUseEmulation                             = false
 	DefaultUnsafeMigrationOverride                  = false
 	DefaultPermitSlirpInterface                     = false
+	DefaultKubevirtMemoryOverhead                   = "128M" // TODO account for the overhead of kubevirt components running in the pod
 )
 
 func (c *ClusterConfig) IsUseEmulation() bool {
@@ -94,4 +95,8 @@ func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 
 func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
 	return c.getConfig().PermitSlirpInterface
+}
+
+func (c *ClusterConfig) GetKubevirtMemoryOverhead() resource.Quantity {
+	return c.getConfig().KubevirtMemoryOverhead
 }

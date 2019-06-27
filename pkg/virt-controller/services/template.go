@@ -524,7 +524,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	// Get memory overhead
-	memoryOverhead := getMemoryOverhead(vmi.Spec.Domain)
+	memoryOverhead := t.getMemoryOverhead(vmi.Spec.Domain)
 
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
@@ -973,7 +973,7 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 //
 // Note: This is the best estimation we were able to come up with
 //       and is still not 100% accurate
-func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
+func (t *templateService) getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
 	overhead := resource.NewScaledQuantity(0, resource.Kilo)
@@ -984,8 +984,7 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	overhead.Add(*pagetableMemory)
 
 	// Add fixed overhead for shared libraries and such
-	// TODO account for the overhead of kubevirt components running in the pod
-	overhead.Add(resource.MustParse("128M"))
+	overhead.Add(t.clusterConfig.GetKubevirtMemoryOverhead())
 
 	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
 	// overhead per vcpu in MiB
