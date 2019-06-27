@@ -83,9 +83,27 @@ var (
 		},
 		nil,
 	)
-	networkTrafficDesc = prometheus.NewDesc(
+	networkTrafficBytesDesc = prometheus.NewDesc(
 		"kubevirt_vm_network_traffic_bytes_total",
 		"network traffic.",
+		[]string{
+			"node", "namespace", "name",
+			"domain", "interface", "type",
+		},
+		nil,
+	)
+	networkTrafficPktsDesc = prometheus.NewDesc(
+		"kubevirt_vm_network_traffic_packets_total",
+		"network traffic.",
+		[]string{
+			"node", "namespace", "name",
+			"domain", "interface", "type",
+		},
+		nil,
+	)
+	networkErrorsDesc = prometheus.NewDesc(
+		"kubevirt_vm_network_errors_total",
+		"network errors.",
 		[]string{
 			"node", "namespace", "name",
 			"domain", "interface", "type",
@@ -277,7 +295,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 		}
 		if net.RxBytesSet {
 			mv, err := prometheus.NewConstMetric(
-				networkTrafficDesc, prometheus.CounterValue,
+				networkTrafficBytesDesc, prometheus.CounterValue,
 				float64(net.RxBytes),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, net.Name, "rx",
@@ -286,10 +304,55 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				ch <- mv
 			}
 		}
+		if net.RxPktsSet {
+			mv, err := prometheus.NewConstMetric(
+				networkTrafficPktsDesc, prometheus.CounterValue,
+				float64(net.RxPkts),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+				vmStats.Name, net.Name, "rx",
+			)
+			if err == nil {
+				ch <- mv
+			}
+		}
+		if net.RxErrsSet {
+			mv, err := prometheus.NewConstMetric(
+				networkErrorsDesc, prometheus.CounterValue,
+				float64(net.RxErrs),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+				vmStats.Name, net.Name, "rx",
+			)
+			if err == nil {
+				ch <- mv
+			}
+		}
+
 		if net.TxBytesSet {
 			mv, err := prometheus.NewConstMetric(
-				networkTrafficDesc, prometheus.CounterValue,
+				networkTrafficBytesDesc, prometheus.CounterValue,
 				float64(net.TxBytes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+				vmStats.Name, net.Name, "tx",
+			)
+			if err == nil {
+				ch <- mv
+			}
+		}
+		if net.TxPktsSet {
+			mv, err := prometheus.NewConstMetric(
+				networkTrafficPktsDesc, prometheus.CounterValue,
+				float64(net.TxPkts),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+				vmStats.Name, net.Name, "tx",
+			)
+			if err == nil {
+				ch <- mv
+			}
+		}
+		if net.TxErrsSet {
+			mv, err := prometheus.NewConstMetric(
+				networkErrorsDesc, prometheus.CounterValue,
+				float64(net.TxErrs),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, net.Name, "tx",
 			)
@@ -335,7 +398,9 @@ func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- storageTrafficDesc
 	ch <- storageTimesDesc
 	ch <- vcpuUsageDesc
-	ch <- networkTrafficDesc
+	ch <- networkTrafficBytesDesc
+	ch <- networkTrafficPktsDesc
+	ch <- networkErrorsDesc
 	ch <- memoryAvailableDesc
 	ch <- memoryResidentDesc
 }
