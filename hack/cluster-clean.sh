@@ -50,6 +50,13 @@ _kubectl get vmis --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPA
     _kubectl patch vmi $name -n $namespace --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 done
 
+_kubectl get vms --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep -e foregroundDeleteVirtualMachine -e orphan | while read p; do
+    arr=($p)
+    name="${arr[0]}"
+    namespace="${arr[1]}"
+    _kubectl patch vm $name -n $namespace --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+done
+
 # Delete Namespaces created by us.
 managed_namespaces=(${namespace} ${cdi_namespace})
 

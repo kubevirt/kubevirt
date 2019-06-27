@@ -234,8 +234,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
+
+			// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
+			tests.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
+
 			newVMI := newVirtualMachine(true)
 
+			By("Getting owner references")
 			Eventually(func() []v12.OwnerReference {
 				// Check for owner reference
 				vmi, _ := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, &v12.GetOptions{})
@@ -244,9 +249,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			// Delete it
 			orphanPolicy := v12.DeletePropagationOrphan
+			By("Deleting VM")
 			Expect(virtClient.VirtualMachine(newVMI.Namespace).
 				Delete(newVMI.Name, &v12.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
 			// Wait until the virtual machine is deleted
+			By("Waiting for VM to delete")
 			Eventually(func() bool {
 				_, err := virtClient.VirtualMachine(newVMI.Namespace).Get(newVMI.Name, &v12.GetOptions{})
 				if errors.IsNotFound(err) {
@@ -255,6 +262,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				return false
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 
+			By("Verifying orphaned VMI still exists")
 			vmi, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, &v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.OwnerReferences).To(BeEmpty())
