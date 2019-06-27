@@ -48,7 +48,7 @@ The KubeVirt build system runs completely inside docker. In order to build
 KubeVirt you need to have `docker` and `rsync` installed. You also need to have `docker`
 running, and have the [permissions](https://docs.docker.com/install/linux/linux-postinstall/#manage-docker-as-a-non-root-user) to access it.
 
-**Note:** For running KubeVirt in the dockerized cluster, **nested
+**Note:** For running KubeVirt in the containerized cluster, **nested
 virtualization** must be enabled - [see here for instructions for Fedora](https://docs.fedoraproject.org/en-US/quick-docs/using-nested-virtualization-in-kvm/index.html).
 As an alternative [software emulation](software-emulation.md) can be allowed.
 Enabling nested virtualization should be preferred.
@@ -152,7 +152,7 @@ up a dockerizied environment. Then run
 
 ```bash
     make cluster-sync # synchronize with your code, if necessary
-    make functest # run the functional tests against the dockerized VMs
+    make functest # run the functional tests against the containerized VMs
 ```
 
 If you'd like to run specific functional tests only, you can leverage `ginkgo`

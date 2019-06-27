@@ -200,7 +200,7 @@ until make cluster-deploy; do
     sleep 1
 done
 
-hack/dockerized bazel shutdown
+hack/containerized bazel shutdown
 
 # OpenShift is running important containers under default namespace
 namespaces=(kubevirt default)

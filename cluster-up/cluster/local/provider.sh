@@ -40,7 +40,7 @@ EOF
 }
 
 function build() {
-    ${KUBEVIRTCI_PATH}hack/dockerized "DOCKER_TAG=${DOCKER_TAG}
+    ${KUBEVIRTCI_PATH}hack/containerized "DOCKER_TAG=${DOCKER_TAG}
     KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/build-manifests.sh"
     make docker
 }
