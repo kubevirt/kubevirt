@@ -1645,7 +1645,13 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, 
 }
 
 func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
-	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), fmt.Sprintf(`#!/bin/bash
+	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), GetGuestAgentUserData())
+	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	return agentVMI
+}
+
+func GetGuestAgentUserData() string {
+	return fmt.Sprintf(`#!/bin/bash
                 echo "fedora" |passwd fedora --stdin
                 mkdir -p /usr/local/bin
                 curl %s > /usr/local/bin/qemu-ga
@@ -1654,10 +1660,24 @@ func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
                 chmod +x /usr/local/bin/stress
                 setenforce 0
                 systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, GuestAgentHttpUrl, StressHttpUrl))
-	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
-	return agentVMI
+                `, GuestAgentHttpUrl, StressHttpUrl)
+}
 
+func WaitForGuestAgentChannel(vmi *v1.VirtualMachineInstance) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	By("Waiting for guest agent connection")
+	EventuallyWithOffset(1, func() bool {
+		updatedVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, condition := range updatedVmi.Status.Conditions {
+			if condition.Type == v1.VirtualMachineInstanceAgentConnected && condition.Status == k8sv1.ConditionTrue {
+				return true
+			}
+		}
+		return false
+	}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
@@ -1736,26 +1756,9 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 }
 
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
-
 	vmi := NewRandomVMI()
-
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: "disk0",
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: "virtio",
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: "disk0",
-		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
-			},
-		},
-	})
+	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
 	return vmi
 }
 
@@ -2157,6 +2160,10 @@ func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) (node
 	return waitForVMIStart(vmi, seconds, false)
 }
 
+func WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi runtime.Object, seconds int) string {
+	return waitForVMIStart(vmi, seconds, true)
+}
+
 func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, seconds int) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -2426,9 +2433,30 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		&expect.BExp{R: "#"}})
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
+		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
 		expecter.Close()
+		return expecter, err
+	}
+	return expecter, err
+}
+
+// ReLoggedInFedoraExpecter return prepared and ready to use console expecter for
+// Fedora test VM, when you are reconnecting (no login needed)
+func ReLoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance, timeout int) (expect.Expecter, error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	if err != nil {
 		return nil, err
+	}
+	b := append([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "#"}})
+	res, err := expecter.ExpectBatch(b, time.Duration(timeout)*time.Second)
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
+		expecter.Close()
+		return expecter, err
 	}
 	return expecter, err
 }
@@ -3018,6 +3046,141 @@ func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAcce
 			Resources: k8sv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					"storage": quantity,
+				},
+			},
+			StorageClassName: &storageClass,
+			VolumeMode:       &volumeMode,
+		},
+	}
+}
+
+func CreateNFSTargetPOD(os string) (nfsTargetIP string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	image := fmt.Sprintf("%s/nfs-server:%s", KubeVirtRepoPrefix, KubeVirtVersionTag)
+	resources := k8sv1.ResourceRequirements{}
+	resources.Limits = make(k8sv1.ResourceList)
+	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("2048M")
+	hostPathType := k8sv1.HostPathDirectory
+	pod := &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-nfs-target",
+			Labels: map[string]string{
+				v1.AppLabel: "test-nfs-target",
+			},
+		},
+		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
+			Volumes: []k8sv1.Volume{
+				{
+					Name: "nfsdata",
+					VolumeSource: k8sv1.VolumeSource{
+						HostPath: &k8sv1.HostPathVolumeSource{
+							Path: HostPathBase + os,
+							Type: &hostPathType,
+						},
+					},
+				},
+			},
+			Containers: []k8sv1.Container{
+				{
+					Name:            "test-nfs-target",
+					Image:           image,
+					ImagePullPolicy: k8sv1.PullAlways,
+					Resources:       resources,
+					SecurityContext: &k8sv1.SecurityContext{
+						Privileged: NewBool(true),
+					},
+					VolumeMounts: []k8sv1.VolumeMount{
+						{
+							Name:      "nfsdata",
+							MountPath: "/data/nfs",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Create(pod)
+	PanicOnError(err)
+
+	getStatus := func() k8sv1.PodPhase {
+		pod, err := virtClient.CoreV1().Pods(NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		nfsTargetIP = pod.Status.PodIP
+		return pod.Status.Phase
+	}
+	Eventually(getStatus, 120, 1).Should(Equal(k8sv1.PodRunning))
+	return
+}
+
+func CreateNFSPvAndPvc(name string, size string, nfsTargetIP string, os string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newNFSPV(name, size, nfsTargetIP, os))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newNFSPVC(name, size, os))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
+func newNFSPV(name string, size string, nfsTargetIP string, os string) *k8sv1.PersistentVolume {
+	quantity := resource.MustParse(size)
+
+	storageClass := Config.StorageClassLocal
+	volumeMode := k8sv1.PersistentVolumeFilesystem
+
+	return &k8sv1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				"kubevirt.io/test": os,
+			},
+		},
+		Spec: k8sv1.PersistentVolumeSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+			Capacity: k8sv1.ResourceList{
+				"storage": quantity,
+			},
+			StorageClassName: storageClass,
+			VolumeMode:       &volumeMode,
+			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
+				NFS: &k8sv1.NFSVolumeSource{
+					Server: nfsTargetIP,
+					Path:   "/",
+				},
+			},
+		},
+	}
+}
+
+func newNFSPVC(name string, size string, os string) *k8sv1.PersistentVolumeClaim {
+	quantity, err := resource.ParseQuantity(size)
+	PanicOnError(err)
+
+	storageClass := Config.StorageClassLocal
+	volumeMode := k8sv1.PersistentVolumeFilesystem
+
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					"storage": quantity,
+				},
+			},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"kubevirt.io/test": os,
 				},
 			},
 			StorageClassName: &storageClass,

@@ -194,6 +194,7 @@ container_bundle(
         # testing images
         "$(container_prefix)/disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
         "$(container_prefix)/cdi-http-import-server:$(container_tag)": "//images/cdi-http-import-server:cdi-http-import-server-image",
+        "$(container_prefix)/nfs-server:$(container_tag)": "//images/nfs-server:nfs-server-image",
         "$(container_prefix)/vm-killer:$(container_tag)": "//images/vm-killer:vm-killer-image",
         "$(container_prefix)/winrmcli:$(container_tag)": "//images/winrmcli:winrmcli-image",
     },

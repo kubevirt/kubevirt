@@ -31,6 +31,13 @@ genrule(
 )
 
 genrule(
+    name = "fedora-img",
+    srcs = ["@fedora_image//file"],
+    outs = ["images/fedora-cloud/disk.qcow2"],
+    cmd = "mkdir -p images/fedora-cloud && cat $(location @fedora_image//file) > $@",
+)
+
+genrule(
     name = "custom-img",
     srcs = [],
     outs = ["images/custom/disk.img"],
@@ -54,6 +61,14 @@ pkg_tar(
 )
 
 pkg_tar(
+    name = "fedora-tar",
+    srcs = [
+        ":fedora-img",
+    ],
+    package_dir = "images/fedora-cloud",
+)
+
+pkg_tar(
     name = "custom-tar",
     srcs = [
         ":custom-img",
@@ -70,6 +85,7 @@ container_image(
     tars = [
         ":alpine-tar",
         ":cirros-tar",
+        ":fedora-tar",
         ":custom-tar",
     ],
     visibility = ["//visibility:public"],

@@ -417,9 +417,9 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	response.WriteHeader(http.StatusAccepted)
 }
 
-func (app *SubresourceAPIApp) findPod(namespace string, uid string) (string, error) {
+func (app *SubresourceAPIApp) findPod(namespace string, vmi *v1.VirtualMachineInstance) (string, error) {
 	fieldSelector := fields.ParseSelectorOrDie("status.phase==" + string(k8sv1.PodRunning))
-	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + uid))
+	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + string(vmi.UID)))
 	if err != nil {
 		return "", err
 	}
@@ -432,8 +432,22 @@ func (app *SubresourceAPIApp) findPod(namespace string, uid string) (string, err
 
 	if len(podList.Items) == 0 {
 		return "", goerror.New("connection failed. No VirtualMachineInstance pod is running")
+	} else if len(podList.Items) == 1 {
+		return podList.Items[0].ObjectMeta.Name, nil
+	} else {
+		// If we have 2 running pods, we might have a migration. Find the new pod!
+		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
+			for _, pod := range podList.Items {
+				if pod.Name == vmi.Status.MigrationState.TargetPod {
+					return pod.Name, nil
+				}
+			}
+		} else {
+			// fallback to old behaviour
+			return podList.Items[0].ObjectMeta.Name, nil
+		}
 	}
-	return podList.Items[0].ObjectMeta.Name, nil
+	return "", goerror.New("connection failed. Did not find matching VirtualMachineInstance pod")
 }
 
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, int, error) {
@@ -467,7 +481,7 @@ func (app *SubresourceAPIApp) remoteExecInfo(vmi *v1.VirtualMachineInstance) (st
 		return podName, http.StatusBadRequest, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s", vmi.Status.Phase, v1.Running))
 	}
 
-	podName, err := app.findPod(vmi.Namespace, string(vmi.UID))
+	podName, err := app.findPod(vmi.Namespace, vmi)
 	if err != nil {
 		return podName, http.StatusBadRequest, fmt.Errorf("unable to find matching pod for remote execution: %v", err)
 	}

@@ -113,7 +113,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 	})
 
-	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+	runVMIAndExpectLaunchWithIgnoreWarningArg := func(vmi *v1.VirtualMachineInstance, timeout int, ignoreWarnings bool) *v1.VirtualMachineInstance {
 		By("Starting a VirtualMachineInstance")
 		var obj *v1.VirtualMachineInstance
 		var err error
@@ -122,10 +122,22 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the VirtualMachineInstance starts")
-		tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+		if ignoreWarnings {
+			tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(obj, timeout)
+		} else {
+			tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+		}
 		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vmi
+	}
+
+	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+		return runVMIAndExpectLaunchWithIgnoreWarningArg(vmi, timeout, false)
+	}
+
+	runVMIAndExpectLaunchIgnoreWarnings := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+		return runVMIAndExpectLaunchWithIgnoreWarningArg(vmi, timeout, true)
 	}
 
 	confirmVMIPostMigration := func(vmi *v1.VirtualMachineInstance, migrationUID string) {
@@ -627,6 +639,9 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				Expect(err).To(BeNil())
 				expecter.Close()
 
+				By("Checking that MigrationMethod is set to BlockMigration")
+				Expect(vmi.Status.MigrationMethod).To(Equal(v1.BlockMigration))
+
 				// execute a migration, wait for finalized state
 				By("Starting the Migration for iteration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -642,6 +657,83 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			})
+		})
+		Context("with an Fedora shared NFS PVC, cloud init and service account", func() {
+			var pvName string
+			var vmi *v1.VirtualMachineInstance
+			BeforeEach(func() {
+				pvName = "test-nfs" + rand.String(48)
+				// Prepare a NFS backed PV
+				By("Starting an NFS POD")
+				os := string(tests.ContainerDiskFedora)
+				nfsIP := tests.CreateNFSTargetPOD(os)
+				// create a new PV and PVC (PVs can't be reused)
+				By("create a new NFS PV and PVC")
+				tests.CreateNFSPvAndPvc(pvName, "5Gi", nfsIP, os)
+			}, 60)
+
+			AfterEach(func() {
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				// create a new PV and PVC (PVs can't be reused)
+				tests.DeletePvAndPvc(pvName)
+			}, 60)
+			It("[test_id:1785]  should be migrated successfully", func() {
+				// Start the VirtualMachineInstance with the PVC attached
+				By("Creating the  VMI")
+				vmi = tests.NewRandomVMIWithPVC(pvName)
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
+				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+				// add userdata for guest agent and service account mount
+				secretDiskSerial := "D23YZ9W6WA5DJ487"
+				mountSvcAccCommands := fmt.Sprintf(`
+					mkdir /mnt/servacc
+					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
+				`, secretDiskSerial)
+				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(), mountSvcAccCommands)
+				tests.AddUserData(vmi, "cloud-init", userData)
+
+				tests.AddServiceAccountDisk(vmi, "default")
+				disks := vmi.Spec.Domain.Devices.Disks
+				disks[len(disks)-1].Serial = secretDiskSerial
+
+				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+				// Wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInFedoraExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration for iteration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndExpectCompletion(migration, 180)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigration(vmi, migrationUID)
+
+				By("Checking that the migrated VirtualMachineInstance console has expected output")
+				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 60)
+				defer expecter.Close()
+				Expect(err).To(BeNil())
+
+				By("Checking that the service account is mounted")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
+					&expect.BExp{R: tests.NamespaceTestDefault},
+				}, 30*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
 			})
 		})
 

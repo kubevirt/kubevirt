@@ -192,6 +192,7 @@ func StartLibvirt(stopChan chan struct{}) {
 
 			go func() {
 				scanner := bufio.NewScanner(reader)
+				scanner.Buffer(make([]byte, 1024), 512*1024)
 				for scanner.Scan() {
 					log.LogLibvirtLogLine(log.Log, scanner.Text())
 				}

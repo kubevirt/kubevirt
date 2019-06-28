@@ -1,0 +1,22 @@
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+
+container_image(
+    name = "nfs-server-image",
+    base = "@nfs-server//image",
+    ports = [
+        "111/udp",
+        "2049/udp",
+        "32765/udp",
+        "32766/udp",
+        "32767/udp",
+        "111/tcp",
+        "2049/tcp",
+        "32765/tcp",
+        "32766/tcp",
+        "32767/tcp",
+    ],
+    visibility = ["//visibility:public"],
+)

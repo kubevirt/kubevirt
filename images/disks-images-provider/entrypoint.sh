@@ -31,6 +31,10 @@ LOOP_DEVICE=$(losetup --find --show /local-storage/cirros.img.raw)
 rm -f /local-storage/cirros-block-device
 ln -s $LOOP_DEVICE /local-storage/cirros-block-device
 
+echo "converting fedora image from qcow2 to raw"
+qemu-img convert -f qcow2 -O raw /images/fedora-cloud/disk.qcow2 /images/fedora-cloud/disk.img
+rm /images/fedora-cloud/disk.qcow2
+
 echo "copy all images to host mount directory"
 cp -R /images/* /hostImages/
 chmod -R 777 /hostImages
