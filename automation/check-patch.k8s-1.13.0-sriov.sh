@@ -62,9 +62,29 @@ function finish {
     kind delete cluster --name=${CLUSTER_NAME}
 }
 
+function enableVfio {
+    counter=0
+    for file in $(find /sys/devices/ -name *sriov_totalvfs*); do
+        pfroot=$(dirname $file)
+
+        # enable all enabled VFs. If it fails means that sysfs is not supported on that device and we pass
+        cat $file > $pfroot/sriov_numvfs || continue 
+
+        # bind all VFs with vfio
+        for virtfn in $(ls -d $pfroot/virtfn*); do
+            pciid=$(basename $(readlink $virtfn))
+            if [ -e $virtfn/driver/unbind ]; then
+                echo $pciid > $virtfn/driver/unbind
+            fi
+            echo $(lspci -n -s $pciid | sed 's/:/ /g' | awk '{print $4 " " $5}') > /sys/bus/pci/drivers/vfio-pci/new_id
+            counter=$((counter+1))
+        done
+    done
+}
+
 trap finish EXIT
 
-tools/util/vfio.sh
+enableVfio
 
 # ================
 # bring up cluster
