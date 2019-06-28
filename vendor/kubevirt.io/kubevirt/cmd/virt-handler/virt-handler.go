@@ -31,6 +31,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,12 +42,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/cert"
-	"k8s.io/client-go/util/cert/triple"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/certificates"
+	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -57,6 +56,7 @@ import (
 	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -200,10 +200,6 @@ func (app *virtHandlerApp) Run() {
 	// Scheme is used to create an ObjectReference from an Object (e.g. VirtualMachineInstance) during Event creation
 	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: app.HostOverride})
 
-	if err != nil {
-		panic(err)
-	}
-
 	vmiSourceLabel, err := labels.Parse(fmt.Sprintf(v1.NodeNameLabel+" in (%s)", app.HostOverride))
 	if err != nil {
 		panic(err)
@@ -271,7 +267,7 @@ func (app *virtHandlerApp) Run() {
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
-		virtconfig.NewClusterConfig(factory.ConfigMap().GetStore(), app.namespace),
+		virtconfig.NewClusterConfig(factory.ConfigMap(), app.namespace),
 		app.migrationTLSConfig,
 	)
 

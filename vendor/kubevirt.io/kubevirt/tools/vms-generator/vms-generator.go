@@ -27,11 +27,14 @@ import (
 
 	"kubevirt.io/kubevirt/tools/util"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
@@ -41,8 +44,12 @@ func main() {
 	genDir := flag.String("generated-vms-dir", "", "")
 	flag.Parse()
 
-	// Required to validate DataVolume usage
-	os.Setenv("FEATURE_GATES", "DataVolumes,LiveMigration,SRIOV")
+	config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{
+		Data: map[string]string{
+			// Required to validate DataVolume usage
+			virtconfig.FeatureGatesKey: "DataVolumes,LiveMigration,SRIOV",
+		},
+	})
 
 	var vms = map[string]*v1.VirtualMachine{
 		utils.VmCirros:           utils.GetVMCirros(),
@@ -125,19 +132,19 @@ func main() {
 
 	// Having no generics is lots of fun
 	for name, obj := range vms {
-		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec)
+		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec, config)
 		handleCauses(causes, name, "vm")
 		handleError(dumpObject(name, *obj))
 	}
 
 	for name, obj := range vmis {
-		causes := validating_webhook.ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &obj.Spec)
+		causes := validating_webhook.ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &obj.Spec, config)
 		handleCauses(causes, name, "vmi")
 		handleError(dumpObject(name, *obj))
 	}
 
 	for name, obj := range vmireplicasets {
-		causes := validating_webhook.ValidateVMIRSSpec(k8sfield.NewPath("spec"), &obj.Spec)
+		causes := validating_webhook.ValidateVMIRSSpec(k8sfield.NewPath("spec"), &obj.Spec, config)
 		handleCauses(causes, name, "vmi replica set")
 		handleError(dumpObject(name, *obj))
 	}

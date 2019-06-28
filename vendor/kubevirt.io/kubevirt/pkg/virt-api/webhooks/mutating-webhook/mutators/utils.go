@@ -13,32 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017, 2018 Red Hat, Inc.
+ * Copyright 2018 Red Hat, Inc.
  *
  */
 
-package virtconfig
+package mutators
 
-/*
- This module is intended for retrieving virt related properties that might
- be overridden by kubevirt-config configmap.
- Note that the virtconfig package needs to be initialized before using this (see config-map.Init)
-*/
-
-import (
-	"os"
-	"strings"
-)
-
-func SupportedEmulatedMachines() []string {
-	config := os.Getenv(emulatedMachinesEnvVar)
-	if len(config) == 0 {
-		return []string{"q35*", "pc-q35*"}
-	}
-
-	vals := strings.Split(config, ",")
-	for i := range vals {
-		vals[i] = strings.TrimSpace(vals[i])
-	}
-	return vals
+type patchOperation struct {
+	Op    string      `json:"op"`
+	Path  string      `json:"path"`
+	Value interface{} `json:"value,omitempty"`
 }

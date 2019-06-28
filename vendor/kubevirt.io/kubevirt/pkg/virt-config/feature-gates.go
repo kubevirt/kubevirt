@@ -25,7 +25,6 @@ package virtconfig
 */
 
 import (
-	"os"
 	"strings"
 )
 
@@ -39,26 +38,34 @@ const (
 	HypervStrictCheckGate = "HypervStrictCheck"
 )
 
-func DataVolumesEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), dataVolumesGate)
+func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
+	return strings.Contains(c.getConfig().FeatureGates, featureGate)
 }
 
-func CPUManagerEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), cpuManager)
+func (config *ClusterConfig) DataVolumesEnabled() bool {
+	return config.isFeatureGateEnabled(dataVolumesGate)
 }
 
-func IgnitionEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), ignitionGate)
+func (config *ClusterConfig) CPUManagerEnabled() bool {
+	return config.isFeatureGateEnabled(cpuManager)
 }
 
-func LiveMigrationEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), liveMigrationGate)
+func (config *ClusterConfig) IgnitionEnabled() bool {
+	return config.isFeatureGateEnabled(ignitionGate)
 }
 
-func SRIOVEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), SRIOVGate)
+func (config *ClusterConfig) LiveMigrationEnabled() bool {
+	return config.isFeatureGateEnabled(liveMigrationGate)
 }
 
-func HypervStrictCheckEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), HypervStrictCheckGate)
+func (config *ClusterConfig) SRIOVEnabled() bool {
+	return config.isFeatureGateEnabled(SRIOVGate)
+}
+
+func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
+	return config.isFeatureGateEnabled(HypervStrictCheckGate)
+}
+
+func (config *ClusterConfig) CPUNodeDiscoveryEnabled() bool {
+	return config.isFeatureGateEnabled(CPUNodeDiscoveryGate)
 }

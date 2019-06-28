@@ -72,11 +72,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
@@ -470,6 +470,9 @@ func CleanNodes() {
 
 			if taint.Key == "kubevirt.io/drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
 				found = true
+			} else if taint.Key == "kubevirt.io/alt-drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
+				// this key is used in testing as a custom alternate drain key
+				found = true
 			} else {
 				taints = append(taints, taint)
 			}
@@ -482,6 +485,10 @@ func CleanNodes() {
 				found = true
 				delete(new.Labels, k)
 			}
+		}
+
+		if node.Spec.Unschedulable {
+			new.Spec.Unschedulable = false
 		}
 
 		if !found {
@@ -832,24 +839,13 @@ func IsOpenShift() bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	result := virtClient.RestClient().Get().AbsPath("/version/openshift").Do()
-
-	var statusCode int
-	result.StatusCode(&statusCode)
-
-	if result.Error() == nil {
-		// It is OpenShift
-		if statusCode == http.StatusOK {
-			return true
-		}
-	} else {
-		// Got 404 so this is not Openshift
-		if statusCode == http.StatusNotFound {
-			return false
-		}
+	isOpenShift, err := util.IsOnOpenshift(virtClient)
+	if err != nil {
+		fmt.Printf("ERROR: Can not determine cluster type %v\n", err)
+		panic(err)
 	}
-	fmt.Printf(fmt.Sprintf("ERROR: Can not determine cluster type %#v\n", result))
-	panic(err)
+
+	return isOpenShift
 }
 
 func composeResourceURI(object unstructured.Unstructured) string {
@@ -1447,6 +1443,13 @@ func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstanc
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return vmi
+}
+
+func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
+	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+	vm := NewRandomVirtualMachine(vmi, false)
+
+	return vm
 }
 
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
@@ -2075,7 +2078,7 @@ func waitForVMIPhase(phases []v1.VirtualMachineInstancePhase, obj runtime.Object
 		nodeName = vmi.Status.NodeName
 		Expect(vmi.IsFinal()).To(BeFalse(), "VMI unexpectedly stopped. State: %s", vmi.Status.Phase)
 		return vmi.Status.Phase
-	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(testutils.BeIn(phases), timeoutMsg)
+	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(BeElementOf(phases), timeoutMsg)
 
 	return
 }
@@ -2730,13 +2733,13 @@ func RunCommandPipeWithNS(namespace string, commands ...[]string) (string, strin
 	return outputString, stderrString, nil
 }
 
-func GenerateVMJson(vm *v1.VirtualMachine) (string, error) {
+func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, error) {
 	data, err := json.Marshal(vm)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate json for vm %s", vm.Name)
 	}
 
-	jsonFile := fmt.Sprintf("%s.json", vm.Name)
+	jsonFile := filepath.Join(generateDirectory, fmt.Sprintf("%s.json", vm.Name))
 	err = ioutil.WriteFile(jsonFile, data, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write json file %s", jsonFile)
@@ -2744,13 +2747,13 @@ func GenerateVMJson(vm *v1.VirtualMachine) (string, error) {
 	return jsonFile, nil
 }
 
-func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
+func GenerateVMIJson(vmi *v1.VirtualMachineInstance, generateDirectory string) (string, error) {
 	data, err := json.Marshal(vmi)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate json for vmi %s", vmi.Name)
 	}
 
-	jsonFile := fmt.Sprintf("%s.json", vmi.Name)
+	jsonFile := filepath.Join(generateDirectory, fmt.Sprintf("%s.json", vmi.Name))
 	err = ioutil.WriteFile(jsonFile, data, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write json file %s", jsonFile)
@@ -2758,18 +2761,13 @@ func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
 	return jsonFile, nil
 }
 
-func GenerateTemplateJson(template *vmsgen.Template) (string, error) {
+func GenerateTemplateJson(template *vmsgen.Template, generateDirectory string) (string, error) {
 	data, err := json.Marshal(template)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate json for template %q: %v", template.Name, err)
 	}
 
-	dir, err := ioutil.TempDir("", TempDirPrefix+"-")
-	if err != nil {
-		return "", fmt.Errorf("failed to create a temporary directory in %q: %v", os.TempDir(), err)
-	}
-
-	jsonFile := filepath.Join(dir, template.Name+".json")
+	jsonFile := filepath.Join(generateDirectory, template.Name+".json")
 	if err = ioutil.WriteFile(jsonFile, data, 0644); err != nil {
 		return "", fmt.Errorf("failed to write json to file %q: %v", jsonFile, err)
 	}
@@ -3086,6 +3084,26 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 	}
 }
 
+func SkipIfVersionAboveOrEqual(message string, expectedVersion string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	var info k8sversion.Info
+
+	err = json.Unmarshal(response, &info)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	curVersion := strings.Split(info.GitVersion, "+")[0]
+	curVersion = strings.Trim(curVersion, "v")
+
+	if curVersion >= expectedVersion {
+		Skip(message)
+	}
+}
+
 func SkipIfOpenShift(message string) {
 	if IsOpenShift() {
 		Skip("Openshift detected: " + message)
@@ -3370,6 +3388,10 @@ func HasDataVolumeCRD() bool {
 
 func HasCDI() bool {
 	return HasFeature("DataVolumes")
+}
+
+func HasExperimentalIgnitionSupport() bool {
+	return HasFeature("ExperimentalIgnitionSupport")
 }
 
 func HasLiveMigration() bool {

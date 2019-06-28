@@ -34,11 +34,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/cert"
-	"k8s.io/client-go/util/cert/triple"
 
 	"github.com/blang/semver"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -1358,10 +1358,12 @@ func addOrRemoveSSC(targetStrategy *InstallStrategy,
 		if !ok {
 			return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSCCObj)
 		}
+
+		oldUsers := privSCC.Users
 		privSCCCopy := privSCC.DeepCopy()
+		users := privSCCCopy.Users
 
 		modified := false
-		users := privSCCCopy.Users
 
 		// remove users from previous
 		if curSccPriv != nil && !addOnly {
@@ -1392,13 +1394,19 @@ func addOrRemoveSSC(targetStrategy *InstallStrategy,
 		}
 
 		if modified {
+			oldUserBytes, err := json.Marshal(oldUsers)
+			if err != nil {
+				return err
+			}
 			userBytes, err := json.Marshal(users)
 			if err != nil {
 				return err
 			}
 
-			data := []byte(fmt.Sprintf(`{"users": %s}`, userBytes))
-			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetSCC, types.StrategicMergePatchType, data)
+			test := fmt.Sprintf(`{ "op": "test", "path": "/users", "value": %s }`, string(oldUserBytes))
+			patch := fmt.Sprintf(`{ "op": "replace", "path": "/users", "value": %s }`, string(userBytes))
+
+			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetSCC, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
 			if err != nil {
 				return fmt.Errorf("unable to patch scc: %v", err)
 			}

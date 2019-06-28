@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -105,7 +106,7 @@ func main() {
 		// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
 		data.ReplacesCsvVersion = ""
 		if strings.Contains(*inputFile, ".csv.yaml") && *bundleOutDir != "" && data.QuayRepository != "" {
-			bundleHelper, err := helper.NewBundleHelper(*quayRepository)
+			bundleHelper, err := helper.NewBundleHelper(*quayRepository, *packageName)
 			if err != nil {
 				panic(err)
 			}
@@ -188,7 +189,17 @@ func getOperatorDeploymentSpec(data templateData) string {
 	if err != nil {
 		panic(err)
 	}
-	return fixResourceString(writer.String(), 12)
+	spec := writer.String()
+
+	// remove creationTimestamp
+	re := regexp.MustCompile("(?m)[\r\n]+^.*creationTimestamp.*$")
+	spec = re.ReplaceAllString(spec, "")
+
+	// operatorhub.io CI currently doesn't support more than 1 replica
+	re = regexp.MustCompile("(?m)^replicas: 2$")
+	spec = re.ReplaceAllString(spec, "replicas: 1")
+
+	return fixResourceString(spec, 12)
 }
 
 func fixResourceString(in string, indention int) string {

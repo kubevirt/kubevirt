@@ -39,11 +39,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/cert"
-	"k8s.io/client-go/util/cert/triple"
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -107,6 +107,7 @@ type virtAPIApp struct {
 	aggregatorClient *aggregatorclient.Clientset
 	authorizor       rest.VirtApiAuthorizor
 	certsDirectory   string
+	clusterConfig    *virtconfig.ClusterConfig
 
 	signingCertBytes []byte
 	certBytes        []byte
@@ -127,8 +128,6 @@ func NewVirtApi() VirtApi {
 }
 
 func (app *virtAPIApp) Execute() {
-	virtconfig.Init()
-
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
@@ -726,11 +725,6 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			return err
 		}
 	} else {
-		for _, webhook := range webhookRegistration.Webhooks {
-			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != app.namespace {
-				return fmt.Errorf("ValidatingAdmissionWebhook [%s] is already registered using services endpoints in a different namespace. Existing webhook registration must be deleted before virt-api can proceed.", virtWebhookValidator)
-			}
-		}
 
 		// update registered webhook with our data
 		webhookRegistration.Webhooks = webHooks
@@ -742,22 +736,22 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 	}
 
 	http.HandleFunc(vmiCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMICreate(w, r)
+		validating_webhook.ServeVMICreate(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(vmiUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIUpdate(w, r)
 	})
 	http.HandleFunc(vmValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMs(w, r)
+		validating_webhook.ServeVMs(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(vmirsValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMIRS(w, r)
+		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(vmipresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIPreset(w, r)
 	})
 	http.HandleFunc(migrationCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationCreate(w, r)
+		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(migrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationUpdate(w, r)
@@ -844,12 +838,6 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 		}
 	} else {
 
-		for _, webhook := range webhookRegistration.Webhooks {
-			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != app.namespace {
-				return fmt.Errorf("MutatingAdmissionWebhook [%s] is already registered using services endpoints in a different namespace. Existing webhook registration must be deleted before virt-api can proceed.", virtWebhookMutator)
-			}
-		}
-
 		// update registered webhook with our data
 		webhookRegistration.Webhooks = webHooks
 
@@ -860,7 +848,7 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 	}
 
 	http.HandleFunc(vmiMutatePath, func(w http.ResponseWriter, r *http.Request) {
-		mutating_webhook.ServeVMIs(w, r)
+		mutating_webhook.ServeVMIs(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(migrationMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeMigrationCreate(w, r)
@@ -916,9 +904,6 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 			return err
 		}
 	} else {
-		if apiService.Spec.Service != nil && apiService.Spec.Service.Namespace != app.namespace {
-			return fmt.Errorf("apiservice [%s] is already registered in a different namespace. Existing apiservice registration must be deleted before virt-api can proceed.", subresourceApiservice.Name)
-		}
 
 		// Always update spec to latest.
 		apiService.Spec = app.subresourceApiservice().Spec
@@ -1030,19 +1015,23 @@ func (app *virtAPIApp) Run() {
 
 	// Run informers for webhooks usage
 	webhookInformers := webhooks.GetInformers()
+	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.namespace)
+	configMapInformer := kubeInformerFactory.ConfigMap()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
 	go webhookInformers.VMIInformer.Run(stopChan)
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
-	go webhookInformers.ConfigMapInformer.Run(stopChan)
+	go configMapInformer.Run(stopChan)
 
 	cache.WaitForCacheSync(stopChan,
 		webhookInformers.VMIInformer.HasSynced,
 		webhookInformers.VMIPresetInformer.HasSynced,
 		webhookInformers.NamespaceLimitsInformer.HasSynced,
-		webhookInformers.ConfigMapInformer.HasSynced)
+		configMapInformer.HasSynced)
+
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, app.namespace)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()
