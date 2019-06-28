@@ -67,7 +67,7 @@ func CreateSocket(socketPath string) (net.Listener, error) {
 
 	err := os.MkdirAll(filepath.Dir(socketPath), 0755)
 	if err != nil {
-		log.Log.Reason(err).Error("unable to create directory for unix socket")
+		log.Log.Reason(err).Errorf("unable to create directory for unix socket %v", socketPath)
 		return nil, err
 	}
 
