@@ -74,6 +74,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Context("with injected data", func() {
 				It("[test_id:1616]should have injected data under firmware directory", func() {
 					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(tests.ContainerDiskFor(tests.ContainerDiskFedora), "#!/bin/sh\n\necho fedora| passwd --stdin fedora\n")
+					vmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
+
 					ignitionData := "ignition injected"
 					vmi.Annotations = map[string]string{"kubevirt.io/ignitiondata": ignitionData}
 
