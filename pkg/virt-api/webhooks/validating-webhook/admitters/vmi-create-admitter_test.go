@@ -2483,4 +2483,90 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
 		Expect(len(causes)).To(Equal(0))
 	})
+
+	It("Should validate VMIs without HyperV configuration", func() {
+		vmi := v1.NewMinimalVMI("testvmi")
+		Expect(vmi.Spec.Domain.Features).To(BeNil())
+		path := k8sfield.NewPath("spec")
+		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
+		Expect(len(causes)).To(Equal(0))
+	})
+
+	It("Should validate VMIs with empty HyperV configuration", func() {
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{},
+		}
+		path := k8sfield.NewPath("spec")
+		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
+		Expect(len(causes)).To(Equal(0))
+	})
+
+	It("Should validate VMIs with hyperv configuration without deps", func() {
+		_true := true
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				Relaxed: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				Runtime: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				Reset: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+		path := k8sfield.NewPath("spec")
+		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
+		Expect(len(causes)).To(Equal(0))
+	})
+
+	It("Should not validate VMIs with broken hyperv deps", func() {
+		_true := true
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				Relaxed: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				SyNIC: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				SyNICTimer: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+		path := k8sfield.NewPath("spec")
+		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
+		Expect(len(causes)).To(BeNumerically(">=", 1))
+	})
+
+	It("Should validate VMIs with correct hyperv deps", func() {
+		_true := true
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				Relaxed: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				VPIndex: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				SyNIC: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				SyNICTimer: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+
+		path := k8sfield.NewPath("spec")
+		causes := webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(path, &vmi.Spec)
+		Expect(len(causes)).To(Equal(0))
+	})
+
 })

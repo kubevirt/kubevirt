@@ -17,6 +17,10 @@
  *
  */
 
+/*
+ * hyperv utilities are in the webhooks package because they are used both
+ * by validation and mutation webhooks.
+ */
 package webhooks
 
 import (
