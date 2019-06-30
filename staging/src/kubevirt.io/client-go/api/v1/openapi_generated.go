@@ -2148,7 +2148,7 @@ func schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"requests": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Requests is a description of the initial vmi resources. Valid resource keys are \"memory\" and \"cpu\".",
+							Description: "Requests is a description of the initial vmi resources. Valid resource keys are \"memory\", \"memory-overhead\" and \"cpu\".",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Schema: &spec.Schema{
@@ -2161,7 +2161,7 @@ func schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref common.Referenc
 					},
 					"limits": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Limits describes the maximum amount of compute resources allowed. Valid resource keys are \"memory\" and \"cpu\".",
+							Description: "Limits describes the maximum amount of compute resources allowed. Valid resource keys are \"memory\", \"memory-overhead\" and \"cpu\".",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Schema: &spec.Schema{
@@ -2174,7 +2174,7 @@ func schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref common.Referenc
 					},
 					"overcommitGuestOverhead": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Don't ask the scheduler to take the guest-management overhead into account. Instead put the overhead only into the container's memory limit. This can lead to crashes if all memory is in use on a node. Defaults to false.",
+							Description: "Don't ask the scheduler to take the guest-management overhead into account. Instead put the overhead only into the container's memory limit. This can lead to crashes if all memory is in use on a node. Defaults to false. Deprecated: set requests.memory-overhead to 0 instead.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

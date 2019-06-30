@@ -71,9 +71,9 @@ var _ = Describe("[rfe_id:609]VMIheadless", func() {
 			It("[test_id:737][posneg:positive]should match memory with overcommit enabled", func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("100M"),
+						kubev1.ResourceMemory:     resource.MustParse("100M"),
+						v1.ResourceMemoryOverhead: resource.MustParse("0"),
 					},
-					OvercommitGuestOverhead: true,
 				}
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 

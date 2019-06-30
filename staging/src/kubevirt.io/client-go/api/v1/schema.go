@@ -201,16 +201,17 @@ type EFI struct {
 // +k8s:openapi-gen=true
 type ResourceRequirements struct {
 	// Requests is a description of the initial vmi resources.
-	// Valid resource keys are "memory" and "cpu".
+	// Valid resource keys are "memory", "memory-overhead" and "cpu".
 	// +optional
 	Requests v1.ResourceList `json:"requests,omitempty"`
 	// Limits describes the maximum amount of compute resources allowed.
-	// Valid resource keys are "memory" and "cpu".
+	// Valid resource keys are "memory", "memory-overhead" and "cpu".
 	// +optional
 	Limits v1.ResourceList `json:"limits,omitempty"`
 	// Don't ask the scheduler to take the guest-management overhead into account. Instead
 	// put the overhead only into the container's memory limit. This can lead to crashes if
 	// all memory is in use on a node. Defaults to false.
+	// Deprecated: set requests.memory-overhead to 0 instead.
 	OvercommitGuestOverhead bool `json:"overcommitGuestOverhead,omitempty"`
 }
 

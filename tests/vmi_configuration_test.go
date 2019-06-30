@@ -448,7 +448,7 @@ var _ = Describe("Configurations", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				guestMemory := resource.MustParse("256Mi")
 				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64Mi")
-				vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
+				vmi.Spec.Domain.Resources.Requests[v1.ResourceMemoryOverhead] = resource.MustParse("0")
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guestMemory,
 				}
@@ -490,7 +490,7 @@ var _ = Describe("Configurations", func() {
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("128M")
-			vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
+			vmi.Spec.Domain.Resources.Requests[v1.ResourceMemoryOverhead] = resource.MustParse("0")
 
 			// Create VMI inside BeforeEach because it gets cleanedup, see BeforeEach at the top
 			BeforeEach(func() {
@@ -507,7 +507,8 @@ var _ = Describe("Configurations", func() {
 			It("[test_id:731]Check OverCommit status on VMI", func() {
 				overcommitVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(overcommitVmi.Spec.Domain.Resources.OvercommitGuestOverhead).To(BeTrue())
+				memoryOverhead := overcommitVmi.Spec.Domain.Resources.Requests[v1.ResourceMemoryOverhead]
+				Expect(memoryOverhead.Value()).To(BeZero())
 			})
 			It("[test_id:731]Check Free memory on the VMI", func() {
 				By("Expecting console")

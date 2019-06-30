@@ -786,12 +786,13 @@ var _ = Describe("Template", func() {
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Resources: v1.ResourceRequirements{
-								OvercommitGuestOverhead: true,
 								Requests: kubev1.ResourceList{
-									kubev1.ResourceMemory: resource.MustParse("1G"),
+									kubev1.ResourceMemory:     resource.MustParse("1G"),
+									v1.ResourceMemoryOverhead: resource.MustParse("0"),
 								},
 								Limits: kubev1.ResourceList{
-									kubev1.ResourceMemory: resource.MustParse("2G"),
+									kubev1.ResourceMemory:     resource.MustParse("2G"),
+									v1.ResourceMemoryOverhead: resource.MustParse("0"),
 								},
 							},
 						},

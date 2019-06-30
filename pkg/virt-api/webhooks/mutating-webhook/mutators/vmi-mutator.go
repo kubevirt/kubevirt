@@ -235,6 +235,17 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 		}
 	}
 
+	if _, exists := resources.Requests[v1.ResourceMemoryOverhead]; !exists {
+		if resources.Requests == nil {
+			resources.Requests = k8sv1.ResourceList{}
+		}
+		if vmi.Spec.Domain.Resources.OvercommitGuestOverhead {
+			resources.Requests[v1.ResourceMemoryOverhead] = resource.MustParse("0")
+		} else {
+			resources.Requests[v1.ResourceMemoryOverhead] = resources.Limits[v1.ResourceMemoryOverhead]
+		}
+	}
+
 	if _, exists := resources.Requests[k8sv1.ResourceCPU]; !exists {
 		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
 			return

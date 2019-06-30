@@ -166,8 +166,26 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		// no default for requested memory when no memory is specified
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))
 		// memory overhead should be set to 179M for a VMI with 3 CPUs and graphics
-		memoryOverhead := vmiSpec.Domain.Resources.Limits[v1.ResourceMemoryOverhead]
-		Expect(memoryOverhead.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
+		memoryOverheadLimit := vmiSpec.Domain.Resources.Limits[v1.ResourceMemoryOverhead]
+		Expect(memoryOverheadLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
+		// be default, requests.memory-overhead == limits.memory-overhead
+		memoryOverheadRequest := vmiSpec.Domain.Resources.Requests[v1.ResourceMemoryOverhead]
+		Expect(memoryOverheadRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
+	})
+
+	It("should respect deprecated overcommitGuestOverhead", func() {
+		// no limits wanted on this test, to not copy the limit to requests
+		namespaceLimitInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})
+		webhooks.SetInformers(
+			&webhooks.Informers{
+				VMIPresetInformer:       presetInformer,
+				NamespaceLimitsInformer: namespaceLimitInformer,
+			},
+		)
+		vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		memoryOverheadRequest := vmiSpec.Domain.Resources.Requests[v1.ResourceMemoryOverhead]
+		Expect(memoryOverheadRequest.String()).To(Equal("0"))
 	})
 
 	It("should apply configurable defaults on VMI create", func() {

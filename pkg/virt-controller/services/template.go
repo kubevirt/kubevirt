@@ -526,19 +526,22 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
 	vmiResources := vmi.Spec.Domain.Resources
-	memoryOverhead := vmiResources.Limits[v1.ResourceMemoryOverhead]
 
 	resources.Requests = make(k8sv1.ResourceList)
 	resources.Limits = make(k8sv1.ResourceList)
 
 	// Copy vmi resources requests to a container
 	for key, value := range vmiResources.Requests {
-		resources.Requests[key] = value
+		if IsStandardContainerResourceName(string(key)) {
+			resources.Requests[key] = value
+		}
 	}
 
 	// Copy vmi resources limits to a container
 	for key, value := range vmiResources.Limits {
-		resources.Limits[key] = value
+		if IsStandardContainerResourceName(string(key)) {
+			resources.Limits[key] = value
+		}
 	}
 
 	// Consider hugepages resource for pod scheduling
@@ -562,20 +565,21 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		})
 
 		// Set requested memory equals to overhead memory
-		resources.Requests[k8sv1.ResourceMemory] = memoryOverhead
+		resources.Requests[k8sv1.ResourceMemory] = vmiResources.Requests[v1.ResourceMemoryOverhead]
 		if _, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-			resources.Limits[k8sv1.ResourceMemory] = memoryOverhead
+			resources.Limits[k8sv1.ResourceMemory] = vmiResources.Limits[v1.ResourceMemoryOverhead]
 		}
 	} else {
 		// Add overhead memory
-		memoryRequest := resources.Requests[k8sv1.ResourceMemory]
-		if !vmi.Spec.Domain.Resources.OvercommitGuestOverhead {
-			memoryRequest.Add(memoryOverhead)
+		if memoryRequest, ok := resources.Requests[k8sv1.ResourceMemory]; ok {
+			memoryOverheadRequest := vmiResources.Requests[v1.ResourceMemoryOverhead]
+			memoryRequest.Add(memoryOverheadRequest)
+			resources.Requests[k8sv1.ResourceMemory] = memoryRequest
 		}
-		resources.Requests[k8sv1.ResourceMemory] = memoryRequest
 
 		if memoryLimit, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-			memoryLimit.Add(memoryOverhead)
+			memoryOverheadLimit := vmiResources.Limits[v1.ResourceMemoryOverhead]
+			memoryLimit.Add(memoryOverheadLimit)
 			resources.Limits[k8sv1.ResourceMemory] = memoryLimit
 		}
 	}
