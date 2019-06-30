@@ -78,6 +78,7 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	log.Log.Object(&vmi).V(4).Info("Apply defaults")
 	mutator.setDefaultCPUModel(&vmi)
 	mutator.setDefaultMachineType(&vmi)
+	mutator.setDefaultMemoryOverhead(&vmi)
 	mutator.setDefaultResourceRequests(&vmi)
 	mutator.setDefaultPullPoliciesOnContainerDisks(&vmi)
 	err = mutator.setDefaultNetworkInterface(&vmi)
@@ -243,4 +244,57 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 		}
 		resources.Requests[k8sv1.ResourceCPU] = mutator.ClusterConfig.GetCPURequest()
 	}
+}
+
+func (mutator *VMIsMutator) setDefaultMemoryOverhead(vmi *v1.VirtualMachineInstance) {
+	resources := &vmi.Spec.Domain.Resources
+	if _, exists := resources.Limits[v1.ResourceMemoryOverhead]; !exists {
+		if resources.Limits == nil {
+			resources.Limits = k8sv1.ResourceList{}
+		}
+		resources.Limits[v1.ResourceMemoryOverhead] = *mutator.getMemoryOverhead(vmi)
+	}
+}
+
+// getMemoryOverhead computes the estimation of total
+// memory needed for the domain to operate properly.
+// This includes the memory needed for the guest and memory
+// for Qemu and OS overhead.
+//
+// The return value is overhead memory quantity
+//
+// Note: This is the best estimation we were able to come up with
+//       and is still not 100% accurate
+func (mutator *VMIsMutator) getMemoryOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
+	domain := vmi.Spec.Domain
+	vmiMemoryReq := domain.Resources.Requests.Memory()
+
+	overhead := resource.NewScaledQuantity(0, resource.Kilo)
+
+	// Add the memory needed for pagetables (one bit for every 512b of RAM size)
+	pagetableMemory := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
+	pagetableMemory.Set(pagetableMemory.Value() / 512)
+	overhead.Add(*pagetableMemory)
+
+	// Add fixed overhead for shared libraries and such
+	overhead.Add(mutator.ClusterConfig.GetKubevirtMemoryOverhead())
+
+	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
+	// overhead per vcpu in MiB
+	coresMemory := resource.MustParse("8Mi")
+	if domain.CPU != nil {
+		value := coresMemory.Value() * int64(domain.CPU.Cores)
+		coresMemory = *resource.NewQuantity(value, coresMemory.Format)
+	}
+	overhead.Add(coresMemory)
+
+	// static overhead for IOThread
+	overhead.Add(resource.MustParse("8Mi"))
+
+	// Add video RAM overhead
+	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice == true {
+		overhead.Add(resource.MustParse("16Mi"))
+	}
+
+	return overhead
 }

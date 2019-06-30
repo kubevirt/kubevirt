@@ -55,6 +55,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	cpuModelFromConfig := "Haswell"
 	machineTypeFromConfig := "pc-q35-3.0"
 	cpuRequestFromConfig := "800m"
+	kubevirtMemoryOverheadFromConfig := "512M"
 
 	getVMISpecMetaFromResponse := func() (*v1.VirtualMachineInstanceSpec, *k8smetav1.ObjectMeta) {
 		vmiBytes, err := json.Marshal(vmi)
@@ -105,7 +106,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 			Spec: v1.VirtualMachineInstancePresetSpec{
 				Domain: &v1.DomainSpec{
-					CPU: &v1.CPU{Cores: 4},
+					CPU: &v1.CPU{Cores: 3},
 				},
 				Selector: selector,
 			},
@@ -141,7 +142,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	It("should apply presets on VMI create", func() {
 		vmiSpec, _ := getVMISpecMetaFromResponse()
 		Expect(vmiSpec.Domain.CPU).ToNot(BeNil())
-		Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(4)))
+		Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(3)))
 	})
 
 	It("should apply namespace limit ranges on VMI create", func() {
@@ -164,6 +165,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal("100m"))
 		// no default for requested memory when no memory is specified
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))
+		// memory overhead should be set to 179M for a VMI with 3 CPUs and graphics
+		memoryOverhead := vmiSpec.Domain.Resources.Limits[v1.ResourceMemoryOverhead]
+		Expect(memoryOverhead.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
 	})
 
 	It("should apply configurable defaults on VMI create", func() {
@@ -177,9 +181,10 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		)
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 			Data: map[string]string{
-				virtconfig.CpuModelKey:    cpuModelFromConfig,
-				virtconfig.MachineTypeKey: machineTypeFromConfig,
-				virtconfig.CpuRequestKey:  cpuRequestFromConfig,
+				virtconfig.CpuModelKey:               cpuModelFromConfig,
+				virtconfig.MachineTypeKey:            machineTypeFromConfig,
+				virtconfig.CpuRequestKey:             cpuRequestFromConfig,
+				virtconfig.KubevirtMemoryOverheadKey: kubevirtMemoryOverheadFromConfig,
 			},
 		})
 
@@ -187,7 +192,22 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModelFromConfig))
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal(cpuRequestFromConfig))
+		memoryOverhead := vmiSpec.Domain.Resources.Limits[v1.ResourceMemoryOverhead]
+		Expect(memoryOverhead.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(563)))
 	})
+
+	table.DescribeTable("should check autoattachGraphicsDevice", func(autoAttach *bool, memory int) {
+		vmi.Spec.Domain.Devices = v1.Devices{
+			AutoattachGraphicsDevice: autoAttach,
+		}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		memoryOverhead := vmiSpec.Domain.Resources.Limits[v1.ResourceMemoryOverhead]
+		Expect(memoryOverhead.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
+	},
+		table.Entry("and consider graphics overhead if it is not set", nil, 179),
+		table.Entry("and consider graphics overhead if it is set to true", True(), 179),
+		table.Entry("and not consider graphics overhead if it is set to false", False(), 162),
+	)
 
 	table.DescribeTable("it should", func(given []v1.Volume, expected []v1.Volume) {
 		vmi.Spec.Volumes = given
@@ -645,3 +665,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	})
 
 })
+
+func True() *bool {
+	b := true
+	return &b
+}
+
+func False() *bool {
+	b := false
+	return &b
+}

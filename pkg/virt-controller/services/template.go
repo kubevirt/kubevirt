@@ -523,12 +523,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
-	// Get memory overhead
-	memoryOverhead := t.getMemoryOverhead(vmi.Spec.Domain)
-
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
 	vmiResources := vmi.Spec.Domain.Resources
+	memoryOverhead := vmiResources.Limits[v1.ResourceMemoryOverhead]
 
 	resources.Requests = make(k8sv1.ResourceList)
 	resources.Limits = make(k8sv1.ResourceList)
@@ -564,20 +562,20 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		})
 
 		// Set requested memory equals to overhead memory
-		resources.Requests[k8sv1.ResourceMemory] = *memoryOverhead
+		resources.Requests[k8sv1.ResourceMemory] = memoryOverhead
 		if _, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-			resources.Limits[k8sv1.ResourceMemory] = *memoryOverhead
+			resources.Limits[k8sv1.ResourceMemory] = memoryOverhead
 		}
 	} else {
 		// Add overhead memory
 		memoryRequest := resources.Requests[k8sv1.ResourceMemory]
 		if !vmi.Spec.Domain.Resources.OvercommitGuestOverhead {
-			memoryRequest.Add(*memoryOverhead)
+			memoryRequest.Add(memoryOverhead)
 		}
 		resources.Requests[k8sv1.ResourceMemory] = memoryRequest
 
 		if memoryLimit, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-			memoryLimit.Add(*memoryOverhead)
+			memoryLimit.Add(memoryOverhead)
 			resources.Limits[k8sv1.ResourceMemory] = memoryLimit
 		}
 	}
@@ -962,48 +960,6 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 		}
 	}
 	return append(secrets, newsecret)
-}
-
-// getMemoryOverhead computes the estimation of total
-// memory needed for the domain to operate properly.
-// This includes the memory needed for the guest and memory
-// for Qemu and OS overhead.
-//
-// The return value is overhead memory quantity
-//
-// Note: This is the best estimation we were able to come up with
-//       and is still not 100% accurate
-func (t *templateService) getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
-	vmiMemoryReq := domain.Resources.Requests.Memory()
-
-	overhead := resource.NewScaledQuantity(0, resource.Kilo)
-
-	// Add the memory needed for pagetables (one bit for every 512b of RAM size)
-	pagetableMemory := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
-	pagetableMemory.Set(pagetableMemory.Value() / 512)
-	overhead.Add(*pagetableMemory)
-
-	// Add fixed overhead for shared libraries and such
-	overhead.Add(t.clusterConfig.GetKubevirtMemoryOverhead())
-
-	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
-	// overhead per vcpu in MiB
-	coresMemory := resource.MustParse("8Mi")
-	if domain.CPU != nil {
-		value := coresMemory.Value() * int64(domain.CPU.Cores)
-		coresMemory = *resource.NewQuantity(value, coresMemory.Format)
-	}
-	overhead.Add(coresMemory)
-
-	// static overhead for IOThread
-	overhead.Add(resource.MustParse("8Mi"))
-
-	// Add video RAM overhead
-	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice == true {
-		overhead.Add(resource.MustParse("16Mi"))
-	}
-
-	return overhead
 }
 
 func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {

@@ -49,6 +49,8 @@ import (
 const GroupName = "kubevirt.io"
 const SubresourceGroupName = "subresources.kubevirt.io"
 
+const ResourceMemoryOverhead k8sv1.ResourceName = "memory-overhead"
+
 const DefaultGracePeriodSeconds int64 = 30
 
 // GroupVersion is group version used to register these objects
