@@ -24,6 +24,8 @@ import (
 	"os"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -35,6 +37,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
@@ -81,6 +84,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var installStrategyConfigMapSource *framework.FakeControllerSource
 	var installStrategyJobSource *framework.FakeControllerSource
 	var infrastructurePodSource *framework.FakeControllerSource
+	var podDisruptionBudgetSource *framework.FakeControllerSource
 
 	var stop chan struct{}
 	var controller *KubeVirtController
@@ -138,6 +142,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		go informers.InstallStrategyJob.Run(stop)
 		go informers.InstallStrategyConfigMap.Run(stop)
 		go informers.InfrastructurePod.Run(stop)
+		go informers.PodDisruptionBudget.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
 
@@ -155,6 +160,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		cache.WaitForCacheSync(stop, informers.InstallStrategyJob.HasSynced)
 		cache.WaitForCacheSync(stop, informers.InstallStrategyConfigMap.HasSynced)
 		cache.WaitForCacheSync(stop, informers.InfrastructurePod.HasSynced)
+		cache.WaitForCacheSync(stop, informers.PodDisruptionBudget.HasSynced)
 	}
 
 	getSCC := func() secv1.SecurityContextConstraints {
@@ -231,6 +237,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.InfrastructurePod, infrastructurePodSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		stores.InfrastructurePodCache = informers.InfrastructurePod.GetStore()
 
+		informers.PodDisruptionBudget, podDisruptionBudgetSource = testutils.NewFakeInformerFor(&policyv1beta1.PodDisruptionBudget{})
+		stores.PodDisruptionBudgetCache = informers.PodDisruptionBudget.GetStore()
+
 		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers, NAMESPACE)
 
 		// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -252,6 +261,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		virtClient.EXPECT().AppsV1().Return(kubeClient.AppsV1()).AnyTimes()
 		virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 		virtClient.EXPECT().ExtensionsClient().Return(extClient).AnyTimes()
+		virtClient.EXPECT().PolicyV1beta1().Return(kubeClient.PolicyV1beta1()).AnyTimes()
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -384,6 +394,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	addPodDisruptionBudget := func(podDisruptionBudget *policyv1beta1.PodDisruptionBudget) {
+		mockQueue.ExpectAdds(1)
+		podDisruptionBudgetSource.Add(podDisruptionBudget)
+		mockQueue.Wait()
+	}
+
 	addResource := func(obj runtime.Object, config *util.KubeVirtDeploymentConfig) {
 		switch resource := obj.(type) {
 		case *k8sv1.ServiceAccount:
@@ -425,6 +441,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		case *k8sv1.Pod:
 			injectMetadata(&obj.(*k8sv1.Pod).ObjectMeta, config)
 			addPod(resource)
+		case *policyv1beta1.PodDisruptionBudget:
+			injectMetadata(&obj.(*policyv1beta1.PodDisruptionBudget).ObjectMeta, version, registry)
+			addPodDisruptionBudget(resource)
 		default:
 			Fail("unknown resource type")
 		}
@@ -488,6 +507,34 @@ var _ = Describe("KubeVirt Operator", func() {
 		injectMetadata(&pod.ObjectMeta, config)
 		pod.Name = "virt-handler-xxxx"
 		addPod(pod)
+
+		minAvailable := intstr.FromInt(int(1))
+		apiPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: apiDeployment.Namespace,
+				Name:      apiDeployment.Name + "-pdb",
+				Labels:    apiDeployment.Labels,
+			},
+			Spec: policyv1beta1.PodDisruptionBudgetSpec{
+				MinAvailable: &minAvailable,
+				Selector:     apiDeployment.Spec.Selector,
+			},
+		}
+		injectMetadata(&apiPodDisruptionBudget.ObjectMeta, version, registry)
+		addPodDisruptionBudget(apiPodDisruptionBudget)
+		controllerPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: controller.Namespace,
+				Name:      controller.Name + "-pdb",
+				Labels:    controller.Labels,
+			},
+			Spec: policyv1beta1.PodDisruptionBudgetSpec{
+				MinAvailable: &minAvailable,
+				Selector:     controller.Spec.Selector,
+			},
+		}
+		injectMetadata(&controllerPodDisruptionBudget.ObjectMeta, version, registry)
+		addPodDisruptionBudget(controllerPodDisruptionBudget)
 	}
 
 	generateRandomResources := func() int {
@@ -944,6 +991,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "deployments", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "validatingwebhookconfigurations", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", genericCreateFunc)
 	}
 
 	shouldExpectKubeVirtUpdate := func(times int) {
