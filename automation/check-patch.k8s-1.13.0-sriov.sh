@@ -2,6 +2,20 @@
 set -x
 
 #############################################################
+# CI Notes TODO Move in a more appropriate location
+# Each CI node labeled as sriov-enable should have the following setup in place:
+# - have the vfio_pci module loaded with a modprobe.d rule
+# - since we use kind, in order to have the dns working we need to
+#   - have the br_netfilter module loaded with a modprobe.d rule
+#   - have the following lines on /etc/sysctl.conf (see https://stackoverflow.com/questions/48148838/kube-dns-error-reply-from-unexpected-source)
+#               net.bridge.bridge-nf-call-ip6tables = 1
+#               net.bridge.bridge-nf-call-iptables = 1
+#               net.bridge.bridge-nf-call-arptables = 1
+#
+#############################################################
+
+
+#############################################################
 # This is based on https://github.com/SchSeba/kubevirt-docker
 #############################################################
 
