@@ -100,7 +100,7 @@ var _ = Describe("Multus", func() {
 			list2, err := virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(list1.Items) + len(list2.Items)
-		}, 180*time.Second, 1*time.Second).Should(BeZero())
+		}, 360*time.Second, 1*time.Second).Should(BeZero())
 	})
 
 	createVMIOnNode := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
