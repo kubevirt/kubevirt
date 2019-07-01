@@ -11,7 +11,7 @@ modprobe vfio-pci
 for file in $(find /sys/devices/ -name *sriov_totalvfs*); do
     pfroot=$(dirname $file)
 
-    # enable all available VFs
+    # enable all available VFs. If this fails we skip the device continuing with the others.
     cat $file > $pfroot/sriov_numvfs || continue
 
     # bind all VFs with vfio
@@ -19,7 +19,7 @@ for file in $(find /sys/devices/ -name *sriov_totalvfs*); do
         pciid=$(basename $(readlink $virtfn))
         if [ -e $virtfn/driver/unbind ]; then
             echo $pciid > $virtfn/driver/unbind
-            echo $(lspci -n -s $pciid | sed 's/:/ /g' | awk -e '{print $4 " " $5}') > /sys/bus/pci/drivers/vfio-pci/new_id
         fi
+        echo $(lspci -n -s $pciid | sed 's/:/ /g' | awk '{print $4 " " $5}') > /sys/bus/pci/drivers/vfio-pci/new_id
     done
 done
