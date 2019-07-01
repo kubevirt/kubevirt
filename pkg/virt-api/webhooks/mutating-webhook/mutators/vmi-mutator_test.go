@@ -21,6 +21,8 @@ package mutators
 
 import (
 	"encoding/json"
+	"fmt"
+	"reflect"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -46,6 +48,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	var namespaceLimitInformer cache.SharedIndexInformer
 	var configMapInformer cache.SharedIndexInformer
 	var mutator *VMIsMutator
+	var _true bool = true
+	var _false bool = false
 
 	memoryLimit := "128M"
 	cpuModelFromConfig := "Haswell"
@@ -467,4 +471,161 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 		Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
 	})
+
+	It("should set the hyperv dependencies", func() {
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				SyNICTimer: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(*(vmiSpec.Domain.Features.Hyperv.VPIndex.Enabled)).To(BeTrue())
+		Expect(*(vmiSpec.Domain.Features.Hyperv.SyNIC.Enabled)).To(BeTrue())
+		Expect(*(vmiSpec.Domain.Features.Hyperv.SyNICTimer.Enabled)).To(BeTrue())
+	})
+
+	It("Should not mutate VMIs without HyperV configuration", func() {
+		vmi := v1.NewMinimalVMI("testvmi")
+		Expect(vmi.Spec.Domain.Features).To(BeNil())
+		err := webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
+		Expect(err).To(BeNil())
+		Expect(vmi.Spec.Domain.Features).To(BeNil())
+	})
+
+	It("Should not mutate VMIs with empty HyperV configuration", func() {
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{},
+		}
+		err := webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
+		Expect(err).To(BeNil())
+		hyperv := v1.FeatureHyperv{}
+		ok := reflect.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
+		if !ok {
+			// debug aid
+			fmt.Fprintf(GinkgoWriter, "got: %#v\n", *vmi.Spec.Domain.Features.Hyperv)
+			fmt.Fprintf(GinkgoWriter, "exp: %#v\n", hyperv)
+		}
+		Expect(ok).To(BeTrue())
+	})
+
+	It("Should not mutate VMIs with hyperv configuration without deps", func() {
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				Relaxed: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				Runtime: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				Reset: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+		err := webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
+		Expect(err).To(BeNil())
+
+		hyperv := v1.FeatureHyperv{
+			Relaxed: &v1.FeatureState{
+				Enabled: &_true,
+			},
+			Runtime: &v1.FeatureState{
+				Enabled: &_true,
+			},
+			Reset: &v1.FeatureState{
+				Enabled: &_true,
+			},
+		}
+
+		ok := reflect.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
+		if !ok {
+			// debug aid
+			fmt.Fprintf(GinkgoWriter, "got: %#v\n", *vmi.Spec.Domain.Features.Hyperv)
+			fmt.Fprintf(GinkgoWriter, "exp: %#v\n", hyperv)
+		}
+		Expect(ok).To(BeTrue())
+	})
+
+	It("Should mutate VMIs with hyperv configuration to fix deps", func() {
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				Relaxed: &v1.FeatureState{
+					Enabled: &_true,
+				},
+				SyNICTimer: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+		err := webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
+		Expect(err).To(BeNil())
+
+		hyperv := v1.FeatureHyperv{
+			Relaxed: &v1.FeatureState{
+				Enabled: &_true,
+			},
+			VPIndex: &v1.FeatureState{
+				Enabled: &_true,
+			},
+			SyNIC: &v1.FeatureState{
+				Enabled: &_true,
+			},
+			SyNICTimer: &v1.FeatureState{
+				Enabled: &_true,
+			},
+		}
+
+		ok := reflect.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
+		if !ok {
+			// debug aid
+			fmt.Fprintf(GinkgoWriter, "got: %#v\n", *vmi.Spec.Domain.Features.Hyperv)
+			fmt.Fprintf(GinkgoWriter, "exp: %#v\n", hyperv)
+		}
+		Expect(ok).To(BeTrue())
+	})
+
+	It("Should partially mutate VMIs with explicit hyperv configuration", func() {
+		vmi := v1.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Features = &v1.Features{
+			Hyperv: &v1.FeatureHyperv{
+				VPIndex: &v1.FeatureState{
+					Enabled: &_false,
+				},
+				// should enable SyNIC
+				SyNICTimer: &v1.FeatureState{
+					Enabled: &_true,
+				},
+			},
+		}
+		webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(vmi)
+		// we MUST report the error in mutation, but production code is
+		// supposed to ignore it to fullfill the design semantics, see
+		// the discussion in https://github.com/kubevirt/kubevirt/pull/2408
+
+		hyperv := v1.FeatureHyperv{
+			VPIndex: &v1.FeatureState{
+				Enabled: &_false,
+			},
+			SyNIC: &v1.FeatureState{
+				Enabled: &_true,
+			},
+			SyNICTimer: &v1.FeatureState{
+				Enabled: &_true,
+			},
+		}
+
+		ok := reflect.DeepEqual(*vmi.Spec.Domain.Features.Hyperv, hyperv)
+		if !ok {
+			// debug aid
+			fmt.Fprintf(GinkgoWriter, "got: %#v\n", *vmi.Spec.Domain.Features.Hyperv)
+			fmt.Fprintf(GinkgoWriter, "exp: %#v\n", hyperv)
+		}
+		Expect(ok).To(BeTrue())
+	})
+
 })
