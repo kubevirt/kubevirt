@@ -36,10 +36,6 @@ CLUSTER_DIR="cluster-up/cluster/k8s-1.13.0-sriov"
 MANIFESTS_DIR="${CLUSTER_DIR}/manifests"
 ARTIFACTS_DIR="${KUBEVIRT_PATH}/exported-artifacts"
 
-# SHARED_DIR="/var/lib/stdci/shared"
-# SRIOV_JOB_LOCKFILE="${SHARED_DIR}/sriov.lock"
-# SRIOV_TIMEOUT_SEC="14400" # 4h
-
 function wait_containers_ready {
     # wait until all containers are ready
     while [ -n "$(kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | grep false)" ]; do
@@ -202,14 +198,6 @@ until [ -z "$(docker ps -a | grep registry)" ]; do
 done
 docker run -d -p 5000:5000 --restart=always --name registry registry:2
 ${CLUSTER_CMD} socat TCP-LISTEN:5000,fork TCP:$(docker inspect --format '{{.NetworkSettings.IPAddress }}' registry):5000
-
-# prepare local storage
-for i in {1..10}; do
-    ${CLUSTER_CMD} mkdir -p /var/local/kubevirt-storage/local-volume/disk${i}
-    ${CLUSTER_CMD} mkdir -p /mnt/local-storage/local/disk${i}
-done
-${CLUSTER_CMD} chmod -R 777 /var/local/kubevirt-storage/local-volume
-${CLUSTER_CMD} mknod /dev/loop0 b 7 0
 
 # ===============
 # deploy kubevirt
