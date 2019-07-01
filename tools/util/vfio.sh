@@ -12,7 +12,7 @@ for file in $(find /sys/devices/ -name *sriov_totalvfs*); do
     pfroot=$(dirname $file)
 
     # enable all available VFs
-    cat $file > $pfroot/sriov_numvfs
+    cat $file > $pfroot/sriov_numvfs || continue
 
     # bind all VFs with vfio
     for virtfn in $(ls -d $pfroot/virtfn*); do
