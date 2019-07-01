@@ -27,6 +27,7 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -99,10 +100,11 @@ func getConfigMap() *k8sv1.ConfigMap {
 // 1. Check if the config exists. If it does not exist, return the default config
 // 2. Check if the config got updated. If so, try to parse and return it
 // 3. In case of errors or no updates (resource version stays the same), it returns the values from the last good config
-func NewClusterConfig(configMapInformer cache.SharedIndexInformer, namespace string) *ClusterConfig {
+func NewClusterConfig(configMapInformer cache.SharedIndexInformer, crdInformer cache.SharedIndexInformer, namespace string) *ClusterConfig {
 
 	c := &ClusterConfig{
 		informer:        configMapInformer,
+		crdInformer:     crdInformer,
 		lock:            &sync.Mutex{},
 		namespace:       namespace,
 		lastValidConfig: defaultClusterConfig(),
@@ -178,6 +180,7 @@ type MigrationConfig struct {
 
 type ClusterConfig struct {
 	informer                         cache.SharedIndexInformer
+	crdInformer                      cache.SharedIndexInformer
 	namespace                        string
 	lock                             *sync.Mutex
 	lastValidConfig                  *Config
@@ -334,6 +337,21 @@ func (c *ClusterConfig) getConfig() (config *Config) {
 		c.lastValidConfig = config
 		return c.lastValidConfig
 	}
+}
+
+func (c *ClusterConfig) HasDataVolumeAPI() bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	objects := c.crdInformer.GetStore().List()
+	for _, obj := range objects {
+		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+			if crd.Spec.Names.Kind == "DataVolume" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func parseNodeSelectors(str string) (map[string]string, error) {

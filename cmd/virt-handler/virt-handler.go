@@ -254,7 +254,7 @@ func (app *virtHandlerApp) Run() {
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
-		virtconfig.NewClusterConfig(factory.ConfigMap(), app.namespace),
+		virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), app.namespace),
 		app.migrationTLSConfig,
 	)
 

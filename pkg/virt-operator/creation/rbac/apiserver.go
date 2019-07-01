@@ -157,6 +157,19 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					"watch", "list",
 				},
 			},
+			{
+				APIGroups: []string{
+					"apiextensions.k8s.io",
+				},
+				Resources: []string{
+					"customresourcedefinitions",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+				},
+			},
 		},
 	}
 }

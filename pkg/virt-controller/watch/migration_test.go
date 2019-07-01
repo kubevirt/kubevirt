@@ -162,7 +162,7 @@ var _ = Describe("Migration watcher", func() {
 		recorder = record.NewFakeRecorder(100)
 
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
-		config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 		controller = NewMigrationController(
 			services.NewTemplateService("a", "b", "c", "d", pvcInformer.GetStore(), virtClient, config),

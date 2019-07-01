@@ -99,6 +99,9 @@ type KubeInformerFactory interface {
 	// Fake CDI DataVolume informer used when feature gate is disabled
 	DummyDataVolume() cache.SharedIndexInformer
 
+	// CRD
+	CRD() cache.SharedIndexInformer
+
 	// Wachtes for KubeVirt objects
 	KubeVirt() cache.SharedIndexInformer
 
@@ -525,4 +528,20 @@ func (f *kubeInformerFactory) OperatorPodDisruptionBudget() cache.SharedIndexInf
 
 func (f *kubeInformerFactory) K8SInformerFactory() informers.SharedInformerFactory {
 	return f.k8sInformers
+}
+
+func (f *kubeInformerFactory) CRD() cache.SharedIndexInformer {
+	return f.getInformer("CRDInformer", func() cache.SharedIndexInformer {
+
+		ext, err := extclient.NewForConfig(f.clientSet.Config())
+		if err != nil {
+			panic(err)
+		}
+
+		restClient := ext.ApiextensionsV1beta1().RESTClient()
+
+		lw := cache.NewListWatchFromClient(restClient, "customresourcedefinitions", k8sv1.NamespaceAll, fields.Everything())
+
+		return cache.NewSharedIndexInformer(lw, &extv1beta1.CustomResourceDefinition{}, f.defaultResync, cache.Indexers{})
+	})
 }

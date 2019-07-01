@@ -1021,6 +1021,7 @@ func (app *virtAPIApp) Run() {
 	webhookInformers := webhooks.GetInformers()
 	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.namespace)
 	configMapInformer := kubeInformerFactory.ConfigMap()
+	crdInformer := kubeInformerFactory.CRD()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
@@ -1028,6 +1029,7 @@ func (app *virtAPIApp) Run() {
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
 	go configMapInformer.Run(stopChan)
+	go crdInformer.Run(stopChan)
 
 	cache.WaitForCacheSync(stopChan,
 		webhookInformers.VMIInformer.HasSynced,
@@ -1035,7 +1037,7 @@ func (app *virtAPIApp) Run() {
 		webhookInformers.NamespaceLimitsInformer.HasSynced,
 		configMapInformer.HasSynced)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, app.namespace)
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, app.namespace)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()
