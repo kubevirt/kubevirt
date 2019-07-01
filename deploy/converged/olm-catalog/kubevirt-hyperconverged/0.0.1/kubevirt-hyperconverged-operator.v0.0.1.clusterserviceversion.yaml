@@ -16,7 +16,7 @@ metadata:
           "kind": "HyperConverged",
           "metadata": {
             "name": "kubevirt-hyperconverged",
-            "namespace": "kubevirt-hyperconverged",
+            "namespace": "kubevirt-hyperconverged"
           }
         },
         {
@@ -70,7 +70,7 @@ metadata:
           }
         },
         {
-          "apiVersion": "nodemaintenances.kubevirt.io/v1alpha1",
+          "apiVersion": "kubevirt.io/v1alpha1",
           "kind": "NodeMaintenance",
           "metadata": {
             "name": "node-maintenance"
