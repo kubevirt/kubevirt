@@ -23,11 +23,19 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/json"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
+)
+
+const (
+	virtAPIMemory        = "512M"
+	virtAPICPU           = "500m"
+	virtControllerMemory = "512M"
+	virtControllerCPU    = "500m"
 )
 
 func NewPrometheusService(namespace string) *corev1.Service {
@@ -128,11 +136,23 @@ func newPodTemplateSpec(name string, repository string, version string, pullPoli
 	}, nil
 }
 
-func newBaseDeployment(name string, namespace string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*appsv1.Deployment, error) {
+func newBaseDeployment(name, namespace, repository, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity, memory, cpu resource.Quantity) (*appsv1.Deployment, error) {
 
 	podTemplateSpec, err := newPodTemplateSpec(name, repository, version, pullPolicy, podAffinity)
 	if err != nil {
 		return nil, err
+	}
+
+	container := &podTemplateSpec.Spec.Containers[0]
+	container.Resources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceMemory: memory,
+			corev1.ResourceCPU:    cpu,
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceMemory: memory,
+			corev1.ResourceCPU:    cpu,
+		},
 	}
 
 	return &appsv1.Deployment{
@@ -185,7 +205,9 @@ func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOp
 
 func NewApiServerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-api"})
-	deployment, err := newBaseDeployment("virt-api", namespace, repository, version, pullPolicy, podAntiAffinity)
+	memory := resource.MustParse(virtAPIMemory)
+	cpu := resource.MustParse(virtAPICPU)
+	deployment, err := newBaseDeployment("virt-api", namespace, repository, version, pullPolicy, podAntiAffinity, memory, cpu)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +258,9 @@ func NewApiServerDeployment(namespace string, repository string, version string,
 
 func NewControllerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-controller"})
-	deployment, err := newBaseDeployment("virt-controller", namespace, repository, version, pullPolicy, podAntiAffinity)
+	memory := resource.MustParse(virtControllerMemory)
+	cpu := resource.MustParse(virtControllerCPU)
+	deployment, err := newBaseDeployment("virt-controller", namespace, repository, version, pullPolicy, podAntiAffinity, memory, cpu)
 	if err != nil {
 		return nil, err
 	}

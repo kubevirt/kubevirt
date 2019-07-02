@@ -75,7 +75,13 @@ spec:
             scheme: HTTPS
           initialDelaySeconds: 15
           periodSeconds: 10
-        resources: {}
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512M
+          requests:
+            cpu: 500m
+            memory: 512M
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kubevirt-apiserver

@@ -65,7 +65,13 @@ spec:
             scheme: HTTPS
           initialDelaySeconds: 15
           timeoutSeconds: 10
-        resources: {}
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512M
+          requests:
+            cpu: 500m
+            memory: 512M
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kubevirt-controller
