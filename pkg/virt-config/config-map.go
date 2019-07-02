@@ -69,6 +69,10 @@ const (
 	DefaultLessPVCSpaceToleration                   = 10
 	DefaultNodeSelectors                            = ""
 	DefaultNetworkInterface                         = "bridge"
+	DefaultImagePullPolicy                          = k8sv1.PullIfNotPresent
+	DefaultUseEmulation                             = false
+	DefaultUnsafeMigrationOverride                  = false
+	DefaultPermitSlirpInterface                     = false
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -140,8 +144,8 @@ func defaultClusterConfig() *Config {
 	defaultNetworkInterface := DefaultNetworkInterface
 	return &Config{
 		ResourceVersion: "0",
-		ImagePullPolicy: k8sv1.PullIfNotPresent,
-		UseEmulation:    false,
+		ImagePullPolicy: DefaultImagePullPolicy,
+		UseEmulation:    DefaultUseEmulation,
 		MigrationConfig: &MigrationConfig{
 			ParallelMigrationsPerCluster:      &parallelMigrationsPerClusterDefault,
 			ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNodeDefault,
@@ -149,7 +153,7 @@ func defaultClusterConfig() *Config {
 			NodeDrainTaintKey:                 &nodeDrainTaintDefaultKey,
 			ProgressTimeout:                   &progressTimeout,
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-			UnsafeMigrationOverride:           false,
+			UnsafeMigrationOverride:           DefaultUnsafeMigrationOverride,
 			AllowAutoConverge:                 allowAutoConverge,
 		},
 		MachineType:            DefaultMachineType,
@@ -159,7 +163,7 @@ func defaultClusterConfig() *Config {
 		LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
 		NodeSelectors:          nodeSelectorsDefault,
 		NetworkInterface:       defaultNetworkInterface,
-		PermitSlirpInterface:   false,
+		PermitSlirpInterface:   DefaultPermitSlirpInterface,
 	}
 }
 
