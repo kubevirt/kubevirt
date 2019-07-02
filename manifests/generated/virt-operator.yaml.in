@@ -32,12 +32,12 @@ spec:
         - {{.Verbosity}}
         env:
         - name: OPERATOR_IMAGE
-          value: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
+          value: {{.DockerPrefix}}/virt-operator:{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.targetNamespaces']
-        image: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
+        image: {{.DockerPrefix}}/virt-operator:{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}
         imagePullPolicy: {{.ImagePullPolicy}}
         name: virt-operator
         ports:

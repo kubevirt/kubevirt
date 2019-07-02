@@ -57,6 +57,11 @@ type templateData struct {
 	KubeVirtLogo           string
 	PackageName            string
 	CreatedAt              string
+	VirtOperatorSha        string
+	VirtApiSha             string
+	VirtControllerSha      string
+	VirtHandlerSha         string
+	VirtLauncherSha        string
 	GeneratedManifests     map[string]string
 }
 
@@ -76,6 +81,11 @@ func main() {
 	packageName := flag.String("package-name", "", "")
 	bundleOutDir := flag.String("bundle-out-dir", "", "")
 	quayRepository := flag.String("quay-repository", "", "")
+	virtOperatorSha := flag.String("virt-operator-sha", "", "")
+	virtApiSha := flag.String("virt-api-sha", "", "")
+	virtControllerSha := flag.String("virt-controller-sha", "", "")
+	virtHandlerSha := flag.String("virt-handler-sha", "", "")
+	virtLauncherSha := flag.String("virt-launcher-sha", "", "")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -98,6 +108,11 @@ func main() {
 		data.Verbosity = fmt.Sprintf("\"%s\"", *verbosity)
 		data.CsvVersion = *csvVersion
 		data.QuayRepository = *quayRepository
+		data.VirtOperatorSha = *virtOperatorSha
+		data.VirtApiSha = *virtApiSha
+		data.VirtControllerSha = *virtControllerSha
+		data.VirtHandlerSha = *virtHandlerSha
+		data.VirtLauncherSha = *virtLauncherSha
 		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data)
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
@@ -134,6 +149,11 @@ func main() {
 		data.Verbosity = "{{.Verbosity}}"
 		data.CsvVersion = "{{.CsvVersion}}"
 		data.QuayRepository = "{{.QuayRepository}}"
+		data.VirtOperatorSha = "{{.VirtOperatorSha}}"
+		data.VirtApiSha = "{{.VirtApiSha}}"
+		data.VirtControllerSha = "{{.VirtControllerSha}}"
+		data.VirtHandlerSha = "{{.VirtHandlerSha}}"
+		data.VirtLauncherSha = "{{.VirtLauncherSha}}"
 		data.ReplacesCsvVersion = "{{.ReplacesCsvVersion}}"
 		data.OperatorDeploymentSpec = "{{.OperatorDeploymentSpec}}"
 		data.OperatorRules = "{{.OperatorRules}}"

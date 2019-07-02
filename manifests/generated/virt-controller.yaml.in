@@ -38,12 +38,12 @@ spec:
       - command:
         - virt-controller
         - --launcher-image
-        - {{.DockerPrefix}}/virt-launcher:{{.DockerTag}}
+        - {{.DockerPrefix}}/virt-launcher{{if .VirtLauncherSha}}@{{.VirtLauncherSha}}{{else}}:{{.DockerTag}}{{end}}
         - --port
         - "8443"
         - -v
         - {{.Verbosity}}
-        image: {{.DockerPrefix}}/virt-controller:{{.DockerTag}}
+        image: {{.DockerPrefix}}/virt-controller{{if .VirtControllerSha}}@{{.VirtControllerSha}}{{else}}:{{.DockerTag}}{{end}}
         imagePullPolicy: {{.ImagePullPolicy}}
         livenessProbe:
           failureThreshold: 8

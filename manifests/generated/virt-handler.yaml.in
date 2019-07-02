@@ -42,7 +42,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
+        image: {{.DockerPrefix}}/virt-handler{{if .VirtHandlerSha}}@{{.VirtHandlerSha}}{{else}}:{{.DockerTag}}{{end}}
         imagePullPolicy: {{.ImagePullPolicy}}
         name: virt-handler
         ports:

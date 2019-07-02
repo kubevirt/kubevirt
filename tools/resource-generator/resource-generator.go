@@ -36,6 +36,7 @@ func main() {
 	namespace := flag.String("namespace", "kube-system", "Namespace to use.")
 	repository := flag.String("repository", "kubevirt", "Image Repository to use.")
 	version := flag.String("version", "latest", "version to use.")
+	launcherVersion := flag.String("launcherVersion", "latest", "version to use for launcher. Only relevant for controller manifest.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
 	verbosity := flag.String("verbosity", "2", "Verbosity level to use.")
 
@@ -90,7 +91,7 @@ func main() {
 			util.MarshallObject(r, os.Stdout)
 		}
 	case "virt-controller":
-		controller, err := components.NewControllerDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		controller, err := components.NewControllerDeployment(*namespace, *repository, *version, *launcherVersion, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-controller deployment %v", err))
 
