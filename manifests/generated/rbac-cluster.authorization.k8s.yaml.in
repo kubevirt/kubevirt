@@ -60,6 +60,7 @@ rules:
   - virtualmachines/restart
   verbs:
   - update
+  - put
 - apiGroups:
   - kubevirt.io
   resources:
@@ -101,6 +102,7 @@ rules:
   - virtualmachines/restart
   verbs:
   - update
+  - put
 - apiGroups:
   - kubevirt.io
   resources:

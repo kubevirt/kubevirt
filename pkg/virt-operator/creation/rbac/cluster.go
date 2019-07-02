@@ -139,6 +139,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"update",
+					"put",
 				},
 			},
 			{
@@ -197,6 +198,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"update",
+					"put",
 				},
 			},
 			{

@@ -25,10 +25,22 @@ DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
 source hack/common.sh
 source hack/config.sh
 
+# This git command returns the most recent tag created in a specific branch
+# Example: if working in the release-0.17 branch, it will return v0.17.2 (or whatever the latest tag is today in release-0.17)
+# Example: if working in master, it will return v0.18.0 (or whatever the latest tag is today)
+#
+# These git tags happen to correspond exactly to our container tags, so the convention works well
+# for determining the release we should be testing updates with.
+_default_previous_release_tag=$(git describe --tags --abbrev=0 "$(git rev-parse HEAD)")
+_default_previous_release_registry="index.docker.io/kubevirt"
+
+previous_release_tag=${PREVIOUS_RELEASE_TAG:-$_default_previous_release_tag}
+previous_release_registry=${PREVIOUS_RELEASE_REGISTRY:-$_default_previous_release_registry}
+
 functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 
 if [[ ${TARGET} == openshift* ]]; then
     oc=${kubectl}
 fi
 
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 300m ${FUNC_TEST_ARGS} -installed-namespace=${namespace}
+${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 300m ${FUNC_TEST_ARGS} -installed-namespace=${namespace} -previous-release-tag=${previous_release_tag} -previous-release-registry=${previous_release_registry}
