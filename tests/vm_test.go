@@ -879,9 +879,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					stopCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
 					restartCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RESTART, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
 
-					By("Invoking virtctl restart")
+					By("Invoking virtctl restart should fail")
 					err = restartCommand()
-					Expect(err).ToNot(HaveOccurred())
+					Expect(err).To(HaveOccurred())
+
+					By("Invoking virtctl start")
+					err = startCommand()
+					Expect(err).NotTo(HaveOccurred())
 
 					By("Waiting for VMI to be ready")
 					Eventually(func() bool {

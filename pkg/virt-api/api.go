@@ -203,7 +203,8 @@ func (app *virtAPIApp) composeSubresources() {
 		Operation("restart").
 		Doc("Restart a VirtualMachine object.").
 		Returns(http.StatusOK, "OK", nil).
-		Returns(http.StatusNotFound, "Not Found", nil))
+		Returns(http.StatusNotFound, "Not Found", nil).
+		Returns(http.StatusBadRequest, "Bad Request", nil))
 
 	subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("start")).
 		To(subresourceApp.StartVMRequestHandler).
@@ -211,7 +212,8 @@ func (app *virtAPIApp) composeSubresources() {
 		Operation("start").
 		Doc("Start a VirtualMachine object.").
 		Returns(http.StatusOK, "OK", nil).
-		Returns(http.StatusNotFound, "Not Found", nil))
+		Returns(http.StatusNotFound, "Not Found", nil).
+		Returns(http.StatusBadRequest, "Bad Request", nil))
 
 	subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("stop")).
 		To(subresourceApp.StopVMRequestHandler).
@@ -219,7 +221,8 @@ func (app *virtAPIApp) composeSubresources() {
 		Operation("stop").
 		Doc("Stop a VirtualMachine object.").
 		Returns(http.StatusOK, "OK", nil).
-		Returns(http.StatusNotFound, "Not Found", nil))
+		Returns(http.StatusNotFound, "Not Found", nil).
+		Returns(http.StatusBadRequest, "Bad Request", nil))
 
 	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("console")).
 		To(subresourceApp.ConsoleRequestHandler).

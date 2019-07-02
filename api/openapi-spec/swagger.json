@@ -3800,6 +3800,9 @@
       "200": {
        "description": "OK"
       },
+      "400": {
+       "description": "Bad Request"
+      },
       "404": {
        "description": "Not Found"
       },
@@ -3835,6 +3838,9 @@
       "200": {
        "description": "OK"
       },
+      "400": {
+       "description": "Bad Request"
+      },
       "404": {
        "description": "Not Found"
       },
@@ -3869,6 +3875,9 @@
      "responses": {
       "200": {
        "description": "OK"
+      },
+      "400": {
+       "description": "Bad Request"
       },
       "404": {
        "description": "Not Found"
