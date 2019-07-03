@@ -314,7 +314,7 @@ func writeProtectPrivateDir(uid string) {
 
 func cleanupContainerDiskDirectory(ephemeralDiskDir string) {
 	// Cleanup the content of ephemeralDiskDir, to make sure that all containerDisk containers terminate
-	err := os.RemoveAll(ephemeralDiskDir)
+	err := RemoveContents(ephemeralDiskDir)
 	if err != nil {
 		log.Log.Reason(err).Errorf("could not clean up ephemeral disk directory: %s", ephemeralDiskDir)
 	}
@@ -478,7 +478,6 @@ func main() {
 // ForkAndMonitor itself to give qemu an extra grace period to properly terminate
 // in case of virt-launcher crashes
 func ForkAndMonitor(qemuProcessCommandPrefix string, ephemeralDiskDir string, containerDiskDir string) (int, error) {
-	defer cleanupContainerDiskDirectory(ephemeralDiskDir)
 	defer cleanupContainerDiskDirectory(containerDiskDir)
 	cmd := exec.Command(os.Args[0], append(os.Args[1:], "--no-fork", "true")...)
 	cmd.Stdout = os.Stdout
@@ -560,4 +559,18 @@ func ForkAndMonitor(qemuProcessCommandPrefix string, ephemeralDiskDir string, co
 		})
 	}
 	return exitCode, nil
+}
+
+func RemoveContents(dir string) error {
+	files, err := filepath.Glob(filepath.Join(dir, "*.sock"))
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		err = os.RemoveAll(file)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

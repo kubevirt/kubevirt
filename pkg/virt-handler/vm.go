@@ -995,24 +995,26 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 		return fmt.Errorf("failed to list container disk mounts: %v", err)
 	}
 
-	for _, file := range files {
-		path := filepath.Join(mountDir, file.Name())
-		if strings.HasSuffix(path, ".sock") {
-			continue
-		}
-		if mounted, err := isolation.NodeIsolationResult().IsMounted(path); err != nil {
-			return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
-		} else if mounted {
-			out, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "umount", path).CombinedOutput()
-			if err != nil {
-				return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)
+	if vmi.UID != "" {
+		// let containerdisks gracefully terminate if they still managed to run somehow
+		for _, file := range files {
+			path := filepath.Join(mountDir, file.Name())
+			if strings.HasSuffix(path, ".sock") {
+				continue
+			}
+			if mounted, err := isolation.NodeIsolationResult().IsMounted(path); err != nil {
+				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
+			} else if mounted {
+				out, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "umount", path).CombinedOutput()
+				if err != nil {
+					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)
+				}
 			}
 		}
-	}
 
-	// let containerdisks gracefully terminate if they still managed to run somehow
-	if err := os.RemoveAll(mountDir); err != nil {
-		return fmt.Errorf("failed to remove containerDisk files: %v", err)
+		if err := os.RemoveAll(mountDir); err != nil {
+			return fmt.Errorf("failed to remove containerDisk files: %v", err)
+		}
 	}
 
 	// Watch dog file must be the last thing removed here

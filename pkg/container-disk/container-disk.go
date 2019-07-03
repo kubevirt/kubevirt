@@ -41,7 +41,7 @@ var containerDiskOwner = "qemu"
 var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
 func GenerateVolumeMountDir(vmi *v1.VirtualMachineInstance) string {
-	return fmt.Sprintf("%s/%s/", mountBaseDir, vmi.UID)
+	return filepath.Join(mountBaseDir, string(vmi.UID))
 }
 
 func GenerateDiskTargetPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex int) string {
