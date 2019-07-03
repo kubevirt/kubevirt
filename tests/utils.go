@@ -21,8 +21,12 @@ package tests
 
 import (
 	"bytes"
+	cryptorand "crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"encoding/xml"
 	goerrors "errors"
 	"flag"
@@ -44,6 +48,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh"
 	k8sv1 "k8s.io/api/core/v1"
 	k8sextv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -3801,4 +3806,48 @@ func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachin
 		}
 		return false
 	}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+}
+
+// GeneratePrivateKey creates a RSA Private Key of specified byte size
+func GeneratePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
+	privateKey, err := rsa.GenerateKey(cryptorand.Reader, bitSize)
+	if err != nil {
+		return nil, err
+	}
+
+	err = privateKey.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	return privateKey, nil
+}
+
+// GeneratePublicKey will return in the format "ssh-rsa ..."
+func GeneratePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
+	publicRsaKey, err := ssh.NewPublicKey(privatekey)
+	if err != nil {
+		return nil, err
+	}
+
+	publicKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
+
+	return publicKeyBytes, nil
+}
+
+// EncodePrivateKeyToPEM encodes Private Key from RSA to PEM format
+func EncodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
+	// Get ASN.1 DER format
+	privDER := x509.MarshalPKCS1PrivateKey(privateKey)
+
+	privateBlock := pem.Block{
+		Type:    "RSA PRIVATE KEY",
+		Headers: nil,
+		Bytes:   privDER,
+	}
+
+	// Private key in PEM format
+	privatePEM := pem.EncodeToMemory(&privateBlock)
+
+	return privatePEM
 }
