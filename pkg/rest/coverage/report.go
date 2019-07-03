@@ -17,6 +17,9 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
+// getSwaggerPath translates request path to generic swagger path, as an example,
+// /apis/kubevirt.io/v1alpha3/namespaces/kubevirt-test-default/virtualmachineinstances/vm-name will be translated to
+// /apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}
 func getSwaggerPath(path string, objectRef *auditv1.ObjectReference) string {
 	if namespace := objectRef.Namespace; namespace != "" {
 		path = strings.Replace(path, "namespaces/"+namespace, "namespaces/{namespace}", 1)
@@ -27,9 +30,9 @@ func getSwaggerPath(path string, objectRef *auditv1.ObjectReference) string {
 	return path
 }
 
+// getHTTPMethod translates k8s verbs from audit log into HTTP methods
+// NOTE: audit log does not provide information about HTTP methods
 func getHTTPMethod(verb string) string {
-	// audit log does not contain info about HTTP methods
-
 	switch verb {
 	case "get", "list", "watch", "watchList":
 		return "GET"
@@ -46,6 +49,11 @@ func getHTTPMethod(verb string) string {
 	}
 }
 
+// matchQueryParams matches query params from request log to stats structure built based on swagger definition,
+// as an example, by having requestStats{method: GET, Query: [param1: 0], ParamsHit: 0}
+// and request GET /?param1=test1&param2=test2
+// - it increments the parameter occurrence number, requestStats{method: GET, Query: [param1: 1], ParamsHit: 1}
+// - it logs an error for not documented/invalid parameters, in this example parameter named "test2"
 func matchQueryParams(values url.Values, requestStats *RequestStats) {
 	for k := range values {
 		if hits, ok := requestStats.Query[k]; ok {
@@ -60,6 +68,11 @@ func matchQueryParams(values url.Values, requestStats *RequestStats) {
 	}
 }
 
+// matchBodyParams matches body params from request log to stats structure built based on swagger definition,
+// as an example, by having requestStats{method: POST, Body: {}, ParamsHit: 0} and request
+// POST / {"param1": {"param2": "test"}}
+// - it builds the parameter path and increase its occurrence number, requestStats{method: POST, Body: {param1.param2: 1}, ParamsHit: 1}
+// - it returns an error if request provides body params but it is not defined in swagger definition
 func matchBodyParams(requestObject *runtime.Unknown, requestStats *RequestStats) error {
 	if requestObject != nil && requestStats.Body != nil {
 		var req interface{}
@@ -89,6 +102,10 @@ func matchBodyParams(requestObject *runtime.Unknown, requestStats *RequestStats)
 	return nil
 }
 
+// extractBodyParams builds a body parameter path from JSON structure and increase its occurence number, as an example,
+// {param1: {param2: {param3a: value1, param3b: value2}}} will be extracted into paths:
+// - param1.param2.param3a: 1
+// - param1.param2.param3b: 1
 func extractBodyParams(params interface{}, path string, body map[string]int, counter *int, level int) error {
 	p, ok := params.(map[string]interface{})
 	if !ok && level == 0 {
@@ -124,20 +141,21 @@ func extractBodyParams(params interface{}, path string, body map[string]int, cou
 	return nil
 }
 
+// calculateCoverage provides a total REST API and PATH:METHOD coverage number
 func calculateCoverage(restAPIStats map[string]map[string]*RequestStats) map[string]float64 {
 	result := map[string]float64{}
 	paramsNum, paramsHit := 0, 0
 
 	for path, req := range restAPIStats {
 		for method, stats := range req {
-			// count path hit
+			// count path hits
 			if stats.MethodCalled {
 				stats.ParamsHit++
 				stats.ParamsNum++
 			}
 
 			// sometimes hit number is bigger than params number
-			// it is because of missing spec definition in swagger json
+			// it is because of missing spec definition in swagger
 			// as example v1.Patch has only description without listed params
 			// TODO: check how v1.Patch was generated
 			if stats.ParamsHit > stats.ParamsNum {
@@ -163,6 +181,8 @@ func calculateCoverage(restAPIStats map[string]map[string]*RequestStats) map[str
 	return result
 }
 
+// printReport sends a generated report to stdout,
+// with a detailed option, it will show coverage number for each resource
 func printReport(report map[string]float64, detailed bool) error {
 	fmt.Printf("\nREST API coverage report:\n")
 	if detailed {
@@ -192,6 +212,7 @@ func printReport(report map[string]float64, detailed bool) error {
 	return nil
 }
 
+// dumpReport saves a generated report into a file in JSON format
 func dumpReport(path string, report map[string]float64) error {
 	jsonReport, err := json.Marshal(report)
 	if err != nil {
@@ -200,6 +221,11 @@ func dumpReport(path string, report map[string]float64) error {
 	return ioutil.WriteFile(path, jsonReport, 0644)
 }
 
+// GenerateReport provides a full REST API coverage report based on k8s audit log and swagger definition,
+// by passing params:
+// - "filter" you can limit the report to specific resources, as an example, "/apis/kubevirt.io/v1alpha3/" limits to kubevirt v1alpha3; "" no limit
+// - "storeInFilePath" instead of sending the report to stdout it is possible to keep it as a file in JSON format (always detailed)
+// - "detailed" whether a printed report should contain coverage information for each resource, if not it will show only the total coverage number
 func GenerateReport(auditLogs string, swaggerPath string, filter string, storeInFilePath string, detailed bool) error {
 	log.InitializeLogging("rest-api-coverage")
 

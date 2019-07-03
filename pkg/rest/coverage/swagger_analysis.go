@@ -10,6 +10,7 @@ import (
 
 var refCache = make(map[string]int)
 
+// RequestStats represents a basic statistics structure which is used to calculate REST API coverage
 type RequestStats struct {
 	Body         map[string]int
 	Query        map[string]int
@@ -20,6 +21,7 @@ type RequestStats struct {
 	Method       string
 }
 
+// getRESTApiStats initializes a stats structure based on swagger definition with total params number for each available endpoint
 func getRESTApiStats(swaggerPath string, filter string) (map[string]map[string]*RequestStats, error) {
 	restAPIStats := make(map[string]map[string]*RequestStats)
 
@@ -58,6 +60,8 @@ func getRESTApiStats(swaggerPath string, filter string) (map[string]map[string]*
 	return restAPIStats, nil
 }
 
+// addSwaggerParams adds parameters from swagger definition into request stats structure,
+// parameters contain the total number value which is used to calculate coverage percentage (occurrence-number * 100 / total-number)
 func addSwaggerParams(requestStats *RequestStats, params map[string]spec.Parameter, definitions spec.Definitions) {
 	for _, param := range params {
 		switch param.In {
@@ -77,6 +81,8 @@ func addSwaggerParams(requestStats *RequestStats, params map[string]spec.Paramet
 	}
 }
 
+// countRefParams calculates total param numbers by following definition references
+// NOTE: it does not support definitions from external files, only local
 func countRefParams(schema *spec.Schema, definitions spec.Definitions) int {
 	var tokens []string
 	ptr := schema.Ref.GetPointer()
