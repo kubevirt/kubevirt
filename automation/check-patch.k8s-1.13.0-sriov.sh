@@ -72,7 +72,7 @@ function finish {
     kind delete cluster --name=${CLUSTER_NAME}
 }
 
-function enableVfio {
+function enable_vfio {
     counter=0
     for file in $(find /sys/devices/ -name *sriov_totalvfs*); do
         pfroot=$(dirname $file)
@@ -94,7 +94,7 @@ function enableVfio {
 
 trap finish EXIT
 
-enableVfio
+enable_vfio
 
 # ================
 # bring up cluster
