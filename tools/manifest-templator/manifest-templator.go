@@ -52,6 +52,7 @@ type operatorData struct {
 	CRD               *extv1beta1.CustomResourceDefinition
 	CRDString         string
 	CRString          string
+	Tag               string
 }
 
 type templateData struct {
@@ -61,13 +62,14 @@ type templateData struct {
 	ContainerPrefix      string
 	CnaContainerPrefix   string
 	WebuiContainerPrefix string
-	ContainerTag         string
 	ImagePullPolicy      string
 	HCO                  *operatorData
 	KubeVirt             *operatorData
 	CDI                  *operatorData
 	CNA                  *operatorData
 	KWEBUI               *operatorData
+	SSP                  *operatorData
+	NMO                  *operatorData
 }
 
 func check(err error) {
@@ -147,7 +149,7 @@ func getHCO(data *templateData) {
 	// Get HCO Deployment
 	hcodeployment := hcocomponents.GetDeployment(
 		"quay.io",
-		"latest",
+		data.HCO.Tag,
 		"Always",
 	)
 	err := marshallObject(hcodeployment, &writer)
@@ -187,16 +189,13 @@ func getHCO(data *templateData) {
 	marshallObject(cr, &writer)
 	crString := writer.String()
 
-	hcoData := operatorData{
-		Deployment:        deployment,
-		DeploymentSpec:    deploymentSpec,
-		ClusterRoleString: clusterRoleString,
-		Rules:             rules,
-		CRD:               crd,
-		CRDString:         crdString,
-		CRString:          crString,
-	}
-	data.HCO = &hcoData
+	data.HCO.Deployment = deployment
+	data.HCO.DeploymentSpec = deploymentSpec
+	data.HCO.ClusterRoleString = clusterRoleString
+	data.HCO.Rules = rules
+	data.HCO.CRD = crd
+	data.HCO.CRDString = crdString
+	data.HCO.CRString = crString
 }
 
 func getKubeVirt(data *templateData) {
@@ -206,7 +205,7 @@ func getKubeVirt(data *templateData) {
 	kvdeployment, err := kvcomponents.NewOperatorDeployment(
 		"kubevirt",
 		data.ContainerPrefix,
-		data.ContainerTag,
+		data.KubeVirt.Tag,
 		v1.PullPolicy(data.ImagePullPolicy),
 		"2",
 	)
@@ -243,15 +242,12 @@ func getKubeVirt(data *templateData) {
 	marshallObject(crd, &writer)
 	crdString := writer.String()
 
-	kvData := operatorData{
-		Deployment:        deployment,
-		DeploymentSpec:    deploymentSpec,
-		ClusterRoleString: clusterRoleString,
-		Rules:             rules,
-		CRD:               crd,
-		CRDString:         crdString,
-	}
-	data.KubeVirt = &kvData
+	data.KubeVirt.Deployment = deployment
+	data.KubeVirt.DeploymentSpec = deploymentSpec
+	data.KubeVirt.ClusterRoleString = clusterRoleString
+	data.KubeVirt.Rules = rules
+	data.KubeVirt.CRD = crd
+	data.KubeVirt.CRDString = crdString
 }
 
 func getCDI(data *templateData) {
@@ -298,15 +294,12 @@ func getCDI(data *templateData) {
 	marshallObject(crd, &writer)
 	crdString := writer.String()
 
-	cdiData := operatorData{
-		Deployment:        deployment,
-		DeploymentSpec:    deploymentSpec,
-		ClusterRoleString: clusterRoleString,
-		Rules:             rules,
-		CRD:               crd,
-		CRDString:         crdString,
-	}
-	data.CDI = &cdiData
+	data.CDI.Deployment = deployment
+	data.CDI.DeploymentSpec = deploymentSpec
+	data.CDI.ClusterRoleString = clusterRoleString
+	data.CDI.Rules = rules
+	data.CDI.CRD = crd
+	data.CDI.CRDString = crdString
 }
 
 func getCNA(data *templateData) {
@@ -366,27 +359,24 @@ func getCNA(data *templateData) {
 	marshallObject(crd, &writer)
 	crdString := writer.String()
 
-	cnaData := operatorData{
-		Deployment:        deployment,
-		DeploymentSpec:    deploymentSpec,
-		RoleString:        roleString,
-		Rules:             rules,
-		ClusterRoleString: clusterRoleString,
-		ClusterRules:      clusterRules,
-		CRD:               crd,
-		CRDString:         crdString,
-	}
-	data.CNA = &cnaData
+	data.CNA.Deployment = deployment
+	data.CNA.DeploymentSpec = deploymentSpec
+	data.CNA.RoleString = roleString
+	data.CNA.Rules = rules
+	data.CNA.ClusterRoleString = clusterRoleString
+	data.CNA.ClusterRules = clusterRules
+	data.CNA.CRD = crd
+	data.CNA.CRDString = crdString
 }
 
-func getKWWEBUI(data *templateData) {
+func getKWEBUI(data *templateData) {
 	writer := strings.Builder{}
 
 	// Get KWEBUI Deployment
 	kwebuideployment := kwebuicomponents.GetDeployment(
 		data.Namespace,
 		data.WebuiContainerPrefix,
-		data.ContainerTag,
+		data.KWEBUI.Tag,
 		data.ImagePullPolicy,
 	)
 	err := marshallObject(kwebuideployment, &writer)
@@ -435,17 +425,14 @@ func getKWWEBUI(data *templateData) {
 	marshallObject(crd, &writer)
 	crdString := writer.String()
 
-	kwebuiData := operatorData{
-		Deployment:        deployment,
-		DeploymentSpec:    deploymentSpec,
-		RoleString:        roleString,
-		Rules:             rules,
-		ClusterRoleString: clusterRoleString,
-		ClusterRules:      clusterRules,
-		CRD:               crd,
-		CRDString:         crdString,
-	}
-	data.KWEBUI = &kwebuiData
+	data.KWEBUI.Deployment = deployment
+	data.KWEBUI.DeploymentSpec = deploymentSpec
+	data.KWEBUI.RoleString = roleString
+	data.KWEBUI.Rules = rules
+	data.KWEBUI.ClusterRoleString = clusterRoleString
+	data.KWEBUI.ClusterRules = clusterRules
+	data.KWEBUI.CRD = crd
+	data.KWEBUI.CRDString = crdString
 }
 
 func main() {
@@ -455,9 +442,18 @@ func main() {
 	containerPrefix := flag.String("container-prefix", "kubevirt", "")
 	cnaContainerPrefix := flag.String("cna-container-prefix", *containerPrefix, "")
 	webuiContainerPrefix := flag.String("webui-container-prefix", *containerPrefix, "")
-	containerTag := flag.String("container-tag", "latest", "")
 	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
 	inputFile := flag.String("input-file", "", "")
+
+	containerTag := flag.String("container-tag", "latest", "")
+	hcoTag := flag.String("hco-tag", *containerTag, "")
+	kubevirtTag := flag.String("kubevirt-tag", *containerTag, "")
+	cdiTag := flag.String("cdi-tag", *containerTag, "")
+	sspTag := flag.String("ssp-tag", *containerTag, "")
+	webUITag := flag.String("web-ui-tag", *containerTag, "")
+	nmoTag := flag.String("nmo-tag", *containerTag, "")
+	networkAddonsTag := flag.String("network-addons-tag", *containerTag, "")
+
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
 	pflag.Parse()
@@ -469,8 +465,15 @@ func main() {
 		ContainerPrefix:      *containerPrefix,
 		CnaContainerPrefix:   *cnaContainerPrefix,
 		WebuiContainerPrefix: *webuiContainerPrefix,
-		ContainerTag:         *containerTag,
 		ImagePullPolicy:      *imagePullPolicy,
+
+		HCO:      &operatorData{Tag: *hcoTag},
+		KubeVirt: &operatorData{Tag: *kubevirtTag},
+		CDI:      &operatorData{Tag: *cdiTag},
+		CNA:      &operatorData{Tag: *networkAddonsTag},
+		KWEBUI:   &operatorData{Tag: *webUITag},
+		SSP:      &operatorData{Tag: *sspTag},
+		NMO:      &operatorData{Tag: *nmoTag},
 	}
 
 	// Load in all HCO Resources
@@ -482,7 +485,7 @@ func main() {
 	// Load in all CNA Resources
 	getCNA(&data)
 	// Load in all KWEBUI Resources
-	getKWWEBUI(&data)
+	getKWEBUI(&data)
 
 	if *inputFile == "" {
 		panic("Must specify input file")

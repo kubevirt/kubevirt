@@ -246,6 +246,8 @@ spec:
             - securitycontextconstraints
             verbs:
             - '*'
+            resourceNames:
+            - privileged
 
         - serviceAccountName: node-maintenance-operator
           rules:
@@ -349,7 +351,7 @@ spec:
                 serviceAccountName: kubevirt-ssp-operator
                 containers:
                   - name: kubevirt-ssp-operator
-                    image: quay.io/fromani/kubevirt-ssp-operator-container:latest
+                    image: quay.io/fromani/kubevirt-ssp-operator-container:{{.SSP.Tag}}
                     ports:
                     - containerPort: 60000
                       name: metrics
@@ -362,7 +364,7 @@ spec:
                       - name: WATCH_NAMESPACE
                         value: ""
                       - name: VIRT_LAUNCHER_TAG
-                        value: v0.18.1
+                        value: {{.KubeVirt.Tag}}
                       - name: OPERATOR_NAME
                         value: "kubevirt-ssp-operator"
 
@@ -394,7 +396,7 @@ spec:
                         fieldPath: metadata.name
                   - name: OPERATOR_NAME
                     value: node-maintenance-operator
-                  image: quay.io/kubevirt/node-maintenance-operator:v0.3.0
+                  image: quay.io/kubevirt/node-maintenance-operator:{{.NMO.Tag}}
                   imagePullPolicy: Always
                   name: node-maintenance-operator
                   resources: {}
