@@ -288,7 +288,11 @@ func (mutator *VMIsMutator) getMemoryOverhead(vmi *v1.VirtualMachineInstance) *r
 	overhead.Add(*pagetableMemory)
 
 	// Add fixed overhead for shared libraries and such
-	overhead.Add(mutator.ClusterConfig.GetKubevirtMemoryOverhead())
+	if vmiPlatformOverhead := domain.Resources.KubevirtMemoryOverhead; vmiPlatformOverhead != nil {
+		overhead.Add(*vmiPlatformOverhead)
+	} else {
+		overhead.Add(mutator.ClusterConfig.GetKubevirtMemoryOverhead())
+	}
 
 	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
 	// overhead per vcpu in MiB

@@ -2179,6 +2179,12 @@ func schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"platformMemoryOverhead": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KubevirtMemoryOverhead describes the memory overhead that results from the libraries and other dependencies used by the Kubevirt platform. It applies when \"memory-overhead\" is not specified as part of Limits and therefore determined by the system. If omitted, the cluster-level setting applies.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
 				},
 			},
 		},

@@ -97,6 +97,7 @@ func (ResourceRequirements) SwaggerDoc() map[string]string {
 		"requests":                "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\", \"memory-overhead\" and \"cpu\".\n+optional",
 		"limits":                  "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\", \"memory-overhead\" and \"cpu\".\n+optional",
 		"overcommitGuestOverhead": "Don't ask the scheduler to take the guest-management overhead into account. Instead\nput the overhead only into the container's memory limit. This can lead to crashes if\nall memory is in use on a node. Defaults to false.\nDeprecated: set requests.memory-overhead to 0 instead.",
+		"platformMemoryOverhead":  "KubevirtMemoryOverhead describes the memory overhead that results from the libraries\nand other dependencies used by the Kubevirt platform. It applies when \"memory-overhead\"\nis not specified as part of Limits and therefore determined by the system.\nIf omitted, the cluster-level setting applies.\n+optional",
 	}
 }
 

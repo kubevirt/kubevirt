@@ -430,9 +430,10 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	It("should not override specified properties with defaults on VMI create", func() {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 			Data: map[string]string{
-				virtconfig.CpuModelKey:    cpuModelFromConfig,
-				virtconfig.MachineTypeKey: machineTypeFromConfig,
-				virtconfig.CpuRequestKey:  cpuRequestFromConfig,
+				virtconfig.CpuModelKey:               cpuModelFromConfig,
+				virtconfig.MachineTypeKey:            machineTypeFromConfig,
+				virtconfig.CpuRequestKey:             cpuRequestFromConfig,
+				virtconfig.KubevirtMemoryOverheadKey: kubevirtMemoryOverheadFromConfig,
 			},
 		})
 
@@ -440,7 +441,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			k8sv1.ResourceCPU:    resource.MustParse("600m"),
 			k8sv1.ResourceMemory: resource.MustParse("512Mi"),
 		}
-		vmi.Spec.Domain.CPU = &v1.CPU{Model: "EPYC"}
+		kubevirtMemoryOverhead := resource.MustParse("256M")
+		vmi.Spec.Domain.Resources.KubevirtMemoryOverhead = &kubevirtMemoryOverhead
+		vmi.Spec.Domain.CPU = &v1.CPU{Model: "EPYC", Cores: 3}
 		vmi.Spec.Domain.Machine.Type = "q35"
 
 		vmiSpec, _ := getVMISpecMetaFromResponse()
@@ -448,6 +451,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal(vmi.Spec.Domain.Machine.Type))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu()).To(Equal(vmi.Spec.Domain.Resources.Requests.Cpu()))
 		Expect(vmiSpec.Domain.Resources.Requests.Memory()).To(Equal(vmi.Spec.Domain.Resources.Requests.Memory()))
+		memoryOverhead := vmiSpec.Domain.Resources.Limits[v1.ResourceMemoryOverhead]
+		Expect(memoryOverhead.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(308)))
 	})
 
 	It("should apply memory-overcommit when guest-memory is set and memory-request is not set", func() {

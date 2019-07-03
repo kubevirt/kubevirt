@@ -571,11 +571,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	} else {
 		// Add overhead memory
-		if memoryRequest, ok := resources.Requests[k8sv1.ResourceMemory]; ok {
-			memoryOverheadRequest := vmiResources.Requests[v1.ResourceMemoryOverhead]
-			memoryRequest.Add(memoryOverheadRequest)
-			resources.Requests[k8sv1.ResourceMemory] = memoryRequest
-		}
+		memoryRequest := resources.Requests[k8sv1.ResourceMemory]
+		memoryOverheadRequest := vmiResources.Requests[v1.ResourceMemoryOverhead]
+		memoryRequest.Add(memoryOverheadRequest)
+		resources.Requests[k8sv1.ResourceMemory] = memoryRequest
 
 		if memoryLimit, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
 			memoryOverheadLimit := vmiResources.Limits[v1.ResourceMemoryOverhead]

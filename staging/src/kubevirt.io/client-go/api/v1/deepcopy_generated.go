@@ -1784,6 +1784,15 @@ func (in *ResourceRequirements) DeepCopyInto(out *ResourceRequirements) {
 			(*out)[key] = val.DeepCopy()
 		}
 	}
+	if in.KubevirtMemoryOverhead != nil {
+		in, out := &in.KubevirtMemoryOverhead, &out.KubevirtMemoryOverhead
+		if *in == nil {
+			*out = nil
+		} else {
+			x := (*in).DeepCopy()
+			*out = &x
+		}
+	}
 	return
 }
 

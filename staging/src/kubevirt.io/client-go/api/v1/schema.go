@@ -213,6 +213,12 @@ type ResourceRequirements struct {
 	// all memory is in use on a node. Defaults to false.
 	// Deprecated: set requests.memory-overhead to 0 instead.
 	OvercommitGuestOverhead bool `json:"overcommitGuestOverhead,omitempty"`
+	// KubevirtMemoryOverhead describes the memory overhead that results from the libraries
+	// and other dependencies used by the Kubevirt platform. It applies when "memory-overhead"
+	// is not specified as part of Limits and therefore determined by the system.
+	// If omitted, the cluster-level setting applies.
+	// +optional
+	KubevirtMemoryOverhead *resource.Quantity `json:"platformMemoryOverhead,omitempty"`
 }
 
 // CPU allows specifying the CPU topology.

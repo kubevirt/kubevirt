@@ -818,11 +818,12 @@ var _ = Describe("Template", func() {
 							CPU: &v1.CPU{Cores: 3},
 							Resources: v1.ResourceRequirements{
 								Requests: kubev1.ResourceList{
-									kubev1.ResourceCPU:    resource.MustParse("1m"),
-									kubev1.ResourceMemory: resource.MustParse("64M"),
+									kubev1.ResourceCPU:        resource.MustParse("1m"),
+									kubev1.ResourceMemory:     resource.MustParse("64M"),
+									v1.ResourceMemoryOverhead: resource.MustParse("179M"),
 								},
 								Limits: kubev1.ResourceList{
-									v1.ResourceMemoryOverhead: resource.MustParse("178331648"),
+									v1.ResourceMemoryOverhead: resource.MustParse("179M"),
 								},
 							},
 						},
@@ -858,7 +859,8 @@ var _ = Describe("Template", func() {
 							},
 							Resources: v1.ResourceRequirements{
 								Requests: kubev1.ResourceList{
-									kubev1.ResourceMemory: resource.MustParse("64M"),
+									kubev1.ResourceMemory:     resource.MustParse("64M"),
+									v1.ResourceMemoryOverhead: resource.MustParse("162M"),
 								},
 								Limits: kubev1.ResourceList{
 									kubev1.ResourceMemory:     resource.MustParse("64M"),
