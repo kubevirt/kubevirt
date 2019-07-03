@@ -36,6 +36,7 @@ const (
 	SRIOVGate             = "SRIOV"
 	CPUNodeDiscoveryGate  = "CPUNodeDiscovery"
 	HypervStrictCheckGate = "HypervStrictCheck"
+	SidecarGate           = "Sidecar"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -68,4 +69,8 @@ func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
 
 func (config *ClusterConfig) CPUNodeDiscoveryEnabled() bool {
 	return config.isFeatureGateEnabled(CPUNodeDiscoveryGate)
+}
+
+func (config *ClusterConfig) SidecarEnabled() bool {
+	return config.isFeatureGateEnabled(SidecarGate)
 }

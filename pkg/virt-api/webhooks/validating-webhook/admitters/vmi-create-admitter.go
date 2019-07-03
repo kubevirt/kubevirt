@@ -35,6 +35,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -76,7 +77,7 @@ func (admitter *VMICreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 
 	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
-	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("spec"), vmi, admitter.ClusterConfig)...)
+	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, admitter.ClusterConfig)...)
 	// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
 	causes = append(causes, webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(k8sfield.NewPath("spec"), &vmi.Spec)...)
 
@@ -996,14 +997,27 @@ func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *metav1.ObjectMeta, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
+	annotations := metadata.Annotations
+
 	// Validate ignition feature gate if set when the corresponding annotation is found
-	if vmi.GetObjectMeta().GetAnnotations()[v1.IgnitionAnnotation] != "" && !config.IgnitionEnabled() {
+	if annotations[v1.IgnitionAnnotation] != "" && !config.IgnitionEnabled() {
 		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config"),
-			Field:   field.String(),
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config, invalid entry %s",
+				field.Child("annotations").Child(v1.IgnitionAnnotation).String()),
+			Field: field.Child("annotations").String(),
+		})
+	}
+
+	// Validate sidecar feature gate if set when the corresponding annotation is found
+	if annotations[hooks.HookSidecarListAnnotationName] != "" && !config.SidecarEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("sidecar feature gate is not enabled in kubevirt-config, invalid entry %s",
+				field.Child("annotations", hooks.HookSidecarListAnnotationName).String()),
+			Field: field.Child("annotations").String(),
 		})
 	}
 
