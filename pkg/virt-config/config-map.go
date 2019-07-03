@@ -59,6 +59,7 @@ const (
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
 	BandwithPerMigrationDefault                     = "64Mi"
+	MigrationAllowAutoConverge               bool   = false
 	MigrationProgressTimeout                 int64  = 150
 	MigrationCompletionTimeoutPerGiB         int64  = 800
 	DefaultMachineType                              = "q35"
@@ -130,6 +131,7 @@ func defaultClusterConfig() *Config {
 	parallelMigrationsPerClusterDefault := ParallelMigrationsPerClusterDefault
 	bandwithPerMigrationDefault := resource.MustParse(BandwithPerMigrationDefault)
 	nodeDrainTaintDefaultKey := NodeDrainTaintDefaultKey
+	allowAutoConverge := MigrationAllowAutoConverge
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
@@ -148,6 +150,7 @@ func defaultClusterConfig() *Config {
 			ProgressTimeout:                   &progressTimeout,
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
 			UnsafeMigrationOverride:           false,
+			AllowAutoConverge:                 allowAutoConverge,
 		},
 		MachineType:            DefaultMachineType,
 		CPURequest:             cpuRequestDefault,
@@ -185,6 +188,7 @@ type MigrationConfig struct {
 	ProgressTimeout                   *int64             `json:"progressTimeout,omitempty"`
 	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,omitempty"`
 	UnsafeMigrationOverride           bool               `json:"unsafeMigrationOverride"`
+	AllowAutoConverge                 bool               `json:"allowAutoConverge"`
 }
 
 type ClusterConfig struct {

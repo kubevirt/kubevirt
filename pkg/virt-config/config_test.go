@@ -158,7 +158,7 @@ var _ = Describe("ConfigMap", func() {
 
 	It("Should return migration config values if specified as json", func() {
 		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi", "progressTimeout" : 5, "completionTimeoutPerGiB": 5, "unsafeMigrationOverride": true}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi", "progressTimeout" : 5, "completionTimeoutPerGiB": 5, "unsafeMigrationOverride": true, "allowAutoConverge": true}`},
 		})
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
@@ -167,6 +167,7 @@ var _ = Describe("ConfigMap", func() {
 		Expect(*result.ProgressTimeout).To(BeNumerically("==", 5))
 		Expect(*result.CompletionTimeoutPerGiB).To(BeNumerically("==", 5))
 		Expect(result.UnsafeMigrationOverride).To(BeTrue())
+		Expect(result.AllowAutoConverge).To(BeTrue())
 	})
 
 	It("Should return migration config values if specified as yaml", func() {
