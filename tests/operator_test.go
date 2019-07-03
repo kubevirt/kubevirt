@@ -151,6 +151,18 @@ var _ = Describe("Operator", func() {
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
+	infraPodsAreSetWithGuaranteedQoSWithNS := func(namespace string) {
+		pods, err := virtClient.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io in (virt-api, virt-controller)"})
+		Expect(err).ToNot(HaveOccurred())
+		for _, pod := range pods.Items {
+			Expect(pod.Status.QOSClass).To(Equal(k8sv1.PodQOSGuaranteed))
+		}
+	}
+
+	infraPodsAreSetWithGuaranteedQoS := func() {
+		infraPodsAreSetWithGuaranteedQoSWithNS(tests.KubeVirtInstallNamespace)
+	}
+
 	allPodsAreReadyWithNS := func(expectedVersion string, namespace string) {
 		Eventually(func() error {
 			podsReadyAndOwned := 0
@@ -694,6 +706,7 @@ spec:
 		It("should be able to delete and re-create kubevirt install", func() {
 			allPodsAreReady(tests.KubeVirtVersionTag)
 			sanityCheckDeploymentsExist()
+			infraPodsAreSetWithGuaranteedQoS()
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
@@ -713,6 +726,7 @@ spec:
 			// We're just verifying that a few common components that
 			// should always exist get re-deployed.
 			sanityCheckDeploymentsExist()
+			infraPodsAreSetWithGuaranteedQoS()
 		})
 
 		It("should be able to delete and re-create kubevirt install in a different namespace", func() {
