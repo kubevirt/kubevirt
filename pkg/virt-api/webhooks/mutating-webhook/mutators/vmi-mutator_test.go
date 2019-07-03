@@ -196,8 +196,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	},
 		table.Entry("set the ImagePullPolicy to Always if :latest is specified",
 			[]v1.Volume{
-				{"a",
-					v1.VolumeSource{
+				{
+					Name: "a",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image: "test:latest",
 						},
@@ -205,8 +206,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			},
 			[]v1.Volume{
-				{"a",
-					v1.VolumeSource{
+				{
+					Name: "a",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image:           "test:latest",
 							ImagePullPolicy: k8sv1.PullAlways,
@@ -217,8 +219,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		),
 		table.Entry("set the ImagePullPolicy to Always if no tag or shasum is specified",
 			[]v1.Volume{
-				{"a",
-					v1.VolumeSource{
+				{
+					Name: "a",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image: "test",
 						},
@@ -226,8 +229,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			},
 			[]v1.Volume{
-				{"a",
-					v1.VolumeSource{
+				{
+					Name: "a",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image:           "test",
 							ImagePullPolicy: k8sv1.PullAlways,
@@ -238,8 +242,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		),
 		table.Entry("set the ImagePullPolicy to IfNotPresent if arbitrary tags are specified",
 			[]v1.Volume{
-				{"a",
-					v1.VolumeSource{
+				{
+					Name: "a",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image: "test:notlatest",
 						},
@@ -247,8 +252,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			},
 			[]v1.Volume{
-				{"a",
-					v1.VolumeSource{
+				{
+					Name: "a",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image:           "test:notlatest",
 							ImagePullPolicy: k8sv1.PullIfNotPresent,
@@ -259,38 +265,43 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		),
 		table.Entry("set the right ImagePullPolicy on a mixture of sources",
 			[]v1.Volume{
-				{"a",
-					v1.VolumeSource{
+				{
+					Name: "a",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image: "test:notlatest",
 						},
 					},
 				},
-				{"b",
-					v1.VolumeSource{
+				{
+					Name: "b",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image: "test:latest",
 						},
 					},
 				},
-				{"c",
-					v1.VolumeSource{
+				{
+					Name: "c",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image:           "test:latest",
 							ImagePullPolicy: k8sv1.PullNever,
 						},
 					},
 				},
-				{"d",
-					v1.VolumeSource{
+				{
+					Name: "d",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image:           "test",
 							ImagePullPolicy: k8sv1.PullIfNotPresent,
 						},
 					},
 				},
-				{"e",
-					v1.VolumeSource{
+				{
+					Name: "e",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image: "test:notlatest",
 						},
@@ -298,40 +309,45 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 			},
 			[]v1.Volume{
-				{"a",
-					v1.VolumeSource{
+				{
+					Name: "a",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image:           "test:notlatest",
 							ImagePullPolicy: k8sv1.PullIfNotPresent,
 						},
 					},
 				},
-				{"b",
-					v1.VolumeSource{
+				{
+					Name: "b",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image:           "test:latest",
 							ImagePullPolicy: k8sv1.PullAlways,
 						},
 					},
 				},
-				{"c",
-					v1.VolumeSource{
+				{
+					Name: "c",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image:           "test:latest",
 							ImagePullPolicy: k8sv1.PullNever,
 						},
 					},
 				},
-				{"d",
-					v1.VolumeSource{
+				{
+					Name: "d",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image:           "test",
 							ImagePullPolicy: k8sv1.PullIfNotPresent,
 						},
 					},
 				},
-				{"e",
-					v1.VolumeSource{
+				{
+					Name: "e",
+					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image:           "test:notlatest",
 							ImagePullPolicy: k8sv1.PullIfNotPresent,
