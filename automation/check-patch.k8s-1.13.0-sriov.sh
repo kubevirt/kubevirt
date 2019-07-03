@@ -21,6 +21,9 @@ set -x
 
 export NO_PROXY="localhost,127.0.0.1,172.17.0.2"
 
+export WORKSPACE="${WORKSPACE:-$PWD}"
+readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
+
 GOPATH=~/go
 GOBIN=~/go/bin
 PATH=$PATH:$GOBIN
@@ -34,7 +37,7 @@ CLUSTER_CMD="docker exec -it -d ${CLUSTER_CONTROL_PLANE}"
 KUBEVIRT_PATH=`pwd`
 CLUSTER_DIR="cluster-up/cluster/k8s-1.13.0-sriov"
 MANIFESTS_DIR="${CLUSTER_DIR}/manifests"
-ARTIFACTS_DIR="${KUBEVIRT_PATH}/exported-artifacts"
+
 
 function wait_containers_ready {
     # wait until all containers are ready
@@ -63,8 +66,7 @@ function wait_kubevirt_up {
 }
 
 function collect_artifacts {
-    mkdir -p "$ARTIFACTS_DIR"
-    kind export logs ${ARTIFACTS_DIR} --name=${CLUSTER_NAME}
+    kind export logs ${ARTIFACTS_PATH} --name=${CLUSTER_NAME} || true
 }
 
 function finish {
@@ -229,4 +231,7 @@ ${CLUSTER_CMD} chmod 666 /dev/vfio/vfio
 # ========================
 # execute functional tests
 # ========================
-${CLUSTER_DIR}/test.sh
+
+go get -u github.com/onsi/ginkgo/ginkgo
+ginko_params="--ginkgo.noColor --junit-output=$ARTIFACTS_PATH/junit.functest.xml --ginkgo.focus=Multus.*sriov --kubeconfig /root/.kube/kind-config-sriov-ci"
+FUNC_TEST_ARGS=$ginko_params make functest
