@@ -30,7 +30,7 @@ qemu-img convert -f qcow2 -O raw /images/cirros/disk.img /local-storage/cirros.i
 
 mknod /dev/loop99 b 7 0
 # attempt a detach since with docker in docker scenarios the created loopback device is already busy
-losetup -d /dev/loop99 || true 
+losetup -d /dev/loop99 || true
 losetup /dev/loop99 /local-storage/cirros.img.raw
 rm -f /local-storage/cirros-block-device
 ln -s dev/loop99 /local-storage/cirros-block-device
