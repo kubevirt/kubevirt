@@ -1449,10 +1449,38 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 
 	var cachedPodDisruptionBudget *policyv1beta1.PodDisruptionBudget
 
+	pdbClient := clientset.PolicyV1beta1().PodDisruptionBudgets(deployment.Namespace)
+
 	obj, exists, _ := stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
+
 	if exists {
 		cachedPodDisruptionBudget = obj.(*policyv1beta1.PodDisruptionBudget)
-		log.Log.V(4).Infof("podDisruptionBudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
+		if objectMatchesVersion(&cachedPodDisruptionBudget.ObjectMeta, imageTag, imageRegistry) {
+			log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
+			return nil
+		}
+		// Patch if old version
+		var ops []string
+
+		// Add Labels and Annotations Patches
+		labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&deployment.ObjectMeta)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, labelAnnotationPatch...)
+
+		// Add Spec Patch
+		newSpec, err := json.Marshal(deployment.Spec)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+
+		_, err = pdbClient.Patch(podDisruptionBudget.Name, types.JSONPatchType, generatePatchBytes(ops))
+		if err != nil {
+			return fmt.Errorf("unable to patch poddisruptionbudget %+v: %v", deployment, err)
+		}
+		log.Log.V(2).Infof("poddisruptionbudget %v updated", deployment.GetName())
 		return nil
 	}
 
@@ -1461,7 +1489,6 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 		return err
 	}
 
-	pdbClient := clientset.PolicyV1beta1().PodDisruptionBudgets(deployment.Namespace)
 	expectations.PodDisruptionBudget.RaiseExpectations(kvkey, 1, 0)
 	_, err = pdbClient.Create(podDisruptionBudget)
 	if err != nil {

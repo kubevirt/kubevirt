@@ -119,9 +119,9 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalPatches int
 	var totalDeletions int
 
-	resourceCount := 29
-	patchCount := 13
-	updateCount := 16
+	resourceCount := 29 // FIXME: should be more for the two PDBs created
+	patchCount := 13    // FIXME: should be more for the two PDBs created
+	updateCount := 16   // FIXME: should be more for the two PDBs created
 
 	deleteFromCache := true
 	addToCache := true
@@ -718,6 +718,17 @@ var _ = Describe("KubeVirt Operator", func() {
 				time.Sleep(time.Second)
 			}
 		}
+
+		for _, pdbname := range []string{"/virt-api-pdb", "/virt-controller-pdb"} {
+			exists := false
+			// we need to wait until the pdb exists
+			for !exists {
+				_, exists, _ = stores.PodDisruptionBudgetCache.GetByKey(NAMESPACE + pdbname)
+				if !exists {
+					time.Sleep(time.Second)
+				}
+			}
+		}
 	}
 
 	makeHandlerReady := func() {
@@ -964,6 +975,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("patch", "services", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "daemonsets", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "deployments", genericPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", genericPatchFunc)
 	}
 
 	shouldExpectRbacBackupCreations := func() {
@@ -1457,12 +1469,18 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(kv.Status.Conditions)).To(Equal(0))
 
 			// 2 because waiting on controller and virt-handler daemonset until API server deploys successfully
+			// FIXME: should be 3 for the uncreated PDB for virt-controller
 			expectedUncreatedResources := 2
 
 			// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
 			expectedTemporaryResources := 1
 
-			Expect(totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
+			// 1 because the PDB for virt-api has been created by now
+			// FIXME: should be included in resourceCount
+			expectedPDBsCreated := 1
+
+			Expect(totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources + expectedPDBsCreated))
+
 			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))
 			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
@@ -1473,10 +1491,12 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.DeploymentCache.List())).To(Equal(1))
 			Expect(len(controller.stores.DaemonSetCache.List())).To(Equal(0))
 			Expect(len(controller.stores.ValidationWebhookCache.List())).To(Equal(1))
+			Expect(len(controller.stores.PodDisruptionBudgetCache.List())).To(Equal(1))
 		}, 15)
 
 		It("should pause rollback until api server is rolled over.", func(done Done) {
 			defer close(done)
+			defer GinkgoRecover()
 
 			rollbackConfig := getConfig("otherregistry", "9.9.7")
 
@@ -1603,6 +1623,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		}, 15)
 
 		It("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicilty set.", func(done Done) {
+			defer GinkgoRecover()
 			defer close(done)
 
 			os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "otherregistry", "1.1.1"))
