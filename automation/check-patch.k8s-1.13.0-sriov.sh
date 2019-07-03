@@ -223,7 +223,6 @@ wait_kubevirt_up
 ${CLUSTER_CMD} rm /opt/cni/bin/sriov
 docker cp /emptycni/emptycni ${CLUSTER_CONTROL_PLANE}:/opt/cni/bin/sriov
 
-# TODO FEDE understand if there is a better way
 ${CLUSTER_CMD} chmod 666 /dev/vfio/vfio
 
 
