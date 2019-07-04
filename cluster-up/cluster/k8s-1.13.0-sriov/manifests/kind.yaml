@@ -16,11 +16,6 @@ nodes:
   - containerPath: /lib/modules
     hostPath: /lib/modules
     readOnly: true
-  - containerPath: /sys/bus/pci/
-    hostPath: /sys/bus/pci/
-  - containerPath: /sys/devices/
-    hostPath: /sys/devices/
   - containerPath: /dev/vfio/
     hostPath: /dev/vfio/
-  - containerPath: /sys/class/net
-    hostPath: /sys/class/net
+

@@ -158,6 +158,19 @@ wait_containers_ready
 # deploy SR-IOV components
 # ========================
 
+#move the pf to the node
+mkdir -p /var/run/netns/
+export pid="$(docker inspect -f '{{.State.Pid}}' ${CLUSTER_CONTROL_PLANE})"
+ln -sf /proc/$pid/ns/net "/var/run/netns/${CLUSTER_NAME}"
+
+sriov_pfs=( /sys/class/net/*/device/sriov_numvfs )
+
+for ifs in "${sriov_pfs[@]}"; do
+  ifs_name="${ifs%%/device/*}"
+  ifs_name="${ifs_name##*/}"
+  ip link set "$ifs_name" netns ${CLUSTER_NAME}
+done
+
 # deploy multus
 kubectl apply -f $MANIFESTS_DIR/multus.yaml
 
@@ -221,12 +234,8 @@ kubectl patch configmap kubevirt-config -n kubevirt --patch "data:
 kubectl get pods -n kubevirt | grep virt | awk '{print $1}' | xargs kubectl delete pods -n kubevirt
 wait_kubevirt_up
 
-# TODO FEDE Remove empty cni
-${CLUSTER_CMD} rm /opt/cni/bin/sriov
-docker cp /emptycni/emptycni ${CLUSTER_CONTROL_PLANE}:/opt/cni/bin/sriov
-
 ${CLUSTER_CMD} chmod 666 /dev/vfio/vfio
-
+${CLUSTER_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when it starts, we need it to be writeable
 
 # ========================
 # execute functional tests
