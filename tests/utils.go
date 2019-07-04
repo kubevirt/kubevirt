@@ -3597,6 +3597,53 @@ func HasFeature(feature string) bool {
 	return hasFeature
 }
 
+func DisableFeatureGate(feature string) {
+	if !HasFeature(feature) {
+		return
+	}
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	cfg, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	val, _ := cfg.Data["feature-gates"]
+
+	newVal := strings.Replace(val, feature+",", "", 1)
+	newVal = strings.Replace(newVal, feature, "", 1)
+
+	cfg.Data["feature-gates"] = newVal
+
+	newData, err := json.Marshal(cfg.Data)
+	Expect(err).ToNot(HaveOccurred())
+
+	data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
+	_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func EnableFeatureGate(feature string) {
+	if HasFeature(feature) {
+		return
+	}
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	cfg, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	val, _ := cfg.Data["feature-gates"]
+	newVal := fmt.Sprintf("%s,%s", val, feature)
+
+	cfg.Data["feature-gates"] = newVal
+
+	newData, err := json.Marshal(cfg.Data)
+	Expect(err).ToNot(HaveOccurred())
+
+	data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
+
+	_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
+	Expect(err).ToNot(HaveOccurred())
+}
+
 func HasDataVolumeCRD() bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)

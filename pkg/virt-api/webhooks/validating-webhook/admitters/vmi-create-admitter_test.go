@@ -38,6 +38,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -323,6 +324,49 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmiCreateAdmitter.Admit,
 		),
 	)
+
+	Context("with VirtualMachineInstance metadata", func() {
+
+		table.DescribeTable("should reject annotations which require feature gate enabled", func(annotations map[string]string, expectedMsg string) {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta = metav1.ObjectMeta{
+				Annotations: annotations,
+			}
+
+			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(ContainSubstring(expectedMsg))
+		},
+			table.Entry("without ExperimentalIgnitionSupport feature gate enabled",
+				map[string]string{v1.IgnitionAnnotation: "fake-data"},
+				fmt.Sprintf("invalid entry metadata.annotations.%s", v1.IgnitionAnnotation),
+			),
+			table.Entry("without sidecar feature gate enabled",
+				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
+				fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName),
+			),
+		)
+
+		table.DescribeTable("should accept annotations which require feature gate enabled", func(annotations map[string]string, featureGate string) {
+			enableFeatureGate(featureGate)
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta = metav1.ObjectMeta{
+				Annotations: annotations,
+			}
+			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config)
+			Expect(len(causes)).To(Equal(0))
+		},
+			table.Entry("with ExperimentalIgnitionSupport feature gate enabled",
+				map[string]string{v1.IgnitionAnnotation: "fake-data"},
+				virtconfig.IgnitionGate,
+			),
+			table.Entry("with sidecar feature gate enabled",
+				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
+				virtconfig.SidecarGate,
+			),
+		)
+	})
 
 	Context("with VirtualMachineInstance spec", func() {
 		It("should accept valid machine type", func() {

@@ -27,7 +27,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -218,51 +217,6 @@ var _ = Describe("Operator", func() {
 			return nil
 		}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-	}
-
-	disableFeatureGate := func(feature string) {
-		if !tests.HasFeature(feature) {
-			return
-		}
-
-		cfg, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		val, _ := cfg.Data["feature-gates"]
-
-		newVal := strings.Replace(val, feature+",", "", 1)
-		newVal = strings.Replace(newVal, feature, "", 1)
-
-		cfg.Data["feature-gates"] = newVal
-
-		newData, err := json.Marshal(cfg.Data)
-		Expect(err).ToNot(HaveOccurred())
-
-		data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
-		_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
-		Expect(err).ToNot(HaveOccurred())
-	}
-
-	enableFeatureGate := func(feature string) {
-		if tests.HasFeature(feature) {
-			return
-		}
-
-		cfg, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		val, _ := cfg.Data["feature-gates"]
-		newVal := fmt.Sprintf("%s,%s", val, feature)
-
-		cfg.Data["feature-gates"] = newVal
-
-		newData, err := json.Marshal(cfg.Data)
-		Expect(err).ToNot(HaveOccurred())
-
-		data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
-
-		_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
-		Expect(err).ToNot(HaveOccurred())
 	}
 
 	waitForKvWithTimeout := func(newKv *v1.KubeVirt, timeoutSeconds int) {
@@ -934,7 +888,7 @@ spec:
 
 			// Disable the gate
 			By("DisablingFeatureGate")
-			disableFeatureGate("DataVolumes")
+			tests.DisableFeatureGate("DataVolumes")
 
 			// Cycle the infrastructure to pick up the change.
 			allPodsAreReady(tests.KubeVirtVersionTag)
@@ -964,7 +918,7 @@ spec:
 
 			// Enable DataVolumes feature gate
 			By("EnablingFeatureGate")
-			enableFeatureGate("DataVolumes")
+			tests.EnableFeatureGate("DataVolumes")
 
 			// Cycle the infrastructure so we know the feature gate is picked up.
 			By("Deleting KubeVirt object")

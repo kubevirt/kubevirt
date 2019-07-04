@@ -31,7 +31,7 @@ import (
 const (
 	dataVolumesGate       = "DataVolumes"
 	cpuManager            = "CPUManager"
-	ignitionGate          = "ExperimentalIgnitionSupport"
+	IgnitionGate          = "ExperimentalIgnitionSupport"
 	liveMigrationGate     = "LiveMigration"
 	SRIOVGate             = "SRIOV"
 	CPUNodeDiscoveryGate  = "CPUNodeDiscovery"
@@ -52,7 +52,7 @@ func (config *ClusterConfig) CPUManagerEnabled() bool {
 }
 
 func (config *ClusterConfig) IgnitionEnabled() bool {
-	return config.isFeatureGateEnabled(ignitionGate)
+	return config.isFeatureGateEnabled(IgnitionGate)
 }
 
 func (config *ClusterConfig) LiveMigrationEnabled() bool {
