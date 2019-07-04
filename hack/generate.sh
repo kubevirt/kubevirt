@@ -28,6 +28,7 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=cluster-rbac 
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=operator-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-operator.authorization.k8s.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=prometheus --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/prometheus.yaml.in
 
+# used for Image fields in manifests
 function getVersion() {
     echo "{{if $1}}@{{$1}}{{else}}:{{.DockerTag}}{{end}}"
 }
@@ -35,12 +36,19 @@ virtapi_version=$(getVersion ".VirtApiSha")
 virtcontroller_version=$(getVersion ".VirtControllerSha")
 virthandler_version=$(getVersion ".VirtHandlerSha")
 virtlauncher_version=$(getVersion ".VirtLauncherSha")
-virtoperator_version=$(getVersion ".VirtOperatorSha")
+
+# used as env var for operator
+function getShasum() {
+    echo "{{if $1}}@{{$1}}{{end}}"
+}
+virtapi_sha=$(getShasum ".VirtApiSha")
+virtcontroller_sha=$(getShasum ".VirtControllerSha")
+virthandler_sha=$(getShasum ".VirtHandlerSha")
+virtlauncher_sha=$(getShasum ".VirtLauncherSha")
 
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-api --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virtapi_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-api.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-controller --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virtcontroller_version" --launcherVersion="$virtlauncher_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-controller.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-handler --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virthandler_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-handler.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-operator --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virtoperator_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-operator.yaml.in
 
 (cd ${KUBEVIRT_DIR}/tools/vms-generator/ && go build)
 vms_docker_prefix=${DOCKER_PREFIX:-registry:5000/kubevirt}

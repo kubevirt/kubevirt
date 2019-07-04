@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -40,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 const (
@@ -501,13 +504,16 @@ func (c *KubeVirtController) execute(key string) error {
 
 func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv1.Job {
 
-	imageTag := c.getImageTag(kv)
+	versions := c.getVersions(kv)
 	imageRegistry := c.getImageRegistry(kv)
 
 	pullPolicy := k8sv1.PullIfNotPresent
 	if string(kv.Spec.ImagePullPolicy) != "" {
 		pullPolicy = kv.Spec.ImagePullPolicy
 	}
+
+	operatorImage := fmt.Sprintf("%s/%s%s", imageRegistry, "virt-operator", components.AddVersionSeparatorPrefix(versions.GetOperatorVersion()))
+
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -523,7 +529,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 				v1.InstallStrategyLabel: "",
 			},
 			Annotations: map[string]string{
-				v1.InstallStrategyVersionAnnotation:  imageTag,
+				v1.InstallStrategyVersionAnnotation:  versions.GetKubeVirtVersion(),
 				v1.InstallStrategyRegistryAnnotation: imageRegistry,
 			},
 		},
@@ -536,7 +542,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 					Containers: []k8sv1.Container{
 						{
 							Name:            "install-strategy-upload",
-							Image:           fmt.Sprintf("%s/%s:%s", imageRegistry, "virt-operator", imageTag),
+							Image:           operatorImage,
 							ImagePullPolicy: pullPolicy,
 							Command: []string{
 								"virt-operator",
@@ -545,7 +551,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 							Env: []k8sv1.EnvVar{
 								{
 									Name:  util.OperatorImageEnvName,
-									Value: fmt.Sprintf("%s/%s:%s", imageRegistry, "virt-operator", imageTag),
+									Value: operatorImage,
 								},
 								{
 									Name:  util.TargetInstallNamespace,
@@ -561,6 +567,34 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 				},
 			},
 		},
+	}
+
+	if versions.UseShasums() {
+		shaSums := []k8sv1.EnvVar{
+			{
+				Name:  operatorutil.VirtApiShasumEnvName,
+				Value: versions.GetApiVersion(),
+			},
+			{
+				Name:  operatorutil.VirtControllerShasumEnvName,
+				Value: versions.GetControllerVersion(),
+			},
+			{
+				Name:  operatorutil.VirtHandlerShasumEnvName,
+				Value: versions.GetHandlerVersion(),
+			},
+			{
+				Name:  operatorutil.VirtLauncherShasumEnvName,
+				Value: versions.GetLauncherVersion(),
+			},
+			{
+				Name:  operatorutil.KubeVirtVersionEnvName,
+				Value: versions.GetKubeVirtVersion(),
+			},
+		}
+		env := job.Spec.Template.Spec.Containers[0].Env
+		env = append(env, shaSums...)
+		job.Spec.Template.Spec.Containers[0].Env = env
 	}
 
 	return job
@@ -629,12 +663,12 @@ func (c *KubeVirtController) deleteAllInstallStrategy() error {
 	return nil
 }
 
-func (c *KubeVirtController) getImageTag(kv *v1.KubeVirt) string {
-	if kv.Spec.ImageTag == "" {
-		return c.config.ImageTag
+func (c *KubeVirtController) getVersions(kv *v1.KubeVirt) *util.Versions {
+	// an imageTag given on the CR will take precedence over potentially given shasums in the operator's deployment
+	if kv.Spec.ImageTag != "" {
+		return util.NewVersionsWithTag(kv.Spec.ImageTag)
 	}
-
-	return kv.Spec.ImageTag
+	return c.config.Versions
 }
 
 func (c *KubeVirtController) getImageRegistry(kv *v1.KubeVirt) string {
@@ -645,7 +679,7 @@ func (c *KubeVirtController) getImageRegistry(kv *v1.KubeVirt) string {
 	return kv.Spec.ImageRegistry
 }
 
-func (c *KubeVirtController) getInstallStrategyJob(imageTag string, registry string) (*batchv1.Job, bool) {
+func (c *KubeVirtController) getInstallStrategyJob(version string, registry string) (*batchv1.Job, bool) {
 	objs := c.stores.InstallStrategyJobCache.List()
 	for _, obj := range objs {
 		if job, ok := obj.(*batchv1.Job); ok {
@@ -653,7 +687,7 @@ func (c *KubeVirtController) getInstallStrategyJob(imageTag string, registry str
 				continue
 			}
 
-			tagAnno, ok := job.Annotations[v1.InstallStrategyVersionAnnotation]
+			versionAnno, ok := job.Annotations[v1.InstallStrategyVersionAnnotation]
 			if !ok {
 				continue
 			}
@@ -663,7 +697,7 @@ func (c *KubeVirtController) getInstallStrategyJob(imageTag string, registry str
 				continue
 			}
 
-			if tagAnno == imageTag && registryAnno == registry {
+			if versionAnno == version && registryAnno == registry {
 				return job, true
 			}
 		}
@@ -673,7 +707,7 @@ func (c *KubeVirtController) getInstallStrategyJob(imageTag string, registry str
 
 // Loads install strategies into memory, and generates jobs to
 // create install strategies that don't exist yet.
-func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, imageTag string, registry string) (*installstrategy.InstallStrategy, bool, error) {
+func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, version string, registry string) (*installstrategy.InstallStrategy, bool, error) {
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -681,17 +715,17 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, imageTag strin
 	}
 
 	// 1. see if we already loaded the install strategy
-	strategy, ok := c.getInstallStrategyFromMap(imageTag, registry, kv.Namespace)
+	strategy, ok := c.getInstallStrategyFromMap(version, registry, kv.Namespace)
 	if ok {
 		// we already loaded this strategy into memory
 		return strategy, false, nil
 	}
 
 	// 2. look for install strategy config map in cache.
-	strategy, err = installstrategy.LoadInstallStrategyFromCache(c.stores, kv.Namespace, imageTag, registry)
+	strategy, err = installstrategy.LoadInstallStrategyFromCache(c.stores, kv.Namespace, version, registry)
 	if err == nil {
-		c.cacheInstallStrategyInMap(strategy, imageTag, registry, kv.Namespace)
-		log.Log.Infof("Loaded install strategy for kubevirt version %s into cache", imageTag)
+		c.cacheInstallStrategyInMap(strategy, version, registry, kv.Namespace)
+		log.Log.Infof("Loaded install strategy for kubevirt version %s into cache", version)
 		return strategy, false, nil
 	}
 
@@ -701,13 +735,13 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, imageTag strin
 	batch := c.clientset.BatchV1()
 	job := c.generateInstallStrategyJob(kv)
 
-	cachedJob, exists := c.getInstallStrategyJob(imageTag, registry)
+	cachedJob, exists := c.getInstallStrategyJob(version, registry)
 	if exists {
 		if cachedJob.Status.CompletionTime != nil {
 			// job completed but we don't have a install strategy still
 			// delete the job and we'll re-execute it once it is removed.
 
-			log.Log.Object(cachedJob).Errorf("Job failed to create install strategy for version %s for namespace %s", imageTag, kv.Namespace)
+			log.Log.Object(cachedJob).Errorf("Job failed to create install strategy for version %s for namespace %s", version, kv.Namespace)
 			if cachedJob.DeletionTimestamp == nil {
 
 				// Just in case there's an issue causing the job to fail
@@ -743,7 +777,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, imageTag strin
 						log.Log.Object(cachedJob).Errorf("Failed to delete job. %v", err)
 						return nil, true, err
 					}
-					log.Log.Object(cachedJob).Errorf("Deleting job for install strategy version %s because configmap was not generated", imageTag)
+					log.Log.Object(cachedJob).Errorf("Deleting job for install strategy version %s because configmap was not generated", version)
 				}
 			}
 		}
@@ -760,7 +794,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, imageTag strin
 		c.kubeVirtExpectations.InstallStrategyJob.LowerExpectations(kvkey, 1, 0)
 		return nil, true, err
 	}
-	log.Log.Infof("Created job to generate install strategy configmap for version %s using registry %s", imageTag, registry)
+	log.Log.Infof("Created job to generate install strategy configmap for version %s using registry %s", version, registry)
 
 	// pending is true here because we're waiting on the job
 	// to generate the install strategy
@@ -788,14 +822,21 @@ func isUpdating(kv *v1.KubeVirt) bool {
 	// first check to see if any version has been observed yet.
 	// If no version is observed, this means no version has been
 	// installed yet, so we can't be updating.
+	// When using Shasums, ObservedKubeVirtVersion is set to the operator's sha,
+	// so no need to check the other observed shas
 	if kv.Status.ObservedKubeVirtVersion == "" {
 		return false
 	}
 
 	// At this point we know an observed version exists.
 	// if observed doesn't match target in anyway then we are updating.
+	// TODO how to deal with virt-launcher sha? It might not be updated for all VMIs for a long time
+	// TODO so for now ignore it
 	if kv.Status.ObservedKubeVirtVersion != kv.Status.TargetKubeVirtVersion ||
-		kv.Status.ObservedKubeVirtRegistry != kv.Status.TargetKubeVirtRegistry {
+		kv.Status.ObservedKubeVirtRegistry != kv.Status.TargetKubeVirtRegistry ||
+		kv.Status.ObservedVirtApiSha != kv.Status.TargetVirtApiSha ||
+		kv.Status.ObservedVirtControllerSha != kv.Status.TargetVirtControllerSha ||
+		kv.Status.ObservedVirtHandlerSha != kv.Status.TargetVirtHandlerSha {
 		return true
 	}
 
@@ -823,9 +864,9 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	// Record current operator version to status section
 	util.SetOperatorVersion(kv)
 
-	// Record the version we're targetting to install
-	kv.Status.TargetKubeVirtVersion = c.getImageTag(kv)
+	// Record the version we're targeting to install
 	kv.Status.TargetKubeVirtRegistry = c.getImageRegistry(kv)
+	c.getVersions(kv).SetTargetVersion(kv)
 
 	if kv.Status.Phase == "" {
 		kv.Status.Phase = v1.KubeVirtPhaseDeploying
@@ -890,8 +931,8 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	// when synced==true that means SyncAll() has completed and has nothing left to wait on.
 	if synced {
 		// record the version that has been completely installed
-		kv.Status.ObservedKubeVirtVersion = c.getImageTag(kv)
 		kv.Status.ObservedKubeVirtRegistry = c.getImageRegistry(kv)
+		c.getVersions(kv).SetObservedVersion(kv)
 
 		// add Created condition
 		util.UpdateCondition(kv, v1.KubeVirtConditionCreated, k8sv1.ConditionTrue, ConditionReasonDeploymentCreated, "All resources were created.")
@@ -953,7 +994,7 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 
 	// If we still have cached objects around, more deletions need to take place.
 	if !c.stores.AllEmpty() {
-		strategy, pending, err := c.loadInstallStrategy(kv, c.getImageTag(kv), c.getImageRegistry(kv))
+		strategy, pending, err := c.loadInstallStrategy(kv, c.getVersions(kv).GetKubeVirtVersion(), c.getImageRegistry(kv))
 		if err != nil {
 			return err
 		}

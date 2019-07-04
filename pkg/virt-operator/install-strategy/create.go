@@ -45,16 +45,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func objectMatchesVersion(objectMeta *metav1.ObjectMeta, imageTag string, imageRegistry string) bool {
+func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version string, imageRegistry string) bool {
 
 	if objectMeta.Annotations == nil {
 		return false
 	}
 
-	foundImageTag := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
+	foundVersion := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 	foundImageRegistry := objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
 
-	if foundImageTag == imageTag && foundImageRegistry == imageRegistry {
+	if foundVersion == version && foundImageRegistry == imageRegistry {
 		return true
 	}
 
@@ -87,7 +87,7 @@ func controllerDeployments(strategy *InstallStrategy) []*appsv1.Deployment {
 	return deployments
 }
 
-func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, imageTag string, imageRegistry string) {
+func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, version string, imageRegistry string) {
 	if objectMeta.Labels == nil {
 		objectMeta.Labels = make(map[string]string)
 	}
@@ -96,7 +96,7 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, imag
 	if objectMeta.Annotations == nil {
 		objectMeta.Annotations = make(map[string]string)
 	}
-	objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = imageTag
+	objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = version
 	objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = imageRegistry
 
 	objectMeta.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(kv, v1.KubeVirtGroupVersionKind)}
@@ -336,7 +336,7 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 	if err != nil {
 		return err
 	}
-	imageTag := kv.Status.TargetKubeVirtVersion
+	version := kv.Status.TargetKubeVirtVersion
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
 
 	// If webhook already exists in cache, then exit.
@@ -344,7 +344,7 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 	for _, obj := range objects {
 		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok {
 
-			if objectMatchesVersion(&webhook.ObjectMeta, imageTag, imageRegistry) {
+			if objectMatchesVersion(&webhook.ObjectMeta, version, imageRegistry) {
 				// already created blocking webhook for this version
 				return nil
 			}
@@ -405,7 +405,7 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 		},
 		Webhooks: webhooks,
 	}
-	injectOperatorMetadata(kv, &validationWebhook.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorMetadata(kv, &validationWebhook.ObjectMeta, version, imageRegistry)
 
 	expectations.ValidationWebhook.RaiseExpectations(kvkey, 1, 0)
 	_, err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(validationWebhook)
@@ -413,7 +413,7 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 		expectations.ValidationWebhook.LowerExpectations(kvkey, 1, 0)
 		return fmt.Errorf("unable to create validation webhook: %v", err)
 	}
-	log.Log.V(2).Infof("Validation webhook created for image %s and registry %s", imageTag, imageRegistry)
+	log.Log.V(2).Infof("Validation webhook created for image %s and registry %s", version, imageRegistry)
 
 	return nil
 }
@@ -630,7 +630,7 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 		return err
 	}
 
-	imageTag := kv.Status.TargetKubeVirtVersion
+	version := kv.Status.TargetKubeVirtVersion
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
 
 	for _, crd := range targetStrategy.crds {
@@ -642,7 +642,7 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 			cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
 		}
 
-		injectOperatorMetadata(kv, &crd.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorMetadata(kv, &crd.ObjectMeta, version, imageRegistry)
 		if !exists {
 			// Create non existent
 			expectations.Crd.RaiseExpectations(kvkey, 1, 0)
@@ -653,7 +653,7 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 			}
 			log.Log.V(2).Infof("crd %v created", crd.GetName())
 
-		} else if !objectMatchesVersion(&cachedCrd.ObjectMeta, imageTag, imageRegistry) {
+		} else if !objectMatchesVersion(&cachedCrd.ObjectMeta, version, imageRegistry) {
 			// Patch if old version
 			var ops []string
 
@@ -686,10 +686,10 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 }
 
 func shouldBackupRBACObject(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta) (bool, string, string) {
-	curImageTag := kv.Status.TargetKubeVirtVersion
+	curVersion := kv.Status.TargetKubeVirtVersion
 	curImageRegistry := kv.Status.TargetKubeVirtRegistry
 
-	if objectMatchesVersion(objectMeta, curImageTag, curImageRegistry) {
+	if objectMatchesVersion(objectMeta, curVersion, curImageRegistry) {
 		// matches current target version already, so doesn't need backup
 		return false, "", ""
 	}
@@ -705,7 +705,7 @@ func shouldBackupRBACObject(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta) (boo
 		return false, "", ""
 	}
 
-	imageTag, ok := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
+	version, ok := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 	if !ok {
 		return false, "", ""
 	}
@@ -715,7 +715,7 @@ func shouldBackupRBACObject(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta) (boo
 		return false, "", ""
 	}
 
-	return true, imageTag, imageRegistry
+	return true, version, imageRegistry
 
 }
 
@@ -1030,7 +1030,7 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 
 	core := clientset.CoreV1()
 
-	imageTag := kv.Status.TargetKubeVirtVersion
+	version := kv.Status.TargetKubeVirtVersion
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
 
 	// create/update ServiceAccounts
@@ -1043,7 +1043,7 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 			cachedSa = obj.(*corev1.ServiceAccount)
 		}
 
-		injectOperatorMetadata(kv, &sa.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorMetadata(kv, &sa.ObjectMeta, version, imageRegistry)
 		if !exists {
 			// Create non existent
 			expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
@@ -1053,7 +1053,7 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 				return fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
 			}
 			log.Log.V(2).Infof("serviceaccount %v created", sa.GetName())
-		} else if !objectMatchesVersion(&cachedSa.ObjectMeta, imageTag, imageRegistry) {
+		} else if !objectMatchesVersion(&cachedSa.ObjectMeta, version, imageRegistry) {
 			// Patch if old version
 			var ops []string
 
@@ -1080,7 +1080,7 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 	for _, cr := range targetStrategy.clusterRoles {
 		err := createOrUpdateClusterRole(cr,
 			kv,
-			imageTag,
+			version,
 			imageRegistry,
 			stores,
 			clientset,
@@ -1094,7 +1094,7 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 	for _, crb := range targetStrategy.clusterRoleBindings {
 		err := createOrUpdateClusterRoleBinding(crb,
 			kv,
-			imageTag,
+			version,
 			imageRegistry,
 			stores,
 			clientset,
@@ -1109,7 +1109,7 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 	for _, r := range targetStrategy.roles {
 		err := createOrUpdateRole(r,
 			kv,
-			imageTag,
+			version,
 			imageRegistry,
 			kv.Namespace,
 			stores,
@@ -1124,7 +1124,7 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 	for _, rb := range targetStrategy.roleBindings {
 		err := createOrUpdateRoleBinding(rb,
 			kv,
-			imageTag,
+			version,
 			imageRegistry,
 			kv.Namespace,
 			stores,
@@ -1167,11 +1167,11 @@ func generateServicePatch(kv *v1.KubeVirt,
 	var patchOps []string
 	var deleteAndReplace bool
 
-	imageTag := kv.Status.TargetKubeVirtVersion
+	version := kv.Status.TargetKubeVirtVersion
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
 
 	// First check if there's anything to do.
-	if objectMatchesVersion(&cachedService.ObjectMeta, imageTag, imageRegistry) {
+	if objectMatchesVersion(&cachedService.ObjectMeta, version, imageRegistry) {
 		// spec and annotations are already up to date. Nothing to do
 		return patchOps, false, nil
 	}
@@ -1230,7 +1230,7 @@ func createOrUpdateService(kv *v1.KubeVirt,
 	expectations *util.Expectations) (bool, error) {
 
 	core := clientset.CoreV1()
-	imageTag := kv.Status.TargetKubeVirtVersion
+	version := kv.Status.TargetKubeVirtVersion
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
 
 	kvkey, err := controller.KeyFunc(kv)
@@ -1252,7 +1252,7 @@ func createOrUpdateService(kv *v1.KubeVirt,
 			cachedService = obj.(*corev1.Service)
 		}
 
-		injectOperatorMetadata(kv, &service.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorMetadata(kv, &service.ObjectMeta, version, imageRegistry)
 		if !exists {
 			expectations.Service.RaiseExpectations(kvkey, 1, 0)
 			_, err := core.Services(kv.Namespace).Create(service)
@@ -1401,9 +1401,9 @@ func SyncAll(kv *v1.KubeVirt,
 		GracePeriodSeconds: &gracePeriod,
 	}
 
-	targetImageTag := kv.Status.TargetKubeVirtVersion
+	targetVersion := kv.Status.TargetKubeVirtVersion
 	targetImageRegistry := kv.Status.TargetKubeVirtRegistry
-	observedImageTag := kv.Status.ObservedKubeVirtVersion
+	observedVersion := kv.Status.ObservedKubeVirtVersion
 	observedImageRegistry := kv.Status.ObservedKubeVirtRegistry
 
 	apiDeploymentsRolledOver := haveApiDeploymentsRolledOver(targetStrategy, kv, stores)
@@ -1415,7 +1415,7 @@ func SyncAll(kv *v1.KubeVirt,
 
 		// infrastructure has rolled over and is available
 		infrastructureRolledOver = true
-	} else if (targetImageTag == observedImageTag) && (targetImageRegistry == observedImageRegistry) {
+	} else if (targetVersion == observedVersion) && (targetImageRegistry == observedImageRegistry) {
 
 		// infrastructure was observed to have rolled over successfully
 		// in the past

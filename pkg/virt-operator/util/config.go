@@ -31,14 +31,19 @@ import (
 
 const (
 	// Name of env var containing the operator's image name
-	OperatorImageEnvName   = "OPERATOR_IMAGE"
-	TargetInstallNamespace = "TARGET_INSTALL_NAMESPACE"
-	TargetImagePullPolicy  = "TARGET_IMAGE_PULL_POLICY"
+	OperatorImageEnvName        = "OPERATOR_IMAGE"
+	VirtApiShasumEnvName        = "VIRT_API_SHASUM"
+	VirtControllerShasumEnvName = "VIRT_CONTROLLER_SHASUM"
+	VirtHandlerShasumEnvName    = "VIRT_HANDLER_SHASUM"
+	VirtLauncherShasumEnvName   = "VIRT_LAUNCHER_SHASUM"
+	KubeVirtVersionEnvName      = "VERSION"
+	TargetInstallNamespace      = "TARGET_INSTALL_NAMESPACE"
+	TargetImagePullPolicy       = "TARGET_IMAGE_PULL_POLICY"
 )
 
 type KubeVirtDeploymentConfig struct {
 	ImageRegistry string
-	ImageTag      string
+	Versions      *Versions
 }
 
 func GetTargetImagePullPolicy() k8sv1.PullPolicy {
@@ -60,16 +65,40 @@ func GetTargetInstallNamespace() (string, error) {
 }
 
 func GetConfig() KubeVirtDeploymentConfig {
+
+	// get registry and tag/shasum from operator image
 	imageString := os.Getenv(OperatorImageEnvName)
-	imageRegEx := regexp.MustCompile(`^(.*)/virt-operator(:.*)?$`)
+	imageRegEx := regexp.MustCompile(`^(.*)/virt-operator([@:].*)?$`)
 	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
 	registry := matches[0][1]
-	tag := strings.TrimPrefix(matches[0][2], ":")
-	if tag == "" {
+	version := matches[0][2]
+	tag := ""
+	operatorSha := ""
+	if version == "" {
 		tag = "latest"
+	} else if strings.HasPrefix(version, ":") {
+		tag = strings.TrimPrefix(version, ":")
+	} else {
+		// we have a shasum... chances are high that we get the shasums for the other images as well from env vars,
+		// but as a fallback use latest tag
+		tag = "latest"
+		operatorSha = strings.TrimPrefix(version, "@")
 	}
+
+	versions := NewVersionsWithTag(tag)
+
+	// get shasums
+	apiSha := os.Getenv(VirtApiShasumEnvName)
+	controllerSha := os.Getenv(VirtControllerShasumEnvName)
+	handlerSha := os.Getenv(VirtHandlerShasumEnvName)
+	launcherSha := os.Getenv(VirtLauncherShasumEnvName)
+	kubeVirtVersion := os.Getenv(KubeVirtVersionEnvName)
+	if operatorSha != "" && apiSha != "" && controllerSha != "" && handlerSha != "" && launcherSha != "" && kubeVirtVersion != "" {
+		versions = NewVersionsWithShasums(kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha)
+	}
+
 	return KubeVirtDeploymentConfig{
 		ImageRegistry: registry,
-		ImageTag:      tag,
+		Versions:      versions,
 	}
 }

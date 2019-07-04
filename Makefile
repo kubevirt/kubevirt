@@ -101,7 +101,7 @@ cluster-down:
 	./cluster-up/down.sh
 
 cluster-build:
-	./hack/cluster-build.sh
+	PUSH_LOG_FILE=${PUSH_LOG_FILE} ./hack/cluster-build.sh
 
 cluster-clean:
 	./hack/cluster-clean.sh

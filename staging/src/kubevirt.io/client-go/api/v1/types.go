@@ -1224,13 +1224,22 @@ type KubeVirtSpec struct {
 // ---
 // +k8s:openapi-gen=true
 type KubeVirtStatus struct {
-	Phase                    KubeVirtPhase       `json:"phase,omitempty"`
-	Conditions               []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
-	OperatorVersion          string              `json:"operatorVersion,omitempty" optional:"true"`
-	TargetKubeVirtVersion    string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
-	TargetKubeVirtRegistry   string              `json:"targetKubeVirtRegistry,omitempty" optional:"true"`
-	ObservedKubeVirtVersion  string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
-	ObservedKubeVirtRegistry string              `json:"observedKubeVirtRegistry,omitempty" optional:"true"`
+	Phase                     KubeVirtPhase       `json:"phase,omitempty"`
+	Conditions                []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
+	OperatorVersion           string              `json:"operatorVersion,omitempty" optional:"true"`
+	TargetKubeVirtVersion     string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
+	TargetVirtApiSha          string              `json:"targetVirtApiSha,omitempty" optional:"true"`
+	TargetVirtControllerSha   string              `json:"targetVirtControllerSha,omitempty" optional:"true"`
+	TargetVirtHandlerSha      string              `json:"targetVirtHandlerSha,omitempty" optional:"true"`
+	TargetVirtLauncherSha     string              `json:"targetVirtLauncherSha,omitempty" optional:"true"`
+	TargetKubeVirtRegistry    string              `json:"targetKubeVirtRegistry,omitempty" optional:"true"`
+	ObservedKubeVirtVersion   string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
+	ObservedVirtApiSha        string              `json:"observedVirtApiSha,omitempty" optional:"true"`
+	ObservedVirtControllerSha string              `json:"observedVirtControllerSha,omitempty" optional:"true"`
+	ObservedVirtHandlerSha    string              `json:"observedVirtHandlerSha,omitempty" optional:"true"`
+	// skip this, until it's clear how to use this (if at all)
+	//ObservedVirtLauncherSha    string              `json:"observedVirtLauncherSha,omitempty" optional:"true"`
+	ObservedKubeVirtRegistry string `json:"observedKubeVirtRegistry,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.

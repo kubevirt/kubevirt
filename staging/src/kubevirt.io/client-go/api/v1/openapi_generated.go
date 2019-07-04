@@ -1835,6 +1835,30 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
+					"targetVirtApiSha": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"targetVirtControllerSha": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"targetVirtHandlerSha": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"targetVirtLauncherSha": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"targetKubeVirtRegistry": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -1847,10 +1871,29 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
-					"observedKubeVirtRegistry": {
+					"observedVirtApiSha": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"observedVirtControllerSha": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"observedVirtHandlerSha": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"observedKubeVirtRegistry": {
+						SchemaProps: spec.SchemaProps{
+							Description: "skip this, until it's clear how to use this (if at all) ObservedVirtLauncherSha    string              `json:\"observedVirtLauncherSha,omitempty\" optional:\"true\"`",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

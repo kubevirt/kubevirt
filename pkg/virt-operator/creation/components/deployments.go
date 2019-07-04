@@ -99,7 +99,7 @@ func NewApiServerService(namespace string) *corev1.Service {
 
 func newPodTemplateSpec(name string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*corev1.PodTemplateSpec, error) {
 
-	version = addVersionSeparatorPrefix(version)
+	version = AddVersionSeparatorPrefix(version)
 
 	tolerations, err := criticalAddonsToleration()
 	if err != nil {
@@ -250,7 +250,7 @@ func NewControllerDeployment(namespace string, repository string, controllerVers
 		RunAsNonRoot: boolPtr(true),
 	}
 
-	launcherVersion = addVersionSeparatorPrefix(launcherVersion)
+	launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
 
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
@@ -414,10 +414,12 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 }
 
 // Used for manifest generation only
-func NewOperatorDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+func NewOperatorDeployment(namespace string, repository string, version string,
+	pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
 
 	name := "virt-operator"
-	image := fmt.Sprintf("%s/%s:%s", repository, name, version)
+	version = AddVersionSeparatorPrefix(version)
+	image := fmt.Sprintf("%s/%s%s", repository, name, version)
 
 	tolerations, err := criticalAddonsToleration()
 	if err != nil {
@@ -539,13 +541,13 @@ func criticalAddonsToleration() ([]byte, error) {
 	return tolerationsStr, err
 }
 
-func addVersionSeparatorPrefix(version string) string {
+func AddVersionSeparatorPrefix(version string) string {
 	// version can be a template, a tag or shasum
 	// prefix tags with ":" and shasums with "@"
 	// templates have to deal with the correct image/version separator themselves
 	if strings.HasPrefix(version, "sha256:") {
 		version = fmt.Sprintf("@%s", version)
-	} else if !strings.HasPrefix(version, "{{") {
+	} else if !strings.HasPrefix(version, "{{if") {
 		version = fmt.Sprintf(":%s", version)
 	}
 	return version

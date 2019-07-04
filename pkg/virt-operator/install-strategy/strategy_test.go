@@ -23,6 +23,8 @@ import (
 	"reflect"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -50,7 +52,7 @@ var _ = Describe("Install Strategy", func() {
 	})
 
 	namespace := "fake-namespace"
-	imageTag := "v9.9.9"
+	versions := util.NewVersionsWithTag("v9.9.9")
 	imageRegistry := "fake-registry"
 
 	Context("should generate", func() {
@@ -58,7 +60,7 @@ var _ = Describe("Install Strategy", func() {
 
 			strategy, err := GenerateCurrentInstallStrategy(
 				namespace,
-				imageTag,
+				versions,
 				imageRegistry,
 				corev1.PullIfNotPresent,
 				"2")
@@ -194,14 +196,14 @@ var _ = Describe("Install Strategy", func() {
 						Namespace: "default",
 					},
 					Spec: v1.KubeVirtSpec{
-						ImageTag:      imageTag,
+						ImageTag:      versions.GetKubeVirtVersion(),
 						ImageRegistry: imageRegistry,
 					},
 					Status: v1.KubeVirtStatus{
-						TargetKubeVirtVersion:  imageTag,
 						TargetKubeVirtRegistry: imageRegistry,
 					},
 				}
+				versions.SetTargetVersion(kv)
 
 				ops, shouldDeleteAndReplace, err := generateServicePatch(kv, cachedService, targetService)
 				Expect(err).To(BeNil())
@@ -271,7 +273,7 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  imageTag,
+							v1.InstallStrategyVersionAnnotation:  versions.GetKubeVirtVersion(),
 							v1.InstallStrategyRegistryAnnotation: imageRegistry,
 						},
 					},
@@ -283,7 +285,7 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  imageTag,
+							v1.InstallStrategyVersionAnnotation:  versions.GetKubeVirtVersion(),
 							v1.InstallStrategyRegistryAnnotation: imageRegistry,
 						},
 					},
@@ -321,7 +323,7 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  imageTag,
+							v1.InstallStrategyVersionAnnotation:  versions.GetKubeVirtVersion(),
 							v1.InstallStrategyRegistryAnnotation: imageRegistry,
 						},
 					},
@@ -348,7 +350,7 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  imageTag,
+							v1.InstallStrategyVersionAnnotation:  versions.GetKubeVirtVersion(),
 							v1.InstallStrategyRegistryAnnotation: imageRegistry,
 						},
 					},
@@ -381,7 +383,7 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  imageTag,
+							v1.InstallStrategyVersionAnnotation:  versions.GetKubeVirtVersion(),
 							v1.InstallStrategyRegistryAnnotation: imageRegistry,
 						},
 					},
@@ -449,7 +451,7 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  imageTag,
+							v1.InstallStrategyVersionAnnotation:  versions.GetKubeVirtVersion(),
 							v1.InstallStrategyRegistryAnnotation: imageRegistry,
 						},
 					},

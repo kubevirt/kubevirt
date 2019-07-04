@@ -109,11 +109,6 @@ for arg in $args; do
         --package-name=${package_name} \
         --input-file=${infile} \
         --quay-repository=${QUAY_REPOSITORY} \
-        --virt-operator-sha=${VIRT_OPERATOR_SHA} \
-        --virt-api-sha=${VIRT_API_SHA} \
-        --virt-controller-sha=${VIRT_CONTROLLER_SHA} \
-        --virt-handler-sha=${VIRT_HANDLER_SHA} \
-        --virt-launcher-sha=${VIRT_LAUNCHER_SHA} \
         >${template_outfile}
 done
 
@@ -124,7 +119,8 @@ done
 find ${MANIFESTS_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
 find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
 
-if [ "$skipj2" = true ]; then
+# we can't test this when we have image shasums, because shassums are not used in templates, so they will always differ
+if [ "$skipj2" = true ] || [ ! -z $VIRT_OPERATOR_SHA ]; then
     exit 0
 fi
 

@@ -192,6 +192,8 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
+# set logfile for image push, in order to use image hashes in manifests and for deployment
+export PUSH_LOG_FILE="push.log"
 make cluster-build
 
 # I do not have good indication that OKD API server ready to serve requests, so I will just

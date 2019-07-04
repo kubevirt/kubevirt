@@ -96,7 +96,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var informers util.Informers
 	var stores util.Stores
 
-	defaultImageTag := "v9.9.9"
+	defaultVersions := util.NewVersionsWithTag("v9.9.9")
 	defaultRegistry := "someregistry"
 
 	var totalAdds int
@@ -160,7 +160,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	BeforeEach(func() {
 
-		os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", defaultRegistry, defaultImageTag))
+		os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", defaultRegistry, defaultVersions.GetKubeVirtVersion()))
 
 		totalAdds = 0
 		totalUpdates = 0
@@ -417,15 +417,15 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 	}
 
-	addInstallStrategy := func(imageTag string, imageRegistry string) {
+	addInstallStrategy := func(versions *util.Versions, imageRegistry string) {
 		// install strategy config
-		resource, _ := installstrategy.NewInstallStrategyConfigMap(NAMESPACE, imageTag, imageRegistry, "IfNotPresent")
+		resource, _ := installstrategy.NewInstallStrategyConfigMap(NAMESPACE, versions, imageRegistry, "IfNotPresent")
 
 		resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
-		addResource(resource, imageTag, imageRegistry)
+		addResource(resource, versions.GetKubeVirtVersion(), imageRegistry)
 	}
 
-	addPods := func(version string, registry string) {
+	addPods := func(versions *util.Versions, registry string) {
 		pullPolicy := "IfNotPresent"
 		imagePullPolicy := k8sv1.PullPolicy(pullPolicy)
 		verbosity := "2"
@@ -434,7 +434,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		// virt-api
 		// virt-controller
 		// virt-handler
-		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, registry, versions.GetApiVersion(), imagePullPolicy, verbosity)
 
 		pod := &k8sv1.Pod{
 			ObjectMeta: apiDeployment.Spec.Template.ObjectMeta,
@@ -446,11 +446,11 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			},
 		}
-		injectMetadata(&pod.ObjectMeta, version, registry)
+		injectMetadata(&pod.ObjectMeta, versions.GetKubeVirtVersion(), registry)
 		pod.Name = "virt-api-xxxx"
 		addPod(pod)
 
-		controller, _ := components.NewControllerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		controller, _ := components.NewControllerDeployment(NAMESPACE, registry, versions.GetControllerVersion(), versions.GetLauncherVersion(), imagePullPolicy, verbosity)
 		pod = &k8sv1.Pod{
 			ObjectMeta: controller.Spec.Template.ObjectMeta,
 			Spec:       controller.Spec.Template.Spec,
@@ -462,10 +462,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			},
 		}
 		pod.Name = "virt-controller-xxxx"
-		injectMetadata(&pod.ObjectMeta, version, registry)
+		injectMetadata(&pod.ObjectMeta, versions.GetKubeVirtVersion(), registry)
 		addPod(pod)
 
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, registry, versions.GetHandlerVersion(), imagePullPolicy, verbosity)
 		pod = &k8sv1.Pod{
 			ObjectMeta: handler.Spec.Template.ObjectMeta,
 			Spec:       handler.Spec.Template.Spec,
@@ -476,7 +476,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			},
 		}
-		injectMetadata(&pod.ObjectMeta, version, registry)
+		injectMetadata(&pod.ObjectMeta, versions.GetKubeVirtVersion(), registry)
 		pod.Name = "virt-handler-xxxx"
 		addPod(pod)
 	}
@@ -593,7 +593,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		addValidatingWebhook(validationWebhook)
 	}
 
-	addAll := func(version string, registry string) {
+	addAll := func(versions *util.Versions, registry string) {
 		pullPolicy := "IfNotPresent"
 		imagePullPolicy := k8sv1.PullPolicy(pullPolicy)
 		verbosity := "2"
@@ -614,15 +614,15 @@ var _ = Describe("KubeVirt Operator", func() {
 		// services and deployments
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
-		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
-		controller, _ := components.NewControllerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, registry, versions.GetApiVersion(), imagePullPolicy, verbosity)
+		controller, _ := components.NewControllerDeployment(NAMESPACE, registry, versions.GetControllerVersion(), versions.GetLauncherVersion(), imagePullPolicy, verbosity)
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, registry, versions.GetHandlerVersion(), imagePullPolicy, verbosity)
 		all = append(all, apiDeployment, controller, handler)
 
 		for _, obj := range all {
 
 			if resource, ok := obj.(runtime.Object); ok {
-				addResource(resource, version, registry)
+				addResource(resource, versions.GetKubeVirtVersion(), registry)
 			} else {
 				Fail("could not cast to runtime.Object")
 			}
@@ -947,12 +947,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		}).Times(times)
 	}
 
-	shouldExpectKubeVirtUpdateVersion := func(times int, imageTag string) {
+	shouldExpectKubeVirtUpdateVersion := func(times int, versions *util.Versions) {
 		update := kvInterface.EXPECT().Update(gomock.Any())
 		update.Do(func(kv *v1.KubeVirt) {
 
-			Expect(kv.Status.TargetKubeVirtVersion).To(Equal(imageTag))
-			Expect(kv.Status.ObservedKubeVirtVersion).To(Equal(imageTag))
+			Expect(kv.Status.TargetKubeVirtVersion).To(Equal(versions.GetKubeVirtVersion()))
+			Expect(kv.Status.ObservedKubeVirtVersion).To(Equal(versions.GetKubeVirtVersion()))
 			kvInformer.GetStore().Update(kv)
 			update.Return(kv, nil)
 		}).Times(times)
@@ -996,7 +996,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
-			addInstallStrategy(defaultImageTag, defaultRegistry)
+			addInstallStrategy(defaultVersions, defaultRegistry)
 			controller.Execute()
 		}, 15)
 
@@ -1035,15 +1035,16 @@ var _ = Describe("KubeVirt Operator", func() {
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
-			addAll("custom.tag", defaultRegistry)
+			customVersions := util.NewVersionsWithTag("custom.tag")
+			addAll(customVersions, defaultRegistry)
 			// install strategy config
-			addInstallStrategy("custom.tag", defaultRegistry)
-			addPods("custom.tag", defaultRegistry)
+			addInstallStrategy(customVersions, defaultRegistry)
+			addPods(customVersions, defaultRegistry)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
-			shouldExpectKubeVirtUpdateVersion(1, "custom.tag")
+			shouldExpectKubeVirtUpdateVersion(1, customVersions)
 			controller.Execute()
 
 		}, 15)
@@ -1074,12 +1075,12 @@ var _ = Describe("KubeVirt Operator", func() {
 						},
 					},
 					OperatorVersion:          version.Get().String(),
-					TargetKubeVirtVersion:    defaultImageTag,
 					TargetKubeVirtRegistry:   defaultRegistry,
-					ObservedKubeVirtVersion:  defaultImageTag,
 					ObservedKubeVirtRegistry: defaultRegistry,
 				},
 			}
+			defaultVersions.SetTargetVersion(kv)
+			defaultVersions.SetObservedVersion(kv)
 
 			deleteFromCache = false
 
@@ -1087,9 +1088,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 			addDummyValidationWebhook()
-			addInstallStrategy(defaultImageTag, defaultRegistry)
-			addAll(defaultImageTag, defaultRegistry)
-			addPods(defaultImageTag, defaultRegistry)
+			addInstallStrategy(defaultVersions, defaultRegistry)
+			addAll(defaultVersions, defaultRegistry)
+			addPods(defaultVersions, defaultRegistry)
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
@@ -1126,19 +1127,19 @@ var _ = Describe("KubeVirt Operator", func() {
 						},
 					},
 					OperatorVersion:          version.Get().String(),
-					TargetKubeVirtVersion:    defaultImageTag,
 					TargetKubeVirtRegistry:   defaultRegistry,
-					ObservedKubeVirtVersion:  defaultImageTag,
 					ObservedKubeVirtRegistry: defaultRegistry,
 				},
 			}
+			defaultVersions.SetTargetVersion(kv)
+			defaultVersions.SetObservedVersion(kv)
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
-			addInstallStrategy(defaultImageTag, defaultRegistry)
-			addAll(defaultImageTag, defaultRegistry)
-			addPods(defaultImageTag, defaultRegistry)
+			addInstallStrategy(defaultVersions, defaultRegistry)
+			addAll(defaultVersions, defaultRegistry)
+			addPods(defaultVersions, defaultRegistry)
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
@@ -1166,22 +1167,22 @@ var _ = Describe("KubeVirt Operator", func() {
 						},
 					},
 					OperatorVersion:          version.Get().String(),
-					TargetKubeVirtVersion:    defaultImageTag,
 					TargetKubeVirtRegistry:   defaultRegistry,
-					ObservedKubeVirtVersion:  defaultImageTag,
 					ObservedKubeVirtRegistry: defaultRegistry,
 				},
 			}
+			defaultVersions.SetTargetVersion(kv)
+			defaultVersions.SetObservedVersion(kv)
 
 			deleteFromCache = false
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
-			addInstallStrategy(defaultImageTag, defaultRegistry)
-			addAll(defaultImageTag, defaultRegistry)
+			addInstallStrategy(defaultVersions, defaultRegistry)
+			addAll(defaultVersions, defaultRegistry)
 			numResources := generateRandomResources()
-			addPods(defaultImageTag, defaultRegistry)
+			addPods(defaultVersions, defaultRegistry)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1275,17 +1276,17 @@ var _ = Describe("KubeVirt Operator", func() {
 						},
 					},
 					OperatorVersion:          version.Get().String(),
-					TargetKubeVirtVersion:    defaultImageTag,
 					TargetKubeVirtRegistry:   defaultRegistry,
-					ObservedKubeVirtVersion:  defaultImageTag,
 					ObservedKubeVirtRegistry: defaultRegistry,
 				},
 			}
+			defaultVersions.SetTargetVersion(kv)
+			defaultVersions.SetObservedVersion(kv)
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
-			addInstallStrategy(defaultImageTag, defaultRegistry)
+			addInstallStrategy(defaultVersions, defaultRegistry)
 
 			shouldExpectKubeVirtUpdate(1)
 			shouldExpectJobCreation()
@@ -1384,7 +1385,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
-			addInstallStrategy(defaultImageTag, defaultRegistry)
+			addInstallStrategy(defaultVersions, defaultRegistry)
 
 			job := controller.generateInstallStrategyJob(kv)
 
@@ -1426,7 +1427,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		It("should pause rollback until api server is rolled over.", func(done Done) {
 			defer close(done)
 
-			rollbackVersion := "9.9.7"
+			rollbackVersions := util.NewVersionsWithTag("9.9.7")
 			rollbackRegistry := "otherregistry"
 
 			kv := &v1.KubeVirt{
@@ -1436,7 +1437,7 @@ var _ = Describe("KubeVirt Operator", func() {
 					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 				Spec: v1.KubeVirtSpec{
-					ImageTag:      rollbackVersion,
+					ImageTag:      rollbackVersions.GetKubeVirtVersion(),
 					ImageRegistry: rollbackRegistry,
 				},
 				Status: v1.KubeVirtStatus{
@@ -1456,21 +1457,21 @@ var _ = Describe("KubeVirt Operator", func() {
 						},
 					},
 					OperatorVersion:          version.Get().String(),
-					TargetKubeVirtVersion:    defaultImageTag,
 					TargetKubeVirtRegistry:   defaultRegistry,
-					ObservedKubeVirtVersion:  defaultImageTag,
 					ObservedKubeVirtRegistry: defaultRegistry,
 				},
 			}
+			defaultVersions.SetTargetVersion(kv)
+			defaultVersions.SetObservedVersion(kv)
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
-			addInstallStrategy(defaultImageTag, defaultRegistry)
-			addInstallStrategy(rollbackVersion, rollbackRegistry)
+			addInstallStrategy(defaultVersions, defaultRegistry)
+			addInstallStrategy(rollbackVersions, rollbackRegistry)
 
-			addAll(defaultImageTag, defaultRegistry)
-			addPods(defaultImageTag, defaultRegistry)
+			addAll(defaultVersions, defaultRegistry)
+			addPods(defaultVersions, defaultRegistry)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1494,7 +1495,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		It("should pause update until daemonsets and controllers are rolled over.", func(done Done) {
 			defer close(done)
 
-			updatedVersion := "9.9.10"
+			updatedVersions := util.NewVersionsWithTag("9.9.10")
 			updatedRegistry := "otherregistry"
 
 			kv := &v1.KubeVirt{
@@ -1504,7 +1505,7 @@ var _ = Describe("KubeVirt Operator", func() {
 					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 				Spec: v1.KubeVirtSpec{
-					ImageTag:      updatedVersion,
+					ImageTag:      updatedVersions.GetKubeVirtVersion(),
 					ImageRegistry: updatedRegistry,
 				},
 				Status: v1.KubeVirtStatus{
@@ -1524,21 +1525,21 @@ var _ = Describe("KubeVirt Operator", func() {
 						},
 					},
 					OperatorVersion:          version.Get().String(),
-					TargetKubeVirtVersion:    defaultImageTag,
 					TargetKubeVirtRegistry:   defaultRegistry,
-					ObservedKubeVirtVersion:  defaultImageTag,
 					ObservedKubeVirtRegistry: defaultRegistry,
 				},
 			}
+			defaultVersions.SetTargetVersion(kv)
+			defaultVersions.SetObservedVersion(kv)
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
-			addInstallStrategy(defaultImageTag, defaultRegistry)
-			addInstallStrategy(updatedVersion, updatedRegistry)
+			addInstallStrategy(defaultVersions, defaultRegistry)
+			addInstallStrategy(updatedVersions, updatedRegistry)
 
-			addAll(defaultImageTag, defaultRegistry)
-			addPods(defaultImageTag, defaultRegistry)
+			addAll(defaultVersions, defaultRegistry)
+			addPods(defaultVersions, defaultRegistry)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1559,10 +1560,10 @@ var _ = Describe("KubeVirt Operator", func() {
 		It("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicilty set.", func(done Done) {
 			defer close(done)
 
-			updatedVersion := "1.1.1"
+			updatedVersions := util.NewVersionsWithTag("1.1.1")
 			updatedRegistry := "otherregistry"
 
-			os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", updatedRegistry, updatedVersion))
+			os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", updatedRegistry, updatedVersions.GetKubeVirtVersion()))
 
 			controller.config = util.GetConfig()
 
@@ -1590,26 +1591,26 @@ var _ = Describe("KubeVirt Operator", func() {
 						},
 					},
 					OperatorVersion:          version.Get().String(),
-					TargetKubeVirtVersion:    defaultImageTag,
 					TargetKubeVirtRegistry:   defaultRegistry,
-					ObservedKubeVirtVersion:  defaultImageTag,
 					ObservedKubeVirtRegistry: defaultRegistry,
 				},
 			}
+			defaultVersions.SetTargetVersion(kv)
+			defaultVersions.SetObservedVersion(kv)
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
-			addInstallStrategy(defaultImageTag, defaultRegistry)
-			addInstallStrategy(updatedVersion, updatedRegistry)
+			addInstallStrategy(defaultVersions, defaultRegistry)
+			addInstallStrategy(updatedVersions, updatedRegistry)
 
-			addAll(defaultImageTag, defaultRegistry)
-			addPods(defaultImageTag, defaultRegistry)
+			addAll(defaultVersions, defaultRegistry)
+			addPods(defaultVersions, defaultRegistry)
 
 			// pods for the new version are added so this test won't
 			// wait for daemonsets to rollover before updating/patching
 			// all resources.
-			addPods(updatedVersion, updatedRegistry)
+			addPods(updatedVersions, updatedRegistry)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1630,7 +1631,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		It("should update resources when changing KubeVirt version.", func(done Done) {
 			defer close(done)
 
-			updatedVersion := "1.1.1"
+			updatedVersions := util.NewVersionsWithTag("1.1.1")
 			updatedRegistry := "otherregistry"
 
 			kv := &v1.KubeVirt{
@@ -1640,7 +1641,7 @@ var _ = Describe("KubeVirt Operator", func() {
 					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 				Spec: v1.KubeVirtSpec{
-					ImageTag:      updatedVersion,
+					ImageTag:      updatedVersions.GetKubeVirtVersion(),
 					ImageRegistry: updatedRegistry,
 				},
 				Status: v1.KubeVirtStatus{
@@ -1660,26 +1661,26 @@ var _ = Describe("KubeVirt Operator", func() {
 						},
 					},
 					OperatorVersion:          version.Get().String(),
-					TargetKubeVirtVersion:    defaultImageTag,
 					TargetKubeVirtRegistry:   defaultRegistry,
-					ObservedKubeVirtVersion:  defaultImageTag,
 					ObservedKubeVirtRegistry: defaultRegistry,
 				},
 			}
+			defaultVersions.SetTargetVersion(kv)
+			defaultVersions.SetObservedVersion(kv)
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
-			addInstallStrategy(defaultImageTag, defaultRegistry)
-			addInstallStrategy(updatedVersion, updatedRegistry)
+			addInstallStrategy(defaultVersions, defaultRegistry)
+			addInstallStrategy(updatedVersions, updatedRegistry)
 
-			addAll(defaultImageTag, defaultRegistry)
-			addPods(defaultImageTag, defaultRegistry)
+			addAll(defaultVersions, defaultRegistry)
+			addPods(defaultVersions, defaultRegistry)
 
 			// pods for the new version are added so this test won't
 			// wait for daemonsets to rollover before updating/patching
 			// all resources.
-			addPods(updatedVersion, updatedRegistry)
+			addPods(updatedVersions, updatedRegistry)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1711,8 +1712,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			addKubeVirt(kv)
 
 			// create all resources which should be deleted
-			addInstallStrategy(defaultImageTag, defaultRegistry)
-			addAll(defaultImageTag, defaultRegistry)
+			addInstallStrategy(defaultVersions, defaultRegistry)
+			addAll(defaultVersions, defaultRegistry)
 
 			shouldExpectKubeVirtUpdate(1)
 			shouldExpectDeletions()
@@ -1745,7 +1746,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				version, ok := configMap.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 				Expect(ok).To(BeTrue())
 
-				Expect(version).To(Equal(defaultImageTag))
+				Expect(version).To(Equal(defaultVersions.GetKubeVirtVersion()))
 
 				registry, ok := configMap.ObjectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
 				Expect(registry).To(Equal(defaultRegistry))

@@ -103,13 +103,6 @@ func main() {
 			panic(fmt.Errorf("error generating virt-handler deployment %v", err))
 		}
 		util.MarshallObject(handler, os.Stdout)
-	case "virt-operator":
-		operator, err := components.NewOperatorDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
-		if err != nil {
-			panic(fmt.Errorf("error generating virt-operator deployment %v", err))
-
-		}
-		util.MarshallObject(operator, os.Stdout)
 	default:
 		panic(fmt.Errorf("unknown resource type %s", *resourceType))
 	}

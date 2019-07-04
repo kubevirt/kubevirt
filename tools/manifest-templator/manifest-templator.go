@@ -32,14 +32,15 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/spf13/pflag"
+
 	v1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/tools/marketplace/helper"
 	"kubevirt.io/kubevirt/tools/util"
-
-	"github.com/spf13/pflag"
 )
 
 type templateData struct {
@@ -113,30 +114,37 @@ func main() {
 		data.VirtControllerSha = *virtControllerSha
 		data.VirtHandlerSha = *virtHandlerSha
 		data.VirtLauncherSha = *virtLauncherSha
-		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data)
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
 		data.PackageName = *packageName
 		data.CreatedAt = getTimestamp()
-		// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
 		data.ReplacesCsvVersion = ""
-		if strings.Contains(*inputFile, ".csv.yaml") && *bundleOutDir != "" && data.QuayRepository != "" {
-			bundleHelper, err := helper.NewBundleHelper(*quayRepository, *packageName)
-			if err != nil {
-				panic(err)
-			}
-			latestVersion := bundleHelper.GetLatestPublishedCSVVersion()
-			if latestVersion != "" {
-				// prevent generating the same version again
-				if strings.HasSuffix(latestVersion, *csvVersion) {
-					panic(fmt.Errorf("CSV version %s is already published!", *csvVersion))
+
+		// operator deployment differs a bit in normal manifest and CSV
+		if strings.Contains(*inputFile, ".clusterserviceversion.yaml") {
+
+			data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data, 12, true)
+
+			// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
+			if *bundleOutDir != "" && data.QuayRepository != "" {
+				bundleHelper, err := helper.NewBundleHelper(*quayRepository, *packageName)
+				if err != nil {
+					panic(err)
 				}
-				data.ReplacesCsvVersion = fmt.Sprintf("  replaces: %v", latestVersion)
-				// also copy old manifests to out dir
-				if *bundleOutDir != "" {
+				latestVersion := bundleHelper.GetLatestPublishedCSVVersion()
+				if latestVersion != "" {
+					// prevent generating the same version again
+					if strings.HasSuffix(latestVersion, *csvVersion) {
+						panic(fmt.Errorf("CSV version %s is already published!", *csvVersion))
+					}
+					data.ReplacesCsvVersion = fmt.Sprintf("  replaces: %v", latestVersion)
+					// also copy old manifests to out dir
 					bundleHelper.AddOldManifests(*bundleOutDir, *csvVersion)
 				}
+
 			}
+		} else {
+			data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data, 2, false)
 		}
 
 	} else {
@@ -199,11 +207,44 @@ func getOperatorRules() string {
 	return fixResourceString(writer.String(), 14)
 }
 
-func getOperatorDeploymentSpec(data templateData) string {
-	deployment, err := components.NewOperatorDeployment(data.Namespace, data.DockerPrefix, data.DockerTag, v1.PullPolicy(data.ImagePullPolicy), data.Verbosity)
+func getOperatorDeploymentSpec(data templateData, indentation int, fixReplicas bool) string {
+	version := data.DockerTag
+	if data.VirtOperatorSha != "" {
+		version = data.VirtOperatorSha
+	}
+	deployment, err := components.NewOperatorDeployment(data.Namespace, data.DockerPrefix, version, v1.PullPolicy(data.ImagePullPolicy), data.Verbosity)
 	if err != nil {
 		panic(err)
 	}
+
+	if data.VirtApiSha != "" && data.VirtControllerSha != "" && data.VirtHandlerSha != "" && data.VirtLauncherSha != "" {
+		shaSums := []v1.EnvVar{
+			{
+				Name:  operatorutil.KubeVirtVersionEnvName,
+				Value: data.DockerTag,
+			},
+			{
+				Name:  operatorutil.VirtApiShasumEnvName,
+				Value: data.VirtApiSha,
+			},
+			{
+				Name:  operatorutil.VirtControllerShasumEnvName,
+				Value: data.VirtControllerSha,
+			},
+			{
+				Name:  operatorutil.VirtHandlerShasumEnvName,
+				Value: data.VirtHandlerSha,
+			},
+			{
+				Name:  operatorutil.VirtLauncherShasumEnvName,
+				Value: data.VirtLauncherSha,
+			},
+		}
+		env := deployment.Spec.Template.Spec.Containers[0].Env
+		env = append(env, shaSums...)
+		deployment.Spec.Template.Spec.Containers[0].Env = env
+	}
+
 	writer := strings.Builder{}
 	err = util.MarshallObject(deployment.Spec, &writer)
 	if err != nil {
@@ -211,15 +252,13 @@ func getOperatorDeploymentSpec(data templateData) string {
 	}
 	spec := writer.String()
 
-	// remove creationTimestamp
-	re := regexp.MustCompile("(?m)[\r\n]+^.*creationTimestamp.*$")
-	spec = re.ReplaceAllString(spec, "")
+	if fixReplicas {
+		// operatorhub.io CI currently doesn't support more than 1 replica
+		re := regexp.MustCompile("(?m)^replicas: 2$")
+		spec = re.ReplaceAllString(spec, "replicas: 1")
+	}
 
-	// operatorhub.io CI currently doesn't support more than 1 replica
-	re = regexp.MustCompile("(?m)^replicas: 2$")
-	spec = re.ReplaceAllString(spec, "replicas: 1")
-
-	return fixResourceString(spec, 12)
+	return fixResourceString(spec, indentation)
 }
 
 func fixResourceString(in string, indention int) string {

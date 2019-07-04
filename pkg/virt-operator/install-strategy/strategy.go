@@ -75,11 +75,11 @@ type InstallStrategy struct {
 	customSCCPrivileges []*customSCCPrivilegedAccounts
 }
 
-func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistry string, pullPolicy corev1.PullPolicy) (*corev1.ConfigMap, error) {
+func NewInstallStrategyConfigMap(namespace string, versions *util.Versions, imageRegistry string, pullPolicy corev1.PullPolicy) (*corev1.ConfigMap, error) {
 
 	strategy, err := GenerateCurrentInstallStrategy(
 		namespace,
-		imageTag,
+		versions,
 		imageRegistry,
 		pullPolicy,
 		"2")
@@ -96,7 +96,7 @@ func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistr
 				v1.InstallStrategyLabel: "",
 			},
 			Annotations: map[string]string{
-				v1.InstallStrategyVersionAnnotation:  imageTag,
+				v1.InstallStrategyVersionAnnotation:  versions.GetKubeVirtVersion(),
 				v1.InstallStrategyRegistryAnnotation: imageRegistry,
 			},
 		},
@@ -110,7 +110,7 @@ func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistr
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 
 	conf := util.GetConfig()
-	imageTag := conf.ImageTag
+	versions := conf.Versions
 	imageRegistry := conf.ImageRegistry
 
 	namespace, err := util.GetTargetInstallNamespace()
@@ -119,7 +119,7 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 	}
 	pullPolicy := util.GetTargetImagePullPolicy()
 
-	configMap, err := NewInstallStrategyConfigMap(namespace, imageTag, imageRegistry, pullPolicy)
+	configMap, err := NewInstallStrategyConfigMap(namespace, versions, imageRegistry, pullPolicy)
 	if err != nil {
 		return err
 	}
@@ -181,7 +181,7 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 }
 
 func GenerateCurrentInstallStrategy(namespace string,
-	version string,
+	versions *util.Versions,
 	repository string,
 	imagePullPolicy corev1.PullPolicy,
 	verbosity string) (*InstallStrategy, error) {
@@ -229,19 +229,19 @@ func GenerateCurrentInstallStrategy(namespace string,
 	strategy.services = append(strategy.services, components.NewPrometheusService(namespace))
 
 	strategy.services = append(strategy.services, components.NewApiServerService(namespace))
-	apiDeployment, err := components.NewApiServerDeployment(namespace, repository, version, imagePullPolicy, verbosity)
+	apiDeployment, err := components.NewApiServerDeployment(namespace, repository, versions.GetApiVersion(), imagePullPolicy, verbosity)
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
 	}
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller, err := components.NewControllerDeployment(namespace, repository, version, imagePullPolicy, verbosity)
+	controller, err := components.NewControllerDeployment(namespace, repository, versions.GetControllerVersion(), versions.GetLauncherVersion(), imagePullPolicy, verbosity)
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-controller deployment %v", err)
 	}
 	strategy.deployments = append(strategy.deployments, controller)
 
-	handler, err := components.NewHandlerDaemonSet(namespace, repository, version, imagePullPolicy, verbosity)
+	handler, err := components.NewHandlerDaemonSet(namespace, repository, versions.GetHandlerVersion(), imagePullPolicy, verbosity)
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}

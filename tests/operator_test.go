@@ -275,7 +275,7 @@ var _ = Describe("Operator", func() {
 
 			operator, err := virtClient.AppsV1().Deployments(tests.KubeVirtInstallNamespace).Get("virt-operator", metav1.GetOptions{})
 
-			imageRegEx := regexp.MustCompile(`^(.*)/virt-operator(:.*)?$`)
+			imageRegEx := regexp.MustCompile(`^(.*)/virt-operator([@:].*)?$`)
 			matches := imageRegEx.FindAllStringSubmatch(operator.Spec.Template.Spec.Containers[0].Image, 1)
 			registry := matches[0][1]
 			newImage := fmt.Sprintf("%s/virt-operator:%s", registry, imageTag)
@@ -487,7 +487,7 @@ spec:
 				Skip("--previous-release-tag not provided")
 			}
 
-			curTag := originalKv.Status.ObservedKubeVirtVersion
+			curVersion := originalKv.Status.ObservedKubeVirtVersion
 			curRegistry := originalKv.Status.ObservedKubeVirtRegistry
 
 			allPodsAreReady(tests.KubeVirtVersionTag)
@@ -566,7 +566,7 @@ spec:
 
 			// Update KubeVirt from the previous release to the testing target release.
 			By("Updating KubeVirtObject With Current Tag")
-			patchKvVersionAndRegistry(kv.Name, curTag, curRegistry)
+			patchKvVersionAndRegistry(kv.Name, curVersion, curRegistry)
 
 			By("Wait for Updating Condition")
 			waitForUpdateCondition(kv)
@@ -575,7 +575,7 @@ spec:
 			waitForKv(kv)
 
 			By("Verifying infrastructure Is Updated")
-			allPodsAreReady(curTag)
+			allPodsAreReady(curVersion)
 
 			// Verify console connectivity to VMI still works and stop VM
 			for _, vmYaml := range vmYamls {
