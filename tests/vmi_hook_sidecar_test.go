@@ -21,9 +21,10 @@ package tests_test
 
 import (
 	"fmt"
-	"kubevirt.io/kubevirt/pkg/hooks"
 	"strings"
 	"time"
+
+	"kubevirt.io/kubevirt/pkg/hooks"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -33,7 +34,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	hooksv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	hooksv1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
-	"kubevirt.io/kubevirt/pkg/virt-config"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 )
 
