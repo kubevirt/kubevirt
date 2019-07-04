@@ -1478,9 +1478,9 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 
 		_, err = pdbClient.Patch(podDisruptionBudget.Name, types.JSONPatchType, generatePatchBytes(ops))
 		if err != nil {
-			return fmt.Errorf("unable to patch poddisruptionbudget %+v: %v", deployment, err)
+			return fmt.Errorf("unable to patch poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 		}
-		log.Log.V(2).Infof("poddisruptionbudget %v updated", deployment.GetName())
+		log.Log.V(2).Infof("poddisruptionbudget %v updated", podDisruptionBudget.GetName())
 		return nil
 	}
 

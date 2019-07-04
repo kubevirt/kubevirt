@@ -1551,12 +1551,15 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			controller.Execute()
 
+			// 1 because only PDB for virt-api is updated
+			expectedPodDisruptionBudgetUpdates := 1
+
 			// on rollback or create, api server must be online first before controllers and daemonset.
 			// On rollback this prevents someone from posting invalid specs to
 			// the cluster from newer versions when an older version is being deployed.
 			// On create this prevents invalid specs from entering the cluster
 			// while controllers are available to process them.
-			Expect(totalPatches).To(Equal(patchCount - 2))
+			Expect(totalPatches).To(Equal(patchCount - 2 + expectedPodDisruptionBudgetUpdates))
 			Expect(totalUpdates).To(Equal(updateCount))
 		}, 15)
 
@@ -1616,13 +1619,16 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			controller.Execute()
 
+			// 1 because PDB for virt-controller is updated only
+			expectedPodDisruptionBudgetUpdates := 1
+
 			// on update, apiserver won't get patched until daemonset and controller pods are online.
 			// this prevents the new API from coming online until the controllers can manage it.
-			Expect(totalPatches).To(Equal(patchCount - 1))
+			Expect(totalPatches).To(Equal(patchCount - 1 + expectedPodDisruptionBudgetUpdates))
 			Expect(totalUpdates).To(Equal(updateCount))
 		}, 15)
 
-		It("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicilty set.", func(done Done) {
+		It("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func(done Done) {
 			defer GinkgoRecover()
 			defer close(done)
 
