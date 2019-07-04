@@ -1,0 +1,22 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+filters:
+  ".*":
+    reviewers:
+      - davidvossel
+      - rmohr
+      - stu-gott
+      - booxter
+      - vladikr
+      - slintes
+      - cynepco3hahue
+      - phoracek
+      - SchSeba
+    approvers:
+      - slintes
+      - davidvossel
+      - vladikr
+      - rmohr
+      - cynepco3hahue
+      - stu-gott
+      - SchSeba
