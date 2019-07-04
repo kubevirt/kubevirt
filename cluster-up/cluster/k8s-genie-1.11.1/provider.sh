@@ -2,7 +2,7 @@
 
 set -e
 
-image="k8s-genie-1.11.1@sha256:bd3c56acfd0bdad24e204a49e41d2192eab4cad282a1bb9bed01790874ba8b58"
+image="k8s-genie-1.11.1@sha256:f61813c7c41cdd51f235b28fb574a39dc71e421c388dc85c4019912d4a4421bb"
 
 source ${KUBEVIRTCI_PATH}/cluster/ephemeral-provider-common.sh
 

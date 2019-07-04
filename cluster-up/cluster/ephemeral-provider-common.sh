@@ -2,7 +2,7 @@
 
 set -e
 
-_cli_container="kubevirtci/gocli@sha256:b52e44d4e44e4c03811a42af9136492fd22f725523c4a3b9258ca9556447736d"
+_cli_container="kubevirtci/gocli@sha256:caf1c3f63dc5f3137795084e492a48c802a7ef2e7f7fbe1d67e5cff684d376a3"
 _cli_with_tty="docker run --privileged --net=host --rm -t -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
 _cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
 
@@ -20,6 +20,7 @@ function prepare_config() {
 master_ip=$(_main_ip)
 kubeconfig=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 kubectl=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubectl
+gocli=${BASE_PATH}/../cluster-up/cli.sh
 docker_prefix=localhost:$(_port registry)/kubevirt
 manifest_docker_prefix=registry:5000/kubevirt
 EOF
@@ -30,7 +31,7 @@ function _registry_volume() {
 }
 
 function _add_common_params() {
-    local params="--nodes ${KUBEVIRT_NUM_NODES} --memory ${KUBEVIRT_MEMORY_SIZE} --cpu 5 --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) kubevirtci/${image} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
+    local params="--nodes ${KUBEVIRT_NUM_NODES} --memory ${KUBEVIRT_MEMORY_SIZE} --cpu 5 --secondary-nics ${KUBEVIRT_NUM_SECONDARY_NICS} --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) kubevirtci/${image} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
     if [[ $TARGET =~ windows.* ]] && [ -n "$WINDOWS_NFS_DIR" ]; then
         params=" --nfs-data $WINDOWS_NFS_DIR $params"
     elif [[ $TARGET =~ os-.* ]] && [ -n "$RHEL_NFS_DIR" ]; then
