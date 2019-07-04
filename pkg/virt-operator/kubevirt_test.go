@@ -119,9 +119,9 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalPatches int
 	var totalDeletions int
 
-	resourceCount := 29 // FIXME: should be more for the two PDBs created
-	patchCount := 13    // FIXME: should be more for the two PDBs created
-	updateCount := 16   // FIXME: should be more for the two PDBs created
+	resourceCount := 31
+	patchCount := 15
+	updateCount := 16
 
 	deleteFromCache := true
 	addToCache := true
@@ -442,7 +442,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			injectMetadata(&obj.(*k8sv1.Pod).ObjectMeta, config)
 			addPod(resource)
 		case *policyv1beta1.PodDisruptionBudget:
-			injectMetadata(&obj.(*policyv1beta1.PodDisruptionBudget).ObjectMeta, version, registry)
+			injectMetadata(&obj.(*policyv1beta1.PodDisruptionBudget).ObjectMeta, config)
 			addPodDisruptionBudget(resource)
 		default:
 			Fail("unknown resource type")
@@ -457,7 +457,37 @@ var _ = Describe("KubeVirt Operator", func() {
 		addResource(resource, config)
 	}
 
-	addPods := func(config *util.KubeVirtDeploymentConfig) {
+	addPodDisruptionBudgets := func(config *util.KubeVirtDeploymentConfig, apiDeployment *appsv1.Deployment, controller *appsv1.Deployment) {
+		minAvailable := intstr.FromInt(int(1))
+		apiPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: apiDeployment.Namespace,
+				Name:      apiDeployment.Name + "-pdb",
+				Labels:    apiDeployment.Labels,
+			},
+			Spec: policyv1beta1.PodDisruptionBudgetSpec{
+				MinAvailable: &minAvailable,
+				Selector:     apiDeployment.Spec.Selector,
+			},
+		}
+		injectMetadata(&apiPodDisruptionBudget.ObjectMeta, config)
+		addPodDisruptionBudget(apiPodDisruptionBudget)
+		controllerPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: controller.Namespace,
+				Name:      controller.Name + "-pdb",
+				Labels:    controller.Labels,
+			},
+			Spec: policyv1beta1.PodDisruptionBudgetSpec{
+				MinAvailable: &minAvailable,
+				Selector:     controller.Spec.Selector,
+			},
+		}
+		injectMetadata(&controllerPodDisruptionBudget.ObjectMeta, config)
+		addPodDisruptionBudget(controllerPodDisruptionBudget)
+	}
+
+	addPodsWithOptionalPodDisruptionBudgets := func(config *util.KubeVirtDeploymentConfig, shouldAddPodDisruptionBudgets bool) {
 		// we need at least one active pod for
 		// virt-api
 		// virt-controller
@@ -508,33 +538,13 @@ var _ = Describe("KubeVirt Operator", func() {
 		pod.Name = "virt-handler-xxxx"
 		addPod(pod)
 
-		minAvailable := intstr.FromInt(int(1))
-		apiPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: apiDeployment.Namespace,
-				Name:      apiDeployment.Name + "-pdb",
-				Labels:    apiDeployment.Labels,
-			},
-			Spec: policyv1beta1.PodDisruptionBudgetSpec{
-				MinAvailable: &minAvailable,
-				Selector:     apiDeployment.Spec.Selector,
-			},
+		if shouldAddPodDisruptionBudgets {
+			addPodDisruptionBudgets(config, apiDeployment, controller)
 		}
-		injectMetadata(&apiPodDisruptionBudget.ObjectMeta, version, registry)
-		addPodDisruptionBudget(apiPodDisruptionBudget)
-		controllerPodDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: controller.Namespace,
-				Name:      controller.Name + "-pdb",
-				Labels:    controller.Labels,
-			},
-			Spec: policyv1beta1.PodDisruptionBudgetSpec{
-				MinAvailable: &minAvailable,
-				Selector:     controller.Spec.Selector,
-			},
-		}
-		injectMetadata(&controllerPodDisruptionBudget.ObjectMeta, version, registry)
-		addPodDisruptionBudget(controllerPodDisruptionBudget)
+	}
+
+	addPodsAndPodDisruptionBudgets := func(config *util.KubeVirtDeploymentConfig) {
+		addPodsWithOptionalPodDisruptionBudgets(config, true)
 	}
 
 	generateRandomResources := func() int {
@@ -669,9 +679,13 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
 		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
+		injectVersionAnnotation(apiDeploymentPdb, config.GetApiVersion(), config.GetImageRegistry())
 		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
-		all = append(all, apiDeployment, controller, handler)
+		controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
+		injectVersionAnnotation(controllerPdb, config.GetApiVersion(), config.GetImageRegistry())
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 		for _, obj := range all {
 
@@ -691,6 +705,19 @@ var _ = Describe("KubeVirt Operator", func() {
 			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-controller"))
 		sccSource.Modify(&scc)
 
+	}
+
+	makePodDisruptionBudgetsReady := func() {
+		for _, pdbname := range []string{"/virt-api-pdb", "/virt-controller-pdb"} {
+			exists := false
+			// we need to wait until the pdb exists
+			for !exists {
+				_, exists, _ = stores.PodDisruptionBudgetCache.GetByKey(NAMESPACE + pdbname)
+				if !exists {
+					time.Sleep(time.Second)
+				}
+			}
+		}
 	}
 
 	makeApiAndControllerReady := func() {
@@ -719,16 +746,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 		}
 
-		for _, pdbname := range []string{"/virt-api-pdb", "/virt-controller-pdb"} {
-			exists := false
-			// we need to wait until the pdb exists
-			for !exists {
-				_, exists, _ = stores.PodDisruptionBudgetCache.GetByKey(NAMESPACE + pdbname)
-				if !exists {
-					time.Sleep(time.Second)
-				}
-			}
-		}
+		makePodDisruptionBudgetsReady()
 	}
 
 	makeHandlerReady := func() {
@@ -843,6 +861,15 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 		mockQueue.Wait()
 	}
+
+	deletePodDisruptionBudget := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.PodDisruptionBudget.GetStore().GetByKey(key); exists {
+			podDisruptionBudgetSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
+
 	deleteResource := func(resource string, key string) {
 		switch resource {
 		case "serviceaccounts":
@@ -869,8 +896,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			deleteInstallStrategyJob(key)
 		case "configmaps":
 			deleteInstallStrategyConfigMap(key)
+		case "poddisruptionbudgets":
+			deletePodDisruptionBudget(key)
 		default:
-			Fail("unknown resource type")
+			Fail(fmt.Sprintf("unknown resource type %+v", resource))
 		}
 	}
 
@@ -898,24 +927,27 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 		return true, create.GetObject(), nil
 	}
+
 	genericDeleteFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-		delete, ok := action.(testing.DeleteAction)
+		deleted, ok := action.(testing.DeleteAction)
 		Expect(ok).To(BeTrue())
 		totalDeletions++
 		var key string
-		if len(delete.GetNamespace()) > 0 {
-			key = delete.GetNamespace() + "/"
+		if len(deleted.GetNamespace()) > 0 {
+			key = deleted.GetNamespace() + "/"
 		}
-		key += delete.GetName()
+		key += deleted.GetName()
 		if deleteFromCache {
-			deleteResource(delete.GetResource().Resource, key)
+			deleteResource(deleted.GetResource().Resource, key)
 		}
 		return true, nil, nil
 	}
+
 	expectUsersDeleted := func(userBytes []byte) {
 		deletePatch := `[ { "op": "test", "path": "/users", "value": ["someUser","system:serviceaccount:kubevirt-test:kubevirt-handler","system:serviceaccount:kubevirt-test:kubevirt-apiserver","system:serviceaccount:kubevirt-test:kubevirt-controller"] }, { "op": "replace", "path": "/users", "value": ["someUser"] } ]`
 		Expect(userBytes).To(Equal([]byte(deletePatch)))
 	}
+
 	expectUsersAdded := func(userBytes []byte) {
 		addPatch := `[ { "op": "test", "path": "/users", "value": ["someUser"] }, { "op": "replace", "path": "/users", "value": ["someUser","system:serviceaccount:kubevirt-test:kubevirt-handler","system:serviceaccount:kubevirt-test:kubevirt-apiserver","system:serviceaccount:kubevirt-test:kubevirt-controller"] } ]`
 		Expect(userBytes).To(Equal([]byte(addPatch)))
@@ -924,14 +956,14 @@ var _ = Describe("KubeVirt Operator", func() {
 	shouldExpectInstallStrategyDeletion := func() {
 		kubeClient.Fake.PrependReactor("delete", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 
-			delete, ok := action.(testing.DeleteAction)
+			deleted, ok := action.(testing.DeleteAction)
 			Expect(ok).To(BeTrue())
 			var key string
-			if len(delete.GetNamespace()) > 0 {
-				key = delete.GetNamespace() + "/"
+			if len(deleted.GetNamespace()) > 0 {
+				key = deleted.GetNamespace() + "/"
 			}
-			key += delete.GetName()
-			deleteResource(delete.GetResource().Resource, key)
+			key += deleted.GetName()
+			deleteResource(deleted.GetResource().Resource, key)
 			return true, nil, nil
 		})
 	}
@@ -954,6 +986,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("delete", "deployments", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "daemonsets", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "validatingwebhookconfigurations", genericDeleteFunc)
+		kubeClient.Fake.PrependReactor("delete", "poddisruptionbudgets", genericDeleteFunc)
 	}
 
 	shouldExpectJobDeletion := func() {
@@ -1107,7 +1140,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addAll(customConfig)
 			// install strategy config
 			addInstallStrategy(customConfig)
-			addPods(customConfig)
+			addPodsAndPodDisruptionBudgets(customConfig)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1156,7 +1189,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addDummyValidationWebhook()
 			addInstallStrategy(defaultConfig)
 			addAll(defaultConfig)
-			addPods(defaultConfig)
+			addPodsAndPodDisruptionBudgets(defaultConfig)
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
@@ -1203,7 +1236,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addKubeVirt(kv)
 			addInstallStrategy(defaultConfig)
 			addAll(defaultConfig)
-			addPods(defaultConfig)
+			addPodsAndPodDisruptionBudgets(defaultConfig)
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
@@ -1244,7 +1277,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(defaultConfig)
 			addAll(defaultConfig)
 			numResources := generateRandomResources()
-			addPods(defaultConfig)
+			addPodsAndPodDisruptionBudgets(defaultConfig)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1409,6 +1442,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		}, 15)
 
 		It("should not delete completed install strategy creation job if job has failed less that 10 seconds ago", func(done Done) {
+			defer GinkgoRecover()
 			defer close(done)
 
 			kv := &v1.KubeVirt{
@@ -1436,9 +1470,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		}, 15)
 
-		It("should add resources on create", func(done Done) {
-			defer close(done)
-
+		It("should add resources on create", func() {
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-install",
@@ -1468,18 +1500,16 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
 			Expect(len(kv.Status.Conditions)).To(Equal(0))
 
-			// 2 because waiting on controller and virt-handler daemonset until API server deploys successfully
-			// FIXME: should be 3 for the uncreated PDB for virt-controller
-			expectedUncreatedResources := 2
+			// 3, 2 because waiting on controller and virt-handler daemonset until API server deploys successfully
+			// 	and
+			// 1 because uncreated PDB for virt-controller
+			expectedUncreatedResources := 3
 
 			// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
 			expectedTemporaryResources := 1
 
-			// 1 because the PDB for virt-api has been created by now
-			// FIXME: should be included in resourceCount
-			expectedPDBsCreated := 1
-
-			Expect(totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources + expectedPDBsCreated))
+			Expect(totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
+			//+ expectedPDBsCreated))
 
 			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))
@@ -1539,7 +1569,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(rollbackConfig)
 
 			addAll(defaultConfig)
-			addPods(defaultConfig)
+			addPodsAndPodDisruptionBudgets(defaultConfig)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1551,15 +1581,16 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			controller.Execute()
 
-			// 1 because only PDB for virt-api is updated
-			expectedPodDisruptionBudgetUpdates := 1
-
 			// on rollback or create, api server must be online first before controllers and daemonset.
 			// On rollback this prevents someone from posting invalid specs to
 			// the cluster from newer versions when an older version is being deployed.
 			// On create this prevents invalid specs from entering the cluster
 			// while controllers are available to process them.
-			Expect(totalPatches).To(Equal(patchCount - 2 + expectedPodDisruptionBudgetUpdates))
+
+			// 3 because 2 for virt-controller service and deployment
+			// and
+			// 1 because of the pdb of virt-controller
+			Expect(totalPatches).To(Equal(patchCount - 3))
 			Expect(totalUpdates).To(Equal(updateCount))
 		}, 15)
 
@@ -1607,7 +1638,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(updatedConfig)
 
 			addAll(defaultConfig)
-			addPods(defaultConfig)
+			addPodsAndPodDisruptionBudgets(defaultConfig)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1619,19 +1650,15 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			controller.Execute()
 
-			// 1 because PDB for virt-controller is updated only
-			expectedPodDisruptionBudgetUpdates := 1
-
 			// on update, apiserver won't get patched until daemonset and controller pods are online.
 			// this prevents the new API from coming online until the controllers can manage it.
-			Expect(totalPatches).To(Equal(patchCount - 1 + expectedPodDisruptionBudgetUpdates))
+
+			// 2 because virt-api and PDB are not updated
+			Expect(totalPatches).To(Equal(patchCount - 2))
 			Expect(totalUpdates).To(Equal(updateCount))
 		}, 15)
 
-		It("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func(done Done) {
-			defer GinkgoRecover()
-			defer close(done)
-
+		It("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func() {
 			os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "otherregistry", "1.1.1"))
 			updatedConfig := getConfig("", "")
 
@@ -1671,12 +1698,12 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(updatedConfig)
 
 			addAll(defaultConfig)
-			addPods(defaultConfig)
+			addPodsAndPodDisruptionBudgets(defaultConfig)
 
 			// pods for the new version are added so this test won't
 			// wait for daemonsets to rollover before updating/patching
 			// all resources.
-			addPods(updatedConfig)
+			addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1694,9 +1721,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		}, 15)
 
-		It("should update resources when changing KubeVirt version.", func(done Done) {
-			defer close(done)
-
+		It("should update resources when changing KubeVirt version.", func() {
 			updatedConfig := getConfig("otherregistry", "1.1.1")
 
 			kv := &v1.KubeVirt{
@@ -1738,12 +1763,12 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(updatedConfig)
 
 			addAll(defaultConfig)
-			addPods(defaultConfig)
+			addPodsAndPodDisruptionBudgets(defaultConfig)
 
 			// pods for the new version are added so this test won't
 			// wait for daemonsets to rollover before updating/patching
 			// all resources.
-			addPods(updatedConfig)
+			addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1759,11 +1784,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			// ensure every resource is either patched or updated
 			Expect(totalUpdates + totalPatches).To(Equal(resourceCount))
 
-		}, 15)
+		}, 1500)
 
-		It("should remove resources on deletion", func(done Done) {
-			defer close(done)
-
+		It("should remove resources on deletion", func() {
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-install",
@@ -1787,11 +1810,11 @@ var _ = Describe("KubeVirt Operator", func() {
 			// Note: in real life during the first execution loop very probably only CRDs are deleted,
 			// because that takes some time (see the check that the crd store is empty before going on with deletions)
 			// But in this test the deletion succeeds immediately, so everything is deleted on first try
-			Expect(totalDeletions).To(Equal(resourceCount))
+			Eventually(func() int { return totalDeletions }).Should(Equal(resourceCount))
 
 			kv = getLatestKubeVirt(kv)
-			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeleted))
-			Expect(len(kv.Status.Conditions)).To(Equal(0))
+			Eventually(func() v1.KubeVirtPhase { return kv.Status.Phase }).Should(Equal(v1.KubeVirtPhaseDeleted))
+			Eventually(func() int { return len(kv.Status.Conditions) }).Should(Equal(0))
 
 		}, 15)
 	})
@@ -1832,6 +1855,15 @@ var _ = Describe("KubeVirt Operator", func() {
 		}, 15)
 	})
 })
+
+func injectVersionAnnotation(budget *policyv1beta1.PodDisruptionBudget, version string, registry string) {
+	objectMeta := &budget.ObjectMeta
+	if objectMeta.Annotations == nil {
+		objectMeta.Annotations = make(map[string]string)
+	}
+	objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = version
+	objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = registry
+}
 
 func now() *metav1.Time {
 	now := metav1.Now()

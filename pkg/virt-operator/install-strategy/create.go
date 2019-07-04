@@ -25,8 +25,7 @@ import (
 	"reflect"
 	"strings"
 
-	"k8s.io/api/policy/v1beta1"
-	"k8s.io/apimachinery/pkg/util/intstr"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -1428,19 +1427,7 @@ func addOrRemoveSSC(targetStrategy *InstallStrategy,
 }
 
 func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clientset kubecli.KubevirtClient, kv *v1.KubeVirt, expectations *util.Expectations, stores util.Stores) error {
-	pdbNameForDeployment := deployment.Name + "-pdb"
-	minAvailable := intstr.FromInt(int(1))
-	podDisruptionBudget := &policyv1beta1.PodDisruptionBudget{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: deployment.Namespace,
-			Name:      pdbNameForDeployment,
-			Labels:    deployment.Labels,
-		},
-		Spec: v1beta1.PodDisruptionBudgetSpec{
-			MinAvailable: &minAvailable,
-			Selector:     deployment.Spec.Selector,
-		},
-	}
+	podDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(deployment)
 
 	imageTag := kv.Status.TargetKubeVirtVersion
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
@@ -1480,7 +1467,7 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 		if err != nil {
 			return fmt.Errorf("unable to patch poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 		}
-		log.Log.V(2).Infof("poddisruptionbudget %v updated", podDisruptionBudget.GetName())
+		log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
 		return nil
 	}
 

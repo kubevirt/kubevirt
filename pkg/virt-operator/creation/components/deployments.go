@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/api/policy/v1beta1"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -551,4 +553,21 @@ func AddVersionSeparatorPrefix(version string) string {
 		version = fmt.Sprintf(":%s", version)
 	}
 	return version
+}
+
+func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *v1beta1.PodDisruptionBudget {
+	pdbNameForDeployment := deployment.Name + "-pdb"
+	minAvailable := intstr.FromInt(int(1))
+	podDisruptionBudget := &v1beta1.PodDisruptionBudget{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: deployment.Namespace,
+			Name:      pdbNameForDeployment,
+			Labels:    deployment.Labels,
+		},
+		Spec: v1beta1.PodDisruptionBudgetSpec{
+			MinAvailable: &minAvailable,
+			Selector:     deployment.Spec.Selector,
+		},
+	}
+	return podDisruptionBudget
 }
