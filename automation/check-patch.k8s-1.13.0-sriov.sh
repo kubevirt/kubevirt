@@ -242,5 +242,5 @@ ${CLUSTER_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when 
 # ========================
 
 go get -u github.com/onsi/ginkgo/ginkgo
-ginko_params="--ginkgo.noColor --junit-output=$ARTIFACTS_PATH/junit.functest.xml --ginkgo.focus=Multus.*sriov --kubeconfig /root/.kube/kind-config-sriov-ci"
+ginko_params="--ginkgo.noColor --junit-output=$ARTIFACTS_PATH/junit.functest.xml --ginkgo.focus=SRIOV --kubeconfig /root/.kube/kind-config-sriov-ci"
 FUNC_TEST_ARGS=$ginko_params make functest
