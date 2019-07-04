@@ -27,6 +27,7 @@ import (
 	"os"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/spf13/pflag"
@@ -63,6 +64,7 @@ type templateData struct {
 	CnaContainerPrefix   string
 	WebuiContainerPrefix string
 	ImagePullPolicy      string
+	CreatedAt            string
 	HCO                  *operatorData
 	KubeVirt             *operatorData
 	CDI                  *operatorData
@@ -475,6 +477,7 @@ func main() {
 		SSP:      &operatorData{Tag: *sspTag},
 		NMO:      &operatorData{Tag: *nmoTag},
 	}
+	data.CreatedAt = time.Now().String()
 
 	// Load in all HCO Resources
 	getHCO(&data)
