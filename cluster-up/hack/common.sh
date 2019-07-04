@@ -7,6 +7,7 @@ if [ -z "$KUBEVIRTCI_PATH" ]; then
     )"
 fi
 
+
 if [ -z "$KUBEVIRTCI_CONFIG_PATH" ]; then
     KUBEVIRTCI_CONFIG_PATH="$(
         cd "$(dirname "$BASH_SOURCE[0]")/../../"
