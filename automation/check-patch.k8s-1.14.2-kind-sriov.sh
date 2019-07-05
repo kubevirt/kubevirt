@@ -24,10 +24,6 @@ export NO_PROXY="localhost,127.0.0.1,172.17.0.2"
 export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 
-GOPATH=~/go
-GOBIN=~/go/bin
-PATH=$PATH:$GOBIN
-
 CLUSTER_NAME=sriov-ci
 CLUSTER_CONTROL_PLANE=${CLUSTER_NAME}-control-plane
 CONTAINER_REGISTRY_HOST="localhost:5000"
@@ -104,13 +100,6 @@ function enable_vfio {
 trap finish EXIT
 
 enable_vfio
-
-# ================
-# bring up cluster
-# ================
-# TODO FEDE takes too long to go get, move to docker image?
-#go get -u sigs.k8s.io/kind 
-
 
 # Create the cluster...
 wget https://github.com/kubernetes-sigs/kind/releases/download/v0.3.0/kind-linux-amd64 -O /usr/local/bin/kind
@@ -189,9 +178,6 @@ kubectl create -f $MANIFESTS_DIR/multus.yaml
 # deploy sriov cni
 kubectl create -f $MANIFESTS_DIR/sriov-crd.yaml
 kubectl create -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
-
-# prepare kernel for vfio passthrough
-#modprobe vfio-pci
 
 # deploy sriov device plugin
 function configure-sriovdp() {
