@@ -12,7 +12,12 @@ for file in $(find /sys/devices/ -name *sriov_totalvfs*); do
     pfroot=$(dirname $file)
 
     # enable all available VFs. If this fails we skip the device continuing with the others.
-    cat $file > $pfroot/sriov_numvfs || continue
+    cat $file > $pfroot/sriov_numvfs
+    if [ $? -ne 0 ]; then
+        echo "Skipping $pfroot, not able to activate virtual functions for it"
+        continue
+    fi
+
 
     # bind all VFs with vfio
     for virtfn in $(ls -d $pfroot/virtfn*); do
