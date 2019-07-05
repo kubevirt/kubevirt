@@ -35,7 +35,7 @@ CONTAINER_REGISTRY_HOST="localhost:5000"
 CLUSTER_CMD="docker exec -it -d ${CLUSTER_CONTROL_PLANE}"
 
 KUBEVIRT_PATH=`pwd`
-CLUSTER_DIR="cluster-up/cluster/k8s-1.13.0-sriov"
+CLUSTER_DIR="cluster-up/cluster/k8s-1.14.2-kind-sriov"
 MANIFESTS_DIR="${CLUSTER_DIR}/manifests"
 
 
@@ -63,6 +63,13 @@ function wait_kubevirt_up {
     done
 
     wait_containers_ready
+}
+
+function wait_kind_up {
+    while [ -z "$(docker exec --privileged ${CLUSTER_CONTROL_PLANE} kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes --selector=node-role.kubernetes.io/master -o=jsonpath='{.items..status.conditions[-1:].status}' | grep True)" ]; do
+        echo "Waiting for kind to be ready ..."        
+	    sleep 10
+    done
 }
 
 function collect_artifacts {
@@ -106,9 +113,14 @@ enable_vfio
 
 
 # Create the cluster...
-kind --loglevel debug create cluster --wait=$((60*60))s --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml --image=onesourceintegrations/node:multus
-
+wget https://github.com/kubernetes-sigs/kind/releases/download/v0.3.0/kind-linux-amd64 -O /usr/local/bin/kind
+chmod +x /usr/local/bin/kind
+kind --loglevel debug create cluster --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
+
+kubectl create -f $MANIFESTS_DIR/kube-flannel.yaml
+
+wait_kind_up
 
 kubectl cluster-info
 
@@ -172,14 +184,14 @@ for ifs in "${sriov_pfs[@]}"; do
 done
 
 # deploy multus
-kubectl apply -f $MANIFESTS_DIR/multus.yaml
+kubectl create -f $MANIFESTS_DIR/multus.yaml
 
 # deploy sriov cni
-kubectl apply -f $MANIFESTS_DIR/sriov-crd.yaml
-kubectl apply -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
+kubectl create -f $MANIFESTS_DIR/sriov-crd.yaml
+kubectl create -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
 
 # prepare kernel for vfio passthrough
-modprobe vfio-pci
+#modprobe vfio-pci
 
 # deploy sriov device plugin
 function configure-sriovdp() {
@@ -241,6 +253,5 @@ ${CLUSTER_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when 
 # execute functional tests
 # ========================
 
-go get -u github.com/onsi/ginkgo/ginkgo
 ginko_params="--ginkgo.noColor --junit-output=$ARTIFACTS_PATH/junit.functest.xml --ginkgo.focus=SRIOV --kubeconfig /root/.kube/kind-config-sriov-ci"
 FUNC_TEST_ARGS=$ginko_params make functest
