@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -51,14 +52,12 @@ func ApplyObject(ctx context.Context, client k8sclient.Client, obj *uns.Unstruct
 	if err := MergeObjectForUpdate(existing, obj); err != nil {
 		return errors.Wrapf(err, "could not merge object %s with existing", objDesc)
 	}
-
-	if err := client.Update(ctx, obj); err != nil {
-		return errors.Wrapf(err, "could not update object %s", objDesc)
-	}
-	if existing.GetResourceVersion() == obj.GetResourceVersion() {
-		log.Print("update was noop")
-	} else {
-		log.Print("update was successful")
+	if !equality.Semantic.DeepEqual(existing, obj) {
+		if err := client.Update(ctx, obj); err != nil {
+			return errors.Wrapf(err, "could not update object %s", objDesc)
+		} else {
+			log.Print("update was successful")
+		}
 	}
 
 	return nil

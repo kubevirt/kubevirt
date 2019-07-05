@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -17,6 +18,17 @@ import (
 
 	opv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 )
+
+const (
+	conditionsUpdateRetries  = 10
+	conditionsUpdateCoolDown = 50 * time.Millisecond
+)
+
+var operatorVersion string
+
+func init() {
+	operatorVersion = os.Getenv("OPERATOR_VERSION")
+}
 
 // StatusLevel is used to sort priority of reported failure conditions. When operator is failing
 // on two levels (e.g. handling configuration and deploying pods), only the higher level will be
@@ -39,20 +51,40 @@ type StatusManager struct {
 
 	daemonSets  []types.NamespacedName
 	deployments []types.NamespacedName
+
+	containers []opv1alpha1.Container
 }
 
 func New(client client.Client, name string) *StatusManager {
 	return &StatusManager{client: client, name: name}
 }
 
-// Set updates the NetworkAddonsConfig.Status with the provided conditions
-func (status *StatusManager) Set(conditions ...opv1alpha1.NetworkAddonsCondition) {
+// Set updates the NetworkAddonsConfig.Status with the provided conditions.
+// Since Update call can fail due to a collision with someone else writing into
+// the status, calling set is tried several times.
+// TODO: Calling of Patch instead may save some problems. We can reiterate later,
+// current collision problem is detected by functional tests
+func (status *StatusManager) Set(reachedAvailableLevel bool, conditions ...opv1alpha1.NetworkAddonsCondition) {
+	for i := 0; i < conditionsUpdateRetries; i++ {
+		err := status.set(reachedAvailableLevel, conditions...)
+		if err == nil {
+			log.Print("Successfully updated status conditions")
+			return
+		}
+		log.Printf("Failed calling status Set %d/%d: %v", i+1, conditionsUpdateRetries, err)
+		time.Sleep(conditionsUpdateCoolDown)
+	}
+	log.Print("Failed to update conditions within given number of retries")
+}
+
+// set updates the NetworkAddonsConfig.Status with the provided conditions
+func (status *StatusManager) set(reachedAvailableLevel bool, conditions ...opv1alpha1.NetworkAddonsCondition) error {
 	// Read the current NetworkAddonsConfig
 	config := &opv1alpha1.NetworkAddonsConfig{ObjectMeta: metav1.ObjectMeta{Name: status.name}}
 	err := status.client.Get(context.TODO(), types.NamespacedName{Name: status.name}, config)
 	if err != nil {
 		log.Printf("Failed to get NetworkAddonsOperator %q in order to update its State: %v", status.name, err)
-		return
+		return nil
 	}
 
 	oldStatus := config.Status.DeepCopy()
@@ -62,11 +94,17 @@ func (status *StatusManager) Set(conditions ...opv1alpha1.NetworkAddonsCondition
 		updateCondition(&config.Status, condition)
 	}
 
+	config.Status.OperatorVersion = operatorVersion
+	config.Status.TargetVersion = operatorVersion
+
+	if reachedAvailableLevel {
+		config.Status.ObservedVersion = operatorVersion
+	}
+
 	// In case that the status field has been updated with "Progressing" condition, make sure that
 	// "Ready" condition is set to False, even when not explicitly set.
 	progressingCondition := getCondition(&config.Status, opv1alpha1.NetworkAddonsConditionProgressing)
-	availableCondition := getCondition(&config.Status, opv1alpha1.NetworkAddonsConditionAvailable)
-	if availableCondition == nil && progressingCondition != nil && progressingCondition.Status == corev1.ConditionTrue {
+	if progressingCondition != nil && progressingCondition.Status == corev1.ConditionTrue {
 		updateCondition(&config.Status,
 			opv1alpha1.NetworkAddonsCondition{
 				Type:    opv1alpha1.NetworkAddonsConditionAvailable,
@@ -77,26 +115,32 @@ func (status *StatusManager) Set(conditions ...opv1alpha1.NetworkAddonsCondition
 		)
 	}
 
+	// Make sure to expose deployed containers
+	config.Status.Containers = status.containers
+
 	if reflect.DeepEqual(oldStatus, config.Status) {
-		return
+		return nil
 	}
 
 	// Update NetworkAddonsConfig with updated Status field
 	err = status.client.Status().Update(context.TODO(), config)
 	if err != nil {
-		log.Printf("Failed to update NetworkAddonsConfig %q Status: %v", config.Name, err)
+		return fmt.Errorf("Failed to update NetworkAddonsConfig %q Status: %v", config.Name, err)
 	}
+
+	return nil
 }
 
 // syncFailing syncs the current Failing status
 func (status *StatusManager) syncFailing() {
 	for _, c := range status.failing {
 		if c != nil {
-			status.Set(*c)
+			status.Set(false, *c)
 			return
 		}
 	}
 	status.Set(
+		false,
 		opv1alpha1.NetworkAddonsCondition{
 			Type:   opv1alpha1.NetworkAddonsConditionFailing,
 			Status: corev1.ConditionFalse,
@@ -134,7 +178,6 @@ func (status *StatusManager) SetDeployments(deployments []types.NamespacedName) 
 	status.deployments = deployments
 }
 
-// TODO refactoring
 // SetFromPods sets the operator status to Failing, Progressing, or Available, based on
 // the current status of the manager's DaemonSets and Deployments. However, this is a
 // no-op if the StatusManager is currently marked as failing due to a configuration error.
@@ -144,6 +187,7 @@ func (status *StatusManager) SetFromPods() {
 	// Iterate all owned DaemonSets and check whether they are progressing smoothly or have been
 	// already deployed.
 	for _, dsName := range status.daemonSets {
+
 		// First check whether DaemonSet namespace exists
 		ns := &corev1.Namespace{}
 		if err := status.client.Get(context.TODO(), types.NamespacedName{Name: dsName.Namespace}, ns); err != nil {
@@ -223,13 +267,11 @@ func (status *StatusManager) SetFromPods() {
 		}
 	}
 
-	// If all pods are being created, mark deployment as not failing
-	status.SetNotFailing(PodDeployment)
-
 	// If there are any progressing Pods, list them in the condition with their state. Otherwise,
 	// mark NetworkAddonsConfig as "Ready".
 	if len(progressing) > 0 {
 		status.Set(
+			false,
 			opv1alpha1.NetworkAddonsCondition{
 				Type:    opv1alpha1.NetworkAddonsConditionProgressing,
 				Status:  corev1.ConditionTrue,
@@ -239,6 +281,7 @@ func (status *StatusManager) SetFromPods() {
 		)
 	} else {
 		status.Set(
+			true,
 			opv1alpha1.NetworkAddonsCondition{
 				Type:   opv1alpha1.NetworkAddonsConditionProgressing,
 				Status: corev1.ConditionFalse,
@@ -249,6 +292,9 @@ func (status *StatusManager) SetFromPods() {
 			},
 		)
 	}
+
+	// If all pods are being created, mark deployment as not failing
+	status.SetNotFailing(PodDeployment)
 }
 
 // Set condition in the Status field. In case condition with given Type already exists, update it.
@@ -300,4 +346,8 @@ func getCondition(status *opv1alpha1.NetworkAddonsConfigStatus, conditionType op
 		}
 	}
 	return nil
+}
+
+func (status *StatusManager) SetContainers(containers []opv1alpha1.Container) {
+	status.containers = containers
 }

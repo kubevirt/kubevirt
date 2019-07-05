@@ -136,6 +136,7 @@ func getCNA(data *templateData) {
 
 	// Get CNA Deployment
 	cnadeployment := components.GetDeployment(
+		data.Version,
 		data.Namespace,
 		data.ContainerPrefix,
 		data.ContainerTag,
@@ -211,7 +212,7 @@ func getCNA(data *templateData) {
 func main() {
 	version := flag.String("version", "", "")
 	versionReplaces := flag.String("version-replaces", "", "")
-	namespace := flag.String("namespace", "cluster-network-addons-operator", "")
+	namespace := flag.String("namespace", components.Namespace, "")
 	containerPrefix := flag.String("container-prefix", "quay.io/kubevirt", "")
 	containerTag := flag.String("container-tag", "latest", "")
 	imagePullPolicy := flag.String("image-pull-policy", "Always", "")

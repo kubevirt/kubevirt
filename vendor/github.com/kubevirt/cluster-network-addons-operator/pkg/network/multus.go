@@ -21,7 +21,7 @@ func validateMultus(conf *opv1alpha1.NetworkAddonsConfigSpec, openshiftNetworkCo
 	}
 
 	if openshiftNetworkConfig != nil {
-		if openshiftNetworkConfig.Spec.DisableMultiNetwork == newTrue() {
+		if openshiftNetworkConfig.Spec.DisableMultiNetwork != nil && *openshiftNetworkConfig.Spec.DisableMultiNetwork == true {
 			return []error{errors.Errorf("multus has been requested, but is disabled on OpenShift Cluster Network Operator")}
 		}
 	}
@@ -61,9 +61,4 @@ func renderMultus(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir string, 
 	}
 
 	return objs, nil
-}
-
-func newTrue() *bool {
-	val := true
-	return &val
 }

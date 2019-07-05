@@ -35,7 +35,11 @@ type Sriov struct{}
 // NetworkAddonsConfigStatus defines the observed state of NetworkAddonsConfig
 // +k8s:openapi-gen=true
 type NetworkAddonsConfigStatus struct {
-	Conditions []NetworkAddonsCondition `json:"conditions,omitempty" optional:"true"`
+	OperatorVersion string                   `json:"operatorVersion,omitempty"`
+	ObservedVersion string                   `json:"observedVersion,omitempty"`
+	TargetVersion   string                   `json:"targetVersion,omitempty"`
+	Conditions      []NetworkAddonsCondition `json:"conditions,omitempty" optional:"true"`
+	Containers      []Container              `json:"containers,omitempty"`
 }
 
 // NetworkAddonsCondition represents a condition of a NetworkAddons deployment
@@ -63,6 +67,14 @@ const (
 	// Whether all components were ready
 	NetworkAddonsConditionAvailable NetworkAddonsConditionType = "Ready"
 )
+
+type Container struct {
+	Namespace  string `json:"namespace"`
+	ParentKind string `json:"parentKind"`
+	ParentName string `json:"parentName"`
+	Name       string `json:"name"`
+	Image      string `json:"image"`
+}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

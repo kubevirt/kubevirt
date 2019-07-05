@@ -154,6 +154,8 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  annotations:
+    networkaddonsoperator.network.kubevirt.io/version: 0.11.0
   name: cluster-network-addons-operator
   namespace: kubevirt-hyperconverged
 spec:
@@ -180,8 +182,8 @@ spec:
           value: quay.io/kubevirt/cluster-network-addon-sriov-device-plugin:v2.0.0-1.git9a20829
         - name: SRIOV_CNI_IMAGE
           value: quay.io/kubevirt/cluster-network-addon-sriov-cni:v1.1.0-1.git9e4c973
-        - name: NMSTATE_STATE_HANDLER_IMAGE
-          value: quay.io/nmstate/kubernetes-nmstate-state-handler:v0.2.0
+        - name: NMSTATE_HANDLER_IMAGE
+          value: quay.io/nmstate/kubernetes-nmstate-handler:v0.3.0
         - name: SRIOV_ROOT_DEVICES
         - name: SRIOV_NETWORK_NAME
           value: sriov-network
@@ -190,9 +192,11 @@ spec:
         - name: KUBEMACPOOL_IMAGE
           value: quay.io/kubevirt/kubemacpool:v0.3.0
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator:0.9.0
+          value: quay.io/kubevirt/cluster-network-addons-operator:0.11.0
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
+        - name: OPERATOR_VERSION
+          value: 0.11.0
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -202,7 +206,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: WATCH_NAMESPACE
-        image: quay.io/kubevirt/cluster-network-addons-operator:0.9.0
+        image: quay.io/kubevirt/cluster-network-addons-operator:0.11.0
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources: {}

@@ -6,12 +6,26 @@ import (
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+// MergeMetadataForUpdate merges the read-only fields of metadata.
+// This is to be able to do a a meaningful comparison in apply,
+// since objects created on runtime do not have these fields populated.
+func MergeMetadataForUpdate(current, updated *unstructured.Unstructured) error {
+	updated.SetCreationTimestamp(current.GetCreationTimestamp())
+	updated.SetSelfLink(current.GetSelfLink())
+	updated.SetGeneration(current.GetGeneration())
+	updated.SetUID(current.GetUID())
+	updated.SetResourceVersion(current.GetResourceVersion())
+
+	mergeAnnotations(current, updated)
+	mergeLabels(current, updated)
+
+	return nil
+}
+
 // MergeObjectForUpdate prepares a "desired" object to be updated.
 // Some objects, such as Deployments and Services require
 // some semantic-aware updates
 func MergeObjectForUpdate(current, updated *unstructured.Unstructured) error {
-	updated.SetResourceVersion(current.GetResourceVersion())
-
 	if err := MergeDeploymentForUpdate(current, updated); err != nil {
 		return err
 	}
@@ -24,11 +38,10 @@ func MergeObjectForUpdate(current, updated *unstructured.Unstructured) error {
 		return err
 	}
 
-	// For all object types, merge annotations.
+	// For all object types, merge metadata.
 	// Run this last, in case any of the more specific merge logic has
 	// changed "updated"
-	mergeAnnotations(current, updated)
-	mergeLabels(current, updated)
+	MergeMetadataForUpdate(current, updated)
 
 	return nil
 }
