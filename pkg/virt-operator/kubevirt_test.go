@@ -22,6 +22,7 @@ package virt_operator
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -60,6 +61,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+)
+
+const (
+	Added   = "added"
+	Updated = "updated"
+	Patched = "patched"
+	Deleted = "deleted"
 )
 
 var _ = Describe("KubeVirt Operator", func() {
@@ -118,6 +126,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalUpdates int
 	var totalPatches int
 	var totalDeletions int
+	var resourceChanges map[string]map[string]int
 
 	resourceCount := 31
 	patchCount := 15
@@ -177,13 +186,15 @@ var _ = Describe("KubeVirt Operator", func() {
 	var defaultConfig *util.KubeVirtDeploymentConfig
 	BeforeEach(func() {
 
-		os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "someregistry", "v9.9.9"))
+		err := os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "someregistry", "v9.9.9"))
+		Expect(err).NotTo(HaveOccurred())
 		defaultConfig = getConfig("", "")
 
 		totalAdds = 0
 		totalUpdates = 0
 		totalPatches = 0
 		totalDeletions = 0
+		resourceChanges = make(map[string]map[string]int)
 		deleteFromCache = true
 		addToCache = true
 
@@ -447,6 +458,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		default:
 			Fail("unknown resource type")
 		}
+		split := strings.Split(fmt.Sprintf("%T", obj), ".")
+		resourceKey := strings.ToLower(split[len(split)-1]) + "s"
+		if _, ok := resourceChanges[resourceKey]; !ok {
+			resourceChanges[resourceKey] = make(map[string]int)
+		}
+		resourceChanges[resourceKey][Added]++
 	}
 
 	addInstallStrategy := func(config *util.KubeVirtDeploymentConfig) {
@@ -901,12 +918,22 @@ var _ = Describe("KubeVirt Operator", func() {
 		default:
 			Fail(fmt.Sprintf("unknown resource type %+v", resource))
 		}
+		if _, ok := resourceChanges[resource]; !ok {
+			resourceChanges[resource] = make(map[string]int)
+		}
+		resourceChanges[resource][Deleted]++
 	}
 
 	genericUpdateFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		update, ok := action.(testing.UpdateAction)
 		Expect(ok).To(BeTrue())
 		totalUpdates++
+		resource := action.GetResource().Resource
+		if _, ok := resourceChanges[resource]; !ok {
+			resourceChanges[resource] = make(map[string]int)
+		}
+		resourceChanges[resource][Updated]++
+
 		return true, update.GetObject(), nil
 	}
 
@@ -914,6 +941,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		_, ok := action.(testing.PatchAction)
 		Expect(ok).To(BeTrue())
 		totalPatches++
+		resource := action.GetResource().Resource
+		if _, ok := resourceChanges[resource]; !ok {
+			resourceChanges[resource] = make(map[string]int)
+		}
+		resourceChanges[resource][Patched]++
 
 		return true, nil, nil
 	}
@@ -1244,9 +1276,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		}, 15)
 
-		It("should delete operator managed resources not in the deployed installstrategy", func(done Done) {
-			defer close(done)
-
+		It("should delete operator managed resources not in the deployed installstrategy", func() {
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-install",
@@ -1288,9 +1318,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(totalDeletions).To(Equal(numResources))
 		}, 15)
 
-		It("should fail if KubeVirt object already exists", func(done Done) {
-			defer close(done)
-
+		It("should fail if KubeVirt object already exists", func() {
 			kv1 := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-install-1",
@@ -1522,6 +1550,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.DaemonSetCache.List())).To(Equal(0))
 			Expect(len(controller.stores.ValidationWebhookCache.List())).To(Equal(1))
 			Expect(len(controller.stores.PodDisruptionBudgetCache.List())).To(Equal(1))
+
+			Expect(resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
+
 		}, 15)
 
 		It("should pause rollback until api server is rolled over.", func(done Done) {
@@ -1592,6 +1623,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			// 1 because of the pdb of virt-controller
 			Expect(totalPatches).To(Equal(patchCount - 3))
 			Expect(totalUpdates).To(Equal(updateCount))
+
+			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1))
 		}, 15)
 
 		It("should pause update until daemonsets and controllers are rolled over.", func(done Done) {
@@ -1656,6 +1689,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			// 2 because virt-api and PDB are not updated
 			Expect(totalPatches).To(Equal(patchCount - 2))
 			Expect(totalUpdates).To(Equal(updateCount))
+
+			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1))
 		}, 15)
 
 		It("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func() {
@@ -1718,6 +1753,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// ensure every resource is either patched or updated
 			Expect(totalUpdates + totalPatches).To(Equal(resourceCount))
+
+			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(2))
 
 		}, 15)
 
@@ -1784,7 +1821,68 @@ var _ = Describe("KubeVirt Operator", func() {
 			// ensure every resource is either patched or updated
 			Expect(totalUpdates + totalPatches).To(Equal(resourceCount))
 
-		}, 1500)
+		}, 15)
+
+		It("should patch poddisruptionbudgets when changing KubeVirt version.", func() {
+			updatedConfig := getConfig("otherregistry", "1.1.1")
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageTag:      updatedConfig.GetKubeVirtVersion(),
+					ImageRegistry: updatedConfig.GetImageRegistry(),
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+						{
+							Type:    v1.KubeVirtConditionReady,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentReady,
+							Message: "All components are ready.",
+						},
+					},
+					OperatorVersion: version.Get().String(),
+				},
+			}
+			defaultConfig.SetTargetDeploymentConfig(kv)
+			defaultConfig.SetObservedDeploymentConfig(kv)
+
+			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			addKubeVirt(kv)
+			addInstallStrategy(defaultConfig)
+			addInstallStrategy(updatedConfig)
+
+			addAll(defaultConfig)
+			addPodsAndPodDisruptionBudgets(defaultConfig)
+
+			// pods for the new version are added so this test won't
+			// wait for daemonsets to rollover before updating/patching
+			// all resources.
+			addPodsWithOptionalPodDisruptionBudgets(updatedConfig, false)
+
+			makeApiAndControllerReady()
+			makeHandlerReady()
+
+			shouldExpectPatchesAndUpdates()
+			shouldExpectKubeVirtUpdate(1)
+
+			controller.Execute()
+
+			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(2))
+
+		}, 15)
 
 		It("should remove resources on deletion", func() {
 			kv := &v1.KubeVirt{
@@ -1810,14 +1908,37 @@ var _ = Describe("KubeVirt Operator", func() {
 			// Note: in real life during the first execution loop very probably only CRDs are deleted,
 			// because that takes some time (see the check that the crd store is empty before going on with deletions)
 			// But in this test the deletion succeeds immediately, so everything is deleted on first try
-			Eventually(func() int { return totalDeletions }).Should(Equal(resourceCount))
+			Expect(totalDeletions).To(Equal(resourceCount))
 
 			kv = getLatestKubeVirt(kv)
-			Eventually(func() v1.KubeVirtPhase { return kv.Status.Phase }).Should(Equal(v1.KubeVirtPhaseDeleted))
-			Eventually(func() int { return len(kv.Status.Conditions) }).Should(Equal(0))
+			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeleted))
+			Expect(len(kv.Status.Conditions)).To(Equal(0))
+		}, 15)
 
+		It("should remove poddisruptionbudgets on deletion", func() {
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-install",
+					Namespace: NAMESPACE,
+				},
+			}
+			kv.DeletionTimestamp = now()
+			addKubeVirt(kv)
+
+			// create all resources which should be deleted
+			addInstallStrategy(defaultConfig)
+			addAll(defaultConfig)
+
+			shouldExpectKubeVirtUpdate(1)
+			shouldExpectDeletions()
+			shouldExpectInstallStrategyDeletion()
+
+			controller.Execute()
+
+			Expect(resourceChanges["poddisruptionbudgets"][Deleted]).To(Equal(2))
 		}, 15)
 	})
+
 	Context("On install strategy dump", func() {
 		It("should generate latest install strategy and post as config map", func(done Done) {
 			defer close(done)
