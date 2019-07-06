@@ -1372,7 +1372,7 @@ var _ = Describe("Configurations", func() {
 			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
 			tests.AddPVCDisk(vmi, "block-pvc", "virtio", blockPVName)
 			tests.AddHostDisk(vmi, "/run/kubevirt-private/vm-disks/test-disk.img", v1.HostDiskExistsOrCreate, "hostdisk")
-			tests.RunVMIAndExpectLaunch(vmi, 60)
+			tests.RunVMIAndExpectLaunch(vmi, 180)
 
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
