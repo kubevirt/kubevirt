@@ -27,13 +27,9 @@ mkdir -p /images/datavolume1 /images/datavolume2 /images/datavolume3
 echo "converting cirros image from qcow2 to raw, and copying it to local-storage directory, and creating a loopback device from it"
 # /local-storage will be mapped to the host dir, which will also be used by the local storage provider
 qemu-img convert -f qcow2 -O raw /images/cirros/disk.img /local-storage/cirros.img.raw
-
-mknod /dev/loop99 b 7 0
-# attempt a detach since with docker in docker scenarios the created loopback device is already busy
-losetup -d /dev/loop99 || true
-losetup /dev/loop99 /local-storage/cirros.img.raw
+LOOP_DEVICE=$(losetup --find --show /local-storage/cirros.img.raw)
 rm -f /local-storage/cirros-block-device
-ln -s dev/loop99 /local-storage/cirros-block-device
+ln -s $LOOP_DEVICE /local-storage/cirros-block-device
 
 echo "converting fedora image from qcow2 to raw"
 qemu-img convert -f qcow2 -O raw /images/fedora-cloud/disk.qcow2 /images/fedora-cloud/disk.img
