@@ -43,4 +43,4 @@ if [[ ${TARGET} == openshift* ]]; then
     oc=${kubectl}
 fi
 
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 300m ${FUNC_TEST_ARGS} -installed-namespace=${namespace} -previous-release-tag=${previous_release_tag} -previous-release-registry=${previous_release_registry}
+${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 360m ${FUNC_TEST_ARGS} -installed-namespace=${namespace} -previous-release-tag=${previous_release_tag} -previous-release-registry=${previous_release_registry}
