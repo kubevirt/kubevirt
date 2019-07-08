@@ -97,7 +97,7 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "image-upload",
 		Short:   "Upload a VM image to a PersistentVolumeClaim.",
-		Example: usage(),
+		Example: templates.PrepareTemplate(usage()),
 		Args:    cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v := command{clientConfig: clientConfig}
@@ -121,7 +121,7 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 func usage() string {
 	usage := `  # Upload a local disk image to a newly created PersistentVolumeClaim:
-	virtctl image-upload --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --pvc-name=upload-pvc --pvc-size=10Gi --image-path=/images/fedora28.qcow2`
+	{{.ProgramName}} image-upload --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --pvc-name=upload-pvc --pvc-size=10Gi --image-path=/images/fedora28.qcow2`
 	return usage
 }
 

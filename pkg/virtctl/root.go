@@ -19,9 +19,10 @@ import (
 )
 
 func NewVirtctlCommand() *cobra.Command {
+
 	rootCmd := &cobra.Command{
-		Use:           "virtctl",
-		Short:         "virtctl controls virtual machine related operations on your kubernetes cluster.",
+		Use:           templates.ProgramName(),
+		Short:         templates.PrependProgramName("controls virtual machine related operations on your kubernetes cluster."),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -56,7 +57,7 @@ func NewVirtctlCommand() *cobra.Command {
 }
 
 func Execute() {
-	log.InitializeLogging("virtctl")
+	log.InitializeLogging(templates.ProgramName())
 	if err := NewVirtctlCommand().Execute(); err != nil {
 		fmt.Println(strings.TrimSpace(err.Error()))
 		os.Exit(1)

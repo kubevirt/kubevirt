@@ -40,7 +40,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start (VM)",
 		Short:   "Start a virtual machine.",
-		Example: usage(COMMAND_START),
+		Example: templates.PrepareTemplate(usage(COMMAND_START)),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_START, clientConfig: clientConfig}
@@ -55,7 +55,7 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "stop (VM)",
 		Short:   "Stop a virtual machine.",
-		Example: usage(COMMAND_STOP),
+		Example: templates.PrepareTemplate(usage(COMMAND_STOP)),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_STOP, clientConfig: clientConfig}
@@ -70,7 +70,7 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "restart (VM)",
 		Short:   "Restart a virtual machine.",
-		Example: usage(COMMAND_RESTART),
+		Example: templates.PrepareTemplate(usage(COMMAND_RESTART)),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_RESTART, clientConfig: clientConfig}
@@ -92,7 +92,7 @@ func NewCommand(command string) *Command {
 
 func usage(cmd string) string {
 	usage := fmt.Sprintf("  # %s a virtual machine called 'myvm':\n", strings.Title(cmd))
-	usage += fmt.Sprintf("  virtctl %s myvm", cmd)
+	usage += fmt.Sprintf("  {{.ProgramName}} %s myvm", cmd)
 	return usage
 }
 

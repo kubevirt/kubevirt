@@ -17,7 +17,7 @@ func VersionCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "version",
 		Short:   "Print the client and server version information.",
-		Example: usage(),
+		Example: templates.PrepareTemplate(usage()),
 		Args:    cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v := Version{clientConfig: clientConfig}
@@ -31,7 +31,7 @@ func VersionCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 func usage() string {
 	usage := "  # Print the client and server versions for the current context:\n"
-	usage += "  virtctl version"
+	usage += "  {{.ProgramName}} version"
 	return usage
 }
 
