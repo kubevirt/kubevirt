@@ -13,6 +13,7 @@ filters:
       - phoracek
       - SchSeba
       - mfranczy
+      - dhiller
     approvers:
       - slintes
       - davidvossel
