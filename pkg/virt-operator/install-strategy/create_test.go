@@ -1,6 +1,8 @@
 package installstrategy
 
 import (
+	"fmt"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -48,7 +50,7 @@ const (
 
 var _ = Describe("Create", func() {
 
-	Context("method syncPodDisruptionBudgetForDeployment", func() {
+	Context("on calling syncPodDisruptionBudgetForDeployment", func() {
 
 		var deployment *appsv1.Deployment
 		var err error
@@ -60,7 +62,9 @@ var _ = Describe("Create", func() {
 		var kubeClient *fake.Clientset
 		var cachedPodDisruptionBudget *v1beta1.PodDisruptionBudget
 		var patched bool
+		var shouldPatchFail bool
 		var created bool
+		var shouldCreateFail bool
 
 		BeforeEach(func() {
 
@@ -68,13 +72,18 @@ var _ = Describe("Create", func() {
 			kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
 
 			patched = false
+			shouldPatchFail = false
 			created = false
+			shouldCreateFail = false
 
 			kubeClient = fake.NewSimpleClientset()
 
 			kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				_, ok := action.(testing.PatchAction)
 				Expect(ok).To(BeTrue())
+				if shouldPatchFail {
+					return true, nil, fmt.Errorf("Patch failed!")
+				}
 				patched = true
 				return true, nil, nil
 			})
@@ -82,6 +91,9 @@ var _ = Describe("Create", func() {
 			kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				_, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
+				if shouldCreateFail {
+					return true, nil, fmt.Errorf("Create failed!")
+				}
 				created = true
 				return true, nil, nil
 			})
@@ -104,27 +116,25 @@ var _ = Describe("Create", func() {
 			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
 		})
 
-		AfterEach(func() {
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("creation should not fail", func() {
+		It("should not fail creation", func() {
 			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
 
 			Expect(created).To(BeTrue())
 			Expect(patched).To(BeFalse())
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("patching should not fail", func() {
+		It("should not fail patching", func() {
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
 
 			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
 
 			Expect(patched).To(BeTrue())
 			Expect(created).To(BeFalse())
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("patching with same version should be skipped", func() {
+		It("should skip patching of same version", func() {
 			kv.Status.TargetKubeVirtRegistry = Registry
 			kv.Status.TargetKubeVirtVersion = Version
 
@@ -133,6 +143,28 @@ var _ = Describe("Create", func() {
 
 			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
 
+			Expect(created).To(BeFalse())
+			Expect(patched).To(BeFalse())
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return create error", func() {
+			shouldCreateFail = true
+
+			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
+
+			Expect(err).To(HaveOccurred())
+			Expect(created).To(BeFalse())
+			Expect(patched).To(BeFalse())
+		})
+
+		It("should return patch error", func() {
+			shouldPatchFail = true
+			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
+
+			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
+
+			Expect(err).To(HaveOccurred())
 			Expect(created).To(BeFalse())
 			Expect(patched).To(BeFalse())
 		})
