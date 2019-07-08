@@ -25,8 +25,6 @@ import (
 	"reflect"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
-
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -45,6 +43,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -1450,14 +1449,14 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 		var ops []string
 
 		// Add Labels and Annotations Patches
-		labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&deployment.ObjectMeta)
+		labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&podDisruptionBudget.ObjectMeta)
 		if err != nil {
 			return err
 		}
 		ops = append(ops, labelAnnotationPatch...)
 
 		// Add Spec Patch
-		newSpec, err := json.Marshal(deployment.Spec)
+		newSpec, err := json.Marshal(podDisruptionBudget.Spec)
 		if err != nil {
 			return err
 		}
