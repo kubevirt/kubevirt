@@ -11,19 +11,7 @@ sometimes referred to as a "meta operator" or an "operator for operators".
 Most importantly, this operator doesn't replace or interfere with OLM.
 It only creates operator CRs, which is the user's prerogative.
 
-## Install OLM
-**NOTE**
-OLM is not a requirement to test.  Once we publish operators through
-Marketplace|operatorhub.io, it will be.
-
-https://github.com/operator-framework/operator-lifecycle-manager/blob/master/Documentation/install/install.md#installing-olm
-
-## Using the HCO
-
-**NOTE**
-Until we publish (and consume) the HCO and component operators through
-Marketplace|operatorhub.io, this is a means to demonstrate the HCO workflow
-without OLM.
+## Using the HCO without OLM
 
 Run the following script to apply the HCO operator:
 
@@ -31,14 +19,18 @@ Run the following script to apply the HCO operator:
 $ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/deploy.sh | bash
 ```
 
+## Installing Unreleased Bundles Using Marketplace
+The hyperconverged cluster operator will publish the lastest bundles to [quay/kubevirt-hyperconvered/hco-operatohub](https://quay.io/application/kubevirt-hyperconverged/hco-operatorhub)
+before publishing to operatorhub.io.
+
+Make the unreleased bundles available in Marketplace by adding the app registry:
+```bash
+$ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/tools/quay-registry.sh | bash -s $QUAY_USERNAME $QUAY_PASSWORD
+```
 
 ## Launching the HCO through OLM
 
-**NOTE**
-Until we publish (and consume) the HCO and component operators through
-Marketplace|operatorhub.io, this is a means to demonstrate the HCO workflow
-without OLM. Replace `<docker_org>` with your Docker organization
-as official operator-registry images for HCO will not be provided.
+https://github.com/operator-framework/operator-lifecycle-manager/blob/master/Documentation/install/install.md#installing-olm
 
 Build and push the converged HCO operator-registry image.
 
