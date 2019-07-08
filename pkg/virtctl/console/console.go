@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017, 2018 Red Hat, Inc.
+ * Copyright 2017 - 2019 Red Hat, Inc.
  *
  */
 
@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -177,6 +178,11 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	terminal.Restore(int(os.Stdin.Fd()), state)
 
 	if err != nil {
+		if strings.Contains(err.Error(), "abnormal closure") {
+			fmt.Fprint(os.Stderr, "\nYou were disconnected from the console. This has one of the following reasons:"+
+				"\n - another user connected to the console of the target vm"+
+				"\n - network issues\n")
+		}
 		return err
 	}
 	return nil
