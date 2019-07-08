@@ -55,22 +55,7 @@ const (
 	NodeSelectorsKey          = "node-selectors"
 	NetworkInterfaceKey       = "default-network-interface"
 	PermitSlirpInterface      = "permitSlirpInterface"
-
-	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
-	ParallelMigrationsPerClusterDefault      uint32 = 5
-	BandwithPerMigrationDefault                     = "64Mi"
-	MigrationAllowAutoConverge               bool   = false
-	MigrationProgressTimeout                 int64  = 150
-	MigrationCompletionTimeoutPerGiB         int64  = 800
-	DefaultMachineType                              = "q35"
-	DefaultCPURequest                               = "100m"
-	DefaultMemoryOvercommit                         = 100
-	DefaultEmulatedMachines                         = "q35*,pc-q35*"
-	DefaultLessPVCSpaceToleration                   = 10
-	DefaultNodeSelectors                            = ""
-	DefaultNetworkInterface                         = "bridge"
-
-	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
+	NodeDrainTaintDefaultKey  = "kubevirt.io/drain"
 )
 
 func getConfigMap() *k8sv1.ConfigMap {
@@ -140,8 +125,8 @@ func defaultClusterConfig() *Config {
 	defaultNetworkInterface := DefaultNetworkInterface
 	return &Config{
 		ResourceVersion: "0",
-		ImagePullPolicy: k8sv1.PullIfNotPresent,
-		UseEmulation:    false,
+		ImagePullPolicy: DefaultImagePullPolicy,
+		UseEmulation:    DefaultUseEmulation,
 		MigrationConfig: &MigrationConfig{
 			ParallelMigrationsPerCluster:      &parallelMigrationsPerClusterDefault,
 			ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNodeDefault,
@@ -149,7 +134,7 @@ func defaultClusterConfig() *Config {
 			NodeDrainTaintKey:                 &nodeDrainTaintDefaultKey,
 			ProgressTimeout:                   &progressTimeout,
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-			UnsafeMigrationOverride:           false,
+			UnsafeMigrationOverride:           DefaultUnsafeMigrationOverride,
 			AllowAutoConverge:                 allowAutoConverge,
 		},
 		MachineType:            DefaultMachineType,
@@ -159,7 +144,7 @@ func defaultClusterConfig() *Config {
 		LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
 		NodeSelectors:          nodeSelectorsDefault,
 		NetworkInterface:       defaultNetworkInterface,
-		PermitSlirpInterface:   false,
+		PermitSlirpInterface:   DefaultPermitSlirpInterface,
 	}
 }
 
@@ -198,54 +183,6 @@ type ClusterConfig struct {
 	lastValidConfig                  *Config
 	defaultConfig                    *Config
 	lastInvalidConfigResourceVersion string
-}
-
-func (c *ClusterConfig) IsUseEmulation() bool {
-	return c.getConfig().UseEmulation
-}
-
-func (c *ClusterConfig) GetMigrationConfig() *MigrationConfig {
-	return c.getConfig().MigrationConfig
-}
-
-func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {
-	return c.getConfig().ImagePullPolicy
-}
-
-func (c *ClusterConfig) GetMachineType() string {
-	return c.getConfig().MachineType
-}
-
-func (c *ClusterConfig) GetCPUModel() string {
-	return c.getConfig().CPUModel
-}
-
-func (c *ClusterConfig) GetCPURequest() resource.Quantity {
-	return c.getConfig().CPURequest
-}
-
-func (c *ClusterConfig) GetMemoryOvercommit() int {
-	return c.getConfig().MemoryOvercommit
-}
-
-func (c *ClusterConfig) GetEmulatedMachines() []string {
-	return c.getConfig().EmulatedMachines
-}
-
-func (c *ClusterConfig) GetLessPVCSpaceToleration() int {
-	return c.getConfig().LessPVCSpaceToleration
-}
-
-func (c *ClusterConfig) GetNodeSelectors() map[string]string {
-	return c.getConfig().NodeSelectors
-}
-
-func (c *ClusterConfig) GetDefaultNetworkInterface() string {
-	return c.getConfig().NetworkInterface
-}
-
-func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
-	return c.getConfig().PermitSlirpInterface
 }
 
 // setConfig parses the provided config map and updates the provided config.

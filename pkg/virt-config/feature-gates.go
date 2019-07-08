@@ -20,8 +20,7 @@
 package virtconfig
 
 /*
- This module is intended for determining whether an optional feature is enabled or not at the system-level.
- Note that the virtconfig package needs to be initialized before using this (see config-map.Init)
+ This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
 */
 
 import (
