@@ -55,65 +55,59 @@ var _ = Describe("HookSidecars", func() {
 		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
 	})
 
-	AfterEach(func() {
-		tests.DisableFeatureGate(virtconfig.SidecarGate)
-	})
-
 	Describe("VMI definition", func() {
 
-		Context("with sidecar feature gate enabled", func() {
-			BeforeEach(func() {
-				tests.EnableFeatureGate(virtconfig.SidecarGate)
-			})
+		Context("with SM BIOS hook sidecar", func() {
+			It("should successfully start with hook sidecar annotation", func() {
+				By("Starting a VMI")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+			}, 300)
 
-			Context("with SM BIOS hook sidecar", func() {
-				It("should successfully start with hook sidecar annotation", func() {
-					By("Starting a VMI")
-					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					tests.WaitForSuccessfulVMIStart(vmi)
-				}, 300)
+			It("should successfully start with hook sidecar annotation for v1alpha2", func() {
+				By("Starting a VMI")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+			}, 300)
 
-				It("should successfully start with hook sidecar annotation for v1alpha2", func() {
-					By("Starting a VMI")
-					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-					vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
-					Expect(err).ToNot(HaveOccurred())
-					tests.WaitForSuccessfulVMIStart(vmi)
-				}, 300)
+			It("should call Collect and OnDefineDomain on the hook sidecar", func() {
+				By("Getting hook-sidecar logs")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				logs := func() string { return getHookSidecarLogs(virtClient, vmi) }
+				tests.WaitForSuccessfulVMIStart(vmi)
+				Eventually(logs,
+					11*time.Second,
+					500*time.Millisecond).
+					Should(ContainSubstring("Hook's Info method has been called"))
+				Eventually(logs,
+					11*time.Second,
+					500*time.Millisecond).
+					Should(ContainSubstring("Hook's OnDefineDomain callback method has been called"))
+			}, 300)
 
-				It("should call Collect and OnDefineDomain on the hook sidecar", func() {
-					By("Getting hook-sidecar logs")
-					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					logs := func() string { return getHookSidecarLogs(virtClient, vmi) }
-					tests.WaitForSuccessfulVMIStart(vmi)
-					Eventually(logs,
-						11*time.Second,
-						500*time.Millisecond).
-						Should(ContainSubstring("Hook's Info method has been called"))
-					Eventually(logs,
-						11*time.Second,
-						500*time.Millisecond).
-						Should(ContainSubstring("Hook's OnDefineDomain callback method has been called"))
-				}, 300)
-
-				It("should update domain XML with SM BIOS properties", func() {
-					By("Reading domain XML using virsh")
-					tests.SkipIfNoCmd("kubectl")
-					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-					tests.WaitForSuccessfulVMIStart(vmi)
-					domainXml := getVmDomainXml(virtClient, vmi)
-					Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
-					Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
-					Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
-				}, 300)
-			})
+			It("should update domain XML with SM BIOS properties", func() {
+				By("Reading domain XML using virsh")
+				tests.SkipIfNoCmd("kubectl")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				tests.WaitForSuccessfulVMIStart(vmi)
+				domainXml := getVmDomainXml(virtClient, vmi)
+				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
+				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
+				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
+			}, 300)
 		})
 
 		Context("with sidecar feature gate disabled", func() {
 			BeforeEach(func() {
 				tests.DisableFeatureGate(virtconfig.SidecarGate)
+			})
+
+			AfterEach(func() {
+				tests.EnableFeatureGate(virtconfig.SidecarGate)
 			})
 
 			It("should not start with hook sidecar annotation", func() {
