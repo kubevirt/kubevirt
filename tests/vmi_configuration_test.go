@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -1878,6 +1879,48 @@ var _ = Describe("Configurations", func() {
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
+		})
+	})
+
+	Context("Check SMBios with default and custom values", func() {
+
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+		})
+
+		It("[test_id:2751]test default SMBios", func() {
+			By("Starting a VirtualMachineInstance")
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring("<entry name='family'>KubeVirt</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='product'>None</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>KubeVirt</entry>"))
+
+		})
+
+		It("[test_id:2752]test custom SMBios values", func() {
+			// Set a custom test SMBios
+			test_smbios := &v1.VirtualMachineInstanceSMBios{Family: "test", Product: "test", Manufacturer: "None"}
+			smbiosJson, err := json.Marshal(test_smbios)
+			Expect(err).ToNot(HaveOccurred())
+			tests.UpdateClusterConfigValue("smbios", string(smbiosJson))
+
+			By("Starting a VirtualMachineInstance")
+			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring("<entry name='family'>test</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='product'>test</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>None</entry>"))
 		})
 	})
 })

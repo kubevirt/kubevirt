@@ -84,9 +84,9 @@ var _ = Describe("Virt remote commands", func() {
 		It("should start a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domain := api.NewMinimalDomain("testvmi")
-			domainManager.EXPECT().SyncVMI(vmi, useEmulation).Return(&domain.Spec, nil)
+			domainManager.EXPECT().SyncVMI(vmi, useEmulation, &v1.VirtualMachineOptions{}).Return(&domain.Spec, nil)
 
-			err := client.SyncVirtualMachine(vmi)
+			err := client.SyncVirtualMachine(vmi, &v1.VirtualMachineOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 

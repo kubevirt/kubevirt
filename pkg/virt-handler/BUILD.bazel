@@ -43,6 +43,7 @@ go_test(
     deps = [
         "//pkg/certificates:go_default_library",
         "//pkg/testutils:go_default_library",
+        "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-launcher:go_default_library",

@@ -65,6 +65,7 @@ type ConverterContext struct {
 	IsBlockDV      map[string]bool
 	DiskType       map[string]*containerdisk.DiskInfo
 	SRIOVDevices   map[string][]string
+	SMBios         *v1.VirtualMachineInstanceSMBios
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -693,6 +694,27 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if len(vmi.Spec.Domain.Firmware.Serial) > 0 {
 			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
 		}
+	}
+	if c.SMBios != nil {
+		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,
+			Entry{
+				Name:  "manufacturer",
+				Value: c.SMBios.Manufacturer,
+			},
+			Entry{
+				Name:  "family",
+				Value: c.SMBios.Family,
+			},
+			Entry{
+				Name:  "product",
+				Value: c.SMBios.Product,
+			},
+		)
+	}
+
+	// Take SMBios values from the VirtualMachineOptions
+	domain.Spec.OS.SMBios = &SMBios{
+		Mode: "sysinfo",
 	}
 
 	if vmi.Spec.Domain.Chassis != nil {

@@ -87,6 +87,7 @@ var _ = Describe("Manager", func() {
 		c := &api.ConverterContext{
 			VirtualMachine: vmi,
 			UseEmulation:   true,
+			SMBios:         &v1.VirtualMachineInstanceSMBios{},
 		}
 		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.SetObjectDefaults_Domain(domain)
@@ -111,7 +112,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
-			newspec, err := manager.SyncVMI(vmi, true)
+			newspec, err := manager.SyncVMI(vmi, true, &v1.VirtualMachineOptions{SMBIOS: &v1.VirtualMachineInstanceSMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -133,7 +134,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
-			newspec, err := manager.SyncVMI(vmi, true)
+			newspec, err := manager.SyncVMI(vmi, true, &v1.VirtualMachineOptions{SMBIOS: &v1.VirtualMachineInstanceSMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -154,7 +155,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
-			newspec, err := manager.SyncVMI(vmi, true)
+			newspec, err := manager.SyncVMI(vmi, true, &v1.VirtualMachineOptions{SMBIOS: &v1.VirtualMachineInstanceSMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -169,7 +170,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
-			newspec, err := manager.SyncVMI(vmi, true)
+			newspec, err := manager.SyncVMI(vmi, true, &v1.VirtualMachineOptions{SMBIOS: &v1.VirtualMachineInstanceSMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -187,7 +188,7 @@ var _ = Describe("Manager", func() {
 				mockDomain.EXPECT().Create().Return(nil)
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 				manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
-				newspec, err := manager.SyncVMI(vmi, true)
+				newspec, err := manager.SyncVMI(vmi, true, &v1.VirtualMachineOptions{SMBIOS: &v1.VirtualMachineInstanceSMBios{}})
 				Expect(err).To(BeNil())
 				Expect(newspec).ToNot(BeNil())
 			},
@@ -208,7 +209,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Resume().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
-			newspec, err := manager.SyncVMI(vmi, true)
+			newspec, err := manager.SyncVMI(vmi, true, &v1.VirtualMachineOptions{SMBIOS: &v1.VirtualMachineInstanceSMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})

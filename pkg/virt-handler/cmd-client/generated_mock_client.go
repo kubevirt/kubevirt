@@ -32,14 +32,14 @@ func (_m *MockLauncherClient) EXPECT() *_MockLauncherClientRecorder {
 	return _m.recorder
 }
 
-func (_m *MockLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "SyncVirtualMachine", vmi)
+func (_m *MockLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) error {
+	ret := _m.ctrl.Call(_m, "SyncVirtualMachine", vmi, options)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockLauncherClientRecorder) SyncVirtualMachine(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachine", arg0)
+func (_mr *_MockLauncherClientRecorder) SyncVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachine", arg0, arg1)
 }
 
 func (_m *MockLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error {

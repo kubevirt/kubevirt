@@ -46,6 +46,9 @@ const (
 	DefaultUseEmulation                             = false
 	DefaultUnsafeMigrationOverride                  = false
 	DefaultPermitSlirpInterface                     = false
+	SmbiosConfigDefaultFamily                       = "KubeVirt"
+	SmbiosConfigDefaultManufacturer                 = "KubeVirt"
+	SmbiosConfigDefaultProduct                      = "None"
 )
 
 func (c *ClusterConfig) IsUseEmulation() bool {
@@ -94,4 +97,8 @@ func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 
 func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
 	return c.getConfig().PermitSlirpInterface
+}
+
+func (c *ClusterConfig) GetSMBIOS() *SmbiosConfig {
+	return c.getConfig().SmbiosConfig
 }

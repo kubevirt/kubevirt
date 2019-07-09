@@ -70,7 +70,7 @@ type MigrationOptions struct {
 }
 
 type LauncherClient interface {
-	SyncVirtualMachine(vmi *v1.VirtualMachineInstance) error
+	SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) error
 	SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
@@ -238,9 +238,31 @@ func IsDisconnected(err error) bool {
 	return false
 }
 
-func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("SyncVMI", c.v1client.SyncVirtualMachine, vmi)
+func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) error {
 
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	optionsJson, err := json.Marshal(options)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.VMIRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		Options: optionsJson,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+	response, err := c.v1client.SyncVirtualMachine(ctx, request)
+
+	err = handleError(err, "SyncVMI", response)
+	return err
 }
 
 func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {

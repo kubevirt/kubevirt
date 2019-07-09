@@ -1429,7 +1429,15 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 		}
 
-		err = client.SyncVirtualMachine(vmi)
+		options := &v1.VirtualMachineOptions{
+			SMBIOS: &v1.VirtualMachineInstanceSMBios{
+				Family:       d.clusterConfig.GetSMBIOS().Family,
+				Product:      d.clusterConfig.GetSMBIOS().Product,
+				Manufacturer: d.clusterConfig.GetSMBIOS().Manufacturer,
+			},
+		}
+
+		err = client.SyncVirtualMachine(vmi, options)
 		if err != nil {
 			return err
 		}

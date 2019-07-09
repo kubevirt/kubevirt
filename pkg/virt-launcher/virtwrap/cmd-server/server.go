@@ -66,6 +66,20 @@ func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.R
 	return &vmi, response
 }
 
+func getVMIOptions(request *cmdv1.VMIRequest) (*v1.VirtualMachineOptions, *cmdv1.Response) {
+	response := &cmdv1.Response{
+		Success: true,
+	}
+
+	var vmioptions v1.VirtualMachineOptions
+	if err := json.Unmarshal(request.Options, &vmioptions); err != nil {
+		response.Success = false
+		response.Message = "No valid Options object present in command server request"
+	}
+
+	return &vmioptions, response
+}
+
 func getMigrationOptionsFromRequest(request *cmdv1.MigrationRequest) (*cmdclient.MigrationOptions, error) {
 
 	if request.Options == nil {
@@ -157,7 +171,12 @@ func (l *Launcher) SyncVirtualMachine(ctx context.Context, request *cmdv1.VMIReq
 		return response, nil
 	}
 
-	if _, err := l.domainManager.SyncVMI(vmi, l.useEmulation); err != nil {
+	options, response := getVMIOptions(request)
+	if !response.Success {
+		return response, nil
+	}
+
+	if _, err := l.domainManager.SyncVMI(vmi, l.useEmulation, options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to sync vmi")
 		response.Success = false
 		response.Message = getErrorMessage(err)

@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -359,9 +360,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
-
-			client.EXPECT().SyncVirtualMachine(vmi)
-
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) {
+				Expect(options.SMBIOS.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.SMBIOS.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.SMBIOS.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			})
 			controller.Execute()
 		})
 
@@ -441,7 +444,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
-			client.EXPECT().SyncVirtualMachine(vmi)
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) {
+				Expect(options.SMBIOS.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.SMBIOS.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.SMBIOS.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			})
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
 
 			controller.Execute()
@@ -489,7 +496,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
-			client.EXPECT().SyncVirtualMachine(vmi)
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) {
+				Expect(options.SMBIOS.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.SMBIOS.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.SMBIOS.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			})
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
 
 			controller.Execute()
@@ -556,7 +567,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
 
-			client.EXPECT().SyncVirtualMachine(vmi)
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) {
+				Expect(options.SMBIOS.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.SMBIOS.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.SMBIOS.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			})
 			vmiInterface.EXPECT().Update(updatedVMI)
 
 			controller.Execute()

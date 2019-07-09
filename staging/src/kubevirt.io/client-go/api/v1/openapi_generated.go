@@ -113,10 +113,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceReplicaSetList":      schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceReplicaSetList(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceReplicaSetSpec":      schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceReplicaSetSpec(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceReplicaSetStatus":    schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceReplicaSetStatus(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceSMBios":              schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSMBios(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceSpec":                schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceStatus":              schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceTemplateSpec":        schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceTemplateSpec(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineList":                        schema_kubevirtio_client_go_api_v1_VirtualMachineList(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineOptions":                     schema_kubevirtio_client_go_api_v1_VirtualMachineOptions(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineSpec":                        schema_kubevirtio_client_go_api_v1_VirtualMachineSpec(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineStatus":                      schema_kubevirtio_client_go_api_v1_VirtualMachineStatus(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Volume":                                    schema_kubevirtio_client_go_api_v1_Volume(ref),
@@ -3188,6 +3190,37 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceReplicaSetStatus(r
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSMBios(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstanceSMBios defines the SMBios configuration for VMs",
+				Properties: map[string]spec.Schema{
+					"Family": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"Product": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"Manufacturer": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3470,6 +3503,26 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineList(ref common.ReferenceC
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachine"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_VirtualMachineOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineOptions holds any extra options to be passed to the VM, like SMBIOS",
+				Properties: map[string]spec.Schema{
+					"SMBIOS": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceSMBios"),
+						},
+					},
+				},
+				Required: []string{"SMBIOS"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceSMBios"},
 	}
 }
 
