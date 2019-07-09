@@ -63,6 +63,7 @@ function finish {
 }
 
 function enable_vfio {
+    mount -o remount,rw /sys    #need this to move devices to vfio drivers
     counter=0
     for file in $(find /sys/devices/ -name *sriov_totalvfs*); do
         pfroot=$(dirname $file)
