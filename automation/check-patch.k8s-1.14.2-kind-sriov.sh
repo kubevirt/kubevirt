@@ -205,6 +205,11 @@ export DOCKER_PREFIX=${CONTAINER_REGISTRY_HOST}/kubevirt
 export DOCKER_TAG=devel
 make cluster-build
 make cluster-deploy
+
+#removing it since it's crashing with dind because loopback devices are shared with the host
+kubectl delete -n kubevirt ds disks-images-provider
+sleep 5s #wait a bit so the pods is not being waited for
+
 wait_kubevirt_up
 
 # =========================
