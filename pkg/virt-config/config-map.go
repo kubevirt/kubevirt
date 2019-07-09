@@ -57,6 +57,7 @@ const (
 	NetworkInterfaceKey       = "default-network-interface"
 	PermitSlirpInterface      = "permitSlirpInterface"
 	NodeDrainTaintDefaultKey  = "kubevirt.io/drain"
+	SmbiosConfigKey           = "smbios"
 )
 
 type ConfigModifiedFn func()
@@ -181,6 +182,11 @@ func defaultClusterConfig() *Config {
 	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	defaultNetworkInterface := DefaultNetworkInterface
+	SmbiosDefaultConfig := &SmbiosConfig{
+		Family:       SmbiosConfigDefaultFamily,
+		Manufacturer: SmbiosConfigDefaultManufacturer,
+		Product:      SmbiosConfigDefaultProduct,
+	}
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: DefaultImagePullPolicy,
@@ -203,6 +209,7 @@ func defaultClusterConfig() *Config {
 		NodeSelectors:          nodeSelectorsDefault,
 		NetworkInterface:       defaultNetworkInterface,
 		PermitSlirpInterface:   DefaultPermitSlirpInterface,
+		SmbiosConfig:           SmbiosDefaultConfig,
 	}
 }
 
@@ -221,6 +228,7 @@ type Config struct {
 	NodeSelectors          map[string]string
 	NetworkInterface       string
 	PermitSlirpInterface   bool
+	SmbiosConfig           *SmbiosConfig
 }
 
 type MigrationConfig struct {
@@ -252,6 +260,14 @@ func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
 	go c.configModifiedCallback()
 }
 
+// SmbiosConfig struct to take the mentioned values from Kubevirt-Config
+// and same values are passed to VMs eventually
+type SmbiosConfig struct {
+	Family       string `json:"Family,omitempty"`
+	Product      string `json:"Product,omitempty"`
+	Manufacturer string `json:"Manufacturer,omitempty"`
+}
+
 // setConfig parses the provided config map and updates the provided config.
 // Default values in the provided config stay in tact.
 func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
@@ -266,6 +282,16 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(config.MigrationConfig)
 		if err != nil {
 			return fmt.Errorf("failed to parse migration config: %v", err)
+		}
+	}
+
+	// set smbios values if they exist
+	smbiosConfig := strings.TrimSpace(configMap.Data[SmbiosConfigKey])
+	if smbiosConfig != "" {
+		// only set values if they were specified, default  values stay intact
+		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(smbiosConfig), 1024).Decode(config.SmbiosConfig)
+		if err != nil {
+			return fmt.Errorf("failed to parse SMBIOS config: %v", err)
 		}
 	}
 

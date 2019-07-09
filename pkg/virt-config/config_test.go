@@ -1,6 +1,7 @@
 package virtconfig_test
 
 import (
+	"encoding/json"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -256,4 +257,22 @@ var _ = Describe("ConfigMap", func() {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
 		Expect(clusterConfig.GetMachineType()).To(testutils.SatisfyAnyRegexp(clusterConfig.GetEmulatedMachines()))
 	})
+
+	table.DescribeTable("SMBIOS values from kubevirt-config", func(value string, result virtconfig.SmbiosConfig) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.SmbiosConfigKey: value},
+		})
+		smbios := clusterConfig.GetSMBIOS()
+
+		smbiosJson, err := json.Marshal(smbios)
+		Expect(err).ToNot(HaveOccurred())
+
+		resultJson, err := json.Marshal(result)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(string(smbiosJson)).To(BeEquivalentTo(string(resultJson)))
+	},
+		table.Entry("when values set, should equal to result", `{"Family":"test","Product":"test", "Manufacturer":"None"}`, virtconfig.SmbiosConfig{Family: "test", Product: "test", Manufacturer: "None"}),
+		table.Entry("When an invalid smbios value is set, should return default values", `{"invalid":"invalid"}`, virtconfig.SmbiosConfig{Family: "KubeVirt", Product: "None", Manufacturer: "KubeVirt"}),
+	)
 })

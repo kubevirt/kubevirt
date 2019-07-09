@@ -67,7 +67,7 @@ import (
 const LibvirtLocalConnectionPort = 22222
 
 type DomainManager interface {
-	SyncVMI(*v1.VirtualMachineInstance, bool) (*api.DomainSpec, error)
+	SyncVMI(*v1.VirtualMachineInstance, bool, *v1.VirtualMachineOptions) (*api.DomainSpec, error)
 	KillVMI(*v1.VirtualMachineInstance) error
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
@@ -859,7 +859,7 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 	return networkToAddressesMap
 }
 
-func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool, options *v1.VirtualMachineOptions) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
@@ -905,6 +905,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		IsBlockPVC:     isBlockPVCMap,
 		DiskType:       diskInfo,
 		SRIOVDevices:   getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
+		SMBios:         options.SMBIOS,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")

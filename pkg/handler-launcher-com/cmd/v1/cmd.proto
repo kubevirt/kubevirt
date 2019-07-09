@@ -22,6 +22,7 @@ message VMI {
 
 message VMIRequest {
   VMI vmi = 1;
+  bytes options = 2;
 }
 
 message MigrationRequest {
