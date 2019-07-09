@@ -140,7 +140,6 @@ go_repository(
     importpath = "github.com/masterzen/winrm-cli",
 )
 
-
 # Winrmcp deps
 go_repository(
     name = "com_github_packer_community_winrmcp",
