@@ -192,20 +192,16 @@ func (mutator *VMIsMutator) setDefaultPullPoliciesOnContainerDisks(vmi *v1.Virtu
 }
 
 func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineInstance) {
-
 	resources := &vmi.Spec.Domain.Resources
+	if resources.Requests == nil {
+		resources.Requests = k8sv1.ResourceList{}
+	}
 
 	if !resources.Limits.Cpu().IsZero() && resources.Requests.Cpu().IsZero() {
-		if resources.Requests == nil {
-			resources.Requests = k8sv1.ResourceList{}
-		}
 		resources.Requests[k8sv1.ResourceCPU] = resources.Limits[k8sv1.ResourceCPU]
 	}
 
 	if !resources.Limits.Memory().IsZero() && resources.Requests.Memory().IsZero() {
-		if resources.Requests == nil {
-			resources.Requests = k8sv1.ResourceList{}
-		}
 		resources.Requests[k8sv1.ResourceMemory] = resources.Limits[k8sv1.ResourceMemory]
 	}
 
@@ -220,9 +216,6 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 			}
 		}
 		if memory != nil && memory.Value() > 0 {
-			if resources.Requests == nil {
-				resources.Requests = k8sv1.ResourceList{}
-			}
 			overcommit := mutator.ClusterConfig.GetMemoryOvercommit()
 			if overcommit == 100 {
 				resources.Requests[k8sv1.ResourceMemory] = *memory
@@ -236,9 +229,6 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 	}
 
 	if _, exists := resources.Requests[v1.ResourceMemoryOverhead]; !exists {
-		if resources.Requests == nil {
-			resources.Requests = k8sv1.ResourceList{}
-		}
 		if vmi.Spec.Domain.Resources.OvercommitGuestOverhead {
 			resources.Requests[v1.ResourceMemoryOverhead] = resource.MustParse("0")
 		} else {
@@ -246,13 +236,10 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 		}
 	}
 
-	if _, exists := resources.Requests[k8sv1.ResourceCPU]; !exists {
-		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
-			return
-		}
-		if resources.Requests == nil {
-			resources.Requests = k8sv1.ResourceList{}
-		}
+	isDedicatedCPUPlacementSet := func(vmi *v1.VirtualMachineInstance) bool {
+		return vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement
+	}
+	if _, exists := resources.Requests[k8sv1.ResourceCPU]; !exists && !isDedicatedCPUPlacementSet(vmi) {
 		resources.Requests[k8sv1.ResourceCPU] = mutator.ClusterConfig.GetCPURequest()
 	}
 }
