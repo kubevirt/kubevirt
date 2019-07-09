@@ -36,29 +36,14 @@ MANIFESTS_DIR="${CLUSTER_DIR}/manifests"
 
 
 function wait_containers_ready {
-    # wait until all containers are ready
-    while [ -n "$(kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | grep false)" ]; do
-        echo "Waiting for all containers to become ready ..."
-        kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers
-        sleep 10
-    done
+    echo "Waiting for all containers to become ready ..."
+    kubectl wait --for=condition=Ready pod --all -n kube-system --timeout 12m
 }
 
-# NOTE: this assumes that once at least a single virt- service pops up then
-# others will pop up too in quick succession, at least before the first one
-# transits to ready state. If it's ever not the case, we may end up exiting
-# this function before all virt pods are scheduled and in ready state. If this
-# ever happens, we may need to list all services we expect in a kubevirt
-# cluster and check each of them is up and running.
 function wait_kubevirt_up {
-    # it takes a while for virt-operator to schedule virt pods; wait for at least one of them to pop up
-    while [ -z "$(kubectl get pods -n kubevirt | grep virt)" ]; do
-        echo "Waiting for all pods to create ..."
-        kubectl get pods -n kubevirt | grep virt
-	sleep 10
-    done
-
-    wait_containers_ready
+    echo "Waiting for kubevirt to be ready ..."
+    kubectl wait --for=condition=Ready pod --all -n kubevirt --timeout 12m
+    kubectl wait --for=condition=Ready pod --all -n cdi --timeout 12m
 }
 
 function wait_kind_up {
