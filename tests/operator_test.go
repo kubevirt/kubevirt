@@ -236,7 +236,7 @@ var _ = Describe("Operator", func() {
 			}
 
 			if kv.Status.Phase != v1.KubeVirtPhaseDeployed {
-				return fmt.Errorf("Waiting for phase to be deployed")
+				return fmt.Errorf("Waiting for phase to be deployed (current phase: %+v)", kv.Status.Phase)
 			}
 
 			ready := false
@@ -250,7 +250,7 @@ var _ = Describe("Operator", func() {
 			}
 
 			if !ready || !created {
-				return fmt.Errorf("Waiting for phase to be deployed")
+				return fmt.Errorf("Waiting for phase to be deployed (conditions: %+v)", kv.Status.Conditions)
 			}
 			return nil
 		}, time.Duration(timeoutSeconds)*time.Second, 1*time.Second).ShouldNot(HaveOccurred())

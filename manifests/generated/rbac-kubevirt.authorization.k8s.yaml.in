@@ -176,6 +176,7 @@ rules:
   - watch
   - delete
   - create
+  - patch
 - apiGroups:
   - ""
   resources:
