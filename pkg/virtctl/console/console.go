@@ -24,9 +24,9 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"strings"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
 	"k8s.io/client-go/tools/clientcmd"
@@ -178,7 +178,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	terminal.Restore(int(os.Stdin.Fd()), state)
 
 	if err != nil {
-		if strings.Contains(err.Error(), "abnormal closure") {
+		if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseAbnormalClosure {
 			fmt.Fprint(os.Stderr, "\nYou were disconnected from the console. This has one of the following reasons:"+
 				"\n - another user connected to the console of the target vm"+
 				"\n - network issues\n")
