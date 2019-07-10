@@ -62,7 +62,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "vnc (VMI)",
 		Short:   "Open a vnc connection to a virtual machine instance.",
-		Example: templates.PrepareTemplate(usage()),
+		Example: usage(),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := VNC{clientConfig: clientConfig}
@@ -291,5 +291,5 @@ func remoteViewerArgs(port int) (args []string) {
 
 func usage() string {
 	return `  # Connect to 'testvmi' via remote-viewer:\n"
-  {{.ProgramName}} vnc testvmi`
+  {{ProgramName}} vnc testvmi`
 }

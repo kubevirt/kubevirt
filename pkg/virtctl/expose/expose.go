@@ -50,7 +50,7 @@ Also if no labels are specified, the new service will re-use the labels from the
 Possible types are (case insensitive, both single and plurant forms):
         
 virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplicaset (vmirs)`,
-		Example: templates.PrepareTemplate(usage()),
+		Example: usage(),
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_EXPOSE, clientConfig: clientConfig}
@@ -76,13 +76,13 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 
 func usage() string {
 	usage := `  # Expose SSH to a virtual machine instance called 'myvm' on each node via a NodePort service:
-  {{.ProgramName}} expose vmi myvm --port=22 --name=myvm-ssh --type=NodePort
+  {{ProgramName}} expose vmi myvm --port=22 --name=myvm-ssh --type=NodePort
 
   # Expose all defined pod-network ports of a virtual machine instance replicaset on a service:
-  {{.ProgramName}} expose vmirs myvmirs --name=vmirs-service
+  {{ProgramName}} expose vmirs myvmirs --name=vmirs-service
 
   # Expose port 8080 as port 80 from a virtual machine instance replicaset on a service:
-  {{.ProgramName}} expose vmirs myvmirs --port=80 --target-port=8080 --name=vmirs-service`
+  {{ProgramName}} expose vmirs myvmirs --port=80 --target-port=8080 --name=vmirs-service`
 	return usage
 }
 

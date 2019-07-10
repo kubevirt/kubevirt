@@ -40,7 +40,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "console (VMI)",
 		Short:   "Connect to a console of a virtual machine instance.",
-		Example: templates.PrepareTemplate(usage()),
+		Example: usage(),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Console{clientConfig: clientConfig}
@@ -59,9 +59,9 @@ type Console struct {
 
 func usage() string {
 	usage := `  # Connect to the console on VirtualMachineInstance 'myvmi':
-  {{.ProgramName}} console myvmi
+  {{ProgramName}} console myvmi
   # Configure one minute timeout (default 5 minutes)
-  {{.ProgramName}} console --timeout=1 myvmi`
+  {{ProgramName}} console --timeout=1 myvmi`
 
 	return usage
 }

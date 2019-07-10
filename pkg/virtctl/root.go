@@ -18,11 +18,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/vnc"
 )
 
+var programName string
+
 func NewVirtctlCommand() *cobra.Command {
+	elements := strings.Split(os.Args[0], "/")
+	programName = strings.Replace(elements[len(elements)-1], "-", " ", -1)
+
+	cobra.AddTemplateFunc("ProgramName", func() string { return programName })
+	cobra.AddTemplateFunc("prepare", func(s string) string { return strings.Replace(s, "{{ProgramName}}", programName, -1) })
 
 	rootCmd := &cobra.Command{
-		Use:           templates.ProgramName(),
-		Short:         templates.PrependProgramName("controls virtual machine related operations on your kubernetes cluster."),
+		Use:           programName,
+		Short:         programName + " controls virtual machine related operations on your kubernetes cluster.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -57,7 +64,7 @@ func NewVirtctlCommand() *cobra.Command {
 }
 
 func Execute() {
-	log.InitializeLogging(templates.ProgramName())
+	log.InitializeLogging(programName)
 	if err := NewVirtctlCommand().Execute(); err != nil {
 		fmt.Println(strings.TrimSpace(err.Error()))
 		os.Exit(1)
