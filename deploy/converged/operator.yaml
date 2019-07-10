@@ -34,6 +34,14 @@ spec:
         image: quay.io/kubevirt/hyperconverged-cluster-operator:latest
         imagePullPolicy: Always
         name: hyperconverged-cluster-operator
+        readinessProbe:
+          exec:
+            command:
+            - stat
+            - /tmp/operator-sdk-ready
+          failureThreshold: 1
+          initialDelaySeconds: 5
+          periodSeconds: 5
         resources: {}
       serviceAccountName: hyperconverged-cluster-operator
 

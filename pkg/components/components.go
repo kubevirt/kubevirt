@@ -45,6 +45,19 @@ func GetDeployment(repository string, tag string, imagePullPolicy string) *appsv
 							ImagePullPolicy: corev1.PullPolicy(imagePullPolicy),
 							// TODO: command being name is artifact of operator-sdk usage
 							Command: []string{hco_name},
+							ReadinessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									Exec: &corev1.ExecAction{
+										Command: []string{
+											"stat",
+											"/tmp/operator-sdk-ready",
+										},
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       5,
+								FailureThreshold:    1,
+							},
 							Env: []corev1.EnvVar{
 								{
 									Name:  "OPERATOR_IMAGE",

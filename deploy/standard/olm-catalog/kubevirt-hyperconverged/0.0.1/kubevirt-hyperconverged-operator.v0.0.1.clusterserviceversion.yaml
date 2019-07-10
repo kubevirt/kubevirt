@@ -17,7 +17,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-07-03 15:06:06.727263521 -0400 EDT m=+0.031961909
+    createdAt: 2019-07-08 13:23:55.553210948 +0300 IDT m=+0.028851725
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -268,6 +268,14 @@ spec:
                   image: quay.io/kubevirt/hyperconverged-cluster-operator:latest
                   imagePullPolicy: Always
                   name: hyperconverged-cluster-operator
+                  readinessProbe:
+                    exec:
+                      command:
+                      - stat
+                      - /tmp/operator-sdk-ready
+                    failureThreshold: 1
+                    initialDelaySeconds: 5
+                    periodSeconds: 5
                   resources: {}
                 serviceAccountName: hyperconverged-cluster-operator
 
