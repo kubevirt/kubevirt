@@ -62,7 +62,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
   name: hco-catalogsource
-  namespace: openshift-operator-lifecycle-manager
+  namespace: openshift-marketplace
 spec:
   sourceType: grpc
   image: docker.io/$REGISTRY_NAMESPACE/hco-registry:example
@@ -83,7 +83,7 @@ spec:
   channel: alpha
   name: kubevirt-hyperconverged
   source: hco-catalogsource
-  sourceNamespace: openshift-operator-lifecycle-manager
+  sourceNamespace: openshift-marketplace
 EOF
 ```
 
