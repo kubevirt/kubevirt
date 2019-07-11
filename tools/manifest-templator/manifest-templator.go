@@ -53,7 +53,8 @@ type operatorData struct {
 	CRD               *extv1beta1.CustomResourceDefinition
 	CRDString         string
 	CRString          string
-	Tag               string
+	OperatorTag       string
+	ComponentTag      string
 }
 
 type templateData struct {
@@ -151,7 +152,7 @@ func getHCO(data *templateData) {
 	// Get HCO Deployment
 	hcodeployment := hcocomponents.GetDeployment(
 		"quay.io",
-		data.HCO.Tag,
+		data.HCO.OperatorTag,
 		"Always",
 	)
 	err := marshallObject(hcodeployment, &writer)
@@ -207,7 +208,7 @@ func getKubeVirt(data *templateData) {
 	kvdeployment, err := kvcomponents.NewOperatorDeployment(
 		"kubevirt",
 		data.ContainerPrefix,
-		data.KubeVirt.Tag,
+		data.KubeVirt.OperatorTag,
 		v1.PullPolicy(data.ImagePullPolicy),
 		"2",
 	)
@@ -379,7 +380,8 @@ func getKWEBUI(data *templateData) {
 	kwebuideployment := kwebuicomponents.GetDeployment(
 		data.Namespace,
 		data.WebuiContainerPrefix,
-		data.KWEBUI.Tag,
+		data.KWEBUI.OperatorTag,
+		data.KWEBUI.ComponentTag,
 		data.ImagePullPolicy,
 	)
 	err := marshallObject(kwebuideployment, &writer)
@@ -454,6 +456,7 @@ func main() {
 	cdiTag := flag.String("cdi-tag", *containerTag, "")
 	sspTag := flag.String("ssp-tag", *containerTag, "")
 	webUITag := flag.String("web-ui-tag", *containerTag, "")
+	webUIOperatorTag := flag.String("web-ui-operator-tag", *containerTag, "")
 	nmoTag := flag.String("nmo-tag", *containerTag, "")
 	networkAddonsTag := flag.String("network-addons-tag", *containerTag, "")
 
@@ -470,13 +473,13 @@ func main() {
 		WebuiContainerPrefix: *webuiContainerPrefix,
 		ImagePullPolicy:      *imagePullPolicy,
 
-		HCO:      &operatorData{Tag: *hcoTag},
-		KubeVirt: &operatorData{Tag: *kubevirtTag},
-		CDI:      &operatorData{Tag: *cdiTag},
-		CNA:      &operatorData{Tag: *networkAddonsTag},
-		KWEBUI:   &operatorData{Tag: *webUITag},
-		SSP:      &operatorData{Tag: *sspTag},
-		NMO:      &operatorData{Tag: *nmoTag},
+		HCO:      &operatorData{OperatorTag: *hcoTag, ComponentTag: *hcoTag},
+		KubeVirt: &operatorData{OperatorTag: *kubevirtTag, ComponentTag: *kubevirtTag},
+		CDI:      &operatorData{OperatorTag: *cdiTag, ComponentTag: *cdiTag},
+		CNA:      &operatorData{OperatorTag: *networkAddonsTag, ComponentTag: *networkAddonsTag},
+		KWEBUI:   &operatorData{OperatorTag: *webUIOperatorTag, ComponentTag: *webUITag},
+		SSP:      &operatorData{OperatorTag: *sspTag, ComponentTag: *sspTag},
+		NMO:      &operatorData{OperatorTag: *nmoTag, ComponentTag: *nmoTag},
 	}
 	data.CreatedAt = time.Now().String()
 

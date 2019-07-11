@@ -77,7 +77,7 @@ metadata:
     capabilities: Full Lifecycle
     categories: OpenShift Optional
     certified: 'false'
-    containerImage: quay.io/{{.ContainerPrefix}}/hyperconverged-cluster-operator:{{.HCO.Tag}}
+    containerImage: quay.io/{{.ContainerPrefix}}/hyperconverged-cluster-operator:{{.HCO.OperatorTag}}
     createdAt: {{.CreatedAt}}
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
@@ -415,7 +415,7 @@ spec:
                 serviceAccountName: kubevirt-ssp-operator
                 containers:
                   - name: kubevirt-ssp-operator
-                    image: quay.io/fromani/kubevirt-ssp-operator-container:{{.SSP.Tag}}
+                    image: quay.io/fromani/kubevirt-ssp-operator-container:{{.SSP.OperatorTag}}
                     ports:
                     - containerPort: 60000
                       name: metrics
@@ -428,7 +428,7 @@ spec:
                       - name: WATCH_NAMESPACE
                         value: ""
                       - name: VIRT_LAUNCHER_TAG
-                        value: {{.KubeVirt.Tag}}
+                        value: {{.KubeVirt.ComponentTag}}
                       - name: OPERATOR_NAME
                         value: "kubevirt-ssp-operator"
 
@@ -460,7 +460,7 @@ spec:
                         fieldPath: metadata.name
                   - name: OPERATOR_NAME
                     value: node-maintenance-operator
-                  image: quay.io/kubevirt/node-maintenance-operator:{{.NMO.Tag}}
+                  image: quay.io/kubevirt/node-maintenance-operator:{{.NMO.OperatorTag}}
                   imagePullPolicy: Always
                   name: node-maintenance-operator
                   resources: {}

@@ -54,9 +54,6 @@ func main() {
 	s,_ := json.Marshal(cfg)
 	log.Info("Configuration read: ", "config", s)
 
-	// Become the leader before proceeding
-	leader.Become(context.TODO(), "kubevirt-web-ui-operator-lock")
-
 	r := ready.NewFileReady()
 	err = r.Set()
 	if err != nil {
@@ -64,6 +61,9 @@ func main() {
 		os.Exit(1)
 	}
 	defer r.Unset()
+
+	// Become the leader before proceeding
+	leader.Become(context.TODO(), "kubevirt-web-ui-operator-lock")
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{Namespace: ""}) // Resources will be watched in all namespaces to support even the cluster-scoped deployment (HCO)

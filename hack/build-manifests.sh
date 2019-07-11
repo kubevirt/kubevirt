@@ -32,7 +32,10 @@ function versions {
     SSP_TAG="$(dep status -f='{{if eq .ProjectRoot "github.com/MarSik/kubevirt-ssp-operator"}}{{.Version}} {{end}}')"
     echo "SSP: ${SSP_TAG}"
 
-    WEB_UI_TAG="$(dep status -f='{{if eq .ProjectRoot "github.com/kubevirt/web-ui-operator"}}{{.Version}} {{end}}')"
+    WEB_UI_OPERATOR_TAG="$(dep status -f='{{if eq .ProjectRoot "github.com/kubevirt/web-ui-operator"}}{{.Version}} {{end}}')"
+    echo "Web UI operator: ${WEB_UI_OPERATOR_TAG}"
+
+    WEB_UI_TAG=$(curl --silent "https://api.github.com/repos/kubevirt/web-ui/releases/latest" | grep -Po '"tag_name": "\K.*?(?=")' | sed 's/kubevirt-/v/g' )
     echo "Web UI: ${WEB_UI_TAG}"
 
     NETWORK_ADDONS_TAG="$(dep status -f='{{if eq .ProjectRoot "github.com/kubevirt/cluster-network-addons-operator"}}{{.Version}} {{end}}')"
@@ -58,6 +61,7 @@ function buildFlags {
 	--cdi-tag=${CDI_TAG} \
 	--ssp-tag=${SSP_TAG} \
 	--web-ui-tag=${WEB_UI_TAG} \
+	--web-ui-operator-tag=${WEB_UI_OPERATOR_TAG} \
 	--nmo-tag=${NMO_TAG} \
 	--network-addons-tag=${NETWORK_ADDONS_TAG}"
     else
