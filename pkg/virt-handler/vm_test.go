@@ -27,6 +27,8 @@ import (
 	"os"
 	"time"
 
+	spice_proxy "kubevirt.io/kubevirt/pkg/virt-handler/spice-proxy"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -87,6 +89,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var certDir string
 
+	var defaultSpiceConnection *v1.SpiceConnection
+
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		shareDir, err = ioutil.TempDir("", "kubevirt-share")
@@ -143,6 +147,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 		client = cmdclient.NewMockLauncherClient(ctrl)
 		sockFile := cmdclient.SocketFromUID(shareDir, string(testUUID))
 		controller.addLauncherClient(client, sockFile)
+
+		mockSpiceProxy := spice_proxy.NewMockUnixToTcpProxyManager(ctrl)
+		mockSpiceProxy.EXPECT().GetPort(gomock.Any(), gomock.Any()).Return(int32(30000), nil).AnyTimes()
+		mockSpiceProxy.EXPECT().StartListener(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		mockSpiceProxy.EXPECT().StopListener(gomock.Any(), gomock.Any()).AnyTimes()
+		controller.proxyManager = mockSpiceProxy
+
+		defaultSpiceConnection = &v1.SpiceConnection{SpiceHandler: &v1.SpiceHandler{Host: podIpAddress, Port: int32(30000)}}
 
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
@@ -357,7 +369,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
+			updatedVMI := vmi.DeepCopy()
+			updatedVMI.Status.SpiceConnection = defaultSpiceConnection
 
+			vmiInterface.EXPECT().Update(updatedVMI)
 			client.EXPECT().SyncVirtualMachine(vmi)
 
 			controller.Execute()
@@ -378,6 +393,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 			updatedVMI.Status.MigrationMethod = v1.LiveMigration
+			updatedVMI.Status.SpiceConnection = defaultSpiceConnection
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
@@ -550,6 +566,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 			updatedVMI.Status.MigrationMethod = v1.LiveMigration
+			updatedVMI.Status.SpiceConnection = defaultSpiceConnection
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
@@ -657,6 +674,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 			}
+			vmi.Status.SpiceConnection = defaultSpiceConnection
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
@@ -750,7 +768,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiUpdated.Status.MigrationState.EndTimestamp = &now
 			vmiUpdated.Status.NodeName = "othernode"
 			vmiUpdated.Labels[v1.NodeNameLabel] = "othernode"
-
+			vmiUpdated.Status.SpiceConnection = defaultSpiceConnection
 			vmiInterface.EXPECT().Update(vmiUpdated)
 
 			controller.Execute()

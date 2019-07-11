@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "generated_mock_spice-proxy.go",
+        "spice-proxy.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/spice-proxy",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virt-handler/isolation:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
+    ],
+)

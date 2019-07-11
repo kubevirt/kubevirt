@@ -53,6 +53,7 @@ import (
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	spiceproxy "kubevirt.io/kubevirt/pkg/virt-handler/spice-proxy"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -75,6 +76,7 @@ func NewController(
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(virtShareDir)
 
 	c := &VirtualMachineController{
 		Queue:                    queue,
@@ -90,8 +92,9 @@ func NewController(
 		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir, tlsConfig),
-		podIsolationDetector:     isolation.NewSocketBasedIsolationDetector(virtShareDir),
+		podIsolationDetector:     podIsolationDetector,
 		clusterConfig:            clusterConfig,
+		proxyManager:             spiceproxy.NewSpiceProxyManager(podIsolationDetector),
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -142,6 +145,7 @@ type VirtualMachineController struct {
 	watchdogTimeoutSeconds   int
 	kvmController            *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
+	proxyManager             spiceproxy.UnixToTcpProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
 	clusterConfig            *virtconfig.ClusterConfig
 }
@@ -347,6 +351,19 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			vmi.Status.MigrationState.Completed = migrationMetadata.Completed
 			vmi.Status.MigrationState.Failed = migrationMetadata.Failed
 		}
+	}
+
+	// configure/update handler spice proxy
+	if vmi.Status.SpiceConnection == nil {
+		vmi.Status.SpiceConnection = &v1.SpiceConnection{}
+	}
+
+	if vmi.Status.SpiceConnection.SpiceHandler == nil || vmi.Status.SpiceConnection.SpiceHandler.Host != d.ipAddress {
+		port, err := d.proxyManager.GetPort(vmi.Namespace, vmi.Name)
+		if err != nil {
+			return err
+		}
+		vmi.Status.SpiceConnection.SpiceHandler = &v1.SpiceHandler{Host: d.ipAddress, Port: port}
 	}
 
 	// handle migrations differently than normal status updates.
@@ -1122,6 +1139,8 @@ func (d *VirtualMachineController) processVmDelete(vmi *v1.VirtualMachineInstanc
 		// pending deletion.
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Deleted.String(), "Signaled Deletion")
 
+		d.proxyManager.StopListener(vmi.Namespace, vmi.Name)
+
 		err = client.DeleteDomain(vmi)
 		if err != nil && !cmdclient.IsDisconnected(err) {
 			// Only report err if it wasn't the result of a disconnect.
@@ -1319,6 +1338,10 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 	return nil
 }
 
+func (d *VirtualMachineController) handleSpiceProxy(vmi *v1.VirtualMachineInstance) error {
+	return d.proxyManager.StartListener(vmi.Namespace, vmi.Name, vmi)
+}
+
 func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
 	vmi := origVMI.DeepCopy()
 
@@ -1349,6 +1372,11 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	err = d.handleMigrationProxy(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to handle migration proxy: %v", err)
+	}
+
+	err = d.handleSpiceProxy(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to handle spice proxy: %v", err)
 	}
 
 	if d.isPreMigrationTarget(vmi) {
