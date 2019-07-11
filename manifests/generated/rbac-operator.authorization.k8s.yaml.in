@@ -117,6 +117,14 @@ rules:
   - create
   - delete
 - apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachines/start
+  - virtualmachines/stop
+  - virtualmachines/restart
+  verbs:
+  - put
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - validatingwebhookconfigurations
@@ -336,7 +344,6 @@ rules:
   - virtualmachines/restart
   verbs:
   - update
-  - put
 - apiGroups:
   - kubevirt.io
   resources:
@@ -369,7 +376,6 @@ rules:
   - virtualmachines/restart
   verbs:
   - update
-  - put
 - apiGroups:
   - kubevirt.io
   resources:

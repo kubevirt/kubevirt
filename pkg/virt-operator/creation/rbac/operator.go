@@ -213,6 +213,22 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"get", "list", "watch", "create", "delete",
 				},
 			},
+			{
+				// this is needed for being able to update from older versions (<= v0.18), which included the removed
+				// "put" verb on subresources for admin and edit cluster roles.
+				// Remove this when upgrade path from v0.18 and earlier is not supported anymore
+				APIGroups: []string{
+					"subresources.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachines/start",
+					"virtualmachines/stop",
+					"virtualmachines/restart",
+				},
+				Verbs: []string{
+					"put",
+				},
+			},
 		},
 	}
 
