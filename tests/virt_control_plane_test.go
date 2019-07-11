@@ -20,6 +20,8 @@
 package tests_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -36,38 +38,52 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 
 	tests.FlagParse()
 
-	tests.BeforeAll(func() {
-		tests.SkipIfNoCmd("kubectl")
-	})
-
 	BeforeEach(func() {
+		tests.SkipIfNoCmd("kubectl")
 		tests.BeforeTestCleanup()
 	})
 
+	runCommandOnNode := func(command string, node string, args ...string) (err error) {
+		cmdName := tests.GetK8sCmdClient()
+		newArgs := make([]string, 0)
+		if tests.IsOpenShift() {
+			// if the cluster is openshift we need to append `adm` for the commands `drain` and `uncordon`
+			// as the oc binary is used
+			newArgs = append(newArgs, "adm")
+		}
+		newArgs = append(newArgs, command)
+		newArgs = append(newArgs, node)
+		newArgs = append(newArgs, args...)
+		_, _, err = tests.RunCommandWithNS("", cmdName, newArgs...)
+		return
+	}
+
+	uncordonNode := func(node string) (err error) {
+		err = runCommandOnNode("uncordon", node)
+		return
+	}
+
 	AfterEach(func() {
-		_, _, err = tests.RunCommand("kubectl", "uncordon", "node01")
+		err = uncordonNode("node01")
 		Expect(err).ToNot(HaveOccurred())
 
-		_, _, err = tests.RunCommand("kubectl", "uncordon", "node02")
+		err = uncordonNode("node02")
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	drainNode := func(node string, podSelector string) error {
-		_, _, err := tests.RunCommandWithNS("", "kubectl", "drain", node, DefaultTimeout, podSelector)
-		return err
+	drainNode := func(node string, podSelector string) (err error) {
+		err = runCommandOnNode("drain", node, DefaultTimeout, podSelector)
+		return
 	}
 
-	uncordonNode := func(node string) error {
-		_, _, err = tests.RunCommandWithNS("", "kubectl", "uncordon", node)
-		return err
-	}
+	drainNodesSelectingPods := func(podName string) {
+		podSelector := fmt.Sprintf("--pod-selector=kubevirt.io=%s", podName)
 
-	drainNodesSelectingPods := func(podSelector string) {
 		By("draining node01")
 		err = drainNode("node01", podSelector)
 		Expect(err).ToNot(HaveOccurred())
 
-		By("draining node02 should fail")
+		By("draining node02 should fail, because the target pod is protected from voluntary evictions by pdb")
 		err = drainNode("node02", podSelector)
 		Expect(err).To(HaveOccurred())
 
@@ -83,11 +99,11 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 	Context("should fail to drain the second node at first, then after uncordoning the first draining the second should succeed", func() {
 
 		It("for virt-controller", func() {
-			drainNodesSelectingPods("--pod-selector=kubevirt.io=virt-controller")
+			drainNodesSelectingPods("virt-controller")
 		})
 
 		It("for virt-api", func() {
-			drainNodesSelectingPods("--pod-selector=kubevirt.io=virt-api")
+			drainNodesSelectingPods("virt-api")
 		})
 
 	})
