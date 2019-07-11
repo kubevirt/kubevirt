@@ -92,6 +92,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Rng":                                       schema_kubevirtio_client_go_api_v1_Rng(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.SecretVolumeSource":                        schema_kubevirtio_client_go_api_v1_SecretVolumeSource(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource":                schema_kubevirtio_client_go_api_v1_ServiceAccountVolumeSource(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.SpiceConnection":                           schema_kubevirtio_client_go_api_v1_SpiceConnection(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.SpiceHandler":                              schema_kubevirtio_client_go_api_v1_SpiceHandler(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.SpiceToken":                                schema_kubevirtio_client_go_api_v1_SpiceToken(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Timer":                                     schema_kubevirtio_client_go_api_v1_Timer(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachine":                            schema_kubevirtio_client_go_api_v1_VirtualMachine(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineCondition":                   schema_kubevirtio_client_go_api_v1_VirtualMachineCondition(ref),
@@ -2246,6 +2249,79 @@ func schema_kubevirtio_client_go_api_v1_ServiceAccountVolumeSource(ref common.Re
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_SpiceConnection(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Properties: map[string]spec.Schema{
+					"spiceToken": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.SpiceToken"),
+						},
+					},
+					"spiceHandler": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.SpiceHandler"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.SpiceHandler", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.SpiceToken"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_SpiceHandler(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Properties: map[string]spec.Schema{
+					"host": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"port": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+				Required: []string{"host", "port"},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_SpiceToken(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SpiceToken represents the object for a spice connection token",
+				Properties: map[string]spec.Schema{
+					"token": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"exparationTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_Timer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3306,11 +3382,17 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							Format:      "",
 						},
 					},
+					"spiceConnection": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.SpiceConnection"),
+						},
+					},
 				},
+				Required: []string{"spiceConnection"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceCondition", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceNetworkInterface"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.SpiceConnection", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceCondition", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceNetworkInterface"},
 	}
 }
 

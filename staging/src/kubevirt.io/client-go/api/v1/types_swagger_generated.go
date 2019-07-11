@@ -274,3 +274,17 @@ func (KubeVirtCondition) SwaggerDoc() map[string]string {
 		"": "KubeVirtCondition represents a condition of a KubeVirt deployment",
 	}
 }
+
+func (SpiceConnection) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (SpiceToken) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "SpiceToken represents the object for a spice connection token",
+	}
+}
+
+func (SpiceHandler) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}

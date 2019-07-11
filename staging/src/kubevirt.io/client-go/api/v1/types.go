@@ -233,7 +233,8 @@ type VirtualMachineInstanceStatus struct {
 	// See PodQOSClass type for available QOS classes
 	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
 	// +optional
-	QOSClass *k8sv1.PodQOSClass `json:"qosClass,omitempty"`
+	QOSClass        *k8sv1.PodQOSClass `json:"qosClass,omitempty"`
+	SpiceConnection *SpiceConnection   `json:"spiceConnection"`
 }
 
 // Required to satisfy Object interface
@@ -523,6 +524,10 @@ const (
 	// This annotation is used to inject ignition data
 	// Used on VirtualMachineInstance.
 	IgnitionAnnotation string = "kubevirt.io/ignitiondata"
+	// Spice service name
+	SpiceServiceName = "virt-spice"
+	// Spice token VM label
+	SpiceTokenLabel = "spice-token"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -1253,3 +1258,25 @@ const (
 const (
 	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
 )
+
+// ---
+// +k8s:openapi-gen=true
+type SpiceConnection struct {
+	SpiceToken   *SpiceToken   `json:"spiceToken,omitempty"`
+	SpiceHandler *SpiceHandler `json:"spiceHandler,omitempty"`
+}
+
+// SpiceToken represents the object for a spice connection token
+// ---
+// +k8s:openapi-gen=true
+type SpiceToken struct {
+	Token          string      `json:"token,omitempty"`
+	ExparationTime metav1.Time `json:"exparationTime,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type SpiceHandler struct {
+	Host string `json:"host"`
+	Port int32  `json:"port"`
+}
