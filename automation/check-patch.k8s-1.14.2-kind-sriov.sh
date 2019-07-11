@@ -59,6 +59,8 @@ function collect_artifacts {
 
 function finish {
     collect_artifacts
+    echo "Printing all pods"
+    kubectl get pods --all-namespaces -o wide
     kind delete cluster --name=${CLUSTER_NAME}
 }
 
@@ -83,13 +85,14 @@ function enable_vfio {
     done
 }
 
-trap finish EXIT
-
 enable_vfio
 
 # Create the cluster...
 wget https://github.com/kubernetes-sigs/kind/releases/download/v0.3.0/kind-linux-amd64 -O /usr/local/bin/kind
 chmod +x /usr/local/bin/kind
+
+trap finish EXIT
+
 kind --loglevel debug create cluster --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
 
