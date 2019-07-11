@@ -396,6 +396,9 @@ var _ = Describe("Converter", func() {
     <graphics type="vnc">
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
+    <graphics type="spice">
+      <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-spice"></listen>
+    </graphics>
     <memballoon model="none"></memballoon>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
@@ -1189,7 +1192,7 @@ var _ = Describe("Converter", func() {
 
 	Context("graphics and video device", func() {
 
-		table.DescribeTable("should check autoAttachGraphicsDevices", func(autoAttach *bool, devices int) {
+		table.DescribeTable("should check autoAttachGraphicsDevices", func(autoAttach *bool, videoDevices, graphicsDevices int) {
 
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -1213,13 +1216,13 @@ var _ = Describe("Converter", func() {
 				AutoattachGraphicsDevice: autoAttach,
 			}
 			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true})
-			Expect(domain.Spec.Devices.Video).To(HaveLen(devices))
-			Expect(domain.Spec.Devices.Graphics).To(HaveLen(devices))
+			Expect(domain.Spec.Devices.Video).To(HaveLen(videoDevices))
+			Expect(domain.Spec.Devices.Graphics).To(HaveLen(graphicsDevices))
 
 		},
-			table.Entry("and add the graphics and video device if it is not set", nil, 1),
-			table.Entry("and add the graphics and video device if it is set to true", True(), 1),
-			table.Entry("and not add the graphics and video device if it is set to false", False(), 0),
+			table.Entry("and add the graphics and video device if it is not set", nil, 1, 2),
+			table.Entry("and add the graphics and video device if it is set to true", True(), 1, 2),
+			table.Entry("and not add the graphics and video device if it is set to false", False(), 0, 0),
 		)
 	})
 

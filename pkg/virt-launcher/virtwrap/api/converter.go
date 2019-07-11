@@ -969,6 +969,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				},
 				Type: "vnc",
 			},
+			{
+				Listen: &GraphicsListen{
+					Type:   "socket",
+					Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-spice", vmi.ObjectMeta.UID),
+				},
+				Type: "spice",
+			},
 		}
 	}
 
