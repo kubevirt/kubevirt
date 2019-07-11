@@ -78,7 +78,20 @@ func controllerDeployments(strategy *InstallStrategy) []*appsv1.Deployment {
 	var deployments []*appsv1.Deployment
 
 	for _, deployment := range strategy.deployments {
-		if strings.Contains(deployment.Name, "virt-api") {
+		if !strings.Contains(deployment.Name, "virt-controller") {
+			continue
+		}
+		deployments = append(deployments, deployment)
+
+	}
+	return deployments
+}
+
+func spiceDeployments(strategy *InstallStrategy) []*appsv1.Deployment {
+	var deployments []*appsv1.Deployment
+
+	for _, deployment := range strategy.deployments {
+		if !strings.Contains(deployment.Name, "virt-spice") {
 			continue
 		}
 		deployments = append(deployments, deployment)
@@ -351,6 +364,18 @@ func haveDaemonSetsRolledOver(targetStrategy *InstallStrategy, kv *v1.KubeVirt, 
 		}
 	}
 
+	return true
+}
+
+func haveSpiceDeploymentsRolledOver(targetStrategy *InstallStrategy, kv *v1.KubeVirt, stores util.Stores) bool {
+
+	for _, deployment := range spiceDeployments(targetStrategy) {
+		if !util.DeploymentIsReady(kv, deployment, stores) {
+			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			// not rolled out yet
+			return false
+		}
+	}
 	return true
 }
 
@@ -1207,7 +1232,8 @@ func generateServicePatch(kv *v1.KubeVirt,
 		return patchOps, false, nil
 	}
 
-	if !isServiceClusterIP(cachedService) || !isServiceClusterIP(service) {
+	if (!isServiceClusterIP(cachedService) || !isServiceClusterIP(service)) &&
+		(service.Name != "virt-spice" || cachedService.Name != "virt-spice") {
 		// we're only going to attempt to mutate Type ==ClusterIPs right now because
 		// that's the only logic we have tested.
 
@@ -1440,9 +1466,10 @@ func SyncAll(kv *v1.KubeVirt,
 	apiDeploymentsRolledOver := haveApiDeploymentsRolledOver(targetStrategy, kv, stores)
 	controllerDeploymentsRolledOver := haveControllerDeploymentsRolledOver(targetStrategy, kv, stores)
 	daemonSetsRolledOver := haveDaemonSetsRolledOver(targetStrategy, kv, stores)
+	spiceDeploymentRolledOver := haveSpiceDeploymentsRolledOver(targetStrategy, kv, stores)
 
 	infrastructureRolledOver := false
-	if apiDeploymentsRolledOver && controllerDeploymentsRolledOver && daemonSetsRolledOver {
+	if apiDeploymentsRolledOver && controllerDeploymentsRolledOver && daemonSetsRolledOver && spiceDeploymentRolledOver {
 
 		// infrastructure has rolled over and is available
 		infrastructureRolledOver = true
@@ -1563,8 +1590,17 @@ func SyncAll(kv *v1.KubeVirt,
 
 		}
 
+		// create/update Spice Deployment
+		for _, deployment := range spiceDeployments(targetStrategy) {
+			err := syncDeployment(kv, deployment, stores, clientset, expectations)
+			if err != nil {
+				return false, err
+			}
+
+		}
+
 		// wait for daemonsets and controllers
-		if !daemonSetsRolledOver || !controllerDeploymentsRolledOver {
+		if !daemonSetsRolledOver || !controllerDeploymentsRolledOver || !spiceDeploymentRolledOver {
 			// not rolled out yet
 			return false, nil
 		}
@@ -1577,11 +1613,12 @@ func SyncAll(kv *v1.KubeVirt,
 				return false, err
 			}
 		}
+
 	} else {
 		// CREATE/ROLLBACK PATH IS
 		// 1. apiserver - ensures validation of objects occur before allowing any control plane to act on them.
 		// 2. wait for apiservers to roll over
-		// 3. controllers and daemonsets
+		// 3. controllers, daemonsets and spice
 
 		// create/update API Deployments
 		for _, deployment := range apiDeployments(targetStrategy) {
@@ -1609,6 +1646,14 @@ func SyncAll(kv *v1.KubeVirt,
 		// create/update Daemonsets
 		for _, daemonSet := range targetStrategy.daemonSets {
 			err := syncDaemonSet(kv, daemonSet, stores, clientset, expectations)
+			if err != nil {
+				return false, err
+			}
+		}
+
+		for _, deployment := range spiceDeployments(targetStrategy) {
+			deployment := deployment.DeepCopy()
+			err := syncDeployment(kv, deployment, stores, clientset, expectations)
 			if err != nil {
 				return false, err
 			}

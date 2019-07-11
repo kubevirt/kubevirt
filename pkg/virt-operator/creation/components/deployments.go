@@ -96,6 +96,38 @@ func NewApiServerService(namespace string) *corev1.Service {
 	}
 }
 
+func NewSpiceServerService(namespace string) *corev1.Service {
+	return &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      "virt-spice",
+			Labels: map[string]string{
+				virtv1.AppLabel: "virt-spice",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				virtv1.AppLabel: "virt-spice",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Port: 5900,
+					TargetPort: intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 5900,
+					},
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+			Type: corev1.ServiceTypeLoadBalancer,
+		},
+	}
+}
+
 func newPodTemplateSpec(name string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*corev1.PodTemplateSpec, error) {
 
 	tolerations, err := criticalAddonsToleration()
@@ -509,6 +541,38 @@ func NewOperatorDeployment(namespace string, repository string, version string, 
 					},
 				},
 			},
+		},
+	}
+
+	return deployment, nil
+}
+
+func NewSpiceServerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+	deployment, err := newBaseDeployment("virt-spice", namespace, repository, version, pullPolicy, &corev1.Affinity{})
+	if err != nil {
+		return nil, err
+	}
+
+	pod := &deployment.Spec.Template.Spec
+	// TODO: Change this
+	pod.ServiceAccountName = "kubevirt-spiceserver"
+	pod.SecurityContext = &corev1.PodSecurityContext{
+		RunAsNonRoot: boolPtr(true),
+	}
+
+	container := &deployment.Spec.Template.Spec.Containers[0]
+	container.Command = []string{
+		"virt-spice",
+		"-t",
+		"10m",
+		"-v",
+		verbosity,
+	}
+	container.Ports = []corev1.ContainerPort{
+		{
+			Name:          "virt-spice",
+			Protocol:      corev1.ProtocolTCP,
+			ContainerPort: 5900,
 		},
 	}
 

@@ -104,9 +104,9 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 
 	NAMESPACE := "kubevirt-test"
-	resourceCount := 29
-	patchCount := 13
-	updateCount := 16
+	resourceCount := 34
+	patchCount := 16
+	updateCount := 18
 
 	deleteFromCache := true
 	addToCache := true
@@ -433,6 +433,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		// virt-api
 		// virt-controller
 		// virt-handler
+		// virt-spice
 		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
 
 		pod := &k8sv1.Pod{
@@ -477,6 +478,21 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 		injectMetadata(&pod.ObjectMeta, version, registry)
 		pod.Name = "virt-handler-xxxx"
+		addPod(pod)
+
+		spiceDeployment, _ := components.NewSpiceServerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		pod = &k8sv1.Pod{
+			ObjectMeta: spiceDeployment.Spec.Template.ObjectMeta,
+			Spec:       spiceDeployment.Spec.Template.Spec,
+			Status: k8sv1.PodStatus{
+				Phase: k8sv1.PodRunning,
+				ContainerStatuses: []k8sv1.ContainerStatus{
+					{Ready: true, Name: "somecontainer"},
+				},
+			},
+		}
+		injectMetadata(&pod.ObjectMeta, version, registry)
+		pod.Name = "virt-spice-xxxx"
 		addPod(pod)
 	}
 
@@ -604,6 +620,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
 		all = append(all, rbac.GetAllHandler(NAMESPACE)...)
 		all = append(all, rbac.GetAllController(NAMESPACE)...)
+		all = append(all, rbac.GetAllSpiceServer(NAMESPACE)...)
 		// crds
 		all = append(all, components.NewVirtualMachineInstanceCrd())
 		all = append(all, components.NewPresetCrd())
@@ -613,10 +630,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		// services and deployments
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
+		all = append(all, components.NewSpiceServerService(NAMESPACE))
 		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
 		controller, _ := components.NewControllerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
 		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, registry, version, imagePullPolicy, verbosity)
-		all = append(all, apiDeployment, controller, handler)
+		spiceDeployment, _ := components.NewSpiceServerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		all = append(all, apiDeployment, controller, handler, spiceDeployment)
 
 		for _, obj := range all {
 
@@ -633,12 +652,13 @@ var _ = Describe("KubeVirt Operator", func() {
 		scc.Users = append(scc.Users,
 			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-handler"),
 			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-apiserver"),
-			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-controller"))
+			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-controller"),
+			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-spiceserver"))
 		sccSource.Modify(&scc)
 
 	}
 
-	makeApiAndControllerReady := func() {
+	makeApiControllerAndSpiceReady := func() {
 		makeDeploymentReady := func(item interface{}) {
 			depl, _ := item.(*appsv1.Deployment)
 			deplNew := depl.DeepCopy()
@@ -651,7 +671,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			deploymentSource.Modify(deplNew)
 		}
 
-		for _, name := range []string{"/virt-api", "/virt-controller"} {
+		for _, name := range []string{"/virt-api", "/virt-controller", "/virt-spice"} {
 			exists := false
 			var obj interface{}
 			// we need to wait until the deployment exists
@@ -847,11 +867,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		return true, nil, nil
 	}
 	expectUsersDeleted := func(userBytes []byte) {
-		deletePatch := `[ { "op": "test", "path": "/users", "value": ["someUser","system:serviceaccount:kubevirt-test:kubevirt-handler","system:serviceaccount:kubevirt-test:kubevirt-apiserver","system:serviceaccount:kubevirt-test:kubevirt-controller"] }, { "op": "replace", "path": "/users", "value": ["someUser"] } ]`
+		deletePatch := `[ { "op": "test", "path": "/users", "value": ["someUser","system:serviceaccount:kubevirt-test:kubevirt-handler","system:serviceaccount:kubevirt-test:kubevirt-apiserver","system:serviceaccount:kubevirt-test:kubevirt-controller","system:serviceaccount:kubevirt-test:kubevirt-spiceserver"] }, { "op": "replace", "path": "/users", "value": ["someUser"] } ]`
 		Expect(userBytes).To(Equal([]byte(deletePatch)))
 	}
 	expectUsersAdded := func(userBytes []byte) {
-		addPatch := `[ { "op": "test", "path": "/users", "value": ["someUser"] }, { "op": "replace", "path": "/users", "value": ["someUser","system:serviceaccount:kubevirt-test:kubevirt-handler","system:serviceaccount:kubevirt-test:kubevirt-apiserver","system:serviceaccount:kubevirt-test:kubevirt-controller"] } ]`
+		addPatch := `[ { "op": "test", "path": "/users", "value": ["someUser"] }, { "op": "replace", "path": "/users", "value": ["someUser","system:serviceaccount:kubevirt-test:kubevirt-handler","system:serviceaccount:kubevirt-test:kubevirt-apiserver","system:serviceaccount:kubevirt-test:kubevirt-controller","system:serviceaccount:kubevirt-test:kubevirt-spiceserver"] } ]`
 		Expect(userBytes).To(Equal([]byte(addPatch)))
 	}
 
@@ -1037,7 +1057,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy("custom.tag", defaultRegistry)
 			addPods("custom.tag", defaultRegistry)
 
-			makeApiAndControllerReady()
+			makeApiControllerAndSpiceReady()
 			makeHandlerReady()
 
 			shouldExpectKubeVirtUpdateVersion(1, "custom.tag")
@@ -1086,7 +1106,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(defaultImageTag, defaultRegistry)
 			addAll(defaultImageTag, defaultRegistry)
 			addPods(defaultImageTag, defaultRegistry)
-			makeApiAndControllerReady()
+			makeApiControllerAndSpiceReady()
 			makeHandlerReady()
 
 			shouldExpectDeletions()
@@ -1134,7 +1154,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addInstallStrategy(defaultImageTag, defaultRegistry)
 			addAll(defaultImageTag, defaultRegistry)
 			addPods(defaultImageTag, defaultRegistry)
-			makeApiAndControllerReady()
+			makeApiControllerAndSpiceReady()
 			makeHandlerReady()
 
 			controller.Execute()
@@ -1177,7 +1197,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			numResources := generateRandomResources()
 			addPods(defaultImageTag, defaultRegistry)
 
-			makeApiAndControllerReady()
+			makeApiControllerAndSpiceReady()
 			makeHandlerReady()
 
 			shouldExpectDeletions()
@@ -1392,19 +1412,19 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(kv.Status.Conditions)).To(Equal(0))
 
 			// 2 because waiting on controller and virt-handler daemonset until API server deploys successfully
-			expectedUncreatedResources := 2
+			expectedUncreatedResources := 3
 
 			// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
 			expectedTemporaryResources := 1
 
 			Expect(totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
-			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
-			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))
-			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
+			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(4))
+			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(8))
+			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(6))
 			Expect(len(controller.stores.RoleCache.List())).To(Equal(2))
 			Expect(len(controller.stores.RoleBindingCache.List())).To(Equal(2))
 			Expect(len(controller.stores.CrdCache.List())).To(Equal(5))
-			Expect(len(controller.stores.ServiceCache.List())).To(Equal(2))
+			Expect(len(controller.stores.ServiceCache.List())).To(Equal(3))
 			Expect(len(controller.stores.DeploymentCache.List())).To(Equal(1))
 			Expect(len(controller.stores.DaemonSetCache.List())).To(Equal(0))
 			Expect(len(controller.stores.ValidationWebhookCache.List())).To(Equal(1))
@@ -1458,7 +1478,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addAll(defaultImageTag, defaultRegistry)
 			addPods(defaultImageTag, defaultRegistry)
 
-			makeApiAndControllerReady()
+			makeApiControllerAndSpiceReady()
 			makeHandlerReady()
 
 			addToCache = false
@@ -1468,12 +1488,12 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			controller.Execute()
 
-			// on rollback or create, api server must be online first before controllers and daemonset.
+			// on rollback or create, api server must be online first before controllers, daemonset and spice.
 			// On rollback this prevents someone from posting invalid specs to
 			// the cluster from newer versions when an older version is being deployed.
 			// On create this prevents invalid specs from entering the cluster
 			// while controllers are available to process them.
-			Expect(totalPatches).To(Equal(patchCount - 2))
+			Expect(totalPatches).To(Equal(patchCount - 3))
 			Expect(totalUpdates).To(Equal(updateCount))
 		}, 15)
 
@@ -1525,7 +1545,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addAll(defaultImageTag, defaultRegistry)
 			addPods(defaultImageTag, defaultRegistry)
 
-			makeApiAndControllerReady()
+			makeApiControllerAndSpiceReady()
 			makeHandlerReady()
 
 			addToCache = false
@@ -1595,7 +1615,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// all resources.
 			addPods(updatedVersion, updatedRegistry)
 
-			makeApiAndControllerReady()
+			makeApiControllerAndSpiceReady()
 			makeHandlerReady()
 
 			shouldExpectPatchesAndUpdates()
@@ -1664,7 +1684,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// all resources.
 			addPods(updatedVersion, updatedRegistry)
 
-			makeApiAndControllerReady()
+			makeApiControllerAndSpiceReady()
 			makeHandlerReady()
 
 			shouldExpectPatchesAndUpdates()

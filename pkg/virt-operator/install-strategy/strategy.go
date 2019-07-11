@@ -199,6 +199,7 @@ func GenerateCurrentInstallStrategy(namespace string,
 	rbaclist = append(rbaclist, rbac.GetAllApiServer(namespace)...)
 	rbaclist = append(rbaclist, rbac.GetAllController(namespace)...)
 	rbaclist = append(rbaclist, rbac.GetAllHandler(namespace)...)
+	rbaclist = append(rbaclist, rbac.GetAllSpiceServer(namespace)...)
 
 	for _, entry := range rbaclist {
 		cr, ok := entry.(*rbacv1.ClusterRole)
@@ -247,6 +248,13 @@ func GenerateCurrentInstallStrategy(namespace string,
 	}
 	strategy.daemonSets = append(strategy.daemonSets, handler)
 
+	strategy.services = append(strategy.services, components.NewSpiceServerService(namespace))
+	spiceDeployment, err := components.NewSpiceServerDeployment(namespace, repository, version, imagePullPolicy, verbosity)
+	if err != nil {
+		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
+	}
+	strategy.deployments = append(strategy.deployments, spiceDeployment)
+
 	prefix := "system:serviceaccount"
 	typeMeta := metav1.TypeMeta{
 		Kind: customSCCPrivilegedAccountsType,
@@ -258,6 +266,7 @@ func GenerateCurrentInstallStrategy(namespace string,
 			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-handler"),
 			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-apiserver"),
 			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-controller"),
+			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-spiceserver"),
 		},
 	})
 

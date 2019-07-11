@@ -37,7 +37,7 @@ func main() {
 	repository := flag.String("repository", "kubevirt", "Image Repository to use.")
 	version := flag.String("version", "latest", "version to use.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
-	verbosity := flag.String("verbosity", "2", "Verbosity level to use.")
+	verbosity := flag.String("verbosity", "3", "Verbosity level to use.")
 
 	flag.Parse()
 
@@ -63,6 +63,7 @@ func main() {
 		all = append(all, rbac.GetAllApiServer(*namespace)...)
 		all = append(all, rbac.GetAllController(*namespace)...)
 		all = append(all, rbac.GetAllHandler(*namespace)...)
+		all = append(all, rbac.GetAllSpiceServer(*namespace)...)
 		for _, r := range all {
 			util.MarshallObject(r, os.Stdout)
 		}
@@ -109,6 +110,17 @@ func main() {
 
 		}
 		util.MarshallObject(operator, os.Stdout)
+	case "virt-spice":
+		spiceService := components.NewSpiceServerService(*namespace)
+		spiceDeployment, err := components.NewSpiceServerDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		if err != nil {
+			panic(fmt.Errorf("error generating virt-spiceserver deployment %v", err))
+
+		}
+		all := []interface{}{spiceService, spiceDeployment}
+		for _, r := range all {
+			util.MarshallObject(r, os.Stdout)
+		}
 	default:
 		panic(fmt.Errorf("unknown resource type %s", *resourceType))
 	}

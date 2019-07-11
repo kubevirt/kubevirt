@@ -41,6 +41,13 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - services
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - ""
+  resources:
   - pods/exec
   verbs:
   - create
@@ -189,6 +196,12 @@ rules:
   - delete
   - update
   - create
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:
@@ -353,4 +366,42 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kubevirt-handler
+  namespace: {{.Namespace}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    kubevirt.io: ""
+  name: kubevirt-spiceserver
+  namespace: {{.Namespace}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    kubevirt.io: ""
+  name: kubevirt-spiceserver
+rules:
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachineinstances
+  verbs:
+  - get
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    kubevirt.io: ""
+  name: kubevirt-spiceserver
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubevirt-spiceserver
+subjects:
+- kind: ServiceAccount
+  name: kubevirt-spiceserver
   namespace: {{.Namespace}}
