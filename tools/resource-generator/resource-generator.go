@@ -25,6 +25,7 @@ import (
 	"os"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
@@ -38,6 +39,10 @@ func main() {
 	version := flag.String("version", "latest", "version to use.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
 	verbosity := flag.String("verbosity", "2", "Verbosity level to use.")
+	apiMemory := flag.String("virtAPIMemory", "512M", "Guaranteed memory for virt-api.")
+	controllerMemory := flag.String("virtControllerMemory", "512M", "Guaranteed memory for virt-controller.")
+	apiCPU := flag.String("virtAPICPU", "500m", "Guaranteed CPU for virt-api.")
+	controllerCPU := flag.String("virtControllerCPU", "500m", "Guaranteed CPU for virt-controller.")
 
 	flag.Parse()
 
@@ -80,7 +85,9 @@ func main() {
 		util.MarshallObject(components.NewPrometheusService(*namespace), os.Stdout)
 	case "virt-api":
 		apisService := components.NewApiServerService(*namespace)
-		apiDeployment, err := components.NewApiServerDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		memory := resource.MustParse(*apiMemory)
+		cpu := resource.MustParse(*apiCPU)
+		apiDeployment, err := components.NewApiServerDeployment(*namespace, *repository, *version, imagePullPolicy, &memory, &cpu, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-apiserver deployment %v", err))
 
@@ -90,7 +97,9 @@ func main() {
 			util.MarshallObject(r, os.Stdout)
 		}
 	case "virt-controller":
-		controller, err := components.NewControllerDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		memory := resource.MustParse(*controllerMemory)
+		cpu := resource.MustParse(*controllerCPU)
+		controller, err := components.NewControllerDeployment(*namespace, *repository, *version, imagePullPolicy, &memory, &cpu, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-controller deployment %v", err))
 

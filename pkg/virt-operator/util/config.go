@@ -25,7 +25,9 @@ import (
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
+	"kubevirt.io/client-go/log"
 	kvutil "kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -34,6 +36,14 @@ const (
 	OperatorImageEnvName   = "OPERATOR_IMAGE"
 	TargetInstallNamespace = "TARGET_INSTALL_NAMESPACE"
 	TargetImagePullPolicy  = "TARGET_IMAGE_PULL_POLICY"
+	VirtAPIMemory          = "VIRT_API_MEMORY"
+	VirtAPICPU             = "VIRT_API_CPU"
+	VirtControllerMemory   = "VIRT_CONTROLLER_MEMORY"
+	VirtControllerCPU      = "VIRT_CONTROLLER_CPU"
+
+	// Remember changing the documentation of KubeVirtSpec when the following change
+	defaultMemory = "512M"
+	defaultCPU    = "500m"
 )
 
 type KubeVirtDeploymentConfig struct {
@@ -57,6 +67,58 @@ func GetTargetInstallNamespace() (string, error) {
 	}
 
 	return ns, nil
+}
+
+func GetVirtAPIMemory() *resource.Quantity {
+	if conf := os.Getenv(VirtAPIMemory); conf != "" {
+		if memory, err := resource.ParseQuantity(conf); err == nil {
+			return &memory
+		} else {
+			log.Log.Warningf("Invalid virt-api memory %s, using default", conf)
+		}
+	}
+
+	defaultMemory := resource.MustParse(defaultMemory)
+	return &defaultMemory
+}
+
+func GetVirtAPICPU() *resource.Quantity {
+	if conf := os.Getenv(VirtAPICPU); conf != "" {
+		if cpu, err := resource.ParseQuantity(conf); err == nil {
+			return &cpu
+		} else {
+			log.Log.Warningf("Invalid virt-api cpu %s, using default", conf)
+		}
+	}
+
+	defaultCPU := resource.MustParse(defaultCPU)
+	return &defaultCPU
+}
+
+func GetVirtControllerMemory() *resource.Quantity {
+	if conf := os.Getenv(VirtControllerMemory); conf != "" {
+		if memory, err := resource.ParseQuantity(conf); err == nil {
+			return &memory
+		} else {
+			log.Log.Warningf("Invalid virt-controller memory %s, using default", conf)
+		}
+	}
+
+	defaultMemory := resource.MustParse(defaultMemory)
+	return &defaultMemory
+}
+
+func GetVirtControllerCPU() *resource.Quantity {
+	if conf := os.Getenv(VirtControllerCPU); conf != "" {
+		if cpu, err := resource.ParseQuantity(conf); err == nil {
+			return &cpu
+		} else {
+			log.Log.Warningf("Invalid virt-controller cpu %s, using default", conf)
+		}
+	}
+
+	defaultCPU := resource.MustParse(defaultCPU)
+	return &defaultCPU
 }
 
 func GetConfig() KubeVirtDeploymentConfig {

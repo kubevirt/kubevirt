@@ -28,6 +28,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -499,6 +500,12 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 	if string(kv.Spec.ImagePullPolicy) != "" {
 		pullPolicy = kv.Spec.ImagePullPolicy
 	}
+	parseResource := func(resource *resource.Quantity) string {
+		if resource != nil {
+			return resource.String()
+		}
+		return ""
+	}
 	job := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1",
@@ -545,6 +552,22 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 								{
 									Name:  util.TargetImagePullPolicy,
 									Value: string(pullPolicy),
+								},
+								{
+									Name:  util.VirtAPIMemory,
+									Value: parseResource(kv.Spec.VirtAPIMemory),
+								},
+								{
+									Name:  util.VirtAPICPU,
+									Value: parseResource(kv.Spec.VirtAPICPU),
+								},
+								{
+									Name:  util.VirtControllerMemory,
+									Value: parseResource(kv.Spec.VirtControllerMemory),
+								},
+								{
+									Name:  util.VirtControllerCPU,
+									Value: parseResource(kv.Spec.VirtControllerCPU),
 								},
 							},
 						},

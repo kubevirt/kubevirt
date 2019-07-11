@@ -257,9 +257,13 @@ func (KubeVirtList) SwaggerDoc() map[string]string {
 
 func (KubeVirtSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"imageTag":        "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
-		"imageRegistry":   "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
-		"imagePullPolicy": "The ImagePullPolicy to use.",
+		"imageTag":             "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
+		"imageRegistry":        "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
+		"imagePullPolicy":      "The ImagePullPolicy to use.",
+		"virtAPIMemory":        "Customized guaranteed memory for virt-api\nDefaults to 512M.",
+		"virtAPICPU":           "Customized guaranteed cpu for virt-api\nDefaults to 500m.",
+		"virtControllerMemory": "Customized guaranteed memory for virt-controller\nDefaults to 512M.",
+		"virtControllerCPU":    "Customized guaranteed cpu for virt-controller\nDefaults to 500m.",
 	}
 }
 

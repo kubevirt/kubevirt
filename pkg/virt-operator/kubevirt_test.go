@@ -38,6 +38,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -428,12 +429,14 @@ var _ = Describe("KubeVirt Operator", func() {
 		pullPolicy := "IfNotPresent"
 		imagePullPolicy := k8sv1.PullPolicy(pullPolicy)
 		verbosity := "2"
+		memory := resource.MustParse("512M")
+		cpu := resource.MustParse("500m")
 
 		// we need at least one active pod for
 		// virt-api
 		// virt-controller
 		// virt-handler
-		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, registry, version, imagePullPolicy, &memory, &cpu, verbosity)
 
 		pod := &k8sv1.Pod{
 			ObjectMeta: apiDeployment.Spec.Template.ObjectMeta,
@@ -449,7 +452,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		pod.Name = "virt-api-xxxx"
 		addPod(pod)
 
-		controller, _ := components.NewControllerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		controller, _ := components.NewControllerDeployment(NAMESPACE, registry, version, imagePullPolicy, &memory, &cpu, verbosity)
 		pod = &k8sv1.Pod{
 			ObjectMeta: controller.Spec.Template.ObjectMeta,
 			Spec:       controller.Spec.Template.Spec,
@@ -596,6 +599,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		pullPolicy := "IfNotPresent"
 		imagePullPolicy := k8sv1.PullPolicy(pullPolicy)
 		verbosity := "2"
+		memory := resource.MustParse("512M")
+		cpu := resource.MustParse("500m")
 
 		all := make([]interface{}, 0)
 
@@ -613,8 +618,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		// services and deployments
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
-		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
-		controller, _ := components.NewControllerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, registry, version, imagePullPolicy, &memory, &cpu, verbosity)
+		controller, _ := components.NewControllerDeployment(NAMESPACE, registry, version, imagePullPolicy, &memory, &cpu, verbosity)
 		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, registry, version, imagePullPolicy, verbosity)
 		all = append(all, apiDeployment, controller, handler)
 

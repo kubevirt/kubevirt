@@ -1792,10 +1792,35 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"virtAPIMemory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Customized guaranteed memory for virt-api Defaults to 512M.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"virtAPICPU": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Customized guaranteed cpu for virt-api Defaults to 500m.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"virtControllerMemory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Customized guaranteed memory for virt-controller Defaults to 512M.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"virtControllerCPU": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Customized guaranteed cpu for virt-controller Defaults to 500m.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
 				},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 

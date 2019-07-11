@@ -35,6 +35,7 @@ import (
 	v1 "k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -1190,6 +1191,18 @@ type KubeVirtSpec struct {
 
 	// The ImagePullPolicy to use.
 	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
+	// Customized guaranteed memory for virt-api
+	// Defaults to 512M.
+	VirtAPIMemory *resource.Quantity `json:"virtAPIMemory,omitempty"`
+	// Customized guaranteed cpu for virt-api
+	// Defaults to 500m.
+	VirtAPICPU *resource.Quantity `json:"virtAPICPU,omitempty"`
+	// Customized guaranteed memory for virt-controller
+	// Defaults to 512M.
+	VirtControllerMemory *resource.Quantity `json:"virtControllerMemory,omitempty"`
+	// Customized guaranteed cpu for virt-controller
+	// Defaults to 500m.
+	VirtControllerCPU *resource.Quantity `json:"virtControllerCPU,omitempty"`
 }
 
 // KubeVirtStatus represents information pertaining to a KubeVirt deployment.
