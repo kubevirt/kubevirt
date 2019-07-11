@@ -3,6 +3,7 @@ package virtctl
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -21,8 +22,7 @@ import (
 var programName string
 
 func NewVirtctlCommand() *cobra.Command {
-	elements := strings.Split(os.Args[0], "/")
-	programName = strings.Replace(elements[len(elements)-1], "-", " ", -1)
+	programName = strings.Replace(filepath.Base(os.Args[0]), "-", " ", -1)
 
 	cobra.AddTemplateFunc("ProgramName", func() string { return programName })
 	cobra.AddTemplateFunc("prepare", func(s string) string { return strings.Replace(s, "{{ProgramName}}", programName, -1) })
