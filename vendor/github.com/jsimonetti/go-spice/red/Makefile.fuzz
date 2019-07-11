@@ -1,0 +1,29 @@
+# Makefile for fuzzing
+#
+# Use go-fuzz and needs the tools installed.
+# See https://blog.cloudflare.com/dns-parser-meet-go-fuzzer/
+#
+# Installing go-fuzz:
+# $ make -f Makefile.fuzz get
+# Installs:
+# * github.com/dvyukov/go-fuzz/go-fuzz
+# * get github.com/dvyukov/go-fuzz/go-fuzz-build
+
+all: build
+
+.PHONY: build
+build:
+	go-fuzz-build -tags fuzz github.com/jsimonetti/go-spice/red
+
+.PHONY: fuzz
+fuzz:
+	go-fuzz -bin=red-fuzz.zip -workdir=testdata
+
+.PHONY: get
+get: build
+	go get github.com/dvyukov/go-fuzz/go-fuzz
+	go get github.com/dvyukov/go-fuzz/go-fuzz-build
+
+.PHONY: clean
+clean:
+	rm *-fuzz.zip

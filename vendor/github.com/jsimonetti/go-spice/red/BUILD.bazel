@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "authmethod_string.go",
+        "capability.go",
+        "channeltype_string.go",
+        "clientauthmethod.go",
+        "clientlinkmessage.go",
+        "clientticket.go",
+        "errorcode_string.go",
+        "linkheader.go",
+        "minidataheader.go",
+        "red.go",
+        "serverlinkmessage.go",
+        "serverticket.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/jsimonetti/go-spice/red",
+    importpath = "github.com/jsimonetti/go-spice/red",
+    visibility = ["//visibility:public"],
+)

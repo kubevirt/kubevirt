@@ -185,6 +185,7 @@ container_bundle(
         "$(container_prefix)/virt-handler:$(container_tag)": "//cmd/virt-handler:virt-handler-image",
         "$(container_prefix)/virt-api:$(container_tag)": "//cmd/virt-api:virt-api-image",
         "$(container_prefix)/virt-operator:$(container_tag)": "//cmd/virt-operator:virt-operator-image",
+        "$(container_prefix)/virt-spice:$(container_tag)": "//cmd/virt-spice:virt-spice-image",
         # container-disk images
         "$(container_prefix)/alpine-container-disk-demo:$(container_tag)": "//cmd/container-disk-v1alpha:alpine-container-disk-image",
         "$(container_prefix)/cirros-container-disk-demo:$(container_tag)": "//cmd/container-disk-v1alpha:cirros-container-disk-image",
