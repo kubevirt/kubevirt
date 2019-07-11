@@ -530,6 +530,7 @@ var _ = Describe("Multus", func() {
                     systemd-run --unit=guestagent /usr/local/bin/qemu-ga
                 `, ep1Ip, ep2Ip, ep1IpV6, ep2IpV6, tests.GuestAgentHttpUrl)
 				agentVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userdata)
+				agentVMI.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
 
 				agentVMI.Spec.Domain.Devices.Interfaces = interfaces
 				agentVMI.Spec.Networks = networks
@@ -617,6 +618,7 @@ var _ = Describe("SRIOV", func() {
 			    chmod +x /usr/local/bin/qemu-ga
 			    systemd-run --unit=guestagent /usr/local/bin/qemu-ga`, tests.GuestAgentHttpUrl)
 			vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
 
 			tests.AddExplicitPodNetworkInterface(vmi)
 			for _, name := range networks {
