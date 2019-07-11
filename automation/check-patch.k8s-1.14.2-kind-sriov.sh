@@ -14,11 +14,6 @@ set -x
 #
 #############################################################
 
-
-#############################################################
-# This is based on https://github.com/SchSeba/kubevirt-docker
-#############################################################
-
 export NO_PROXY="localhost,127.0.0.1,172.17.0.2"
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
@@ -50,7 +45,7 @@ function wait_kind_up {
     echo "Waiting for kind to be ready ..."  
     while [ -z "$(docker exec --privileged ${CLUSTER_CONTROL_PLANE} kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes --selector=node-role.kubernetes.io/master -o=jsonpath='{.items..status.conditions[-1:].status}' | grep True)" ]; do
         echo "Waiting for kind to be ready ..."        
-	    sleep 10
+        sleep 10
     done
     echo "Waiting for dns to be ready ..."        
     kubectl wait -n kube-system --timeout=12m --for=condition=Ready -l k8s-app=kube-dns pods
