@@ -22,7 +22,10 @@ import (
 var programName string
 
 func NewVirtctlCommand() *cobra.Command {
-	programName = strings.Replace(filepath.Base(os.Args[0]), "-", " ", -1)
+	programName = "virtctl"
+	if filepath.Base(os.Args[0]) == "kubectl-virt" {
+		programName = "kubectl virt"
+	}
 
 	cobra.AddTemplateFunc("ProgramName", func() string { return programName })
 	cobra.AddTemplateFunc("prepare", func(s string) string { return strings.Replace(s, "{{ProgramName}}", programName, -1) })
