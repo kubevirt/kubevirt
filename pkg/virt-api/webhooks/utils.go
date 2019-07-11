@@ -80,6 +80,7 @@ type Informers struct {
 	VMIPresetInformer       cache.SharedIndexInformer
 	NamespaceLimitsInformer cache.SharedIndexInformer
 	VMIInformer             cache.SharedIndexInformer
+	ServiceInformer         cache.SharedIndexInformer
 }
 
 // XXX fix this, this is a huge mess. Move informers to Admitter and Mutator structs.
@@ -115,6 +116,7 @@ func newInformers() *Informers {
 		VMIInformer:             kubeInformerFactory.VMI(),
 		VMIPresetInformer:       kubeInformerFactory.VirtualMachinePreset(),
 		NamespaceLimitsInformer: kubeInformerFactory.LimitRanges(),
+		ServiceInformer:         kubeInformerFactory.OperatorService(),
 	}
 }
 

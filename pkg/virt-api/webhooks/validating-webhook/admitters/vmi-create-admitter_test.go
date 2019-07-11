@@ -297,7 +297,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		}
 		resp := vmiCreateAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(BeFalse())
-		Expect(resp.Result.Message).To(Equal(`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`))
+		Expect(resp.Result.Message).To(Equal(`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required, status.spiceConnection in body is required`))
 	})
 
 	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse) {

@@ -21,6 +21,7 @@ package kubecli
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -364,6 +365,22 @@ func (v *vmis) asyncSubresourceHelper(name string, resource string) (StreamInter
 			done: done,
 		}, nil
 	}
+}
+
+func (v *vmis) Spice(name string) (*SpiceOptions, error) {
+	uri := fmt.Sprintf(vmSubresourceURL, v.namespace, name, "spice")
+	body, err := v.restClient.Get().RequestURI(uri).Do().Raw()
+	if err != nil {
+		return nil, err
+	}
+
+	spiceOptions := &SpiceOptions{}
+	err = json.Unmarshal(body, spiceOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	return spiceOptions, nil
 }
 
 func (v *vmis) Get(name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {

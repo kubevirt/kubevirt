@@ -112,6 +112,12 @@ type StreamInterface interface {
 	Stream(options StreamOptions) error
 }
 
+type SpiceOptions struct {
+	Host  string `json:"host"`
+	Port  int32  `json:"port"`
+	Token string `json:"token"`
+}
+
 type VirtualMachineInstanceInterface interface {
 	Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachineInstance, error)
 	List(opts *k8smetav1.ListOptions) (*v1.VirtualMachineInstanceList, error)
@@ -121,6 +127,7 @@ type VirtualMachineInstanceInterface interface {
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error)
 	SerialConsole(name string, timeout time.Duration) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
+	Spice(name string) (*SpiceOptions, error)
 }
 
 type ReplicaSetInterface interface {

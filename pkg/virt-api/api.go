@@ -194,7 +194,8 @@ func (app *virtAPIApp) composeSubresources() {
 	subws.Path(rest.GroupVersionBasePath(v1.SubresourceGroupVersion))
 
 	subresourceApp := &rest.SubresourceAPIApp{
-		VirtCli: app.virtCli,
+		VirtCli:           app.virtCli,
+		KubevirtNamespace: app.namespace,
 	}
 
 	subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("restart")).
@@ -232,6 +233,14 @@ func (app *virtAPIApp) composeSubresources() {
 		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 		Operation("vnc").
 		Doc("Open a websocket connection to connect to VNC on the specified VirtualMachineInstance."))
+
+	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("spice")).
+		To(subresourceApp.SpiceRequestHandler).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+		Operation("spice").
+		Doc("Spice into a VirtualMachine.").
+		Returns(http.StatusOK, "OK", nil).
+		Returns(http.StatusNotFound, "Not Found", nil))
 
 	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("test")).
 		To(func(request *restful.Request, response *restful.Response) {
@@ -287,6 +296,10 @@ func (app *virtAPIApp) composeSubresources() {
 				},
 				{
 					Name:       "virtualmachineinstances/console",
+					Namespaced: true,
+				},
+				{
+					Name:       "virtualmachineinstances/spice",
 					Namespaced: true,
 				},
 			}

@@ -20,6 +20,7 @@
 package rest
 
 import (
+	"crypto/md5"
 	goerror "errors"
 	"fmt"
 	"io"
@@ -27,7 +28,7 @@ import (
 	"reflect"
 	"strings"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -37,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
@@ -48,7 +50,8 @@ import (
 )
 
 type SubresourceAPIApp struct {
-	VirtCli kubecli.KubevirtClient
+	VirtCli           kubecli.KubevirtClient
+	KubevirtNamespace string
 }
 
 type requestType struct {
@@ -417,6 +420,66 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	response.WriteHeader(http.StatusAccepted)
 }
 
+func (app *SubresourceAPIApp) SpiceRequestHandler(request *restful.Request, response *restful.Response) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	vmi, code, err := app.fetchVirtualMachineInstance(name, namespace)
+	if err != nil {
+		response.WriteError(code, err)
+		return
+	}
+
+	if !vmi.IsRunning() {
+		response.WriteError(http.StatusBadRequest, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s", vmi.Status.Phase, v1.Running)))
+		return
+	}
+
+	// should not occur if the vm is handled by the virt-handler and in running state
+	if vmi.Status.SpiceConnection == nil {
+		response.WriteError(http.StatusInternalServerError, goerror.New(fmt.Sprintf("spice connection is not configured")))
+		return
+	}
+
+	token := generateToken()
+	spiceToken := &v1.SpiceToken{ExparationTime: k8smetav1.Now(), Token: token}
+	spiceTokenStr, _ := json.Marshal(spiceToken)
+
+	updateLabel := fmt.Sprintf(`{"op": "replace", "path": "/metadata/labels/%s", "value": "%s" }`, v1.SpiceTokenLabel, token)
+	updateToken := fmt.Sprintf(`{"op": "replace", "path": "/status/spiceConnection/spiceToken", "value": %s }`, string(spiceTokenStr))
+
+	data := fmt.Sprintf("[ %s , %s ]", updateLabel, updateToken)
+	patchType := types.JSONPatchType
+	_, err = app.VirtCli.VirtualMachineInstance(namespace).Patch(vmi.GetName(), patchType, []byte(data))
+	if err != nil {
+		errCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "jsonpatch test operation does not apply") {
+			errCode = http.StatusConflict
+		}
+		response.WriteError(errCode, fmt.Errorf("%v: %s", err, data))
+		return
+	}
+
+	svc, err := app.VirtCli.CoreV1().Services(app.KubevirtNamespace).Get(v1.SpiceServiceName, k8smetav1.GetOptions{})
+	if err != nil {
+		response.WriteError(http.StatusInternalServerError, goerror.New(fmt.Sprintf("failed to find spice service error: %v", err)))
+		return
+	}
+
+	if len(svc.Status.LoadBalancer.Ingress) == 0 {
+		log.Log.Info("no loadbalancer ip address found for spice service")
+		response.WriteError(http.StatusInternalServerError, goerror.New("no loadbalancer ip address found for spice service"))
+		return
+	}
+
+	spiceOptions := kubecli.SpiceOptions{Host: svc.Status.LoadBalancer.Ingress[0].IP,
+		Port:  svc.Spec.Ports[0].Port,
+		Token: token}
+
+	response.WriteAsJson(spiceOptions)
+	response.WriteHeader(http.StatusAccepted)
+}
+
 func (app *SubresourceAPIApp) findPod(namespace string, vmi *v1.VirtualMachineInstance) (string, error) {
 	fieldSelector := fields.ParseSelectorOrDie("status.phase==" + string(k8sv1.PodRunning))
 	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + string(vmi.UID)))
@@ -544,4 +607,8 @@ func remoteExecHelper(podName string, namespace string, cmd []string, in io.Read
 		return http.StatusInternalServerError, fmt.Errorf("connection failed: %v", err)
 	}
 	return http.StatusOK, nil
+}
+
+func generateToken() string {
+	return fmt.Sprintf("%x", md5.Sum([]byte(rand.String(48))))
 }
