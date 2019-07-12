@@ -21,14 +21,26 @@ import (
 
 var programName string
 
+const symlinkAsKrewPlugin = "kubectl-virt"
+
 func NewVirtctlCommand() *cobra.Command {
+
+	// if `virtctl` is installed via krew to be used as a kubectl plugin, it's run via a symlink, so the basename then
+	// is `kubectl-virt`. In this case we want to accomodate the user by adjusting the help text (usage, examples and
+	// the like) by displaying `kubectl virt <command>` instead of `virtctl <command>`.
+	// see https://github.com/kubevirt/kubevirt/issues/2356 for more details
+	// see also templates.go
 	programName = "virtctl"
-	if filepath.Base(os.Args[0]) == "kubectl-virt" {
+	if filepath.Base(os.Args[0]) == symlinkAsKrewPlugin {
 		programName = "kubectl virt"
 	}
 
+	// used in cobra templates to display either `kubectl virt` or `virtctl`
 	cobra.AddTemplateFunc("ProgramName", func() string { return programName })
-	cobra.AddTemplateFunc("prepare", func(s string) string { return strings.Replace(s, "{{ProgramName}}", programName, -1) })
+
+	// used to enable replacement of `ProgramName` placeholder for cobra.Example, which has no template support
+	cobra.AddTemplateFunc(
+		"prepare", func(s string) string { return strings.Replace(s, "{{ProgramName}}", programName, -1) })
 
 	rootCmd := &cobra.Command{
 		Use:           programName,
