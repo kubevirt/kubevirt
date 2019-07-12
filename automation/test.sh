@@ -35,11 +35,14 @@ readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluste
 
 if [[ $TARGET =~ windows.* ]]; then
   export KUBEVIRT_PROVIDER="k8s-1.11.0"
+elif [[ $TARGET =~ kind.* ]]; then
+  export KUBEVIRT_PROVIDER="external"
+  source automation/kind-cluster/common.sh
 else
   export KUBEVIRT_PROVIDER=$TARGET
 fi
 
-if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
+if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ] && [ $KUBEVIRT_PROVIDER != "external" ]; then
   echo "The cluster provider $KUBEVIRT_PROVIDER does not exist"
   exit 1
 fi
@@ -139,13 +142,16 @@ if [[ $TARGET =~ windows.* ]]; then
   safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
 fi
 
-kubectl() { cluster-up/kubectl.sh "$@"; }
+if [ $KUBEVIRT_PROVIDER != "external" ]; then
+  kubectl() { cluster-up/kubectl.sh "$@"; }
+fi
 
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 
+if [ $KUBEVIRT_PROVIDER != "external" ]; then
 # Make sure that the VM is properly shut down on exit
-trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
-
+  trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
+fi
 
 # Check if we are on a pull request in jenkins.
 export KUBEVIRT_CACHE_FROM=${PULL_BASE_REF}
@@ -153,7 +159,9 @@ if [ -n "${KUBEVIRT_CACHE_FROM}" ]; then
     make builder-cache-pull
 fi
 
-make cluster-down
+if [ $KUBEVIRT_PROVIDER != "external" ]; then
+  make cluster-down
+fi
 
 # Create .bazelrc to use remote cache
 cat >.bazelrc <<EOF
@@ -175,22 +183,29 @@ done
 set -e
 make bazel-build-images
 
-make cluster-up
+if [ $KUBEVIRT_PROVIDER != "external" ]; then
+  make cluster-up
 
-# Wait for nodes to become ready
-set +e
-kubectl get nodes --no-headers
-kubectl_rc=$?
-while [ $kubectl_rc -ne 0 ] || [ -n "$(kubectl get nodes --no-headers | grep NotReady)" ]; do
-    echo "Waiting for all nodes to become ready ..."
-    kubectl get nodes --no-headers
-    kubectl_rc=$?
-    sleep 10
-done
-set -e
+  # Wait for nodes to become ready
+  set +e
+  kubectl get nodes --no-headers
+  kubectl_rc=$?
+  while [ $kubectl_rc -ne 0 ] || [ -n "$(kubectl get nodes --no-headers | grep NotReady)" ]; do
+      echo "Waiting for all nodes to become ready ..."
+      kubectl get nodes --no-headers
+      kubectl_rc=$?
+      sleep 10
+  done
+  set -e
 
-echo "Nodes are ready:"
-kubectl get nodes
+  echo "Nodes are ready:"
+  kubectl get nodes
+else
+  automation/kind-cluster/up.sh
+  if [[ $TARGET =~ .*sriov.* ]]; then
+    automation/kind-cluster/config_sriov.sh
+  fi
+fi
 
 make cluster-build
 
@@ -199,6 +214,20 @@ make cluster-build
 until make cluster-deploy; do
     sleep 1
 done
+
+
+if [[ $TARGET =~ kind.* ]]; then
+  #removing it since it's crashing with dind because loopback devices are shared with the host
+  kubectl delete -n kubevirt ds disks-images-provider
+fi
+
+if [[ $TARGET =~ .*sriov.* ]]; then
+  #enable feature gate
+  kubectl patch configmap kubevirt-config -n kubevirt --patch "data: 
+  feature-gates: DataVolumes, CPUManager, LiveMigration, SRIOV"
+  # delete all virt- pods so that they have a chance to catch up with feature gate change
+  kubectl get pods -n kubevirt | grep virt | awk '{print $1}' | xargs kubectl delete pods -n kubevirt
+fi
 
 hack/dockerized bazel shutdown
 
@@ -272,6 +301,8 @@ elif [[ $TARGET =~ multus.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=Multus|Networking|VMIlifecycle|Expose"
 elif [[ $TARGET =~ genie.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=Genie|Networking|VMIlifecycle|Expose"
+elif [[ $TARGET =~ sriov.* ]]; then
+  ginko_params="$ginko_params --ginkgo.focus=SRIOV --kubeconfig /root/.kube/kind-config-sriov-ci"  
 else
   ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV"
 fi
