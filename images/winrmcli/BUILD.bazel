@@ -1,3 +1,7 @@
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
+gazelle(name = "gazelle")
+
 load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
@@ -7,6 +11,9 @@ container_image(
     name = "winrmcli-image",
     base = "@fedora//image",
     directory = "/usr/bin",
-    files = ["@com_github_masterzen_winrmcli//:winrm-cli"],
+    files = [
+        "@com_github_masterzen_winrmcli//:winrm-cli",
+        "@com_github_packer_community_winrmcp//:winrmcp",
+    ],
     visibility = ["//visibility:public"],
 )

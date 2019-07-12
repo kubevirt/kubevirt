@@ -140,6 +140,68 @@ go_repository(
     importpath = "github.com/masterzen/winrm-cli",
 )
 
+# Winrmcp deps
+go_repository(
+    name = "com_github_packer_community_winrmcp",
+    commit = "c76d91c1e7db27b0868c5d09e292bb540616c9a2",
+    importpath = "github.com/packer-community/winrmcp",
+)
+
+go_repository(
+    name = "com_github_masterzen_winrm_cli",
+    commit = "6f0c57dee4569c04f64c44c335752b415e5d73a7",
+    importpath = "github.com/masterzen/winrm-cli",
+)
+
+go_repository(
+    name = "com_github_masterzen_winrm",
+    commit = "1d17eaf15943ca3554cdebb3b1b10aaa543a0b7e",
+    importpath = "github.com/masterzen/winrm",
+)
+
+go_repository(
+    name = "com_github_nu7hatch_gouuid",
+    commit = "179d4d0c4d8d407a32af483c2354df1d2c91e6c3",
+    importpath = "github.com/nu7hatch/gouuid",
+)
+
+go_repository(
+    name = "com_github_dylanmei_iso8601",
+    commit = "2075bf119b58e5576c6ed9f867b8f3d17f2e54d4",
+    importpath = "github.com/dylanmei/iso8601",
+)
+
+go_repository(
+    name = "com_github_gofrs_uuid",
+    commit = "abfe1881e60ef34074c1b8d8c63b42565c356ed6",
+    importpath = "github.com/gofrs/uuid",
+)
+
+go_repository(
+    name = "com_github_christrenkamp_goxpath",
+    commit = "c5096ec8773dd9f554971472081ddfbb0782334e",
+    importpath = "github.com/ChrisTrenkamp/goxpath",
+)
+
+go_repository(
+    name = "com_github_azure_go_ntlmssp",
+    commit = "4a21cbd618b459155f8b8ee7f4491cd54f5efa77",
+    importpath = "github.com/Azure/go-ntlmssp",
+)
+
+go_repository(
+    name = "com_github_masterzen_simplexml",
+    commit = "31eea30827864c9ab643aa5a0d5b2d4988ec8409",
+    importpath = "github.com/masterzen/simplexml",
+)
+
+go_repository(
+    name = "org_golang_x_crypto",
+    commit = "4def268fd1a49955bfb3dda92fe3db4f924f2285",
+    importpath = "golang.org/x/crypto",
+)
+
+# bazel docker rules
 load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
