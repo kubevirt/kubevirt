@@ -158,7 +158,7 @@ func (c *VMController) execute(key string) error {
 
 	logger.V(4).Info("Started processing VM")
 
-	// this must be first step in execution. Writting the object
+	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(VM) {
 		vm := VM.DeepCopy()

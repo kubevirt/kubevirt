@@ -319,7 +319,6 @@ func (app *virtAPIApp) composeSubresources() {
 		To(func(request *restful.Request, response *restful.Response) {
 			paths := []string{"/apis",
 				"/apis/",
-				rest.GroupBasePath(v1.SubresourceGroupVersions[0]),
 				"/openapi/v2",
 			}
 			for _, version := range v1.SubresourceGroupVersions {

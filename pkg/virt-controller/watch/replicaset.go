@@ -153,7 +153,7 @@ func (c *VMIReplicaSet) execute(key string) error {
 
 	logger := log.Log.Object(rs)
 
-	// this must be first step in execution. Writting the object
+	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(rs) {
 		rs := rs.DeepCopy()
