@@ -55,7 +55,7 @@ var _ = Describe("HookSidecars", func() {
 		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
 	})
 
-	Describe("VMI definition", func() {
+	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
 
 		Context("with SM BIOS hook sidecar", func() {
 			It("should successfully start with hook sidecar annotation", func() {
@@ -110,7 +110,7 @@ var _ = Describe("HookSidecars", func() {
 				tests.EnableFeatureGate(virtconfig.SidecarGate)
 			})
 
-			It("should not start with hook sidecar annotation", func() {
+			It("[test_id:2666]should not start with hook sidecar annotation", func() {
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(HaveOccurred(), "should not create a VMI without sidecar feature gate")
