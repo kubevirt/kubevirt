@@ -31,7 +31,7 @@ func VersionCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 func usage() string {
 	usage := "  # Print the client and server versions for the current context:\n"
-	usage += "  virtctl version"
+	usage += "  {{ProgramName}} version"
 	return usage
 }
 

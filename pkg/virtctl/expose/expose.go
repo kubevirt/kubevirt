@@ -76,13 +76,13 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 
 func usage() string {
 	usage := `  # Expose SSH to a virtual machine instance called 'myvm' on each node via a NodePort service:
-  virtctl expose vmi myvm --port=22 --name=myvm-ssh --type=NodePort
+  {{ProgramName}} expose vmi myvm --port=22 --name=myvm-ssh --type=NodePort
 
   # Expose all defined pod-network ports of a virtual machine instance replicaset on a service:
-  virtctl expose vmirs myvmirs --name=vmirs-service
+  {{ProgramName}} expose vmirs myvmirs --name=vmirs-service
 
   # Expose port 8080 as port 80 from a virtual machine instance replicaset on a service:
-  virtctl expose vmirs myvmirs --port=80 --target-port=8080 --name=vmirs-service`
+  {{ProgramName}} expose vmirs myvmirs --port=80 --target-port=8080 --name=vmirs-service`
 	return usage
 }
 

@@ -290,7 +290,6 @@ func remoteViewerArgs(port int) (args []string) {
 }
 
 func usage() string {
-	usage := "  # Connect to 'testvmi' via remote-viewer:\n"
-	usage += "  virtctl vnc testvmi"
-	return usage
+	return `  # Connect to 'testvmi' via remote-viewer:\n"
+  {{ProgramName}} vnc testvmi`
 }

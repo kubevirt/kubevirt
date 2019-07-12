@@ -60,9 +60,9 @@ type Console struct {
 
 func usage() string {
 	usage := `  # Connect to the console on VirtualMachineInstance 'myvmi':
-  virtctl console myvmi
+  {{ProgramName}} console myvmi
   # Configure one minute timeout (default 5 minutes)
-  virtctl console --timeout=1 myvmi`
+  {{ProgramName}} console --timeout=1 myvmi`
 
 	return usage
 }
