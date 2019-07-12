@@ -647,6 +647,8 @@ k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/scheme
 # k8s.io/kube-openapi v0.0.0-20190228160746-b3a7cee44a30
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/util/proto
+# k8s.io/utils v0.0.0-20190607212802-c55fbcfc754a
+k8s.io/utils/pointer
 # kubevirt.io/client-go v0.0.0-00010101000000-000000000000 => ./staging/src/kubevirt.io/client-go
 kubevirt.io/client-go/api/v1
 kubevirt.io/client-go/log
