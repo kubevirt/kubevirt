@@ -442,6 +442,31 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
+		Context("with diverging memory limit from memory request and no guest memory", func() {
+			It("should show the memory limit inside the VMI", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
+				vmi.Spec.Domain.Resources.Limits = kubev1.ResourceList{
+					kubev1.ResourceMemory: resource.MustParse("128M"),
+				}
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				res, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
+					&expect.BExp{R: "105"},
+				}, 10*time.Second)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
+
+			})
+		})
+
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with support memory over commitment", func() {
 			It("[test_id:755]should show the requested memory different than guest memory", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")

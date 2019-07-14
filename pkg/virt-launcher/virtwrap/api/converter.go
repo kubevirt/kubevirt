@@ -678,17 +678,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
-	// Take memory from the requested memory
-	if v, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
-		if domain.Spec.Memory, err = QuantityToByte(v); err != nil {
-			return err
-		}
-	}
-	// In case that guest memory is explicitly set, override it
-	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-		if domain.Spec.Memory, err = QuantityToByte(*vmi.Spec.Domain.Memory.Guest); err != nil {
-			return err
-		}
+	if domain.Spec.Memory, err = QuantityToByte(*getVirtualMemory(vmi)); err != nil {
+		return err
 	}
 
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
@@ -1152,6 +1143,22 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionpath)})
 	}
 	return nil
+}
+
+func getVirtualMemory(vmi *v1.VirtualMachineInstance) *resource.Quantity {
+	// In case that guest memory is explicitly set, return it
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+		return vmi.Spec.Domain.Memory.Guest
+	}
+
+	// Otherwise, take memory from the memory-limit, if set
+	if v, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory]; ok {
+		return &v
+	}
+
+	// Otherwise, take memory from the requested memory
+	v, _ := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+	return &v
 }
 
 func getCPUTopology(vmi *v1.VirtualMachineInstance) *CPUTopology {
