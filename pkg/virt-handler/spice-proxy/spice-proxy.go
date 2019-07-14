@@ -28,6 +28,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"path"
+	"strconv"
 	"sync"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -46,9 +48,9 @@ type UnixToTcpProxyManager interface {
 }
 
 type spiceProxyManager struct {
+	sync.Mutex
 	proxies              map[string]*spiceProxy
 	allocatedPort        map[int32]bool
-	managerLock          sync.Mutex
 	podIsolationDetector isolation.PodIsolationDetector
 }
 
@@ -67,10 +69,10 @@ func NewSpiceProxyManager(podIsolationDetector isolation.PodIsolationDetector) U
 }
 
 func (spm *spiceProxyManager) StartListener(vmNamespace, vmName string, vmi *v1.VirtualMachineInstance) error {
-	spm.managerLock.Lock()
-	defer spm.managerLock.Unlock()
+	spm.Lock()
+	defer spm.Unlock()
 
-	if _, isExist := spm.proxies[uniqueVmName(vmNamespace, vmName)]; isExist {
+	if _, exists := spm.proxies[uniqueVmName(vmNamespace, vmName)]; exists {
 		return nil
 	}
 
@@ -85,7 +87,7 @@ func (spm *spiceProxyManager) StartListener(vmNamespace, vmName string, vmi *v1.
 	}
 
 	// Get the libvirt connection socket file on the destination pod.
-	spiceSocketFile := fmt.Sprintf("/proc/%d/root/var/run/kubevirt-private/%s/virt-spice", res.Pid(), vmi.UID)
+	spiceSocketFile := path.Join("proc", strconv.Itoa(res.Pid()), "root", "var", "run", "kubevirt-private", string(vmi.UID), "virt-spice")
 	spm.proxies[uniqueVmName(vmNamespace, vmName)], err = NewSpiceProxy(spiceSocketFile, port)
 	if err != nil {
 		return err
@@ -97,8 +99,8 @@ func (spm *spiceProxyManager) StartListener(vmNamespace, vmName string, vmi *v1.
 }
 
 func (spm *spiceProxyManager) StopListener(vmNamespace, vmName string) {
-	spm.managerLock.Lock()
-	defer spm.managerLock.Unlock()
+	spm.Lock()
+	defer spm.Unlock()
 
 	if proxy, isExist := spm.proxies[uniqueVmName(vmNamespace, vmName)]; !isExist {
 		log.Log.Warningf("failed to find proxy process for vm %s", uniqueVmName(vmNamespace, vmName))

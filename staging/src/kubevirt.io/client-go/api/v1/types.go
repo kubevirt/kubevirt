@@ -234,7 +234,7 @@ type VirtualMachineInstanceStatus struct {
 	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
 	// +optional
 	QOSClass        *k8sv1.PodQOSClass `json:"qosClass,omitempty"`
-	SpiceConnection *SpiceConnection   `json:"spiceConnection"`
+	SpiceConnection *SpiceConnection   `json:"spiceConnection,omitempty"`
 }
 
 // Required to satisfy Object interface
@@ -1271,7 +1271,7 @@ type SpiceConnection struct {
 // +k8s:openapi-gen=true
 type SpiceToken struct {
 	Token          string      `json:"token,omitempty"`
-	ExparationTime metav1.Time `json:"exparationTime,omitempty"`
+	ExpirationTime metav1.Time `json:"expirationTime,omitempty"`
 }
 
 // ---

@@ -5707,7 +5707,7 @@
    "v1.SpiceToken": {
     "description": "SpiceToken represents the object for a spice connection token",
     "properties": {
-     "exparationTime": {
+     "expirationTime": {
       "type": "string"
      },
      "token": {
@@ -6482,9 +6482,6 @@
    },
    "v1.VirtualMachineInstanceStatus": {
     "description": "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.",
-    "required": [
-     "spiceConnection"
-    ],
     "properties": {
      "conditions": {
       "description": "Conditions are specific points in VirtualMachineInstance's pod runtime.",

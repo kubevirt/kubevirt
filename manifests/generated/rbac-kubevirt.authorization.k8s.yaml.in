@@ -199,12 +199,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - services
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
   - events
   verbs:
   - update

@@ -431,7 +431,7 @@ func (app *SubresourceAPIApp) SpiceRequestHandler(request *restful.Request, resp
 	}
 
 	if !vmi.IsRunning() {
-		response.WriteError(http.StatusBadRequest, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s", vmi.Status.Phase, v1.Running)))
+		response.WriteError(http.StatusBadRequest, goerror.New(fmt.Sprintf("unable to connect to VirtualMachineInstance because phase is %s instead of %s", vmi.Status.Phase, v1.Running)))
 		return
 	}
 
@@ -442,7 +442,7 @@ func (app *SubresourceAPIApp) SpiceRequestHandler(request *restful.Request, resp
 	}
 
 	token := generateToken()
-	spiceToken := &v1.SpiceToken{ExparationTime: k8smetav1.Now(), Token: token}
+	spiceToken := &v1.SpiceToken{ExpirationTime: k8smetav1.Now(), Token: token}
 	spiceTokenStr, _ := json.Marshal(spiceToken)
 
 	updateLabel := fmt.Sprintf(`{"op": "replace", "path": "/metadata/labels/%s", "value": "%s" }`, v1.SpiceTokenLabel, token)

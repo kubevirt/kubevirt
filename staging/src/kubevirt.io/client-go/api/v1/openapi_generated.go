@@ -2309,7 +2309,7 @@ func schema_kubevirtio_client_go_api_v1_SpiceToken(ref common.ReferenceCallback)
 							Format: "",
 						},
 					},
-					"exparationTime": {
+					"expirationTime": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
@@ -3388,7 +3388,6 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 						},
 					},
 				},
-				Required: []string{"spiceConnection"},
 			},
 		},
 		Dependencies: []string{

@@ -145,7 +145,7 @@ func (a *AuthSpice) resolveComputeAddress(token string) (string, bool) {
 		return "", false
 	}
 
-	if time.Now().Sub(vmi.Status.SpiceConnection.SpiceToken.ExparationTime.Time) > a.expiredTime {
+	if time.Now().Sub(vmi.Status.SpiceConnection.SpiceToken.ExpirationTime.Time) > a.expiredTime {
 		return "", false
 	}
 
