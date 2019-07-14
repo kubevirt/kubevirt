@@ -418,9 +418,8 @@ var _ = Describe("Configurations", func() {
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
 			It("[test_id:1669]should show the requested guest memory inside the VMI", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				guestMemory := resource.MustParse("64M")
 				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
-				guestMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
+				guestMemory := resource.MustParse("128M")
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guestMemory,
 				}
@@ -868,7 +867,7 @@ var _ = Describe("Configurations", func() {
 				table.Entry("[test_id:1672]hugepages-1Gi", "1Gi", "1Gi"),
 			)
 
-			Context("with usupported page size", func() {
+			Context("with unsupported page size", func() {
 				It("[test_id:1673]should failed to schedule the pod", func() {
 					nodes, err := virtClient.Core().Nodes().List(metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
