@@ -265,8 +265,7 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 
 func (KubeVirtStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                         "KubeVirtStatus represents information pertaining to a KubeVirt deployment.",
-		"observedKubeVirtRegistry": "skip this, until it's clear how to use this (if at all)\nObservedVirtLauncherSha    string              `json:\"observedVirtLauncherSha,omitempty\" optional:\"true\"`",
+		"": "KubeVirtStatus represents information pertaining to a KubeVirt deployment.",
 	}
 }
 

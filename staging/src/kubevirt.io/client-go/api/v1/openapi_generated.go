@@ -1829,37 +1829,31 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
+					"targetKubeVirtRegistry": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"targetKubeVirtVersion": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"targetVirtApiSha": {
+					"targetDeploymentConfig": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"targetVirtControllerSha": {
+					"targetDeploymentID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"targetVirtHandlerSha": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"targetVirtLauncherSha": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"targetKubeVirtRegistry": {
+					"observedKubeVirtRegistry": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -1871,29 +1865,16 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
-					"observedVirtApiSha": {
+					"observedDeploymentConfig": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"observedVirtControllerSha": {
+					"observedDeploymentID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"observedVirtHandlerSha": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"observedKubeVirtRegistry": {
-						SchemaProps: spec.SchemaProps{
-							Description: "skip this, until it's clear how to use this (if at all) ObservedVirtLauncherSha    string              `json:\"observedVirtLauncherSha,omitempty\" optional:\"true\"`",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 				},

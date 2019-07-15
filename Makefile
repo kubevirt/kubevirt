@@ -2,7 +2,7 @@ export GO15VENDOREXPERIMENT := 1
 
 
 all:
-	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} PUSH_LOG_FILE=${PUSH_LOG_FILE} ./hack/build-manifests.sh && \
+	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh && \
 	    hack/bazel-fmt.sh && hack/bazel-build.sh"
 
 go-all:
