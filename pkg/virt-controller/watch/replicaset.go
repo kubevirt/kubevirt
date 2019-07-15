@@ -153,6 +153,15 @@ func (c *VMIReplicaSet) execute(key string) error {
 
 	logger := log.Log.Object(rs)
 
+	// this must be first step in execution. Writing the object
+	// when api version changes ensures our api stored version is updated.
+	if !controller.ObservedLatestApiVersionAnnotation(rs) {
+		rs := rs.DeepCopy()
+		controller.SetLatestApiVersionAnnotation(rs)
+		_, err = c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+		return err
+	}
+
 	//TODO default rs if necessary, the aggregated apiserver will do that in the future
 	if rs.Spec.Template == nil || rs.Spec.Selector == nil || len(rs.Spec.Template.ObjectMeta.Labels) == 0 {
 		logger.Error("Invalid controller spec, will not re-enqueue.")

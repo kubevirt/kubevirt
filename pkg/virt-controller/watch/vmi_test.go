@@ -942,6 +942,7 @@ func NewPendingVirtualMachine(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMI(name)
 	vmi.UID = "1234"
 	vmi.Status.Phase = v1.Pending
+	controller.SetLatestApiVersionAnnotation(vmi)
 	return vmi
 }
 

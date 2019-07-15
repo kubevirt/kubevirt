@@ -704,6 +704,10 @@ func newMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMi
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: "default",
+			Annotations: map[string]string{
+				v1.ControllerAPILatestVersionObservedAnnotation:  v1.ApiLatestVersion,
+				v1.ControllerAPIStorageVersionObservedAnnotation: v1.ApiStorageVersion,
+			},
 		},
 		Spec: v1.VirtualMachineInstanceMigrationSpec{
 			VMIName: vmiName,

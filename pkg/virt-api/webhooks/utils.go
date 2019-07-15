@@ -76,6 +76,19 @@ var MigrationGroupVersionResource = metav1.GroupVersionResource{
 	Resource: "virtualmachineinstancemigrations",
 }
 
+func ValidateRequestResource(request metav1.GroupVersionResource, group string, resource string) bool {
+	gvr := metav1.GroupVersionResource{Group: group, Resource: resource}
+
+	for _, version := range v1.ApiSupportedWebhookVersions {
+		gvr.Version = version
+		if gvr == request {
+			return true
+		}
+	}
+
+	return false
+}
+
 type Informers struct {
 	VMIPresetInformer       cache.SharedIndexInformer
 	NamespaceLimitsInformer cache.SharedIndexInformer

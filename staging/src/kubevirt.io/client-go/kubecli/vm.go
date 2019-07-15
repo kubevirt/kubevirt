@@ -30,7 +30,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
-const vmSubresourceURL = "/apis/subresources.kubevirt.io/v1alpha3/namespaces/%s/virtualmachines/%s/%s"
+const vmSubresourceURL = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachines/%s/%s"
 
 func (k *kubevirt) VirtualMachine(namespace string) VirtualMachineInterface {
 	return &vm{
@@ -137,16 +137,16 @@ func (v *vm) Patch(name string, pt types.PatchType, data []byte, subresources ..
 }
 
 func (v *vm) Restart(name string) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v.namespace, name, "restart")
+	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restart")
 	return v.restClient.Put().RequestURI(uri).Do().Error()
 }
 
 func (v *vm) Start(name string) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v.namespace, name, "start")
+	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "start")
 	return v.restClient.Put().RequestURI(uri).Do().Error()
 }
 
 func (v *vm) Stop(name string) error {
-	uri := fmt.Sprintf(vmSubresourceURL, v.namespace, name, "stop")
+	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "stop")
 	return v.restClient.Put().RequestURI(uri).Do().Error()
 }

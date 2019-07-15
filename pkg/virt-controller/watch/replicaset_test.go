@@ -15,6 +15,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -710,5 +711,7 @@ func DefaultReplicaSet(replicas int32) (*v1.VirtualMachineInstanceReplicaSet, *v
 	vmi.ObjectMeta.Labels = map[string]string{"test": "test"}
 	rs := ReplicaSetFromVMI("rs", vmi, replicas)
 	vmi.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
+	virtcontroller.SetLatestApiVersionAnnotation(vmi)
+	virtcontroller.SetLatestApiVersionAnnotation(rs)
 	return rs, vmi
 }

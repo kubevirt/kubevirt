@@ -167,7 +167,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	)
 
 	table.DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
-		tests.SkipIfVersionBelow("HPA only works with CRs starting from 1.11", "1.11")
+		tests.SkipIfVersionBelow("HPA only works with CRs with multiple versions starting from 1.13", "1.13")
 		template := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(1))
 		newRS, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Create(newRS)
@@ -184,7 +184,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	It("[test_id:1411]should be rejected on POST if spec is invalid", func() {
 		newRS := newReplicaSet()
 		newRS.TypeMeta = v12.TypeMeta{
-			APIVersion: v1.GroupVersion.String(),
+			APIVersion: v1.StorageGroupVersion.String(),
 			Kind:       "VirtualMachineInstanceReplicaSet",
 		}
 
@@ -296,6 +296,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	It("[test_id:1416]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
+		// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
+		tests.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
 		newRS := newReplicaSet()
 		// Create a replicaset with two replicas
 		doScale(newRS.ObjectMeta.Name, 2)

@@ -40,6 +40,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -368,7 +369,7 @@ var _ = Describe("Operator", func() {
 			}
 			return nil
 
-		}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 240*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 	}
 
@@ -632,6 +633,10 @@ spec:
 					virtualMachine, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if !virtualMachine.Status.Ready {
+						return false
+					}
+
+					if !controller.ObservedLatestApiVersionAnnotation(virtualMachine) {
 						return false
 					}
 

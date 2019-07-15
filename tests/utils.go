@@ -3342,6 +3342,31 @@ func SkipIfOpenShift(message string) {
 	}
 }
 
+func SkipIfOpenShiftAndBelowOrEqualVersion(message string, version string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	var info k8sversion.Info
+
+	err = json.Unmarshal(response, &info)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	curVersion := strings.Split(info.GitVersion, "+")[0]
+	curVersion = strings.Trim(curVersion, "v")
+
+	// version is above
+	if curVersion > version {
+		return
+	}
+
+	if IsOpenShift() {
+		Skip(message)
+	}
+}
+
 // StartVmOnNode starts a VMI on the specified node
 func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) {
 	virtClient, err := kubecli.GetKubevirtClient()

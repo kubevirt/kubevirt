@@ -287,36 +287,6 @@ func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
 	return shouldTakeUpdatePath
 }
 
-func verifyCRDUpdatePath(targetStrategy *InstallStrategy, stores util.Stores, kv *v1.KubeVirt) error {
-	imageTag := kv.Status.TargetKubeVirtVersion
-	imageRegistry := kv.Status.TargetKubeVirtRegistry
-
-	for _, crd := range targetStrategy.crds {
-		var cachedCrd *extv1beta1.CustomResourceDefinition
-
-		obj, exists, _ := stores.CrdCache.Get(crd)
-		if exists {
-			cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
-		}
-
-		if !exists {
-			// we can always update to a "new" crd that doesn't exist yet.
-			continue
-		} else if objectMatchesVersion(&cachedCrd.ObjectMeta, imageTag, imageRegistry) {
-			// already up-to-date
-			continue
-		}
-
-		if crd.Spec.Version != cachedCrd.Spec.Version {
-			// We don't currently allow transitioning between versions until
-			// the conversion webhook is supported.
-			return fmt.Errorf("No supported update path from crd %s version %s to version %s", crd.Name, cachedCrd.Spec.Version, crd.Spec.Version)
-		}
-	}
-
-	return nil
-}
-
 func haveApiDeploymentsRolledOver(targetStrategy *InstallStrategy, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, deployment := range apiDeployments(targetStrategy) {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
@@ -402,7 +372,7 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{crd.Spec.Group},
-					APIVersions: []string{crd.Spec.Version},
+					APIVersions: v1.ApiSupportedWebhookVersions,
 					Resources:   []string{crd.Spec.Names.Plural},
 				},
 			}},
@@ -427,7 +397,6 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 	signingCertBytes := cert.EncodeCertPEM(caKeyPair.Cert)
 	for _, webhook := range webhooks {
 		webhook.ClientConfig.CABundle = signingCertBytes
-
 	}
 
 	validationWebhook := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
@@ -1458,14 +1427,6 @@ func SyncAll(kv *v1.KubeVirt,
 	takeUpdatePath := shouldTakeUpdatePath(kv.Status.TargetKubeVirtVersion, kv.Status.ObservedKubeVirtVersion)
 
 	// -------- CREATE AND ROLE OUT UPDATED OBJECTS --------
-
-	// create/update CRDs
-
-	// Verify we can transition to the target API version
-	err = verifyCRDUpdatePath(targetStrategy, stores, kv)
-	if err != nil {
-		return false, err
-	}
 
 	// creates a blocking webhook for any new CRDs that don't exist previously.
 	// this webhook is removed once the new apiserver is online.

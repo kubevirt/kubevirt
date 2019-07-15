@@ -29,3 +29,7 @@ spec:
     singular: virtualmachine
   scope: Namespaced
   version: v1alpha3
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true

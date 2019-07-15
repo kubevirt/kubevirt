@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdifake "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake"
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -761,6 +762,8 @@ func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string)
 		Controller:         &t,
 		BlockOwnerDeletion: &t,
 	}}
+	virtcontroller.SetLatestApiVersionAnnotation(vmi)
+	virtcontroller.SetLatestApiVersionAnnotation(vm)
 	return vm, vmi
 }
 
