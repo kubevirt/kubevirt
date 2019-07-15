@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/hooks"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -32,6 +34,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	hooksv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	hooksv1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -52,7 +55,8 @@ var _ = Describe("HookSidecars", func() {
 		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
 	})
 
-	Describe("VMI definition", func() {
+	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
+
 		Context("with SM BIOS hook sidecar", func() {
 			It("should successfully start with hook sidecar annotation", func() {
 				By("Starting a VMI")
@@ -96,8 +100,24 @@ var _ = Describe("HookSidecars", func() {
 				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
 			}, 300)
 		})
-	})
 
+		Context("with sidecar feature gate disabled", func() {
+			BeforeEach(func() {
+				tests.DisableFeatureGate(virtconfig.SidecarGate)
+			})
+
+			AfterEach(func() {
+				tests.EnableFeatureGate(virtconfig.SidecarGate)
+			})
+
+			It("[test_id:2666]should not start with hook sidecar annotation", func() {
+				By("Starting a VMI")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(HaveOccurred(), "should not create a VMI without sidecar feature gate")
+				Expect(err.Error()).Should(ContainSubstring(fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName)))
+			}, 30)
+		})
+	})
 })
 
 func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {

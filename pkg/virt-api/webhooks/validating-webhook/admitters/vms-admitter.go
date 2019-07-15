@@ -77,6 +77,7 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		})
 	}
 
+	causes = append(causes, ValidateVirtualMachineInstanceMetadata(field.Child("template", "metadata"), &spec.Template.ObjectMeta, config)...)
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
 
 	if len(spec.DataVolumeTemplates) > 0 {
@@ -144,13 +145,5 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		}
 	}
 
-	// Validate ignition feature gate if set when the corresponding annotation is found
-	if spec.Template.ObjectMeta.GetAnnotations()[v1.IgnitionAnnotation] != "" && !config.IgnitionEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config"),
-			Field:   field.String(),
-		})
-	}
 	return causes
 }
