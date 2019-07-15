@@ -1776,12 +1776,10 @@ var _ = Describe("Configurations", func() {
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
 					tests.ContainerDiskFor(
 						tests.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
-				vmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
 
 				cpuvmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
 					tests.ContainerDiskFor(
 						tests.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
-				cpuvmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
 				cpuvmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
 					DedicatedCPUPlacement: true,
