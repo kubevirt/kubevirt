@@ -21,26 +21,44 @@ package tests_test
 
 import (
 	"fmt"
+	"strings"
+
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
 
 const (
-	DefaultTimeout = "--timeout=60s"
+	DefaultStabilizationTimeoutInSeconds = 180
+	DefaultPollIntervalInSeconds         = 5
 )
 
 var _ = Describe("KubeVirt control plane resilience", func() {
 
 	var err error
+	var nodeNames []string
 
 	tests.FlagParse()
 
 	BeforeEach(func() {
 		tests.SkipIfNoCmd("kubectl")
+		tests.SkipIfSchedulableNodesLessThan(2)
 		tests.BeforeTestCleanup()
+
+		virtCli, err := kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
+		nodeNames = make([]string, 0)
+		nodes := tests.GetAllSchedulableNodes(virtCli).Items
+		for _, node := range nodes {
+			nodeNames = append(nodeNames, node.ObjectMeta.Name)
+		}
 	})
 
 	runCommandOnNode := func(command string, node string, args ...string) (err error) {
@@ -63,48 +81,116 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		return
 	}
 
-	AfterEach(func() {
-		err = uncordonNode("node01")
-		Expect(err).ToNot(HaveOccurred())
+	allPodsReady := func() bool {
+		virtCli, err := kubecli.GetKubevirtClient()
+		if err != nil {
+			return false
+		}
+		podList, err := virtCli.CoreV1().Pods("kubevirt").List(metav1.ListOptions{})
+		if err != nil {
+			return false
+		}
+		for _, pod := range podList.Items {
+			if pod.Status.Phase != v1.PodRunning {
+				continue
+			}
+			if tests.PodReady(&pod) == v1.ConditionFalse {
+				return false
+			}
+		}
+		return true
+	}
 
-		err = uncordonNode("node02")
-		Expect(err).ToNot(HaveOccurred())
+	eventuallyAllPodsShouldBecomeReadyAfterSeconds := func(seconds int) {
+		Eventually(allPodsReady(), seconds, DefaultPollIntervalInSeconds).Should(BeTrue())
+	}
+
+	eventuallyAllPodsShouldBecomeReady := func() {
+		eventuallyAllPodsShouldBecomeReadyAfterSeconds(DefaultStabilizationTimeoutInSeconds)
+	}
+
+	AfterEach(func() {
+		for _, nodeName := range nodeNames {
+			err = uncordonNode(nodeName)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		eventuallyAllPodsShouldBecomeReadyAfterSeconds(DefaultStabilizationTimeoutInSeconds * 3)
 	})
 
-	drainNode := func(node string, podSelector string) (err error) {
-		err = runCommandOnNode("drain", node, DefaultTimeout, podSelector)
+	drainNodeWithTimeout := func(node string, podSelector string, timeoutAfterSeconds int) (err error) {
+		err = runCommandOnNode("drain", node, fmt.Sprintf("--timeout=%ds", timeoutAfterSeconds), podSelector)
 		return
 	}
 
-	drainNodesSelectingPods := func(podName string) {
-		podSelector := fmt.Sprintf("--pod-selector=kubevirt.io=%s", podName)
-
-		By("draining node01")
-		err = drainNode("node01", podSelector)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("draining node02 should fail, because the target pod is protected from voluntary evictions by pdb")
-		err = drainNode("node02", podSelector)
-		Expect(err).To(HaveOccurred())
-
-		By("uncordoning node01")
-		err = uncordonNode("node01")
-		Expect(err).ToNot(HaveOccurred())
-
-		By("draining node02 should not fail")
-		err = drainNode("node02", podSelector)
-		Expect(err).ToNot(HaveOccurred())
+	drainNode := func(node string, podSelector string) (err error) {
+		return drainNodeWithTimeout(node, podSelector, 60)
 	}
 
-	Context("should fail to drain the second node at first, then after uncordoning the first draining the second should succeed", func() {
+	countReadyPods := func(podName string) int {
+		virtCli, err := kubecli.GetKubevirtClient()
+		if err != nil {
+			return -1
+		}
+		podList, err := virtCli.CoreV1().Pods("kubevirt").List(metav1.ListOptions{})
+		if err != nil {
+			return -1
+		}
+		countPods := 0
+		for _, pod := range podList.Items {
+			if pod.Status.Phase != v1.PodRunning {
+				continue
+			}
+			if tests.PodReady(&pod) == v1.ConditionFalse {
+				continue
+			}
+			if strings.Contains(pod.Name, podName) {
+				countPods++
+			}
+		}
+		return countPods
+	}
 
-		It("for virt-controller", func() {
-			drainNodesSelectingPods("virt-controller")
-		})
+	When("draining control plane pods a drain of the last node should fail at first", func() {
 
-		It("for virt-api", func() {
-			drainNodesSelectingPods("virt-api")
-		})
+		table.DescribeTable("for pod", func(podName string) {
+			podSelector := fmt.Sprintf("--pod-selector=kubevirt.io=%s", podName)
+			lastNode := nodeNames[len(nodeNames)-1]
+
+			By(fmt.Sprintf("draining all nodes except %s", lastNode))
+			for _, nodeName := range nodeNames {
+				if nodeName != lastNode {
+					By(fmt.Sprintf("draining %s", nodeName))
+					err = drainNode(nodeName, podSelector)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}
+			eventuallyAllPodsShouldBecomeReady()
+
+			By(fmt.Sprintf(
+				"draining last node %s should fail, because target pod is protected from voluntary evictions by pdb",
+				lastNode))
+			err = drainNode(lastNode, podSelector)
+			Expect(err).To(HaveOccurred())
+			Expect(countReadyPods(podName)).Should(BeNumerically(">=", 1))
+
+			By(fmt.Sprintf("uncordoning all nodes except %s", lastNode))
+			for _, nodeName := range nodeNames {
+				if nodeName != lastNode {
+					By(fmt.Sprintf("uncordoning %s", nodeName))
+					err = uncordonNode(nodeName)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}
+			eventuallyAllPodsShouldBecomeReady()
+
+			By(fmt.Sprintf("draining %s should not fail", lastNode))
+			err = drainNode(lastNode, podSelector)
+			Expect(err).ToNot(HaveOccurred())
+		},
+			table.Entry("virt-controller", "virt-controller"),
+			table.Entry("virt-api", "virt-api"),
+		)
 
 	})
 
