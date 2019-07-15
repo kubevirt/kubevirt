@@ -56,6 +56,17 @@ if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]] || [[ "$KUBEVIRT_PROVIDER" =~ okd-* ]]; th
     _kubectl adm policy add-scc-to-user privileged admin
 fi
 
+if [[ $TARGET =~ .*sriov.* ]]; then
+  #enable feature gate
+  _kubectl patch configmap kubevirt-config -n kubevirt --patch "data: 
+  feature-gates: DataVolumes, CPUManager, LiveMigration, SRIOV"
+fi
+
+if [[ $TARGET =~ kind.* ]]; then
+  #removing it since it's crashing with dind because loopback devices are shared with the host
+  _kubectl delete -n kubevirt ds disks-images-provider
+fi
+
 # Ensure the KubeVirt CRD is created
 count=0
 until _kubectl get crd kubevirts.kubevirt.io; do
