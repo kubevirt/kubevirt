@@ -39,6 +39,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/tests"
@@ -47,6 +48,7 @@ import (
 var _ = Describe("Operator", func() {
 	tests.FlagParse()
 	var originalKv *v1.KubeVirt
+	var originalCDI *cdiv1.CDI
 	var originalKubeVirtConfig *k8sv1.ConfigMap
 	var originalOperatorVersion string
 	var err error
@@ -98,6 +100,19 @@ var _ = Describe("Operator", func() {
 		return &kvs[0]
 	}
 
+	copyOriginalCDI := func() *cdiv1.CDI {
+		newCDI := &cdiv1.CDI{
+			Spec: *originalCDI.Spec.DeepCopy(),
+		}
+		newCDI.Name = originalCDI.Name
+		newCDI.Namespace = originalCDI.Namespace
+		newCDI.ObjectMeta.Labels = originalCDI.ObjectMeta.Labels
+		newCDI.ObjectMeta.Annotations = originalCDI.ObjectMeta.Annotations
+
+		return newCDI
+
+	}
+
 	copyOriginalKv := func() *v1.KubeVirt {
 		newKv := &v1.KubeVirt{
 			Spec: *originalKv.Spec.DeepCopy(),
@@ -116,6 +131,21 @@ var _ = Describe("Operator", func() {
 			_, err = virtClient.KubeVirt(newKv.Namespace).Create(newKv)
 			return err
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}
+
+	createCdi := func() {
+		_, err = virtClient.CdiClient().CdiV1alpha1().CDIs().Create(copyOriginalCDI())
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() bool {
+			cdi, err := virtClient.CdiClient().CdiV1alpha1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
+			if err != nil {
+				return false
+			} else if cdi.Status.Phase != cdiv1.CDIPhaseDeployed {
+				return false
+			}
+			return true
+		}, 240*time.Second, 1*time.Second).Should(BeTrue())
 	}
 
 	sanityCheckDeploymentsExistWithNS := func(namespace string) {
@@ -399,6 +429,13 @@ var _ = Describe("Operator", func() {
 		Expect(strings.HasPrefix(version, "@")).To(BeTrue())
 		originalOperatorVersion = strings.TrimPrefix(version, "@")
 
+		if tests.HasDataVolumeCRD() {
+			cdiList, err := virtClient.CdiClient().CdiV1alpha1().CDIs().List(metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(cdiList.Items)).To(Equal(1))
+
+			originalCDI = &cdiList.Items[0]
+		}
 	})
 
 	generateVmYamls := func() {
@@ -526,9 +563,19 @@ spec:
 			Expect(err).ToNot(HaveOccurred())
 		}
 
+		// repost original CDI object if it doesn't still exist
+		// in order to restore original environment
+		if originalCDI != nil {
+			_, err = virtClient.CdiClient().CdiV1alpha1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
+			if err != nil && errors.IsNotFound(err) {
+				createCdi()
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		}
+
 		// make sure virt deployments use shasums again after each test
 		ensureShasums()
-
 	})
 
 	Describe("should start a VM", func() {
@@ -940,7 +987,7 @@ spec:
 		})
 	})
 
-	Describe("feature flag enabling/disabling", func() {
+	Describe("Dynamic feature detection", func() {
 
 		var vm *v1.VirtualMachine
 
@@ -960,39 +1007,41 @@ spec:
 			}
 		})
 
-		It("[test_id:835]Ensure infra can start with DataVolume feature gate enabled.", func() {
+		It("Ensure infra can handle dynamically detecting DataVolume Support", func() {
 			if !tests.HasDataVolumeCRD() {
 				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
 			}
+			tests.SkipIfVersionBelow("Skipping dynamic cdi test in versions below 1.13 because crd garbage collection is broken", "1.13")
 
 			// This tests starting infrastructure with and without the DataVolumes feature gate
-			running := false
 			vm = tests.NewRandomVMWithDataVolume(tests.AlpineHttpUrl, tests.NamespaceTestDefault)
+			running := false
 			vm.Spec.Running = &running
 
-			// Disable the gate
-			By("DisablingFeatureGate")
-			tests.DisableFeatureGate("DataVolumes")
+			// Delete CDI object
+			By("Deleting CDI install")
+			Eventually(func() error {
+				cdi, err := virtClient.CdiClient().CdiV1alpha1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
+				if err != nil && errors.IsNotFound(err) {
+					// cdi is deleted
+					return nil
+				} else if err != nil {
+					return err
+				}
 
-			// Cycle the infrastructure to pick up the change.
-			allPodsAreReady(originalKv)
-			sanityCheckDeploymentsExist()
+				if cdi.DeletionTimestamp == nil {
+					err := virtClient.CdiClient().CdiV1alpha1().CDIs().Delete(originalCDI.Name, &metav1.DeleteOptions{})
+					if err != nil {
+						return err
+					}
+				}
 
-			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+				return fmt.Errorf("still waiting on cdi to delete")
 
-			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
+			}, 240*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-			By("Creating KubeVirt Object")
-			createKv(copyOriginalKv())
-
-			By("Creating KubeVirt Object Created and Ready Condition")
-			waitForKv(originalKv)
-
-			By("Verifying infrastructure is Ready")
-			allPodsAreReady(originalKv)
-			sanityCheckDeploymentsExist()
+			// wait for virt-api and virt-controller to pick up the change that CDI no longer exists.
+			time.Sleep(30 * time.Second)
 
 			// Verify posting a VM with DataVolumeTemplate fails when DataVolumes
 			// feature gate is disabled
@@ -1000,30 +1049,20 @@ spec:
 			_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).To(HaveOccurred())
 
-			// Enable DataVolumes feature gate
-			By("EnablingFeatureGate")
-			tests.EnableFeatureGate("DataVolumes")
+			// Enable DataVolumes by reinstalling CDI
+			By("Enabling CDI install")
+			createCdi()
 
-			// Cycle the infrastructure so we know the feature gate is picked up.
-			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
-
-			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
-
-			By("Creating KubeVirt Object")
-			createKv(copyOriginalKv())
-
-			By("Creating KubeVirt Object Created and Ready Condition")
-			waitForKv(originalKv)
-
-			By("Verifying infrastructure is Ready")
-			allPodsAreReady(originalKv)
+			// wait for virt-api to pick up the change.
+			time.Sleep(30 * time.Second)
 
 			// Verify we can post a VM with DataVolumeTemplates successfully
 			By("Expecting Error to not occur when posting VM with DataVolume")
-			_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
+
+			By("Expecting VM to start successfully")
+			tests.StartVirtualMachine(vm)
 		})
 	})
 })
