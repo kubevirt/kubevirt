@@ -1923,6 +1923,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			}
 			kv.DeletionTimestamp = now()
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			addKubeVirt(kv)
 
 			// create all resources which should be deleted
