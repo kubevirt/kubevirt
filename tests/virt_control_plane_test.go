@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	DefaultStabilizationTimeoutInSeconds = 180
+	DefaultStabilizationTimeoutInSeconds = 360
 	DefaultPollIntervalInSeconds         = 5
 )
 
