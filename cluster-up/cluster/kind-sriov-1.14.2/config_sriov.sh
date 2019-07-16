@@ -1,5 +1,8 @@
 #!/bin/bash -e
 
+CONTROL_PLANE_CMD="docker exec -it -d ${CLUSTER_NAME}-control-plane"
+MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/manifests"
+
 function wait_containers_ready {
     echo "Waiting for all containers to become ready ..."
     kubectl wait --for=condition=Ready pod --all -n kube-system --timeout 12m
@@ -63,7 +66,7 @@ EOF
 "
 }
 
-configure-sriovdp "${CLUSTER_CMD} bash -c"
+configure-sriovdp "${CONTROL_PLANE_CMD} bash -c"
 kubectl apply -f $MANIFESTS_DIR/sriovdp-daemonset.yaml
 
 # give them some time to create pods before checking pod status
@@ -72,5 +75,5 @@ sleep 10
 # make sure all containers are ready
 wait_containers_ready
 
-${CLUSTER_CMD} chmod 666 /dev/vfio/vfio
-${CLUSTER_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when it starts, we need it to be writeable
+${CONTROL_PLANE_CMD} chmod 666 /dev/vfio/vfio
+${CONTROL_PLANE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when it starts, we need it to be writeable
