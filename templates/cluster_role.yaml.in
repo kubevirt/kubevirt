@@ -184,5 +184,4 @@ rules:
   - '*'
   verbs:
   - '*'
-{{.KWEBUI.ClusterRoleString}}
 {{end}}

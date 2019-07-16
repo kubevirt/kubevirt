@@ -368,18 +368,6 @@
   version = "0.11.0"
 
 [[projects]]
-  digest = "1:cd0803a0952719000a8071b796430ed671d94d83f8cd3f7e25a8004cbad13ae5"
-  name = "github.com/kubevirt/web-ui-operator"
-  packages = [
-    "pkg/apis",
-    "pkg/apis/kubevirt/v1alpha1",
-    "pkg/components",
-  ]
-  pruneopts = "NT"
-  revision = "be4fa85be87db05a919ef91c142c7f2808688bec"
-  version = "v0.1.12"
-
-[[projects]]
   branch = "master"
   digest = "1:782fb677791a7fe7b5b8e637bcf695efb13950ce09e3e8e3b1cf21c57649be7c"
   name = "github.com/mailru/easyjson"
@@ -1272,9 +1260,6 @@
     "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1",
     "github.com/kubevirt/cluster-network-addons-operator/pkg/components",
     "github.com/kubevirt/cluster-network-addons-operator/pkg/names",
-    "github.com/kubevirt/web-ui-operator/pkg/apis",
-    "github.com/kubevirt/web-ui-operator/pkg/apis/kubevirt/v1alpha1",
-    "github.com/kubevirt/web-ui-operator/pkg/components",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
     "github.com/openshift/api/security/v1",

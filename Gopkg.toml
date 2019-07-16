@@ -38,10 +38,6 @@ required = [
   version = "v1.0.4"
 
 [[override]]
-  name = "github.com/kubevirt/web-ui-operator"
-  version = "=v0.1.12"
-
-[[override]]
   name = "k8s.io/code-generator"
   # revision for tag "kubernetes-1.13.1"
   revision = "c2090bec4d9b1fb25de3812f868accc2bc9ecbae"

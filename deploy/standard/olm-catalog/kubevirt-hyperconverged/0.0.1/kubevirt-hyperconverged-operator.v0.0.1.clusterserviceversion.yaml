@@ -305,11 +305,6 @@ spec:
         kind: NetworkAddonsConfig
         displayName: Cluster Network Addons
         description: Cluster Network Addons
-      - name: kwebuis.kubevirt.io
-        version: v1alpha1
-        kind: KWebUI
-        displayName: Web User Interface
-        description: KubeVirt Web User Interface
       - name: kubevirtcommontemplatesbundles.kubevirt.io
         version: v1
         kind: KubevirtCommonTemplatesBundle

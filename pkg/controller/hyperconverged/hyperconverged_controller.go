@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
-	kwebuis "github.com/kubevirt/web-ui-operator/pkg/apis/kubevirt/v1alpha1"
 	cdi "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	kubevirt "kubevirt.io/kubevirt/pkg/api/v1"
 
@@ -74,7 +73,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&sspv1.KubevirtCommonTemplatesBundle{},
 		&sspv1.KubevirtNodeLabellerBundle{},
 		&sspv1.KubevirtTemplateValidator{},
-		&kwebuis.KWebUI{},
 	} {
 		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestForOwner{
 			IsController: true,
@@ -129,7 +127,6 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		r.ensureKubeVirtCommonTemplatebundle,
 		r.ensureKubeVirtNodeLabellerBundle,
 		r.ensureKubeVirtTemplateValidator,
-		r.ensureKWebUI,
 	} {
 		err = f(instance, reqLogger, request)
 		if err != nil {
@@ -173,11 +170,6 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(instance *hco
 func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
 	kubevirtTemplateValidator := newKubeVirtTemplateValidatorForCR(instance, request.Namespace)
 	return r.ensureResourceExists(instance, logger, request, kubevirtTemplateValidator)
-}
-
-func (r *ReconcileHyperConverged) ensureKWebUI(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
-	kWebUI := newKWebUIForCR(instance, UndefinedNamespace)
-	return r.ensureResourceExists(instance, logger, request, kWebUI)
 }
 
 func (r *ReconcileHyperConverged) ensureResourceExists(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request, desiredRuntimeObj runtime.Object) error {

@@ -43,7 +43,3 @@ source hack/common.sh
 "${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-crd.yaml --ignore-not-found || true
 "${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator.yaml --ignore-not-found || true
 
-# Delete kubevirt-web-ui
-"${CMD}" delete -f "${KWEBUI_URL_PREFIX}"/crds/kubevirt_v1alpha1_kwebui_crd.yaml -n kubevirt-web-ui || true
-"${CMD}" delete -f "${KWEBUI_URL_PREFIX}"/operator.yaml -n kubevirt-web-ui || true
-"${CMD}" delete ns kubevirt-web-ui || true

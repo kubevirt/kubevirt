@@ -47,11 +47,9 @@ oc wait pod $VIRT_POD --for condition=Ready -n kubevirt --timeout="${WAIT_TIMEOU
 oc wait pod $CDI_POD --for condition=Ready -n cdi --timeout="${WAIT_TIMEOUT}"
 oc wait pod $NETWORK_ADDONS_POD --for condition=Ready -n cluster-network-addons-operator --timeout="${WAIT_TIMEOUT}"
 oc wait pod $SSP_POD --for condition=Ready -n kubevirt --timeout="${WAIT_TIMEOUT}"
-KWEBUI_POD=`oc get pods -n kubevirt-web-ui | grep kubevirt-web-ui-operator | head -1 | awk '{ print $1 }'`
 oc wait pod $VIRT_POD --for condition=Ready -n kubevirt --timeout="${WAIT_TIMEOUT}"
 oc wait pod $CDI_POD --for condition=Ready -n cdi --timeout="${WAIT_TIMEOUT}"
 oc wait pod $NETWORK_ADDONS_POD --for condition=Ready -n cluster-network-addons-operator --timeout="${WAIT_TIMEOUT}"
-oc wait pod $KWEBUI_POD --for condition=Ready -n kubevirt-web-ui --timeout="${WAIT_TIMEOUT}"
 
 oc create -f ${TEMP_DIR}/crs
 

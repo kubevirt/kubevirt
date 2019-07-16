@@ -35,13 +35,6 @@ metadata:
           }
         },
         {
-          "apiVersion": "kwebuis.kubevirt.io/v1alpha1",
-          "kind": "KWebUI",
-          "metadata": {
-            "name": "web-ui"
-          }
-        },
-        {
           "apiVersion": "kubevirtcommontemplatesbundles.kubevirt.io/v1",
           "kind": "KubevirtCommonTemplatesBundle",
           "metadata": {
@@ -209,9 +202,6 @@ spec:
         - serviceAccountName: cluster-network-addons-operator
           rules:
 {{.CNA.ClusterRules}}
-        - serviceAccountName: kubevirt-web-ui-operator
-          rules:
-{{.KWEBUI.ClusterRules}}
         - serviceAccountName: kubevirt-ssp-operator
           rules:
           - apiGroups:
@@ -398,9 +388,6 @@ spec:
         - name: cluster-network-addons-operator
           spec:
 {{.CNA.DeploymentSpec}}
-        - name: kubevirt-web-ui-operator
-          spec:
-{{.KWEBUI.DeploymentSpec}}
         - name: kubevirt-ssp-operator
           spec:
             replicas: 1
@@ -494,11 +481,6 @@ spec:
         kind: {{.CNA.CRD.Spec.Names.Kind}}
         displayName: Cluster Network Addons
         description: Cluster Network Addons
-      - name: {{.KWEBUI.CRD.ObjectMeta.Name}}
-        version: {{.KWEBUI.CRD.Spec.Version}}
-        kind: {{.KWEBUI.CRD.Spec.Names.Kind}}
-        displayName: Web User Interface
-        description: KubeVirt Web User Interface
       - name: kubevirtcommontemplatesbundles.kubevirt.io
         version: v1
         kind: KubevirtCommonTemplatesBundle

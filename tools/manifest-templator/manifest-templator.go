@@ -36,7 +36,6 @@ import (
 
 	cnacomponents "github.com/kubevirt/cluster-network-addons-operator/pkg/components"
 	hcocomponents "github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
-	kwebuicomponents "github.com/kubevirt/web-ui-operator/pkg/components"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	cdicomponents "kubevirt.io/containerized-data-importer/pkg/operator/resources/operator"
 	kvcomponents "kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
@@ -63,14 +62,12 @@ type templateData struct {
 	CsvVersion           string
 	ContainerPrefix      string
 	CnaContainerPrefix   string
-	WebuiContainerPrefix string
 	ImagePullPolicy      string
 	CreatedAt            string
 	HCO                  *operatorData
 	KubeVirt             *operatorData
 	CDI                  *operatorData
 	CNA                  *operatorData
-	KWEBUI               *operatorData
 	SSP                  *operatorData
 	NMO                  *operatorData
 }
@@ -373,80 +370,12 @@ func getCNA(data *templateData) {
 	data.CNA.CRDString = crdString
 }
 
-func getKWEBUI(data *templateData) {
-	writer := strings.Builder{}
-
-	// Get KWEBUI Deployment
-	kwebuideployment := kwebuicomponents.GetDeployment(
-		data.Namespace,
-		data.WebuiContainerPrefix,
-		data.KWEBUI.OperatorTag,
-		data.KWEBUI.ComponentTag,
-		data.ImagePullPolicy,
-	)
-	err := marshallObject(kwebuideployment, &writer)
-	check(err)
-	deployment := writer.String()
-
-	// Get KWebUI DeploymentSpec for CSV
-	writer = strings.Builder{}
-	err = marshallObject(kwebuideployment.Spec, &writer)
-	check(err)
-	deploymentSpec := fixResourceString(writer.String(), 12)
-
-	// Get KWebUI Role
-	writer = strings.Builder{}
-	role := kwebuicomponents.GetRole(data.Namespace)
-	marshallObject(role, &writer)
-	roleString := writer.String()
-
-	// Get the Rules out of KWebUI's ClusterRole
-	writer = strings.Builder{}
-	kwebuiRules := role.Rules
-	for _, rule := range kwebuiRules {
-		err := marshallObject(rule, &writer)
-		check(err)
-	}
-	rules := fixResourceString(writer.String(), 14)
-
-	// Get KWebUI ClusterRole
-	writer = strings.Builder{}
-	clusterRole := kwebuicomponents.GetClusterRole()
-	marshallObject(clusterRole, &writer)
-	clusterRoleString := writer.String()
-
-	// Get the Rules out of KWebUI's ClusterRole
-	writer = strings.Builder{}
-	kwebuiClusterRules := clusterRole.Rules
-	for _, rule := range kwebuiClusterRules {
-		err := marshallObject(rule, &writer)
-		check(err)
-	}
-	clusterRules := fixResourceString(writer.String(), 14)
-
-	// Get KWebUI CRD
-	writer = strings.Builder{}
-	crd := kwebuicomponents.GetCrd()
-	marshallObject(crd, &writer)
-	crdString := writer.String()
-
-	data.KWEBUI.Deployment = deployment
-	data.KWEBUI.DeploymentSpec = deploymentSpec
-	data.KWEBUI.RoleString = roleString
-	data.KWEBUI.Rules = rules
-	data.KWEBUI.ClusterRoleString = clusterRoleString
-	data.KWEBUI.ClusterRules = clusterRules
-	data.KWEBUI.CRD = crd
-	data.KWEBUI.CRDString = crdString
-}
-
 func main() {
 	converged := flag.Bool("converged", false, "")
 	namespace := flag.String("namespace", "kubevirt-hyperconverged", "")
 	csvVersion := flag.String("csv-version", "0.0.1", "")
 	containerPrefix := flag.String("container-prefix", "kubevirt", "")
 	cnaContainerPrefix := flag.String("cna-container-prefix", *containerPrefix, "")
-	webuiContainerPrefix := flag.String("webui-container-prefix", *containerPrefix, "")
 	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
 	inputFile := flag.String("input-file", "", "")
 
@@ -455,8 +384,6 @@ func main() {
 	kubevirtTag := flag.String("kubevirt-tag", *containerTag, "")
 	cdiTag := flag.String("cdi-tag", *containerTag, "")
 	sspTag := flag.String("ssp-tag", *containerTag, "")
-	webUITag := flag.String("web-ui-tag", *containerTag, "")
-	webUIOperatorTag := flag.String("web-ui-operator-tag", *containerTag, "")
 	nmoTag := flag.String("nmo-tag", *containerTag, "")
 	networkAddonsTag := flag.String("network-addons-tag", *containerTag, "")
 
@@ -470,14 +397,12 @@ func main() {
 		CsvVersion:           *csvVersion,
 		ContainerPrefix:      *containerPrefix,
 		CnaContainerPrefix:   *cnaContainerPrefix,
-		WebuiContainerPrefix: *webuiContainerPrefix,
 		ImagePullPolicy:      *imagePullPolicy,
 
 		HCO:      &operatorData{OperatorTag: *hcoTag, ComponentTag: *hcoTag},
 		KubeVirt: &operatorData{OperatorTag: *kubevirtTag, ComponentTag: *kubevirtTag},
 		CDI:      &operatorData{OperatorTag: *cdiTag, ComponentTag: *cdiTag},
 		CNA:      &operatorData{OperatorTag: *networkAddonsTag, ComponentTag: *networkAddonsTag},
-		KWEBUI:   &operatorData{OperatorTag: *webUIOperatorTag, ComponentTag: *webUITag},
 		SSP:      &operatorData{OperatorTag: *sspTag, ComponentTag: *sspTag},
 		NMO:      &operatorData{OperatorTag: *nmoTag, ComponentTag: *nmoTag},
 	}
@@ -491,8 +416,6 @@ func main() {
 	getCDI(&data)
 	// Load in all CNA Resources
 	getCNA(&data)
-	// Load in all KWEBUI Resources
-	getKWEBUI(&data)
 
 	if *inputFile == "" {
 		panic("Must specify input file")

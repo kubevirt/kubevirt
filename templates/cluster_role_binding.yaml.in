@@ -105,21 +105,6 @@ subjects:
   name: kubevirt-ssp-operator
   namespace: {{.Namespace}}
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: kubevirt-web-ui-operator
-  labels:
-    operator.kubevirt.io: ""
-roleRef:
-  kind: ClusterRole
-  name: kubevirt-web-ui-operator
-  apiGroup: rbac.authorization.k8s.io
-subjects:
-  - kind: ServiceAccount
-    name: kubevirt-web-ui-operator
-    namespace: {{.Namespace}}
----
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:

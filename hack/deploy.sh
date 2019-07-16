@@ -24,7 +24,6 @@ source hack/common.sh
 "${CMD}" create ns cdi
 "${CMD}" create ns kubevirt-hyperconverged
 "${CMD}" create ns cluster-network-addons-operator
-"${CMD}" create ns kubevirt-web-ui
 
 if [ "${CMD}" == "oc" ]; then
     # Switch project to kubevirt
@@ -53,11 +52,6 @@ fi
 "${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-crd.yaml
 "${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator.yaml
 "${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-cr.yaml
-
-# Create kubevirt-web-ui-operator
-"${CMD}" create -f "${KWEBUI_URL_PREFIX}"/crds/kubevirt_v1alpha1_kwebui_crd.yaml
-"${CMD}" create -f "${KWEBUI_URL_PREFIX}"/operator.yaml
-"${CMD}" create -f "${KWEBUI_URL_PREFIX}"/crds/kubevirt_v1alpha1_kwebui_cr.yaml
 
 # Create an HCO CustomResource
 "${CMD}" create -f deploy/standard/crds/hco.cr.yaml

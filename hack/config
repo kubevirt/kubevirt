@@ -4,7 +4,6 @@ KUBEVIRT_VERSION="v0.17.0"
 CDI_VERSION="v1.6.0"
 NETWORK_ADDONS_VERSION="0.11.0"
 SSP_VERSION="v0.1.0"
-KWEBUI_VERSION="v2.0.0-13"
 
 CONTAINER_REGISTRY="docker.io/kubevirt"
 #CONTAINER_REGISTRY="brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888"

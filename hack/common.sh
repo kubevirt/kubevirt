@@ -26,7 +26,6 @@ CNA_URL_PREFIX="https://github.com/kubevirt/cluster-network-addons-operator/rele
 # Change 'master' to '${SSP_MANIFEST_VERSION}' when ssp will release a new version (newer than v1.0.0)
 # ( SSP v1.0.0 has problems that were fixed on master )
 SSP_URL_PREFIX="https://raw.githubusercontent.com/MarSik/kubevirt-ssp-operator/master/cluster/${SSP_MANIFEST_VERSION:1}"
-KWEBUI_URL_PREFIX="https://raw.githubusercontent.com/kubevirt/web-ui-operator/${KWEBUI_MANIFEST_VERSION}/deploy"
 
 KUBECTL=$(which kubectl 2> /dev/null)
 

@@ -26,7 +26,6 @@ import (
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
-	kwebuis "github.com/kubevirt/web-ui-operator/pkg/apis/kubevirt/v1alpha1"
 	cdi "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	kubevirt "kubevirt.io/kubevirt/pkg/api/v1"
 )
@@ -47,7 +46,6 @@ func init() {
 	secv1.Install(scheme.Scheme)
 	sspv1.SchemeBuilder.AddToScheme(scheme.Scheme)
 	networkaddons.SchemeBuilder.AddToScheme(scheme.Scheme)
-	kwebuis.SchemeBuilder.AddToScheme(scheme.Scheme)
 	cdi.AddToScheme(scheme.Scheme)
 	kubevirt.AddToScheme(scheme.Scheme)
 }
@@ -112,17 +110,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 		})
 
-		Context("KubeVirt Web UI CR", func() {
-			It("should have metadata and spec and namespace should be unspecified", func() {
-				cr := newKWebUIForCR(instance, "")
-				checkMetadata(cr.ObjectMeta, "kubevirt-web-ui-"+instance.Name, appLabel, "")
-				Expect(cr.ObjectMeta.Name).To(Equal("kubevirt-web-ui-" + instance.Name))
-				Expect(cr.ObjectMeta.Labels).To(Equal(appLabel))
-				Expect(cr.Spec.OpenshiftMasterDefaultSubdomain).To(Equal(instance.Spec.KWebUIMasterDefaultSubdomain))
-				Expect(cr.Spec.PublicMasterHostname).To(Equal(instance.Spec.KWebUIPublicMasterHostname))
-				Expect(cr.Spec.Version).To(Equal("automatic"))
-			})
-		})
 	})
 	Describe("Deploying HCO", func() {
 		Context("HCO Lifecycle", func() {

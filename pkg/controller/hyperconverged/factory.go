@@ -5,7 +5,6 @@ import (
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
-	kwebuis "github.com/kubevirt/web-ui-operator/pkg/apis/kubevirt/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,7 +26,6 @@ func (r *ReconcileHyperConverged) getAllResources(cr *hcov1alpha1.HyperConverged
 		newKubeVirtCommonTemplateBundleForCR(cr, OpenshiftNamespace),
 		newKubeVirtNodeLabellerBundleForCR(cr, request.Namespace),
 		newKubeVirtTemplateValidatorForCR(cr, request.Namespace),
-		newKWebUIForCR(cr, UndefinedNamespace),
 	}
 }
 
@@ -133,20 +131,3 @@ func newKubeVirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged, namespace
 	}
 }
 
-func newKWebUIForCR(cr *hcov1alpha1.HyperConverged, namespace string) *kwebuis.KWebUI {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &kwebuis.KWebUI{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "kubevirt-web-ui-" + cr.Name,
-			Labels: labels,
-		},
-		// Missing CR values will be set via ENV variables of the web-ui-operator
-		Spec: kwebuis.KWebUISpec{
-			OpenshiftMasterDefaultSubdomain: cr.Spec.KWebUIMasterDefaultSubdomain, // set if provided, otherwise keep empty
-			PublicMasterHostname:            cr.Spec.KWebUIPublicMasterHostname,   // set if provided, otherwise keep empty
-			Version:                         "automatic",                          // special value to determine version dynamically from env variables; empty or missing value is reserved for deprovision
-		},
-	}
-}
