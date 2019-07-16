@@ -23,8 +23,6 @@ import (
 	"reflect"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/util"
-
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -39,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 var _ = Describe("Install Strategy", func() {

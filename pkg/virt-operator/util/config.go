@@ -42,7 +42,7 @@ const (
 	VirtControllerShasumEnvName = "VIRT_CONTROLLER_SHASUM"
 	VirtHandlerShasumEnvName    = "VIRT_HANDLER_SHASUM"
 	VirtLauncherShasumEnvName   = "VIRT_LAUNCHER_SHASUM"
-	KubeVirtVersionEnvName      = "VERSION"
+	KubeVirtVersionEnvName      = "KUBEVIRT_VERSION"
 	// Deprecated, use TargetDeploymentConfig instead
 	TargetInstallNamespace = "TARGET_INSTALL_NAMESPACE"
 	// Deprecated, use TargetDeploymentConfig instead

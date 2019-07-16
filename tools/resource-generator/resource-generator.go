@@ -35,8 +35,8 @@ func main() {
 	resourceType := flag.String("type", "", "Type of resource to generate. vmi | vmipreset | vmirs | vm | vmim | kv | rbac")
 	namespace := flag.String("namespace", "kube-system", "Namespace to use.")
 	repository := flag.String("repository", "kubevirt", "Image Repository to use.")
-	version := flag.String("version", "latest", "version to use.")
-	launcherVersion := flag.String("launcherVersion", "latest", "version to use for launcher. Only relevant for controller manifest.")
+	version := flag.String("version", "latest", "Version to use.")
+	launcherVersion := flag.String("launcherVersion", "latest", "Version to use for virt-launcher. Only relevant for controller manifest.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
 	verbosity := flag.String("verbosity", "2", "Verbosity level to use.")
 
