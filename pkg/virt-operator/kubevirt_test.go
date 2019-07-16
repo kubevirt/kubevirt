@@ -1724,6 +1724,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		It("should generate latest install strategy and post as config map", func(done Done) {
 			defer close(done)
 
+			config, err := util.GetConfigFromEnv()
+			Expect(err).ToNot(HaveOccurred())
+
 			kubeClient.Fake.PrependReactor("create", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				create, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
@@ -1733,12 +1736,15 @@ var _ = Describe("KubeVirt Operator", func() {
 
 				version, ok := configMap.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 				Expect(ok).To(BeTrue())
-
-				Expect(version).To(Equal(defaultConfig.GetKubeVirtVersion()))
+				Expect(version).To(Equal(config.GetKubeVirtVersion()))
 
 				registry, ok := configMap.ObjectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
-				Expect(registry).To(Equal(defaultConfig.GetImageRegistry()))
 				Expect(ok).To(BeTrue())
+				Expect(registry).To(Equal(config.GetImageRegistry()))
+
+				id, ok := configMap.ObjectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation]
+				Expect(ok).To(BeTrue())
+				Expect(id).To(Equal(config.GetDeploymentID()))
 
 				_, ok = configMap.Data["manifests"]
 				Expect(ok).To(BeTrue())
