@@ -1383,6 +1383,56 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	}
 
 	if d.isPreMigrationTarget(vmi) {
+		for i, volume := range vmi.Spec.Volumes {
+			if volume.ContainerDisk != nil {
+				targetFile := containerdisk.GenerateDiskTargetPathFromHostView(vmi, i)
+				nodeRes := isolation.NodeIsolationResult()
+
+				if isMounted, err := nodeRes.IsMounted(targetFile); err != nil {
+					return fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
+				} else if !isMounted {
+					res, err := d.podIsolationDetector.DetectForSocket(vmi, containerdisk.GenerateSocketPathFromHostView(vmi, i))
+					if err != nil {
+						return fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
+					}
+					mountInfo, err := res.MountInfoRoot()
+					if err != nil {
+						return fmt.Errorf("failed to detect root mount info of containerDisk  %v: %v", volume.Name, err)
+					}
+					nodeMountInfo, err := nodeRes.ParentMountInfoFor(mountInfo)
+					if err != nil {
+						return fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
+					}
+					sourceFile, err := containerdisk.GetImage(filepath.Join(nodeRes.MountRoot(), nodeMountInfo.MountPoint), volume.ContainerDisk.Path)
+					if err != nil {
+						return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
+					}
+					f, err := os.Create(targetFile)
+					if err != nil {
+						return fmt.Errorf("failed to create mount point target %v: %v", targetFile, err)
+					}
+					f.Close()
+
+					out, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "mount", "-o", "ro,bind", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile).CombinedOutput()
+					if err != nil {
+						return fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
+					}
+				}
+				res, err := d.podIsolationDetector.Detect(vmi)
+				if err != nil {
+					return fmt.Errorf("failed to detect VMI pod: %v", err)
+				}
+				// XXX verify only once, not on every sync
+				imageInfo, err := isolation.GetImageInfo(containerdisk.GenerateDiskTargetPathFromLauncherView(i), res)
+				if err != nil {
+					return fmt.Errorf("failed to get image info: %v", err)
+				}
+
+				if err := containerdisk.VerifyImage(imageInfo); err != nil {
+					return fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
+				}
+			}
+		}
 		err = client.SyncMigrationTarget(vmi)
 		if err != nil {
 			return fmt.Errorf("syncing migration target failed: %v", err)

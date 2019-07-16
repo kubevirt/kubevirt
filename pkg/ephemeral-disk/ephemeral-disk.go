@@ -85,6 +85,12 @@ func CreateBackedImageForVolume(volume v1.Volume, backingFile string) error {
 
 	imagePath := GetFilePath(volume.Name)
 
+	if _, err := os.Stat(imagePath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
 	var args []string
 
 	args = append(args, "create")
@@ -95,11 +101,11 @@ func CreateBackedImageForVolume(volume v1.Volume, backingFile string) error {
 	args = append(args, imagePath)
 
 	cmd := exec.Command("qemu-img", args...)
-	err = cmd.Run()
+	output, err := cmd.CombinedOutput()
 
 	// Cleanup of previous images isn't really necessary as they're all on EmptyDir.
 	if err != nil {
-		return err
+		return fmt.Errorf("qemu-img failed with output '%s': %v", string(output), err)
 	}
 
 	// We need to ensure that the permissions are setup correctly.

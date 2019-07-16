@@ -310,9 +310,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	nodeSelector := map[string]string{}
 
-	initialDelaySeconds := 2
+	initialDelaySeconds := 4
 	timeoutSeconds := 5
-	periodSeconds := 2
+	periodSeconds := 1
 	successThreshold := 1
 	failureThreshold := 5
 
