@@ -17,7 +17,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-07-12 08:31:45.44617708 -0400 EDT m=+0.026984233
+    createdAt: 2019-07-16 13:36:23.486921818 -0400 EDT m=+0.025354482
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'

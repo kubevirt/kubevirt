@@ -10,10 +10,17 @@ import (
 )
 
 const (
+	// UploadFile is the file to upload
+	UploadFile = "./images/tinyCore.iso"
+
+	// UploadFileSize is the size of UploadFile
+	UploadFileSize = 18874368
+
 	// UploadFileMD5 is the expected MD5 of the uploaded file
-	UploadFileMD5 = "bf07a12664935c64c472e907e5cbce7e"
-	// UploadBlockDeviceMD5 is the expected MD5 of the uploaded file
-	UploadBlockDeviceMD5 = "262c32cf90d3271a6e311cd838e3d4da"
+	UploadFileMD5 = "2a7a52285c846314d1dbd79e9818270d"
+
+	// UploadFileMD5Extended is the size of the image after being extended
+	UploadFileMD5Extended = "bbd634a97ffa672834717993b40e0ab7"
 
 	uploadTargetAnnotation = "cdi.kubevirt.io/storage.upload.target"
 	uploadStatusAnnotation = "cdi.kubevirt.io/storage.pod.phase"

@@ -146,10 +146,8 @@ func (dp *DataProcessor) ProcessData() error {
 			dp.currentPhase, err = dp.source.Transfer(dp.dataDir)
 		case ProcessingPhaseTransferDataFile:
 			dp.currentPhase, err = dp.source.TransferFile(dp.dataFile)
-			if err == nil {
-				// dataFile is a known good url, so we know parse will never fail.
-				url, _ := url.Parse(dp.dataFile)
-				err = dp.validate(url)
+			if err != nil {
+				err = errors.Wrap(err, "Unable to transfer source data to target file")
 			}
 		case ProcessingPhaseProcess:
 			dp.currentPhase, err = dp.source.Process()

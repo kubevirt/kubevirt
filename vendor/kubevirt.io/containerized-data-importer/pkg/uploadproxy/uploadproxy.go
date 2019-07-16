@@ -1,7 +1,6 @@
 package uploadproxy
 
 import (
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -16,14 +15,15 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/cert"
 	"k8s.io/klog"
-	"kubevirt.io/containerized-data-importer/pkg/apiserver"
+
+	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
+	"kubevirt.io/containerized-data-importer/pkg/token"
 	"kubevirt.io/containerized-data-importer/pkg/uploadserver"
 )
 
@@ -40,14 +40,14 @@ const (
 	connectTries   = 5
 
 	proxyRequestTimeout = time.Hour
+
+	uploadTokenLeeway = 10 * time.Second
 )
 
 // Server is the public interface to the upload proxy
 type Server interface {
 	Start() error
 }
-
-type verifyTokenFunc func(string, *rsa.PublicKey) (*apiserver.TokenData, error)
 
 type urlLookupFunc func(string, string) string
 
@@ -60,16 +60,14 @@ type uploadProxyApp struct {
 	certBytes []byte
 	keyBytes  []byte
 
-	// Used to verify token came from our apiserver.
-	apiServerPublicKey *rsa.PublicKey
+	tokenValidator token.Validator
 
 	uploadServerClient *http.Client
 
 	mux *http.ServeMux
 
-	// test hooks
-	tokenVerifier verifyTokenFunc
-	urlResolver   urlLookupFunc
+	// test hook
+	urlResolver urlLookupFunc
 }
 
 var authHeaderMatcher *regexp.Regexp
@@ -90,24 +88,23 @@ func NewUploadProxy(bindAddress string,
 	client kubernetes.Interface) (Server, error) {
 	var err error
 	app := &uploadProxyApp{
-		bindAddress:   bindAddress,
-		bindPort:      bindPort,
-		client:        client,
-		keyBytes:      []byte(serviceKey),
-		certBytes:     []byte(serviceCert),
-		tokenVerifier: apiserver.VerifyToken,
-		urlResolver:   uploadserver.GetUploadServerURL,
+		bindAddress: bindAddress,
+		bindPort:    bindPort,
+		client:      client,
+		keyBytes:    []byte(serviceKey),
+		certBytes:   []byte(serviceCert),
+		urlResolver: uploadserver.GetUploadServerURL,
 	}
 	// retrieve RSA key used by apiserver to sign tokens
 	err = app.getSigningKey(apiServerPublicKey)
 	if err != nil {
-		return nil, errors.Errorf("Unable to retrieve apiserver signing key: %v", errors.WithStack(err))
+		return nil, errors.Errorf("unable to retrieve apiserver signing key: %v", errors.WithStack(err))
 	}
 
 	// get upload server http client
 	err = app.getUploadServerClient(uploadClientKey, uploadClientCert, uploadServerCert)
 	if err != nil {
-		return nil, errors.Errorf("Unable to create upload server client: %v\n", errors.WithStack(err))
+		return nil, errors.Errorf("unable to create upload server client: %v\n", errors.WithStack(err))
 	}
 
 	app.initHandlers()
@@ -165,22 +162,31 @@ func (app *uploadProxyApp) handleUploadRequest(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	tokenData, err := app.tokenVerifier(match[1], app.apiServerPublicKey)
+	tokenData, err := app.tokenValidator.Validate(match[1])
 	if err != nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	klog.V(1).Infof("Received valid token: pvc: %s, namespace: %s", tokenData.PvcName, tokenData.Namespace)
+	if tokenData.Operation != token.OperationUpload ||
+		tokenData.Name == "" ||
+		tokenData.Namespace == "" ||
+		tokenData.Resource.Resource != "persistentvolumeclaims" {
+		klog.Errorf("Bad token %+v", tokenData)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
-	err = app.uploadPossible(tokenData.PvcName, tokenData.Namespace)
+	klog.V(1).Infof("Received valid token: pvc: %s, namespace: %s", tokenData.Name, tokenData.Namespace)
+
+	err = app.uploadPossible(tokenData.Name, tokenData.Namespace)
 	if err != nil {
 		klog.Error(err)
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 
-	app.proxyUploadRequest(tokenData.Namespace, tokenData.PvcName, w, r)
+	app.proxyUploadRequest(tokenData.Namespace, tokenData.Name, w, r)
 }
 
 func (app *uploadProxyApp) uploadPossible(pvcName, pvcNamespace string) error {
@@ -188,13 +194,13 @@ func (app *uploadProxyApp) uploadPossible(pvcName, pvcNamespace string) error {
 	pod, err := app.client.CoreV1().Pods(pvcNamespace).Get(podName, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf("Rejecting Upload Request for Pod %s that doesn't exist", podName)
+			return fmt.Errorf("rejecting Upload Request for Pod %s that doesn't exist", podName)
 		}
 		return err
 	}
 	phase := pod.Status.Phase
 	if phase == v1.PodSucceeded {
-		return fmt.Errorf("Rejecting Upload Request for Pod %s that already finished uploading", podName)
+		return fmt.Errorf("rejecting Upload Request for Pod %s that already finished uploading", podName)
 	}
 	return nil
 }
@@ -232,14 +238,14 @@ func (app *uploadProxyApp) proxyUploadRequest(namespace, pvc string, w http.Resp
 func (app *uploadProxyApp) testConnect(urlString string) error {
 	u, err := url.Parse(urlString)
 	if err != nil {
-		return errors.Wrapf(err, "Error parsing URL %s", urlString)
+		return errors.Wrapf(err, "error parsing URL %s", urlString)
 	}
 
 	port := u.Port()
 	if port == "" {
 		p, err := net.LookupPort("tcp", u.Scheme)
 		if err != nil {
-			return errors.Wrapf(err, "Error looking up scheme %s", u.Scheme)
+			return errors.Wrapf(err, "error looking up scheme %s", u.Scheme)
 		}
 		port = fmt.Sprintf("%d", p)
 	}
@@ -266,16 +272,16 @@ func (app *uploadProxyApp) testConnect(urlString string) error {
 		}
 	}
 
-	return errors.Errorf("Timed out %d times connecting to %s", connectTries, urlString)
+	return errors.Errorf("timed out %d times connecting to %s", connectTries, urlString)
 }
 
 func (app *uploadProxyApp) getSigningKey(publicKeyPEM string) error {
-	publicKey, err := decodePublicKey(publicKeyPEM)
+	publicKey, err := controller.DecodePublicKey([]byte(publicKeyPEM))
 	if err != nil {
 		return err
 	}
 
-	app.apiServerPublicKey = publicKey
+	app.tokenValidator = token.NewValidator(common.UploadTokenIssuer, publicKey, uploadTokenLeeway)
 	return nil
 }
 
@@ -295,7 +301,7 @@ func (app *uploadProxyApp) startTLS() error {
 	if len(app.keyBytes) > 0 && len(app.certBytes) > 0 {
 		certsDirectory, err := ioutil.TempDir("", "certsdir")
 		if err != nil {
-			return errors.Errorf("Unable to create certs temporary directory: %v\n", errors.WithStack(err))
+			return errors.Errorf("unable to create certs temporary directory: %v\n", errors.WithStack(err))
 		}
 		defer os.RemoveAll(certsDirectory)
 
@@ -328,22 +334,4 @@ func (app *uploadProxyApp) startTLS() error {
 
 	// wait for server to exit
 	return <-errChan
-}
-
-func decodePublicKey(encodedKey string) (*rsa.PublicKey, error) {
-	keys, err := cert.ParsePublicKeysPEM([]byte(string(encodedKey)))
-	if err != nil {
-		return nil, err
-	}
-
-	if len(keys) != 1 {
-		return nil, errors.New("Unexected number of pulic keys")
-	}
-
-	key, ok := keys[0].(*rsa.PublicKey)
-	if !ok {
-		return nil, errors.New("PEM does not contain RSA key")
-	}
-
-	return key, nil
 }

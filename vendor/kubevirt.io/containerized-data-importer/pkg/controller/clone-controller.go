@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"crypto/rsa"
 	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
@@ -14,8 +16,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
+
 	cdischeme "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/scheme"
 	"kubevirt.io/containerized-data-importer/pkg/common"
+	"kubevirt.io/containerized-data-importer/pkg/token"
 )
 
 const (
@@ -25,6 +29,9 @@ const (
 	AnnCloneRequest = "k8s.io/CloneRequest"
 	//AnnCloneOf is used to indicate that cloning was complete
 	AnnCloneOf = "k8s.io/CloneOf"
+	// AnnCloneToken is the annotation containing the clone token
+	AnnCloneToken = "cdi.kubevirt.io/storage.clone.token"
+
 	//CloneUniqueID is used as a special label to be used when we search for the pod
 	CloneUniqueID = "cdi.kubevirt.io/storage.clone.cloneUniqeId"
 	//AnnTargetPodNamespace is being used as a pod label to find the related target PVC
@@ -32,12 +39,21 @@ const (
 
 	// ErrIncompatiblePVC provides a const to indicate a clone is not possible due to an incompatible PVC
 	ErrIncompatiblePVC = "ErrIncompatiblePVC"
+
+	// APIServerPublicKeyDir is the path to the apiserver public key dir
+	APIServerPublicKeyDir = "/opt/cdi/apiserver/key"
+
+	// APIServerPublicKeyPath is the path to the apiserver public key
+	APIServerPublicKeyPath = APIServerPublicKeyDir + "/id_rsa.pub"
+
+	cloneTokenLeeway = 10 * time.Second
 )
 
 // CloneController represents the CDI Clone Controller
 type CloneController struct {
 	Controller
-	recorder record.EventRecorder
+	recorder       record.EventRecorder
+	tokenValidator token.Validator
 }
 
 // NewCloneController sets up a Clone Controller, and returns a pointer to
@@ -47,7 +63,8 @@ func NewCloneController(client kubernetes.Interface,
 	podInformer coreinformers.PodInformer,
 	image string,
 	pullPolicy string,
-	verbose string) *CloneController {
+	verbose string,
+	apiServerKey *rsa.PublicKey) *CloneController {
 
 	// Create event broadcaster
 	// Add datavolume-controller types to the default Kubernetes Scheme so Events can be
@@ -60,10 +77,15 @@ func NewCloneController(client kubernetes.Interface,
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: cloneControllerAgentName})
 
 	c := &CloneController{
-		Controller: *NewController(client, pvcInformer, podInformer, image, pullPolicy, verbose),
-		recorder:   recorder,
+		Controller:     *NewController(client, pvcInformer, podInformer, image, pullPolicy, verbose),
+		recorder:       recorder,
+		tokenValidator: newCloneTokenValidator(apiServerKey),
 	}
 	return c
+}
+
+func newCloneTokenValidator(key *rsa.PublicKey) token.Validator {
+	return token.NewValidator(common.CloneTokenIssuer, key, cloneTokenLeeway)
 }
 
 func (cc *CloneController) findClonePodsFromCache(pvc *v1.PersistentVolumeClaim) (*v1.Pod, *v1.Pod, error) {
@@ -146,6 +168,11 @@ func (cc *CloneController) processPvcItem(pvc *v1.PersistentVolumeClaim) error {
 	if needsSync && (sourcePod == nil || targetPod == nil) {
 		err := cc.initializeExpectations(pvcKey)
 		if err != nil {
+			return err
+		}
+
+		if err := cc.validateSourceAndTarget(pvc); err != nil {
+			cc.recorder.Event(pvc, v1.EventTypeWarning, ErrIncompatiblePVC, err.Error())
 			return err
 		}
 
@@ -282,10 +309,6 @@ func (cc *CloneController) syncPvc(key string) error {
 		return nil
 	}
 
-	if err := cc.validateSourceAndTarget(pvc); err != nil {
-		cc.recorder.Event(pvc, v1.EventTypeWarning, ErrIncompatiblePVC, err.Error())
-		return err
-	}
 	klog.V(3).Infof("ProcessNextPvcItem: next pvc to process: \"%s/%s\"\n", pvc.Namespace, pvc.Name)
 	return cc.processPvcItem(pvc)
 }
@@ -295,6 +318,11 @@ func (cc *CloneController) validateSourceAndTarget(targetPvc *v1.PersistentVolum
 	if err != nil {
 		return err
 	}
+
+	if err = validateCloneToken(cc.tokenValidator, sourcePvc, targetPvc); err != nil {
+		return err
+	}
+
 	return ValidateCanCloneSourceAndTargetSpec(&sourcePvc.Spec, &targetPvc.Spec)
 }
 

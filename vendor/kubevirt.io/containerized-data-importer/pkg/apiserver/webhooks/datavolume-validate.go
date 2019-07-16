@@ -1,67 +1,42 @@
-package validatingwebhook
+/*
+ * This file is part of the CDI project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2019 Red Hat, Inc.
+ *
+ */
+
+package webhooks
 
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 
 	"k8s.io/api/admission/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+
 	cdicorev1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
 )
 
-type admitFunc func(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
-
-func toAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
-	var body []byte
-	if r.Body != nil {
-		if data, err := ioutil.ReadAll(r.Body); err == nil {
-			body = data
-		}
-	}
-
-	// verify the content type is accurate
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		return nil, fmt.Errorf("contentType=%s, expect application/json", contentType)
-	}
-
-	ar := &v1beta1.AdmissionReview{}
-	err := json.Unmarshal(body, ar)
-	return ar, err
-}
-
-func toRejectedAdmissionResponse(causes []metav1.StatusCause) *v1beta1.AdmissionResponse {
-	globalMessage := ""
-	for _, cause := range causes {
-		globalMessage = fmt.Sprintf("%s %s", globalMessage, cause.Message)
-	}
-
-	return &v1beta1.AdmissionResponse{
-		Result: &metav1.Status{
-			Message: globalMessage,
-			Code:    http.StatusUnprocessableEntity,
-			Details: &metav1.StatusDetails{
-				Causes: causes,
-			},
-		},
-	}
-}
-
-func toAdmissionResponseError(err error) *v1beta1.AdmissionResponse {
-	return &v1beta1.AdmissionResponse{
-		Result: &metav1.Status{
-			Message: err.Error(),
-			Code:    http.StatusBadRequest,
-		},
-	}
+type dataVolumeValidatingWebhook struct {
+	client kubernetes.Interface
 }
 
 func validateSourceURL(sourceURL string) string {
@@ -78,7 +53,7 @@ func validateSourceURL(sourceURL string) string {
 	return ""
 }
 
-func validateDataVolumeSpec(field *k8sfield.Path, spec *cdicorev1alpha1.DataVolumeSpec) []metav1.StatusCause {
+func (wh *dataVolumeValidatingWebhook) validateDataVolumeSpec(request *v1beta1.AdmissionRequest, field *k8sfield.Path, spec *cdicorev1alpha1.DataVolumeSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	var url string
 	var sourceType string
@@ -155,9 +130,9 @@ func validateDataVolumeSpec(field *k8sfield.Path, spec *cdicorev1alpha1.DataVolu
 			})
 			return causes
 		}
-		client := GetClient()
-		if client != nil {
-			sourcePVC, err := client.CoreV1().PersistentVolumeClaims(spec.Source.PVC.Namespace).Get(spec.Source.PVC.Name, metav1.GetOptions{})
+
+		if wh.client != nil && request.Operation == v1beta1.Create {
+			sourcePVC, err := wh.client.CoreV1().PersistentVolumeClaims(spec.Source.PVC.Namespace).Get(spec.Source.PVC.Name, metav1.GetOptions{})
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
 					causes = append(causes, metav1.StatusCause{
@@ -209,15 +184,8 @@ func validateDataVolumeSpec(field *k8sfield.Path, spec *cdicorev1alpha1.DataVolu
 	return causes
 }
 
-func admitDVs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	resource := metav1.GroupVersionResource{
-		Group:    cdicorev1alpha1.SchemeGroupVersion.Group,
-		Version:  cdicorev1alpha1.SchemeGroupVersion.Version,
-		Resource: "datavolumes",
-	}
-	if ar.Request.Resource != resource {
-		klog.Errorf("resource is %s but request is: %s", resource, ar.Request.Resource)
-		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
+func (wh *dataVolumeValidatingWebhook) Admit(ar v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	if err := validateDataVolumeResource(ar); err != nil {
 		return toAdmissionResponseError(err)
 	}
 
@@ -230,9 +198,8 @@ func admitDVs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return toAdmissionResponseError(err)
 	}
 
-	client := GetClient()
-	if client != nil {
-		pvcs, err := client.CoreV1().PersistentVolumeClaims(dv.GetNamespace()).List(metav1.ListOptions{})
+	if wh.client != nil && ar.Request.Operation == v1beta1.Create {
+		pvcs, err := wh.client.CoreV1().PersistentVolumeClaims(dv.GetNamespace()).List(metav1.ListOptions{})
 		if err != nil {
 			return toAdmissionResponseError(err)
 		}
@@ -250,7 +217,7 @@ func admitDVs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		}
 	}
 
-	causes := validateDataVolumeSpec(k8sfield.NewPath("spec"), &dv.Spec)
+	causes := wh.validateDataVolumeSpec(ar.Request, k8sfield.NewPath("spec"), &dv.Spec)
 	if len(causes) > 0 {
 		klog.Infof("rejected DataVolume admission")
 		return toRejectedAdmissionResponse(causes)
@@ -259,42 +226,4 @@ func admitDVs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
-}
-
-func serve(resp http.ResponseWriter, req *http.Request, admit admitFunc) {
-
-	response := v1beta1.AdmissionReview{}
-	review, err := toAdmissionReview(req)
-
-	if err != nil {
-		resp.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	reviewResponse := admit(review)
-	if reviewResponse != nil {
-		response.Response = reviewResponse
-		response.Response.UID = review.Request.UID
-	}
-	// reset the Object and OldObject, they are not needed in a response.
-	review.Request.Object = runtime.RawExtension{}
-	review.Request.OldObject = runtime.RawExtension{}
-
-	responseBytes, err := json.Marshal(response)
-	if err != nil {
-		klog.Errorf("failed json encode webhook response: %s", err)
-		resp.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	if _, err := resp.Write(responseBytes); err != nil {
-		klog.Errorf("failed to write webhook response: %s", err)
-		resp.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	resp.WriteHeader(http.StatusOK)
-}
-
-// ServeDVs ..
-func ServeDVs(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitDVs)
 }

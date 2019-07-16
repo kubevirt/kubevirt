@@ -299,6 +299,56 @@ func (f *Framework) GetCdiClient() (*cdiClientset.Clientset, error) {
 	return cdiClient, nil
 }
 
+// GetCdiClientForServiceAccount returns a cdi client for a service account
+func (f *Framework) GetCdiClientForServiceAccount(namespace, name string) (*cdiClientset.Clientset, error) {
+	var secretName string
+
+	sl, err := f.K8sClient.CoreV1().Secrets(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, s := range sl.Items {
+		if s.Type == v1.SecretTypeServiceAccountToken {
+			n := s.Name
+			if len(n) > 12 && n[0:len(n)-12] == name {
+				secretName = s.Name
+				break
+			}
+		}
+	}
+
+	if len(secretName) == 0 {
+		return nil, fmt.Errorf("couldn't find service account secret")
+	}
+
+	secret, err := f.K8sClient.CoreV1().Secrets(namespace).Get(secretName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	token, ok := secret.Data["token"]
+	if !ok {
+		return nil, fmt.Errorf("no token key")
+	}
+
+	cfg := &rest.Config{
+		Host:        f.RestConfig.Host,
+		APIPath:     f.RestConfig.APIPath,
+		BearerToken: string(token),
+		TLSClientConfig: rest.TLSClientConfig{
+			Insecure: true,
+		},
+	}
+
+	cdiClient, err := cdiClientset.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return cdiClient, nil
+}
+
 // GetKubeClient returns a Kubernetes rest client
 func (f *Framework) GetKubeClient() (*kubernetes.Clientset, error) {
 	return GetKubeClientFromRESTConfig(f.RestConfig)

@@ -231,6 +231,7 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 			},
 			Resources: []string{
 				"validatingwebhookconfigurations",
+				"mutatingwebhookconfigurations",
 			},
 			Verbs: []string{
 				"get",

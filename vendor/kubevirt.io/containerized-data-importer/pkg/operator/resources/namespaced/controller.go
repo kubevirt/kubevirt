@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
-
+	"kubevirt.io/containerized-data-importer/pkg/controller"
 	utils "kubevirt.io/containerized-data-importer/pkg/operator/resources/utils"
 )
 
@@ -94,6 +94,28 @@ func createControllerDeployment(repo, controllerImage, importerImage, clonerImag
 		},
 		InitialDelaySeconds: 2,
 		PeriodSeconds:       5,
+	}
+	container.VolumeMounts = []corev1.VolumeMount{
+		{
+			Name:      "cdi-api-signing-key",
+			MountPath: controller.APIServerPublicKeyDir,
+		},
+	}
+	deployment.Spec.Template.Spec.Volumes = []corev1.Volume{
+		{
+			Name: "cdi-api-signing-key",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "cdi-api-signing-key",
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "id_rsa.pub",
+							Path: "id_rsa.pub",
+						},
+					},
+				},
+			},
+		},
 	}
 	deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 	return deployment

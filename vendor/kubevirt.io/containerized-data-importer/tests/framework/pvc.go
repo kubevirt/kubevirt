@@ -87,20 +87,41 @@ func (f *Framework) VerifyTargetPVCContent(namespace *k8sv1.Namespace, pvc *k8sv
 }
 
 // VerifyTargetPVCContentMD5 provides a function to check the md5 of data on a PVC and ensure it matches that which is provided
-func (f *Framework) VerifyTargetPVCContentMD5(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, expectedHash string) (bool, error) {
-	var executorPod *k8sv1.Pod
-	var err error
+func (f *Framework) VerifyTargetPVCContentMD5(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, expectedHash string, numBytes ...int64) (bool, error) {
+	if len(numBytes) == 0 {
+		numBytes = append(numBytes, 0)
+	}
 
-	executorPod, err = utils.CreateExecutorPodWithPVC(f.K8sClient, "verify-pvc-md5", namespace.Name, pvc)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	err = utils.WaitTimeoutForPodReady(f.K8sClient, executorPod.Name, namespace.Name, utils.PodWaitForTime)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	output, err := f.ExecShellInPod(executorPod.Name, namespace.Name, "md5sum "+fileName)
+	md5, err := f.GetMD5(namespace, pvc, fileName, numBytes[0])
 	if err != nil {
 		return false, err
 	}
+
+	return expectedHash == md5, nil
+}
+
+// GetMD5 returns the MD5 of a file on a PVC
+func (f *Framework) GetMD5(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, numBytes int64) (string, error) {
+	var executorPod *k8sv1.Pod
+	var err error
+
+	executorPod, err = utils.CreateExecutorPodWithPVC(f.K8sClient, "get-md5-"+pvc.Name, namespace.Name, pvc)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	err = utils.WaitTimeoutForPodReady(f.K8sClient, executorPod.Name, namespace.Name, utils.PodWaitForTime)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	cmd := "md5sum " + fileName
+	if numBytes > 0 {
+		cmd = fmt.Sprintf("head -c %d %s | md5sum", numBytes, fileName)
+	}
+
+	output, err := f.ExecShellInPod(executorPod.Name, namespace.Name, cmd)
+	if err != nil {
+		return "", err
+	}
+
 	fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: md5sum found %s\n", string(output[:32]))
-	return strings.Compare(expectedHash, output[:32]) == 0, nil
+	return output[:32], nil
 }
 
 // RunCommandAndCaptureOutput runs a command on a pod that has the passed in PVC mounted and captures the output.

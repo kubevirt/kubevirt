@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/cert/triple"
 	"k8s.io/klog"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
@@ -27,6 +29,7 @@ import (
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/keys"
 	"kubevirt.io/containerized-data-importer/pkg/operator"
+	"kubevirt.io/containerized-data-importer/pkg/token"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 )
 
@@ -619,6 +622,48 @@ func ValidateCanCloneSourceAndTargetSpec(sourceSpec, targetSpec *v1.PersistentVo
 	return nil
 }
 
+func validateCloneToken(validator token.Validator, source, target *v1.PersistentVolumeClaim) error {
+	tok, ok := target.Annotations[AnnCloneToken]
+	if !ok {
+		return errors.New("clone token missing")
+	}
+
+	tokenData, err := validator.Validate(tok)
+	if err != nil {
+		return errors.Wrap(err, "error verifying token")
+	}
+
+	if tokenData.Operation != token.OperationClone ||
+		tokenData.Name != source.Name ||
+		tokenData.Namespace != source.Namespace ||
+		tokenData.Resource.Resource != "persistentvolumeclaims" ||
+		tokenData.Params["targetNamespace"] != target.Namespace ||
+		tokenData.Params["targetName"] != target.Name {
+		return errors.Wrap(err, "invalid token")
+	}
+
+	return nil
+}
+
+// DecodePublicKey turns a bunch of bytes into a public key
+func DecodePublicKey(keyBytes []byte) (*rsa.PublicKey, error) {
+	keys, err := cert.ParsePublicKeysPEM(keyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(keys) != 1 {
+		return nil, errors.New("unexected number of pulic keys")
+	}
+
+	key, ok := keys[0].(*rsa.PublicKey)
+	if !ok {
+		return nil, errors.New("PEM does not contain RSA key")
+	}
+
+	return key, nil
+}
+
 // CreateCloneSourcePod creates our cloning src pod which will be used for out of band cloning to read the contents of the src PVC
 func CreateCloneSourcePod(client kubernetes.Interface, image string, pullPolicy string, cr string, pvc *v1.PersistentVolumeClaim) (*v1.Pod, error) {
 	sourcePvcNamespace, sourcePvcName := ParseSourcePvcAnnotation(cr, "/")
@@ -672,30 +717,10 @@ func MakeCloneSourcePodSpec(image, pullPolicy, sourcePvcName string, pvc *v1.Per
 			},
 		},
 		Spec: v1.PodSpec{
-			// We create initContainer just to set the pod as privileged.
-			// The pod has to be privileged as it has to have access to the hostPath in the node.
-			// However, currently there is a bug that we cannot attach block device to the pod if the pod (container)
-			// is privileged:
-			//https://github.com/kubernetes/kubernetes/issues/58251
-			//https://github.com/kubernetes/kubernetes/issues/62560
-			// As a result of that, instead setting the SecurityContext field as Privileged, in the main container
-			// where we need to have access to  the hostPath, we set the SecurityContext field in the initContainer,
-			// and that will do it.
-			InitContainers: []v1.Container{
-				{
-					Name:  "init",
-					Image: image,
-					VolumeMounts: []v1.VolumeMount{
-						{
-							Name:      socketPathName,
-							MountPath: common.ClonerSocketPath + "/" + id,
-						},
-					},
-					SecurityContext: &v1.SecurityContext{
-						Privileged: &[]bool{true}[0],
-						RunAsUser:  &[]int64{0}[0],
-					},
-					Command: []string{"sh", "-c", "echo setting the pod as privileged"},
+			SecurityContext: &v1.PodSecurityContext{
+				RunAsUser: &[]int64{0}[0],
+				SELinuxOptions: &v1.SELinuxOptions{
+					Type: "spc_t",
 				},
 			},
 			Containers: []v1.Container{
@@ -850,33 +875,12 @@ func MakeCloneTargetPodSpec(image, pullPolicy, podAffinityNamespace string, pvc 
 					},
 				},
 			},
-			// We create initContainer just to set the pod as privileged.
-			// The pod has to be privileged as it has to have access to the hostPath in the node.
-			// However, currently there is a bug that we cannot attach block device to the pod if the pod (container)
-			// is privileged:
-			//https://github.com/kubernetes/kubernetes/issues/58251
-			//https://github.com/kubernetes/kubernetes/issues/62560
-			// As a result of that, instead setting the SecurityContext field as Privileged, in the main container
-			// where we need to have access to  the hostPath, we set the SecurityContext field in the initContainer,
-			// and that will do it.
-			InitContainers: []v1.Container{
-				{
-					Name:  "init",
-					Image: image,
-					VolumeMounts: []v1.VolumeMount{
-						{
-							Name:      socketPathName,
-							MountPath: common.ClonerSocketPath + "/" + id,
-						},
-					},
-					SecurityContext: &v1.SecurityContext{
-						Privileged: &[]bool{true}[0],
-						RunAsUser:  &[]int64{0}[0],
-					},
-					Command: []string{"sh", "-c", "echo setting the pod as privileged"},
+			SecurityContext: &v1.PodSecurityContext{
+				RunAsUser: &[]int64{0}[0],
+				SELinuxOptions: &v1.SELinuxOptions{
+					Type: "spc_t",
 				},
 			},
-
 			Containers: []v1.Container{
 				{
 					Name:            common.ClonerTargetPodName,

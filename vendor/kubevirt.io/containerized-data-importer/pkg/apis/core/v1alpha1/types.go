@@ -166,6 +166,9 @@ const (
 	Unknown DataVolumePhase = "Unknown"
 )
 
+// DataVolumeCloneSourceSubresource is the subresource checked for permission to clone
+const DataVolumeCloneSourceSubresource = "source"
+
 // this has to be here otherwise informer-gen doesn't recognize it
 // see https://github.com/kubernetes/code-generator/issues/59
 // +genclient:nonNamespaced

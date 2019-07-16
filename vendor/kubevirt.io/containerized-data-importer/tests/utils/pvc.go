@@ -51,6 +51,26 @@ func CreatePVCFromDefinition(clientSet *kubernetes.Clientset, namespace string, 
 	return pvc, nil
 }
 
+// WaitForPVC waits for a PVC
+func WaitForPVC(clientSet *kubernetes.Clientset, namespace, name string) (*k8sv1.PersistentVolumeClaim, error) {
+	var pvc *k8sv1.PersistentVolumeClaim
+	err := wait.PollImmediate(pvcPollInterval, pvcCreateTime, func() (bool, error) {
+		var err error
+		pvc, err = FindPVC(clientSet, namespace, name)
+		if err != nil {
+			if apierrs.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return pvc, nil
+}
+
 // DeletePVC deletes the passed in PVC
 func DeletePVC(clientSet *kubernetes.Clientset, namespace string, pvc *k8sv1.PersistentVolumeClaim) error {
 	return wait.PollImmediate(pvcPollInterval, pvcDeleteTime, func() (bool, error) {
