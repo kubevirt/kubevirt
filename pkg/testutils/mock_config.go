@@ -21,13 +21,9 @@ func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cach
 
 	copy := copy(cfgMap)
 	informer.GetStore().Add(copy)
-	crdInformer.GetStore().Add(&extv1beta1.CustomResourceDefinition{
-		Spec: extv1beta1.CustomResourceDefinitionSpec{
-			Names: extv1beta1.CustomResourceDefinitionNames{
-				Kind: "DataVolume",
-			},
-		},
-	})
+
+	AddDataVolumeAPI(crdInformer)
+
 	return virtconfig.NewClusterConfig(informer, crdInformer, namespace), informer, crdInformer
 }
 

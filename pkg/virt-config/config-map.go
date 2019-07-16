@@ -59,6 +59,8 @@ const (
 	NodeDrainTaintDefaultKey  = "kubevirt.io/drain"
 )
 
+type ConfigModifiedFn func()
+
 func getConfigMap() *k8sv1.ConfigMap {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
@@ -103,14 +105,76 @@ func getConfigMap() *k8sv1.ConfigMap {
 func NewClusterConfig(configMapInformer cache.SharedIndexInformer, crdInformer cache.SharedIndexInformer, namespace string) *ClusterConfig {
 
 	c := &ClusterConfig{
-		informer:        configMapInformer,
-		crdInformer:     crdInformer,
-		lock:            &sync.Mutex{},
-		namespace:       namespace,
-		lastValidConfig: defaultClusterConfig(),
-		defaultConfig:   defaultClusterConfig(),
+		configMapInformer: configMapInformer,
+		crdInformer:       crdInformer,
+		lock:              &sync.Mutex{},
+		namespace:         namespace,
+		lastValidConfig:   defaultClusterConfig(),
+		defaultConfig:     defaultClusterConfig(),
 	}
+
+	c.configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.configAddedDeleted,
+		DeleteFunc: c.configAddedDeleted,
+		UpdateFunc: c.configUpdated,
+	})
+
+	c.crdInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.crdAddedDeleted,
+		DeleteFunc: c.crdAddedDeleted,
+		UpdateFunc: c.crdUpdated,
+	})
+
 	return c
+}
+
+func (c *ClusterConfig) configAddedDeleted(obj interface{}) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.configModifiedCallback != nil {
+		go c.configModifiedCallback()
+	}
+}
+func (c *ClusterConfig) configUpdated(old, cur interface{}) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.configModifiedCallback != nil {
+		go c.configModifiedCallback()
+	}
+}
+
+func isDataVolumeCrd(crd *extv1beta1.CustomResourceDefinition) bool {
+	if crd.Spec.Names.Kind == "DataVolume" {
+		return true
+	}
+
+	return false
+
+}
+
+func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
+	crd := obj.(*extv1beta1.CustomResourceDefinition)
+	if !isDataVolumeCrd(crd) {
+		return
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.configModifiedCallback != nil {
+		go c.configModifiedCallback()
+	}
+}
+func (c *ClusterConfig) crdUpdated(old, cur interface{}) {
+	crd := cur.(*extv1beta1.CustomResourceDefinition)
+	if !isDataVolumeCrd(crd) {
+		return
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.configModifiedCallback != nil {
+		go c.configModifiedCallback()
+	}
 }
 
 func defaultClusterConfig() *Config {
@@ -179,13 +243,21 @@ type MigrationConfig struct {
 }
 
 type ClusterConfig struct {
-	informer                         cache.SharedIndexInformer
+	configMapInformer                cache.SharedIndexInformer
 	crdInformer                      cache.SharedIndexInformer
 	namespace                        string
 	lock                             *sync.Mutex
 	lastValidConfig                  *Config
 	defaultConfig                    *Config
 	lastInvalidConfigResourceVersion string
+	configModifiedCallback           ConfigModifiedFn
+}
+
+func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.configModifiedCallback = cb
+	go c.configModifiedCallback()
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -316,7 +388,7 @@ func (c *ClusterConfig) getConfig() (config *Config) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if obj, exists, err := c.informer.GetStore().GetByKey(c.namespace + "/" + configMapName); err != nil {
+	if obj, exists, err := c.configMapInformer.GetStore().GetByKey(c.namespace + "/" + configMapName); err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Error loading the cluster config from cache, falling back to last good resource version '%s'", c.lastValidConfig.ResourceVersion)
 		return c.lastValidConfig
 	} else if !exists {
@@ -346,7 +418,7 @@ func (c *ClusterConfig) HasDataVolumeAPI() bool {
 	objects := c.crdInformer.GetStore().List()
 	for _, obj := range objects {
 		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
-			if crd.Spec.Names.Kind == "DataVolume" {
+			if isDataVolumeCrd(crd) {
 				return true
 			}
 		}

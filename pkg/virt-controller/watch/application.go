@@ -25,7 +25,7 @@ import (
 	golog "log"
 	"net/http"
 	"os"
-	"time"
+	"sync"
 
 	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
@@ -119,7 +119,10 @@ type VirtControllerApp struct {
 
 	ctx context.Context
 
-	hasCdi bool
+	hasCdi          bool
+	reInitLock      *sync.Mutex
+	reInitTriggered bool
+	reInitChan      chan struct{}
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -167,8 +170,11 @@ func Execute() {
 	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced, crdInformer.HasSynced)
 	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, app.kubevirtNamespace)
 
+	app.reInitChan = make(chan struct{})
+	app.reInitTriggered = false
+	app.reInitLock = &sync.Mutex{}
 	app.hasCdi = app.clusterConfig.HasDataVolumeAPI()
-	reInitChan := app.initializationMonitor()
+	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 
 	app.vmiInformer = app.informerFactory.VMI()
 	app.podInformer = app.informerFactory.KubeVirtPod()
@@ -207,32 +213,32 @@ func Execute() {
 	go app.Run()
 
 	select {
-	case <-reInitChan:
+	case <-app.reInitChan:
 		cancel()
 	}
 }
 
 // Detects if a config has been applied that requires
 // re-initializing virt-controller.
-func (vca *VirtControllerApp) initializationMonitor() <-chan struct{} {
+func (vca *VirtControllerApp) configModificationCallback() {
 
-	reInitChan := make(chan struct{})
-	go func(hasCdi bool, reInitChan chan struct{}) {
-		for {
-			newHasCdi := vca.clusterConfig.HasDataVolumeAPI()
-			if newHasCdi != hasCdi {
-				if newHasCdi {
-					log.Log.Infof("Reinitialize virt-controller, cdi api has been introduced")
-				} else {
-					log.Log.Infof("Reinitialize virt-controller, cdi api has been removed")
-				}
-				close(reInitChan)
-			}
-			time.Sleep(30 * time.Second)
+	vca.reInitLock.Lock()
+	defer vca.reInitLock.Unlock()
+
+	if vca.reInitTriggered {
+		return
+	}
+
+	newHasCdi := vca.clusterConfig.HasDataVolumeAPI()
+	if newHasCdi != vca.hasCdi {
+		if newHasCdi {
+			log.Log.Infof("Reinitialize virt-controller, cdi api has been introduced")
+		} else {
+			log.Log.Infof("Reinitialize virt-controller, cdi api has been removed")
 		}
-	}(vca.hasCdi, reInitChan)
-
-	return reInitChan
+		close(vca.reInitChan)
+		vca.reInitTriggered = true
+	}
 }
 
 func (vca *VirtControllerApp) Run() {
