@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -64,6 +65,7 @@ import (
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -279,6 +281,7 @@ func (app *virtHandlerApp) Run() {
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
+	vmiInformer := factory.VMI()
 
 	vmController := virthandler.NewController(
 		recorder,
@@ -295,6 +298,11 @@ func (app *virtHandlerApp) Run() {
 		virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), app.namespace),
 		app.migrationTLSConfig,
 		podIsolationDetector,
+	)
+
+	consoleHandler := rest.NewConsoleHandler(
+		podIsolationDetector,
+		vmiInformer,
 	)
 
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
@@ -314,14 +322,15 @@ func (app *virtHandlerApp) Run() {
 	stop := make(chan struct{})
 	defer close(stop)
 	factory.Start(stop)
-	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced)
+	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiInformer.HasSynced)
 
 	go vmController.Run(10, stop)
 
 	errCh := make(chan error)
 	go app.runPrometheusServer(errCh, certStore)
+	go app.runConsoleServer(errCh, consoleHandler)
 
-	// wait for server to exit
+	// wait for one of the servers to exit
 	<-errCh
 }
 
@@ -329,6 +338,20 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error, certStore certi
 	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
 	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
 	errCh <- http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
+}
+
+func (app *virtHandlerApp) runConsoleServer(errCh chan error, consoleHandler *rest.ConsoleHandler) {
+	ws := new(restful.WebService)
+	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console").To(consoleHandler.SerialHandler))
+	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc").To(consoleHandler.VNCHandler))
+	restful.DefaultContainer.Add(ws)
+	server := &http.Server{
+		Addr:    fmt.Sprintf("%s:%s", app.ServiceListen.BindAddress, "8185"),
+		Handler: restful.DefaultContainer,
+		// we use migration TLS also for console connections (initiated by virt-api)
+		TLSConfig: app.migrationTLSConfig,
+	}
+	errCh <- server.ListenAndServeTLS("", "")
 }
 
 func (app *virtHandlerApp) AddFlags() {

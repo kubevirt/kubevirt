@@ -20,6 +20,7 @@
 package kubecli
 
 import (
+	"crypto/tls"
 	"io"
 	"net/http"
 
@@ -42,6 +43,20 @@ func NewUpgrader() *websocket.Upgrader {
 		},
 		Subprotocols: []string{subresources.PlainStreamProtocolName},
 	}
+}
+
+func Dial(address string, tlsConfig *tls.Config) (*websocket.Conn, *http.Response, error) {
+	dialer := &websocket.Dialer{
+		ReadBufferSize:  WebsocketMessageBufferSize,
+		WriteBufferSize: WebsocketMessageBufferSize,
+		Subprotocols:    []string{subresources.PlainStreamProtocolName},
+		TLSClientConfig: tlsConfig,
+	}
+	return dialer.Dial(address, nil)
+}
+
+func Copy(dst *websocket.Conn, src *websocket.Conn) (written int64, err error) {
+	return copy(&binaryWriter{conn: dst}, &binaryReader{conn: src})
 }
 
 func CopyFrom(dst io.Writer, src *websocket.Conn) (written int64, err error) {

@@ -2,7 +2,6 @@ package kubecli
 
 import (
 	"fmt"
-	"net/url"
 
 	v1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -10,6 +9,11 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
+)
+
+const (
+	consoleTemplateURI = "wss://%s:%s/v1/namespaces/%s/virtualmachineinstances/%s/console"
+	vncTemplateURI     = "wss://%s:%s/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
 )
 
 func NewVirtHandlerClient(client KubevirtClient) VirtHandlerClient {
@@ -22,7 +26,8 @@ type VirtHandlerClient interface {
 
 type VirtHandlerConn interface {
 	ConnectionDetails() (ip string, port string, err error)
-	ConsoleURI(vmi *virtv1.VirtualMachineInstance) (*url.URL, error)
+	ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	Pod() (pod *v1.Pod, err error)
 }
 
@@ -57,7 +62,7 @@ func (v *virtHandler) getVirtHandler(nodeName string) (*v1.Pod, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	pods, err := v.client.CoreV1().Pods(v1.NamespaceAll).List(
+	pods, err := v.client.CoreV1().Pods("kubevirt").List(
 		k8smetav1.ListOptions{
 			FieldSelector: handlerNodeSelector.String(),
 			LabelSelector: labelSelector.String()})
@@ -87,15 +92,20 @@ func (v *virtHandlerConn) ConnectionDetails() (ip string, port string, err error
 }
 
 //TODO move the actual ws handling in here, and work with channels
-func (v *virtHandlerConn) ConsoleURI(vmi *virtv1.VirtualMachineInstance) (*url.URL, error) {
+func (v *virtHandlerConn) ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	ip, port, err := v.ConnectionDetails()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return &url.URL{
-		Path: fmt.Sprintf("/api/v1/namespaces/%s/virtualmachineinstances/%s/console", vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name),
-		Host: ip + ":" + port,
-	}, nil
+	return fmt.Sprintf(consoleTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+}
+
+func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	ip, port, err := v.ConnectionDetails()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(vncTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) Pod() (pod *v1.Pod, err error) {
