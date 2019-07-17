@@ -1549,7 +1549,10 @@ func (d *VirtualMachineController) updateNodeCpuManagerLabel() {
 	isEnabled := false
 	for _, entry := range entries {
 		content, err := ioutil.ReadFile(entry)
-		if err != nil {
+		if os.IsNotExist(err) {
+			// processes can disappear anytime, it is ok if they don't exist anymore
+			continue
+		} else if err != nil {
 			log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
 			return
 		}
