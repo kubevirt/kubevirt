@@ -276,8 +276,9 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  config.GetKubeVirtVersion(),
-							v1.InstallStrategyRegistryAnnotation: config.GetImageRegistry(),
+							v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
+							v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
+							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -288,8 +289,9 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  config.GetKubeVirtVersion(),
-							v1.InstallStrategyRegistryAnnotation: config.GetImageRegistry(),
+							v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
+							v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
+							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -301,8 +303,9 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  "oldversion",
-							v1.InstallStrategyRegistryAnnotation: "oldversion",
+							v1.InstallStrategyVersionAnnotation:    "oldversion",
+							v1.InstallStrategyRegistryAnnotation:   "oldversion",
+							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -326,8 +329,9 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  config.GetKubeVirtVersion(),
-							v1.InstallStrategyRegistryAnnotation: config.GetImageRegistry(),
+							v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
+							v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
+							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -353,8 +357,9 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  config.GetKubeVirtVersion(),
-							v1.InstallStrategyRegistryAnnotation: config.GetImageRegistry(),
+							v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
+							v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
+							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -386,8 +391,9 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  config.GetKubeVirtVersion(),
-							v1.InstallStrategyRegistryAnnotation: config.GetImageRegistry(),
+							v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
+							v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
+							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -421,8 +427,9 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  "old",
-							v1.InstallStrategyRegistryAnnotation: "old",
+							v1.InstallStrategyVersionAnnotation:    "old",
+							v1.InstallStrategyRegistryAnnotation:   "old",
+							v1.InstallStrategyIdentifierAnnotation: "old",
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -454,8 +461,9 @@ var _ = Describe("Install Strategy", func() {
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							v1.InstallStrategyVersionAnnotation:  config.GetKubeVirtVersion(),
-							v1.InstallStrategyRegistryAnnotation: config.GetImageRegistry(),
+							v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
+							v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
+							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 						},
 					},
 					Spec: corev1.ServiceSpec{

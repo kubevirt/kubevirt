@@ -148,6 +148,12 @@ func podIsUpToDate(pod *k8sv1.Pod, kv *v1.KubeVirt) bool {
 	if !ok || imageRegistry != kv.Status.TargetKubeVirtRegistry {
 		return false
 	}
+
+	id, ok := pod.Annotations[v1.InstallStrategyIdentifierAnnotation]
+	if !ok || id != kv.Status.TargetDeploymentID {
+		return false
+	}
+
 	return true
 }
 
