@@ -289,11 +289,9 @@ var _ = Describe("Infrastructure", func() {
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
-				if strings.HasPrefix(key, "kubevirt_vm_metrics_") {
-					value := metrics[key]
-					// swap metrics may (and should) be actually zero
-					Expect(value).To(BeNumerically(">=", float64(0.0)))
-				}
+				value := metrics[key]
+				// swap metrics may (and should) be actually zero
+				Expect(value).To(BeNumerically(">=", float64(0.0)))
 			}
 		}, 300)
 
@@ -426,7 +424,7 @@ func takeMetricsWithPrefix(output, prefix string) []string {
 	return ret
 }
 
-func newRandomVMIWithMetrics(virtClient kubecli.KubevirtClient, metricSubstring string) (*v1.VirtualMachineInstance, string, runtime.Object, map[string]float64) {
+func newRandomVMIWithMetrics(virtClient kubecli.KubevirtClient, metricPrefix string) (*v1.VirtualMachineInstance, string, runtime.Object, map[string]float64) {
 	By("Creating the VirtualMachineInstance")
 	vmi := tests.NewRandomVMI()
 
@@ -443,13 +441,20 @@ func newRandomVMIWithMetrics(virtClient kubecli.KubevirtClient, metricSubstring 
 
 	By("Scraping the Prometheus endpoint")
 	var metrics map[string]float64
+	var lines []string
+
 	Eventually(func() map[string]float64 {
 		out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
-		lines := takeMetricsWithPrefix(out, "kubevirt")
-		metrics, err := parseMetricsToMap(lines)
+		lines = takeMetricsWithPrefix(out, metricPrefix)
+		metrics, err = parseMetricsToMap(lines)
 		Expect(err).ToNot(HaveOccurred())
 		return metrics
-	}, 30*time.Second, 2*time.Second).Should(HaveKey(ContainSubstring(metricSubstring)))
+	}, 30*time.Second, 2*time.Second).Should(HaveKey(ContainSubstring(metricPrefix)))
+
+	// troubleshooting helper
+	fmt.Fprintf(GinkgoWriter, "metrics [%s]:\nlines=%s\n%#v\n", metricPrefix, lines, metrics)
+	Expect(len(metrics)).To(BeNumerically(">=", float64(1.0)))
+	Expect(len(metrics)).To(Equal(len(lines)))
 
 	return vmi, nodeName, obj, metrics
 }
