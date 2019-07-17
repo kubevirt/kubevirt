@@ -1,0 +1,29 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+aliases:
+  approvers:
+      - slintes
+      - davidvossel
+      - vladikr
+      - rmohr
+      - cynepco3hahue
+      - stu-gott
+      - SchSeba
+  code-reviewers:
+      - davidvossel
+      - rmohr
+      - stu-gott
+      - booxter
+      - vladikr
+      - slintes
+      - cynepco3hahue
+      - phoracek
+      - SchSeba
+      - mfranczy
+      - dhiller
+  ux-reviewers:
+      - matthewcarleton
+  test-reviewers:
+      - jerry7z
+      - ILpinto
+      - dshchedr

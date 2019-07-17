@@ -3,22 +3,12 @@
 filters:
   ".*":
     reviewers:
-      - davidvossel
-      - rmohr
-      - stu-gott
-      - booxter
-      - vladikr
-      - slintes
-      - cynepco3hahue
-      - phoracek
-      - SchSeba
-      - mfranczy
-      - dhiller
+      - code-reviewers
     approvers:
-      - slintes
-      - davidvossel
-      - vladikr
-      - rmohr
-      - cynepco3hahue
-      - stu-gott
-      - SchSeba
+      - approvers
+  "tests/.*":
+    reviewers:
+      - test-reviewers
+  "pkg/virt-api/.*":
+    reviewers:
+      - ux-reviewers
