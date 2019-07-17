@@ -303,9 +303,9 @@ var _ = Describe("Infrastructure", func() {
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
 				// we don't care about the ordering of the labels
-				Expect(key).To(ContainSubstring(fmt.Sprintf("node=%s", nodeName)))
-				Expect(key).To(ContainSubstring(fmt.Sprintf("namespace=%s", vmi.Namespace)))
-				Expect(key).To(ContainSubstring(fmt.Sprintf("name=%s", vmi.Name)))
+				Expect(key).To(ContainSubstring(fmt.Sprintf("node=\"%s\"", nodeName)))
+				Expect(key).To(ContainSubstring(fmt.Sprintf("namespace=\"%s\"", vmi.Namespace)))
+				Expect(key).To(ContainSubstring(fmt.Sprintf("name=\"%s\"", vmi.Name)))
 			}
 		}, 300)
 	})
