@@ -306,6 +306,19 @@ var _ = Describe("Infrastructure", func() {
 				Expect(key).To(ContainSubstring(fmt.Sprintf("name=\"%s\"", vmi.Name)))
 			}
 		}, 300)
+
+		It("should include VMI telemetry for a running VM", func() {
+			_, _, _, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vmi_")
+			By("Checking the collected metrics")
+			keys := getKeysFromMetrics(metrics)
+
+			for _, key := range keys {
+				if strings.Contains(key, "running") {
+					value := metrics[key]
+					Expect(value).To(BeNumerically("==", float64(1.0)))
+				}
+			}
+		}, 300)
 	})
 
 	Describe("Start a VirtualMachineInstance", func() {
