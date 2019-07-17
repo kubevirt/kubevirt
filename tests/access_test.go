@@ -41,13 +41,17 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	edit := tests.EditServiceAccountName
 	admin := tests.AdminServiceAccountName
 
+	var k8sClient string
+
 	BeforeEach(func() {
+		k8sClient = tests.GetK8sCmdClient()
+		tests.SkipIfNoCmd(k8sClient)
+
 		tests.BeforeTestCleanup()
 	})
 
 	Describe("With default kubevirt service accounts", func() {
 		table.DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(resource string) {
-			tests.SkipIfNoCmd("kubectl")
 
 			viewVerbs := make(map[string]string)
 			editVerbs := make(map[string]string)
@@ -101,21 +105,21 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By(fmt.Sprintf("verifying VIEW sa for verb %s", verb))
 				expectedRes, _ := viewVerbs[verb]
 				as := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, view)
-				result, _, _ := tests.RunCommand("kubectl", "auth", "can-i", "--as", as, verb, resource)
+				result, _, _ := tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
 				Expect(result).To(ContainSubstring(expectedRes))
 
 				// EDIT
 				By(fmt.Sprintf("verifying EDIT sa for verb %s", verb))
 				expectedRes, _ = editVerbs[verb]
 				as = fmt.Sprintf("system:serviceaccount:%s:%s", namespace, edit)
-				result, _, _ = tests.RunCommand("kubectl", "auth", "can-i", "--as", as, verb, resource)
+				result, _, _ = tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
 				Expect(result).To(ContainSubstring(expectedRes))
 
 				// ADMIN
 				By(fmt.Sprintf("verifying ADMIN sa for verb %s", verb))
 				expectedRes, _ = adminVerbs[verb]
 				as = fmt.Sprintf("system:serviceaccount:%s:%s", namespace, admin)
-				result, _, _ = tests.RunCommand("kubectl", "auth", "can-i", "--as", as, verb, resource)
+				result, _, _ = tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
 				Expect(result).To(ContainSubstring(expectedRes))
 
 				// DEFAULT - the default should always return 'no' for ever verb.
@@ -123,7 +127,7 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By(fmt.Sprintf("verifying DEFAULT sa for verb %s", verb))
 				expectedRes = "no"
 				as = fmt.Sprintf("system:serviceaccount:%s:default", namespace)
-				result, _, _ = tests.RunCommand("kubectl", "auth", "can-i", "--as", as, verb, resource)
+				result, _, _ = tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
 				Expect(result).To(ContainSubstring(expectedRes))
 			}
 		},
@@ -240,5 +244,81 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			table.Entry("on vm stop", "virtualmachines", "stop"),
 			table.Entry("on vm restart", "virtualmachines", "restart"),
 		)
+	})
+
+	Describe("With regular OpenShift user", func() {
+		BeforeEach(func() {
+			tests.SkipIfNoCmd("oc")
+		})
+
+		const testUser = "testuser"
+
+		testRights := func(resource, right string) {
+			verbsList := []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
+
+			for _, verb := range verbsList {
+				// AS A TEST USER
+				By(fmt.Sprintf("verifying user rights for verb %s", verb))
+				result, _, _ := tests.RunCommand(k8sClient, "auth", "can-i", "--as", testUser, verb, resource)
+				Expect(result).To(ContainSubstring(right))
+			}
+		}
+
+		Context("should fail without admin rights for the project", func() {
+			BeforeEach(func() {
+				By("Ensuring the cluster has new test user")
+				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "create", "user", testUser)
+				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+
+				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "project", tests.NamespaceTestDefault)
+				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+			})
+
+			AfterEach(func() {
+				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "delete", "user", testUser)
+				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+			})
+
+			table.DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(resource string) {
+				testRights(resource, "no")
+			},
+				table.Entry("given a vmi", "virtualmachineinstances"),
+				table.Entry("given a vm", "virtualmachines"),
+				table.Entry("given a vmi preset", "virtualmachineinstancepresets"),
+				table.Entry("given a vmi replica set", "virtualmachineinstancereplicasets"),
+				table.Entry("given a vmi migration", "virtualmachineinstancemigrations"),
+			)
+		})
+
+		Context("should succeed with admin rights for the project", func() {
+			BeforeEach(func() {
+				By("Ensuring the cluster has new test user")
+				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "create", "user", testUser)
+				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+
+				By("Ensuring user has the admin rights for the test namespace project")
+				// This is ussually done in backgroung when creating new user with login and by creating new project by that user
+				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "adm", "policy", "add-role-to-user", "-n", tests.NamespaceTestDefault, "admin", testUser)
+				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+
+				stdOut, stdErr, err = tests.RunCommandWithNS("", k8sClient, "project", tests.NamespaceTestDefault)
+				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+			})
+
+			AfterEach(func() {
+				stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "delete", "user", testUser)
+				Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+			})
+
+			table.DescribeTable("should verify permissions on resources are correct the test user", func(resource string) {
+				testRights(resource, "yes")
+			},
+				table.Entry("[test_id:2894]given a vmi", "virtualmachineinstances"),
+				table.Entry("[test_id:2831]given a vm", "virtualmachines"),
+				table.Entry("[test_id:2835]given a vmi preset", "virtualmachineinstancepresets"),
+				table.Entry("[test_id:2836][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
+				table.Entry("[test_id:2837]given a vmi migration", "virtualmachineinstancemigrations"),
+			)
+		})
 	})
 })
