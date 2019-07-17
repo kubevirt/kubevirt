@@ -1213,6 +1213,100 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(strings.HasPrefix(stdErr, "Error from server (NotFound): virtualmachines.kubevirt.io")).To(BeTrue(), "should fail when deleting non existent VM")
 		})
 
+		Context("as ordinary OCP user trough test service account", func() {
+			BeforeEach(func() {
+				tests.SkipIfNoCmd("oc")
+			})
+
+			const testUser = "testuser"
+			var token string
+
+			Context("should succeed with right rights", func() {
+				BeforeEach(func() {
+					By("Ensuring the cluster has new test serviceaccount")
+					stdOut, stdErr, err := tests.RunCommand(k8sClient, "create", "serviceaccount", testUser)
+					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+
+					By("Ensuring user has the admin rights for the test namespace project")
+					// This simulates the ordinary user as an admin in his project
+					stdOut, stdErr, err = tests.RunCommand(k8sClient, "adm", "policy", "add-role-to-user", "admin", fmt.Sprintf("system:serviceaccount:%s:%s", tests.NamespaceTestDefault, testUser))
+					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+
+					token, stdErr, err = tests.RunCommand(k8sClient, "serviceaccounts", "get-token", testUser)
+					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+				})
+
+				AfterEach(func() {
+					stdOut, stdErr, err := tests.RunCommand(k8sClient, "adm", "policy", "remove-role-from-user", "admin", fmt.Sprintf("system:serviceaccount:%s:%s", tests.NamespaceTestDefault, testUser))
+					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+
+					stdOut, stdErr, err = tests.RunCommand(k8sClient, "delete", "serviceaccount", testUser)
+					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+				})
+
+				It("[test_id:2839]should create VM via command line", func() {
+					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+					vm := tests.NewRandomVirtualMachine(vmi, true)
+
+					vmJson, err = tests.GenerateVMJson(vm, workDir)
+					Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
+
+					By("Creating VM using k8s client binary")
+					stdOut, stdErr, err := tests.RunCommand(k8sClient, "--token", token, "create", "-f", vmJson)
+					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+
+					By("Waiting for VMI to start")
+					waitForVMIStart(virtClient, vmi)
+
+					By("Listing running pods")
+					stdout, _, err := tests.RunCommand(k8sClient, "--token", token, "get", "pods")
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Ensuring pod is running")
+					expectedPodName := getExpectedPodName(vm)
+					podRunningRe, err := regexp.Compile(fmt.Sprintf("%s.*Running", expectedPodName))
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(podRunningRe.FindString(stdout)).ToNot(Equal(""), "Pod is not Running")
+
+					By("Checking that VM is running")
+					stdout, _, err = tests.RunCommand(k8sClient, "--token", token, "describe", "vmis", vm.GetName())
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+				})
+			})
+
+			Context("should fail without right rights", func() {
+				BeforeEach(func() {
+					By("Ensuring the cluster has new test serviceaccount")
+					stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "create", "serviceaccount", testUser)
+					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+
+					token, stdErr, err = tests.RunCommandWithNS("", k8sClient, "serviceaccounts", "get-token", testUser)
+					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+				})
+
+				AfterEach(func() {
+					stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "delete", "serviceaccount", testUser)
+					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+				})
+
+				It("should create VM via command line", func() {
+					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+					vm := tests.NewRandomVirtualMachine(vmi, true)
+
+					vmJson, err = tests.GenerateVMJson(vm, workDir)
+					Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
+
+					By("Creating VM using k8s client binary")
+					stdOut, stdErr, err := tests.RunCommand(k8sClient, "--token", token, "create", "-f", vmJson)
+					Expect(err).To(HaveOccurred(), "The call for VM creation should fail")
+					Expect(stdOut+stdErr).To(ContainSubstring("no RBAC policy matched"), "should be rejected due to not access rights")
+				})
+			})
+		})
+
 	})
 })
 
