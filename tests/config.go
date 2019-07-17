@@ -21,23 +21,9 @@ package tests
 
 import (
 	"encoding/json"
-	"flag"
-
-	"fmt"
 	"io/ioutil"
 	"os"
 )
-
-const (
-	DefaultConfigFile string = "tests/default-config.json"
-)
-
-var ConfigFile = ""
-var Config *KubeVirtTestsConfiguration
-
-func init() {
-	flag.StringVar(&ConfigFile, "config", "", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
-}
 
 // KubeVirtTestsConfiguration contains the configuration for KubeVirt tests
 type KubeVirtTestsConfiguration struct {
@@ -53,38 +39,11 @@ type KubeVirtTestsConfiguration struct {
 	StorageClassWindows string `json:"storageClassWindows"`
 }
 
-// Returns a new KubeVirtTestsConfiguration with default values
-func NewKubeVirtTestsConfiguration() *KubeVirtTestsConfiguration {
-	config := &KubeVirtTestsConfiguration{}
-
-	err := loadConfigFromFile(DefaultConfigFile, config)
-
-	if err != nil {
-		panic(fmt.Sprintf("Couldn't load default test suite configuration: %s\n", err))
-	}
-
-	return config
-}
-
-func loadConfig() *KubeVirtTestsConfiguration {
-	config := NewKubeVirtTestsConfiguration()
-
-	if ConfigFile != "" {
-		err := loadConfigFromFile(ConfigFile, config)
-
-		if err != nil {
-			panic(fmt.Sprintf("Couldn't load test suite configuration file: %s\n", err))
-		}
-	}
-
-	return config
-}
-
-func loadConfigFromFile(file string, config *KubeVirtTestsConfiguration) error {
+func loadConfig() (*KubeVirtTestsConfiguration, error) {
 	// open configuration file
-	jsonFile, err := os.Open(file)
+	jsonFile, err := os.Open(ConfigFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer jsonFile.Close()
@@ -92,8 +51,9 @@ func loadConfigFromFile(file string, config *KubeVirtTestsConfiguration) error {
 	// read the configuration file as a byte array
 	byteValue, _ := ioutil.ReadAll(jsonFile)
 
-	// convert the byte array as a KubeVirtTestsConfiguration struct
+	// convert the byte array to a KubeVirtTestsConfiguration struct
+	config := &KubeVirtTestsConfiguration{}
 	err = json.Unmarshal(byteValue, config)
 
-	return err
+	return config, err
 }
