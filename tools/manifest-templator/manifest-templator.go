@@ -57,19 +57,21 @@ type operatorData struct {
 }
 
 type templateData struct {
-	Converged            bool
-	Namespace            string
-	CsvVersion           string
-	ContainerPrefix      string
-	CnaContainerPrefix   string
-	ImagePullPolicy      string
-	CreatedAt            string
-	HCO                  *operatorData
-	KubeVirt             *operatorData
-	CDI                  *operatorData
-	CNA                  *operatorData
-	SSP                  *operatorData
-	NMO                  *operatorData
+	Converged          bool
+	Namespace          string
+	CsvVersion         string
+	ReplacesVersion    string
+	Replaces           bool
+	ContainerPrefix    string
+	CnaContainerPrefix string
+	ImagePullPolicy    string
+	CreatedAt          string
+	HCO                *operatorData
+	KubeVirt           *operatorData
+	CDI                *operatorData
+	CNA                *operatorData
+	SSP                *operatorData
+	NMO                *operatorData
 }
 
 func check(err error) {
@@ -256,8 +258,8 @@ func getCDI(data *templateData) {
 	// Get CDI Deployment
 	cdideployment, err := cdicomponents.NewCdiOperatorDeployment(
 		data.Namespace,
-		"kubevirt",
-		"v1.9.1",
+		data.ContainerPrefix,
+		data.CDI.OperatorTag,
 		"IfNotPresent",
 		"1",
 		(&cdicomponents.CdiImages{}).FillDefaults())
@@ -307,10 +309,10 @@ func getCNA(data *templateData) {
 
 	// Get CNA Deployment
 	cnadeployment := cnacomponents.GetDeployment(
-		"0.11.0",
+		data.CNA.OperatorTag,
 		data.Namespace,
 		data.CnaContainerPrefix,
-		"0.11.0",
+		data.CNA.OperatorTag,
 		data.ImagePullPolicy,
 		(&cnacomponents.AddonsImages{}).FillDefaults(),
 	)
@@ -374,6 +376,7 @@ func main() {
 	converged := flag.Bool("converged", false, "")
 	namespace := flag.String("namespace", "kubevirt-hyperconverged", "")
 	csvVersion := flag.String("csv-version", "0.0.1", "")
+	replacesVersion := flag.String("replaces-version", "0.0.1", "")
 	containerPrefix := flag.String("container-prefix", "kubevirt", "")
 	cnaContainerPrefix := flag.String("cna-container-prefix", *containerPrefix, "")
 	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
@@ -391,13 +394,20 @@ func main() {
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
 	pflag.Parse()
 
+	Replaces := true
+	if *replacesVersion == *csvVersion {
+		Replaces = false
+	}
+
 	data := templateData{
-		Converged:            *converged,
-		Namespace:            *namespace,
-		CsvVersion:           *csvVersion,
-		ContainerPrefix:      *containerPrefix,
-		CnaContainerPrefix:   *cnaContainerPrefix,
-		ImagePullPolicy:      *imagePullPolicy,
+		Converged:          *converged,
+		Namespace:          *namespace,
+		CsvVersion:         *csvVersion,
+		ReplacesVersion:    *replacesVersion,
+		Replaces:           Replaces,
+		ContainerPrefix:    *containerPrefix,
+		CnaContainerPrefix: *cnaContainerPrefix,
+		ImagePullPolicy:    *imagePullPolicy,
 
 		HCO:      &operatorData{OperatorTag: *hcoTag, ComponentTag: *hcoTag},
 		KubeVirt: &operatorData{OperatorTag: *kubevirtTag, ComponentTag: *kubevirtTag},

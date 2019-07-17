@@ -10,8 +10,12 @@ DEPLOY_DIR="${PROJECT_ROOT}/deploy"
 STD_DEPLOY_DIR="${DEPLOY_DIR}/standard"
 CONVERGED_DEPLOY_DIR="${DEPLOY_DIR}/converged"
 
-NAMESPACE="${NAMESPACE:-kubevirt-hyperconverged}"
+# REPLACES_VERSION is the old CSV_VERSION
+#   if REPLACES_VERSION == CSV_VERSION it will be ignored
+REPLACES_VERSION="${REPLACES_VERSION:-0.0.1}"
 CSV_VERSION="${CSV_VERSION:-0.0.1}"
+
+NAMESPACE="${NAMESPACE:-kubevirt-hyperconverged}"
 CONTAINER_PREFIX="${CONTAINER_PREFIX:-kubevirt}"
 CNA_CONTAINER_PREFIX="${CNA_CONTAINER_PREFIX:-quay.io/kubevirt}"
 IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
@@ -44,6 +48,7 @@ function buildFlags {
     --namespace=${NAMESPACE} \
     --csv-version=${CSV_VERSION} \
     --container-prefix=${CONTAINER_PREFIX} \
+    --replaces-version=${REPLACES_VERSION} \
     --image-pull-policy=${IMAGE_PULL_POLICY}"
 
     if [ -z "${CONTAINER_TAG}" ]; then
