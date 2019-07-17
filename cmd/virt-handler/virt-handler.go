@@ -33,6 +33,7 @@ import (
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/certificate"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 
@@ -313,14 +314,17 @@ func (app *virtHandlerApp) Run() {
 
 	go vmController.Run(10, stop)
 
-	logger.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
-	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
+	errCh := make(chan error)
+	go app.runPrometheusServer(errCh, certStore)
 
-	err = http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
-	if err != nil {
-		log.Log.Reason(err).Error("Serving prometheus failed.")
-		panic(err)
-	}
+	// wait for server to exit
+	<-errCh
+}
+
+func (app *virtHandlerApp) runPrometheusServer(errCh chan error, certStore certificate.FileStore) {
+	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
+	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
+	errCh <- http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
 }
 
 func (app *virtHandlerApp) AddFlags() {
