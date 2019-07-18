@@ -109,7 +109,6 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (*I
 	if pid, err = s.getPid(socket); err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
 		return nil, err
-
 	}
 
 	// Look up the cgroup slice based on the whitelisted controller

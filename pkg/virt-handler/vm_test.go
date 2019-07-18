@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/client-go/precond"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -137,6 +138,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			10,
 			config,
 			tlsConfig,
+			isolation.NewSocketBasedIsolationDetector(shareDir),
 		)
 
 		testUUID = uuid.NewUUID()

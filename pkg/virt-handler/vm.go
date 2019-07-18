@@ -74,10 +74,10 @@ func NewController(
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
 	tlsConfig *tls.Config,
+	podIsolationDetector isolation.PodIsolationDetector,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	detector := isolation.NewSocketBasedIsolationDetector(virtShareDir)
 
 	c := &VirtualMachineController{
 		Queue:                    queue,
@@ -93,8 +93,8 @@ func NewController(
 		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir, tlsConfig),
-		podIsolationDetector:     detector,
-		containerDiskMounter:     &container_disk.Mounter{PodIsolationDetector: detector},
+		podIsolationDetector:     podIsolationDetector,
+		containerDiskMounter:     &container_disk.Mounter{PodIsolationDetector: podIsolationDetector},
 		clusterConfig:            clusterConfig,
 	}
 

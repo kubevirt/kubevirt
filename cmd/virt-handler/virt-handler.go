@@ -63,6 +63,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -277,6 +278,8 @@ func (app *virtHandlerApp) Run() {
 		0,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
+	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
+
 	vmController := virthandler.NewController(
 		recorder,
 		app.virtCli,
@@ -291,6 +294,7 @@ func (app *virtHandlerApp) Run() {
 		app.MaxDevices,
 		virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), app.namespace),
 		app.migrationTLSConfig,
+		podIsolationDetector,
 	)
 
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
