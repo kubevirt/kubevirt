@@ -92,6 +92,11 @@ func Execute() {
 
 	log.InitializeLogging("virt-operator")
 
+	err = util.VerifyEnv()
+	if err != nil {
+		golog.Fatal(err)
+	}
+
 	app.clientSet, err = kubecli.GetKubevirtClient()
 
 	if err != nil {

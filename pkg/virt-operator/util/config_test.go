@@ -37,19 +37,28 @@ var _ = Describe("Operator Config", func() {
 		}
 	}
 
-	table.DescribeTable("Parse image", func(image string, config *KubeVirtDeploymentConfig) {
+	table.DescribeTable("Parse image", func(image string, config *KubeVirtDeploymentConfig, valid bool) {
 		os.Setenv(OperatorImageEnvName, image)
+
+		err := VerifyEnv()
+		if valid {
+			Expect(err).ToNot(HaveOccurred())
+		} else {
+			Expect(err).To(HaveOccurred())
+		}
+
 		parsedConfig, err := GetConfigFromEnv()
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(parsedConfig.GetImageRegistry()).To(Equal(config.GetImageRegistry()), "registry should match")
 		Expect(parsedConfig.GetKubeVirtVersion()).To(Equal(config.GetKubeVirtVersion()), "tag should match")
 	},
-		table.Entry("without registry", "kubevirt/virt-operator:v123", getConfig("kubevirt", "v123")),
-		table.Entry("with registry", "reg/kubevirt/virt-operator:v123", getConfig("reg/kubevirt", "v123")),
-		table.Entry("with registry with port", "reg:1234/kubevirt/virt-operator:latest", getConfig("reg:1234/kubevirt", "latest")),
-		table.Entry("without tag", "kubevirt/virt-operator", getConfig("kubevirt", "latest")),
-		table.Entry("with shasum", "kubevirt/virt-operator@sha256:abcdef", getConfig("kubevirt", "latest")),
+		table.Entry("without registry", "kubevirt/virt-operator:v123", getConfig("kubevirt", "v123"), true),
+		table.Entry("with registry", "reg/kubevirt/virt-operator:v123", getConfig("reg/kubevirt", "v123"), true),
+		table.Entry("with registry with port", "reg:1234/kubevirt/virt-operator:latest", getConfig("reg:1234/kubevirt", "latest"), true),
+		table.Entry("without tag", "kubevirt/virt-operator", getConfig("kubevirt", "latest"), true),
+		table.Entry("with shasum", "kubevirt/virt-operator@sha256:abcdef", getConfig("kubevirt", "latest"), true),
+		table.Entry("without shasum, with invalid image", "kubevirt/virt-xxx@sha256:abcdef", getConfig("", ""), false),
 	)
 
 	getConfigWithShas := func(apiSha, controllerSha, handlerSha, launcherSha, version string) *KubeVirtDeploymentConfig {
@@ -74,7 +83,7 @@ var _ = Describe("Operator Config", func() {
 		}
 	}
 
-	table.DescribeTable("Read shasums", func(image string, envVersions *KubeVirtDeploymentConfig, expectedConfig *KubeVirtDeploymentConfig, useShasums bool) {
+	table.DescribeTable("Read shasums", func(image string, envVersions *KubeVirtDeploymentConfig, expectedConfig *KubeVirtDeploymentConfig, useShasums, valid bool) {
 		os.Setenv(OperatorImageEnvName, image)
 
 		os.Setenv(VirtApiShasumEnvName, envVersions.VirtApiSha)
@@ -82,6 +91,13 @@ var _ = Describe("Operator Config", func() {
 		os.Setenv(VirtHandlerShasumEnvName, envVersions.VirtHandlerSha)
 		os.Setenv(VirtLauncherShasumEnvName, envVersions.VirtLauncherSha)
 		os.Setenv(KubeVirtVersionEnvName, envVersions.KubeVirtVersion)
+
+		err := VerifyEnv()
+		if valid {
+			Expect(err).ToNot(HaveOccurred())
+		} else {
+			Expect(err).To(HaveOccurred())
+		}
 
 		parsedConfig, err := GetConfigFromEnv()
 		Expect(err).ToNot(HaveOccurred())
@@ -105,15 +121,15 @@ var _ = Describe("Operator Config", func() {
 		table.Entry("with no shasum given", "kubevirt/virt-operator:v123",
 			&KubeVirtDeploymentConfig{},
 			getConfig("kubevirt", "v123"),
-			false),
+			false, true),
 		table.Entry("with all shasums given", "kubevirt/virt-operator@sha256:operator",
 			getConfigWithShas("sha256:api", "sha256:controller", "sha256:handler", "sha256:launcher", "v234"),
 			getFullConfig("kubevirt", "sha256:operator", "sha256:api", "sha256:controller", "sha256:handler", "sha256:launcher", "v234"),
-			true),
+			true, true),
 		table.Entry("with all shasums given", "kubevirt/virt-operator:v123",
 			getConfigWithShas("sha256:api", "sha256:controller", "", "", ""),
 			getConfig("kubevirt", "v123"),
-			false),
+			false, false),
 	)
 
 	Describe("Config json from env var", func() {

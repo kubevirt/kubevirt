@@ -19,8 +19,8 @@
 
 set -e
 
-if [ "$push_log_file" = "$trash_push_log_file" ]; then
-    # nothing to do
+if [[ -z "$push_log_file" ]]; then
+    echo "PUSH_LOG_FILE is empty: won't use shasums, falling back to tags"
     return
 fi
 

@@ -51,7 +51,10 @@ const (
 	TargetDeploymentConfig = "TARGET_DEPLOYMENT_CONFIG"
 
 	// these names need to match field names from KubeVirt Spec if they are set from there
-	ADDITIONAL_PROPERTIES_NAME_PULLPOLICY = "ImagePullPolicy"
+	AdditionalPropertiesNamePullPolicy = "ImagePullPolicy"
+
+	// the regex used to parse the operator image
+	operatorImageRegex = "^(.*)/virt-operator([@:].*)?$"
 )
 
 type KubeVirtDeploymentConfig struct {
@@ -99,7 +102,7 @@ func GetConfigFromEnv() (*KubeVirtDeploymentConfig, error) {
 
 	pullPolicy := os.Getenv(TargetImagePullPolicy)
 	additionalProperties := make(map[string]string)
-	additionalProperties[ADDITIONAL_PROPERTIES_NAME_PULLPOLICY] = pullPolicy
+	additionalProperties[AdditionalPropertiesNamePullPolicy] = pullPolicy
 	return getConfig("", "", ns, additionalProperties), nil
 
 }
@@ -133,7 +136,7 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 
 	// get registry and tag/shasum from operator image
 	imageString := os.Getenv(OperatorImageEnvName)
-	imageRegEx := regexp.MustCompile(`^(.*)/virt-operator([@:].*)?$`)
+	imageRegEx := regexp.MustCompile(operatorImageRegex)
 	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
 
 	tagFromOperator := ""
@@ -183,6 +186,35 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	}
 
 	return config
+}
+
+func VerifyEnv() error {
+	// ensure the operator image is valid
+	imageString := os.Getenv(OperatorImageEnvName)
+	if imageString == "" {
+		return fmt.Errorf("empty env var %s for operator image", OperatorImageEnvName)
+	}
+	imageRegEx := regexp.MustCompile(operatorImageRegex)
+	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
+	if len(matches) != 1 || len(matches[0]) != 3 {
+		return fmt.Errorf("can not parse operator image env var %s", imageString)
+	}
+
+	// ensure that all or no shasums are given
+	missingShas := make([]string, 0)
+	count := 0
+	for _, name := range []string{VirtApiShasumEnvName, VirtControllerShasumEnvName, VirtHandlerShasumEnvName, VirtLauncherShasumEnvName, KubeVirtVersionEnvName} {
+		count++
+		sha := os.Getenv(name)
+		if sha == "" {
+			missingShas = append(missingShas, name)
+		}
+	}
+	if len(missingShas) > 0 && len(missingShas) < count {
+		return fmt.Errorf("incomplete configuration, missing env vars %v", missingShas)
+	}
+
+	return nil
 }
 
 func newDeploymentConfigWithTag(registry, tag, namespace string, kvSpec map[string]string) *KubeVirtDeploymentConfig {
@@ -278,7 +310,7 @@ func (c *KubeVirtDeploymentConfig) SetObservedDeploymentConfig(kv *v1.KubeVirt) 
 }
 
 func (c *KubeVirtDeploymentConfig) GetImagePullPolicy() k8sv1.PullPolicy {
-	p := c.AdditionalProperties[ADDITIONAL_PROPERTIES_NAME_PULLPOLICY]
+	p := c.AdditionalProperties[AdditionalPropertiesNamePullPolicy]
 	if p != "" {
 		return k8sv1.PullPolicy(p)
 	}
