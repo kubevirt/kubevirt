@@ -50,6 +50,7 @@ http_file(
     sha256 = "f9c70f8f45af8623f85c06e2a84b0c37c5ec30764d1bccc381d43b01436dce1c",
     urls = [
         "https://copr-be.cloud.fedoraproject.org/results/%40virtmaint-sig/for-kubevirt/fedora-30-x86_64/00967888-libvirt/libvirt-libs-5.0.0-1.fc30.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/f9c70f8f45af8623f85c06e2a84b0c37c5ec30764d1bccc381d43b01436dce1c",
     ],
 )
 
@@ -58,6 +59,7 @@ http_file(
     sha256 = "7d8e7a2d92fc3b5d8d660637683f16475779a036466484b93a0bb6a54b256027",
     urls = [
         "https://copr-be.cloud.fedoraproject.org/results/%40virtmaint-sig/for-kubevirt/fedora-30-x86_64/00967888-libvirt/libvirt-devel-5.0.0-1.fc30.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/7d8e7a2d92fc3b5d8d660637683f16475779a036466484b93a0bb6a54b256027",
     ],
 )
 
