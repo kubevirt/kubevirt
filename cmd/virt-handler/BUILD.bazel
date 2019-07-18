@@ -67,4 +67,5 @@ container_image(
     entrypoint = ["/usr/bin/virt-handler"],
     files = [":virt-handler"],
     visibility = ["//visibility:public"],
+    stamp = True,
 )

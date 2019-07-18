@@ -81,4 +81,5 @@ container_image(
         ":virt-launcher-tar",
     ],
     visibility = ["//visibility:public"],
+    stamp = True,
 )

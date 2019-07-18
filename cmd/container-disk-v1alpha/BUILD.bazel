@@ -22,6 +22,7 @@ container_image(
     entrypoint = ["/entry-point.sh"],
     files = ["entry-point.sh"],
     visibility = ["//visibility:public"],
+    stamp = True,
 )
 
 genrule(

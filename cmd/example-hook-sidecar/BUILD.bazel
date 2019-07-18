@@ -36,4 +36,5 @@ container_image(
     entrypoint = ["/example-hook-sidecar"],
     files = [":example-hook-sidecar"],
     visibility = ["//visibility:public"],
+    stamp = True,
 )

@@ -30,4 +30,5 @@ container_image(
     files = [":subresource-access-test"],
     user = "1001",
     visibility = ["//visibility:public"],
+    stamp = True,
 )

@@ -16,4 +16,5 @@ container_image(
         "@com_github_packer_community_winrmcp//:winrmcp",
     ],
     visibility = ["//visibility:public"],
+    stamp = True,
 )

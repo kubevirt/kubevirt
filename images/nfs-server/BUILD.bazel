@@ -19,4 +19,5 @@ container_image(
         "32767/tcp",
     ],
     visibility = ["//visibility:public"],
+    stamp = True,
 )

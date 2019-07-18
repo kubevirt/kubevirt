@@ -42,4 +42,5 @@ container_image(
     files = [":virt-controller"],
     user = "1001",
     visibility = ["//visibility:public"],
+    stamp = True,
 )

@@ -34,4 +34,5 @@ container_image(
     entrypoint = ["/example-cloudinit-hook-sidecar"],
     files = [":example-cloudinit-hook-sidecar"],
     visibility = ["//visibility:public"],
+    stamp = True,
 )

@@ -39,4 +39,5 @@ container_image(
     files = [":virt-operator"],
     user = "1001",
     visibility = ["//visibility:public"],
+    stamp = True,
 )

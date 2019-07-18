@@ -74,4 +74,5 @@ container_image(
         ":nginx-config-tar",
     ],
     visibility = ["//visibility:public"],
+    stamp = True,
 )

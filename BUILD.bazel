@@ -160,6 +160,7 @@ container_image(
     tars = [":passwd-tar"],
     user = "1001",
     visibility = ["//visibility:public"],
+    stamp = True,
 )
 
 load(

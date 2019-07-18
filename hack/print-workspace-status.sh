@@ -21,6 +21,9 @@ set -o nounset
 set -o pipefail
 
 export KUBEVIRT_DIR=$(dirname "${BASH_SOURCE}")/..
+export BUILD_TIMESTAMP=$(date \
+    ${SOURCE_DATE_EPOCH:+"--date=@${SOURCE_DATE_EPOCH}"} \
+    -u +'%Y-%m-%dT%H:%M:%SZ')
 
 source "${KUBEVIRT_DIR}/hack/version.sh"
 kubevirt::version::get_version_vars

@@ -44,4 +44,5 @@ container_image(
     files = [":virt-api"],
     user = "1001",
     visibility = ["//visibility:public"],
+    stamp = True,
 )
