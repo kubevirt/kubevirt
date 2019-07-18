@@ -50,10 +50,10 @@ var (
 
 	// higher-level, telemetry-friendly metrics
 	vmiCountDesc = prometheus.NewDesc(
-		"kubevirt_vmi_status_count",
-		"VMI status.",
+		"kubevirt_vmi_phase_count",
+		"VMI phase.",
 		[]string{
-			"node", "status",
+			"node", "phase",
 		},
 		nil,
 	)
@@ -376,17 +376,17 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 }
 
 func updateTelemetry(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
-	statusMap := make(map[string]uint64)
+	phasesMap := make(map[string]uint64)
 
 	for _, vmi := range vmis {
-		statusMap[strings.ToLower(string(vmi.Status.Phase))] += 1
+		phasesMap[strings.ToLower(string(vmi.Status.Phase))] += 1
 	}
 
-	for status, count := range statusMap {
+	for phase, count := range phasesMap {
 		mv, err := prometheus.NewConstMetric(
 			vmiCountDesc, prometheus.GaugeValue,
 			float64(count),
-			nodeName, status,
+			nodeName, phase,
 		)
 		if err != nil {
 			continue

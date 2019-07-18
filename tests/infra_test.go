@@ -313,7 +313,7 @@ var _ = Describe("Infrastructure", func() {
 			keys := getKeysFromMetrics(metrics)
 
 			for _, key := range keys {
-				if strings.Contains(key, "running") {
+				if strings.Contains(key, "phase=\"running\"") {
 					value := metrics[key]
 					Expect(value).To(BeNumerically("==", float64(1.0)))
 				}
