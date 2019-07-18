@@ -11,12 +11,13 @@ sometimes referred to as a "meta operator" or an "operator for operators".
 Most importantly, this operator doesn't replace or interfere with OLM.
 It only creates operator CRs, which is the user's prerogative.
 
-## Using the HCO without OLM
-
-Run the following script to apply the HCO operator:
+## Installing HCO Community Operator (OpenShift Only)
+The Hyperconverged Cluster Operator is published as a Community Operator in
+Operatorhub.io.  In the UI, you can search for it under the "OperatorHub"
+tab or deploy from the commandline:
 
 ```bash
-$ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/deploy.sh | bash
+$ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/hco.yaml | kubectl create -f -
 ```
 
 ## Installing Unreleased Bundles Using Marketplace
@@ -25,7 +26,20 @@ before publishing to operatorhub.io.
 
 Make the unreleased bundles available in Marketplace by adding the app registry:
 ```bash
+# Remove the hco-bundle from the community-operators sources
+$ kubectl get operatorsource -n openshift-marketplace community-operators -o yaml | sed "s/hco-operatorhub,//" | kubectl apply -f -
+$ kubectl get catalogsourceconfig -n openshift-marketplace community-operators  -o yaml | sed "s/hco-operatorhub,//" | sed "s/hco-operatorhub\:*,//" | kubectl apply -f -
+
+# Add the unreleases bundle source
 $ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/tools/quay-registry.sh | bash -s $QUAY_USERNAME $QUAY_PASSWORD
+```
+
+## Using the HCO without OLM or Marketplace
+
+Run the following script to apply the HCO operator:
+
+```bash
+$ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/deploy.sh | bash
 ```
 
 ## Launching the HCO through OLM
