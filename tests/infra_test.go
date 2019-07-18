@@ -232,12 +232,12 @@ var _ = Describe("Infrastructure", func() {
 			lines := takeMetricsWithPrefix(out, "kubevirt")
 			metrics, err := parseMetricsToMap(lines)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(metrics).To(HaveKey(ContainSubstring("kubevirt_vm_storage_")))
+			Expect(metrics).To(HaveKey(ContainSubstring("kubevirt_vmi_storage_")))
 
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
-				if strings.HasPrefix(key, "kubevirt_vm_storage_") && strings.Contains(key, "vdb") {
+				if strings.HasPrefix(key, "kubevirt_vmi_storage_") && strings.Contains(key, "vdb") {
 					value := metrics[key]
 					Expect(value).To(BeNumerically(">", float64(0.0)))
 				}
@@ -271,12 +271,12 @@ var _ = Describe("Infrastructure", func() {
 			lines := takeMetricsWithPrefix(out, "kubevirt")
 			metrics, err := parseMetricsToMap(lines)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(metrics).To(HaveKey(ContainSubstring("kubevirt_vm_network_")))
+			Expect(metrics).To(HaveKey(ContainSubstring("kubevirt_vmi_network_")))
 
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
-				if strings.HasPrefix(key, "kubevirt_vm_network_") {
+				if strings.HasPrefix(key, "kubevirt_vmi_network_") {
 					value := metrics[key]
 					Expect(value).To(BeNumerically(">=", float64(0.0)))
 				}
@@ -284,7 +284,7 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include the memory metrics for a running VM", func() {
-			_, _, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vm_memory_")
+			_, _, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vmi_memory_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -295,7 +295,7 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include VMI infos for a running VM", func() {
-			vmis, nodeName, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vm_")
+			vmis, nodeName, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vmi_")
 			Expect(vmis).To(HaveLen(1))
 
 			vmi := vmis[0]
