@@ -91,6 +91,12 @@ deploy:
   script: bash hack/gen-client-python/deploy.sh
   on:
     branch: master
+- provider: script
+  skip_cleanup: true
+  script: hack/publish-staging.sh
+  on:
+    tags: true
+    branch: master
 
 env:
   global:
