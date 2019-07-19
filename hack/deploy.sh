@@ -57,4 +57,4 @@ fi
 "${CMD}" create -f deploy/crds/hco.cr.yaml
 
 # Wait for all the operators to be ready
-"${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=available
+"${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=available --timeout="450s"
