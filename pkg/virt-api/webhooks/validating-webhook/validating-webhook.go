@@ -26,6 +26,7 @@ import (
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
@@ -76,8 +77,8 @@ func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, &admitters.VMIUpdateAdmitter{})
 }
 
-func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
-	serve(resp, req, &admitters.VMsAdmitter{ClusterConfig: clusterConfig})
+func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli))
 }
 
 func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {

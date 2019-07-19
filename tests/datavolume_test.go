@@ -20,6 +20,8 @@
 package tests_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -28,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -471,4 +474,147 @@ var _ = Describe("DataVolume Integration", func() {
 		})
 	})
 
+	Describe("DataVolume clone permission checking", func() {
+		Context("using Alpine import/clone", func() {
+			var dataVolume *cdiv1.DataVolume
+			var createdVirtualMachine *v1.VirtualMachine
+			var cloneRole *rbacv1.Role
+			var cloneRoleBinding *rbacv1.RoleBinding
+
+			serviceAccount := fmt.Sprintf("system:serviceaccount:%s:%s", tests.NamespaceTestDefault, tests.AdminServiceAccountName)
+
+			BeforeEach(func() {
+				var err error
+				dv := tests.NewRandomDataVolumeWithHttpImport(tests.AlpineHttpUrl, tests.NamespaceTestAlternative, k8sv1.ReadWriteOnce)
+				dataVolume, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					dataVolume, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Get(dataVolume.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(dataVolume.Status.Phase).ToNot(Equal(cdiv1.Failed))
+					return dataVolume.Status.Phase == cdiv1.Succeeded
+				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+			})
+
+			AfterEach(func() {
+				if cloneRole != nil {
+					err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(cloneRole.Name, &metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				if cloneRoleBinding != nil {
+					err := virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(cloneRoleBinding.Name, &metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				if createdVirtualMachine != nil {
+					err := virtClient.VirtualMachine(createdVirtualMachine.Namespace).Delete(createdVirtualMachine.Name, &metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				if dataVolume != nil {
+					err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
+
+			It("deny then allow clone request", func() {
+				vm := tests.NewRandomVMWithCloneDataVolume(dataVolume.Namespace, dataVolume.Name, tests.NamespaceTestDefault)
+
+				vmBytes, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+				byteReader := bytes.NewReader(vmBytes)
+
+				// this should fail because don't have permission
+				stdOut, stdErr, err := tests.RunCommandWithNSAndInput(vm.Namespace, byteReader, "kubectl", "create", "--as", serviceAccount, "-f", "-")
+				if err == nil {
+					fmt.Printf("command should have failed\nstdOut\n%s\nstdErr\n%s\n", stdOut, stdErr)
+					Expect(err).To(HaveOccurred())
+				}
+				Expect(stdErr).Should(ContainSubstring("Authorization failed, message is:"))
+
+				// add permission
+				cloneRole, cloneRoleBinding = addClonePermission(virtClient, tests.AdminServiceAccountName, tests.NamespaceTestDefault, tests.NamespaceTestAlternative)
+
+				// sometimes it takes a bit for permission to actually be applied so eventually
+				Eventually(func() bool {
+					byteReader = bytes.NewReader(vmBytes)
+					stdOut, stdErr, err = tests.RunCommandWithNSAndInput(vm.Namespace, byteReader, "kubectl", "create", "--as", serviceAccount, "-f", "-")
+					if err != nil {
+						fmt.Printf("command should have succeeded maybe new permissions not applied yet\nstdOut\n%s\nstdErr\n%s\n", stdOut, stdErr)
+						return false
+					}
+					return true
+				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+
+				createdVirtualMachine = vm
+
+				// wait for clone to complete
+				targetDVName := vm.Spec.DataVolumeTemplates[0].Name
+				Eventually(func() bool {
+					dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(createdVirtualMachine.Namespace).Get(targetDVName, metav1.GetOptions{})
+					if err != nil && errors.IsNotFound(err) {
+						return false
+					}
+					Expect(err).ToNot(HaveOccurred())
+					return dv.Status.Phase == cdiv1.Succeeded
+				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+
+				// start/stop vm
+				createdVirtualMachine = tests.StartVirtualMachine(createdVirtualMachine)
+				createdVirtualMachine = tests.StopVirtualMachine(createdVirtualMachine)
+			})
+		})
+	})
 })
+
+func addClonePermission(client kubecli.KubevirtClient, sa, saNamespace, targetNamesace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
+	var err error
+	resourceName := sa + "-cloner"
+
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: resourceName,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					"cdi.kubevirt.io",
+				},
+				Resources: []string{
+					"datavolumes/source",
+				},
+				Verbs: []string{
+					"create",
+				},
+			},
+		},
+	}
+
+	role, err = client.RbacV1().Roles(targetNamesace).Create(role)
+	Expect(err).ToNot(HaveOccurred())
+
+	rb := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: resourceName,
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "Role",
+			Name:     resourceName,
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      sa,
+				Namespace: saNamespace,
+			},
+		},
+	}
+
+	rb, err = client.RbacV1().RoleBindings(targetNamesace).Create(rb)
+	Expect(err).ToNot(HaveOccurred())
+
+	return role, rb
+}

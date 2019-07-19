@@ -1456,6 +1456,44 @@ func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string, access
 	return dataVolume
 }
 
+func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+
+	name := "test-datavolume-" + rand.String(12)
+	storageClass := Config.StorageClassLocal
+	quantity, err := resource.ParseQuantity("1Gi")
+	PanicOnError(err)
+	dataVolume := &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: targetNamespace,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: cdiv1.DataVolumeSource{
+				PVC: &cdiv1.DataVolumeSourcePVC{
+					Namespace: sourceNamespace,
+					Name:      sourceName,
+				},
+			},
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						"storage": quantity,
+					},
+				},
+				StorageClassName: &storageClass,
+			},
+		},
+	}
+
+	dataVolume.TypeMeta = metav1.TypeMeta{
+		APIVersion: "cdi.kubevirt.io/v1alpha1",
+		Kind:       "DataVolume",
+	}
+
+	return dataVolume
+}
+
 func NewRandomVMI() *v1.VirtualMachineInstance {
 	return NewRandomVMIWithNS(NamespaceTestDefault)
 }
@@ -1515,6 +1553,16 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
 	dataVolume := NewRandomDataVolumeWithHttpImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+	vm := NewRandomVirtualMachine(vmi, false)
+
+	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
+	return vm
+}
+
+func NewRandomVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace string) *v1.VirtualMachine {
+	dataVolume := NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace, k8sv1.ReadWriteOnce)
+	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+	vmi.Namespace = targetNamespace
 	vm := NewRandomVirtualMachine(vmi, false)
 
 	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
@@ -2663,6 +2711,10 @@ func RunCommand(cmdName string, args ...string) (string, string, error) {
 }
 
 func RunCommandWithNS(namespace string, cmdName string, args ...string) (string, string, error) {
+	return RunCommandWithNSAndInput(namespace, nil, cmdName, args...)
+}
+
+func RunCommandWithNSAndInput(namespace string, input io.Reader, cmdName string, args ...string) (string, string, error) {
 	commandString, cmd, err := CreateCommandWithNS(namespace, cmdName, args...)
 	if err != nil {
 		return "", "", err
@@ -2676,7 +2728,7 @@ func RunCommandWithNS(namespace string, cmdName string, args ...string) (string,
 		return trimNullChars(output), trimNullChars(stderr)
 	}
 
-	cmd.Stdout, cmd.Stderr = &output, &stderr
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = input, &output, &stderr
 
 	if err := cmd.Run(); err != nil {
 		outputString, stderrString := captureOutputBuffers()
@@ -2726,7 +2778,7 @@ func CreateCommandWithNS(namespace string, cmdName string, args ...string) (stri
 		args = append(args, "--server", master.String())
 	}
 	if namespace != "" {
-		args = append(args, "-n", namespace)
+		args = append([]string{"-n", namespace}, args...)
 	}
 
 	cmd := exec.Command(cmdPath, args...)
