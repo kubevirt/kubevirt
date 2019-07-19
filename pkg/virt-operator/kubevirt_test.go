@@ -697,10 +697,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewApiServerService(NAMESPACE))
 		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 		apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-		injectVersionAnnotation(apiDeploymentPdb, config.GetApiVersion(), config.GetImageRegistry())
 		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 		controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
-		injectVersionAnnotation(controllerPdb, config.GetApiVersion(), config.GetImageRegistry())
 		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
@@ -1975,15 +1973,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		}, 15)
 	})
 })
-
-func injectVersionAnnotation(budget *policyv1beta1.PodDisruptionBudget, version string, registry string) {
-	objectMeta := &budget.ObjectMeta
-	if objectMeta.Annotations == nil {
-		objectMeta.Annotations = make(map[string]string)
-	}
-	objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = version
-	objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = registry
-}
 
 func now() *metav1.Time {
 	now := metav1.Now()
