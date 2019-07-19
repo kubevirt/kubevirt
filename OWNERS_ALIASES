@@ -21,6 +21,7 @@ aliases:
       - SchSeba
       - mfranczy
       - dhiller
+      - pkotas
   ux-reviewers:
       - matthewcarleton
   test-reviewers:
