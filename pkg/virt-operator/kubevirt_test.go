@@ -1528,16 +1528,14 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
 			Expect(len(kv.Status.Conditions)).To(Equal(0))
 
-			// 3, 2 because waiting on controller and virt-handler daemonset until API server deploys successfully
-			// 	and
-			// 1 because uncreated PDB for virt-controller
+			// 3 in total are yet missing at this point
+			// because waiting on controller, controller's PDB and virt-handler daemonset until API server deploys successfully
 			expectedUncreatedResources := 3
 
 			// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
 			expectedTemporaryResources := 1
 
 			Expect(totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
-			//+ expectedPDBsCreated))
 
 			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))

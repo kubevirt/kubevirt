@@ -3931,16 +3931,6 @@ func EncodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 	return privatePEM
 }
 
-func SkipIfSchedulableNodesLessThan(minRequiredNumberOfSchedulableNodes int) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-	nodes := GetAllSchedulableNodes(virtCli).Items
-	numberOfSchedulableNodes := len(nodes)
-	if numberOfSchedulableNodes < minRequiredNumberOfSchedulableNodes {
-		Skip(fmt.Sprintf("Skipping test requiring at least %d schedulable nodes (was %d)", minRequiredNumberOfSchedulableNodes, numberOfSchedulableNodes))
-	}
-}
-
 func PodReady(pod *k8sv1.Pod) k8sv1.ConditionStatus {
 	for _, cond := range pod.Status.Conditions {
 		if cond.Type == k8sv1.PodReady {

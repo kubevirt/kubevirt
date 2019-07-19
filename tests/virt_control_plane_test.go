@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	DefaultStabilizationTimeoutInSeconds = 180
+	DefaultStabilizationTimeoutInSeconds = 300
 	DefaultPollIntervalInSeconds         = 3
 	labelKey                             = "control-plane-test"
 	labelValue                           = "selected"
@@ -152,7 +152,6 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 
 	BeforeEach(func() {
 		tests.SkipIfNoCmd("kubectl")
-		tests.SkipIfSchedulableNodesLessThan(1)
 		tests.BeforeTestCleanup()
 
 		virtCli, err := kubecli.GetKubevirtClient()
