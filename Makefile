@@ -19,10 +19,13 @@ start:
 hack-clean: ## Run ./hack/clean.sh
 	./hack/clean.sh
 
-docker-build: docker-build-operator
+docker-build: docker-build-operator docker-build-operator-courier
 
 docker-build-operator:
 	docker build -f build/Dockerfile -t $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG) .
+
+docker-build-operator-courier:
+	docker build -f hack/operator-courier/Dockerfile -t hco-courier .
 
 docker-push: docker-push-operator
 
@@ -59,7 +62,7 @@ help: ## Show this help screen
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ''
 
-test-unit: 
+test-unit:
 	./hack/unit-test.sh
 
 test: test-unit

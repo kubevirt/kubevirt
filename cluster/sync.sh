@@ -7,7 +7,7 @@ registry=localhost:$registry_port
 rm -rf _out/
 
 # Copy release manifests as a base for generated ones, this should make it possible to upgrade
-cp -r deploy/standard _out/
+cp -r deploy _out/
 
 # Sed from docker.io to local registry
 sed -i "s/image: quay\.io\/kubevirt\/hyperconverged-cluster-operator:latest/image: registry:5000\/kubevirt\/hyperconverged-cluster-operator:latest/g" _out/operator.yaml

@@ -54,7 +54,7 @@ fi
 "${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-cr.yaml
 
 # Create an HCO CustomResource
-"${CMD}" create -f deploy/standard/crds/hco.cr.yaml
+"${CMD}" create -f deploy/crds/hco.cr.yaml
 
 # Wait for all the operators to be ready
 "${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=available

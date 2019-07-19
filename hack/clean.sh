@@ -20,10 +20,10 @@
 source hack/common.sh
 
 # Remove HCO
-"${CMD}" delete -f deploy/standard/crds/hco.cr.yaml --wait=false --ignore-not-found || true
+"${CMD}" delete -f deploy/crds/hco.cr.yaml --wait=false --ignore-not-found || true
 "${CMD}" wait --for=delete hyperconverged.hco.kubevirt.io/hyperconverged-cluster || true
-"${CMD}" delete -f deploy/standard/crds/hco.crd.yaml --wait=false --ignore-not-found || true
-"${CMD}" delete -f deploy/standard/ --ignore-not-found || true
+"${CMD}" delete -f deploy/crds/hco.crd.yaml --wait=false --ignore-not-found || true
+"${CMD}" delete -f deploy/ --ignore-not-found || true
 "${CMD}" delete ns kubevirt-hyperconverged --ignore-not-found || true
 
 # Delete kubevirt-operator
