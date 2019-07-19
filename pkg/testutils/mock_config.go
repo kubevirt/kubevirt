@@ -16,15 +16,15 @@ const (
 )
 
 func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer) {
-	informer, _ := NewFakeInformerFor(&v1.ConfigMap{})
+	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
 	crdInformer, _ := NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
 
 	copy := copy(cfgMap)
-	informer.GetStore().Add(copy)
+	configMapInformer.GetStore().Add(copy)
 
 	AddDataVolumeAPI(crdInformer)
 
-	return virtconfig.NewClusterConfig(informer, crdInformer, namespace), informer, crdInformer
+	return virtconfig.NewClusterConfig(configMapInformer, crdInformer, namespace), configMapInformer, crdInformer
 }
 
 func RemoveDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
@@ -41,9 +41,9 @@ func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 	})
 }
 
-func UpdateFakeClusterConfig(informer cache.SharedIndexInformer, cfgMap *v1.ConfigMap) {
+func UpdateFakeClusterConfig(configMapInformer cache.SharedIndexInformer, cfgMap *v1.ConfigMap) {
 	copy := copy(cfgMap)
-	informer.GetStore().Update(copy)
+	configMapInformer.GetStore().Update(copy)
 }
 
 func copy(cfgMap *v1.ConfigMap) *v1.ConfigMap {
