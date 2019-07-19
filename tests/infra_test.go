@@ -301,9 +301,11 @@ var _ = Describe("Infrastructure", func() {
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
 				// we don't care about the ordering of the labels
-				Expect(key).To(ContainSubstring(fmt.Sprintf("node=\"%s\"", nodeName)))
-				Expect(key).To(ContainSubstring(fmt.Sprintf("namespace=\"%s\"", vmi.Namespace)))
-				Expect(key).To(ContainSubstring(fmt.Sprintf("name=\"%s\"", vmi.Name)))
+				Expect(key).To(SatisfyAll(
+					ContainSubstring("node=\"%s\"", nodeName),
+					ContainSubstring("namespace=\"%s\"", vmi.Namespace),
+					ContainSubstring("name=\"%s\"", vmi.Name),
+				))
 			}
 		}, 300)
 
@@ -315,7 +317,7 @@ var _ = Describe("Infrastructure", func() {
 			for _, key := range keys {
 				if strings.Contains(key, "phase=\"running\"") {
 					value := metrics[key]
-					Expect(value).To(BeNumerically("==", float64(1.0)))
+					Expect(value).To(Equal(float64(1.0)))
 				}
 			}
 		}, 300)
@@ -467,7 +469,7 @@ func newRandomVMIWithMetrics(virtClient kubecli.KubevirtClient, metricPrefix str
 	// troubleshooting helper
 	fmt.Fprintf(GinkgoWriter, "metrics [%s]:\nlines=%s\n%#v\n", metricPrefix, lines, metrics)
 	Expect(len(metrics)).To(BeNumerically(">=", float64(1.0)))
-	Expect(len(metrics)).To(Equal(len(lines)))
+	Expect(metrics).To(HaveLen(len(lines)))
 
 	return vmi, nodeName, obj, metrics
 }
