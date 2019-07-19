@@ -39,7 +39,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -285,7 +284,7 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include the memory metrics for a running VM", func() {
-			_, _, _, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vm_memory_")
+			_, _, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vm_memory_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -296,11 +295,15 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include VMI infos for a running VM", func() {
-			vmi, nodeName, _, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vm_")
+			vmis, nodeName, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vm_")
+			Expect(vmis).To(HaveLen(1))
+
+			vmi := vmis[0]
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
 				// we don't care about the ordering of the labels
+				// TODO: vmi.Status.NodeName is "" sometimes. Are we faster than the update?
 				Expect(key).To(SatisfyAll(
 					ContainSubstring(`node="%s"`, nodeName),
 					ContainSubstring(`namespace="%s"`, vmi.Namespace),
@@ -309,15 +312,16 @@ var _ = Describe("Infrastructure", func() {
 			}
 		}, 300)
 
-		It("should include VMI telemetry for a running VM", func() {
-			_, _, _, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vmi_")
+		It("should include VMI phase metrics for few running VMs", func() {
+			count := 2 // careful here if increasing the number: CI is resource-constrained
+			_, _, metrics := newRandomVMIsWithMetrics(count, "", virtClient, "kubevirt_vmi_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 
 			for _, key := range keys {
 				if strings.Contains(key, `phase="running"`) {
 					value := metrics[key]
-					Expect(value).To(Equal(float64(1.0)))
+					Expect(value).To(Equal(float64(count)))
 				}
 			}
 		}, 300)
@@ -439,19 +443,43 @@ func takeMetricsWithPrefix(output, prefix string) []string {
 	return ret
 }
 
-func newRandomVMIWithMetrics(virtClient kubecli.KubevirtClient, metricPrefix string) (*v1.VirtualMachineInstance, string, runtime.Object, map[string]float64) {
-	By("Creating the VirtualMachineInstance")
-	vmi := tests.NewRandomVMI()
+// shortcut helper
+func newRandomVMIWithMetrics(virtClient kubecli.KubevirtClient, metricSubstring string) ([]*v1.VirtualMachineInstance, string, map[string]float64) {
+	return newRandomVMIsWithMetrics(1, "", virtClient, metricSubstring)
+}
 
-	By("Starting a new VirtualMachineInstance")
-	obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
-	Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+func newRandomVMIsWithMetrics(count int, preferredNodeName string, virtClient kubecli.KubevirtClient, metricSubstring string) ([]*v1.VirtualMachineInstance, string, map[string]float64) {
+	var vmis []*v1.VirtualMachineInstance
+	var nodeName string
 
-	By("Waiting until the VM is ready")
-	nodeName := tests.WaitForSuccessfulVMIStart(obj)
+	for ix := 0; ix < count; ix++ {
+		By(fmt.Sprintf("Creating the VirtualMachineInstance #%d", ix))
+		vmi := tests.NewRandomVMI()
+		if preferredNodeName != "" {
+			if vmi.Spec.NodeSelector == nil {
+				vmi.Spec.NodeSelector = make(map[string]string)
+			}
+			vmi.Spec.NodeSelector["kubernetes.io/hostname"] = preferredNodeName
+		}
+
+		By(fmt.Sprintf("Starting a new VirtualMachineInstance #%d", ix))
+		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+		Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+		By(fmt.Sprintf("Waiting until the VirtualMachineInstance #%d is ready", ix))
+		nodeName = tests.WaitForSuccessfulVMIStart(obj)
+		if preferredNodeName != "" {
+			Expect(nodeName).To(Equal(preferredNodeName))
+		} else {
+			// no preferred node specified, but we want to put all the instances on the same node. So stick on the first we got.
+			preferredNodeName = nodeName
+		}
+
+		vmis = append(vmis, vmi)
+	}
 
 	By("Finding the prometheus endpoint")
-	pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+	pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(preferredNodeName).Pod()
 	Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 
 	By("Scraping the Prometheus endpoint")
@@ -460,18 +488,18 @@ func newRandomVMIWithMetrics(virtClient kubecli.KubevirtClient, metricPrefix str
 
 	Eventually(func() map[string]float64 {
 		out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
-		lines = takeMetricsWithPrefix(out, metricPrefix)
+		lines = takeMetricsWithPrefix(out, metricSubstring)
 		metrics, err = parseMetricsToMap(lines)
 		Expect(err).ToNot(HaveOccurred())
 		return metrics
-	}, 30*time.Second, 2*time.Second).Should(HaveKey(ContainSubstring(metricPrefix)))
+	}, 30*time.Second, 2*time.Second).Should(HaveKey(ContainSubstring(metricSubstring)))
 
 	// troubleshooting helper
-	fmt.Fprintf(GinkgoWriter, "metrics [%s]:\nlines=%s\n%#v\n", metricPrefix, lines, metrics)
+	fmt.Fprintf(GinkgoWriter, "metrics [%s]:\nlines=%s\n%#v\n", metricSubstring, lines, metrics)
 	Expect(len(metrics)).To(BeNumerically(">=", float64(1.0)))
 	Expect(metrics).To(HaveLen(len(lines)))
 
-	return vmi, nodeName, obj, metrics
+	return vmis, nodeName, metrics
 }
 
 func getKeysFromMetrics(metrics map[string]float64) []string {
