@@ -98,6 +98,8 @@ var KubeVirtVirtctlPath = ""
 var KubeVirtInstallNamespace string
 var PreviousReleaseTag = ""
 var PreviousReleaseRegistry = ""
+var ConfigFile = ""
+var Config *KubeVirtTestsConfiguration
 
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
@@ -117,7 +119,7 @@ func init() {
 	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
 	flag.StringVar(&PreviousReleaseTag, "previous-release-tag", "", "Set tag of the release to test updating from")
 	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "", "Set registry of the release to test updating from")
-
+	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 }
 
 func FlagParse() {
@@ -608,7 +610,9 @@ func BeforeTestSuitSetup() {
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 
-	Config = loadConfig()
+	var err error
+	Config, err = loadConfig()
+	Expect(err).ToNot(HaveOccurred())
 
 	createNamespaces()
 	createServiceAccounts()
