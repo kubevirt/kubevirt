@@ -96,6 +96,10 @@ deploy:
   script: hack/publish-staging.sh
   on:
     tags: true
+- provider: script
+  skip_cleanup: true
+  script: hack/publish-staging.sh
+  on:
     branch: master
 
 env:
