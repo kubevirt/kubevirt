@@ -6,6 +6,7 @@ NODE_CMD="docker exec -it -d "
 export KIND_MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/kind/manifests"
 export KIND_NODE_CLI="docker exec -it "
 export KUBEVIRTCI_PATH
+export KUBEVIRT_NUM_NODES
 
 function _wait_kind_up {
     echo "Waiting for kind to be ready ..."  
