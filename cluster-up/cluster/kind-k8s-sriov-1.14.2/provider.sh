@@ -4,7 +4,6 @@ set -e
 
 export CLUSTER_NAME="sriov"
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
-export KUBEVIRTCI_PATH
 
 
 function up() {
