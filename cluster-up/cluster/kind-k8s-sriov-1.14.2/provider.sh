@@ -4,6 +4,8 @@ set -e
 
 export CLUSTER_NAME="sriov"
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
+export KUBEVIRTCI_PATH
+
 
 function up() {
     cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
