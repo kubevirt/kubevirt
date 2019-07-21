@@ -121,7 +121,7 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 	}()
 
 	go func() {
-		_, err := io.Copy(wsReadWriter, outReader)
+		_, err := kubecli.Copy(wsReadWriter, outReader)
 		log.Log.Object(vmi).Reason(err).Error("error ecountered reading from remote podExec stream")
 		copyErr <- err
 	}()

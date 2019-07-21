@@ -40,6 +40,7 @@ import (
 
 const (
 	WebsocketMessageBufferSize = 10240
+	wsFrameHeaderSize          = 2 + 8 + 4 // Fixed header + length + mask (RFC 6455)
 )
 
 func (k *kubevirt) VirtualMachineInstance(namespace string) VirtualMachineInstanceInterface {
@@ -62,38 +63,25 @@ type vmis struct {
 	kubeconfig string
 }
 
+func Copy(dst *BinaryReadWriter, src io.Reader) (written int64, err error) {
+	// our websocket package has an issue where it truncates messages
+	// when the message+header is greater than the buffer size we allocate.
+	// thus, we copy in chunks of WebsocketMessageBufferSize-wsFrameHeaderSize
+	buf := make([]byte, WebsocketMessageBufferSize-wsFrameHeaderSize)
+	return io.CopyBuffer(dst, src, buf)
+}
+
 type BinaryReadWriter struct {
 	Conn *websocket.Conn
 }
 
 func (s *BinaryReadWriter) Write(p []byte) (int, error) {
-	wsFrameHeaderSize := 2 + 8 + 4 // Fixed header + length + mask (RFC 6455)
-	// our websocket package has an issue where it truncates messages
-	// when the message+header is greater than the buffer size we allocate.
-	// because of this, we have to chunk messages
-	chunkSize := WebsocketMessageBufferSize - wsFrameHeaderSize
-	bytesWritten := 0
-
-	for i := 0; i < len(p); i += chunkSize {
-		w, err := s.Conn.NextWriter(websocket.BinaryMessage)
-		if err != nil {
-			return bytesWritten, s.err(err)
-		}
-		defer w.Close()
-
-		end := i + chunkSize
-		if end > len(p) {
-			end = len(p)
-		}
-		n, err := w.Write(p[i:end])
-		if err != nil {
-			return bytesWritten, err
-		}
-
-		bytesWritten = n + bytesWritten
+	w, err := s.Conn.NextWriter(websocket.BinaryMessage)
+	if err != nil {
+		return 0, s.err(err)
 	}
-	return bytesWritten, nil
-
+	defer w.Close()
+	return w.Write(p)
 }
 
 func (s *BinaryReadWriter) Read(p []byte) (int, error) {
@@ -230,7 +218,7 @@ func (ws *wsStreamer) Stream(options StreamOptions) error {
 	copyErr := make(chan error, 1)
 
 	go func() {
-		_, err := io.Copy(wsReadWriter, options.In)
+		_, err := Copy(wsReadWriter, options.In)
 		copyErr <- err
 	}()
 
