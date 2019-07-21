@@ -22,7 +22,6 @@ package kubecli
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -36,11 +35,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/subresources"
-)
-
-const (
-	WebsocketMessageBufferSize = 10240
-	wsFrameHeaderSize          = 2 + 8 + 4 // Fixed header + length + mask (RFC 6455)
 )
 
 func (k *kubevirt) VirtualMachineInstance(namespace string) VirtualMachineInstanceInterface {
@@ -61,67 +55,6 @@ type vmis struct {
 	resource   string
 	master     string
 	kubeconfig string
-}
-
-func CopyFrom(dst io.Writer, src *websocket.Conn) (written int64, err error) {
-	reader := &binaryReader {conn: src}
-	return io.Copy(dst, reader)
-}
-
-func CopyTo(dst *websocket.Conn, src io.Reader) (written int64, err error) {
-	writer := &binaryWriter{conn: dst}
-	// our websocket package has an issue where it truncates messages
-	// when the message+header is greater than the buffer size we allocate.
-	// thus, we copy in chunks of WebsocketMessageBufferSize-wsFrameHeaderSize
-	buf := make([]byte, WebsocketMessageBufferSize-wsFrameHeaderSize)
-	return io.CopyBuffer(dst, src, buf)
-}
-
-type binaryWriter struct {
-	conn *websocket.Conn
-}
-
-func (s *binaryWriter) Write(p []byte) (int, error) {
-	w, err := s.conn.NextWriter(websocket.BinaryMessage)
-	if err != nil {
-		return 0, convert(err)
-	}
-	defer w.Close()
-	return w.Write(p)
-}
-
-type binaryReader struct {
-	conn *websocket.Conn
-}
-
-func (s *binaryReader) Read(p []byte) (int, error) {
-	for {
-		msgType, r, err := s.conn.NextReader()
-		if err != nil {
-			return 0, convert(err)
-		}
-
-		switch msgType {
-		case websocket.BinaryMessage:
-			n, err := r.Read(p)
-			return n, convert(err)
-
-		case websocket.CloseMessage:
-			return 0, io.EOF
-		}
-	}
-}
-
-func convert(err error) error {
-	if err == nil {
-		return nil
-	}
-	if e, ok := err.(*websocket.CloseError); ok {
-		if e.Code == websocket.CloseNormalClosure {
-			return io.EOF
-		}
-	}
-	return err
 }
 
 type RoundTripCallback func(conn *websocket.Conn, resp *http.Response, err error) error

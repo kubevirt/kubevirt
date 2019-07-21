@@ -28,7 +28,6 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful"
-	"github.com/gorilla/websocket"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,7 +43,6 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/client-go/subresources"
 )
 
 type SubresourceAPIApp struct {
@@ -89,15 +87,7 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 		return
 	}
 
-	var upgrader = websocket.Upgrader{
-		ReadBufferSize:  kubecli.WebsocketMessageBufferSize,
-		WriteBufferSize: kubecli.WebsocketMessageBufferSize,
-		CheckOrigin: func(_ *http.Request) bool {
-			return true
-		},
-		Subprotocols: []string{subresources.PlainStreamProtocolName},
-	}
-
+	upgrader := kubecli.NewUpgrader()
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to upgrade client websocket connection")

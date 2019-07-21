@@ -46,6 +46,7 @@ go_library(
         "vm.go",
         "vmi.go",
         "vmipreset.go",
+        "websocket.go",
     ],
     importpath = "kubevirt.io/client-go/kubecli",
     visibility = ["//visibility:public"],
