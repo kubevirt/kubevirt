@@ -10,7 +10,6 @@ function wait_containers_ready {
 
 function enable_vfio {
     mount -o remount,rw /sys    #need this to move devices to vfio drivers
-    counter=0
     for file in $(find /sys/devices/ -name *sriov_totalvfs*); do
         pfroot=$(dirname $file)
 
@@ -24,7 +23,6 @@ function enable_vfio {
                 echo $pciid > $virtfn/driver/unbind
             fi
             echo $(lspci -n -s $pciid | sed 's/:/ /g' | awk '{print $4 " " $5}') > /sys/bus/pci/drivers/vfio-pci/new_id
-            counter=$((counter+1))
         done
     done
 }
