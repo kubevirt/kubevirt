@@ -1,7 +1,11 @@
 #!/bin/bash -e
 
+echo "AAA"
+echo $KUBEVIRTCI_PATH
 CONTROL_PLANE_CMD="docker exec -it -d ${CLUSTER_NAME}-control-plane"
 MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/manifests"
+echo $CLUSTER_NAME
+echo $MANIFESTS_DIR
 
 function wait_containers_ready {
     echo "Waiting for all containers to become ready ..."
