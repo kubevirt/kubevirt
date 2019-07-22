@@ -24,6 +24,11 @@ if [[ -z "$push_log_file" ]]; then
     return
 fi
 
+if [[ ! -f "$push_log_file" ]]; then
+    echo "$push_log_file not found: won't use shasums, falling back to tags"
+    return
+fi
+
 # example log line: index.docker.io/kubevirt/virt-handler:v0.19.0 was published with digest: sha256:48104bcbc1d5f11b8f98d3f6ad875871ec3714482771b2c2ac7406aa02a05b00
 
 # 1. find virt-* images
