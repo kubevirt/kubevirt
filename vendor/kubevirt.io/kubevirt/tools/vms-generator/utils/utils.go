@@ -31,8 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 const (
@@ -355,7 +355,7 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 func GetVMISRIOV() *v1.VirtualMachineInstance {
 	vm := getBaseVMI(VmiSRIOV)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov-net"}}}}
+	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov/sriov-network"}}}}
 	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
 
@@ -499,7 +499,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 				},
 			},
 			Devices: v1.Devices{
-				Interfaces: []v1.Interface{*v1.DefaultNetworkInterface()},
+				Interfaces: []v1.Interface{*v1.DefaultBridgeNetworkInterface()},
 			},
 		},
 		Networks: []v1.Network{*v1.DefaultPodNetwork()},

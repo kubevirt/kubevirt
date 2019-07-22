@@ -34,8 +34,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -49,21 +50,25 @@ const (
 	MigrationsConfigKey       = "migrations"
 	CpuModelKey               = "default-cpu-model"
 	CpuRequestKey             = "cpu-request"
-	MemoryRequestKey          = "memory-request"
+	MemoryOvercommitKey       = "memory-overcommit"
 	LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
 	NodeSelectorsKey          = "node-selectors"
+	NetworkInterfaceKey       = "default-network-interface"
+	PermitSlirpInterface      = "permitSlirpInterface"
 
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
 	BandwithPerMigrationDefault                     = "64Mi"
+	MigrationAllowAutoConverge               bool   = false
 	MigrationProgressTimeout                 int64  = 150
 	MigrationCompletionTimeoutPerGiB         int64  = 800
 	DefaultMachineType                              = "q35"
 	DefaultCPURequest                               = "100m"
-	DefaultMemoryRequest                            = "8Mi"
+	DefaultMemoryOvercommit                         = 100
 	DefaultEmulatedMachines                         = "q35*,pc-q35*"
 	DefaultLessPVCSpaceToleration                   = 10
 	DefaultNodeSelectors                            = ""
+	DefaultNetworkInterface                         = "bridge"
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -126,12 +131,13 @@ func defaultClusterConfig() *Config {
 	parallelMigrationsPerClusterDefault := ParallelMigrationsPerClusterDefault
 	bandwithPerMigrationDefault := resource.MustParse(BandwithPerMigrationDefault)
 	nodeDrainTaintDefaultKey := NodeDrainTaintDefaultKey
+	allowAutoConverge := MigrationAllowAutoConverge
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
-	memoryRequestDefault := resource.MustParse(DefaultMemoryRequest)
 	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
+	defaultNetworkInterface := DefaultNetworkInterface
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
@@ -144,13 +150,16 @@ func defaultClusterConfig() *Config {
 			ProgressTimeout:                   &progressTimeout,
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
 			UnsafeMigrationOverride:           false,
+			AllowAutoConverge:                 allowAutoConverge,
 		},
 		MachineType:            DefaultMachineType,
 		CPURequest:             cpuRequestDefault,
-		MemoryRequest:          memoryRequestDefault,
+		MemoryOvercommit:       DefaultMemoryOvercommit,
 		EmulatedMachines:       emulatedMachinesDefault,
 		LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
 		NodeSelectors:          nodeSelectorsDefault,
+		NetworkInterface:       defaultNetworkInterface,
+		PermitSlirpInterface:   false,
 	}
 }
 
@@ -162,11 +171,13 @@ type Config struct {
 	MachineType            string
 	CPUModel               string
 	CPURequest             resource.Quantity
-	MemoryRequest          resource.Quantity
+	MemoryOvercommit       int
 	EmulatedMachines       []string
 	FeatureGates           string
 	LessPVCSpaceToleration int
 	NodeSelectors          map[string]string
+	NetworkInterface       string
+	PermitSlirpInterface   bool
 }
 
 type MigrationConfig struct {
@@ -177,6 +188,7 @@ type MigrationConfig struct {
 	ProgressTimeout                   *int64             `json:"progressTimeout,omitempty"`
 	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,omitempty"`
 	UnsafeMigrationOverride           bool               `json:"unsafeMigrationOverride"`
+	AllowAutoConverge                 bool               `json:"allowAutoConverge"`
 }
 
 type ClusterConfig struct {
@@ -212,8 +224,8 @@ func (c *ClusterConfig) GetCPURequest() resource.Quantity {
 	return c.getConfig().CPURequest
 }
 
-func (c *ClusterConfig) GetMemoryRequest() resource.Quantity {
-	return c.getConfig().MemoryRequest
+func (c *ClusterConfig) GetMemoryOvercommit() int {
+	return c.getConfig().MemoryOvercommit
 }
 
 func (c *ClusterConfig) GetEmulatedMachines() []string {
@@ -226,6 +238,14 @@ func (c *ClusterConfig) GetLessPVCSpaceToleration() int {
 
 func (c *ClusterConfig) GetNodeSelectors() map[string]string {
 	return c.getConfig().NodeSelectors
+}
+
+func (c *ClusterConfig) GetDefaultNetworkInterface() string {
+	return c.getConfig().NetworkInterface
+}
+
+func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
+	return c.getConfig().PermitSlirpInterface
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -286,8 +306,12 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		config.CPURequest = resource.MustParse(cpuRequest)
 	}
 
-	if memoryRequest := strings.TrimSpace(configMap.Data[MemoryRequestKey]); memoryRequest != "" {
-		config.MemoryRequest = resource.MustParse(memoryRequest)
+	if memoryOvercommit := strings.TrimSpace(configMap.Data[MemoryOvercommitKey]); memoryOvercommit != "" {
+		if value, err := strconv.Atoi(memoryOvercommit); err == nil && value > 0 {
+			config.MemoryOvercommit = value
+		} else {
+			return fmt.Errorf("Invalid memoryOvercommit in ConfigMap: %s", memoryOvercommit)
+		}
 	}
 
 	if emulatedMachines := strings.TrimSpace(configMap.Data[EmulatedMachinesKey]); emulatedMachines != "" {
@@ -318,6 +342,29 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		}
 	}
 
+	// disable slirp
+	permitSlirp := strings.TrimSpace(configMap.Data[PermitSlirpInterface])
+	switch permitSlirp {
+	case "":
+		// keep the default
+	case "true":
+		config.PermitSlirpInterface = true
+	case "false":
+		config.PermitSlirpInterface = false
+	default:
+		return fmt.Errorf("invalid value for permitSlirpInterfaces in config: %v", permitSlirp)
+	}
+
+	// set default network interface
+	iface := strings.TrimSpace(configMap.Data[NetworkInterfaceKey])
+	switch iface {
+	case "":
+		// keep the default
+	case string(v1.BridgeInterface), string(v1.SlirpInterface), string(v1.MasqueradeInterface):
+		config.NetworkInterface = iface
+	default:
+		return fmt.Errorf("invalid default-network-interface in config: %v", iface)
+	}
 	return nil
 }
 

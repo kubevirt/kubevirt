@@ -23,13 +23,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"k8s.io/api/admission/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/log"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -77,7 +79,25 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	mutator.setDefaultCPUModel(&vmi)
 	mutator.setDefaultMachineType(&vmi)
 	mutator.setDefaultResourceRequests(&vmi)
+	mutator.setDefaultPullPoliciesOnContainerDisks(&vmi)
+	err = mutator.setDefaultNetworkInterface(&vmi)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
 	v1.SetObjectDefaults_VirtualMachineInstance(&vmi)
+
+	// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
+	// Until that time, we need to handle the hyperv deps to avoid obscure rejections from QEMU later on
+	log.Log.V(4).Info("Set HyperV dependencies")
+	err = webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(&vmi)
+	if err != nil {
+		// HyperV is a special case. If our best-effort attempt fails, we should leave
+		// rejection to be performed later on in the validating webhook, and continue here.
+		// Please note this means that partial changes may have been performed.
+		// This is OK since each dependency must be atomic and independent (in ACID sense),
+		// so the VMI configuration is still legal.
+		log.Log.V(2).Infof("Failed to set HyperV dependencies: %s", err)
+	}
 
 	// Add foreground finalizer
 	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
@@ -111,6 +131,33 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	}
 }
 
+func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineInstance) error {
+	autoAttach := obj.Spec.Domain.Devices.AutoattachPodInterface
+	if autoAttach != nil && *autoAttach == false {
+		return nil
+	}
+
+	// Override only when nothing is specified
+	if len(obj.Spec.Networks) == 0 {
+		iface := v1.NetworkInterfaceType(mutator.ClusterConfig.GetDefaultNetworkInterface())
+		switch iface {
+		case v1.BridgeInterface:
+			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		case v1.MasqueradeInterface:
+			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+		case v1.SlirpInterface:
+			if !mutator.ClusterConfig.IsSlirpInterfaceEnabled() {
+				return fmt.Errorf("Slirp interface is not enabled in kubevirt-config")
+			}
+			defaultIface := v1.DefaultSlirpNetworkInterface()
+			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
+		}
+
+		obj.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+	}
+	return nil
+}
+
 func (mutator *VMIsMutator) setDefaultCPUModel(vmi *v1.VirtualMachineInstance) {
 	//if vmi doesn't have cpu topology or cpu model set
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
@@ -131,18 +178,69 @@ func (mutator *VMIsMutator) setDefaultMachineType(vmi *v1.VirtualMachineInstance
 	}
 }
 
-func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineInstance) {
-	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; !exists {
-		if vmi.Spec.Domain.Resources.Requests == nil {
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+func (mutator *VMIsMutator) setDefaultPullPoliciesOnContainerDisks(vmi *v1.VirtualMachineInstance) {
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.ContainerDisk != nil && volume.ContainerDisk.ImagePullPolicy == "" {
+			if strings.HasSuffix(volume.ContainerDisk.Image, ":latest") || !strings.ContainsAny(volume.ContainerDisk.Image, ":@") {
+				volume.ContainerDisk.ImagePullPolicy = k8sv1.PullAlways
+			} else {
+				volume.ContainerDisk.ImagePullPolicy = k8sv1.PullIfNotPresent
+			}
 		}
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = mutator.ClusterConfig.GetMemoryRequest()
+	}
+}
+
+func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineInstance) {
+
+	resources := &vmi.Spec.Domain.Resources
+
+	if !resources.Limits.Cpu().IsZero() && resources.Requests.Cpu().IsZero() {
+		if resources.Requests == nil {
+			resources.Requests = k8sv1.ResourceList{}
+		}
+		resources.Requests[k8sv1.ResourceCPU] = resources.Limits[k8sv1.ResourceCPU]
 	}
 
-	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; !exists {
+	if !resources.Limits.Memory().IsZero() && resources.Requests.Memory().IsZero() {
+		if resources.Requests == nil {
+			resources.Requests = k8sv1.ResourceList{}
+		}
+		resources.Requests[k8sv1.ResourceMemory] = resources.Limits[k8sv1.ResourceMemory]
+	}
+
+	if _, exists := resources.Requests[k8sv1.ResourceMemory]; !exists {
+		var memory *resource.Quantity
+		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+			memory = vmi.Spec.Domain.Memory.Guest
+		}
+		if memory == nil && vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
+			if hugepagesSize, err := resource.ParseQuantity(vmi.Spec.Domain.Memory.Hugepages.PageSize); err == nil {
+				memory = &hugepagesSize
+			}
+		}
+		if memory != nil && memory.Value() > 0 {
+			if resources.Requests == nil {
+				resources.Requests = k8sv1.ResourceList{}
+			}
+			overcommit := mutator.ClusterConfig.GetMemoryOvercommit()
+			if overcommit == 100 {
+				resources.Requests[k8sv1.ResourceMemory] = *memory
+			} else {
+				value := (memory.Value() * int64(100)) / int64(overcommit)
+				resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
+			}
+			memoryRequest := resources.Requests[k8sv1.ResourceMemory]
+			log.Log.Object(vmi).V(4).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommit)
+		}
+	}
+
+	if _, exists := resources.Requests[k8sv1.ResourceCPU]; !exists {
 		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
 			return
 		}
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = mutator.ClusterConfig.GetCPURequest()
+		if resources.Requests == nil {
+			resources.Requests = k8sv1.ResourceList{}
+		}
+		resources.Requests[k8sv1.ResourceCPU] = mutator.ClusterConfig.GetCPURequest()
 	}
 }

@@ -9,8 +9,8 @@ import (
 	"github.com/go-logr/logr"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
+	kubevirt "kubevirt.io/client-go/api/v1"
 	cdi "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	kubevirt "kubevirt.io/kubevirt/pkg/api/v1"
 
 	"encoding/json"
 
@@ -202,7 +202,7 @@ func (r *ReconcileHyperConverged) ensureResourceExists(instance *hcov1alpha1.Hyp
 		}
 
 		// Note: common-templates fails the Get check above and appears to still be missing.
-		// The check fails because request.Namespace is "kubevirt-hyperconverged", and 
+		// The check fails because request.Namespace is "kubevirt-hyperconverged", and
 		// common-templates is installed in the "openshift" namespace.
 		if err = r.client.Create(context.TODO(), desiredRuntimeObj); err != nil {
 			if err != nil && errors.IsAlreadyExists(err) {

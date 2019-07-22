@@ -43,7 +43,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -52,8 +53,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
-	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -242,7 +241,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 }
 
-func prepareMigrationFlags(isBlockMigration bool, isUnsafeMigration bool) libvirt.DomainMigrateFlags {
+func prepareMigrationFlags(isBlockMigration bool, isUnsafeMigration bool, allowAutoConverge bool) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 	if isBlockMigration {
@@ -250,6 +249,9 @@ func prepareMigrationFlags(isBlockMigration bool, isUnsafeMigration bool) libvir
 	}
 	if isUnsafeMigration {
 		migrateFlags |= libvirt.MIGRATE_UNSAFE
+	}
+	if allowAutoConverge {
+		migrateFlags |= libvirt.MIGRATE_AUTO_CONVERGE
 	}
 	return migrateFlags
 
@@ -283,7 +285,8 @@ func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks
 			disks.shared[volume.Name] = true
 		}
 		if volSrc.ConfigMap != nil || volSrc.Secret != nil ||
-			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil {
+			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil ||
+			volSrc.CloudInitConfigDrive != nil {
 			disks.generated[volume.Name] = true
 		}
 	}
@@ -375,7 +378,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			return
 		}
 
-		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration)
+		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration, options.AllowAutoConverge)
 		if options.UnsafeMigration {
 			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 		}
@@ -694,7 +697,10 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	// generate cloud-init data
-	cloudInitData := cloudinit.GetCloudInitNoCloudSource(vmi)
+	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi)
+	if err != nil {
+		return domain, fmt.Errorf("PreCloudInitIso hook failed: %v", err)
+	}
 
 	// Pass cloud-init data to PreCloudInitIso hook
 	logger.Info("Starting PreCloudInitIso hook")
@@ -705,9 +711,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	if cloudInitData != nil {
-		hostname := dns.SanitizeHostname(vmi)
-
-		err := cloudinit.GenerateLocalData(vmi.Name, hostname, vmi.Namespace, cloudInitData)
+		err := cloudinit.GenerateLocalData(vmi.Name, vmi.Namespace, cloudInitData)
 		if err != nil {
 			return domain, fmt.Errorf("generating local cloud-init data failed: %v", err)
 		}

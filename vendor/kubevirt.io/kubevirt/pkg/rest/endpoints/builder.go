@@ -27,7 +27,7 @@ import (
 	"golang.org/x/net/context"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/kubevirt/pkg/precond"
+	"kubevirt.io/client-go/precond"
 	"kubevirt.io/kubevirt/pkg/rest"
 )
 

@@ -41,13 +41,12 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/precond"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -432,8 +431,21 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			liveMigrationCondition.Status = k8sv1.ConditionFalse
 			liveMigrationCondition.Message = err.Error()
 			liveMigrationCondition.Reason = v1.VirtualMachineInstanceReasonDisksNotMigratable
+			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
 		}
-		vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+		err = d.checkNetworkInterfacesForMigration(vmi)
+		if err != nil {
+			liveMigrationCondition = v1.VirtualMachineInstanceCondition{
+				Type:    v1.VirtualMachineInstanceIsMigratable,
+				Status:  k8sv1.ConditionFalse,
+				Message: err.Error(),
+				Reason:  v1.VirtualMachineInstanceReasonInterfaceNotMigratable,
+			}
+			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+		}
+		if liveMigrationCondition.Status == k8sv1.ConditionTrue {
+			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+		}
 
 		// Set VMI Migration Method
 		if isBlockMigration {
@@ -963,20 +975,6 @@ func (d *VirtualMachineController) execute(key string) error {
 
 }
 
-func (d *VirtualMachineController) injectCloudInitSecrets(vmi *v1.VirtualMachineInstance) error {
-	cloudInitSpec := cloudinit.GetCloudInitNoCloudSource(vmi)
-	if cloudInitSpec == nil {
-		return nil
-	}
-	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-
-	err := cloudinit.ResolveSecrets(cloudInitSpec, namespace, d.clientset)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstance) error {
 	err := virtlauncher.VmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
 	if err != nil {
@@ -1202,6 +1200,19 @@ func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 	return false
 }
 
+func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
+	networks := map[string]*v1.Network{}
+	for _, network := range vmi.Spec.Networks {
+		networks[network.Name] = network.DeepCopy()
+	}
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Bridge != nil && networks[iface.Name].Pod != nil {
+			return fmt.Errorf("cannot migrate VMI with a bridge interface connected to a pod network")
+		}
+	}
+	return nil
+}
+
 func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachineInstance) (blockMigrate bool, err error) {
 	// Check if all VMI volumes can be shared between the source and the destination
 	// of a live migration. blockMigrate will be returned as false, only if all volumes
@@ -1324,7 +1335,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return err
 	}
 
-	err = d.injectCloudInitSecrets(vmi)
+	err = cloudinit.InjectCloudInitSecrets(vmi, d.clientset)
 	if err != nil {
 		return err
 	}
@@ -1366,6 +1377,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				ProgressTimeout:         *d.clusterConfig.GetMigrationConfig().ProgressTimeout,
 				CompletionTimeoutPerGiB: *d.clusterConfig.GetMigrationConfig().CompletionTimeoutPerGiB,
 				UnsafeMigration:         d.clusterConfig.GetMigrationConfig().UnsafeMigrationOverride,
+				AllowAutoConverge:       d.clusterConfig.GetMigrationConfig().AllowAutoConverge,
 			}
 			err = client.MigrateVirtualMachine(vmi, options)
 			if err != nil {

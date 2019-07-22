@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -47,7 +47,8 @@ func main() {
 	config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{
 		Data: map[string]string{
 			// Required to validate DataVolume usage
-			virtconfig.FeatureGatesKey: "DataVolumes,LiveMigration,SRIOV",
+			virtconfig.FeatureGatesKey:      "DataVolumes,LiveMigration,SRIOV",
+			virtconfig.PermitSlirpInterface: "true",
 		},
 	})
 

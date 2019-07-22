@@ -26,9 +26,9 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/precond"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 const filePrefix = "disk-image"
@@ -113,7 +113,7 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
 			diskContainerImage := volume.ContainerDisk.Image
 			resources := kubev1.ResourceRequirements{}
-			if vmi.IsCPUDedicated() {
+			if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
 				resources.Limits = make(kubev1.ResourceList)
 				// TODO(vladikr): adjust the correct cpu/mem values - this is mainly needed to allow QemuImg to run correctly
 				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("400m")
@@ -123,7 +123,7 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 			container := kubev1.Container{
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
-				ImagePullPolicy: kubev1.PullIfNotPresent,
+				ImagePullPolicy: volume.ContainerDisk.ImagePullPolicy,
 				Command:         []string{"/entry-point.sh"},
 				Env: []kubev1.EnvVar{
 					{

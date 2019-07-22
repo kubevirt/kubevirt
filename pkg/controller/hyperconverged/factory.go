@@ -8,8 +8,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	kubevirt "kubevirt.io/client-go/api/v1"
 	cdi "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	kubevirt "kubevirt.io/kubevirt/pkg/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -130,4 +130,3 @@ func newKubeVirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged, namespace
 		},
 	}
 }
-

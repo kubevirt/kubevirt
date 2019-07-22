@@ -33,15 +33,15 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/precond"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
-	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
@@ -225,8 +225,8 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 		return Convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, c)
 	}
 
-	if source.CloudInitNoCloud != nil {
-		return Convert_v1_CloudInitNoCloudSource_To_api_Disk(source.CloudInitNoCloud, disk, c)
+	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
+		return Convert_v1_CloudInitSource_To_api_Disk(source.VolumeSource, disk, c)
 	}
 
 	if source.HostDisk != nil {
@@ -317,12 +317,21 @@ func Convert_v1_HostDisk_To_api_Disk(path string, disk *Disk, c *ConverterContex
 	return nil
 }
 
-func Convert_v1_CloudInitNoCloudSource_To_api_Disk(source *v1.CloudInitNoCloudSource, disk *Disk, c *ConverterContext) error {
+func Convert_v1_CloudInitSource_To_api_Disk(source v1.VolumeSource, disk *Disk, c *ConverterContext) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
 	}
 
-	disk.Source.File = fmt.Sprintf("%s/%s", cloudinit.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), cloudinit.NoCloudFile)
+	var dataSource cloudinit.DataSourceType
+	if source.CloudInitNoCloud != nil {
+		dataSource = cloudinit.DataSourceNoCloud
+	} else if source.CloudInitConfigDrive != nil {
+		dataSource = cloudinit.DataSourceConfigDrive
+	} else {
+		return fmt.Errorf("Only nocloud and configdrive are valid cloud-init volumes")
+	}
+
+	disk.Source.File = cloudinit.GetIsoFilePath(dataSource, c.VirtualMachine.Name, c.VirtualMachine.Namespace)
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	return nil
@@ -1347,31 +1356,25 @@ func QuantityToMebiByte(quantity resource.Quantity) (uint64, error) {
 }
 
 func boolToOnOff(value *bool, defaultOn bool) string {
-	if value == nil {
-		if defaultOn {
-			return "on"
-		}
-		return "off"
-	}
-
-	if *value {
-		return "on"
-	}
-	return "off"
+	return boolToString(value, defaultOn, "on", "off")
 }
 
 func boolToYesNo(value *bool, defaultYes bool) string {
-	if value == nil {
-		if defaultYes {
-			return "yes"
+	return boolToString(value, defaultYes, "yes", "no")
+}
+
+func boolToString(value *bool, defaultPositive bool, positive string, negative string) string {
+	toString := func(value bool) string {
+		if value {
+			return positive
 		}
-		return "no"
+		return negative
 	}
 
-	if *value {
-		return "yes"
+	if value == nil {
+		return toString(defaultPositive)
 	}
-	return "no"
+	return toString(*value)
 }
 
 // returns nameservers [][]byte, searchdomains []string, error

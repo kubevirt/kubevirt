@@ -30,11 +30,12 @@ import (
 	"sync"
 	"time"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
-	"kubevirt.io/kubevirt/pkg/log"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -181,7 +182,6 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.OnDefineDomainHookPointName]; found {
 		for _, callback := range callbacks {
 			if callback.Version == hooksV1alpha1.Version || callback.Version == hooksV1alpha2.Version {
-
 				vmiJSON, err := json.Marshal(vmi)
 				if err != nil {
 					return "", fmt.Errorf("Failed to marshal VMI spec: %v", vmi)
@@ -227,19 +227,30 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 	return string(domainSpecXML), nil
 }
 
-func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData *v1.CloudInitNoCloudSource) (*v1.CloudInitNoCloudSource, error) {
+func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData *cloudinit.CloudInitData) (*cloudinit.CloudInitData, error) {
 	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.PreCloudInitIsoHookPointName]; found {
 		for _, callback := range callbacks {
 			if callback.Version == hooksV1alpha2.Version {
-				var resultSource *v1.CloudInitNoCloudSource
+				var resultData *cloudinit.CloudInitData
 				vmiJSON, err := json.Marshal(vmi)
 				if err != nil {
 					return cloudInitData, fmt.Errorf("Failed to marshal VMI spec: %v", vmi)
 				}
 
+				// To be backward compatible to sidecar hooks still expecting to receive the cloudinit data as a CloudInitNoCloudSource object,
+				// we need to construct a CloudInitNoCloudSource object with the user- and networkdata from the cloudInitData object.
+				cloudInitNoCloudSource := v1.CloudInitNoCloudSource{
+					UserData:    cloudInitData.UserData,
+					NetworkData: cloudInitData.NetworkData,
+				}
+				cloudInitNoCloudSourceJSON, err := json.Marshal(cloudInitNoCloudSource)
+				if err != nil {
+					return cloudInitData, fmt.Errorf("Failed to marshal CloudInitNoCloudSource: %v", cloudInitNoCloudSource)
+				}
+
 				cloudInitDataJSON, err := json.Marshal(cloudInitData)
 				if err != nil {
-					return cloudInitData, fmt.Errorf("Failed to marshal CloudInitNoCloudSource: %v", cloudInitData)
+					return cloudInitData, fmt.Errorf("Failed to marshal CloudInitData: %v", cloudInitData)
 				}
 
 				conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
@@ -253,18 +264,34 @@ func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData 
 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 				defer cancel()
 				result, err := client.PreCloudInitIso(ctx, &hooksV1alpha2.PreCloudInitIsoParams{
-					CloudInitData: cloudInitDataJSON,
-					Vmi:           vmiJSON,
+					CloudInitData:          cloudInitDataJSON,
+					CloudInitNoCloudSource: cloudInitNoCloudSourceJSON,
+					Vmi:                    vmiJSON,
 				})
 				if err != nil {
 					return cloudInitData, err
 				}
 
-				err = json.Unmarshal(result.GetCloudInitData(), &resultSource)
+				err = json.Unmarshal(result.GetCloudInitData(), &resultData)
 				if err != nil {
+					log.Log.Reason(err).Infof("Failed to unmarshal CloudInitData result")
 					return cloudInitData, err
 				}
-				return resultSource, nil
+				if !cloudinit.IsValidCloudInitData(resultData) {
+					// Be backwards compatible for hook sidecars still working on CloudInitNoCloudSource objects instead of CloudInitData
+					var resultNoCloudSourceData *v1.CloudInitNoCloudSource
+					err = json.Unmarshal(result.GetCloudInitNoCloudSource(), &resultNoCloudSourceData)
+					if err != nil {
+						log.Log.Reason(err).Infof("Failed to unmarshal CloudInitNoCloudSource result")
+						return cloudInitData, err
+					}
+					resultData = &cloudinit.CloudInitData{
+						DataSource:  cloudInitData.DataSource,
+						UserData:    resultNoCloudSourceData.UserData,
+						NetworkData: resultNoCloudSourceData.NetworkData,
+					}
+				}
+				return resultData, nil
 			} else {
 				panic("Should never happen, version compatibility check is done during Info call")
 			}

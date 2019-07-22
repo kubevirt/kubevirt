@@ -38,11 +38,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	virtv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
 )
 
 // TODO remove the dataVolume deletion retry logic once CDI fixes this issue.
@@ -754,7 +754,8 @@ func (c *VMController) addVirtualMachine(obj interface{}) {
 		log.Log.Object(vmi).V(4).Info("Looking for VirtualMachineInstance Ref")
 		vm := c.resolveControllerRef(vmi.Namespace, controllerRef)
 		if vm == nil {
-			log.Log.Object(vmi).Errorf("Cant find the matching VM for VirtualMachineInstance: %s", vmi.Name)
+			// not managed by us
+			log.Log.Object(vmi).V(4).Infof("Cant find the matching VM for VirtualMachineInstance: %s", vmi.Name)
 			return
 		}
 		vmKey, err := controller.KeyFunc(vm)

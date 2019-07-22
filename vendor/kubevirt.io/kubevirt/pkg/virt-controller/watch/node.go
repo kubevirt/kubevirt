@@ -9,17 +9,17 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
+	virtv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/util/lookup"
 )
 
 const (
@@ -177,7 +177,7 @@ func (c *NodeController) execute(key string) error {
 				return fmt.Errorf("failed to mark node %s as unschedulable: %v", nodeName, err)
 			}
 		}
-		vmis, err := c.virtualMachinesOnNode(nodeName)
+		vmis, err := lookup.VirtualMachinesOnNode(c.clientset, nodeName)
 		if err != nil {
 			logger.Reason(err).Error("Failed fetch vmis for node")
 			return err
@@ -221,27 +221,6 @@ func (c *NodeController) execute(key string) error {
 		c.Queue.AddAfter(key, c.recheckInterval)
 	}
 	return nil
-}
-
-func (c *NodeController) virtualMachinesOnNode(nodeName string) ([]*virtv1.VirtualMachineInstance, error) {
-	labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", virtv1.NodeNameLabel, nodeName))
-	if err != nil {
-		return nil, err
-	}
-	list, err := c.clientset.VirtualMachineInstance(v1.NamespaceAll).List(&metav1.ListOptions{
-		LabelSelector: labelSelector.String(),
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	vmis := []*virtv1.VirtualMachineInstance{}
-
-	for i := range list.Items {
-		vmis = append(vmis, &list.Items[i])
-	}
-	return vmis, nil
 }
 
 func (c *NodeController) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {

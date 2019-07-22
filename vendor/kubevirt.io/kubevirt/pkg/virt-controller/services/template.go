@@ -33,13 +33,13 @@ import (
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/precond"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
@@ -56,6 +56,7 @@ const GenieNetworksAnnotation = "cni"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
+const CAP_SYS_RESOURCE = "SYS_RESOURCE"
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
 // Libvirt needs roughly 10 seconds to start.
@@ -315,7 +316,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	var volumes []k8sv1.Volume
 	var volumeDevices []k8sv1.VolumeDevice
 	var userId int64 = 0
-	// Privileged mode is disabled by default.
 	var privileged bool = false
 	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
@@ -384,14 +384,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				},
 			},
 		})
-
-		// todo: revisit when SR-IOV DP registers /dev/vfio/NN with pod
-		// device group:
-		// https://github.com/intel/sriov-network-device-plugin/pull/26
-		//
-		// Run virt-launcher compute container privileged to allow qemu
-		// to open /dev/vfio/NN for PCI passthrough
-		privileged = true
 	}
 
 	serviceAccountName := ""
@@ -802,7 +794,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources := k8sv1.ResourceRequirements{}
 		// add default cpu and memory limits to enable cpu pinning if requested
 		// TODO(vladikr): make the hookSidecar express resources
-		if vmi.IsCPUDedicated() {
+		if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
 			resources.Limits = make(k8sv1.ResourceList)
 			resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("200m")
 			resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
@@ -935,6 +927,12 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	res = append(res, CAP_SYS_NICE)
+
+	if isSRIOVVmi(vmi) {
+		// this capability is needed for libvirt to be able to change ulimits for device passthrough:
+		// "error : cannot limit locked memory to 2098200576: Operation not permitted"
+		res = append(res, CAP_SYS_RESOURCE)
+	}
 	return res
 }
 
@@ -991,11 +989,12 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 
 	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
 	// overhead per vcpu in MiB
-	coresMemory := uint32(8)
+	coresMemory := resource.MustParse("8Mi")
 	if domain.CPU != nil {
-		coresMemory *= domain.CPU.Cores
+		value := coresMemory.Value() * int64(domain.CPU.Cores)
+		coresMemory = *resource.NewQuantity(value, coresMemory.Format)
 	}
-	overhead.Add(resource.MustParse(strconv.Itoa(int(coresMemory)) + "Mi"))
+	overhead.Add(coresMemory)
 
 	// static overhead for IOThread
 	overhead.Add(resource.MustParse("8Mi"))

@@ -21,12 +21,17 @@ package prometheus
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/version"
+	k6tv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/version"
+	"kubevirt.io/kubevirt/pkg/util/lookup"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
@@ -45,60 +50,103 @@ var (
 	storageIopsDesc = prometheus.NewDesc(
 		"kubevirt_vm_storage_iops_total",
 		"I/O operation performed.",
-		[]string{"domain", "drive", "type"},
+		[]string{
+			"node", "namespace", "name",
+			"domain", "drive", "type",
+		},
 		nil,
 	)
 	storageTrafficDesc = prometheus.NewDesc(
 		"kubevirt_vm_storage_traffic_bytes_total",
 		"storage traffic.",
-		[]string{"domain", "drive", "type"},
+		[]string{
+			"node", "namespace", "name",
+			"domain", "drive", "type",
+		},
 		nil,
 	)
 	storageTimesDesc = prometheus.NewDesc(
 		"kubevirt_vm_storage_times_ms_total",
 		"storage operation time.",
-		[]string{"domain", "drive", "type"},
+		[]string{
+			"node", "namespace", "name",
+			"domain", "drive", "type",
+		},
 		nil,
 	)
 	vcpuUsageDesc = prometheus.NewDesc(
 		"kubevirt_vm_vcpu_seconds",
 		"Vcpu elapsed time.",
-		[]string{"domain", "id", "state"},
+		[]string{
+			"node", "namespace", "name",
+			"domain", "id", "state",
+		},
 		nil,
 	)
-	networkTrafficDesc = prometheus.NewDesc(
+	networkTrafficBytesDesc = prometheus.NewDesc(
 		"kubevirt_vm_network_traffic_bytes_total",
 		"network traffic.",
-		[]string{"domain", "interface", "type"},
+		[]string{
+			"node", "namespace", "name",
+			"domain", "interface", "type",
+		},
+		nil,
+	)
+	networkTrafficPktsDesc = prometheus.NewDesc(
+		"kubevirt_vm_network_traffic_packets_total",
+		"network traffic.",
+		[]string{
+			"node", "namespace", "name",
+			"domain", "interface", "type",
+		},
+		nil,
+	)
+	networkErrorsDesc = prometheus.NewDesc(
+		"kubevirt_vm_network_errors_total",
+		"network errors.",
+		[]string{
+			"node", "namespace", "name",
+			"domain", "interface", "type",
+		},
 		nil,
 	)
 	memoryAvailableDesc = prometheus.NewDesc(
 		"kubevirt_vm_memory_available_bytes",
 		"amount of usable memory as seen by the domain.",
-		[]string{"domain"},
+		[]string{
+			"node", "namespace", "name",
+			"domain",
+		},
 		nil,
 	)
 	memoryResidentDesc = prometheus.NewDesc(
 		"kubevirt_vm_memory_resident_bytes",
 		"resident set size of the process running the domain",
-		[]string{"domain"},
+		[]string{
+			"node", "namespace", "name",
+			"domain",
+		},
 		nil,
 	)
 
 	swapTrafficDesc = prometheus.NewDesc(
 		"kubevirt_vm_memory_swap_traffic_bytes_total",
 		"swap memory traffic.",
-		[]string{"domain", "type"},
+		[]string{
+			"node", "namespace", "name",
+			"domain", "type",
+		},
 		nil,
 	)
 )
 
-func updateMemory(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	if vmStats.Memory.AvailableSet {
 		mv, err := prometheus.NewConstMetric(
 			memoryAvailableDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.Available)*1024,
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name,
 		)
 		if err == nil {
@@ -110,6 +158,7 @@ func updateMemory(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 			memoryResidentDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.RSS)*1024,
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name,
 		)
 		if err == nil {
@@ -122,6 +171,7 @@ func updateMemory(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 			swapTrafficDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.SwapIn)*1024,
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name, "in",
 		)
 		if err == nil {
@@ -133,6 +183,7 @@ func updateMemory(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 			swapTrafficDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.SwapOut)*1024,
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name, "out",
 		)
 		if err == nil {
@@ -141,7 +192,7 @@ func updateMemory(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	}
 }
 
-func updateVcpu(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	for vcpuId, vcpu := range vmStats.Vcpu {
 		if !vcpu.StateSet || !vcpu.TimeSet {
 			continue
@@ -149,6 +200,7 @@ func updateVcpu(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 		mv, err := prometheus.NewConstMetric(
 			vcpuUsageDesc, prometheus.GaugeValue,
 			float64(vcpu.Time/1000000000),
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name, fmt.Sprintf("%v", vcpuId), fmt.Sprintf("%v", vcpu.State),
 		)
 		if err != nil {
@@ -159,7 +211,7 @@ func updateVcpu(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 
 }
 
-func updateBlock(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	for _, block := range vmStats.Block {
 		if !block.NameSet {
 			continue
@@ -169,6 +221,7 @@ func updateBlock(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 			mv, err := prometheus.NewConstMetric(
 				storageIopsDesc, prometheus.CounterValue,
 				float64(block.RdReqs),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "read",
 			)
 			if err == nil {
@@ -179,6 +232,7 @@ func updateBlock(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 			mv, err := prometheus.NewConstMetric(
 				storageIopsDesc, prometheus.CounterValue,
 				float64(block.WrReqs),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "write",
 			)
 			if err == nil {
@@ -190,6 +244,7 @@ func updateBlock(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 			mv, err := prometheus.NewConstMetric(
 				storageTrafficDesc, prometheus.CounterValue,
 				float64(block.RdBytes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "read",
 			)
 			if err == nil {
@@ -200,6 +255,7 @@ func updateBlock(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 			mv, err := prometheus.NewConstMetric(
 				storageTrafficDesc, prometheus.CounterValue,
 				float64(block.WrBytes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "write",
 			)
 			if err == nil {
@@ -211,6 +267,7 @@ func updateBlock(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 			mv, err := prometheus.NewConstMetric(
 				storageTimesDesc, prometheus.CounterValue,
 				float64(block.RdTimes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "read",
 			)
 			if err == nil {
@@ -221,6 +278,7 @@ func updateBlock(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 			mv, err := prometheus.NewConstMetric(
 				storageTimesDesc, prometheus.CounterValue,
 				float64(block.WrTimes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "write",
 			)
 			if err == nil {
@@ -230,25 +288,72 @@ func updateBlock(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	}
 }
 
-func updateNetwork(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	for _, net := range vmStats.Net {
 		if !net.NameSet {
 			continue
 		}
 		if net.RxBytesSet {
 			mv, err := prometheus.NewConstMetric(
-				networkTrafficDesc, prometheus.CounterValue,
+				networkTrafficBytesDesc, prometheus.CounterValue,
 				float64(net.RxBytes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, net.Name, "rx",
 			)
 			if err == nil {
 				ch <- mv
 			}
 		}
+		if net.RxPktsSet {
+			mv, err := prometheus.NewConstMetric(
+				networkTrafficPktsDesc, prometheus.CounterValue,
+				float64(net.RxPkts),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+				vmStats.Name, net.Name, "rx",
+			)
+			if err == nil {
+				ch <- mv
+			}
+		}
+		if net.RxErrsSet {
+			mv, err := prometheus.NewConstMetric(
+				networkErrorsDesc, prometheus.CounterValue,
+				float64(net.RxErrs),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+				vmStats.Name, net.Name, "rx",
+			)
+			if err == nil {
+				ch <- mv
+			}
+		}
+
 		if net.TxBytesSet {
 			mv, err := prometheus.NewConstMetric(
-				networkTrafficDesc, prometheus.CounterValue,
+				networkTrafficBytesDesc, prometheus.CounterValue,
 				float64(net.TxBytes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+				vmStats.Name, net.Name, "tx",
+			)
+			if err == nil {
+				ch <- mv
+			}
+		}
+		if net.TxPktsSet {
+			mv, err := prometheus.NewConstMetric(
+				networkTrafficPktsDesc, prometheus.CounterValue,
+				float64(net.TxPkts),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+				vmStats.Name, net.Name, "tx",
+			)
+			if err == nil {
+				ch <- mv
+			}
+		}
+		if net.TxErrsSet {
+			mv, err := prometheus.NewConstMetric(
+				networkErrorsDesc, prometheus.CounterValue,
+				float64(net.TxErrs),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, net.Name, "tx",
 			)
 			if err == nil {
@@ -268,14 +373,18 @@ func updateVersion(ch chan<- prometheus.Metric) {
 }
 
 type Collector struct {
+	virtCli       kubecli.KubevirtClient
 	virtShareDir  string
+	nodeName      string
 	concCollector *concurrentCollector
 }
 
-func SetupCollector(virtShareDir string) *Collector {
-	log.Log.Infof("Starting collector: sharedir=%v", virtShareDir)
+func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName string) *Collector {
+	log.Log.Infof("Starting collector: node name=%v", nodeName)
 	co := &Collector{
+		virtCli:       virtCli,
 		virtShareDir:  virtShareDir,
+		nodeName:      nodeName,
 		concCollector: NewConcurrentCollector(),
 	}
 	prometheus.MustRegister(co)
@@ -289,28 +398,44 @@ func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- storageTrafficDesc
 	ch <- storageTimesDesc
 	ch <- vcpuUsageDesc
-	ch <- networkTrafficDesc
+	ch <- networkTrafficBytesDesc
+	ch <- networkTrafficPktsDesc
+	ch <- networkErrorsDesc
 	ch <- memoryAvailableDesc
 	ch <- memoryResidentDesc
+}
+
+func newvmiSocketMapFromVMIs(baseDir string, vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
+	if len(vmis) == 0 {
+		return nil
+	}
+
+	ret := make(vmiSocketMap)
+	for _, vmi := range vmis {
+		socketPath := cmdclient.SocketFromUID(baseDir, string(vmi.UID))
+		ret[socketPath] = vmi
+	}
+	return ret
 }
 
 // Note that Collect could be called concurrently
 func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	updateVersion(ch)
 
-	socketFiles, err := cmdclient.ListAllSockets(co.virtShareDir)
+	vmis, err := lookup.VirtualMachinesOnNode(co.virtCli, co.nodeName)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to list all sockets in '%s'", co.virtShareDir)
+		log.Log.Reason(err).Errorf("failed to list all VMIs in '%s': %s", co.nodeName, err)
 		return
 	}
 
-	if len(socketFiles) == 0 {
-		log.Log.V(2).Infof("No VMs detected")
+	if len(vmis) == 0 {
+		log.Log.V(2).Infof("No VMIs detected")
 		return
 	}
 
+	socketToVMIs := newvmiSocketMapFromVMIs(co.virtShareDir, vmis)
 	scraper := &prometheusScraper{ch: ch}
-	co.concCollector.Collect(socketFiles, scraper, collectionTimeout)
+	co.concCollector.Collect(socketToVMIs, scraper, collectionTimeout)
 	return
 }
 
@@ -318,7 +443,12 @@ type prometheusScraper struct {
 	ch chan<- prometheus.Metric
 }
 
-func (ps *prometheusScraper) Scrape(socketFile string) {
+type vmiStatsInfo struct {
+	vmiSpec  *k6tv1.VirtualMachineInstance
+	vmiStats *stats.DomainStats
+}
+
+func (ps *prometheusScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachineInstance) {
 	ts := time.Now()
 	cli, err := cmdclient.NewClient(socketFile)
 	if err != nil {
@@ -351,10 +481,10 @@ func (ps *prometheusScraper) Scrape(socketFile string) {
 		return
 	}
 
-	ps.Report(socketFile, vmStats)
+	ps.Report(socketFile, vmi, vmStats)
 }
 
-func (ps *prometheusScraper) Report(socketFile string, vmStats *stats.DomainStats) {
+func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats) {
 	// statsMaxAge is an estimation - and there is not better way to do that. So it is possible that
 	// GetDomainStats() takes enough time to lag behind, but not enough to trigger the statsMaxAge check.
 	// In this case the next functions will end up writing on a closed channel. This will panic.
@@ -367,8 +497,19 @@ func (ps *prometheusScraper) Report(socketFile string, vmStats *stats.DomainStat
 		}
 	}()
 
-	updateMemory(vmStats, ps.ch)
-	updateVcpu(vmStats, ps.ch)
-	updateBlock(vmStats, ps.ch)
-	updateNetwork(vmStats, ps.ch)
+	updateMemory(vmi, vmStats, ps.ch)
+	updateVcpu(vmi, vmStats, ps.ch)
+	updateBlock(vmi, vmStats, ps.ch)
+	updateNetwork(vmi, vmStats, ps.ch)
+}
+
+func Handler(MaxRequestsInFlight int) http.Handler {
+	return promhttp.InstrumentMetricHandler(
+		prometheus.DefaultRegisterer,
+		promhttp.HandlerFor(
+			prometheus.DefaultGatherer,
+			promhttp.HandlerOpts{
+				MaxRequestsInFlight: MaxRequestsInFlight,
+			}),
+	)
 }

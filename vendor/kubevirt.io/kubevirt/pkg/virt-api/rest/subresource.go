@@ -27,7 +27,7 @@ import (
 	"reflect"
 	"strings"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,10 +41,10 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/util/subresources"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/subresources"
 )
 
 type SubresourceAPIApp struct {
@@ -235,30 +235,23 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 	if runStrategy == v1.RunStrategyHalted {
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("runstrategy halted does not support manual restart requests"))
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("%v does not support manual restart requests", v1.RunStrategyHalted))
 		return
 	}
 
-	startOnly := false
 	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			response.WriteError(http.StatusInternalServerError, err)
 			return
 		}
-		// If there's no VMI, just request to start
-		startOnly = true
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is not running"))
+		return
 	}
 
-	bodyString := ""
-	if startOnly {
-		bodyString, err = getChangeRequestJson(vm,
-			v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
-	} else {
-		bodyString, err = getChangeRequestJson(vm,
-			v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID},
-			v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
-	}
+	bodyString, err := getChangeRequestJson(vm,
+		v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID},
+		v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
 		return
@@ -288,6 +281,18 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		return
 	}
 
+	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			response.WriteError(http.StatusInternalServerError, err)
+			return
+		}
+	}
+	if vmi != nil && !vmi.IsFinal() && vmi.Status.Phase != v1.Unknown && vmi.Status.Phase != v1.VmPhaseUnset {
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is already running"))
+		return
+	}
+
 	bodyString := ""
 	patchType := types.MergePatchType
 
@@ -307,20 +312,12 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		patchType = types.JSONPatchType
 
 		needsRestart := false
-		vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				response.WriteError(http.StatusInternalServerError, err)
-				return
-			}
-		} else {
-			if (runStrategy == v1.RunStrategyRerunOnFailure && vmi.Status.Phase == v1.Succeeded) ||
-				(runStrategy == v1.RunStrategyManual && vmi.IsFinal()) {
-				needsRestart = true
-			} else if runStrategy == v1.RunStrategyRerunOnFailure && vmi.Status.Phase == v1.Failed {
-				response.WriteError(http.StatusBadRequest, fmt.Errorf("runstrategy rerunonerror does not support starting VM from failed state"))
-				return
-			}
+		if (runStrategy == v1.RunStrategyRerunOnFailure && vmi != nil && vmi.Status.Phase == v1.Succeeded) ||
+			(runStrategy == v1.RunStrategyManual && vmi != nil && vmi.IsFinal()) {
+			needsRestart = true
+		} else if runStrategy == v1.RunStrategyRerunOnFailure && vmi != nil && vmi.Status.Phase == v1.Failed {
+			response.WriteError(http.StatusBadRequest, fmt.Errorf("%v does not support starting VM from failed state", v1.RunStrategyRerunOnFailure))
+			return
 		}
 
 		if needsRestart {
@@ -336,7 +333,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			return
 		}
 	case v1.RunStrategyAlways:
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("runstrategy always does not support manual start requests"))
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("%v does not support manual start requests", v1.RunStrategyAlways))
 		return
 	}
 
@@ -355,12 +352,32 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 }
 
 func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, response *restful.Response) {
+	// RunStrategyHalted         -> doesn't make sense
+	// RunStrategyManual         -> send stop request
+	// RunStrategyAlways         -> spec.running = false
+	// RunStrategyRerunOnFailure -> spec.running = false
+
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
 	vm, code, err := app.fetchVirtualMachine(name, namespace)
 	if err != nil {
 		response.WriteError(code, err)
+		return
+	}
+
+	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			response.WriteError(http.StatusInternalServerError, err)
+			return
+		} else {
+			response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is not running"))
+			return
+		}
+	}
+	if vmi == nil || vmi.IsFinal() || vmi.Status.Phase == v1.Unknown || vmi.Status.Phase == v1.VmPhaseUnset {
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is not running"))
 		return
 	}
 
@@ -371,33 +388,19 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
-	// RunStrategyHalted         -> doesn't make sense
-	// RunStrategyManual         -> send stop request
-	// RunStrategyAlways         -> spec.running = false
-	// RunStrategyRerunOnFailure -> spec.running = false
 	switch runStrategy {
 	case v1.RunStrategyHalted:
-		response.WriteError(http.StatusInternalServerError, fmt.Errorf("runstrategy halted does not support manual stop requests"))
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("%v does not support manual stop requests", v1.RunStrategyHalted))
 		return
 	case v1.RunStrategyManual:
 		// pass the buck and ask virt-controller to stop the VM. this way the
 		// VM will retain RunStrategy = manual
-		vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+		patchType = types.JSONPatchType
+		bodyString, err = getChangeRequestJson(vm,
+			v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID})
 		if err != nil {
-			if !errors.IsNotFound(err) {
-				response.WriteError(http.StatusInternalServerError, err)
-				return
-			}
-			response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is not running"))
+			response.WriteError(http.StatusInternalServerError, err)
 			return
-		} else {
-			patchType = types.JSONPatchType
-			bodyString, err = getChangeRequestJson(vm,
-				v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID})
-			if err != nil {
-				response.WriteError(http.StatusInternalServerError, err)
-				return
-			}
 		}
 	case v1.RunStrategyRerunOnFailure, v1.RunStrategyAlways:
 		bodyString = getRunningJson(vm, false)
@@ -417,9 +420,9 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	response.WriteHeader(http.StatusAccepted)
 }
 
-func (app *SubresourceAPIApp) findPod(namespace string, uid string) (string, error) {
+func (app *SubresourceAPIApp) findPod(namespace string, vmi *v1.VirtualMachineInstance) (string, error) {
 	fieldSelector := fields.ParseSelectorOrDie("status.phase==" + string(k8sv1.PodRunning))
-	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + uid))
+	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + string(vmi.UID)))
 	if err != nil {
 		return "", err
 	}
@@ -432,8 +435,22 @@ func (app *SubresourceAPIApp) findPod(namespace string, uid string) (string, err
 
 	if len(podList.Items) == 0 {
 		return "", goerror.New("connection failed. No VirtualMachineInstance pod is running")
+	} else if len(podList.Items) == 1 {
+		return podList.Items[0].ObjectMeta.Name, nil
+	} else {
+		// If we have 2 running pods, we might have a migration. Find the new pod!
+		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
+			for _, pod := range podList.Items {
+				if pod.Name == vmi.Status.MigrationState.TargetPod {
+					return pod.Name, nil
+				}
+			}
+		} else {
+			// fallback to old behaviour
+			return podList.Items[0].ObjectMeta.Name, nil
+		}
 	}
-	return podList.Items[0].ObjectMeta.Name, nil
+	return "", goerror.New("connection failed. Did not find matching VirtualMachineInstance pod")
 }
 
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, int, error) {
@@ -467,7 +484,7 @@ func (app *SubresourceAPIApp) remoteExecInfo(vmi *v1.VirtualMachineInstance) (st
 		return podName, http.StatusBadRequest, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s", vmi.Status.Phase, v1.Running))
 	}
 
-	podName, err := app.findPod(vmi.Namespace, string(vmi.UID))
+	podName, err := app.findPod(vmi.Namespace, vmi)
 	if err != nil {
 		return podName, http.StatusBadRequest, fmt.Errorf("unable to find matching pod for remote execution: %v", err)
 	}

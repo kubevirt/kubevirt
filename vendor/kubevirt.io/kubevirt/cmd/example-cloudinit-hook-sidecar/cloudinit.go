@@ -28,11 +28,12 @@ import (
 
 	"google.golang.org/grpc"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	hooks "kubevirt.io/kubevirt/pkg/hooks"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
-	"kubevirt.io/kubevirt/pkg/log"
 )
 
 type infoServer struct{}
@@ -75,21 +76,20 @@ func (s v1alpha2Server) PreCloudInitIso(ctx context.Context, params *hooksV1alph
 	}
 
 	cloudInitDataJSON := params.GetCloudInitData()
-	cloudInitData := v1.CloudInitNoCloudSource{}
+	cloudInitData := cloudinit.CloudInitData{}
 	err = json.Unmarshal(cloudInitDataJSON, &cloudInitData)
 	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to unmarshal given CloudInitNoCloudSource: %s", cloudInitDataJSON)
+		log.Log.Reason(err).Errorf("Failed to unmarshal given CloudInitData: %s", cloudInitDataJSON)
 		panic(err)
 	}
 
 	cloudInitData.UserData = "#cloud-config\n"
-	cloudInitData.UserDataBase64 = ""
 
 	response, err := json.Marshal(cloudInitData)
 	if err != nil {
 		return &hooksV1alpha2.PreCloudInitIsoResult{
 			CloudInitData: params.GetCloudInitData(),
-		}, fmt.Errorf("Failed to marshal CloudInitNoCloudSource: %v", cloudInitData)
+		}, fmt.Errorf("Failed to marshal CloudInitData: %v", cloudInitData)
 
 	}
 

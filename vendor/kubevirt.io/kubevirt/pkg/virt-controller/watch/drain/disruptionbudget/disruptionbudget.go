@@ -14,10 +14,10 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
+	virtv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
 )
 
 const (
@@ -235,15 +235,14 @@ func (c *DisruptionBudgetController) resolveControllerRef(namespace string, cont
 	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineInstanceGroupVersionKind.Kind {
 		return nil
 	}
-	vmi, exists, err := c.vmiInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
-	if err != nil {
-		return nil
-	}
-	if !exists {
-		return nil
-	}
 
-	return vmi.(*virtv1.VirtualMachineInstance)
+	return &virtv1.VirtualMachineInstance{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      controllerRef.Name,
+			Namespace: namespace,
+			UID:       controllerRef.UID,
+		},
+	}
 }
 
 // Run runs the passed in NodeController.
@@ -339,7 +338,7 @@ func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachine
 		} else if !wantsToMigrate && pdb != nil {
 			// We don't want migrations on evictions, if there is a pdb, remove it
 			delete = true
-		} else if wantsToMigrate && pdb == nil {
+		} else if wantsToMigrate && vmi.DeletionTimestamp == nil && pdb == nil {
 			// No pdb and we want migrations on evictions
 			create = true
 		} else if wantsToMigrate && pdb != nil {

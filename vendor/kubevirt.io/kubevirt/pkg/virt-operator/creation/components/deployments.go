@@ -21,98 +21,14 @@ package components
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/log"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/json"
 
-	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+	virtv1 "kubevirt.io/client-go/api/v1"
 )
-
-func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, expectations *util.Expectations) (int, error) {
-
-	objectsAdded := 0
-	core := clientset.CoreV1()
-	kvkey, err := controller.KeyFunc(kv)
-	if err != nil {
-		return 0, err
-	}
-
-	services := []*corev1.Service{
-		NewPrometheusService(kv.Namespace),
-		NewApiServerService(kv.Namespace),
-	}
-	for _, service := range services {
-		if _, exists, _ := stores.ServiceCache.Get(service); !exists {
-			expectations.Service.RaiseExpectations(kvkey, 1, 0)
-			_, err := core.Services(kv.Namespace).Create(service)
-			if err != nil {
-				expectations.Service.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create service %+v: %v", service, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("service %v already exists", service.GetName())
-		}
-	}
-
-	apps := clientset.AppsV1()
-
-	// TODO make verbosity part of the KubeVirt CRD spec?
-	verbosity := "2"
-	api, err := NewApiServerDeployment(kv.Namespace, config.ImageRegistry, config.ImageTag, kv.Spec.ImagePullPolicy, verbosity)
-	if err != nil {
-		return objectsAdded, err
-	}
-	controller, err := NewControllerDeployment(kv.Namespace, config.ImageRegistry, config.ImageTag, kv.Spec.ImagePullPolicy, verbosity)
-	if err != nil {
-		return objectsAdded, err
-	}
-
-	deployments := []*appsv1.Deployment{api, controller}
-	for _, deployment := range deployments {
-		if _, exists, _ := stores.DeploymentCache.Get(deployment); !exists {
-			expectations.Deployment.RaiseExpectations(kvkey, 1, 0)
-			_, err := apps.Deployments(kv.Namespace).Create(deployment)
-			if err != nil {
-				expectations.Deployment.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("deployment %v already exists", deployment.GetName())
-		}
-	}
-
-	handler, err := NewHandlerDaemonSet(kv.Namespace, config.ImageRegistry, config.ImageTag, kv.Spec.ImagePullPolicy, verbosity)
-	if err != nil {
-		return objectsAdded, err
-	}
-
-	if _, exists, _ := stores.DaemonSetCache.Get(handler); !exists {
-		expectations.DaemonSet.RaiseExpectations(kvkey, 1, 0)
-		_, err = apps.DaemonSets(kv.Namespace).Create(handler)
-		if err != nil {
-			expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
-			return objectsAdded, fmt.Errorf("unable to create daemonset %+v: %v", handler, err)
-		} else if err == nil {
-			objectsAdded++
-		}
-	} else {
-		log.Log.V(4).Infof("daemonset %v already exists", handler.GetName())
-	}
-
-	return objectsAdded, nil
-
-}
 
 func NewPrometheusService(namespace string) *corev1.Service {
 	return &corev1.Service{
@@ -424,6 +340,8 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 		"$(NODE_NAME)",
 		"--pod-ip-address",
 		"$(MY_POD_IP)",
+		"--max-metric-requests",
+		"3",
 		"-v",
 		verbosity,
 	}

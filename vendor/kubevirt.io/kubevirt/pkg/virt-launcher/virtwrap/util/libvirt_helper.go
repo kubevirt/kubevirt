@@ -15,8 +15,8 @@ import (
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/log"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
@@ -192,6 +192,7 @@ func StartLibvirt(stopChan chan struct{}) {
 
 			go func() {
 				scanner := bufio.NewScanner(reader)
+				scanner.Buffer(make([]byte, 1024), 512*1024)
 				for scanner.Scan() {
 					log.LogLibvirtLogLine(log.Log, scanner.Text())
 				}

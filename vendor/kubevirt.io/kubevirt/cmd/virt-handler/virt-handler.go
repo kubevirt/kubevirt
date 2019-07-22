@@ -29,11 +29,10 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -43,13 +42,13 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/cert"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/certificates"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
 	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"    // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus" // import for prometheus metrics
 	promvm "kubevirt.io/kubevirt/pkg/monitoring/vms/prometheus"  // import for prometheus metrics
@@ -87,6 +86,7 @@ const (
 
 	// selfsigned cert secret name
 	virtHandlerCertSecretName = "kubevirt-virt-handler-certs"
+	maxRequestsInFlight       = 3
 )
 
 type virtHandlerApp struct {
@@ -96,6 +96,7 @@ type virtHandlerApp struct {
 	VirtShareDir            string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
+	MaxRequestsInFlight     int
 
 	signingCertBytes []byte
 	clientCertBytes  []byte
@@ -112,62 +113,48 @@ var _ service.Service = &virtHandlerApp{}
 func (app *virtHandlerApp) getSelfSignedCert() error {
 	var ok bool
 
-	generateCerts := false
-	secret, err := app.virtCli.CoreV1().Secrets(app.namespace).Get(virtHandlerCertSecretName, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			generateCerts = true
-		} else {
-			return err
-		}
+	caKeyPair, _ := triple.NewCA("kubevirt.io")
+	clientKeyPair, _ := triple.NewClientKeyPair(caKeyPair,
+		"kubevirt.io:system:node:virt-handler",
+		nil,
+	)
+
+	secret := &k8sv1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      virtHandlerCertSecretName,
+			Namespace: app.namespace,
+			Labels: map[string]string{
+				v1.AppLabel: "virt-api-aggregator",
+			},
+		},
+		Type: "Opaque",
+		Data: map[string][]byte{
+			clientCertBytesValue:  cert.EncodeCertPEM(clientKeyPair.Cert),
+			clientKeyBytesValue:   cert.EncodePrivateKeyPEM(clientKeyPair.Key),
+			signingCertBytesValue: cert.EncodeCertPEM(caKeyPair.Cert),
+		},
 	}
-
-	if generateCerts {
-		// Generate new certs if secret doesn't already exist
-		caKeyPair, _ := triple.NewCA("kubevirt.io")
-
-		clientKeyPair, _ := triple.NewClientKeyPair(caKeyPair,
-			"kubevirt.io:system:node:virt-handler",
-			nil,
-		)
-
-		app.clientKeyBytes = cert.EncodePrivateKeyPEM(clientKeyPair.Key)
-		app.clientCertBytes = cert.EncodeCertPEM(clientKeyPair.Cert)
-		app.signingCertBytes = cert.EncodeCertPEM(caKeyPair.Cert)
-
-		secret := k8sv1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      virtHandlerCertSecretName,
-				Namespace: app.namespace,
-				Labels: map[string]string{
-					v1.AppLabel: "virt-api-aggregator",
-				},
-			},
-			Type: "Opaque",
-			Data: map[string][]byte{
-				clientCertBytesValue:  app.clientCertBytes,
-				clientKeyBytesValue:   app.clientKeyBytes,
-				signingCertBytesValue: app.signingCertBytes,
-			},
-		}
-		_, err := app.virtCli.CoreV1().Secrets(app.namespace).Create(&secret)
+	_, err := app.virtCli.CoreV1().Secrets(app.namespace).Create(secret)
+	if errors.IsAlreadyExists(err) {
+		secret, err = app.virtCli.CoreV1().Secrets(app.namespace).Get(virtHandlerCertSecretName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
-	} else {
-		// retrieve self signed cert info from secret
-		app.clientCertBytes, ok = secret.Data[clientCertBytesValue]
-		if !ok {
-			return fmt.Errorf("%s value not found in %s virt-api secret", clientCertBytesValue, virtHandlerCertSecretName)
-		}
-		app.clientKeyBytes, ok = secret.Data[clientKeyBytesValue]
-		if !ok {
-			return fmt.Errorf("%s value not found in %s virt-api secret", clientKeyBytesValue, virtHandlerCertSecretName)
-		}
-		app.signingCertBytes, ok = secret.Data[signingCertBytesValue]
-		if !ok {
-			return fmt.Errorf("%s value not found in %s virt-api secret", signingCertBytesValue, virtHandlerCertSecretName)
-		}
+	} else if err != nil {
+		return err
+	}
+	// retrieve self signed cert info from secret
+	app.clientCertBytes, ok = secret.Data[clientCertBytesValue]
+	if !ok {
+		return fmt.Errorf("%s value not found in %s virt-api secret", clientCertBytesValue, virtHandlerCertSecretName)
+	}
+	app.clientKeyBytes, ok = secret.Data[clientKeyBytesValue]
+	if !ok {
+		return fmt.Errorf("%s value not found in %s virt-api secret", clientKeyBytesValue, virtHandlerCertSecretName)
+	}
+	app.signingCertBytes, ok = secret.Data[signingCertBytesValue]
+	if !ok {
+		return fmt.Errorf("%s value not found in %s virt-api secret", signingCertBytesValue, virtHandlerCertSecretName)
 	}
 	return nil
 }
@@ -282,7 +269,7 @@ func (app *virtHandlerApp) Run() {
 		glog.Fatalf("unable to generate certificates: %v", err)
 	}
 
-	promvm.SetupCollector(app.VirtShareDir)
+	promvm.SetupCollector(app.virtCli, app.VirtShareDir, app.HostOverride)
 
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
@@ -292,7 +279,9 @@ func (app *virtHandlerApp) Run() {
 
 	go vmController.Run(3, stop)
 
-	http.Handle("/metrics", promhttp.Handler())
+	logger.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
+	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
+
 	err = http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
 	if err != nil {
 		log.Log.Reason(err).Error("Serving prometheus failed.")
@@ -325,6 +314,9 @@ func (app *virtHandlerApp) AddFlags() {
 	// This should be deprecated if the API allows for shared resources in the future
 	flag.IntVar(&app.MaxDevices, "max-devices", maxDevices,
 		"Number of devices to register with Kubernetes device plugin framework")
+
+	flag.IntVar(&app.MaxRequestsInFlight, "max-metric-requests", maxRequestsInFlight,
+		"Number of concurrent requests to the metrics endpoint")
 }
 
 func (app *virtHandlerApp) setupTLS() error {

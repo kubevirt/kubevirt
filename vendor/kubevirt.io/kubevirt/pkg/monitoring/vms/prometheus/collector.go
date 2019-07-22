@@ -23,13 +23,16 @@ import (
 	"sync"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	k6tv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 )
 
 const collectionTimeout time.Duration = 10 * time.Second // "long enough", crude heuristic
 
+type vmiSocketMap map[string]*k6tv1.VirtualMachineInstance
+
 type metricsScraper interface {
-	Scrape(key string)
+	Scrape(key string, vmi *k6tv1.VirtualMachineInstance)
 }
 
 type concurrentCollector struct {
@@ -43,12 +46,12 @@ func NewConcurrentCollector() *concurrentCollector {
 	}
 }
 
-func (cc *concurrentCollector) Collect(keys []string, scraper metricsScraper, timeout time.Duration) ([]string, bool) {
-	log.Log.V(3).Infof("Collecting VM metrics from %d sources", len(keys))
+func (cc *concurrentCollector) Collect(socketToVMIs vmiSocketMap, scraper metricsScraper, timeout time.Duration) ([]string, bool) {
+	log.Log.V(3).Infof("Collecting VM metrics from %d sources", len(socketToVMIs))
 	var busyScrapers sync.WaitGroup
 
 	skipped := []string{}
-	for _, key := range keys {
+	for key, vmi := range socketToVMIs {
 		reserved := cc.reserveKey(key)
 		if !reserved {
 			log.Log.Warningf("Source %s busy from a previous collection, skipped", key)
@@ -58,7 +61,7 @@ func (cc *concurrentCollector) Collect(keys []string, scraper metricsScraper, ti
 
 		log.Log.V(4).Infof("Source %s responsive, scraping", key)
 		busyScrapers.Add(1)
-		go cc.collectFromSource(key, scraper, &busyScrapers)
+		go cc.collectFromSource(scraper, &busyScrapers, key, vmi)
 	}
 
 	completed := true
@@ -80,12 +83,12 @@ func (cc *concurrentCollector) Collect(keys []string, scraper metricsScraper, ti
 	return skipped, completed
 }
 
-func (cc *concurrentCollector) collectFromSource(key string, scraper metricsScraper, wg *sync.WaitGroup) {
+func (cc *concurrentCollector) collectFromSource(scraper metricsScraper, wg *sync.WaitGroup, key string, vmi *k6tv1.VirtualMachineInstance) {
 	defer wg.Done()
 	defer cc.releaseKey(key)
 
 	log.Log.V(4).Infof("Getting stats from source %s", key)
-	scraper.Scrape(key)
+	scraper.Scrape(key, vmi)
 	log.Log.V(4).Infof("Updated stats from source %s", key)
 }
 

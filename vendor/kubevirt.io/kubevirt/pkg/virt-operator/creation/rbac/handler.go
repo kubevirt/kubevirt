@@ -20,103 +20,12 @@
 package rbac
 
 import (
-	"fmt"
-
-	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-operator/util"
-
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	virtv1 "kubevirt.io/client-go/api/v1"
 )
-
-func CreateHandlerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores util.Stores, expectations *util.Expectations) (int, error) {
-
-	objectsAdded := 0
-	core := clientset.CoreV1()
-	kvkey, err := controller.KeyFunc(kv)
-	if err != nil {
-		return 0, err
-	}
-
-	sa := newHandlerServiceAccount(kv.Namespace)
-	if _, exists, _ := stores.ServiceAccountCache.Get(sa); !exists {
-		expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
-		_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
-		if err != nil {
-			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
-			return objectsAdded, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
-		} else if err == nil {
-			objectsAdded++
-		}
-	} else {
-		log.Log.Infof("serviceaccount %v already exists", sa.GetName())
-	}
-
-	rbac := clientset.RbacV1()
-
-	cr := newHandlerClusterRole()
-	if _, exists, _ := stores.ClusterRoleCache.Get(cr); !exists {
-		expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
-		_, err := rbac.ClusterRoles().Create(cr)
-		if err != nil {
-			expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
-			return objectsAdded, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
-		} else if err == nil {
-			objectsAdded++
-		}
-	} else {
-		log.Log.Infof("clusterrole %v already exists", cr.GetName())
-	}
-
-	crb := newHandlerClusterRoleBinding(kv.Namespace)
-	if _, exists, _ := stores.ClusterRoleBindingCache.Get(crb); !exists {
-		expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
-		_, err := rbac.ClusterRoleBindings().Create(crb)
-		if err != nil {
-			expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
-			return objectsAdded, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
-		} else if err == nil {
-			objectsAdded++
-		}
-	} else {
-		log.Log.Infof("clusterrolebinding %v already exists", crb.GetName())
-	}
-
-	r := newHandlerRole(kv.Namespace)
-	if _, exists, _ := stores.RoleCache.Get(r); !exists {
-		expectations.Role.RaiseExpectations(kvkey, 1, 0)
-		_, err := rbac.Roles(kv.Namespace).Create(r)
-		if err != nil {
-			expectations.Role.LowerExpectations(kvkey, 1, 0)
-			return objectsAdded, fmt.Errorf("unable to create role %+v: %v", r, err)
-		} else if err == nil {
-			objectsAdded++
-		}
-	} else {
-		log.Log.Infof("role %v already exists", r.GetName())
-	}
-
-	rb := newHandlerRoleBinding(kv.Namespace)
-	if _, exists, _ := stores.RoleBindingCache.Get(rb); !exists {
-		expectations.RoleBinding.RaiseExpectations(kvkey, 1, 0)
-		_, err := rbac.RoleBindings(kv.Namespace).Create(rb)
-		if err != nil {
-			expectations.RoleBinding.LowerExpectations(kvkey, 1, 0)
-			return objectsAdded, fmt.Errorf("unable to create rolebinding %+v: %v", rb, err)
-		} else if err == nil {
-			objectsAdded++
-		}
-	} else {
-		log.Log.Infof("rolebinding %v already exists", rb.GetName())
-	}
-
-	return objectsAdded, nil
-}
 
 func GetAllHandler(namespace string) []interface{} {
 	return []interface{}{
