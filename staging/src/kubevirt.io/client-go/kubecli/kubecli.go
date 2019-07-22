@@ -51,7 +51,9 @@ var (
 var virtclient KubevirtClient
 var once sync.Once
 
-func init() {
+// Init adds the default `kubeconfig` and `master` flags. It is not added by default to allow integration into
+// the different controller generators which normally add these flags too.
+func Init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
 	flag.StringVar(&master, "master", "", "master url")
 }
