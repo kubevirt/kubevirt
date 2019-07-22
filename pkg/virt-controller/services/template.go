@@ -370,20 +370,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				},
 			},
 		})
-
-		// libvirt uses vfio-pci to pass host devices through
-		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-			Name:      "dev-vfio",
-			MountPath: "/dev/vfio/",
-		})
-		volumes = append(volumes, k8sv1.Volume{
-			Name: "dev-vfio",
-			VolumeSource: k8sv1.VolumeSource{
-				HostPath: &k8sv1.HostPathVolumeSource{
-					Path: "/dev/vfio/",
-				},
-			},
-		})
 	}
 
 	serviceAccountName := ""
