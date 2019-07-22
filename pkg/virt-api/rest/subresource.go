@@ -127,7 +127,7 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 	}()
 
 	go func() {
-		_, err := io.Copy(inWriter, wsReadWriter)
+		_, err := kubecli.CopyFrom(inWriter, clientSocket)
 		log.Log.Object(vmi).Reason(err).Error("error ecountered reading from websocket stream")
 		copyErr <- err
 	}()

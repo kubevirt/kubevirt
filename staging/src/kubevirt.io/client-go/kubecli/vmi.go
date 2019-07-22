@@ -63,6 +63,11 @@ type vmis struct {
 	kubeconfig string
 }
 
+func CopyFrom(dst io.Writer, src *websocket.Conn) (written int64, err error) {
+	reader := &binaryReader {conn: src}
+	return io.Copy(dst, reader)
+}
+
 func Copy(dst *BinaryReadWriter, src io.Reader) (written int64, err error) {
 	// our websocket package has an issue where it truncates messages
 	// when the message+header is greater than the buffer size we allocate.
@@ -78,23 +83,27 @@ type BinaryReadWriter struct {
 func (s *BinaryReadWriter) Write(p []byte) (int, error) {
 	w, err := s.Conn.NextWriter(websocket.BinaryMessage)
 	if err != nil {
-		return 0, s.err(err)
+		return 0, convert(err)
 	}
 	defer w.Close()
 	return w.Write(p)
 }
 
-func (s *BinaryReadWriter) Read(p []byte) (int, error) {
+type binaryReader struct {
+	conn *websocket.Conn
+}
+
+func (s *binaryReader) Read(p []byte) (int, error) {
 	for {
-		msgType, r, err := s.Conn.NextReader()
+		msgType, r, err := s.conn.NextReader()
 		if err != nil {
-			return 0, s.err(err)
+			return 0, convert(err)
 		}
 
 		switch msgType {
 		case websocket.BinaryMessage:
 			n, err := r.Read(p)
-			return n, s.err(err)
+			return n, convert(err)
 
 		case websocket.CloseMessage:
 			return 0, io.EOF
@@ -102,7 +111,7 @@ func (s *BinaryReadWriter) Read(p []byte) (int, error) {
 	}
 }
 
-func (s *BinaryReadWriter) err(err error) error {
+func convert(err error) error {
 	if err == nil {
 		return nil
 	}
@@ -223,7 +232,7 @@ func (ws *wsStreamer) Stream(options StreamOptions) error {
 	}()
 
 	go func() {
-		_, err := io.Copy(options.Out, wsReadWriter)
+		_, err := CopyFrom(options.Out, ws.conn)
 		copyErr <- err
 	}()
 
