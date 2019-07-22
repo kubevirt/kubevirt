@@ -976,7 +976,6 @@
   digest = "1:e506d17784b0a4ed17a78836ad6c88a33b48f82bbf9db394e6a3cb13cabd2b34"
   name = "kubevirt.io/client-go"
   packages = [
-    ".",
     "api/v1",
     "precond",
   ]
@@ -1118,7 +1117,7 @@
     "k8s.io/gengo/args",
     "k8s.io/kube-openapi/cmd/openapi-gen",
     "k8s.io/kube-openapi/pkg/common",
-    "kubevirt.io/client-go",
+    "kubevirt.io/client-go/api/v1",
     "kubevirt.io/containerized-data-importer",
     "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1",
     "kubevirt.io/containerized-data-importer/pkg/operator/resources/operator",

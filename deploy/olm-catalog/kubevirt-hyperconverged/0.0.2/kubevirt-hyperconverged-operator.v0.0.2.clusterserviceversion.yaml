@@ -71,11 +71,11 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-07-16 16:35:09.376495024 -0400 EDT m=+0.028392606
+    createdAt: 2019-07-22 09:19:38.115091695 -0400 EDT m=+0.024444752
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
-  name: kubevirt-hyperconverged-operator.v0.0.1
+  name: kubevirt-hyperconverged-operator.v0.0.2
   namespace: placeholder
 spec:
   displayName: KubeVirt HyperConverged Cluster Operator
@@ -148,8 +148,9 @@ spec:
   keywords:
     - KubeVirt
     - Virtualization
-  version: 0.0.1
+  version: 0.0.2
   maturity: alpha
+  replaces: kubevirt-hyperconverged-operator.v0.0.1
   maintainers:
     - name: KubeVirt project
       email: kubevirt-dev@googlegroups.com
@@ -645,6 +646,7 @@ spec:
               - virtualmachines/restart
               verbs:
               - update
+              - put
             - apiGroups:
               - kubevirt.io
               resources:
@@ -677,6 +679,7 @@ spec:
               - virtualmachines/restart
               verbs:
               - update
+              - put
             - apiGroups:
               - kubevirt.io
               resources:
@@ -1201,12 +1204,12 @@ spec:
                   - "2"
                   env:
                   - name: OPERATOR_IMAGE
-                    value: kubevirt/virt-operator:v0.17.4
+                    value: kubevirt/virt-operator:v0.19.0
                   - name: WATCH_NAMESPACE
                     valueFrom:
                       fieldRef:
                         fieldPath: metadata.annotations['olm.targetNamespaces']
-                  image: kubevirt/virt-operator:v0.17.4
+                  image: kubevirt/virt-operator:v0.19.0
                   imagePullPolicy: IfNotPresent
                   name: virt-operator
                   ports:
@@ -1354,7 +1357,7 @@ spec:
                       - name: WATCH_NAMESPACE
                         value: ""
                       - name: VIRT_LAUNCHER_TAG
-                        value: v0.17.4
+                        value: v0.19.0
                       - name: OPERATOR_NAME
                         value: "kubevirt-ssp-operator"
 

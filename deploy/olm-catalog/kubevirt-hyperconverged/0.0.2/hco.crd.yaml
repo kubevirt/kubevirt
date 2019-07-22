@@ -2,9 +2,7 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  labels:
-    operator.kubevirt.io: ""
-  name: kubevirts.kubevirt.io
+  name: hyperconvergeds.hco.kubevirt.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .metadata.creationTimestamp
@@ -13,15 +11,19 @@ spec:
   - JSONPath: .status.phase
     name: Phase
     type: string
-  group: kubevirt.io
+  group: hco.kubevirt.io
   names:
-    categories:
-    - all
-    kind: KubeVirt
-    plural: kubevirts
+    kind: HyperConverged
+    plural: hyperconvergeds
     shortNames:
-    - kv
-    - kvs
-    singular: kubevirt
+    - hco
+    - hcos
+    singular: hyperconverged
   scope: Namespaced
-  version: v1alpha3
+  subresources:
+    status: {}
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
