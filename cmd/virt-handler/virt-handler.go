@@ -34,6 +34,8 @@ import (
 	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -188,6 +190,20 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	se, err := selinux.NewSELinux()
+	if err == nil {
+		err := se.Label("container_file_t", "/var/run/kubevirt")
+		if err != nil {
+			panic(err)
+		}
+		err = se.Restore("/var/run/kubevirt")
+		if err != nil {
+			panic(err)
+		}
+	} else if !os.IsNotExist(err) {
+		// selinux seems to be installed, but an error occured
+		panic(err)
+	}
 	// Create event recorder
 	app.virtCli, err = kubecli.GetKubevirtClient()
 	if err != nil {
