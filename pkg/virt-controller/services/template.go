@@ -341,8 +341,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	})
 
 	if isSRIOVVmi(vmi) {
-		// libvirt needs this volume to determine iommu group assigned
-		// to the device
+		// libvirt needs this volume to access PCI device config;
+		// note that the volume should not be read-only because libvirt
+		// opens the config for writing
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      "pci-devices",
 			MountPath: "/sys/devices/",
