@@ -1430,8 +1430,9 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 
 	imageTag := kv.Status.TargetKubeVirtVersion
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
 
-	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id)
 
 	pdbClient := clientset.PolicyV1beta1().PodDisruptionBudgets(deployment.Namespace)
 
@@ -1455,7 +1456,7 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 			return fmt.Errorf("unable to create poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 		}
 		log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName())
-	} else if !objectMatchesVersion(&cachedPodDisruptionBudget.ObjectMeta, imageTag, imageRegistry) {
+	} else if !objectMatchesVersion(&cachedPodDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id) {
 		// Patch if old version
 		var ops []string
 

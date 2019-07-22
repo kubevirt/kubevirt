@@ -46,6 +46,7 @@ const (
 	Namespace = "ns"
 	Version   = "1.0"
 	Registry  = "rep"
+	Id 		  = "42"
 )
 
 var _ = Describe("Create", func() {
@@ -137,9 +138,10 @@ var _ = Describe("Create", func() {
 		It("should skip patching of same version", func() {
 			kv.Status.TargetKubeVirtRegistry = Registry
 			kv.Status.TargetKubeVirtVersion = Version
+			kv.Status.TargetDeploymentID = Id
 
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
-			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry)
+			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id)
 
 			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
 
