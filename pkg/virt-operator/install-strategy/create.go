@@ -1433,18 +1433,29 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 
 	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry)
 
-	var cachedPodDisruptionBudget *policyv1beta1.PodDisruptionBudget
-
 	pdbClient := clientset.PolicyV1beta1().PodDisruptionBudgets(deployment.Namespace)
 
-	obj, exists, _ := stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
+	var cachedPodDisruptionBudget *policyv1beta1.PodDisruptionBudget
 
+	obj, exists, _ := stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
 	if exists {
 		cachedPodDisruptionBudget = obj.(*policyv1beta1.PodDisruptionBudget)
-		if objectMatchesVersion(&cachedPodDisruptionBudget.ObjectMeta, imageTag, imageRegistry) {
-			log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
-			return nil
+	}
+
+	if !exists {
+		kvkey, err := controller.KeyFunc(kv)
+		if err != nil {
+			return err
 		}
+
+		expectations.PodDisruptionBudget.RaiseExpectations(kvkey, 1, 0)
+		_, err = pdbClient.Create(podDisruptionBudget)
+		if err != nil {
+			expectations.PodDisruptionBudget.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create poddisruptionbudget %+v: %v", podDisruptionBudget, err)
+		}
+		log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName())
+	} else if !objectMatchesVersion(&cachedPodDisruptionBudget.ObjectMeta, imageTag, imageRegistry) {
 		// Patch if old version
 		var ops []string
 
@@ -1467,21 +1478,10 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 			return fmt.Errorf("unable to patch poddisruptionbudget %+v: %v", podDisruptionBudget, err)
 		}
 		log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
-		return nil
+	} else {
+		log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
 	}
 
-	kvkey, err := controller.KeyFunc(kv)
-	if err != nil {
-		return err
-	}
-
-	expectations.PodDisruptionBudget.RaiseExpectations(kvkey, 1, 0)
-	_, err = pdbClient.Create(podDisruptionBudget)
-	if err != nil {
-		expectations.PodDisruptionBudget.LowerExpectations(kvkey, 1, 0)
-		return fmt.Errorf("unable to create poddisruptionbudget %+v: %v", podDisruptionBudget, err)
-	}
-	log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName())
 	return nil
 }
 
