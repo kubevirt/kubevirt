@@ -82,7 +82,7 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		if err != nil {
 			return nil, err
 		}
-		podList, err := virtCli.CoreV1().Pods("kubevirt").List(metav1.ListOptions{})
+		podList, err := virtCli.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +180,7 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		tests.PanicOnError(err)
 
 		// Add nodeSelector to deployments so that they migrate to selectedNode
-		deploymentsClient := kubecli.KubevirtClient.AppsV1(virtCli).Deployments("kubevirt")
+		deploymentsClient := kubecli.KubevirtClient.AppsV1(virtCli).Deployments(tests.KubeVirtInstallNamespace)
 		deployments, err := deploymentsClient.List(metav1.ListOptions{})
 		tests.PanicOnError(err)
 		for _, deployment := range deployments.Items {
@@ -210,7 +210,7 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		tests.PanicOnError(err)
 
 		// Remove nodeSelector from deployments
-		deploymentsClient := kubecli.KubevirtClient.AppsV1(virtCli).Deployments("kubevirt")
+		deploymentsClient := kubecli.KubevirtClient.AppsV1(virtCli).Deployments(tests.KubeVirtInstallNamespace)
 		deployments, err := deploymentsClient.List(metav1.ListOptions{})
 		tests.PanicOnError(err)
 
