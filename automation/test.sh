@@ -52,7 +52,11 @@ if [[ $TARGET =~ os-.* ]]; then
   export KUBEVIRT_MEMORY_SIZE=6144M
 fi
 
-export KUBEVIRT_NUM_NODES=2
+if [[ $TARGET =~ .*sriov.* ]]; then
+  export KUBEVIRT_NUM_NODES=1 # to be sure the guest lands on the master node
+else
+  export KUBEVIRT_NUM_NODES=2 
+fi
 export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
 export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_image.lock}
 export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2016}
@@ -272,6 +276,8 @@ elif [[ $TARGET =~ multus.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=Multus|Networking|VMIlifecycle|Expose"
 elif [[ $TARGET =~ genie.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=Genie|Networking|VMIlifecycle|Expose"
+elif [[ $TARGET =~ sriov.* ]]; then
+  ginko_params="$ginko_params --ginkgo.focus=SRIOV" 
 else
   ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV"
 fi
