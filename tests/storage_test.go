@@ -301,17 +301,35 @@ var _ = Describe("Storage", func() {
 		Context("[rfe_id:2298][crit:medium][vendor:cnv-qe@redhat.com][level:component] With HostDisk and PVC initialization", func() {
 
 			Context("With a HostDisk defined", func() {
-				const hostDiskDir = "/data"
+
+				const hostDiskDir = "/tmp/kubevirt-hostdisks"
+				var nodeName string
+
+				BeforeEach(func() {
+					nodeName = ""
+				})
+
+				AfterEach(func() {
+					// Delete all VMIs and wait until they disappear to ensure that no disk is in use and that we can delete the whole folder
+					Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).ToNot(HaveOccurred())
+					Eventually(func() int {
+						vmis, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&metav1.ListOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return len(vmis.Items)
+					}, 120, 1).Should(BeZero())
+					if nodeName != "" {
+						tests.RemoveHostDiskImage(filepath.Join(hostDiskDir, "/*"), nodeName)
+					}
+				})
 
 				Context("With 'DiskExistsOrCreate' type", func() {
 					diskName := "disk-" + uuid.NewRandom().String() + ".img"
 					diskPath := filepath.Join(hostDiskDir, diskName)
-					// do not choose a specific node to run the test
-					nodeName := ""
 
 					It("[test_id:851]Should create a disk image and start", func() {
 						By("Starting VirtualMachineInstance")
-						vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, nodeName)
+						// do not choose a specific node to run the test
+						vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img has been created")
@@ -321,21 +339,32 @@ var _ = Describe("Storage", func() {
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
-							[]string{"find", hostDiskDir, "-name", diskName, "-size", "1G"},
+							[]string{"find", hostdisk.GetMountedHostDiskDir("host-disk"), "-name", diskName, "-size", "1G"},
 						)
-						Expect(strings.Contains(output, diskPath)).To(BeTrue())
-
-						err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 						Expect(err).ToNot(HaveOccurred())
-
-						tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("host-disk", diskPath)))
 					})
 
-					AfterEach(func() {
-						if nodeName != "" {
-							tests.RemoveHostDiskImage(diskPath, nodeName)
-						}
+					It("should start with multiple hostdisks in the same directory", func() {
+						By("Starting VirtualMachineInstance")
+						// do not choose a specific node to run the test
+						vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
+						tests.AddHostDisk(vmi, filepath.Join(hostDiskDir, "another.img"), v1.HostDiskExistsOrCreate, "anotherdisk")
+						tests.RunVMIAndExpectLaunch(vmi, 30)
+
+						By("Checking if disk.img has been created")
+						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+						nodeName = vmiPod.Spec.NodeName
+						output, err := tests.ExecuteCommandOnPod(
+							virtClient,
+							vmiPod,
+							vmiPod.Spec.Containers[0].Name,
+							[]string{"find", hostdisk.GetMountedHostDiskDir("anotherdisk"), "-name", "another.img", "-size", "1G"},
+						)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("anotherdisk", filepath.Join(hostDiskDir, "another.img"))))
 					})
+
 				})
 
 				Context("With 'DiskExists' type", func() {
@@ -343,7 +372,6 @@ var _ = Describe("Storage", func() {
 					diskPath := filepath.Join(hostDiskDir, diskName)
 					// it is mandatory to run a pod which is creating a disk image
 					// on the same node with a HostDisk VMI
-					var nodeName string
 
 					BeforeEach(func() {
 						// create a disk image before test
@@ -372,14 +400,10 @@ var _ = Describe("Storage", func() {
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
-							[]string{"find", hostDiskDir, "-name", diskName},
+							[]string{"find", hostdisk.GetMountedHostDiskDir("host-disk"), "-name", diskName},
 						)
-						Expect(strings.Contains(output, diskPath)).To(BeTrue())
-
-						err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 						Expect(err).ToNot(HaveOccurred())
-
-						tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+						Expect(output).To(ContainSubstring(diskName))
 					})
 
 					It("[test_id:847]Should fail with a capacity option", func() {
@@ -393,10 +417,6 @@ var _ = Describe("Storage", func() {
 						}
 						_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 						Expect(err).To(HaveOccurred())
-					})
-
-					AfterEach(func() {
-						tests.RemoveHostDiskImage(diskPath, nodeName)
 					})
 				})
 

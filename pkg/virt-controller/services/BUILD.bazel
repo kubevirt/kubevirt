@@ -9,6 +9,7 @@ go_library(
         "//pkg/config:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/hooks:go_default_library",
+        "//pkg/host-disk:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/net/dns:go_default_library",
         "//pkg/util/types:go_default_library",

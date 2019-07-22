@@ -31,6 +31,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -391,7 +393,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	for _, volume := range vmi.Spec.Volumes {
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
-			MountPath: filepath.Join("/var/run/kubevirt-private", "vmi-disks", volume.Name),
+			MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
 		}
 		if volume.PersistentVolumeClaim != nil {
 			logger := log.DefaultLogger()
@@ -446,7 +448,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 				Name:      volume.Name,
-				MountPath: filepath.Dir(volume.HostDisk.Path),
+				MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
 			})
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
