@@ -46,7 +46,7 @@ const (
 	Namespace = "ns"
 	Version   = "1.0"
 	Registry  = "rep"
-	Id 		  = "42"
+	Id        = "42"
 )
 
 var _ = Describe("Create", func() {
