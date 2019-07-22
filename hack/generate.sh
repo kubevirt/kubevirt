@@ -27,10 +27,28 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kubevirt-rbac
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=cluster-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-cluster.authorization.k8s.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=operator-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-operator.authorization.k8s.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=prometheus --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/prometheus.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-api --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-api.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-controller --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-controller.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-handler --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-handler.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-operator --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-operator.yaml.in
+
+# used for Image fields in manifests
+function getVersion() {
+    echo "{{if $1}}@{{$1}}{{else}}:{{.DockerTag}}{{end}}"
+}
+virtapi_version=$(getVersion ".VirtApiSha")
+virtcontroller_version=$(getVersion ".VirtControllerSha")
+virthandler_version=$(getVersion ".VirtHandlerSha")
+virtlauncher_version=$(getVersion ".VirtLauncherSha")
+
+# used as env var for operator
+function getShasum() {
+    echo "{{if $1}}@{{$1}}{{end}}"
+}
+virtapi_sha=$(getShasum ".VirtApiSha")
+virtcontroller_sha=$(getShasum ".VirtControllerSha")
+virthandler_sha=$(getShasum ".VirtHandlerSha")
+virtlauncher_sha=$(getShasum ".VirtLauncherSha")
+
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-api --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virtapi_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-api.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-controller --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virtcontroller_version" --launcherVersion="$virtlauncher_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-controller.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-handler --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virthandler_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-handler.yaml.in
 
 (cd ${KUBEVIRT_DIR}/tools/vms-generator/ && go build)
 vms_docker_prefix=${DOCKER_PREFIX:-registry:5000/kubevirt}
@@ -48,5 +66,32 @@ protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/cmd/info/info.proto
 mockgen -source pkg/handler-launcher-com/notify/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/notify/info/generated_mock_info.go
 mockgen -source pkg/handler-launcher-com/cmd/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/cmd/info/generated_mock_info.go
 
-rm -rf cluster-up
-curl -L https://github.com/kubevirt/kubevirtci/archive/${kubevirtci_git_hash}/kubevirtci.tar.gz | tar xz kubevirtci-${kubevirtci_git_hash}/cluster-up --strip-component 1
+# update cluster-up if needed
+version_file="cluster-up/version.txt"
+sha_file="cluster-up-sha.txt"
+download_cluster_up=true
+function getClusterUpShasum() {
+    find ${KUBEVIRT_DIR}/cluster-up -type f | sort | xargs sha1sum | sha1sum | awk '{print $1}'
+}
+# check if we got a new cluster-up git commit hash
+if [[ -f "${version_file}" ]] && [[ $(cat ${version_file}) == ${kubevirtci_git_hash} ]]; then
+    # check if files are modified
+    current_sha=$(getClusterUpShasum)
+    if [[ -f "${sha_file}" ]] && [[ $(cat ${sha_file}) == ${current_sha} ]]; then
+        echo "cluster-up is up to date and not modified"
+        download_cluster_up=false
+    else
+        echo "cluster-up was modified"
+    fi
+else
+    echo "cluster-up git commit hash was updated"
+fi
+if [[ "$download_cluster_up" == true ]]; then
+    echo "downloading cluster-up"
+    rm -rf cluster-up
+    curl -L https://github.com/kubevirt/kubevirtci/archive/${kubevirtci_git_hash}/kubevirtci.tar.gz | tar xz kubevirtci-${kubevirtci_git_hash}/cluster-up --strip-component 1
+
+    echo ${kubevirtci_git_hash} >${version_file}
+    new_sha=$(getClusterUpShasum)
+    echo ${new_sha} >${sha_file}
+fi

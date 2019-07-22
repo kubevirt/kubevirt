@@ -20,6 +20,7 @@ package components
 
 import (
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -98,6 +99,8 @@ func NewApiServerService(namespace string) *corev1.Service {
 
 func newPodTemplateSpec(name string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*corev1.PodTemplateSpec, error) {
 
+	version = AddVersionSeparatorPrefix(version)
+
 	tolerations, err := criticalAddonsToleration()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create toleration: %v", err)
@@ -120,7 +123,7 @@ func newPodTemplateSpec(name string, repository string, version string, pullPoli
 			Containers: []corev1.Container{
 				{
 					Name:            name,
-					Image:           fmt.Sprintf("%s/%s:%s", repository, name, version),
+					Image:           fmt.Sprintf("%s/%s%s", repository, name, version),
 					ImagePullPolicy: pullPolicy,
 				},
 			},
@@ -234,9 +237,9 @@ func NewApiServerDeployment(namespace string, repository string, version string,
 	return deployment, nil
 }
 
-func NewControllerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+func NewControllerDeployment(namespace string, repository string, controllerVersion string, launcherVersion string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-controller"})
-	deployment, err := newBaseDeployment("virt-controller", namespace, repository, version, pullPolicy, podAntiAffinity)
+	deployment, err := newBaseDeployment("virt-controller", namespace, repository, controllerVersion, pullPolicy, podAntiAffinity)
 	if err != nil {
 		return nil, err
 	}
@@ -247,11 +250,13 @@ func NewControllerDeployment(namespace string, repository string, version string
 		RunAsNonRoot: boolPtr(true),
 	}
 
+	launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
+
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
 		"virt-controller",
 		"--launcher-image",
-		fmt.Sprintf("%s/%s:%s", repository, "virt-launcher", version),
+		fmt.Sprintf("%s/%s%s", repository, "virt-launcher", launcherVersion),
 		"--port",
 		"8443",
 		"-v",
@@ -409,10 +414,12 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 }
 
 // Used for manifest generation only
-func NewOperatorDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+func NewOperatorDeployment(namespace string, repository string, version string,
+	pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
 
 	name := "virt-operator"
-	image := fmt.Sprintf("%s/%s:%s", repository, name, version)
+	version = AddVersionSeparatorPrefix(version)
+	image := fmt.Sprintf("%s/%s%s", repository, name, version)
 
 	tolerations, err := criticalAddonsToleration()
 	if err != nil {
@@ -518,9 +525,11 @@ func NewOperatorDeployment(namespace string, repository string, version string, 
 func int32Ptr(i int32) *int32 {
 	return &i
 }
+
 func boolPtr(b bool) *bool {
 	return &b
 }
+
 func criticalAddonsToleration() ([]byte, error) {
 	tolerations := []corev1.Toleration{
 		{
@@ -530,4 +539,16 @@ func criticalAddonsToleration() ([]byte, error) {
 	}
 	tolerationsStr, err := json.Marshal(tolerations)
 	return tolerationsStr, err
+}
+
+func AddVersionSeparatorPrefix(version string) string {
+	// version can be a template, a tag or shasum
+	// prefix tags with ":" and shasums with "@"
+	// templates have to deal with the correct image/version separator themselves
+	if strings.HasPrefix(version, "sha256:") {
+		version = fmt.Sprintf("@%s", version)
+	} else if !strings.HasPrefix(version, "{{if") {
+		version = fmt.Sprintf(":%s", version)
+	}
+	return version
 }

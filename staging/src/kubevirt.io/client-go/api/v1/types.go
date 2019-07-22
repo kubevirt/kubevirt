@@ -539,6 +539,8 @@ const (
 	InstallStrategyVersionAnnotation = "kubevirt.io/install-strategy-version"
 	// This annotation represents the kubevirt registry used for an install strategy configmap.
 	InstallStrategyRegistryAnnotation = "kubevirt.io/install-strategy-registry"
+	// This annotation represents the kubevirt deployment identifier used for an install strategy configmap.
+	InstallStrategyIdentifierAnnotation = "kubevirt.io/install-strategy-identifier"
 	// This annotation represents that this object is for temporary use during updates
 	EphemeralBackupObject = "kubevirt.io/ephemeral-backup-object"
 
@@ -1227,10 +1229,14 @@ type KubeVirtStatus struct {
 	Phase                    KubeVirtPhase       `json:"phase,omitempty"`
 	Conditions               []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
 	OperatorVersion          string              `json:"operatorVersion,omitempty" optional:"true"`
-	TargetKubeVirtVersion    string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
 	TargetKubeVirtRegistry   string              `json:"targetKubeVirtRegistry,omitempty" optional:"true"`
-	ObservedKubeVirtVersion  string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
+	TargetKubeVirtVersion    string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
+	TargetDeploymentConfig   string              `json:"targetDeploymentConfig,omitempty" optional:"true"`
+	TargetDeploymentID       string              `json:"targetDeploymentID,omitempty" optional:"true"`
 	ObservedKubeVirtRegistry string              `json:"observedKubeVirtRegistry,omitempty" optional:"true"`
+	ObservedKubeVirtVersion  string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
+	ObservedDeploymentConfig string              `json:"observedDeploymentConfig,omitempty" optional:"true"`
+	ObservedDeploymentID     string              `json:"observedDeploymentID,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.

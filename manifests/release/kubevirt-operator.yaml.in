@@ -29,4 +29,13 @@ rules:
       - watch
       - deletecollection
 {{index .GeneratedManifests "rbac-operator.authorization.k8s.yaml.in"}}
-{{index .GeneratedManifests "virt-operator.yaml.in"}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    kubevirt.io: virt-operator
+  name: virt-operator
+  namespace: {{.Namespace}}
+spec:
+{{.OperatorDeploymentSpec}}

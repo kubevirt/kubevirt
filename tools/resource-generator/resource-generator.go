@@ -35,7 +35,8 @@ func main() {
 	resourceType := flag.String("type", "", "Type of resource to generate. vmi | vmipreset | vmirs | vm | vmim | kv | rbac")
 	namespace := flag.String("namespace", "kube-system", "Namespace to use.")
 	repository := flag.String("repository", "kubevirt", "Image Repository to use.")
-	version := flag.String("version", "latest", "version to use.")
+	version := flag.String("version", "latest", "Version to use.")
+	launcherVersion := flag.String("launcherVersion", "latest", "Version to use for virt-launcher. Only relevant for controller manifest.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
 	verbosity := flag.String("verbosity", "2", "Verbosity level to use.")
 
@@ -90,7 +91,7 @@ func main() {
 			util.MarshallObject(r, os.Stdout)
 		}
 	case "virt-controller":
-		controller, err := components.NewControllerDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		controller, err := components.NewControllerDeployment(*namespace, *repository, *version, *launcherVersion, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-controller deployment %v", err))
 
@@ -102,13 +103,6 @@ func main() {
 			panic(fmt.Errorf("error generating virt-handler deployment %v", err))
 		}
 		util.MarshallObject(handler, os.Stdout)
-	case "virt-operator":
-		operator, err := components.NewOperatorDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
-		if err != nil {
-			panic(fmt.Errorf("error generating virt-operator deployment %v", err))
-
-		}
-		util.MarshallObject(operator, os.Stdout)
 	default:
 		panic(fmt.Errorf("unknown resource type %s", *resourceType))
 	}

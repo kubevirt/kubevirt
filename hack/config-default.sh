@@ -7,6 +7,7 @@ cdi_namespace=cdi
 image_pull_policy=${IMAGE_PULL_POLICY:-IfNotPresent}
 verbosity=${VERBOSITY:-2}
 package_name=${PACKAGE_NAME:-kubevirt-dev}
+push_log_file=${PUSH_LOG_FILE:-_out/imagePush.log}
 kubevirtci_git_hash="ecedee38641dd8982b41f3c4be1bb012910a97eb"
 
 # try to derive csv_version from docker tag. But it must start with x.y.z, without leading v
