@@ -18,7 +18,7 @@ fi
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.13.3}
 KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-1}
 KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-5120M}
-KUBEVIRT_NUM_SECONDARY_NICS=${KUBEVIRT_NUM_NODES:-0}
+KUBEVIRT_NUM_SECONDARY_NICS=${KUBEVIRT_NUM_SECONDARY_NICS:-0}
 
 # If on a developer setup, expose ocp on 8443, so that the openshift web console can be used (the port is important because of auth redirects)
 if [ -z "${JOB_NAME}" ]; then

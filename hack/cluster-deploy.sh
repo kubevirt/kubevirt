@@ -57,14 +57,14 @@ if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]] || [[ "$KUBEVIRT_PROVIDER" =~ okd-* ]]; th
 fi
 
 if [[ "$KUBEVIRT_PROVIDER" =~ .*sriov.* ]]; then
-  #enable feature gate
-  _kubectl patch configmap kubevirt-config -n kubevirt --patch "data: 
+    #enable feature gate
+    _kubectl patch configmap kubevirt-config -n kubevirt --patch "data: 
   feature-gates: DataVolumes, CPUManager, LiveMigration, SRIOV"
 fi
 
 if [[ "$KUBEVIRT_PROVIDER" =~ kind.* ]]; then
-  #removing it since it's crashing with dind because loopback devices are shared with the host
-  _kubectl delete -n kubevirt ds disks-images-provider
+    #removing it since it's crashing with dind because loopback devices are shared with the host
+    _kubectl delete -n kubevirt ds disks-images-provider
 fi
 
 # Ensure the KubeVirt CRD is created
