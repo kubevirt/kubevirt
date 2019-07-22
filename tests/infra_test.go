@@ -302,9 +302,9 @@ var _ = Describe("Infrastructure", func() {
 			for _, key := range keys {
 				// we don't care about the ordering of the labels
 				Expect(key).To(SatisfyAll(
-					ContainSubstring("node=\"%s\"", nodeName),
-					ContainSubstring("namespace=\"%s\"", vmi.Namespace),
-					ContainSubstring("name=\"%s\"", vmi.Name),
+					ContainSubstring(`node="%s"`, nodeName),
+					ContainSubstring(`namespace="%s"`, vmi.Namespace),
+					ContainSubstring(`name="%s"`, vmi.Name),
 				))
 			}
 		}, 300)
@@ -315,7 +315,7 @@ var _ = Describe("Infrastructure", func() {
 			keys := getKeysFromMetrics(metrics)
 
 			for _, key := range keys {
-				if strings.Contains(key, "phase=\"running\"") {
+				if strings.Contains(key, `phase="running"`) {
 					value := metrics[key]
 					Expect(value).To(Equal(float64(1.0)))
 				}
