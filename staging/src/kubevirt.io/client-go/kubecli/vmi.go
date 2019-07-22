@@ -68,7 +68,8 @@ func CopyFrom(dst io.Writer, src *websocket.Conn) (written int64, err error) {
 	return io.Copy(dst, reader)
 }
 
-func Copy(dst *BinaryReadWriter, src io.Reader) (written int64, err error) {
+func CopyTo(dst *websocket.Conn, src io.Reader) (written int64, err error) {
+	writer := &binaryWriter{conn: dst}
 	// our websocket package has an issue where it truncates messages
 	// when the message+header is greater than the buffer size we allocate.
 	// thus, we copy in chunks of WebsocketMessageBufferSize-wsFrameHeaderSize
@@ -76,12 +77,12 @@ func Copy(dst *BinaryReadWriter, src io.Reader) (written int64, err error) {
 	return io.CopyBuffer(dst, src, buf)
 }
 
-type BinaryReadWriter struct {
-	Conn *websocket.Conn
+type binaryWriter struct {
+	conn *websocket.Conn
 }
 
-func (s *BinaryReadWriter) Write(p []byte) (int, error) {
-	w, err := s.Conn.NextWriter(websocket.BinaryMessage)
+func (s *binaryWriter) Write(p []byte) (int, error) {
+	w, err := s.conn.NextWriter(websocket.BinaryMessage)
 	if err != nil {
 		return 0, convert(err)
 	}
@@ -222,12 +223,10 @@ func (ws *wsStreamer) streamDone() {
 }
 
 func (ws *wsStreamer) Stream(options StreamOptions) error {
-	wsReadWriter := &BinaryReadWriter{Conn: ws.conn}
-
 	copyErr := make(chan error, 1)
 
 	go func() {
-		_, err := Copy(wsReadWriter, options.In)
+		_, err := CopyTo(ws.conn, options.In)
 		copyErr <- err
 	}()
 

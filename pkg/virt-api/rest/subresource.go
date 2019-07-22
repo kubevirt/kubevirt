@@ -107,7 +107,6 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 	defer clientSocket.Close()
 
 	log.Log.Object(vmi).Infof("Websocket connection upgraded")
-	wsReadWriter := &kubecli.BinaryReadWriter{Conn: clientSocket}
 
 	inReader, inWriter := io.Pipe()
 	outReader, outWriter := io.Pipe()
@@ -121,7 +120,7 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 	}()
 
 	go func() {
-		_, err := kubecli.Copy(wsReadWriter, outReader)
+		_, err := kubecli.CopyTo(clientSocket, outReader)
 		log.Log.Object(vmi).Reason(err).Error("error ecountered reading from remote podExec stream")
 		copyErr <- err
 	}()
