@@ -1138,11 +1138,9 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 	})
 
 	Context("with sata disks", func() {
-
-		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret", func() {
-			configMapName := "configmap-" + rand.String(5)
-			secretName := "secret-" + rand.String(5)
-
+		var configMapName = "configmap-" + rand.String(5)
+		var secretName = "secret-" + rand.String(5)
+		BeforeEach(func() {
 			config_data := map[string]string{
 				"config1": "value1",
 				"config2": "value2",
@@ -1155,6 +1153,13 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 			tests.CreateConfigMap(configMapName, config_data)
 			tests.CreateSecret(secretName, secret_data)
+		})
+		AfterEach(func() {
+			tests.DeleteConfigMap(configMapName)
+			tests.DeleteSecret(secretName)
+		})
+
+		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret", func() {
 
 			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
