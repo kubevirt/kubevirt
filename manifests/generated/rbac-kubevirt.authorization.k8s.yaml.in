@@ -39,12 +39,6 @@ rules:
   - get
   - list
 - apiGroups:
-  - ""
-  resources:
-  - pods/exec
-  verbs:
-  - create
-- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachines

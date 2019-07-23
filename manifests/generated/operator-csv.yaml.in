@@ -176,6 +176,7 @@ spec:
           - serviceaccounts
           - services
           - endpoints
+          - pods/exec
           verbs:
           - get
           - list
@@ -293,12 +294,6 @@ spec:
           verbs:
           - get
           - list
-        - apiGroups:
-          - ""
-          resources:
-          - pods/exec
-          verbs:
-          - create
         - apiGroups:
           - kubevirt.io
           resources:

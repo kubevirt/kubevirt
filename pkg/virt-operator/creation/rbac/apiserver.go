@@ -102,17 +102,6 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"",
-				},
-				Resources: []string{
-					"pods/exec",
-				},
-				Verbs: []string{
-					"create",
-				},
-			},
-			{
-				APIGroups: []string{
 					"kubevirt.io",
 				},
 				Resources: []string{
