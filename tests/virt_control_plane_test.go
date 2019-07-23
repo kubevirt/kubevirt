@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
@@ -42,16 +43,15 @@ const (
 
 var _ = Describe("KubeVirt control plane resilience", func() {
 
-	var err error
 	var nodeNames []string
 	var selectedNodeName string
 
-	controlPlanePodNames := []string{"virt-api", "virt-controller"}
+	controlPlaneDeploymentNames := []string{"virt-api", "virt-controller"}
 
 	tests.FlagParse()
 
-	countPodsInStatus := func(podList *v1.PodList, expectedPhase v1.PodPhase, expectedConditionStatus v1.ConditionStatus, podNames []string, nodeNames ...string) int {
-		countPods := 0
+	getPodsInStatus := func(podList *v1.PodList, expectedPhase v1.PodPhase, expectedConditionStatus v1.ConditionStatus, podNames []string, nodeNames ...string) (pods []*v1.Pod) {
+		pods = make([]*v1.Pod, 0)
 		for _, pod := range podList.Items {
 			if pod.Status.Phase != expectedPhase {
 				continue
@@ -61,32 +61,36 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 				continue
 			}
 			for _, podName := range podNames {
-				if strings.Contains(pod.Name, podName) {
+				if strings.HasPrefix(pod.Name, podName) {
 					if len(nodeNames) > 0 {
 						for _, nodeName := range nodeNames {
 							if pod.Spec.NodeName == nodeName {
-								countPods++
+								deepCopy := pod.DeepCopy()
+								pods = append(pods, deepCopy)
 							}
 						}
 					} else {
-						countPods++
+						deepCopy := pod.DeepCopy()
+						pods = append(pods, deepCopy)
 					}
 				}
 			}
 		}
-		return countPods
+		return
 	}
 
-	getPodList := func() (*v1.PodList, error) {
+	countPodsInStatus := func(podList *v1.PodList, expectedPhase v1.PodPhase, expectedConditionStatus v1.ConditionStatus, podNames []string, nodeNames ...string) int {
+		pods := getPodsInStatus(podList, expectedPhase, expectedConditionStatus, podNames, nodeNames...)
+		return len(pods)
+	}
+
+	getPodList := func() (podList *v1.PodList, err error) {
 		virtCli, err := kubecli.GetKubevirtClient()
 		if err != nil {
-			return nil, err
+			return
 		}
-		podList, err := virtCli.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		return podList, nil
+		podList, err = virtCli.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+		return
 	}
 
 	countReadyPodsOnNodes := func(podNames []string, nodeNames ...string) int {
@@ -105,49 +109,12 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		return countPodsInStatus(podList, v1.PodPending, v1.ConditionFalse, podNames)
 	}
 
-	runCommandOnNode := func(command string, node string, args ...string) (err error) {
-		cmdName := tests.GetK8sCmdClient()
-		newArgs := make([]string, 0)
-
-		// if the cluster is openshift we need to append `adm` for the commands `drain` and `uncordon`
-		// as the oc binary is used
-		if tests.IsOpenShift() {
-			if command == "drain" || command == "uncordon" {
-				newArgs = append(newArgs, "adm")
-			}
-		}
-
-		newArgs = append(newArgs, command)
-		newArgs = append(newArgs, node)
-		newArgs = append(newArgs, args...)
-		_, _, err = tests.RunCommandWithNS("", cmdName, newArgs...)
+	getSelectedNode := func() (selectedNode *v1.Node) {
+		virtCli, err := kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+		selectedNode, err = kubecli.KubevirtClient.CoreV1(virtCli).Nodes().Get(selectedNodeName, metav1.GetOptions{})
+		tests.PanicOnError(err)
 		return
-	}
-
-	uncordonNode := func(node string) (err error) {
-		err = runCommandOnNode("uncordon", node)
-		return
-	}
-
-	uncordonNodes := func(nodeNames ...string) {
-		for _, nodeName := range nodeNames {
-			err = uncordonNode(nodeName)
-			tests.PanicOnError(err)
-		}
-	}
-
-	drainNodeWithTimeout := func(node string, podSelector string, timeoutAfterSeconds int) (err error) {
-		err = runCommandOnNode("drain", node, fmt.Sprintf("--timeout=%ds", timeoutAfterSeconds), podSelector)
-		return
-	}
-
-	waitForNodesToStabilize := func(expectedNumberOfReadyPods int, podNames []string, nodeNames ...string) {
-		Eventually(func() int { return countPendingPods(podNames) },
-			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(Equal(0))
-		Eventually(func() int { return countReadyPodsOnNodes(podNames, nodeNames...) },
-			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(BeNumerically(">=", expectedNumberOfReadyPods))
 	}
 
 	BeforeEach(func() {
@@ -163,10 +130,14 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 			nodeNames[index] = node.Name
 		}
 
-		uncordonNodes(nodeNames...)
+		Eventually(func() int { return countReadyPodsOnNodes(controlPlaneDeploymentNames, nodeNames...) },
+			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
+		).Should(Equal(4))
+		Eventually(func() int { return countPendingPods(controlPlaneDeploymentNames) },
+			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
+		).Should(Equal(0))
 
-		waitForNodesToStabilize(4, controlPlanePodNames, nodeNames...)
-
+		// select node for test
 		selectedNodeName = nodes[0].Name
 		selectedNode, err := kubecli.KubevirtClient.CoreV1(virtCli).Nodes().Get(selectedNodeName, metav1.GetOptions{})
 		tests.PanicOnError(err)
@@ -179,7 +150,7 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		_, err = kubecli.KubevirtClient.CoreV1(virtCli).Nodes().Update(selectedNode)
 		tests.PanicOnError(err)
 
-		// Add nodeSelector to deployments so that they migrate to selectedNode
+		// Add nodeSelector to deployments so that they get scheduled to selectedNode
 		deploymentsClient := kubecli.KubevirtClient.AppsV1(virtCli).Deployments(tests.KubeVirtInstallNamespace)
 		deployments, err := deploymentsClient.List(metav1.ListOptions{})
 		tests.PanicOnError(err)
@@ -200,61 +171,75 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 			}
 		}
 
-		waitForNodesToStabilize(4, controlPlanePodNames, selectedNodeName)
+		Eventually(func() int { return countReadyPodsOnNodes(controlPlaneDeploymentNames, selectedNodeName) },
+			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
+		).Should(Equal(4))
+		Eventually(func() int { return countPendingPods(controlPlaneDeploymentNames) },
+			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
+		).Should(Equal(0))
 	})
 
 	AfterEach(func() {
-		uncordonNodes(nodeNames...)
-
 		virtCli, err := kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 
 		// Remove nodeSelector from deployments
 		deploymentsClient := kubecli.KubevirtClient.AppsV1(virtCli).Deployments(tests.KubeVirtInstallNamespace)
-		deployments, err := deploymentsClient.List(metav1.ListOptions{})
-		tests.PanicOnError(err)
-
-		for _, deployment := range deployments.Items {
-			if deployment.Name != "virt-api" && deployment.Name != "virt-controller" {
-				continue
+		for _, deploymentName := range controlPlaneDeploymentNames {
+			for {
+				deployment, err := deploymentsClient.Get(deploymentName, metav1.GetOptions{})
+				if err != nil {
+					continue
+				}
+				delete(deployment.Spec.Template.Spec.NodeSelector, labelKey)
+				_, err = deploymentsClient.Update(deployment)
+				if err == nil {
+					break
+				}
 			}
-			delete(deployment.Spec.Template.Spec.NodeSelector, labelKey)
-			_, err = deploymentsClient.Update(&deployment)
-			tests.PanicOnError(err)
 		}
 
-		// Remove label from selectedNode
-		selectedNode, err := kubecli.KubevirtClient.CoreV1(virtCli).Nodes().Get(selectedNodeName, metav1.GetOptions{})
-		tests.PanicOnError(err)
-		delete(selectedNode.Labels, labelKey)
-		_, err = kubecli.KubevirtClient.CoreV1(virtCli).Nodes().Update(selectedNode)
-		tests.PanicOnError(err)
+		// Clean up selectedNode: Remove label and make schedulable again
+		for {
+			selectedNode := getSelectedNode()
+			selectedNode.Spec.Unschedulable = false
+			delete(selectedNode.Labels, labelKey)
+			_, err = kubecli.KubevirtClient.CoreV1(virtCli).Nodes().Update(selectedNode)
+			if err == nil {
+				break
+			}
+		}
 
-		waitForNodesToStabilize(4, controlPlanePodNames, nodeNames...)
+		Eventually(func() int { return countReadyPodsOnNodes(controlPlaneDeploymentNames) },
+			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
+		).Should(Equal(4))
+		Eventually(func() int { return countPendingPods(controlPlaneDeploymentNames) },
+			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
+		).Should(Equal(0))
 	})
 
-	When("draining pods of control plane, drain should fail", func() {
+	When("evicting pods of control plane, last eviction should fail", func() {
 
 		test := func(podName string) {
-			By(fmt.Sprintf("Check whether %s has enough %s pods", selectedNodeName, podName))
+			virtCli, err := kubecli.GetKubevirtClient()
+			tests.PanicOnError(err)
 
-			Eventually(func() int { return countReadyPodsOnNodes([]string{podName}, selectedNodeName) },
-				DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-			).Should(BeNumerically(">=", 2))
+			By(fmt.Sprintf("set node %s unschedulable\n", selectedNodeName))
+			selectedNode := getSelectedNode()
+			selectedNode.Spec.Unschedulable = true
+			_, err = kubecli.KubevirtClient.CoreV1(virtCli).Nodes().Update(selectedNode)
 
-			podSelector := fmt.Sprintf("--pod-selector=kubevirt.io=%s", podName)
-
-			By(fmt.Sprintf("drain node %v\n", selectedNodeName))
-			err = drainNodeWithTimeout(selectedNodeName, podSelector, 60)
-
-			Eventually(func() int { return countReadyPodsOnNodes([]string{podName}, selectedNodeName) },
-				DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-			).Should(BeNumerically(">=", 1))
-			Eventually(func() int { return countPendingPods([]string{podName}) },
-				DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-			).Should(BeNumerically(">=", 1))
-
-			Expect(err).To(HaveOccurred(), "no error occurred on drain")
+			By(fmt.Sprintf("Try to evict all pods %s from node %s\n", podName, selectedNodeName))
+			podList, err := getPodList()
+			Expect(err).ToNot(HaveOccurred())
+			runningPods := getPodsInStatus(podList, v1.PodRunning, v1.ConditionTrue, []string{podName})
+			for index, pod := range runningPods {
+				err = virtCli.CoreV1().Pods(tests.KubeVirtInstallNamespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+				if index < len(runningPods)-1 {
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}
+			Expect(err).To(HaveOccurred(), "no error occurred on evict of last pod")
 		}
 
 		It("for virt-controller pods", func() { test("virt-controller") })
