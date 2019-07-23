@@ -384,7 +384,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.RestartVMRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
 			close(done)
 		})
 
@@ -496,7 +496,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.RestartVMRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
 		})
 
 		table.DescribeTable("should not fail with VMI and RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
@@ -554,7 +554,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.RestartVMRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
 		},
 			table.Entry("Always", v1.RunStrategyAlways),
 			table.Entry("Manual", v1.RunStrategyManual),
@@ -594,7 +594,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				app.StartVMRequestHandler(request, response)
 
 				Expect(response.Error()).To(HaveOccurred())
-				Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+				Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
 			},
 			table.Entry("Always without VMI", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound),
 			table.Entry("Always with VMI in phase Running", v1.RunStrategyAlways, v1.Running, http.StatusOK),
@@ -667,7 +667,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.StopVMRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
 		},
 			table.Entry("RunStrategyAlways", v1.RunStrategyAlways),
 			table.Entry("RunStrategyManual", v1.RunStrategyManual),
@@ -696,7 +696,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.StopVMRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
 		})
 
 		table.DescribeTable("should not fail on VM with RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
