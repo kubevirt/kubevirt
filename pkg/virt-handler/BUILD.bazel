@@ -7,12 +7,12 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/cloud-init:go_default_library",
-        "//pkg/container-disk:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/host-disk:go_default_library",
         "//pkg/util/types:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
+        "//pkg/virt-handler/container-disk:go_default_library",
         "//pkg/virt-handler/device-manager:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",

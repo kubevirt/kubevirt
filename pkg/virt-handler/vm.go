@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -42,11 +41,12 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
@@ -77,6 +77,7 @@ func NewController(
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	detector := isolation.NewSocketBasedIsolationDetector(virtShareDir)
 
 	c := &VirtualMachineController{
 		Queue:                    queue,
@@ -92,7 +93,8 @@ func NewController(
 		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir, tlsConfig),
-		podIsolationDetector:     isolation.NewSocketBasedIsolationDetector(virtShareDir),
+		podIsolationDetector:     detector,
+		containerDiskMounter:     &container_disk.Mounter{PodIsolationDetector: detector},
 		clusterConfig:            clusterConfig,
 	}
 
@@ -145,6 +147,7 @@ type VirtualMachineController struct {
 	kvmController            *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
+	containerDiskMounter     *container_disk.Mounter
 	clusterConfig            *virtconfig.ClusterConfig
 }
 
@@ -988,33 +991,10 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	d.migrationProxy.StopTargetListener(string(vmi.UID))
 	d.migrationProxy.StopSourceListener(string(vmi.UID))
 
-	mountDir := containerdisk.GenerateVolumeMountDir(vmi)
-
-	files, err := ioutil.ReadDir(mountDir)
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to list container disk mounts: %v", err)
-	}
-
-	if vmi.UID != "" {
-		// let containerdisks gracefully terminate if they still managed to run somehow
-		for _, file := range files {
-			path := filepath.Join(mountDir, file.Name())
-			if strings.HasSuffix(path, ".sock") {
-				continue
-			}
-			if mounted, err := isolation.NodeIsolationResult().IsMounted(path); err != nil {
-				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
-			} else if mounted {
-				out, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "umount", path).CombinedOutput()
-				if err != nil {
-					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)
-				}
-			}
-		}
-
-		if err := os.RemoveAll(mountDir); err != nil {
-			return fmt.Errorf("failed to remove containerDisk files: %v", err)
-		}
+	// Unmount container disks and clean up remaining files
+	err = d.containerDiskMounter.Unmount(vmi)
+	if err != nil {
+		return err
 	}
 
 	// Watch dog file must be the last thing removed here
@@ -1383,59 +1363,15 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	}
 
 	if d.isPreMigrationTarget(vmi) {
-		for i, volume := range vmi.Spec.Volumes {
-			if volume.ContainerDisk != nil {
-				targetFile := containerdisk.GenerateDiskTargetPathFromHostView(vmi, i)
-				nodeRes := isolation.NodeIsolationResult()
 
-				if isMounted, err := nodeRes.IsMounted(targetFile); err != nil {
-					return fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
-				} else if !isMounted {
-					res, err := d.podIsolationDetector.DetectForSocket(vmi, containerdisk.GenerateSocketPathFromHostView(vmi, i))
-					if err != nil {
-						return fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
-					}
-					mountInfo, err := res.MountInfoRoot()
-					if err != nil {
-						return fmt.Errorf("failed to detect root mount info of containerDisk  %v: %v", volume.Name, err)
-					}
-					nodeMountInfo, err := nodeRes.ParentMountInfoFor(mountInfo)
-					if err != nil {
-						return fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
-					}
-					sourceFile, err := containerdisk.GetImage(filepath.Join(nodeRes.MountRoot(), nodeMountInfo.MountPoint), volume.ContainerDisk.Path)
-					if err != nil {
-						return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
-					}
-					f, err := os.Create(targetFile)
-					if err != nil {
-						return fmt.Errorf("failed to create mount point target %v: %v", targetFile, err)
-					}
-					f.Close()
-
-					out, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "mount", "-o", "ro,bind", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile).CombinedOutput()
-					if err != nil {
-						return fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
-					}
-				}
-				res, err := d.podIsolationDetector.Detect(vmi)
-				if err != nil {
-					return fmt.Errorf("failed to detect VMI pod: %v", err)
-				}
-				// XXX verify only once, not on every sync
-				imageInfo, err := isolation.GetImageInfo(containerdisk.GenerateDiskTargetPathFromLauncherView(i), res)
-				if err != nil {
-					return fmt.Errorf("failed to get image info: %v", err)
-				}
-
-				if err := containerdisk.VerifyImage(imageInfo); err != nil {
-					return fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
-				}
-			}
+		// Mount container disks
+		if err := d.containerDiskMounter.Mount(vmi, false); err != nil {
+			return err
 		}
-		err = client.SyncMigrationTarget(vmi)
-		if err != nil {
+
+		if err := client.SyncMigrationTarget(vmi); err != nil {
 			return fmt.Errorf("syncing migration target failed: %v", err)
+
 		}
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 
@@ -1469,55 +1405,8 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	} else {
 
 		if !vmi.IsRunning() && !vmi.IsFinal() {
-			for i, volume := range vmi.Spec.Volumes {
-				if volume.ContainerDisk != nil {
-					targetFile := containerdisk.GenerateDiskTargetPathFromHostView(vmi, i)
-					nodeRes := isolation.NodeIsolationResult()
-
-					if isMounted, err := nodeRes.IsMounted(targetFile); err != nil {
-						return fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
-					} else if !isMounted {
-						res, err := d.podIsolationDetector.DetectForSocket(vmi, containerdisk.GenerateSocketPathFromHostView(vmi, i))
-						if err != nil {
-							return fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
-						}
-						mountInfo, err := res.MountInfoRoot()
-						if err != nil {
-							return fmt.Errorf("failed to detect root mount info of containerDisk  %v: %v", volume.Name, err)
-						}
-						nodeMountInfo, err := nodeRes.ParentMountInfoFor(mountInfo)
-						if err != nil {
-							return fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
-						}
-						sourceFile, err := containerdisk.GetImage(filepath.Join(nodeRes.MountRoot(), nodeMountInfo.MountPoint), volume.ContainerDisk.Path)
-						if err != nil {
-							return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
-						}
-						f, err := os.Create(targetFile)
-						if err != nil {
-							return fmt.Errorf("failed to create mount point target %v: %v", targetFile, err)
-						}
-						f.Close()
-
-						out, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "mount", "-o", "ro,bind", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile).CombinedOutput()
-						if err != nil {
-							return fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
-						}
-					}
-					res, err := d.podIsolationDetector.Detect(vmi)
-					if err != nil {
-						return fmt.Errorf("failed to detect VMI pod: %v", err)
-					}
-					// XXX verify only once, not on every sync
-					imageInfo, err := isolation.GetImageInfo(containerdisk.GenerateDiskTargetPathFromLauncherView(i), res)
-					if err != nil {
-						return fmt.Errorf("failed to get image info: %v", err)
-					}
-
-					if err := containerdisk.VerifyImage(imageInfo); err != nil {
-						return fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
-					}
-				}
+			if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
+				return err
 			}
 		}
 
