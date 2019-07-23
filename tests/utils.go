@@ -378,7 +378,7 @@ func (w *ObjectEventWatcher) WaitFor(stopChan chan struct{}, eventType EventType
 			return true
 		}
 		return false
-	}, fmt.Sprintf("Waiting for %s == %s", string(eventType), reflect.ValueOf(reason).String()))
+	}, fmt.Sprintf("event type %s, reason = %s", string(eventType), reflect.ValueOf(reason).String()))
 	return
 }
 
@@ -391,7 +391,7 @@ func (w *ObjectEventWatcher) WaitNotFor(stopChan chan struct{}, eventType EventT
 			return true
 		}
 		return false
-	}, fmt.Sprintf("Not waiting for %s == %s", string(eventType), reflect.ValueOf(reason).String()))
+	}, fmt.Sprintf("not happen event type %s, reason = %s", string(eventType), reflect.ValueOf(reason).String()))
 	return
 }
 
