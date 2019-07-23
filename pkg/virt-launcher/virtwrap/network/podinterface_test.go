@@ -450,7 +450,7 @@ var _ = Describe("Pod Network", func() {
 				api.SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
-			It("should define a new VIF bind to a bridge and create a specific nat rule using nftable", func() {
+			It("should define a new VIF bind to a bridge and create a specific nat rule using nftables", func() {
 				// Forward a specific port
 				mockNetwork.EXPECT().UseIptables().Return(false).AnyTimes()
 				mockNetwork.EXPECT().NftablesAppendRule("nat",
