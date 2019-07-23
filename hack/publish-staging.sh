@@ -46,18 +46,18 @@ __EOF__
 git config --global user.email "travis@travis-ci.org"
 git config --global user.name "Travis CI"
 
+git add -A
+
 if [ -n "$(git status --porcelain)" ]; then
-    git add -A
     git commit --message "client-go update by Travis Build ${TRAVIS_BUILD_NUMBER}"
 
+    # we only push branch changes on master
+    if [ "${TARGET_BRANCH}" == "master" ]; then
+        git push origin ${TARGET_BRANCH}
+        echo "client-go updated for ${TARGET_BRANCH}."
+    fi
 else
     echo "client-go hasn't changed."
-fi
-
-# we only push branch changes on master
-if [ "${TARGET_BRANCH}" == "master" ]; then
-    git push origin ${TARGET_BRANCH}
-    echo "client-go updated for ${TARGET_BRANCH}."
 fi
 
 if [ -n "${TARGET_TAG}" ]; then
