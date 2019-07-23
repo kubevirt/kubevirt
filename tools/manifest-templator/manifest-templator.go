@@ -27,7 +27,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -38,7 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
-	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/tools/marketplace/helper"
 	"kubevirt.io/kubevirt/tools/util"
 )
@@ -54,6 +52,7 @@ type templateData struct {
 	QuayRepository         string
 	ReplacesCsvVersion     string
 	OperatorDeploymentSpec string
+	OperatorCsv            string
 	OperatorRules          string
 	KubeVirtLogo           string
 	PackageName            string
@@ -119,12 +118,10 @@ func main() {
 		data.PackageName = *packageName
 		data.CreatedAt = getTimestamp()
 		data.ReplacesCsvVersion = ""
+		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data, 2)
 
 		// operator deployment differs a bit in normal manifest and CSV
 		if strings.Contains(*inputFile, ".clusterserviceversion.yaml") {
-
-			data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data, 12, true)
-
 			// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
 			if *bundleOutDir != "" && data.QuayRepository != "" {
 				bundleHelper, err := helper.NewBundleHelper(*quayRepository, *packageName)
@@ -141,10 +138,7 @@ func main() {
 					// also copy old manifests to out dir
 					bundleHelper.AddOldManifests(*bundleOutDir, *csvVersion)
 				}
-
 			}
-		} else {
-			data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data, 2, false)
 		}
 
 	} else {
@@ -164,6 +158,7 @@ func main() {
 		data.VirtLauncherSha = "{{.VirtLauncherSha}}"
 		data.ReplacesCsvVersion = "{{.ReplacesCsvVersion}}"
 		data.OperatorDeploymentSpec = "{{.OperatorDeploymentSpec}}"
+		data.OperatorCsv = "{{.OperatorCsv}}"
 		data.OperatorRules = "{{.OperatorRules}}"
 		data.KubeVirtLogo = "{{.KubeVirtLogo}}"
 		data.PackageName = "{{.PackageName}}"
@@ -207,42 +202,24 @@ func getOperatorRules() string {
 	return fixResourceString(writer.String(), 14)
 }
 
-func getOperatorDeploymentSpec(data templateData, indentation int, fixReplicas bool) string {
+func getOperatorDeploymentSpec(data templateData, indentation int) string {
 	version := data.DockerTag
 	if data.VirtOperatorSha != "" {
 		version = data.VirtOperatorSha
 	}
-	deployment, err := components.NewOperatorDeployment(data.Namespace, data.DockerPrefix, version, v1.PullPolicy(data.ImagePullPolicy), data.Verbosity)
+
+	deployment, err := components.NewOperatorDeployment(data.Namespace,
+		data.DockerPrefix,
+		version,
+		v1.PullPolicy(data.ImagePullPolicy),
+		data.Verbosity,
+		data.DockerTag,
+		data.VirtApiSha,
+		data.VirtControllerSha,
+		data.VirtHandlerSha,
+		data.VirtLauncherSha)
 	if err != nil {
 		panic(err)
-	}
-
-	if data.VirtApiSha != "" && data.VirtControllerSha != "" && data.VirtHandlerSha != "" && data.VirtLauncherSha != "" {
-		shaSums := []v1.EnvVar{
-			{
-				Name:  operatorutil.KubeVirtVersionEnvName,
-				Value: data.DockerTag,
-			},
-			{
-				Name:  operatorutil.VirtApiShasumEnvName,
-				Value: data.VirtApiSha,
-			},
-			{
-				Name:  operatorutil.VirtControllerShasumEnvName,
-				Value: data.VirtControllerSha,
-			},
-			{
-				Name:  operatorutil.VirtHandlerShasumEnvName,
-				Value: data.VirtHandlerSha,
-			},
-			{
-				Name:  operatorutil.VirtLauncherShasumEnvName,
-				Value: data.VirtLauncherSha,
-			},
-		}
-		env := deployment.Spec.Template.Spec.Containers[0].Env
-		env = append(env, shaSums...)
-		deployment.Spec.Template.Spec.Containers[0].Env = env
 	}
 
 	writer := strings.Builder{}
@@ -251,12 +228,6 @@ func getOperatorDeploymentSpec(data templateData, indentation int, fixReplicas b
 		panic(err)
 	}
 	spec := writer.String()
-
-	if fixReplicas {
-		// operatorhub.io CI currently doesn't support more than 1 replica
-		re := regexp.MustCompile("(?m)^replicas: 2$")
-		spec = re.ReplaceAllString(spec, "replicas: 1")
-	}
 
 	return fixResourceString(spec, indentation)
 }

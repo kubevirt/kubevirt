@@ -32,6 +32,8 @@ go_library(
         "text_parser.go",
         "timestamp.go",
         "timestamp_gogo.go",
+        "wrappers.go",
+        "wrappers_gogo.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/gogo/protobuf/proto",
     importpath = "github.com/gogo/protobuf/proto",

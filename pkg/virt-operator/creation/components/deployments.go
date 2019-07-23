@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 func NewPrometheusService(namespace string) *corev1.Service {
@@ -96,6 +98,10 @@ func NewApiServerService(namespace string) *corev1.Service {
 			Type: corev1.ServiceTypeClusterIP,
 		},
 	}
+}
+
+func something() *csvv1.ClusterServiceVersion {
+	return &csvv1.ClusterServiceVersion{}
 }
 
 func newPodTemplateSpec(name string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*corev1.PodTemplateSpec, error) {
@@ -416,7 +422,9 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 
 // Used for manifest generation only
 func NewOperatorDeployment(namespace string, repository string, version string,
-	pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+	pullPolicy corev1.PullPolicy, verbosity string,
+	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
+	virtHandlerShaEnv string, virtLauncherShaEnv string) (*appsv1.Deployment, error) {
 
 	name := "virt-operator"
 	version = AddVersionSeparatorPrefix(version)
@@ -518,6 +526,34 @@ func NewOperatorDeployment(namespace string, repository string, version string,
 				},
 			},
 		},
+	}
+
+	if virtApiShaEnv != "" && virtControllerShaEnv != "" && virtHandlerShaEnv != "" && virtLauncherShaEnv != "" && kubeVirtVersionEnv != "" {
+		shaSums := []corev1.EnvVar{
+			{
+				Name:  operatorutil.KubeVirtVersionEnvName,
+				Value: kubeVirtVersionEnv,
+			},
+			{
+				Name:  operatorutil.VirtApiShasumEnvName,
+				Value: virtApiShaEnv,
+			},
+			{
+				Name:  operatorutil.VirtControllerShasumEnvName,
+				Value: virtControllerShaEnv,
+			},
+			{
+				Name:  operatorutil.VirtHandlerShasumEnvName,
+				Value: virtHandlerShaEnv,
+			},
+			{
+				Name:  operatorutil.VirtLauncherShasumEnvName,
+				Value: virtLauncherShaEnv,
+			},
+		}
+		env := deployment.Spec.Template.Spec.Containers[0].Env
+		env = append(env, shaSums...)
+		deployment.Spec.Template.Spec.Containers[0].Env = env
 	}
 
 	return deployment, nil

@@ -4,8 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "dns_resolver.go",
-        "go17.go",
-        "go18.go",
+        "go19.go",
+        "pre_go19.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/resolver/dns",
     importpath = "google.golang.org/grpc/resolver/dns",
@@ -13,6 +13,7 @@ go_library(
     deps = [
         "//vendor/golang.org/x/net/context:go_default_library",
         "//vendor/google.golang.org/grpc/grpclog:go_default_library",
+        "//vendor/google.golang.org/grpc/internal/backoff:go_default_library",
         "//vendor/google.golang.org/grpc/internal/grpcrand:go_default_library",
         "//vendor/google.golang.org/grpc/resolver:go_default_library",
     ],
