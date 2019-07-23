@@ -519,7 +519,7 @@ func (p *MasqueradePodInterface) createNatRules() error {
 	if Handler.UseIptables() {
 		return p.createNatRulesUsingIptables()
 	}
-	return p.createNatRulesUsingNftable()
+	return p.createNatRulesUsingNftables()
 }
 
 func (p *MasqueradePodInterface) createNatRulesUsingIptables() error {
@@ -594,7 +594,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingIptables() error {
 	return nil
 }
 
-func (p *MasqueradePodInterface) createNatRulesUsingNftable() error {
+func (p *MasqueradePodInterface) createNatRulesUsingNftables() error {
 	err := Handler.NftablesLoad("ipv4-nat")
 	if err != nil {
 		return err
