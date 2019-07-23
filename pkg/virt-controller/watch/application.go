@@ -25,7 +25,6 @@ import (
 	golog "log"
 	"net/http"
 	"os"
-	"sync"
 
 	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
@@ -119,10 +118,10 @@ type VirtControllerApp struct {
 
 	ctx context.Context
 
-	hasCdi          bool
-	reInitLock      *sync.Mutex
-	reInitTriggered bool
-	reInitChan      chan struct{}
+	// indicates if controllers were started with or without CDI/DataVolume support
+	hasCDI bool
+	// the channel used to trigger re-initialization.
+	reInitChan chan string
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -170,10 +169,8 @@ func Execute() {
 	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced, crdInformer.HasSynced)
 	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, app.kubevirtNamespace)
 
-	app.reInitChan = make(chan struct{})
-	app.reInitTriggered = false
-	app.reInitLock = &sync.Mutex{}
-	app.hasCdi = app.clusterConfig.HasDataVolumeAPI()
+	app.reInitChan = make(chan string, 10)
+	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 
 	app.vmiInformer = app.informerFactory.VMI()
@@ -194,7 +191,7 @@ func Execute() {
 
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
 
-	if app.hasCdi {
+	if app.hasCDI {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
 		log.Log.Infof("CDI detected, DataVolume integration enabled")
 	} else {
@@ -221,23 +218,14 @@ func Execute() {
 // Detects if a config has been applied that requires
 // re-initializing virt-controller.
 func (vca *VirtControllerApp) configModificationCallback() {
-
-	vca.reInitLock.Lock()
-	defer vca.reInitLock.Unlock()
-
-	if vca.reInitTriggered {
-		return
-	}
-
-	newHasCdi := vca.clusterConfig.HasDataVolumeAPI()
-	if newHasCdi != vca.hasCdi {
-		if newHasCdi {
+	newHasCDI := vca.clusterConfig.HasDataVolumeAPI()
+	if newHasCDI != vca.hasCDI {
+		if newHasCDI {
 			log.Log.Infof("Reinitialize virt-controller, cdi api has been introduced")
 		} else {
 			log.Log.Infof("Reinitialize virt-controller, cdi api has been removed")
 		}
-		close(vca.reInitChan)
-		vca.reInitTriggered = true
+		vca.reInitChan <- "reinit"
 	}
 }
 

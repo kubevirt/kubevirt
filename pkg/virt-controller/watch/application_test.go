@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"sync"
 	"time"
 
 	restful "github.com/emicklei/go-restful"
@@ -47,15 +46,15 @@ var _ = Describe("Application", func() {
 	var app VirtControllerApp = VirtControllerApp{}
 
 	Describe("Reinitialization conditions", func() {
-		table.DescribeTable("Re-trigger initialization", func(hasCdiAtInit bool, addCrd bool, removeCrd bool, expectReInit bool) {
+		table.DescribeTable("Re-trigger initialization", func(hasCDIAtInit bool, addCrd bool, removeCrd bool, expectReInit bool) {
+			var reInitTriggered bool
+
 			app := VirtControllerApp{}
 
 			clusterConfig, _, crdInformer := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
 			app.clusterConfig = clusterConfig
-			app.reInitChan = make(chan struct{})
-			app.reInitTriggered = false
-			app.reInitLock = &sync.Mutex{}
-			app.hasCdi = hasCdiAtInit
+			app.reInitChan = make(chan string, 10)
+			app.hasCDI = hasCDIAtInit
 
 			app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 
@@ -65,16 +64,19 @@ var _ = Describe("Application", func() {
 				testutils.RemoveDataVolumeAPI(crdInformer)
 			}
 
-			time.Sleep(3)
+			select {
+			case <-app.reInitChan:
+				reInitTriggered = true
+			case <-time.After(1 * time.Second):
+				reInitTriggered = false
+			}
 
-			app.reInitLock.Lock()
-			defer app.reInitLock.Unlock()
-			Expect(app.reInitTriggered).To(Equal(expectReInit))
+			Expect(reInitTriggered).To(Equal(expectReInit))
 		},
 			table.Entry("when CDI is introduced", false, true, false, true),
 			table.Entry("when CDI is removed", true, false, true, true),
 			table.Entry("not when nothing changed and cdi exists", true, true, false, false),
-			table.Entry("not when nothing changed and does not exists", false, false, true, false),
+			table.Entry("not when nothing changed and does not exist", false, false, true, false),
 		)
 	})
 

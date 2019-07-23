@@ -164,17 +164,9 @@ func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
 		go c.configModifiedCallback()
 	}
 }
-func (c *ClusterConfig) crdUpdated(old, cur interface{}) {
-	crd := cur.(*extv1beta1.CustomResourceDefinition)
-	if !isDataVolumeCrd(crd) {
-		return
-	}
 
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.configModifiedCallback != nil {
-		go c.configModifiedCallback()
-	}
+func (c *ClusterConfig) crdUpdated(old, cur interface{}) {
+	c.crdAddedDeleted(cur)
 }
 
 func defaultClusterConfig() *Config {

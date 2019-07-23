@@ -566,11 +566,30 @@ spec:
 		// repost original CDI object if it doesn't still exist
 		// in order to restore original environment
 		if originalCDI != nil {
-			_, err = virtClient.CdiClient().CdiV1alpha1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
-			if err != nil && errors.IsNotFound(err) {
+			cdiExists := false
+
+			// ensure we wait for cdi to finish deleting before restoring it
+			// in the event that cdi has the deletionTimestamp set.
+			Eventually(func() bool {
+				cdi, err := virtClient.CdiClient().CdiV1alpha1().CDIs().Get(originalCDI.Name, metav1.GetOptions{})
+				if err != nil && errors.IsNotFound(err) {
+					// cdi isn't deleting and doesn't exist.
+					return true
+				} else {
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				// wait for cdi to delete if deletionTimestamp is set
+				if cdi.DeletionTimestamp != nil {
+					return false
+				}
+
+				cdiExists = true
+				return true
+			}, 240*time.Second, 1*time.Second).Should(BeTrue())
+
+			if !cdiExists {
 				createCdi()
-			} else {
-				Expect(err).ToNot(HaveOccurred())
 			}
 		}
 
