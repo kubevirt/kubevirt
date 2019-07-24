@@ -48,8 +48,10 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 	var nodeNames []string
 	var selectedNodeName string
 
+	RegisterFailHandler(Fail)
+
 	virtCli, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	Expect(err).ToNot(HaveOccurred())
 	deploymentsClient := virtCli.AppsV1().Deployments(tests.KubeVirtInstallNamespace)
 
 	controlPlaneDeploymentNames := []string{"virt-api", "virt-controller"}
