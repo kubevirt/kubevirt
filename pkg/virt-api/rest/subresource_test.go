@@ -385,6 +385,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			// check the msg string that would be presented to virtctl output
+			Expect(response.Error().Error()).To(Equal("Halted does not support manual restart requests"))
 			close(done)
 		})
 
@@ -497,6 +499,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			// check the msg string that would be presented to virtctl output
+			Expect(response.Error().Error()).To(Equal("Halted does not support manual restart requests"))
 		})
 
 		table.DescribeTable("should not fail with VMI and RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
@@ -534,7 +538,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			table.Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure),
 		)
 
-		table.DescribeTable("should fail anytime without VMI and RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
+		table.DescribeTable("should fail anytime without VMI and RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy, msg string) {
 			vm := newVirtualMachineWithRunStrategy(runStrategy)
 
 			server.AppendHandlers(
@@ -555,11 +559,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			// check the msg string that would be presented to virtctl output
+			Expect(response.Error().Error()).To(Equal(msg))
 		},
-			table.Entry("Always", v1.RunStrategyAlways),
-			table.Entry("Manual", v1.RunStrategyManual),
-			table.Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure),
-			table.Entry("Halted", v1.RunStrategyHalted),
+			table.Entry("Always", v1.RunStrategyAlways, "VM is not running"),
+			table.Entry("Manual", v1.RunStrategyManual, "VM is not running"),
+			table.Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure, "VM is not running"),
+			table.Entry("Halted", v1.RunStrategyHalted, "Halted does not support manual restart requests"),
 		)
 	})
 
@@ -570,7 +576,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		table.DescribeTable("should fail on VM with RunStrategy",
-			func(runStrategy v1.VirtualMachineRunStrategy, phase v1.VirtualMachineInstancePhase, status int) {
+			func(runStrategy v1.VirtualMachineRunStrategy, phase v1.VirtualMachineInstancePhase, status int, msg string) {
 				vm := newVirtualMachineWithRunStrategy(runStrategy)
 				var vmi *v1.VirtualMachineInstance
 				if phase != v1.VmPhaseUnset {
@@ -595,10 +601,12 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				Expect(response.Error()).To(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+				// check the msg string that would be presented to virtctl output
+				Expect(response.Error().Error()).To(Equal(msg))
 			},
-			table.Entry("Always without VMI", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound),
-			table.Entry("Always with VMI in phase Running", v1.RunStrategyAlways, v1.Running, http.StatusOK),
-			table.Entry("RerunOnFailure with VMI in phase Failed", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK),
+			table.Entry("Always without VMI", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound, "Always does not support manual start requests"),
+			table.Entry("Always with VMI in phase Running", v1.RunStrategyAlways, v1.Running, http.StatusOK, "VM is already running"),
+			table.Entry("RerunOnFailure with VMI in phase Failed", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK, "RerunOnFailure does not support starting VM from failed state"),
 		)
 
 		table.DescribeTable("should not fail on VM with RunStrategy ",
@@ -647,7 +655,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["namespace"] = "default"
 		})
 
-		table.DescribeTable("should fail with any strategy if VMI does not exist", func(runStrategy v1.VirtualMachineRunStrategy) {
+		table.DescribeTable("should fail with any strategy if VMI does not exist", func(runStrategy v1.VirtualMachineRunStrategy, msg string) {
 			vm := newVirtualMachineWithRunStrategy(runStrategy)
 
 			server.AppendHandlers(
@@ -668,11 +676,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			// check the msg string that would be presented to virtctl output
+			Expect(response.Error().Error()).To(Equal(msg))
 		},
-			table.Entry("RunStrategyAlways", v1.RunStrategyAlways),
-			table.Entry("RunStrategyManual", v1.RunStrategyManual),
-			table.Entry("RunStrategyRerunOnFailure", v1.RunStrategyRerunOnFailure),
-			table.Entry("RunStrategyHalted", v1.RunStrategyHalted),
+			table.Entry("RunStrategyAlways", v1.RunStrategyAlways, "VM is not running"),
+			table.Entry("RunStrategyManual", v1.RunStrategyManual, "VM is not running"),
+			table.Entry("RunStrategyRerunOnFailure", v1.RunStrategyRerunOnFailure, "VM is not running"),
+			table.Entry("RunStrategyHalted", v1.RunStrategyHalted, "VM is not running"),
 		)
 
 		It("should fail on VM with RunStrategyHalted", func() {
@@ -697,6 +707,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			// check the msg string that would be presented to virtctl output
+			Expect(response.Error().Error()).To(Equal("VM is not running"))
 		})
 
 		table.DescribeTable("should not fail on VM with RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
