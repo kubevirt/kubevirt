@@ -11,4 +11,4 @@ spec:
   numVfs: 4
   nicSelector: {}
   priority: 90
-  resourceName: sriov
+  resourceName: sriov_net

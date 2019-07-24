@@ -61,7 +61,6 @@ kubectl label node sriov-control-plane node-role.kubernetes.io/worker=
 kubectl label node sriov-control-plane sriov=true 
 kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 12m
 
-kubectl create -f $MANIFESTS_DIR/network.yaml
 kubectl create -f $MANIFESTS_DIR/network_policy.yaml
 sleep 5
 kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 12m
