@@ -175,6 +175,14 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		).Should(BeTrue())
 	}
 
+	setSelectedNodeUnschedulable := func() {
+		selectedNode, err := getSelectedNode()
+		Expect(err).ToNot(HaveOccurred())
+		selectedNode.Spec.Unschedulable = true
+		_, err = virtCli.CoreV1().Nodes().Update(selectedNode)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 
@@ -194,6 +202,8 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 
 		eventuallyWithTimeout(checkControlPlanePodsHaveNodeSelector)
 		eventuallyWithTimeout(waitForDeploymentsToStabilize)
+
+		setSelectedNodeUnschedulable()
 	})
 
 	removeNodeSelectorFromDeployments := func() (bool, error) {
@@ -253,13 +263,6 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 	When("evicting pods of control plane, last eviction should fail", func() {
 
 		test := func(podName string) {
-			By(fmt.Sprintf("set node %s unschedulable\n", selectedNodeName))
-			selectedNode, err := getSelectedNode()
-			Expect(err).ToNot(HaveOccurred())
-			selectedNode.Spec.Unschedulable = true
-			_, err = virtCli.CoreV1().Nodes().Update(selectedNode)
-			Expect(err).ToNot(HaveOccurred())
-
 			By(fmt.Sprintf("Try to evict all pods %s from node %s\n", podName, selectedNodeName))
 			podList, err := getPodList()
 			Expect(err).ToNot(HaveOccurred())
