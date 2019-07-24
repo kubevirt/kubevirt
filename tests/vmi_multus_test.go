@@ -49,6 +49,7 @@ const (
 	ptpConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"name\": \"mynet\", \"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	ptpConfWithTuningCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
 	sriovConfCRD         = `{"apiVersion":"sriovnetwork.openshift.io/v1","kind":"SriovNetwork","metadata":{"name":"%s","namespace":"%s"},"spec":{"ipam":"{\n  \"type\": \"host-local\",\n  \"subnet\": \"10.1.1.0/24\"\n}\n","resourceName":"sriov_net"}}`
+	sriovOperatorNs      = "sriov-network-operator"
 )
 
 var _ = Describe("Multus", func() {
@@ -156,14 +157,14 @@ var _ = Describe("Multus", func() {
 		// Create two sriov networks referring to the same resource name
 		result = virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrlSriovNetworks, tests.NamespaceTestDefault, "sriov")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault))).
+			RequestURI(fmt.Sprintf(postUrlSriovNetworks, sriovOperatorNs, "sriov")).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", sriovOperatorNs))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 		result = virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrlSriovNetworks, tests.NamespaceTestDefault, "sriov2")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault))).
+			RequestURI(fmt.Sprintf(postUrlSriovNetworks, sriovOperatorNs, "sriov2")).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", sriovOperatorNs))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
@@ -596,14 +597,14 @@ var _ = Describe("SRIOV", func() {
 		// Create two sriov networks referring to the same resource name
 		result := virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault))).
+			RequestURI(fmt.Sprintf(postUrl, sriovOperatorNs, "sriov")).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", sriovOperatorNs))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 		result = virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov2")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault))).
+			RequestURI(fmt.Sprintf(postUrl, sriovOperatorNs, "sriov2")).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", sriovOperatorNs))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
