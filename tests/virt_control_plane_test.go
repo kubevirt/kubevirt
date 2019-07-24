@@ -240,6 +240,18 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		return true, nil
 	}
 
+	checkControlPlanePodsDontHaveNodeSelector := func() (bool, error) {
+		podList, err := getPodList()
+		tests.PanicOnError(err)
+		runningControlPlanePods := getRunningReadyPods(podList, controlPlaneDeploymentNames)
+		for _, pod := range runningControlPlanePods {
+			if _, ok := pod.Spec.NodeSelector[labelKey]; ok {
+				return false, fmt.Errorf("pod %s has still node selector %s", pod.Name, labelKey)
+			}
+		}
+		return true, nil
+	}
+
 	AfterEach(func() {
 		Eventually(removeNodeSelectorFromDeployments,
 			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
@@ -250,6 +262,10 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		).Should(BeTrue())
 
 		time.Sleep(WaitSecondsBeforeDeploymentCheck)
+
+		Eventually(checkControlPlanePodsDontHaveNodeSelector,
+			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
+		).Should(BeTrue())
 
 		Eventually(waitForDeploymentsToStabilize,
 			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
