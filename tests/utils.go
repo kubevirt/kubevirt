@@ -223,19 +223,23 @@ const (
 	SecretLabel = "kubevirt.io/secret"
 )
 
+const syncVmiTimeoutMessage = "unknown error encountered sending command SyncVMI: rpc error: code = DeadlineExceeded desc = context deadline exceeded"
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
+
+type FailOnWarningFunc func(event *k8sv1.Event) bool
 
 type ObjectEventWatcher struct {
 	object                 runtime.Object
 	timeout                *time.Duration
-	failOnWarnings         bool
+	failOnWarnings         FailOnWarningFunc
 	resourceVersion        string
 	startType              startType
 	dontFailOnMissingEvent bool
 }
 
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
-	return &ObjectEventWatcher{object: object, startType: invalidWatch}
+	return &ObjectEventWatcher{object: object, startType: invalidWatch, failOnWarnings: neverFailOnWarnings}
 }
 
 func (w *ObjectEventWatcher) Timeout(duration time.Duration) *ObjectEventWatcher {
@@ -243,8 +247,13 @@ func (w *ObjectEventWatcher) Timeout(duration time.Duration) *ObjectEventWatcher
 	return w
 }
 
+func (w *ObjectEventWatcher) MightFailOnWarnings(f FailOnWarningFunc) *ObjectEventWatcher {
+	w.failOnWarnings = f
+	return w
+}
+
 func (w *ObjectEventWatcher) FailOnWarnings() *ObjectEventWatcher {
-	w.failOnWarnings = true
+	w.failOnWarnings = alwaysFailOnWarnings
 	return w
 }
 
@@ -307,10 +316,8 @@ func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessF
 		panic(err)
 	}
 
-	f := processFunc
-
-	if w.failOnWarnings {
-		f = func(event *k8sv1.Event) bool {
+	f := func(event *k8sv1.Event) bool {
+		if event.Type == string(WarningEvent) && w.failOnWarnings(event) {
 			msg := fmt.Sprintf("Event(%#v): type: '%v' reason: '%v' %v", event.InvolvedObject, event.Type, event.Reason, event.Message)
 			if event.Type == string(WarningEvent) {
 				log.Log.Reason(fmt.Errorf("unexpected warning event received")).ObjectRef(&event.InvolvedObject).Error(msg)
@@ -318,18 +325,15 @@ func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessF
 				log.Log.ObjectRef(&event.InvolvedObject).Info(msg)
 			}
 			ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
-			return processFunc(event)
-		}
-
-	} else {
-		f = func(event *k8sv1.Event) bool {
+		} else {
 			if event.Type == string(WarningEvent) {
 				log.Log.ObjectRef(&event.InvolvedObject).Reason(fmt.Errorf("Warning event received")).Error(event.Message)
 			} else {
 				log.Log.ObjectRef(&event.InvolvedObject).Infof(event.Message)
 			}
-			return processFunc(event)
+
 		}
+		return processFunc(event)
 	}
 
 	uid := w.object.(metav1.ObjectMetaAccessor).GetObjectMeta().GetName()
@@ -393,6 +397,14 @@ func (w *ObjectEventWatcher) WaitNotFor(stopChan chan struct{}, eventType EventT
 		return false
 	})
 	return
+}
+
+func alwaysFailOnWarnings(event *k8sv1.Event) bool {
+	return true
+}
+
+func neverFailOnWarnings(event *k8sv1.Event) bool {
+	return false
 }
 
 // Do scale and retuns error, replicas-before.
@@ -2144,7 +2156,17 @@ func waitForVMIPhase(phases []v1.VirtualMachineInstancePhase, obj runtime.Object
 		}
 
 		objectEventWatcher := NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
-		objectEventWatcher.FailOnWarnings()
+		syncErrorsCount := 0
+		objectEventWatcher.MightFailOnWarnings(func(event *k8sv1.Event) bool {
+			if event.Reason == "SyncFailed" && event.Message == syncVmiTimeoutMessage {
+				syncErrorsCount++
+				if syncErrorsCount > 5 { // let pass the first 5 attempts
+					return true
+				}
+				return false
+			}
+			return true
+		})
 
 		stopChan := make(chan struct{})
 		defer close(stopChan)
