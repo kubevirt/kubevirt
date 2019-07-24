@@ -169,8 +169,13 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		return true, nil
 	}
 
+	eventuallyWithTimeout := func(f func() (bool, error)) {
+		Eventually(f,
+			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
+		).Should(BeTrue())
+	}
+
 	BeforeEach(func() {
-		tests.SkipIfNoCmd("kubectl")
 		tests.BeforeTestCleanup()
 
 		nodes := tests.GetAllSchedulableNodes(virtCli).Items
@@ -182,23 +187,13 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		// select one node from result for test, first node will do
 		selectedNodeName = nodes[0].Name
 
-		Eventually(addLabelToSelectedNode,
-			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(BeTrue())
-
-		Eventually(addNodeSelectorToDeployments,
-			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(BeTrue())
+		eventuallyWithTimeout(addLabelToSelectedNode)
+		eventuallyWithTimeout(addNodeSelectorToDeployments)
 
 		time.Sleep(WaitSecondsBeforeDeploymentCheck)
 
-		Eventually(checkControlPlanePodsHaveNodeSelector,
-			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(BeTrue())
-
-		Eventually(waitForDeploymentsToStabilize,
-			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(BeTrue())
+		eventuallyWithTimeout(checkControlPlanePodsHaveNodeSelector)
+		eventuallyWithTimeout(waitForDeploymentsToStabilize)
 	})
 
 	removeNodeSelectorFromDeployments := func() (bool, error) {
@@ -246,23 +241,13 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 	}
 
 	AfterEach(func() {
-		Eventually(removeNodeSelectorFromDeployments,
-			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(BeTrue())
-
-		Eventually(cleanUpSelectedNode,
-			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(BeTrue())
+		eventuallyWithTimeout(removeNodeSelectorFromDeployments)
+		eventuallyWithTimeout(cleanUpSelectedNode)
 
 		time.Sleep(WaitSecondsBeforeDeploymentCheck)
 
-		Eventually(checkControlPlanePodsDontHaveNodeSelector,
-			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(BeTrue())
-
-		Eventually(waitForDeploymentsToStabilize,
-			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(BeTrue())
+		eventuallyWithTimeout(checkControlPlanePodsDontHaveNodeSelector)
+		eventuallyWithTimeout(waitForDeploymentsToStabilize)
 	})
 
 	When("evicting pods of control plane, last eviction should fail", func() {
