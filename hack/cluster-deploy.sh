@@ -59,7 +59,7 @@ fi
 if [[ "$KUBEVIRT_PROVIDER" =~ .*sriov.* ]]; then
     #enable feature gate
     _kubectl patch configmap kubevirt-config -n kubevirt --patch "data: 
-  feature-gates: DataVolumes, CPUManager, LiveMigration, SRIOV"
+  feature-gates: $(kubectl get configmap kubevirt-config -n kubevirt -o jsonpath='{.data.feature-gates}'), SRIOV"
 fi
 
 if [[ "$KUBEVIRT_PROVIDER" =~ kind.* ]]; then
