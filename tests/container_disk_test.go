@@ -171,12 +171,12 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting from custom image location", func() {
-		Context("with disk at /custom-disk/boot.img", func() {
+		Context("with disk at /custom-disk/downloaded", func() {
 			It("[test_id:1466]should boot normally", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirrosCustomLocation), "#!/bin/bash\necho 'hello'\n")
 				for ind, volume := range vmi.Spec.Volumes {
 					if volume.ContainerDisk != nil {
-						vmi.Spec.Volumes[ind].ContainerDisk.Path = "/custom-disk/cirros.img"
+						vmi.Spec.Volumes[ind].ContainerDisk.Path = "/custom-disk/downloaded"
 					}
 				}
 				By("Starting the VirtualMachineInstance")

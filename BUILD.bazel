@@ -187,6 +187,7 @@ container_bundle(
         # container-disk images
         "$(container_prefix)/alpine-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:alpine-container-disk-image",
         "$(container_prefix)/cirros-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:cirros-container-disk-image",
+        "$(container_prefix)/cirros-custom-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:cirros-custom-container-disk-image",
         "$(container_prefix)/fedora-cloud-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:fedora-cloud-container-disk-image",
         "$(container_prefix)/fedora30-cloud-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:fedora30-cloud-container-disk-image",
         "$(container_prefix)/virtio-container-disk:$(container_tag)": "//cmd/container-disk-v2alpha:virtio-container-disk-image",
