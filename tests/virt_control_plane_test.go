@@ -22,6 +22,7 @@ package tests_test
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -117,6 +118,28 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		return
 	}
 
+	waitForDeploymentsToStabilize := func() (bool, error) {
+		virtCli, err := kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+		deploymentsClient := kubecli.KubevirtClient.AppsV1(virtCli).Deployments(tests.KubeVirtInstallNamespace)
+		for numberOfSuccessfulChecks := 0; numberOfSuccessfulChecks < 3; numberOfSuccessfulChecks++ {
+			for _, deploymentName := range controlPlaneDeploymentNames {
+				deployment, err := deploymentsClient.Get(deploymentName, metav1.GetOptions{})
+				if err != nil {
+					return false, err
+				}
+
+				if !(deployment.Status.UpdatedReplicas == *(deployment.Spec.Replicas) &&
+					deployment.Status.Replicas == *(deployment.Spec.Replicas) &&
+					deployment.Status.AvailableReplicas == *(deployment.Spec.Replicas)) {
+					return false, err
+				}
+			}
+			time.Sleep(time.Second)
+		}
+		return true, nil
+	}
+
 	BeforeEach(func() {
 		tests.SkipIfNoCmd("kubectl")
 		tests.BeforeTestCleanup()
@@ -143,40 +166,41 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 		tests.PanicOnError(err)
 
 		// Add label to node that was selected for test
-		if selectedNode.Labels == nil {
-			selectedNode.Labels = make(map[string]string)
+		for {
+			if selectedNode.Labels == nil {
+				selectedNode.Labels = make(map[string]string)
+			}
+			selectedNode.Labels[labelKey] = labelValue
+			_, err = kubecli.KubevirtClient.CoreV1(virtCli).Nodes().Update(selectedNode)
+			if err == nil {
+				break
+			}
 		}
-		selectedNode.Labels[labelKey] = labelValue
-		_, err = kubecli.KubevirtClient.CoreV1(virtCli).Nodes().Update(selectedNode)
-		tests.PanicOnError(err)
 
 		// Add nodeSelector to deployments so that they get scheduled to selectedNode
 		deploymentsClient := kubecli.KubevirtClient.AppsV1(virtCli).Deployments(tests.KubeVirtInstallNamespace)
-		deployments, err := deploymentsClient.List(metav1.ListOptions{})
 		tests.PanicOnError(err)
-		for _, deployment := range deployments.Items {
-			if deployment.Name != "virt-api" && deployment.Name != "virt-controller" {
-				continue
-			}
+		for _, deploymentName := range controlPlaneDeploymentNames {
+			for {
+				deployment, err := deploymentsClient.Get(deploymentName, metav1.GetOptions{})
+				tests.PanicOnError(err)
 
-			labelMap := make(map[string]string)
-			labelMap[labelKey] = labelValue
-			if deployment.Spec.Template.Spec.NodeSelector == nil {
-				deployment.Spec.Template.Spec.NodeSelector = make(map[string]string)
-			}
-			deployment.Spec.Template.Spec.NodeSelector[labelKey] = labelValue
-			_, err = deploymentsClient.Update(&deployment)
-			if err != nil {
-				tests.PanicOnError(fmt.Errorf("unable to update deployment %+v: %v", deployment, err))
+				labelMap := make(map[string]string)
+				labelMap[labelKey] = labelValue
+				if deployment.Spec.Template.Spec.NodeSelector == nil {
+					deployment.Spec.Template.Spec.NodeSelector = make(map[string]string)
+				}
+				deployment.Spec.Template.Spec.NodeSelector[labelKey] = labelValue
+				_, err = deploymentsClient.Update(deployment)
+				if err == nil {
+					break
+				}
 			}
 		}
 
-		Eventually(func() int { return countReadyPodsOnNodes(controlPlaneDeploymentNames, selectedNodeName) },
+		Eventually(waitForDeploymentsToStabilize,
 			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(Equal(4))
-		Eventually(func() int { return countPendingPods(controlPlaneDeploymentNames) },
-			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(Equal(0))
+		).Should(BeTrue())
 	})
 
 	AfterEach(func() {
@@ -210,12 +234,9 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 			}
 		}
 
-		Eventually(func() int { return countReadyPodsOnNodes(controlPlaneDeploymentNames) },
+		Eventually(waitForDeploymentsToStabilize,
 			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(Equal(4))
-		Eventually(func() int { return countPendingPods(controlPlaneDeploymentNames) },
-			DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-		).Should(Equal(0))
+		).Should(BeTrue())
 	})
 
 	When("evicting pods of control plane, last eviction should fail", func() {
