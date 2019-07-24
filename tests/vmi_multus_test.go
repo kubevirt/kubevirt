@@ -48,7 +48,7 @@ const (
 	linuxBridgeConfCRD   = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"br10\", \"vlan\": 100, \"ipam\": {}},{\"type\": \"tuning\"}]}"}}`
 	ptpConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"name\": \"mynet\", \"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	ptpConfWithTuningCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
-	sriovConfCRD         = `{"apiVersion":"sriovnetwork.openshift.io/v1","kind":"SriovNetwork","metadata":{"name":"%s","namespace":"%s"},"spec":{"ipam":"{\n  \"type\": \"host-local\",\n  \"subnet\": \"10.1.1.0/24\"\n}\n","resourceName":"sriov_net"}}`
+	sriovConfCRD         = `{"apiVersion":"sriovnetwork.openshift.io/v1","kind":"SriovNetwork","metadata":{"name":"%s","namespace":"sriov-network-operator"},"spec":{"networkNamespace": "%s", "ipam":"{\n  \"type\": \"host-local\",\n  \"subnet\": \"10.1.1.0/24\"\n}\n","resourceName":"sriov_net"}}`
 	sriovOperatorNs      = "sriov-network-operator"
 )
 
@@ -158,13 +158,13 @@ var _ = Describe("Multus", func() {
 		result = virtClient.RestClient().
 			Post().
 			RequestURI(fmt.Sprintf(postUrlSriovNetworks, sriovOperatorNs, "sriov")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", sriovOperatorNs))).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 		result = virtClient.RestClient().
 			Post().
 			RequestURI(fmt.Sprintf(postUrlSriovNetworks, sriovOperatorNs, "sriov2")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", sriovOperatorNs))).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
@@ -597,14 +597,14 @@ var _ = Describe("SRIOV", func() {
 		// Create two sriov networks referring to the same resource name
 		result := virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, sriovOperatorNs, "sriov")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", sriovOperatorNs))).
+			RequestURI(fmt.Sprintf(postUrlSriovNetworks, sriovOperatorNs, "sriov")).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 		result = virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, sriovOperatorNs, "sriov2")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", sriovOperatorNs))).
+			RequestURI(fmt.Sprintf(postUrlSriovNetworks, sriovOperatorNs, "sriov2")).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
@@ -674,7 +674,7 @@ var _ = Describe("SRIOV", func() {
 		}
 
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
-			vmi := getSriovVmi([]string{sriovOperatorNs + "/sriov"})
+			vmi := getSriovVmi([]string{"sriov"})
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -685,7 +685,7 @@ var _ = Describe("SRIOV", func() {
 				[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
 			)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(out).To(Equal("intel.com/sriov\n"))
+			Expect(out).To(Equal("openshift.com/sriov_net\n"))
 
 			checkDefaultInterfaceInPod(vmi)
 
@@ -698,7 +698,7 @@ var _ = Describe("SRIOV", func() {
 		})
 
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
-			vmi := getSriovVmi([]string{sriovOperatorNs + "/sriov", sriovOperatorNs + "/sriov2"})
+			vmi := getSriovVmi([]string{"sriov", "sriov2"})
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -710,7 +710,7 @@ var _ = Describe("SRIOV", func() {
 					[]string{"sh", "-c", fmt.Sprintf("echo $KUBEVIRT_RESOURCE_NAME_%s", name)},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(out).To(Equal("intel.com/sriov\n"))
+				Expect(out).To(Equal("openshift.com/sriov_net\n"))
 			}
 
 			checkDefaultInterfaceInPod(vmi)
