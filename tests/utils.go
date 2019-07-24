@@ -287,7 +287,7 @@ func (w *ObjectEventWatcher) SinceResourceVersion(rv string) *ObjectEventWatcher
 	return w
 }
 
-func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessFunc) {
+func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessFunc, watchedDescription string) {
 	Expect(w.startType).ToNot(Equal(invalidWatch))
 	resourceVersion := ""
 
@@ -360,7 +360,7 @@ func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessF
 		case <-abortChan:
 		case <-time.After(*w.timeout):
 			if !w.dontFailOnMissingEvent {
-				Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event", w.timeout.Seconds()), 1)
+				Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event: %s", w.timeout.Seconds(), watchedDescription), 1)
 			}
 		}
 	} else {
@@ -378,7 +378,7 @@ func (w *ObjectEventWatcher) WaitFor(stopChan chan struct{}, eventType EventType
 			return true
 		}
 		return false
-	})
+	}, fmt.Sprintf("event type %s, reason = %s", string(eventType), reflect.ValueOf(reason).String()))
 	return
 }
 
@@ -391,7 +391,7 @@ func (w *ObjectEventWatcher) WaitNotFor(stopChan chan struct{}, eventType EventT
 			return true
 		}
 		return false
-	})
+	}, fmt.Sprintf("not happen event type %s, reason = %s", string(eventType), reflect.ValueOf(reason).String()))
 	return
 }
 
