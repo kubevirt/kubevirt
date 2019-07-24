@@ -352,17 +352,27 @@ var _ = Describe("Storage", func() {
 						tests.AddHostDisk(vmi, filepath.Join(hostDiskDir, "another.img"), v1.HostDiskExistsOrCreate, "anotherdisk")
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
-						By("Checking if disk.img has been created")
+						By("Checking if another.img has been created")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 						nodeName = vmiPod.Spec.NodeName
 						output, err := tests.ExecuteCommandOnPod(
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
-							[]string{"find", hostdisk.GetMountedHostDiskDir("anotherdisk"), "-name", "another.img", "-size", "1G"},
+							[]string{"find", hostdisk.GetMountedHostDiskDir("anotherdisk"), "-size", "1G"},
 						)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("anotherdisk", filepath.Join(hostDiskDir, "another.img"))))
+
+						By("Checking if disk.img has been created")
+						output, err = tests.ExecuteCommandOnPod(
+							virtClient,
+							vmiPod,
+							vmiPod.Spec.Containers[0].Name,
+							[]string{"find", hostdisk.GetMountedHostDiskDir("host-disk"), "-size", "1G"},
+						)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("host-disk", diskPath)))
 					})
 
 				})
