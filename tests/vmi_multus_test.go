@@ -674,7 +674,7 @@ var _ = Describe("SRIOV", func() {
 		}
 
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
-			vmi := getSriovVmi([]string{"sriov"})
+			vmi := getSriovVmi([]string{sriovOperatorNs + "/sriov"})
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -698,7 +698,7 @@ var _ = Describe("SRIOV", func() {
 		})
 
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
-			vmi := getSriovVmi([]string{"sriov", "sriov2"})
+			vmi := getSriovVmi([]string{sriovOperatorNs + "/sriov", sriovOperatorNs + "/sriov2"})
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
