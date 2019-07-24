@@ -52,7 +52,7 @@ if [[ $TARGET =~ os-.* ]]; then
   export KUBEVIRT_MEMORY_SIZE=6144M
 fi
 
-if [[ $TARGET =~ .*sriov.* ]]; then
+if [[ "$TARGET" =~ .*sriov.* ]]; then
   export KUBEVIRT_NUM_NODES=1 # to be sure the guest lands on the master node
 else
   export KUBEVIRT_NUM_NODES=2 
