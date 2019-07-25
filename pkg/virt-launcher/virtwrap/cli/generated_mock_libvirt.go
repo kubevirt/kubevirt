@@ -147,6 +147,17 @@ func (_mr *_MockConnectionRecorder) GetDomainStats(arg0, arg1 interface{}) *gomo
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainStats", arg0, arg1)
 }
 
+func (_m *MockConnection) StoragePoolCreateXML(xmlConfig string, flags libvirt_go.StoragePoolCreateFlags) (*libvirt_go.StoragePool, error) {
+	ret := _m.ctrl.Call(_m, "StoragePoolCreateXML", xmlConfig, flags)
+	ret0, _ := ret[0].(*libvirt_go.StoragePool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) StoragePoolCreateXML(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "StoragePoolCreateXML", arg0, arg1)
+}
+
 // Mock of Stream interface
 type MockStream struct {
 	ctrl     *gomock.Controller

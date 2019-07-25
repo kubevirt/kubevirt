@@ -56,6 +56,7 @@ type Connection interface {
 	// 1. avoid to expose to the client code the libvirt-specific return type, see docs in stats/ subpackage
 	// 2. transparently handling the addition of the memory stats, currently (libvirt 4.9) not handled by the bulk stats API
 	GetDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error)
+	StoragePoolCreateXML(xmlConfig string, flags libvirt.StoragePoolCreateFlags) (*libvirt.StoragePool, error)
 }
 
 type Stream interface {
@@ -167,6 +168,16 @@ func (l *LibvirtConnection) DomainDefineXML(xml string) (dom VirDomain, err erro
 	dom, err = l.Connect.DomainDefineXML(xml)
 	l.checkConnectionLost(err)
 	return
+}
+
+func (l *LibvirtConnection) StoragePoolCreateXML(xmlConfig string, flags libvirt.StoragePoolCreateFlags) (*libvirt.StoragePool, error) {
+	if err := l.reconnectIfNecessary(); err != nil {
+		return nil, err
+	}
+
+	stPool, err := l.Connect.StoragePoolCreateXML(xmlConfig, 0)
+	l.checkConnectionLost(err)
+	return stPool, err
 }
 
 func (l *LibvirtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error) {
