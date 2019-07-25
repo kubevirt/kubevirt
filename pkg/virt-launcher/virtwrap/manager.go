@@ -245,7 +245,7 @@ func prepareMigrationFlags(isBlockMigration bool, isUnsafeMigration bool, allowA
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 	if isBlockMigration {
-		migrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
+		migrateFlags |= libvirt.MIGRATE_NON_SHARED_DISK
 	}
 	if isUnsafeMigration {
 		migrateFlags |= libvirt.MIGRATE_UNSAFE
@@ -640,7 +640,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 
-	dom, err := l.preStartHook(vmi, domain)
+	dom, err := l.preStartHook(vmi, domain, true)
 	if err != nil {
 		return fmt.Errorf("pre-start pod-setup failed: %v", err)
 	}
@@ -685,7 +685,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 //
 // The Domain.Spec can be alterned in this function and any changes
 // made to the domain will get set in libvirt after this function exits.
-func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain) (*api.Domain, error) {
+func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain, isMigrationTarget bool) (*api.Domain, error) {
 
 	logger := log.Log.Object(vmi)
 
@@ -750,19 +750,20 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	if err := emptydisk.CreateTemporaryDisks(vmi); err != nil {
 		return domain, fmt.Errorf("creating empty disks failed: %v", err)
 	}
-	// create ConfigMap disks if they exists
-	if err := config.CreateConfigMapDisks(vmi); err != nil {
-		return domain, fmt.Errorf("creating config map disks failed: %v", err)
+	if !isMigrationTarget {
+		// create ConfigMap disks if they exists
+		if err := config.CreateConfigMapDisks(vmi); err != nil {
+			return domain, fmt.Errorf("creating config map disks failed: %v", err)
+		}
+		// create Secret disks if they exists
+		if err := config.CreateSecretDisks(vmi); err != nil {
+			return domain, fmt.Errorf("creating secret disks failed: %v", err)
+		}
+		// create ServiceAccount disk if exists
+		if err := config.CreateServiceAccountDisk(vmi); err != nil {
+			return domain, fmt.Errorf("creating service account disk failed: %v", err)
+		}
 	}
-	// create Secret disks if they exists
-	if err := config.CreateSecretDisks(vmi); err != nil {
-		return domain, fmt.Errorf("creating secret disks failed: %v", err)
-	}
-	// create ServiceAccount disk if exists
-	if err := config.CreateServiceAccountDisk(vmi); err != nil {
-		return domain, fmt.Errorf("creating service account disk failed: %v", err)
-	}
-
 	// set drivers cache mode
 	for i := range domain.Spec.Devices.Disks {
 		err := api.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
@@ -881,7 +882,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		// We need the domain but it does not exist, so create it
 		if domainerrors.IsNotFound(err) {
 			newDomain = true
-			domain, err = l.preStartHook(vmi, domain)
+			domain, err = l.preStartHook(vmi, domain, false)
 			if err != nil {
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
 				return nil, err
