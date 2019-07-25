@@ -199,9 +199,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
 		subws.Path(rest.GroupVersionBasePath(version))
 
-		subresourceApp := &rest.SubresourceAPIApp{
-			VirtCli: app.virtCli,
-		}
+		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli)
 
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).

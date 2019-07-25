@@ -114,10 +114,8 @@ func convert(err error) error {
 	if err == nil {
 		return nil
 	}
-	if e, ok := err.(*websocket.CloseError); ok {
-		if e.Code == websocket.CloseNormalClosure {
-			return io.EOF
-		}
+	if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseNormalClosure {
+		return io.EOF
 	}
 	return err
 }

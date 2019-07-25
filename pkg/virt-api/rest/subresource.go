@@ -28,6 +28,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/emicklei/go-restful"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -42,7 +43,16 @@ import (
 )
 
 type SubresourceAPIApp struct {
-	VirtCli kubecli.KubevirtClient
+	virtCli                 kubecli.KubevirtClient
+	consoleTLSConfiguration *tls.Config
+	credentialsLock         *sync.Mutex
+}
+
+func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient) *SubresourceAPIApp {
+	return &SubresourceAPIApp{
+		virtCli:         virtCli,
+		credentialsLock: &sync.Mutex{},
+	}
 }
 
 type requestType struct {
@@ -89,6 +99,26 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 		return
 	}
 
+	if app.consoleTLSConfiguration == nil {
+		setTLSConfiguration := func() error {
+			app.credentialsLock.Lock()
+			defer app.credentialsLock.Unlock()
+			if app.consoleTLSConfiguration == nil {
+				tlsConfig, err := app.getConsoleTLSConfig()
+				if err != nil {
+					return err
+				}
+				app.consoleTLSConfiguration = tlsConfig
+			}
+			return nil
+		}
+		if err := setTLSConfiguration(); err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Failed to set TLS configuration for console/vnc connection")
+			response.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+
 	upgrader := kubecli.NewUpgrader()
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
@@ -98,17 +128,10 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 	}
 	defer clientSocket.Close()
 
-	tlsConfig, err := app.getConsoleTLSConfig()
+	conn, _, err := kubecli.Dial(url, app.consoleTLSConfiguration)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve TLS configuration for console connection")
-		response.WriteError(http.StatusBadRequest, err)
-		return
-	}
-
-	conn, _, err := kubecli.Dial(url, tlsConfig)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("failed to dial %s for a console/vnc connection", url)
-		response.WriteError(http.StatusBadRequest, err)
+		log.Log.Object(vmi).Reason(err).Error("failed to dial virt-handler for a console connection")
+		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
 	defer conn.Close()
@@ -136,7 +159,7 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 }
 
 func (app *SubresourceAPIApp) getConsoleTLSConfig() (*tls.Config, error) {
-	secret, err := app.VirtCli.CoreV1().Secrets(namespaceKubevirt).Get(virtHandlerCertSecretName, k8smetav1.GetOptions{})
+	secret, err := app.virtCli.CoreV1().Secrets(namespaceKubevirt).Get(virtHandlerCertSecretName, k8smetav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +249,7 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 	if !vmi.IsRunning() {
 		return nil, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s", vmi.Status.Phase, v1.Running))
 	}
-	return kubecli.NewVirtHandlerClient(app.VirtCli).ForNode(vmi.Status.NodeName), nil
+	return kubecli.NewVirtHandlerClient(app.virtCli).ForNode(vmi.Status.NodeName), nil
 }
 
 func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, response *restful.Response) {
@@ -327,7 +350,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 
-	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			response.WriteError(http.StatusInternalServerError, err)
@@ -346,7 +369,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	}
 
 	log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
-	_, err = app.VirtCli.VirtualMachine(namespace).Patch(vm.GetName(), types.JSONPatchType, []byte(bodyString))
+	_, err = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), types.JSONPatchType, []byte(bodyString))
 	if err != nil {
 		errCode := http.StatusInternalServerError
 		if strings.Contains(err.Error(), "jsonpatch test operation does not apply") {
@@ -369,7 +392,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		return
 	}
 
-	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			response.WriteError(http.StatusInternalServerError, err)
@@ -426,7 +449,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	}
 
 	log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
-	_, err = app.VirtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString))
+	_, err = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString))
 	if err != nil {
 		errCode := http.StatusInternalServerError
 		if strings.Contains(err.Error(), "jsonpatch test operation does not apply") {
@@ -454,7 +477,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		return
 	}
 
-	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			response.WriteError(http.StatusInternalServerError, err)
@@ -495,7 +518,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	}
 
 	log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
-	_, err = app.VirtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString))
+	_, err = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString))
 	if err != nil {
 		errCode := http.StatusInternalServerError
 		if strings.Contains(err.Error(), "jsonpatch test operation does not apply") {
@@ -510,7 +533,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, int, error) {
 
-	vm, err := app.VirtCli.VirtualMachine(namespace).Get(name, &k8smetav1.GetOptions{})
+	vm, err := app.virtCli.VirtualMachine(namespace).Get(name, &k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, http.StatusNotFound, fmt.Errorf("VirtualMachine %s in namespace %s not found", name, namespace)
@@ -522,7 +545,7 @@ func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string)
 
 func (app *SubresourceAPIApp) fetchVirtualMachineInstance(name string, namespace string) (*v1.VirtualMachineInstance, int, error) {
 
-	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, http.StatusNotFound, goerror.New(fmt.Sprintf("VirtualMachineInstance %s in namespace %s not found.", name, namespace))

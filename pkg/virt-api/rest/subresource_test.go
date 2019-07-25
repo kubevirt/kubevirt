@@ -59,7 +59,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		backend = ghttp.NewServer()
 		flag.Set("kubeconfig", "")
 		flag.Set("master", server.URL())
-		app.VirtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 
 		request = restful.NewRequest(&http.Request{})
 		response = restful.NewResponse(httptest.NewRecorder())
