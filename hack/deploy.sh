@@ -19,6 +19,22 @@
 
 source hack/common.sh
 
+HCO_IMAGE=${HCO_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:latest}
+
+# Cleanup previously generated manifests
+rm -rf _out/
+
+# Copy release manifests as a base for generated ones, this should make it possible to upgrade
+cp -r deploy _out/
+
+# if this is set we run on okd ci
+if [ -n "${IMAGE_FORMAT}" ]; then
+    component=hyperconverged-cluster-operator
+    HCO_IMAGE=`eval echo ${IMAGE_FORMAT}`
+fi
+
+sed -i "s#image: quay.io/kubevirt/hyperconverged-cluster-operator:latest#image: ${HCO_IMAGE}#g" _out/operator.yaml
+
 # create namespaces
 "${CMD}" create ns kubevirt-hyperconverged
 
@@ -42,11 +58,11 @@ function debug(){
 }
 
 # Deploy local manifests
-"${CMD}" create -f deploy/cluster_role.yaml
-"${CMD}" create -f deploy/service_account.yaml
-"${CMD}" create -f deploy/cluster_role_binding.yaml
-"${CMD}" create -f deploy/crds/
-"${CMD}" create -f deploy/operator.yaml
+"${CMD}" create -f _out/cluster_role.yaml
+"${CMD}" create -f _out/service_account.yaml
+"${CMD}" create -f _out/cluster_role_binding.yaml
+"${CMD}" create -f _out/crds/
+"${CMD}" create -f _out/operator.yaml
 
 # Wait for the HCO to be ready
 sleep 20
@@ -57,7 +73,7 @@ for op in cdi-operator cluster-network-addons-operator kubevirt-ssp-operator nod
     "${CMD}" wait deployment/"${op}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${op}"
 done
 
-"${CMD}" create -f deploy/hco.cr.yaml
+"${CMD}" create -f _out/hco.cr.yaml
 sleep 30
 "${CMD}" wait pod $("${CMD}" get pods | grep hyperconverged-cluster-operator | awk '{ print $1 }') --for=condition=Ready --timeout="360s"
 

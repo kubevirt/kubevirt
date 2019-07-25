@@ -8,7 +8,10 @@ OPERATOR_IMAGE     ?= kubevirt/hyperconverged-cluster-operator
 REGISTRY_NAMESPACE ?=
 
 build: $(SOURCES) ## Build binary from source
-	go build -i -ldflags="-s -w" -o _out/hyperconverged-cluster-operator ./cmd/manager
+	go build -i -ldflags="-s -w" -o _out/hyperconverged-cluster-operator ./cmd/hyperconverged-cluster-operator
+
+install:
+	go install ./cmd/...
 
 clean: ## Clean up the working environment
 	@rm -rf _out/
