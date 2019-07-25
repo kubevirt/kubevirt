@@ -395,6 +395,25 @@ func main() {
 	domainConn := createLibvirtConnection()
 	defer domainConn.Close()
 
+	privateDisksDirs := []string{
+		config.ConfigMapDisksDir,
+		config.SecretDisksDir,
+		config.ServiceAccountDiskDir,
+		"/var/run/kubevirt-private/vm-disks",
+	}
+	for _, dir := range privateDisksDirs {
+		xmlStoragePool := fmt.Sprintf(`<pool type="dir">
+  <name>%s</name>
+  <target>
+    <path>%s</path>
+  </target>
+</pool>`, filepath.Base(dir), dir)
+
+		_, err = domainConn.StoragePoolCreateXML(xmlStoragePool, 0)
+		if err != nil {
+			panic(err)
+		}
+	}
 	notifier, err := notifyclient.NewNotifier(*virtShareDir)
 	if err != nil {
 		panic(err)
