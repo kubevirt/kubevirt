@@ -2,7 +2,7 @@ apiVersion: sriovnetwork.openshift.io/v1
 kind: SriovNetwork
 metadata:
   name: sriov
-  namespace: kubevirt-test-default
+  namespace: sriov-network-operator 
 spec:
   ipam: |
     {

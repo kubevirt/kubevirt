@@ -40,7 +40,7 @@ EOF
 "
 }
 
-configure-sriovdp "${CONTROL_PLANE_CMD} bash -c"
+#configure-sriovdp "${CONTROL_PLANE_CMD} bash -c"
 
 # give them some time to create pods before checking pod status
 sleep 10
