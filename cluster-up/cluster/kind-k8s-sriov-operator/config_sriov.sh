@@ -51,3 +51,4 @@ kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout
 ${CONTROL_PLANE_CMD} chmod 666 /dev/vfio/vfio
 ${CONTROL_PLANE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when it starts, we need it to be writeable
 
+${CONTROL_PLANE_CMD} cp /var/lib/cni/bin/sriov /opt/cni/bin/

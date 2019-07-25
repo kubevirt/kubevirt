@@ -580,11 +580,15 @@ var _ = Describe("SRIOV", func() {
 
 	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
-	})
-
-	BeforeEach(func() {
-		// Create two sriov networks referring to the same resource name
+		// Extra cleaning of sriov networks
 		result := virtClient.RestClient().
+			Delete().
+			Namespace(sriovOperatorNs).
+			Resource("sriovnetworks").Do()
+		Expect(result.Error()).NotTo(HaveOccurred())
+
+		// Create two sriov networks referring to the same resource name
+		result = virtClient.RestClient().
 			Post().
 			RequestURI(fmt.Sprintf(postUrlSriovNetworks, sriovOperatorNs, "sriov")).
 			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault))).
@@ -595,14 +599,6 @@ var _ = Describe("SRIOV", func() {
 			RequestURI(fmt.Sprintf(postUrlSriovNetworks, sriovOperatorNs, "sriov2")).
 			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault))).
 			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		result := virtClient.RestClient().
-			Delete().
-			Namespace(sriovOperatorNs).
-			Resource("sriovnetworks").Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
 
