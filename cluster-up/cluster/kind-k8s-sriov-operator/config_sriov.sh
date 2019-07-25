@@ -25,23 +25,6 @@ done
 # deploy multus
 kubectl create -f $MANIFESTS_DIR/multus.yaml
 
-# deploy sriov device plugin
-function configure-sriovdp() {
-    local cmd_context="${1}" # context to run command e.g. sudo, docker exec
-    ${cmd_context} "mkdir -p /etc/pcidp"
-    ${cmd_context} "$(sriovdp-config-cmd)"
-}
-
-function sriovdp-config-cmd() {
-    ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/sriovdp_setup.sh
-    echo "cat <<EOF > /etc/pcidp/config.json
-$(cat /etc/pcidp/config.json)
-EOF
-"
-}
-
-#configure-sriovdp "${CONTROL_PLANE_CMD} bash -c"
-
 # give them some time to create pods before checking pod status
 sleep 10
 
