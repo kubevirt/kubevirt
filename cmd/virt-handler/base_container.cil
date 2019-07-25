@@ -1,0 +1,10 @@
+(block container
+(type process)
+(roletype system_r process)
+(typeattributeset domain (process ))
+(typeattributeset container_domain (process ))
+(typeattributeset svirt_sandbox_domain (process ))
+(allow process proc_type (file (getattr open read)))
+(allow process cpu_online_t (file (getattr open read)))
+(allow container_runtime_t process (key (create link read search setattr view write)))
+)

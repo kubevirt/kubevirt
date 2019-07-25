@@ -63,7 +63,7 @@ container_image(
     name = "version-container",
     base = "@fedora//image",
     directory = "/",
-    files = ["//:get-version"],
+    files = ["//:get-version", ":base_container.cil", ":virt_launcher.cil"],
 )
 
 container_image(
