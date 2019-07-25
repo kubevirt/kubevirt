@@ -214,6 +214,10 @@ func (app *virtHandlerApp) Run() {
 				panic(err)
 			}
 		}
+		err = se.InstallPolicy("/var/run/kubevirt")
+		if err != nil {
+			panic(fmt.Errorf("failed to install virt-launcher selinux policy: %v", err))
+		}
 	} else if err != nil {
 		//an error occured
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
