@@ -75,6 +75,7 @@ go_test(
         "template_test.go",
         "tests_suite_test.go",
         "version_test.go",
+        "virt_control_plane_test.go",
         "vm_test.go",
         "vmi_cloudinit_hook_sidecar_test.go",
         "vmi_cloudinit_test.go",

@@ -55,7 +55,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
-			Expect(podReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
+			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmiReady(vmi)).To(Equal(v1.ConditionFalse))
@@ -69,7 +69,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				return vmiReady(vmi)
 			}, 60, 1).Should(Equal(v1.ConditionTrue))
-			Expect(podReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionTrue))
+			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionTrue))
 		},
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
 			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server", httpProbe, tests.StartHTTPServer),
@@ -84,7 +84,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
-			Expect(podReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
+			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmiReady(vmi)).To(Equal(v1.ConditionFalse))
@@ -95,7 +95,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 				Expect(err).ToNot(HaveOccurred())
 				return vmiReady(vmi)
 			}, 60, 1).Should(Equal(v1.ConditionFalse))
-			Expect(podReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
+			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
 		},
 			table.Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe),
 			table.Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe),
@@ -169,15 +169,6 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		)
 	})
 })
-
-func podReady(pod *v1.Pod) v1.ConditionStatus {
-	for _, cond := range pod.Status.Conditions {
-		if cond.Type == v1.PodReady {
-			return cond.Status
-		}
-	}
-	return v1.ConditionFalse
-}
 
 func vmiReady(vmi *v12.VirtualMachineInstance) v1.ConditionStatus {
 	for _, cond := range vmi.Status.Conditions {

@@ -29,6 +29,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +43,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -1423,6 +1425,67 @@ func addOrRemoveSSC(targetStrategy *InstallStrategy,
 	return nil
 }
 
+func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clientset kubecli.KubevirtClient, kv *v1.KubeVirt, expectations *util.Expectations, stores util.Stores) error {
+	podDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(deployment)
+
+	imageTag := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+
+	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id)
+
+	pdbClient := clientset.PolicyV1beta1().PodDisruptionBudgets(deployment.Namespace)
+
+	var cachedPodDisruptionBudget *policyv1beta1.PodDisruptionBudget
+
+	obj, exists, _ := stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
+	if exists {
+		cachedPodDisruptionBudget = obj.(*policyv1beta1.PodDisruptionBudget)
+	}
+
+	if !exists {
+		kvkey, err := controller.KeyFunc(kv)
+		if err != nil {
+			return err
+		}
+
+		expectations.PodDisruptionBudget.RaiseExpectations(kvkey, 1, 0)
+		_, err = pdbClient.Create(podDisruptionBudget)
+		if err != nil {
+			expectations.PodDisruptionBudget.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create poddisruptionbudget %+v: %v", podDisruptionBudget, err)
+		}
+		log.Log.V(2).Infof("poddisruptionbudget %v created", podDisruptionBudget.GetName())
+	} else if !objectMatchesVersion(&cachedPodDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id) {
+		// Patch if old version
+		var ops []string
+
+		// Add Labels and Annotations Patches
+		labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&podDisruptionBudget.ObjectMeta)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, labelAnnotationPatch...)
+
+		// Add Spec Patch
+		newSpec, err := json.Marshal(podDisruptionBudget.Spec)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+
+		_, err = pdbClient.Patch(podDisruptionBudget.Name, types.JSONPatchType, generatePatchBytes(ops))
+		if err != nil {
+			return fmt.Errorf("unable to patch poddisruptionbudget %+v: %v", podDisruptionBudget, err)
+		}
+		log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
+	} else {
+		log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
+	}
+
+	return nil
+}
+
 func SyncAll(kv *v1.KubeVirt,
 	prevStrategy *InstallStrategy,
 	targetStrategy *InstallStrategy,
@@ -1560,7 +1623,10 @@ func SyncAll(kv *v1.KubeVirt,
 			if err != nil {
 				return false, err
 			}
-
+			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
+			if err != nil {
+				return false, err
+			}
 		}
 
 		// wait for daemonsets and controllers
@@ -1573,6 +1639,10 @@ func SyncAll(kv *v1.KubeVirt,
 		for _, deployment := range apiDeployments(targetStrategy) {
 			deployment := deployment.DeepCopy()
 			err := syncDeployment(kv, deployment, stores, clientset, expectations)
+			if err != nil {
+				return false, err
+			}
+			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
 			if err != nil {
 				return false, err
 			}
@@ -1590,6 +1660,10 @@ func SyncAll(kv *v1.KubeVirt,
 			if err != nil {
 				return false, err
 			}
+			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
+			if err != nil {
+				return false, err
+			}
 		}
 
 		// wait on api servers to roll over
@@ -1604,8 +1678,12 @@ func SyncAll(kv *v1.KubeVirt,
 			if err != nil {
 				return false, err
 			}
-
+			err = syncPodDisruptionBudgetForDeployment(deployment, clientset, kv, expectations, stores)
+			if err != nil {
+				return false, err
+			}
 		}
+
 		// create/update Daemonsets
 		for _, daemonSet := range targetStrategy.daemonSets {
 			err := syncDaemonSet(kv, daemonSet, stores, clientset, expectations)

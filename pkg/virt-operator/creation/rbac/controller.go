@@ -71,7 +71,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"poddisruptionbudgets",
 				},
 				Verbs: []string{
-					"get", "list", "watch", "delete", "create",
+					"get", "list", "watch", "delete", "create", "patch",
 				},
 			},
 			{

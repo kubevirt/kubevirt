@@ -3930,3 +3930,12 @@ func EncodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 
 	return privatePEM
 }
+
+func PodReady(pod *k8sv1.Pod) k8sv1.ConditionStatus {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == k8sv1.PodReady {
+			return cond.Status
+		}
+	}
+	return k8sv1.ConditionFalse
+}
