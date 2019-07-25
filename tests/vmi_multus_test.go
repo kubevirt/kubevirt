@@ -153,20 +153,6 @@ var _ = Describe("Multus", func() {
 			Body([]byte(fmt.Sprintf(ptpConfWithTuningCRD, "ptp-conf-tuning", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
-
-		// Create two sriov networks referring to the same resource name
-		result = virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrlSriovNetworks, sriovOperatorNs, "sriov")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
-		result = virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrlSriovNetworks, sriovOperatorNs, "sriov2")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
 	})
 
 	Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance using different types of interfaces.", func() {
@@ -594,6 +580,9 @@ var _ = Describe("SRIOV", func() {
 
 	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
+	})
+
+	BeforeEach(func() {
 		// Create two sriov networks referring to the same resource name
 		result := virtClient.RestClient().
 			Post().
@@ -606,6 +595,14 @@ var _ = Describe("SRIOV", func() {
 			RequestURI(fmt.Sprintf(postUrlSriovNetworks, sriovOperatorNs, "sriov2")).
 			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault))).
 			Do()
+		Expect(result.Error()).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		result := virtClient.RestClient().
+			Delete().
+			Namespace(sriovOperatorNs).
+			Resource("sriovnetworks").Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
 
