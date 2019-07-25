@@ -2,6 +2,7 @@ package selinux
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +16,7 @@ type execFunc = func(binary string, args ...string) ([]byte, error)
 func defaultExecFunc(binary string, args ...string) ([]byte, error) {
 	return exec.Command(binary, args...).CombinedOutput()
 }
+var POLICY_FILES = []string{"base_container", "virt_launcher"}
 
 type SELinuxImpl struct {
 	Paths         []string
@@ -84,6 +86,22 @@ func (se *SELinuxImpl) execute(binary string, paths []string, args ...string) (o
 	return se.execFunc("/usr/bin/chroot", argsArray...)
 }
 
+func copyPolicy(policyName string, dir string) (err error) {
+	sourceFile := "/" + policyName + ".cil"
+
+	input, err := ioutil.ReadFile(sourceFile)
+	if err != nil {
+		return fmt.Errorf("failed to read a policy file %v: %v ", sourceFile, err)
+	}
+
+	destinationFile := dir + "/" + sourceFile
+	err = ioutil.WriteFile(destinationFile, input, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create a policy file %v: %v ", destinationFile, err)
+	}
+	return nil
+}
+
 func (se *SELinuxImpl) Label(label string, dir string) (err error) {
 	dir = strings.TrimRight(dir, "/") + "(/.*)?"
 	out, err := se.execute("semanage", se.Paths, "fcontext", "-a", "-t", label, dir)
@@ -114,8 +132,30 @@ func (se *SELinuxImpl) Restore(dir string) (err error) {
 	return nil
 }
 
+func (*SELinuxImpl) InstallPolicy(dir string) (err error) {
+	for _, policyName := range POLICY_FILES {
+		fileDest := dir + "/" + policyName + ".cil"
+		modules, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/semodule", "-l").CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to retrive a list of installed modules, err: % v", err)
+		}
+		if !strings.Contains(string(modules), policyName) {
+			err := copyPolicy(policyName, dir)
+			if err != nil {
+				return fmt.Errorf("failed to copy policy %v - err: % v", fileDest, err)
+			}
+			_, err = exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/semodule", "-i", fileDest).CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("failed to install policy %v - err: % v", fileDest, err)
+			}
+		}
+	}
+	return nil
+}
+
 type SELinux interface {
 	Label(dir string, label string) (err error)
 	IsLabeled(dir string) (labeled bool, err error)
 	Restore(dir string) (err error)
+	InstallPolicy(dir string) (err error)
 }
