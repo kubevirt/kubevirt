@@ -103,7 +103,7 @@ EOF
 
 Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt.
 ```bash
-kubectl create -f deploy/crds/hco.cr.yaml
+kubectl create -f deploy/hco.cr.yaml
 ```
 
 ## Launching the HCO on a local cluster

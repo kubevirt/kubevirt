@@ -20,10 +20,7 @@
 source hack/common.sh
 
 # create namespaces
-"${CMD}" create ns kubevirt
-"${CMD}" create ns cdi
 "${CMD}" create ns kubevirt-hyperconverged
-"${CMD}" create ns cluster-network-addons-operator
 
 if [ "${CMD}" == "oc" ]; then
     # Switch project to kubevirt
@@ -33,28 +30,46 @@ else
     ${CMD} config set-context $(${CMD} config current-context) --namespace=kubevirt-hyperconverged
 fi
 
-# Deploy HCO manifests
-"${CMD}" create -f _out/crds/hco.crd.yaml
-"${CMD}" create -f _out/
+CONTAINER_ERRORED=""
+function debug(){
+    echo "Found pods with errors ${CONTAINER_ERRORED}"
 
-# Create kubevirt-operator
-"${CMD}" create -f "${KUBEVIRT_OPERATOR_URL}" || true
+    for err in "${CONTAINER_ERRORED}"; do
+	echo "------------- $err"
+	"${CMD}" logs $("${CMD}" get pods -n kubevirt-hyperconverged | grep $err | head -1 | awk '{ print $1 }')
+    done
+    exit 1
+}
 
-# Create cdi-operator
-"${CMD}" create -f "${CDI_OPERATOR_URL}" || true
+# Deploy local manifests
+"${CMD}" create -f deploy/cluster_role.yaml
+"${CMD}" create -f deploy/service_account.yaml
+"${CMD}" create -f deploy/cluster_role_binding.yaml
+"${CMD}" create -f deploy/crds/
+"${CMD}" create -f deploy/operator.yaml
 
-# Create cluster-network-addons-operator
-"${CMD}" create -f "${CNA_URL_PREFIX}"/network-addons-config.crd.yaml
-"${CMD}" create -f "${CNA_URL_PREFIX}"/operator.yaml
-"${CMD}" create -f "${CNA_URL_PREFIX}"/network-addons-config-example.cr.yaml
+# Wait for the HCO to be ready
+sleep 20
 
-# Create ssp-operator
-"${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-crd.yaml
-"${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator.yaml
-"${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-cr.yaml
+"${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${op}"
 
-# Create an HCO CustomResource
-"${CMD}" create -f deploy/crds/hco.cr.yaml
+for op in cdi-operator cluster-network-addons-operator kubevirt-ssp-operator node-maintenance-operator virt-operator; do
+    "${CMD}" wait deployment/"${op}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${op}"
+done
 
-# Wait for all the operators to be ready
-"${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=available --timeout="450s"
+"${CMD}" create -f deploy/hco.cr.yaml
+sleep 30
+"${CMD}" wait pod $("${CMD}" get pods | grep hyperconverged-cluster-operator | awk '{ print $1 }') --for=condition=Ready --timeout="360s"
+
+for dep in cdi-apiserver cdi-deployment cdi-uploadproxy virt-api virt-controller; do
+    "${CMD}" wait deployment/"${dep}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${dep}"
+done
+
+if [ -z "$CONTAINER_ERRORED" ]; then
+    echo "SUCCESS"
+    exit 0
+else
+    CONTAINER_ERRORED+='hyperconverged-cluster-operator'
+    debug
+    "${CMD}" get pods -n kubevirt-hyperconverged
+fi
