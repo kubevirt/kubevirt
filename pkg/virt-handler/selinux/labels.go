@@ -16,6 +16,7 @@ type execFunc = func(binary string, args ...string) ([]byte, error)
 func defaultExecFunc(binary string, args ...string) ([]byte, error) {
 	return exec.Command(binary, args...).CombinedOutput()
 }
+
 var POLICY_FILES = []string{"base_container", "virt_launcher"}
 
 type SELinuxImpl struct {

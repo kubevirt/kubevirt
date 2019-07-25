@@ -892,7 +892,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			SecurityContext: &k8sv1.PodSecurityContext{
 				RunAsUser: &userId,
 				SELinuxOptions: &k8sv1.SELinuxOptions{
-					Type: "spc_t",
+					Type: "virt_launcher.process",
 				},
 			},
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
