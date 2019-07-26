@@ -45,6 +45,7 @@ import (
 const (
 	postUrl              = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
 	postUrlSriovNetworks = "/apis/sriovnetwork.openshift.io/v1/namespaces/%s/sriovnetworks/%s"
+	deleteUrlSriovNetworks = "/apis/sriovnetwork.openshift.io/v1/namespaces/%s/sriovnetworks"
 	linuxBridgeConfCRD   = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"br10\", \"vlan\": 100, \"ipam\": {}},{\"type\": \"tuning\"}]}"}}`
 	ptpConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"name\": \"mynet\", \"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	ptpConfWithTuningCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
@@ -583,8 +584,8 @@ var _ = Describe("SRIOV", func() {
 		// Extra cleaning of sriov networks
 		result := virtClient.RestClient().
 			Delete().
-			Namespace(sriovOperatorNs).
-			Resource("sriovnetworks").Do()
+			RequestURI(fmt.Sprintf(deleteUrlSriovNetworks, sriovOperatorNs)).
+			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 
 		// Create two sriov networks referring to the same resource name
