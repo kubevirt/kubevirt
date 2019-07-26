@@ -88,6 +88,11 @@ type VirtLauncherClient struct {
 	conn     *grpc.ClientConn
 }
 
+const (
+	shortTimeout time.Duration = 5 * time.Second
+	longTimeout  time.Duration = 20 * time.Second
+)
+
 func ListAllSockets(baseDir string) ([]string, error) {
 	var socketFiles []string
 
@@ -134,7 +139,7 @@ func NewClient(socketPath string) (LauncherClient, error) {
 }
 
 func NewClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn) (LauncherClient, error) {
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), shortTimeout)
 	info, err := infoClient.Info(ctx, &info.CmdInfoRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("could not check cmd server version: %v", err)
@@ -180,7 +185,7 @@ func (c *VirtLauncherClient) genericSendVMICmd(cmdName string,
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
 	defer cancel()
 	response, err := cmdFunc(ctx, request)
 
@@ -269,7 +274,7 @@ func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstanc
 		Options: optionsJson,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
 	defer cancel()
 	response, err := c.v1client.MigrateVirtualMachine(ctx, request)
 
@@ -293,7 +298,7 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 	exists := false
 
 	request := &cmdv1.EmptyRequest{}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
 	response, err := c.v1client.GetDomain(ctx, request)
 
@@ -316,7 +321,7 @@ func (c *VirtLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) 
 	exists := false
 
 	request := &cmdv1.EmptyRequest{}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
 	response, err := c.v1client.GetDomainStats(ctx, request)
 
@@ -336,7 +341,7 @@ func (c *VirtLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) 
 
 func (c *VirtLauncherClient) Ping() error {
 	request := &cmdv1.EmptyRequest{}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
 	response, err := c.v1client.Ping(ctx, request)
 

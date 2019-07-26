@@ -277,7 +277,7 @@ func (app *virtHandlerApp) Run() {
 	factory.Start(stop)
 	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced)
 
-	go vmController.Run(3, stop)
+	go vmController.Run(10, stop)
 
 	logger.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
 	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
