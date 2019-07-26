@@ -56,7 +56,7 @@ We're going to use a shared library to provide the condition types to operators.
 This will ensure the code is not specific to any operator and it will allow
 products outside of CNV to also consume it.
 
-https://github.com/openshift-kni/operator-status
+https://github.com/openshift/custom-resource-status
 
 ## ConditionType
 `ConditionType` _specifies the state of the operator's reconciliation functionality,
