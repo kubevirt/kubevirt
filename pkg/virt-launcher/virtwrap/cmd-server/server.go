@@ -22,6 +22,7 @@ package cmdserver
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -311,7 +312,18 @@ func RunServer(socketPath string,
 		select {
 		case <-stopChan:
 			log.Log.Info("stopping cmd server")
-			grpcServer.Stop()
+			stopped := make(chan struct{})
+			go func() {
+				grpcServer.Stop()
+				close(stopped)
+			}()
+
+			select {
+			case <-stopped:
+				log.Log.Info("cmd server stopped")
+			case <-time.After(1 * time.Second):
+				log.Log.Error("timeout on stopping the cmd server, continuing anyway.")
+			}
 			sock.Close()
 			os.Remove(socketPath)
 			close(done)
