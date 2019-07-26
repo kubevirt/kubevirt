@@ -118,7 +118,7 @@ degraded.
 With a standardized set of conditions, the HCO should report the health of the
 overall application back to OLM and the user.  This will be critial for sensitive
 operations like upgrade, because OLM needs to know it shouldn't replace an
-operator when it is in the middle of imporant work.
+operator when it is in the middle of important work.
 
 See this [issue](https://github.com/operator-framework/operator-lifecycle-manager/issues/922) for why we only want to report a readiness probe on the HCO
 instead of on all component operators.
