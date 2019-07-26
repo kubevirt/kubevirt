@@ -2199,7 +2199,7 @@ func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstance
 }
 
 func WaitForSuccessfulVMIStart(vmi runtime.Object) string {
-	return waitForVMIStart(vmi, 180, false)
+	return waitForVMIStart(vmi, 360, false)
 }
 
 func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpecterFactory) *v1.VirtualMachineInstance {
@@ -3884,7 +3884,7 @@ func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachin
 			}
 		}
 		return false
-	}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+	}, 12*time.Minute, 2).Should(BeTrue(), "Should have agent connected condition")
 }
 
 // GeneratePrivateKey creates a RSA Private Key of specified byte size
