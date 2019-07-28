@@ -22,6 +22,7 @@ spec:
           port: 80
           protocol: TCP
         slirp: {}
+      rng: {}
     machine:
       type: ""
     resources:

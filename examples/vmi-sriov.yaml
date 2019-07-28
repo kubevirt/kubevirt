@@ -20,6 +20,7 @@ spec:
         name: default
       - name: sriov-net
         sriov: {}
+      rng: {}
     machine:
       type: ""
     resources:

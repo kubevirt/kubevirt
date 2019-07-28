@@ -20,6 +20,7 @@ spec:
         name: default
       - bridge: {}
         name: ptp
+      rng: {}
     machine:
       type: ""
     resources:
