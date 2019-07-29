@@ -29,15 +29,13 @@ git clean -fxd
 popd
 cp -rf staging/src/kubevirt.io/client-go/. "${API_REF_DIR}/"
 
+# copy files which are the same on both repos
+cp -f LICENSE "${API_REF_DIR}/"
+cp -f SECURITY.md "${API_REF_DIR}/"
+
 cd "${API_REF_DIR}"
 
-# Generate README.md file
-cat >README.md <<__EOF__
-# client-go
-
-Go clients for talking to kubevirt.
-__EOF__
-
+# Generate .gitignore file. We want to keep bazel files in kubevirt/kubevirt, but not in kubevirt/client-go
 cat >.gitignore <<__EOF__
 BUILD
 BUILD.bazel
