@@ -22,6 +22,8 @@ package tests_test
 import (
 	"crypto/tls"
 	"encoding/json"
+	"strings"
+	"sync"
 
 	"fmt"
 	"time"
@@ -901,16 +903,38 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				}
 				handler, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
 				Expect(err).ToNot(HaveOccurred())
-				// The port-forwarder tears down after each check, but may be too slow, so use different ports on fast checks
-				for port, _ := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
-					func() {
+
+				var wg sync.WaitGroup
+				wg.Add(len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
+
+				i := 0
+				errors := make(chan error, len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
+				for port, targetPort := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
+					go func(i int, port int, targetPort int) {
+						defer GinkgoRecover()
+						defer wg.Done()
 						stopChan := make(chan struct{})
 						defer close(stopChan)
-						Expect(tests.ForwardPorts(handler, []string{fmt.Sprintf("4321:%d", port)}, stopChan, 10*time.Second)).To(Succeed())
-						_, err = tls.Dial("tcp", fmt.Sprintf("localhost:4321"), tlsConfig)
-						Expect(err.Error()).To(ContainSubstring("remote error: tls: bad certificate"))
-					}()
+						Expect(tests.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
+						_, err = tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
+						Expect(err).To(HaveOccurred())
+						errors <- err
+					}(i, port, targetPort)
+					i++
 				}
+				wg.Wait()
+				close(errors)
+
+				By("checking that we were never able to connect")
+				tlsErrorFound := false
+				for err := range errors {
+					if strings.Contains(err.Error(), "remote error: tls: bad certificate") {
+						tlsErrorFound = true
+					}
+					Expect(err.Error()).To(Or(ContainSubstring("remote error: tls: bad certificate"), ContainSubstring("EOF")))
+				}
+
+				Expect(tlsErrorFound).To(BeTrue())
 			})
 		})
 
