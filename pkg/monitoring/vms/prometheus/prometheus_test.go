@@ -20,6 +20,8 @@
 package prometheus
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/prometheus/client_golang/prometheus"
 
 	. "github.com/onsi/ginkgo"
@@ -55,6 +57,68 @@ var _ = Describe("Prometheus", func() {
 				ps.Report("test", &vmi, vmStats)
 			}
 			Expect(testReportPanic).ToNot(Panic())
+		})
+	})
+})
+
+var _ = Describe("Utility functions", func() {
+	Context("VMI Phases map reporting", func() {
+		It("should handle missing VMs", func() {
+			var phasesMap map[string]uint64
+
+			phasesMap = makeVMIsPhasesMap(nil)
+			Expect(phasesMap).NotTo(BeNil())
+			Expect(len(phasesMap)).To(Equal(0))
+
+			vmis := []*k6tv1.VirtualMachineInstance{}
+			phasesMap = makeVMIsPhasesMap(vmis)
+			Expect(phasesMap).NotTo(BeNil())
+			Expect(len(phasesMap)).To(Equal(0))
+		})
+
+		It("should handle different VMI phases", func() {
+			vmis := []*k6tv1.VirtualMachineInstance{
+				&k6tv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "running#0",
+					},
+					Status: k6tv1.VirtualMachineInstanceStatus{
+						Phase: "Running",
+					},
+				},
+				&k6tv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "pending#0",
+					},
+					Status: k6tv1.VirtualMachineInstanceStatus{
+						Phase: "Pending",
+					},
+				},
+				&k6tv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "scheduling#0",
+					},
+					Status: k6tv1.VirtualMachineInstanceStatus{
+						Phase: "Scheduling",
+					},
+				},
+				&k6tv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "running#1",
+					},
+					Status: k6tv1.VirtualMachineInstanceStatus{
+						Phase: "Running",
+					},
+				},
+			}
+
+			phasesMap := makeVMIsPhasesMap(vmis)
+			Expect(phasesMap).NotTo(BeNil())
+			Expect(len(phasesMap)).To(Equal(3))
+			Expect(phasesMap["running"]).To(Equal(uint64(2)))
+			Expect(phasesMap["pending"]).To(Equal(uint64(1)))
+			Expect(phasesMap["scheduling"]).To(Equal(uint64(1)))
+			Expect(phasesMap["bogus"]).To(Equal(uint64(0))) // intentionally bogus key
 		})
 	})
 })

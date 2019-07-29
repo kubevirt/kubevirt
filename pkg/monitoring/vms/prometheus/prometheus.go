@@ -375,12 +375,18 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 	}
 }
 
-func updateVMIsPhase(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
+func makeVMIsPhasesMap(vmis []*k6tv1.VirtualMachineInstance) map[string]uint64 {
 	phasesMap := make(map[string]uint64)
 
 	for _, vmi := range vmis {
 		phasesMap[strings.ToLower(string(vmi.Status.Phase))] += 1
 	}
+
+	return phasesMap
+}
+
+func updateVMIsPhase(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
+	phasesMap := makeVMIsPhasesMap(vmis)
 
 	for phase, count := range phasesMap {
 		mv, err := prometheus.NewConstMetric(
