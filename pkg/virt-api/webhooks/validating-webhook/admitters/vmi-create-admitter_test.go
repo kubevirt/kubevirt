@@ -1735,7 +1735,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(0))
 		})
 
-		It("should reject SRIOV interface when feature gate is disabled", func() {
+		It("should accept SRIOV interface when feature gate is disabled", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
@@ -1762,8 +1762,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			disableFeatureGates()
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].name"))
+			Expect(len(causes)).To(Equal(0))
 		})
 
 		It("should allow valid ioThreadsPolicy", func() {

@@ -32,7 +32,6 @@ const (
 	cpuManager            = "CPUManager"
 	IgnitionGate          = "ExperimentalIgnitionSupport"
 	liveMigrationGate     = "LiveMigration"
-	SRIOVGate             = "SRIOV"
 	CPUNodeDiscoveryGate  = "CPUNodeDiscovery"
 	HypervStrictCheckGate = "HypervStrictCheck"
 	SidecarGate           = "Sidecar"
@@ -52,10 +51,6 @@ func (config *ClusterConfig) IgnitionEnabled() bool {
 
 func (config *ClusterConfig) LiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(liveMigrationGate)
-}
-
-func (config *ClusterConfig) SRIOVEnabled() bool {
-	return config.isFeatureGateEnabled(SRIOVGate)
 }
 
 func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
