@@ -375,7 +375,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 	}
 }
 
-func updateTelemetry(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
+func updateVMIsPhase(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
 	phasesMap := make(map[string]uint64)
 
 	for _, vmi := range vmis {
@@ -469,7 +469,7 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	scraper := &prometheusScraper{ch: ch}
 	co.concCollector.Collect(socketToVMIs, scraper, collectionTimeout)
 
-	updateTelemetry(co.nodeName, vmis, ch)
+	updateVMIsPhase(co.nodeName, vmis, ch)
 	return
 }
 
