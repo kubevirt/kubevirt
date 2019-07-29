@@ -49,6 +49,8 @@ import (
 )
 
 var _ = Describe("VirtualMachineInstance Subresources", func() {
+	kubecli.Init()
+
 	var server *ghttp.Server
 	var backend *ghttp.Server
 	var request *restful.Request

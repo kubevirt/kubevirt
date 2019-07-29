@@ -105,6 +105,7 @@ var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
 
 func init() {
+	kubecli.Init()
 	flag.StringVar(&KubeVirtUtilityVersionTag, "utility-container-tag", "", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtVersionTag, "container-tag", "latest", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtVersionTagAlt, "container-tag-alt", "", "An alternate tag that can be used to test operator deployments")

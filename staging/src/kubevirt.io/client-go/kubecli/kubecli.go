@@ -54,8 +54,12 @@ var once sync.Once
 // Init adds the default `kubeconfig` and `master` flags. It is not added by default to allow integration into
 // the different controller generators which normally add these flags too.
 func Init() {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
-	flag.StringVar(&master, "master", "", "master url")
+	if flag.CommandLine.Lookup("kubeconfig") == nil {
+		flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
+	}
+	if flag.CommandLine.Lookup("master") == nil {
+		flag.StringVar(&master, "master", "", "master url")
+	}
 }
 
 func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
