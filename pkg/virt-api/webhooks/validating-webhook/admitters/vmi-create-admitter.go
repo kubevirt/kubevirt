@@ -61,6 +61,10 @@ var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 var validCPUFeaturePolicies = []string{"", "force", "require", "optional", "disable", "forbid"}
 
+// taken from k8s.io/apimachinery/pkg/util/validation/validation.go since not exported
+const dns1123LabelErrMsg string = "a DNS-1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character"
+const dns1123LabelFmt string = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
+
 type VMICreateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
 }
@@ -1622,6 +1626,17 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				Field:   field.Index(idx).Child("cache").String(),
 			})
 		}
+
+		// Verify disk and volume name can be a valid container name since disk 
+		// name can become a container name which will fail to schedule if invalid
+		e := validation.IsDNS1123Subdomain(disk.Name)
+		if len(e) != 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Invalid value: \"%s\": %s, regex used for validation is '%s'", disk.Name, dns1123LabelErrMsg, dns1123LabelFmt),
+			Field: field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
+		})
+	}
 	}
 
 	return causes
