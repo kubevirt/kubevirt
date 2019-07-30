@@ -22,6 +22,7 @@ package prometheus
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -47,6 +48,17 @@ var (
 		nil,
 	)
 
+	// higher-level, telemetry-friendly metrics
+	vmiCountDesc = prometheus.NewDesc(
+		"kubevirt_vmi_phase_count",
+		"VMI phase.",
+		[]string{
+			"node", "phase",
+		},
+		nil,
+	)
+
+	// lower level metrics
 	storageIopsDesc = prometheus.NewDesc(
 		"kubevirt_vm_storage_iops_total",
 		"I/O operation performed.",
@@ -337,6 +349,32 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 	}
 }
 
+func makeVMIsPhasesMap(vmis []*k6tv1.VirtualMachineInstance) map[string]uint64 {
+	phasesMap := make(map[string]uint64)
+
+	for _, vmi := range vmis {
+		phasesMap[strings.ToLower(string(vmi.Status.Phase))] += 1
+	}
+
+	return phasesMap
+}
+
+func updateVMIsPhase(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
+	phasesMap := makeVMIsPhasesMap(vmis)
+
+	for phase, count := range phasesMap {
+		mv, err := prometheus.NewConstMetric(
+			vmiCountDesc, prometheus.GaugeValue,
+			float64(count),
+			nodeName, phase,
+		)
+		if err != nil {
+			continue
+		}
+		ch <- mv
+	}
+}
+
 func updateVersion(ch chan<- prometheus.Metric) {
 	verinfo := version.Get()
 	ch <- prometheus.MustNewConstMetric(
@@ -412,6 +450,8 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	socketToVMIs := newvmiSocketMapFromVMIs(co.virtShareDir, vmis)
 	scraper := &prometheusScraper{ch: ch}
 	co.concCollector.Collect(socketToVMIs, scraper, collectionTimeout)
+
+	updateVMIsPhase(co.nodeName, vmis, ch)
 	return
 }
 
