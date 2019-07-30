@@ -2327,7 +2327,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(1))
 		})
 
-		FIt("should reject disk without a valid DNS-1123 name", func() {
+		It("should reject disk without a valid DNS-1123 name", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
