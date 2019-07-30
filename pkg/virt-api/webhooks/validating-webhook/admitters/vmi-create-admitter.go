@@ -1245,10 +1245,10 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			volumeSourceSetCount++
 		}
 		if volume.DataVolume != nil {
-			if !config.DataVolumesEnabled() {
+			if !config.HasDataVolumeAPI() {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: "DataVolume feature gate is not enabled",
+					Message: "DataVolume api is not present in cluster. CDI must be installed for DataVolume support.",
 					Field:   field.Index(idx).String(),
 				})
 			}

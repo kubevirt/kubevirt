@@ -122,7 +122,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		mockWatchdog = &MockWatchdog{shareDir}
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
-		config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 		controller = NewController(recorder,
 			virtClient,

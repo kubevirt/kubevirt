@@ -39,26 +39,13 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Validating VM Admitter", func() {
-	config, configMapInformer := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, _, crdInformer := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	vmsAdmitter := &VMsAdmitter{ClusterConfig: config}
 
 	notRunning := false
-	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
-			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
-		})
-	}
-	disableFeatureGates := func() {
-		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{})
-	}
-
-	AfterEach(func() {
-		disableFeatureGates()
-	})
 
 	It("reject invalid VirtualMachineInstance spec", func() {
 		vmi := v1.NewMinimalVMI("testvmi")
@@ -164,7 +151,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		}
 
-		enableFeatureGate("DataVolumes")
+		testutils.AddDataVolumeAPI(crdInformer)
 		resp := vmsAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
@@ -209,7 +196,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			},
 		}
 
-		enableFeatureGate("DataVolumes")
+		testutils.AddDataVolumeAPI(crdInformer)
 		resp := vmsAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -225,7 +212,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					VolumeSource: volumeSource,
 				})
 
-				enableFeatureGate("DataVolumes")
+				testutils.AddDataVolumeAPI(crdInformer)
 				causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 				Expect(len(causes)).To(Equal(0))
 			},
@@ -248,7 +235,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				VolumeSource: v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}},
 			})
 
-			disableFeatureGates()
+			testutils.RemoveDataVolumeAPI(crdInformer)
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
@@ -261,7 +248,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				VolumeSource: v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: ""}},
 			})
 
-			enableFeatureGate("DataVolumes")
+			testutils.AddDataVolumeAPI(crdInformer)
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueRequired"))

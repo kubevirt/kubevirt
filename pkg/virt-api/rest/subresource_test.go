@@ -94,7 +94,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
-			config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+			config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", pvcCache, app.VirtCli, config)
 
 			pod, err := templateService.RenderLaunchManifest(vmi)
@@ -267,7 +267,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
-			config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+			config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", pvcCache, app.VirtCli, config)
 
 			pod, err := templateService.RenderLaunchManifest(vmi)

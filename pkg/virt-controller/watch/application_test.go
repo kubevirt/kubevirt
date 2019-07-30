@@ -24,12 +24,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"time"
 
 	restful "github.com/emicklei/go-restful"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	kubev1 "k8s.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/rest"
+	testutils "kubevirt.io/kubevirt/pkg/testutils"
 )
 
 func newValidGetRequest() *http.Request {
@@ -39,6 +44,41 @@ func newValidGetRequest() *http.Request {
 
 var _ = Describe("Application", func() {
 	var app VirtControllerApp = VirtControllerApp{}
+
+	Describe("Reinitialization conditions", func() {
+		table.DescribeTable("Re-trigger initialization", func(hasCDIAtInit bool, addCrd bool, removeCrd bool, expectReInit bool) {
+			var reInitTriggered bool
+
+			app := VirtControllerApp{}
+
+			clusterConfig, _, crdInformer := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+			app.clusterConfig = clusterConfig
+			app.reInitChan = make(chan string, 10)
+			app.hasCDI = hasCDIAtInit
+
+			app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
+
+			if addCrd {
+				testutils.AddDataVolumeAPI(crdInformer)
+			} else if removeCrd {
+				testutils.RemoveDataVolumeAPI(crdInformer)
+			}
+
+			select {
+			case <-app.reInitChan:
+				reInitTriggered = true
+			case <-time.After(1 * time.Second):
+				reInitTriggered = false
+			}
+
+			Expect(reInitTriggered).To(Equal(expectReInit))
+		},
+			table.Entry("when CDI is introduced", false, true, false, true),
+			table.Entry("when CDI is removed", true, false, true, true),
+			table.Entry("not when nothing changed and cdi exists", true, true, false, false),
+			table.Entry("not when nothing changed and does not exist", false, false, true, false),
+		)
+	})
 
 	Describe("Readiness probe", func() {
 		var recorder *httptest.ResponseRecorder

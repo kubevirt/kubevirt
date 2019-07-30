@@ -42,10 +42,6 @@ func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 	return strings.Contains(c.getConfig().FeatureGates, featureGate)
 }
 
-func (config *ClusterConfig) DataVolumesEnabled() bool {
-	return config.isFeatureGateEnabled(dataVolumesGate)
-}
-
 func (config *ClusterConfig) CPUManagerEnabled() bool {
 	return config.isFeatureGateEnabled(cpuManager)
 }
