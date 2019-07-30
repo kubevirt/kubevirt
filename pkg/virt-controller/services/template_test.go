@@ -1143,12 +1143,8 @@ var _ = Describe("Template", func() {
 
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				// Skip first three mounts that are generic for all launcher pods
-				Expect(pod.Spec.Containers[0].VolumeMounts[3].MountPath).To(Equal("/sys/bus/pci/"))
-				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
-				Expect(pod.Spec.Containers[0].VolumeMounts[5].MountPath).To(Equal("/dev/vfio/"))
-				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/sys/bus/pci/"))
-				Expect(pod.Spec.Volumes[1].HostPath.Path).To(Equal("/sys/devices/"))
-				Expect(pod.Spec.Volumes[2].HostPath.Path).To(Equal("/dev/vfio/"))
+				Expect(pod.Spec.Containers[0].VolumeMounts[3].MountPath).To(Equal("/sys/devices/"))
+				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/sys/devices/"))
 			})
 		})
 		Context("with slirp interface", func() {
