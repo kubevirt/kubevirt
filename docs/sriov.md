@@ -199,25 +199,7 @@ Finally, create a new SR-IOV network CRD that will use SR-IOV device plugin to a
 
 # Install kubevirt services
 
-The SR-IOV feature is gated, so you would need to enable the `SRIOV` gate
-feature using `kubevirt-config` map before deploying Kubevirt. For example,
-
-```
-cat <<EOF | ./cluster/kubectl.sh create -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kubevirt-config
-  namespace: kubevirt
-  labels:
-    kubevirt.io: ""
-data:
-  feature-gates: "SRIOV"
-EOF
-```
-
-After that, you are ready to deploy Kubevirt. As you can see, this particular
-step is not specific to SR-IOV.
+This particular step is not specific to SR-IOV.
 
 ```
 make cluster-sync
