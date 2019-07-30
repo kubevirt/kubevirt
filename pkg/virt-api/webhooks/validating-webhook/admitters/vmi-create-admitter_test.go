@@ -423,7 +423,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
 			for i := 0; i < arrayLenMax; i++ {
-				diskName := fmt.Sprintf("testDisk%d", i)
+				diskName := fmt.Sprintf("testdisk%d", i)
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 					Name: diskName,
 				})
@@ -2325,7 +2325,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
-		})
+		}
 
 		It("should reject disk without a valid DNS-1123 name", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
