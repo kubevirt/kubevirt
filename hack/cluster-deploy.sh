@@ -25,13 +25,13 @@ source hack/common.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
-function dump_kubevirt {
-  echo "Dump kubevirt state:"
-  _kubectl get all -n kubevirt
-  for operator in $(kubectl -n kubevirt get pods | grep operator | awk '{print $1}'); do
-    echo "Logs for operator $operator"
-    _kubectl logs -n kubevirt $operator
-  done
+function dump_kubevirt() {
+    echo "Dump kubevirt state:"
+    _kubectl get all -n kubevirt
+    for operator in $(kubectl -n kubevirt get pods | grep operator | awk '{print $1}'); do
+        echo "Logs for operator $operator"
+        _kubectl logs -n kubevirt $operator
+    done
 }
 
 echo "Deploying ..."
