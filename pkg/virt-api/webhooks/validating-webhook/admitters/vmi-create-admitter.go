@@ -1627,16 +1627,16 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			})
 		}
 
-		// Verify disk and volume name can be a valid container name since disk 
+		// Verify disk and volume name can be a valid container name since disk
 		// name can become a container name which will fail to schedule if invalid
 		e := validation.IsDNS1123Subdomain(disk.Name)
 		if len(e) != 0 {
-		causes = append(causes, metav1.StatusCause{
-			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Invalid value: \"%s\": %s, regex used for validation is '%s'", disk.Name, dns1123LabelErrMsg, dns1123LabelFmt),
-			Field: field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
-		})
-	}
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Invalid value: \"%s\": %s, regex used for validation is '%s'", disk.Name, dns1123LabelErrMsg, dns1123LabelFmt),
+				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
+			})
+		}
 	}
 
 	return causes

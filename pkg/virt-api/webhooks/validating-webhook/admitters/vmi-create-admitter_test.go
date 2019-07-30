@@ -2329,9 +2329,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		FIt("should reject disk without a valid DNS-1123 name", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			
+
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:      "TESTDISK2",
+				Name: "TESTDISK2",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{},
 				},
