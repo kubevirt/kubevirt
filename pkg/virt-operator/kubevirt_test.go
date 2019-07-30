@@ -1898,7 +1898,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			})
 
 			// This generates and posts the install strategy config map
-			installstrategy.DumpInstallStrategyToConfigMap(virtClient)
+			installstrategy.DumpInstallStrategyToConfigMap(virtClient, false)
 		}, 15)
 	})
 })

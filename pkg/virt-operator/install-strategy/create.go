@@ -1339,7 +1339,65 @@ func createOrUpdateService(kv *v1.KubeVirt,
 	return false, nil
 }
 
-func addOrRemoveSSC(targetStrategy *InstallStrategy,
+func createOrUpdateSCC(kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	sec := clientset.SecClient()
+
+	version := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	for _, scc := range targetStrategy.sccs {
+		var cachedSCC *secv1.SecurityContextConstraints
+		name := scc.GetName()
+
+		scc := scc.DeepCopy()
+		obj, exists, _ := stores.SCCCache.GetByKey(name)
+		if exists {
+			cachedSCC = obj.(*secv1.SecurityContextConstraints)
+		}
+
+		injectOperatorMetadata(kv, &scc.ObjectMeta, version, imageRegistry, id)
+		if !exists {
+			expectations.SCC.RaiseExpectations(kvkey, 1, 0)
+			_, err := sec.SecurityContextConstraints().Create(scc)
+			if err != nil {
+				expectations.SCC.LowerExpectations(kvkey, 1, 0)
+				return fmt.Errorf("unable to create SCC %+v: %v", scc, err)
+			}
+			log.Log.V(2).Infof("SCC %v created", name)
+		} else if !objectMatchesVersion(&cachedSCC.ObjectMeta, version, imageRegistry, id) {
+			var ops []string
+
+			sccBytes, err := json.Marshal(scc)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/", "value": %s }`, string(sccBytes)))
+
+			// replace the SCC by the new one
+			_, err = sec.SecurityContextConstraints().Patch(name, types.JSONPatchType, generatePatchBytes(ops))
+			if err != nil {
+				return fmt.Errorf("unable to patch scc: %v", err)
+			}
+		} else {
+			log.Log.V(4).Infof("SCC %s is up to date", name)
+		}
+
+	}
+
+	return nil
+}
+
+func addOrRemoveSCCUsers(targetStrategy *InstallStrategy,
 	prevStrategy *InstallStrategy,
 	clientset kubecli.KubevirtClient,
 	stores util.Stores,
@@ -1571,6 +1629,12 @@ func SyncAll(kv *v1.KubeVirt,
 		return false, err
 	}
 
+	// create/update SCCs
+	err = createOrUpdateSCC(kv, targetStrategy, stores, clientset, expectations)
+	if err != nil {
+		return false, err
+	}
+
 	// create/update Services
 	pending, err := createOrUpdateService(kv,
 		targetStrategy,
@@ -1588,15 +1652,15 @@ func SyncAll(kv *v1.KubeVirt,
 		return false, nil
 	}
 
-	// Add new SCC Privileges and remove unsed SCC Privileges
+	// Add new SCC Privileges and remove unused SCC Privileges
 	if infrastructureRolledOver {
-		err := addOrRemoveSSC(targetStrategy, prevStrategy, clientset, stores, false)
+		err := addOrRemoveSCCUsers(targetStrategy, prevStrategy, clientset, stores, false)
 		if err != nil {
 			return false, err
 		}
 
 	} else {
-		err := addOrRemoveSSC(targetStrategy, prevStrategy, clientset, stores, true)
+		err := addOrRemoveSCCUsers(targetStrategy, prevStrategy, clientset, stores, true)
 		if err != nil {
 			return false, err
 		}

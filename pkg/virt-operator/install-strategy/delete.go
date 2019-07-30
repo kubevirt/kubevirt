@@ -286,7 +286,7 @@ func DeleteAll(kv *v1.KubeVirt,
 		}
 	}
 
-	scc := clientset.SecClient()
+	sec := clientset.SecClient()
 	for _, sccPriv := range strategy.customSCCPrivileges {
 		privSCCObj, exists, err := stores.SCCCache.GetByKey(sccPriv.TargetSCC)
 		if !exists {
@@ -325,11 +325,38 @@ func DeleteAll(kv *v1.KubeVirt,
 			test := fmt.Sprintf(`{ "op": "test", "path": "/users", "value": %s }`, string(oldUserBytes))
 			patch := fmt.Sprintf(`{ "op": "replace", "path": "/users", "value": %s }`, string(userBytes))
 
-			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetSCC, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
+			_, err = sec.SecurityContextConstraints().Patch(sccPriv.TargetSCC, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
 			if err != nil {
 				return fmt.Errorf("unable to patch scc: %v", err)
 			}
 		}
+	}
+
+	for _, scc := range strategy.sccs {
+		name := scc.GetName()
+		obj, exists, err := stores.SCCCache.GetByKey(name)
+		if !exists {
+			continue
+		} else if err != nil {
+			log.Log.Errorf("Could not delete SSC %s, %v", name, err)
+			continue
+		}
+
+		if s, ok := obj.(*secv1.SecurityContextConstraints); ok && s.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(s); err == nil {
+				expectations.SCC.AddExpectedDeletion(kvkey, key)
+				err := sec.SecurityContextConstraints().Delete(name, deleteOptions)
+				if err != nil {
+					expectations.SCC.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete SecurityContextConstraints %+v: %v", s, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+
 	}
 
 	deleteDummyWebhookValidators(kv, clientset, stores, expectations)

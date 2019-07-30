@@ -23,9 +23,11 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/ghodss/yaml"
+	secv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -43,7 +45,10 @@ import (
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
 
-const customSCCPrivilegedAccountsType = "KubevirtCustomSCCRule"
+const (
+	customSCCPrivilegedAccountsType = "KubevirtCustomSCCRule"
+	onOpenShift                     = "onOpenShift"
+)
 
 type customSCCPrivilegedAccounts struct {
 	// this isn't a real k8s object. We use the meta type
@@ -73,6 +78,7 @@ type InstallStrategy struct {
 	deployments []*appsv1.Deployment
 	daemonSets  []*appsv1.DaemonSet
 
+	sccs                []*secv1.SecurityContextConstraints
 	customSCCPrivileges []*customSCCPrivilegedAccounts
 }
 
@@ -104,12 +110,13 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig) 
 	return configMap, nil
 }
 
-func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
+func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, openShift bool) error {
 
 	config, err := util.GetConfigFromEnv()
 	if err != nil {
 		return err
 	}
+	config.AdditionalProperties[onOpenShift] = strconv.FormatBool(openShift)
 
 	configMap, err := NewInstallStrategyConfigMap(config)
 	if err != nil {
@@ -162,6 +169,9 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	for _, entry := range strategy.daemonSets {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.sccs {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	for _, entry := range strategy.customSCCPrivileges {
@@ -235,19 +245,23 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	}
 	strategy.daemonSets = append(strategy.daemonSets, handler)
 
-	prefix := "system:serviceaccount"
-	typeMeta := metav1.TypeMeta{
-		Kind: customSCCPrivilegedAccountsType,
+	// add all OpenShift specific resources to InstallStrategy
+	if t, _ := strconv.ParseBool(config.AdditionalProperties[onOpenShift]); t {
+		strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
+
+		prefix := "system:serviceaccount"
+		typeMeta := metav1.TypeMeta{
+			Kind: customSCCPrivilegedAccountsType,
+		}
+		strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, &customSCCPrivilegedAccounts{
+			TypeMeta:  typeMeta,
+			TargetSCC: "privileged",
+			ServiceAccounts: []string{
+				fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-handler"),
+				fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-apiserver"),
+			},
+		})
 	}
-	strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, &customSCCPrivilegedAccounts{
-		TypeMeta:  typeMeta,
-		TargetSCC: "privileged",
-		ServiceAccounts: []string{
-			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-handler"),
-			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-apiserver"),
-			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-controller"),
-		},
-	})
 
 	return strategy, nil
 }
@@ -384,6 +398,12 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.crds = append(strategy.crds, crd)
+		case "SecurityContextConstraints":
+			s := &secv1.SecurityContextConstraints{}
+			if err := yaml.Unmarshal([]byte(entry), &s); err != nil {
+				return nil, err
+			}
+			strategy.sccs = append(strategy.sccs, s)
 		case customSCCPrivilegedAccountsType:
 			priv := &customSCCPrivilegedAccounts{}
 			if err := yaml.Unmarshal([]byte(entry), &priv); err != nil {

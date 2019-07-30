@@ -453,7 +453,12 @@ func (f *kubeInformerFactory) OperatorDaemonSet() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) OperatorSCC() cache.SharedIndexInformer {
 	return f.getInformer("OperatorSCC", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.SecClient().RESTClient(), "securitycontextconstraints", k8sv1.NamespaceAll, fields.Everything())
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.SecClient().RESTClient(), "securitycontextconstraints", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &secv1.SecurityContextConstraints{}, f.defaultResync, cache.Indexers{})
 	})
 }

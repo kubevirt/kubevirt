@@ -112,8 +112,12 @@ func Execute() {
 		golog.Fatalf("Error searching for namespace: %v", err)
 	}
 
+	onOpenShift, err := util.IsOnOpenshift(app.clientSet)
+	if err != nil {
+		golog.Fatalf("Error determining cluster type: %v", err)
+	}
 	if *dumpInstallStrategy {
-		err = installstrategy.DumpInstallStrategyToConfigMap(app.clientSet)
+		err = installstrategy.DumpInstallStrategyToConfigMap(app.clientSet, onOpenShift)
 		if err != nil {
 			golog.Fatal(err)
 		}
@@ -159,10 +163,6 @@ func Execute() {
 		PodDisruptionBudgetCache:      app.informerFactory.OperatorPodDisruptionBudget().GetStore(),
 	}
 
-	onOpenShift, err := util.IsOnOpenshift(app.clientSet)
-	if err != nil {
-		golog.Fatalf("Error determining cluster type: %v", err)
-	}
 	if onOpenShift {
 		log.Log.Info("we are on openshift")
 		app.informers.SCC = app.informerFactory.OperatorSCC()

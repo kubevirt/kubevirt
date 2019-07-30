@@ -96,6 +96,8 @@ rules:
   - get
   - list
   - watch
+  - create
+  - patch
 - apiGroups:
   - security.openshift.io
   resourceNames:
