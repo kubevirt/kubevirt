@@ -2325,7 +2325,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
-		}
+		})
 
 		It("should reject disk without a valid DNS-1123 name", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
