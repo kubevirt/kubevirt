@@ -25,6 +25,15 @@ source hack/common.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
+function dump_kubevirt {
+  echo "Dump kubevirt state:"
+  _kubectl get all -n kubevirt
+  for operator in $(kubectl -n kubevirt get pods | grep operator | awk '{print $1}'); do
+    echo "Logs for operator $operator"
+    _kubectl logs -n kubevirt $operator
+  done
+}
+
 echo "Deploying ..."
 
 # Create the installation namespace if it does not exist already
@@ -87,6 +96,6 @@ until _kubectl -n kubevirt get kv kubevirt; do
 done
 
 # wait until KubeVirt is ready
-_kubectl wait -n kubevirt kv kubevirt --for condition=Ready --timeout 6m || (echo "KubeVirt not ready in time" && exit 1)
+_kubectl wait -n kubevirt kv kubevirt --for condition=Ready --timeout 6m || (echo "KubeVirt not ready in time" && dump_kubevirt && exit 1)
 
 echo "Done"
