@@ -20,6 +20,7 @@
 package util
 
 import (
+	"fmt"
 	"time"
 
 	secv1 "github.com/openshift/api/security/v1"
@@ -35,31 +36,82 @@ import (
 
 const (
 	KubeVirtFinalizer string = "foregroundDeleteKubeVirt"
+
+	ConditionReasonDeploymentFailedExisting = "ExistingDeployment"
+	ConditionReasonDeploymentFailedError    = "DeploymentFailed"
+	ConditionReasonDeletionFailedError      = "DeletionFailed"
+	ConditionReasonDeploymentCreated        = "AllResourcesCreated"
+	ConditionReasonDeploymentReady          = "AllComponentsReady"
+	ConditionReasonDeploying                = "DeploymentInProgress"
+	ConditionReasonUpdating                 = "UpdateInProgress"
+	ConditionReasonDeleting                 = "DeletionInProgress"
 )
 
-func UpdateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType, status k8sv1.ConditionStatus, reason string, message string) {
+func UpdateConditionsDeploying(kv *virtv1.KubeVirt) {
+	removeCondition(kv, virtv1.KubeVirtConditionSynchronized)
+	msg := fmt.Sprintf("Deploying version %s with registry %s",
+		kv.Status.TargetKubeVirtVersion,
+		kv.Status.TargetKubeVirtRegistry)
+	updateCondition(kv, virtv1.KubeVirtConditionAvailable, k8sv1.ConditionFalse, ConditionReasonDeploying, msg)
+	updateCondition(kv, virtv1.KubeVirtConditionProgressing, k8sv1.ConditionTrue, ConditionReasonDeploying, msg)
+	updateCondition(kv, virtv1.KubeVirtConditionDegraded, k8sv1.ConditionFalse, ConditionReasonDeploying, msg)
+}
 
+func UpdateConditionsUpdating(kv *virtv1.KubeVirt) {
+	removeCondition(kv, virtv1.KubeVirtConditionCreated)
+	removeCondition(kv, virtv1.KubeVirtConditionSynchronized)
+	msg := fmt.Sprintf("Transitioning from previous version %s with registry %s to target version %s using registry %s",
+		kv.Status.ObservedKubeVirtVersion,
+		kv.Status.ObservedKubeVirtRegistry,
+		kv.Status.TargetKubeVirtVersion,
+		kv.Status.TargetKubeVirtRegistry)
+	updateCondition(kv, virtv1.KubeVirtConditionAvailable, k8sv1.ConditionTrue, ConditionReasonUpdating, msg)
+	updateCondition(kv, virtv1.KubeVirtConditionProgressing, k8sv1.ConditionTrue, ConditionReasonUpdating, msg)
+	updateCondition(kv, virtv1.KubeVirtConditionDegraded, k8sv1.ConditionTrue, ConditionReasonUpdating, msg)
+}
+
+func UpdateConditionsCreated(kv *virtv1.KubeVirt) {
+	updateCondition(kv, virtv1.KubeVirtConditionCreated, k8sv1.ConditionTrue, ConditionReasonDeploymentCreated, "All resources were created.")
+}
+
+func UpdateConditionsAvailable(kv *virtv1.KubeVirt) {
+	msg := "All components are ready."
+	updateCondition(kv, virtv1.KubeVirtConditionAvailable, k8sv1.ConditionTrue, ConditionReasonDeploymentReady, msg)
+	updateCondition(kv, virtv1.KubeVirtConditionProgressing, k8sv1.ConditionFalse, ConditionReasonDeploymentReady, msg)
+	updateCondition(kv, virtv1.KubeVirtConditionDegraded, k8sv1.ConditionFalse, ConditionReasonDeploymentReady, msg)
+}
+
+func UpdateConditionsFailedExists(kv *virtv1.KubeVirt) {
+	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedExisting, "There is an active KubeVirt deployment")
+	// don' t set any other conditions here, so HCO just ignores this KubeVirt CR
+}
+
+func UpdateConditionsFailedError(kv *virtv1.KubeVirt, err error) {
+	msg := fmt.Sprintf("An error occurred during deployment: %v", err)
+	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, msg)
+	updateCondition(kv, virtv1.KubeVirtConditionAvailable, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, msg)
+	updateCondition(kv, virtv1.KubeVirtConditionProgressing, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, msg)
+	updateCondition(kv, virtv1.KubeVirtConditionDegraded, k8sv1.ConditionTrue, ConditionReasonDeploymentFailedError, msg)
+}
+
+func UpdateConditionsDeleting(kv *virtv1.KubeVirt) {
+	removeCondition(kv, virtv1.KubeVirtConditionCreated)
+	removeCondition(kv, virtv1.KubeVirtConditionSynchronized)
+	msg := fmt.Sprintf("Deletion was triggered")
+	updateCondition(kv, virtv1.KubeVirtConditionAvailable, k8sv1.ConditionFalse, ConditionReasonDeleting, msg)
+	updateCondition(kv, virtv1.KubeVirtConditionProgressing, k8sv1.ConditionFalse, ConditionReasonDeleting, msg)
+	updateCondition(kv, virtv1.KubeVirtConditionDegraded, k8sv1.ConditionTrue, ConditionReasonDeleting, msg)
+}
+
+func UpdateConditionsDeletionFailed(kv *virtv1.KubeVirt, err error) {
+	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
+}
+
+func updateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType, status k8sv1.ConditionStatus, reason string, message string) {
 	condition, isNew := getCondition(kv, conditionType)
-	transition := false
-	if !isNew && (condition.Status != status || condition.Reason != reason || condition.Message != message) {
-		transition = true
-	}
-
 	condition.Status = status
 	condition.Reason = reason
 	condition.Message = message
-
-	now := time.Now()
-	if isNew || transition {
-		condition.LastProbeTime = metav1.Time{
-			Time: now,
-		}
-	}
-	if transition {
-		condition.LastTransitionTime = metav1.Time{
-			Time: now,
-		}
-	}
 
 	conditions := kv.Status.Conditions
 	if isNew {
@@ -74,7 +126,6 @@ func UpdateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtCondition
 	}
 
 	kv.Status.Conditions = conditions
-
 }
 
 func getCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType) (*virtv1.KubeVirtCondition, bool) {
@@ -89,13 +140,34 @@ func getCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionTyp
 	return condition, true
 }
 
-func RemoveCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType) {
+func removeCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType) {
 	conditions := kv.Status.Conditions
 	for i, condition := range conditions {
 		if condition.Type == conditionType {
 			conditions = append(conditions[:i], conditions[i+1:]...)
 			kv.Status.Conditions = conditions
 			return
+		}
+	}
+}
+
+func SetConditionTimestamps(kvOrig *virtv1.KubeVirt, kvUpdated *virtv1.KubeVirt) {
+	now := metav1.Time{
+		Time: time.Now(),
+	}
+	for i, c := range kvUpdated.Status.Conditions {
+		if cOrig, created := getCondition(kvOrig, c.Type); !created {
+			// check if condition was updated
+			if cOrig.Status != c.Status ||
+				cOrig.Reason != c.Reason ||
+				cOrig.Message != c.Message {
+				kvUpdated.Status.Conditions[i].LastProbeTime = now
+				kvUpdated.Status.Conditions[i].LastTransitionTime = now
+			}
+			// do not update lastProbeTime only, will result in too many updates
+		} else {
+			// condition is new
+			kvUpdated.Status.Conditions[i].LastProbeTime = now
 		}
 	}
 }
