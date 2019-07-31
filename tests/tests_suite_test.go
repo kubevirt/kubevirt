@@ -20,10 +20,13 @@
 package tests_test
 
 import (
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/tests/reporter"
 
 	"kubevirt.io/kubevirt/tests"
 	ginkgo_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
@@ -31,7 +34,7 @@ import (
 
 func TestTests(t *testing.T) {
 	RegisterFailHandler(tests.KubevirtFailHandler)
-	reporters := make([]Reporter, 0)
+	reporters := []Reporter{reporter.NewKubernetesReporter(os.Getenv("ARTIFACTS"))}
 	if ginkgo_reporters.Polarion.Run {
 		reporters = append(reporters, &ginkgo_reporters.Polarion)
 	}
