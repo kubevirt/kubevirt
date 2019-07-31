@@ -43,9 +43,11 @@ import (
 )
 
 const (
-	cloudInitUserMaxLen = 2048
 	arrayLenMax         = 256
 	maxStrLen           = 256
+
+	// Accomodate large userdata config
+	cloudInitUserMaxLen = 16384
 
 	// cloudInitNetworkMaxLen size is an arbitrary limit. It was selected to
 	// accommodate a reasonable number of interfaces and routes.
