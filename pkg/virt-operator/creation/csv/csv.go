@@ -72,9 +72,9 @@ Kubernetes.
 # Virtualization extension for Kubernetes
 
 At its core, KubeVirt extends [Kubernetes](https://kubernetes.io) by adding
-additional virtualization resource types (especially the 'VirtualMachine' type) through
+additional virtualization resource types (especially the ` + "`VirtualMachine`" + ` type) through
 [Kubernetes's Custom Resource Definitions API](https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-custom-resource-definitions/).
-By using this mechanism, the Kubernetes API can be used to manage these 'VirtualMachine'
+By using this mechanism, the Kubernetes API can be used to manage these ` + "`VirtualMachine`" + `
 resources alongside all other resources Kubernetes provides.
 
 The resources themselves are not enough to launch virtual machines.
