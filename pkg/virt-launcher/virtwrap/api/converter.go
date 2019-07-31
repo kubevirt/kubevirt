@@ -33,6 +33,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
@@ -230,7 +232,7 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	}
 
 	if source.HostDisk != nil {
-		return Convert_v1_HostDisk_To_api_Disk(source.HostDisk.Path, disk, c)
+		return Convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk, c)
 	}
 
 	if source.PersistentVolumeClaim != nil {
@@ -310,10 +312,10 @@ func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *
 	return nil
 }
 
-func Convert_v1_HostDisk_To_api_Disk(path string, disk *Disk, c *ConverterContext) error {
+func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *Disk, c *ConverterContext) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	disk.Source.File = path
+	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
 	return nil
 }
 

@@ -3219,7 +3219,7 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 func newDeleteHostDisksJob(diskPath string) *k8sv1.Pod {
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
 
-	args := []string{fmt.Sprintf(`rm -f %s`, diskPath)}
+	args := []string{fmt.Sprintf(`rm -rf %s`, diskPath)}
 	job := RenderHostPathJob("hostdisk-delete-job", filepath.Dir(diskPath), hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
 	return job
