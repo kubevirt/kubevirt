@@ -27,7 +27,7 @@ metadata:
     repository: https://github.com/kubevirt/kubevirt
     support: KubeVirt
   name: kubevirtoperator.{{.CsvVersion}}
-  namespace: {{.Namespace}}
+  namespace: {{.CSVNamespace}}
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
@@ -333,6 +333,14 @@ spec:
           - watch
           - list
         - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - ""
           resources:
           - secrets
@@ -427,6 +435,14 @@ spec:
           - list
           - watch
         - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachineinstances
@@ -454,6 +470,14 @@ spec:
           verbs:
           - create
           - patch
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
         - apiGroups:
           - ""
           resources:

@@ -44,6 +44,7 @@ import (
 type templateData struct {
 	Namespace              string
 	CDINamespace           string
+	CSVNamespace           string
 	DockerTag              string
 	DockerPrefix           string
 	ImagePullPolicy        string
@@ -67,6 +68,7 @@ type templateData struct {
 
 func main() {
 	namespace := flag.String("namespace", "", "")
+	csvNamespace := flag.String("csv-namespace", "placeholder", "")
 	cdiNamespace := flag.String("cdi-namespace", "", "")
 	dockerPrefix := flag.String("container-prefix", "", "")
 	dockerTag := flag.String("container-tag", "", "")
@@ -101,6 +103,7 @@ func main() {
 
 	if *processVars {
 		data.Namespace = *namespace
+		data.CSVNamespace = *csvNamespace
 		data.CDINamespace = *cdiNamespace
 		data.DockerTag = *dockerTag
 		data.DockerPrefix = *dockerPrefix

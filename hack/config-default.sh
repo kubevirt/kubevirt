@@ -3,6 +3,7 @@ docker_images="cmd/virt-operator cmd/virt-controller cmd/virt-launcher cmd/virt-
 docker_tag=${DOCKER_TAG:-latest}
 docker_tag_alt=${DOCKER_TAG_ALT}
 namespace=kubevirt
+csv_namespace=placeholder
 cdi_namespace=cdi
 image_pull_policy=${IMAGE_PULL_POLICY:-IfNotPresent}
 verbosity=${VERBOSITY:-2}

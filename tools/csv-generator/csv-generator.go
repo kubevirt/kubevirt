@@ -28,7 +28,7 @@ import (
 )
 
 func main() {
-	namespace := flag.String("namespace", "kube-system", "Namespace to use.")
+	namespace := flag.String("namespace", "placeholder", "Namespace to use.")
 	operatorImageVersion := flag.String("operatorImageVersion", "latest", "Image sha256 hash or image tag used to uniquely identify the operator container image to use in the CSV")
 	dockerPrefix := flag.String("dockerPrefix", "kubevirt", "Image Repository to use.")
 	kubeVirtVersion := flag.String("kubeVirtVersion", "", "represents the KubeVirt releaseassociated with this CSV. Required when image SHAs are used.")
