@@ -2,6 +2,10 @@
 
 Go clients for talking to [KubeVirt](https://github.com/kubevirt/kubevirt).
 
+## How to use it
+please refer to some of [examples here](examples/Readme.md)
+
+-----
 KubeVirt client-go is maintained at https://github.com/kubevirt/kubevirt/tree/master/staging/src/kubevirt.io/client-go.  
 The master branch of this repository is updated on every PR merge, release tags are pushed on every release of KubeVirt.
 
