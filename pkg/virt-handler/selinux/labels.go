@@ -10,13 +10,26 @@ import (
 type SELinuxImpl struct {
 }
 
-func NewSELinux() (SELinux, error) {
-	return &SELinuxImpl{}, isPresent()
+func NewSELinux() (SELinux, bool, error) {
+	present, err := isPresent()
+	return &SELinuxImpl{}, present, err
 }
 
-func isPresent() (err error) {
-	_, err = os.Stat("/proc/1/root/usr/bin/chcon")
-	return
+func isPresent() (present bool, err error) {
+	_, err = os.Stat("/proc/1/root/usr/sbin/getenforce")
+	if os.IsNotExist(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	out, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/getenforce").CombinedOutput()
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(string(out), "Disabled") {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (*SELinuxImpl) Label(label string, dir string) (err error) {

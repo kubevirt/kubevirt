@@ -190,8 +190,8 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	se, err := selinux.NewSELinux()
-	if err == nil {
+	se, exists, err := selinux.NewSELinux()
+	if err == nil && exists {
 		err := se.Label("container_file_t", "/var/run/kubevirt")
 		if err != nil {
 			panic(err)
@@ -200,9 +200,9 @@ func (app *virtHandlerApp) Run() {
 		if err != nil {
 			panic(err)
 		}
-	} else if !os.IsNotExist(err) {
-		// selinux seems to be installed, but an error occured
-		panic(err)
+	} else if err != nil {
+		//an error occured
+		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 	// Create event recorder
 	app.virtCli, err = kubecli.GetKubevirtClient()
