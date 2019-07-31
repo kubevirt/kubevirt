@@ -59,7 +59,7 @@ var _ = Describe("Configurations", func() {
 
 	Context("for CPU and memory limits should", func() {
 
-		FIt("lead to get the burstable QOS class assigned when limit and requests differ", func() {
+		It("lead to get the burstable QOS class assigned when limit and requests differ", func() {
 			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
@@ -72,7 +72,6 @@ var _ = Describe("Configurations", func() {
 				}
 				return *vmi.Status.QOSClass
 			}, 10*time.Second, 1*time.Second).Should(Equal(kubev1.PodQOSBurstable))
-			Expect(true).To(BeFalse())
 		})
 
 		It("lead to get the guaranteed QOS class assigned when limit and requests are identical", func() {

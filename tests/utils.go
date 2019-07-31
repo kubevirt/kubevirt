@@ -43,7 +43,6 @@ import (
 	"strings"
 	"time"
 
-	ghodssyaml "github.com/ghodss/yaml"
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -3427,110 +3426,6 @@ func GetNodeLibvirtCapabilities(vmi *v1.VirtualMachineInstance) string {
 // GetNodeCPUInfo returns output of lscpu on the pod that runs on the specified node
 func GetNodeCPUInfo(vmi *v1.VirtualMachineInstance) string {
 	return RunCommandOnVmiPod(vmi, []string{"lscpu"})
-}
-
-// KubevirtFailHandler call ginkgo.Fail with printing the additional information
-func KubevirtFailHandler(message string, callerSkip ...int) {
-	if len(callerSkip) > 0 {
-		callerSkip[0]++
-	}
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		fmt.Println(err)
-		Fail(message, callerSkip...)
-		return
-	}
-
-	for _, ns := range []string{KubeVirtInstallNamespace, ContainerizedDataImporterNamespace, metav1.NamespaceSystem, NamespaceTestDefault} {
-		// Get KubeVirt and CDI specific pods information
-		labels := []string{"kubevirt.io", "cdi.kubevirt.io"}
-		allPods := []k8sv1.Pod{}
-
-		for _, label := range labels {
-			pods, err := virtClient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: label})
-			if err != nil {
-				fmt.Println(err)
-				Fail(message, callerSkip...)
-				return
-			}
-			allPods = append(allPods, pods.Items...)
-		}
-
-		for _, pod := range allPods {
-			fmt.Printf("\nPod name: %s\t Pod phase: %s\n\n", pod.Name, pod.Status.Phase)
-			data, err := ghodssyaml.Marshal(pod)
-			if err != nil {
-				log.DefaultLogger().Reason(err).Errorf("Failed to marshal pod %s", pod.Name)
-				continue
-			}
-			fmt.Println(string(data))
-
-			var tailLines int64 = 45
-			var containerName = ""
-			if strings.HasPrefix(pod.Name, "virt-launcher") {
-				containerName = "compute"
-			}
-			logsRaw, err := virtClient.CoreV1().Pods(ns).GetLogs(
-				pod.Name, &k8sv1.PodLogOptions{
-					TailLines: &tailLines,
-					Container: containerName,
-				},
-			).DoRaw()
-			if err == nil {
-				fmt.Printf(string(logsRaw))
-			}
-		}
-
-		vmis, err := virtClient.VirtualMachineInstance(ns).List(&metav1.ListOptions{})
-		if err != nil {
-			fmt.Println(err)
-			Fail(message, callerSkip...)
-			return
-		}
-
-		for _, vmi := range vmis.Items {
-			data, err := ghodssyaml.Marshal(vmi)
-			if err != nil {
-				log.DefaultLogger().Reason(err).Errorf("Failed to marshal vmi %s", vmi.Name)
-				continue
-			}
-			fmt.Println(string(data))
-		}
-
-		pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(ns).List(metav1.ListOptions{})
-		if err != nil {
-			fmt.Println(err)
-			Fail(message, callerSkip...)
-			return
-		}
-
-		for _, pvc := range pvcs.Items {
-			data, err := ghodssyaml.Marshal(pvc)
-			if err != nil {
-				log.DefaultLogger().Reason(err).Errorf("Failed to marshal pvc %s", pvc.Name)
-				continue
-			}
-			fmt.Println(string(data))
-		}
-	}
-
-	pvs, err := virtClient.CoreV1().PersistentVolumes().List(metav1.ListOptions{})
-	if err != nil {
-		fmt.Println(err)
-		Fail(message, callerSkip...)
-		return
-	}
-
-	for _, pv := range pvs.Items {
-		data, err := ghodssyaml.Marshal(pv)
-		if err != nil {
-			log.DefaultLogger().Reason(err).Errorf("Failed to marshal pvc %s", pv.Name)
-			continue
-		}
-		fmt.Println(string(data))
-	}
-	Fail(message, callerSkip...)
 }
 
 func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {

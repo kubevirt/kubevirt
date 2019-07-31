@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/onsi/ginkgo/config"
@@ -20,6 +21,7 @@ import (
 type KubernetesReporter struct {
 	failureCount int
 	artifactsDir string
+	mux          sync.Mutex
 }
 
 func NewKubernetesReporter(artifactsDir string) *KubernetesReporter {
@@ -44,6 +46,8 @@ func (r *KubernetesReporter) SpecWillRun(specSummary *types.SpecSummary) {
 }
 
 func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
+	r.mux.Lock()
+	defer r.mux.Unlock()
 	if r.failureCount > 10 {
 		return
 	}
@@ -71,10 +75,12 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 
 	r.logEvents(virtCli, specSummary)
 	r.logPods(virtCli, specSummary)
+	r.logLogs(virtCli, specSummary)
 }
+
 func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
 
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, "pods.log"),
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_pods.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
@@ -88,8 +94,6 @@ func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, specSummary
 		return
 	}
 
-	fmt.Fprint(f, "===== snip =====\n")
-
 	j, err := json.MarshalIndent(pods, "", "    ")
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to marshal pods")
@@ -99,9 +103,56 @@ func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, specSummary
 	fmt.Fprintln(f, "")
 }
 
+func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+
+	logsdir := filepath.Join(r.artifactsDir, "pods")
+
+	if err := os.MkdirAll(logsdir, 0777); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create directory: %v", err)
+		return
+	}
+
+	startTime := time.Now().Add(-specSummary.RunTime).Add(-5 * time.Second)
+
+	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(v12.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v", err)
+		return
+	}
+
+	for _, pod := range pods.Items {
+		for _, container := range pod.Spec.Containers {
+			current, err := os.OpenFile(filepath.Join(logsdir, fmt.Sprintf("%d_%s_%s-%s.log", r.failureCount, pod.Namespace, pod.Name, container.Name)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+				return
+			}
+			defer current.Close()
+
+			previous, err := os.OpenFile(filepath.Join(logsdir, fmt.Sprintf("%d_%s_%s-%s_previous.log", r.failureCount, pod.Namespace, pod.Name, container.Name)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+				return
+			}
+			defer previous.Close()
+
+			logStart := v12.NewTime(startTime)
+			logs, err := virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{SinceTime: &logStart, Container: container.Name}).DoRaw()
+			if err == nil {
+				fmt.Fprintln(current, string(logs))
+			}
+
+			logs, err = virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{SinceTime: &logStart, Container: container.Name, Previous: true}).DoRaw()
+			if err == nil {
+				fmt.Fprintln(previous, string(logs))
+			}
+		}
+	}
+}
+
 func (r *KubernetesReporter) logEvents(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
 
-	f, err := os.OpenFile(filepath.Join(r.artifactsDir, "events.log"),
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_events.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
@@ -122,21 +173,19 @@ func (r *KubernetesReporter) logEvents(virtCli kubecli.KubevirtClient, specSumma
 		return e[i].LastTimestamp.After(e[j].LastTimestamp.Time)
 	})
 
-	fmt.Fprint(f, "===== snip =====\n")
-
+	eventsToPrint := v1.EventList{}
 	for _, event := range e {
-		if event.LastTimestamp.Time.Before(startTime) {
-			continue
+		if event.LastTimestamp.Time.After(startTime) {
+			eventsToPrint.Items = append(eventsToPrint.Items, event)
 		}
-
-		j, err := json.MarshalIndent(event, "", "    ")
-		if err != nil {
-			log.DefaultLogger().Reason(err).Errorf("Failed to marshal events")
-			return
-		}
-		fmt.Fprintln(f, string(j))
 	}
-	fmt.Fprintln(f, "")
+
+	j, err := json.MarshalIndent(eventsToPrint, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal events")
+		return
+	}
+	fmt.Fprintln(f, string(j))
 }
 
 func (r *KubernetesReporter) AfterSuiteDidRun(setupSummary *types.SetupSummary) {
