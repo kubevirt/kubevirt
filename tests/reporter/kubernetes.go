@@ -44,7 +44,6 @@ func (r *KubernetesReporter) SpecWillRun(specSummary *types.SpecSummary) {
 }
 
 func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
-
 	if r.failureCount > 10 {
 		return
 	}
@@ -54,20 +53,54 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 		return
 	}
 
+	// If we got not directory, print to stderr
+	if r.artifactsDir == "" {
+		return
+	}
+
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to get client: %v", err)
 		return
 	}
 
-	// If we got not directory, print to stderr
-	if r.artifactsDir == "" {
-		return
-	}
 	if err := os.MkdirAll(r.artifactsDir, 0777); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create directory: %v", err)
 		return
 	}
+
+	r.logEvents(virtCli, specSummary)
+	r.logPods(virtCli, specSummary)
+}
+func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, "pods.log"),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		return
+	}
+	defer f.Close()
+
+	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(v12.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v", err)
+		return
+	}
+
+	fmt.Fprint(f, "===== snip =====\n")
+
+	j, err := json.MarshalIndent(pods, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal pods")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+	fmt.Fprintln(f, "")
+}
+
+func (r *KubernetesReporter) logEvents(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, "events.log"),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -98,7 +131,7 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 
 		j, err := json.MarshalIndent(event, "", "    ")
 		if err != nil {
-			log.DefaultLogger().Reason(err).Errorf("Failed to fetch events")
+			log.DefaultLogger().Reason(err).Errorf("Failed to marshal events")
 			return
 		}
 		fmt.Fprintln(f, string(j))
