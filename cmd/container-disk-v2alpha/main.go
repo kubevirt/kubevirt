@@ -28,7 +28,7 @@ func main() {
 	flag.Parse()
 
 	if !healthCheck && copyPath == "" {
-		logger.Error("No copy-path provides.")
+		logger.Error("No copy-path provided.")
 		os.Exit(1)
 	}
 

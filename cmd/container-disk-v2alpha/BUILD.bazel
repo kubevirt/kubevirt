@@ -34,7 +34,6 @@ container_image(
 container_image(
     name = "fedora30-cloud-container-disk-image",
     directory = "/disk",
-    entrypoint = ["/entry-point.sh"],
     files = ["@fedora30_image//file"],
     visibility = ["//visibility:public"],
 )
