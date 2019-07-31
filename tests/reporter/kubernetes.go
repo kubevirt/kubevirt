@@ -75,7 +75,32 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 
 	r.logEvents(virtCli, specSummary)
 	r.logPods(virtCli, specSummary)
+	r.logVMIs(virtCli, specSummary)
 	r.logLogs(virtCli, specSummary)
+}
+
+func (r *KubernetesReporter) logVMIs(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_vmis.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		return
+	}
+	defer f.Close()
+
+	vmis, err := virtCli.VirtualMachineInstance(v1.NamespaceAll).List(&v12.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch vmis: %v", err)
+		return
+	}
+
+	j, err := json.MarshalIndent(vmis, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal vmis")
+		return
+	}
+	fmt.Fprintln(f, string(j))
 }
 
 func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
@@ -100,7 +125,6 @@ func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, specSummary
 		return
 	}
 	fmt.Fprintln(f, string(j))
-	fmt.Fprintln(f, "")
 }
 
 func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
