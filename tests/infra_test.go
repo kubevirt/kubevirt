@@ -304,11 +304,16 @@ var _ = Describe("Infrastructure", func() {
 			for _, key := range keys {
 				// we don't care about the ordering of the labels
 				// TODO: vmi.Status.NodeName is "" sometimes. Are we faster than the update?
-				Expect(key).To(SatisfyAll(
-					ContainSubstring(`node="%s"`, nodeName),
-					ContainSubstring(`namespace="%s"`, vmi.Namespace),
-					ContainSubstring(`name="%s"`, vmi.Name),
-				))
+				if strings.HasPrefix(key, "kubevirt_vmi_phase_count") {
+					// special case: namespace and name don't make sense for this metric
+					Expect(key).To(ContainSubstring(`node="%s"`, nodeName))
+				} else {
+					Expect(key).To(SatisfyAll(
+						ContainSubstring(`node="%s"`, nodeName),
+						ContainSubstring(`namespace="%s"`, vmi.Namespace),
+						ContainSubstring(`name="%s"`, vmi.Name),
+					))
+				}
 			}
 		}, 300)
 
