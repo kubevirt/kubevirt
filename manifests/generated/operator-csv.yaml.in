@@ -601,7 +601,6 @@ spec:
               annotations:
                 scheduler.alpha.kubernetes.io/critical-pod: ""
                 scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly","operator":"Exists"}]'
-              creationTimestamp: null
               labels:
                 kubevirt.io: virt-operator
                 prometheus.kubevirt.io: ""

@@ -73,6 +73,17 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 		unstructured.SetNestedSlice(r.Object, objects, "objects")
 	}
 
+	deployments, exists, err := unstructured.NestedSlice(r.Object, "spec", "install", "spec", "deployments")
+	if exists {
+		for _, obj := range deployments {
+			deployment := obj.(map[string]interface{})
+			unstructured.RemoveNestedField(deployment, "metadata", "creationTimestamp")
+			unstructured.RemoveNestedField(deployment, "spec", "template", "metadata", "creationTimestamp")
+			unstructured.RemoveNestedField(deployment, "status")
+		}
+		unstructured.SetNestedSlice(r.Object, deployments, "spec", "install", "spec", "deployments")
+	}
+
 	// remove "managed by operator" label...
 	labels, exists, err := unstructured.NestedMap(r.Object, "metadata", "labels")
 	if exists {
