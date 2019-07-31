@@ -1438,18 +1438,6 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 				})
 			}
 		}
-
-		// Verify disk and volume name can be a valid container name since disk
-		// name can become a container name which will fail to schedule if invalid
-		errs := validation.IsDNS1123Label(volume.Name)
-
-		for _, err := range errs {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: err,
-				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
-			})
-		}
 	}
 
 	if serviceAccountVolumeCount > 1 {
