@@ -41,6 +41,8 @@ if [[ $provider_prefix =~ okd.* ]]; then
     fi
     shift
     ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -q -lcore -p $port core@127.0.0.1 -i ${ssh_key} $@
+elif [[ $provider_prefix =~ kind.* ]]; then
+    _ssh_into_node "$@"
 else
     ${_cli} --prefix $provider_prefix ssh "$@"
 fi

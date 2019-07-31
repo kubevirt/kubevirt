@@ -103,6 +103,7 @@ var _ = Describe("HostDisk", func() {
 	BeforeEach(func() {
 		var err error
 		tempDir, err = ioutil.TempDir("", "host-disk-images")
+		setDiskDirectory(tempDir)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

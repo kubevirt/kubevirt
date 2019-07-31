@@ -280,7 +280,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 							}
 						}
 						return false
-					})
+					}, fmt.Sprintf("two events of type Warning, reason = %s", v1.SyncFailed.String()))
 				})
 
 				It("[test_id:1630]should log warning and proceed once the secret is there", func() {

@@ -39,3 +39,4 @@ elif [ -n "$KUBECONFIG" ]; then
 fi
 
 ${KUBEVIRTCI_PATH}/../_out/cmd/virtctl/virtctl $CONFIG_ARGS "$@"
+

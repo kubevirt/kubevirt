@@ -118,7 +118,7 @@ var _ = Describe("ImageUpload", func() {
 		})
 	}
 
-	validatePVC := func() {
+	validateModePVC := func(blockMode bool) {
 		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(pvcName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 
@@ -128,6 +128,23 @@ var _ = Describe("ImageUpload", func() {
 
 		_, ok = pvc.Annotations[uploadRequestAnnotation]
 		Expect(ok).To(BeTrue())
+
+		volumeMode := v1.PersistentVolumeFilesystem
+		if blockMode {
+			volumeMode = v1.PersistentVolumeBlock
+		}
+		// pvc.Spec.VolumeMode is not always set, ignore when Filesystem is expected
+		if pvc.Spec.VolumeMode != nil || blockMode {
+			Expect(pvc.Spec.VolumeMode).To(Equal(&volumeMode))
+		}
+	}
+
+	validatePVC := func() {
+		validateModePVC(false)
+	}
+
+	validateBlockPVC := func() {
+		validateModePVC(true)
 	}
 
 	createEndpoints := func() *v1.Endpoints {
@@ -257,6 +274,15 @@ var _ = Describe("ImageUpload", func() {
 			Expect(cmd()).To(BeNil())
 			Expect(createCalled).To(BeTrue())
 			validatePVC()
+		})
+
+		It("Create a VolumeMode=Block PVC", func() {
+			testInit(http.StatusOK)
+			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--pvc-name", pvcName, "--pvc-size", pvcSize,
+				"--insecure", "--image-path", imagePath, "--block-volume")
+			Expect(cmd()).To(BeNil())
+			Expect(createCalled).To(BeTrue())
+			validateBlockPVC()
 		})
 
 		DescribeTable("PVC does exist", func(pvc *v1.PersistentVolumeClaim) {

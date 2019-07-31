@@ -22,6 +22,7 @@ package prometheus
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -47,6 +48,17 @@ var (
 		nil,
 	)
 
+	// higher-level, telemetry-friendly metrics
+	vmiCountDesc = prometheus.NewDesc(
+		"kubevirt_vmi_phase_count",
+		"VMI phase.",
+		[]string{
+			"node", "phase",
+		},
+		nil,
+	)
+
+	// lower level metrics
 	storageIopsDesc = prometheus.NewDesc(
 		"kubevirt_vm_storage_iops_total",
 		"I/O operation performed.",
@@ -140,6 +152,14 @@ var (
 	)
 )
 
+func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch chan<- prometheus.Metric) {
+	if err != nil {
+		log.Log.V(4).Warningf("Error creating the new const metric for %s: %s", memoryAvailableDesc, err)
+		return
+	}
+	ch <- mv
+}
+
 func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	if vmStats.Memory.AvailableSet {
 		mv, err := prometheus.NewConstMetric(
@@ -149,9 +169,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name,
 		)
-		if err == nil {
-			ch <- mv
-		}
+		tryToPushMetric(memoryAvailableDesc, mv, err, ch)
 	}
 	if vmStats.Memory.RSSSet {
 		mv, err := prometheus.NewConstMetric(
@@ -161,9 +179,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name,
 		)
-		if err == nil {
-			ch <- mv
-		}
+		tryToPushMetric(memoryResidentDesc, mv, err, ch)
 	}
 
 	if vmStats.Memory.SwapInSet {
@@ -174,9 +190,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name, "in",
 		)
-		if err == nil {
-			ch <- mv
-		}
+		tryToPushMetric(swapTrafficDesc, mv, err, ch)
 	}
 	if vmStats.Memory.SwapInSet {
 		mv, err := prometheus.NewConstMetric(
@@ -186,15 +200,14 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name, "out",
 		)
-		if err == nil {
-			ch <- mv
-		}
+		tryToPushMetric(swapTrafficDesc, mv, err, ch)
 	}
 }
 
 func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	for vcpuId, vcpu := range vmStats.Vcpu {
 		if !vcpu.StateSet || !vcpu.TimeSet {
+			log.Log.V(4).Warningf("State or time not set for vcpu#%d", vcpuId)
 			continue
 		}
 		mv, err := prometheus.NewConstMetric(
@@ -203,17 +216,14 @@ func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, c
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name, fmt.Sprintf("%v", vcpuId), fmt.Sprintf("%v", vcpu.State),
 		)
-		if err != nil {
-			continue
-		}
-		ch <- mv
+		tryToPushMetric(vcpuUsageDesc, mv, err, ch)
 	}
-
 }
 
 func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
-	for _, block := range vmStats.Block {
+	for blockId, block := range vmStats.Block {
 		if !block.NameSet {
+			log.Log.V(4).Warningf("Name not set for block device#%d", blockId)
 			continue
 		}
 
@@ -224,9 +234,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "read",
 			)
-			if err == nil {
-				ch <- mv
-			}
+			tryToPushMetric(storageIopsDesc, mv, err, ch)
 		}
 		if block.WrReqsSet {
 			mv, err := prometheus.NewConstMetric(
@@ -235,9 +243,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "write",
 			)
-			if err == nil {
-				ch <- mv
-			}
+			tryToPushMetric(storageIopsDesc, mv, err, ch)
 		}
 
 		if block.RdBytesSet {
@@ -247,9 +253,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "read",
 			)
-			if err == nil {
-				ch <- mv
-			}
+			tryToPushMetric(storageTrafficDesc, mv, err, ch)
 		}
 		if block.WrBytesSet {
 			mv, err := prometheus.NewConstMetric(
@@ -258,9 +262,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "write",
 			)
-			if err == nil {
-				ch <- mv
-			}
+			tryToPushMetric(storageTrafficDesc, mv, err, ch)
 		}
 
 		if block.RdTimesSet {
@@ -270,9 +272,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "read",
 			)
-			if err == nil {
-				ch <- mv
-			}
+			tryToPushMetric(storageTimesDesc, mv, err, ch)
 		}
 		if block.WrTimesSet {
 			mv, err := prometheus.NewConstMetric(
@@ -281,9 +281,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "write",
 			)
-			if err == nil {
-				ch <- mv
-			}
+			tryToPushMetric(storageTimesDesc, mv, err, ch)
 		}
 	}
 }
@@ -300,9 +298,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, net.Name, "rx",
 			)
-			if err == nil {
-				ch <- mv
-			}
+			tryToPushMetric(networkTrafficBytesDesc, mv, err, ch)
 		}
 		if net.RxPktsSet {
 			mv, err := prometheus.NewConstMetric(
@@ -311,9 +307,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, net.Name, "rx",
 			)
-			if err == nil {
-				ch <- mv
-			}
+			tryToPushMetric(networkTrafficPktsDesc, mv, err, ch)
 		}
 		if net.RxErrsSet {
 			mv, err := prometheus.NewConstMetric(
@@ -322,9 +316,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, net.Name, "rx",
 			)
-			if err == nil {
-				ch <- mv
-			}
+			tryToPushMetric(networkErrorsDesc, mv, err, ch)
 		}
 
 		if net.TxBytesSet {
@@ -334,9 +326,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, net.Name, "tx",
 			)
-			if err == nil {
-				ch <- mv
-			}
+			tryToPushMetric(networkTrafficBytesDesc, mv, err, ch)
 		}
 		if net.TxPktsSet {
 			mv, err := prometheus.NewConstMetric(
@@ -345,9 +335,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, net.Name, "tx",
 			)
-			if err == nil {
-				ch <- mv
-			}
+			tryToPushMetric(networkTrafficPktsDesc, mv, err, ch)
 		}
 		if net.TxErrsSet {
 			mv, err := prometheus.NewConstMetric(
@@ -356,10 +344,34 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, net.Name, "tx",
 			)
-			if err == nil {
-				ch <- mv
-			}
+			tryToPushMetric(networkErrorsDesc, mv, err, ch)
 		}
+	}
+}
+
+func makeVMIsPhasesMap(vmis []*k6tv1.VirtualMachineInstance) map[string]uint64 {
+	phasesMap := make(map[string]uint64)
+
+	for _, vmi := range vmis {
+		phasesMap[strings.ToLower(string(vmi.Status.Phase))] += 1
+	}
+
+	return phasesMap
+}
+
+func updateVMIsPhase(nodeName string, vmis []*k6tv1.VirtualMachineInstance, ch chan<- prometheus.Metric) {
+	phasesMap := makeVMIsPhasesMap(vmis)
+
+	for phase, count := range phasesMap {
+		mv, err := prometheus.NewConstMetric(
+			vmiCountDesc, prometheus.GaugeValue,
+			float64(count),
+			nodeName, phase,
+		)
+		if err != nil {
+			continue
+		}
+		ch <- mv
 	}
 }
 
@@ -407,6 +419,8 @@ func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
 
 func newvmiSocketMapFromVMIs(baseDir string, vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
 	if len(vmis) == 0 {
+		// should never be triggered, but at debug level we want to know
+		log.Log.V(4).Warningf("No VMIs detected")
 		return nil
 	}
 
@@ -436,6 +450,8 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	socketToVMIs := newvmiSocketMapFromVMIs(co.virtShareDir, vmis)
 	scraper := &prometheusScraper{ch: ch}
 	co.concCollector.Collect(socketToVMIs, scraper, collectionTimeout)
+
+	updateVMIsPhase(co.nodeName, vmis, ch)
 	return
 }
 

@@ -135,7 +135,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		)
 
 		mutator = &VMIsMutator{}
-		mutator.ClusterConfig, configMapInformer = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		mutator.ClusterConfig, configMapInformer, _ = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	})
 
 	It("should apply presets on VMI create", func() {

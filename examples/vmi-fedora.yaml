@@ -15,6 +15,7 @@ spec:
       - disk:
           bus: virtio
         name: cloudinitdisk
+      rng: {}
     machine:
       type: ""
     resources:

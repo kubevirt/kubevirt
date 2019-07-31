@@ -254,7 +254,7 @@ func (app *virtHandlerApp) Run() {
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
-		virtconfig.NewClusterConfig(factory.ConfigMap(), app.namespace),
+		virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), app.namespace),
 		app.migrationTLSConfig,
 	)
 
@@ -277,7 +277,7 @@ func (app *virtHandlerApp) Run() {
 	factory.Start(stop)
 	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced)
 
-	go vmController.Run(3, stop)
+	go vmController.Run(10, stop)
 
 	logger.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
 	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))

@@ -45,7 +45,7 @@ import (
 )
 
 var _ = Describe("Validating VMICreate Admitter", func() {
-	config, configMapInformer := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, configMapInformer, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config}
 
 	dnsConfigTestOption := "test"
@@ -2330,7 +2330,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
-	config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 	It("should work for empty network list", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}

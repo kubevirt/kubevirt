@@ -2,7 +2,7 @@
 
 set -e
 
-_cli_container="kubevirtci/gocli@sha256:caf1c3f63dc5f3137795084e492a48c802a7ef2e7f7fbe1d67e5cff684d376a3"
+_cli_container="kubevirtci/gocli@sha256:868fd9f2b6e5ff6473ab92cdd7d3a762ec8a8c66dac29f5db841879d40038f2a"
 _cli_with_tty="docker run --privileged --net=host --rm -t -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
 _cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
 
@@ -21,8 +21,8 @@ master_ip=$(_main_ip)
 kubeconfig=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 kubectl=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubectl
 gocli=${BASE_PATH}/../cluster-up/cli.sh
-docker_prefix=localhost:$(_port registry)/kubevirt
-manifest_docker_prefix=registry:5000/kubevirt
+docker_prefix=\${DOCKER_PREFIX:-localhost:$(_port registry)/kubevirt}
+manifest_docker_prefix=\${DOCKER_PREFIX:-registry:5000/kubevirt}
 EOF
 }
 

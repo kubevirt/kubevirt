@@ -100,7 +100,7 @@ var _ = Describe("Multus", func() {
 			list2, err := virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).List(&v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return len(list1.Items) + len(list2.Items)
-		}, 180*time.Second, 1*time.Second).Should(BeZero())
+		}, 6*time.Minute, 1*time.Second).Should(BeZero())
 	})
 
 	createVMIOnNode := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
@@ -620,9 +620,10 @@ var _ = Describe("SRIOV", func() {
 			    curl %s > /usr/local/bin/qemu-ga
 			    chmod +x /usr/local/bin/qemu-ga
 			    systemd-run --unit=guestagent /usr/local/bin/qemu-ga`, tests.GuestAgentHttpUrl)
-			vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
 
-			tests.AddExplicitPodNetworkInterface(vmi)
+			ports := []v1.Port{}
+			vmi = tests.NewRandomVMIWithMasqueradeInterfaceEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData, ports)
+
 			for _, name := range networks {
 				iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
 				network := v1.Network{Name: name, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: name}}}

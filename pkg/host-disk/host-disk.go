@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"syscall"
 
 	"kubevirt.io/client-go/log"
@@ -34,11 +35,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/types"
 )
 
+var pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"
+
 const (
-	pvcBaseDir                  = "/var/run/kubevirt-private/vmi-disks"
 	EventReasonToleratedSmallPV = "ToleratedSmallPV"
 	EventTypeToleratedSmallPV   = k8sv1.EventTypeNormal
 )
+
+// Used by tests.
+func setDiskDirectory(dir string) error {
+	pvcBaseDir = dir
+	return os.MkdirAll(dir, 0755)
+}
 
 func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.KubevirtClient) error {
 	// If PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
@@ -57,7 +65,7 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.Kube
 			isSharedPvc := types.IsPVCShared(pvc)
 
 			volumeSource.HostDisk = &v1.HostDisk{
-				Path:     getPVCDiskImgPath(vmi.Spec.Volumes[i].Name),
+				Path:     getPVCDiskImgPath(vmi.Spec.Volumes[i].Name, "disk.img"),
 				Type:     v1.HostDiskExistsOrCreate,
 				Capacity: pvc.Status.Capacity[k8sv1.ResourceStorage],
 				Shared:   &isSharedPvc,
@@ -89,8 +97,16 @@ func createSparseRaw(fullPath string, size int64) error {
 	return nil
 }
 
-func getPVCDiskImgPath(volumeName string) string {
-	return path.Join(pvcBaseDir, volumeName, "disk.img")
+func getPVCDiskImgPath(volumeName string, diskName string) string {
+	return path.Join(pvcBaseDir, volumeName, diskName)
+}
+
+func GetMountedHostDiskPath(volumeName string, path string) string {
+	return getPVCDiskImgPath(volumeName, filepath.Base(path))
+}
+
+func GetMountedHostDiskDir(volumeName string) string {
+	return getPVCDiskImgPath(volumeName, "")
 }
 
 type DiskImgCreator struct {
@@ -118,8 +134,10 @@ func (hdc *DiskImgCreator) setlessPVCSpaceToleration(toleration int) {
 func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if hostDisk := volume.VolumeSource.HostDisk; hostDisk != nil && hostDisk.Type == v1.HostDiskExistsOrCreate && hostDisk.Path != "" {
-			if _, err := os.Stat(hostDisk.Path); os.IsNotExist(err) {
-				availableSize, err := hdc.dirBytesAvailableFunc(path.Dir(hostDisk.Path))
+			diskPath := GetMountedHostDiskPath(volume.Name, hostDisk.Path)
+			diskDir := GetMountedHostDiskDir(volume.Name)
+			if _, err := os.Stat(diskPath); os.IsNotExist(err) {
+				availableSize, err := hdc.dirBytesAvailableFunc(diskDir)
 				if err != nil {
 					return err
 				}
@@ -144,7 +162,7 @@ func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 						log.Log.Reason(err).Warningf("Couldn't send k8s event for tolerated PV size: %v", err)
 					}
 				}
-				err = createSparseRaw(hostDisk.Path, int64(diskSize))
+				err = createSparseRaw(diskPath, int64(diskSize))
 				if err != nil {
 					return err
 				}

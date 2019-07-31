@@ -5,5 +5,8 @@ go_library(
     srcs = ["service.go"],
     importpath = "kubevirt.io/kubevirt/pkg/service",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/spf13/pflag:go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
+    ],
 )

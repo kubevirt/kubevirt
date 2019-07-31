@@ -25,7 +25,13 @@ import (
 	"strconv"
 
 	flag "github.com/spf13/pflag"
+
+	"kubevirt.io/client-go/kubecli"
 )
+
+func init() {
+	kubecli.Init()
+}
 
 type Service interface {
 	Run()

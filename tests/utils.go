@@ -98,11 +98,14 @@ var KubeVirtVirtctlPath = ""
 var KubeVirtInstallNamespace string
 var PreviousReleaseTag = ""
 var PreviousReleaseRegistry = ""
+var ConfigFile = ""
+var Config *KubeVirtTestsConfiguration
 
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
 
 func init() {
+	kubecli.Init()
 	flag.StringVar(&KubeVirtUtilityVersionTag, "utility-container-tag", "", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtVersionTag, "container-tag", "latest", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtVersionTagAlt, "container-tag-alt", "", "An alternate tag that can be used to test operator deployments")
@@ -117,7 +120,7 @@ func init() {
 	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
 	flag.StringVar(&PreviousReleaseTag, "previous-release-tag", "", "Set tag of the release to test updating from")
 	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "", "Set registry of the release to test updating from")
-
+	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 }
 
 func FlagParse() {
@@ -285,7 +288,7 @@ func (w *ObjectEventWatcher) SinceResourceVersion(rv string) *ObjectEventWatcher
 	return w
 }
 
-func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessFunc) {
+func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessFunc, watchedDescription string) {
 	Expect(w.startType).ToNot(Equal(invalidWatch))
 	resourceVersion := ""
 
@@ -358,7 +361,7 @@ func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessF
 		case <-abortChan:
 		case <-time.After(*w.timeout):
 			if !w.dontFailOnMissingEvent {
-				Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event", w.timeout.Seconds()), 1)
+				Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event: %s", w.timeout.Seconds(), watchedDescription), 1)
 			}
 		}
 	} else {
@@ -376,7 +379,7 @@ func (w *ObjectEventWatcher) WaitFor(stopChan chan struct{}, eventType EventType
 			return true
 		}
 		return false
-	})
+	}, fmt.Sprintf("event type %s, reason = %s", string(eventType), reflect.ValueOf(reason).String()))
 	return
 }
 
@@ -389,7 +392,7 @@ func (w *ObjectEventWatcher) WaitNotFor(stopChan chan struct{}, eventType EventT
 			return true
 		}
 		return false
-	})
+	}, fmt.Sprintf("not happen event type %s, reason = %s", string(eventType), reflect.ValueOf(reason).String()))
 	return
 }
 
@@ -608,7 +611,9 @@ func BeforeTestSuitSetup() {
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 
-	Config = loadConfig()
+	var err error
+	Config, err = loadConfig()
+	Expect(err).ToNot(HaveOccurred())
 
 	createNamespaces()
 	createServiceAccounts()
@@ -2195,7 +2200,7 @@ func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstance
 }
 
 func WaitForSuccessfulVMIStart(vmi runtime.Object) string {
-	return waitForVMIStart(vmi, 180, false)
+	return waitForVMIStart(vmi, 360, false)
 }
 
 func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpecterFactory) *v1.VirtualMachineInstance {
@@ -3214,7 +3219,7 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 func newDeleteHostDisksJob(diskPath string) *k8sv1.Pod {
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
 
-	args := []string{fmt.Sprintf(`rm -f %s`, diskPath)}
+	args := []string{fmt.Sprintf(`rm -rf %s`, diskPath)}
 	job := RenderHostPathJob("hostdisk-delete-job", filepath.Dir(diskPath), hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
 	return job
@@ -3880,7 +3885,7 @@ func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachin
 			}
 		}
 		return false
-	}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+	}, 12*time.Minute, 2).Should(BeTrue(), "Should have agent connected condition")
 }
 
 // GeneratePrivateKey creates a RSA Private Key of specified byte size
@@ -3925,4 +3930,13 @@ func EncodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 	privatePEM := pem.EncodeToMemory(&privateBlock)
 
 	return privatePEM
+}
+
+func PodReady(pod *k8sv1.Pod) k8sv1.ConditionStatus {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == k8sv1.PodReady {
+			return cond.Status
+		}
+	}
+	return k8sv1.ConditionFalse
 }

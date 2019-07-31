@@ -416,27 +416,27 @@ var _ = Describe("Converter", func() {
       <alias name="ua-cdrom_tray_unspecified"></alias>
     </disk>
     <disk device="cdrom" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/volume1/disk.img"></source>
+      <source file="/var/run/kubevirt-private/vmi-disks/cdrom_tray_open/disk.img"></source>
       <target bus="sata" dev="sdb" tray="open"></target>
       <driver name="qemu" type="raw" iothread="1"></driver>
       <readonly></readonly>
       <alias name="ua-cdrom_tray_open"></alias>
     </disk>
     <disk device="floppy" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/volume2/disk.img"></source>
+      <source file="/var/run/kubevirt-private/vmi-disks/floppy_tray_unspecified/disk.img"></source>
       <target bus="fdc" dev="fda" tray="closed"></target>
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-floppy_tray_unspecified"></alias>
     </disk>
     <disk device="floppy" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/volume3/disk.img"></source>
+      <source file="/var/run/kubevirt-private/vmi-disks/floppy_tray_open/disk.img"></source>
       <target bus="fdc" dev="fdb" tray="open"></target>
       <driver name="qemu" type="raw" iothread="1"></driver>
       <readonly></readonly>
       <alias name="ua-floppy_tray_open"></alias>
     </disk>
     <disk device="disk" type="file">
-      <source file="/var/run/kubevirt-private/vmi-disks/volume4/disk.img"></source>
+      <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>
       <target bus="sata" dev="sdc"></target>
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-should_default_to_disk"></alias>

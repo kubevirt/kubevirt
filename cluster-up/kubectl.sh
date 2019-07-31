@@ -35,3 +35,4 @@ if [ "$1" == "console" ] || [ "$1" == "vnc" ]; then
 else
     _kubectl "$@"
 fi
+

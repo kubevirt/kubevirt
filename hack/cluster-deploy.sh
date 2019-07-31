@@ -25,6 +25,15 @@ source hack/common.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
+function dump_kubevirt() {
+    echo "Dump kubevirt state:"
+    _kubectl get all -n kubevirt
+    for operator in $(kubectl -n kubevirt get pods | grep operator | awk '{print $1}'); do
+        echo "Logs for operator $operator"
+        _kubectl logs -n kubevirt $operator
+    done
+}
+
 echo "Deploying ..."
 
 # Create the installation namespace if it does not exist already
@@ -56,6 +65,17 @@ if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]] || [[ "$KUBEVIRT_PROVIDER" =~ okd-* ]]; th
     _kubectl adm policy add-scc-to-user privileged admin
 fi
 
+if [[ "$KUBEVIRT_PROVIDER" =~ .*sriov.* ]]; then
+    #enable feature gate
+    _kubectl patch configmap kubevirt-config -n kubevirt --patch "data: 
+  feature-gates: $(kubectl get configmap kubevirt-config -n kubevirt -o jsonpath='{.data.feature-gates}'), SRIOV"
+fi
+
+if [[ "$KUBEVIRT_PROVIDER" =~ kind.* ]]; then
+    #removing it since it's crashing with dind because loopback devices are shared with the host
+    _kubectl delete -n kubevirt ds disks-images-provider
+fi
+
 # Ensure the KubeVirt CRD is created
 count=0
 until _kubectl get crd kubevirts.kubevirt.io; do
@@ -76,6 +96,6 @@ until _kubectl -n kubevirt get kv kubevirt; do
 done
 
 # wait until KubeVirt is ready
-_kubectl wait -n kubevirt kv kubevirt --for condition=Ready --timeout 180s || (echo "KubeVirt not ready in time" && exit 1)
+_kubectl wait -n kubevirt kv kubevirt --for condition=Ready --timeout 6m || (echo "KubeVirt not ready in time" && dump_kubevirt && exit 1)
 
 echo "Done"

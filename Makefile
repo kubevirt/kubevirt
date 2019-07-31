@@ -18,7 +18,7 @@ bazel-build-images:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} ./hack/bazel-build-images.sh"
 
 bazel-push-images:
-	hack/dockerized "hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} ./hack/bazel-push-images.sh"
+	hack/dockerized "hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} PUSH_LOG_FILE=${PUSH_LOG_FILE} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-push-images.sh"
 
 push: bazel-push-images
 
@@ -72,7 +72,7 @@ distclean: clean
 	rm -rf vendor/
 
 deps-update:
-	SYNC_VENDOR=true hack/dockerized "GO111MODULE=on go mod tidy && GO111MODULE=on go mod vendor && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
+	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
 
 builder-cache-push:
 	hack/builder-cache.sh push
@@ -86,7 +86,7 @@ build-verify:
 manifests:
 	hack/dockerized "CSV_VERSION=${CSV_VERSION} QUAY_REPOSITORY=${QUAY_REPOSITORY} \
 	  DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} \
-	  IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} PACKAGE_NAME=${PACKAGE_NAME} ./hack/build-manifests.sh"
+	  IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} PACKAGE_NAME=${PACKAGE_NAME} PUSH_LOG_FILE=${PUSH_LOG_FILE} ./hack/build-manifests.sh"
 
 .release-functest:
 	make functest > .release-functest 2>&1
@@ -101,7 +101,7 @@ cluster-down:
 	./cluster-up/down.sh
 
 cluster-build:
-	./hack/cluster-build.sh
+	PUSH_LOG_FILE=${PUSH_LOG_FILE} ./hack/cluster-build.sh
 
 cluster-clean:
 	./hack/cluster-clean.sh

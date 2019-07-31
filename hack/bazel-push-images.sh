@@ -28,5 +28,5 @@ for tag in ${docker_tag} ${docker_tag_alt}; do
         --workspace_status_command=./hack/print-workspace-status.sh \
         --define container_prefix=${docker_prefix} \
         --define container_tag=${tag} \
-        //:push-images
+        //:push-images | tee $push_log_file
 done

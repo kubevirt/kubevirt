@@ -25,18 +25,19 @@ import (
 	"time"
 
 	secv1 "github.com/openshift/api/security/v1"
-	"k8s.io/client-go/informers"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
@@ -98,6 +99,9 @@ type KubeInformerFactory interface {
 	// Fake CDI DataVolume informer used when feature gate is disabled
 	DummyDataVolume() cache.SharedIndexInformer
 
+	// CRD
+	CRD() cache.SharedIndexInformer
+
 	// Wachtes for KubeVirt objects
 	KubeVirt() cache.SharedIndexInformer
 
@@ -145,6 +149,9 @@ type KubeInformerFactory interface {
 
 	// Webhooks created/managed by virt operator
 	OperatorValidationWebhook() cache.SharedIndexInformer
+
+	// PodDisruptionBudgets created/managed by virt operator
+	OperatorPodDisruptionBudget() cache.SharedIndexInformer
 
 	K8SInformerFactory() informers.SharedInformerFactory
 }
@@ -507,6 +514,34 @@ func (f *kubeInformerFactory) OperatorValidationWebhook() cache.SharedIndexInfor
 	})
 }
 
+func (f *kubeInformerFactory) OperatorPodDisruptionBudget() cache.SharedIndexInformer {
+	return f.getInformer("operatorPodDisruptionBudgetInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.PolicyV1beta1().RESTClient(), "poddisruptionbudgets", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &v1beta1.PodDisruptionBudget{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
 func (f *kubeInformerFactory) K8SInformerFactory() informers.SharedInformerFactory {
 	return f.k8sInformers
+}
+
+func (f *kubeInformerFactory) CRD() cache.SharedIndexInformer {
+	return f.getInformer("CRDInformer", func() cache.SharedIndexInformer {
+
+		ext, err := extclient.NewForConfig(f.clientSet.Config())
+		if err != nil {
+			panic(err)
+		}
+
+		restClient := ext.ApiextensionsV1beta1().RESTClient()
+
+		lw := cache.NewListWatchFromClient(restClient, "customresourcedefinitions", k8sv1.NamespaceAll, fields.Everything())
+
+		return cache.NewSharedIndexInformer(lw, &extv1beta1.CustomResourceDefinition{}, f.defaultResync, cache.Indexers{})
+	})
 }

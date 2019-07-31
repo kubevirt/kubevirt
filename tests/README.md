@@ -8,7 +8,7 @@ point the tests to the cluster.
 
 ```
 cd tests # from the git repo root folder
-go test -kubeconfig=path/to/my/config
+go test -kubeconfig=path/to/my/config -config=default-config.json
 ```
 
 ## Run them on one of the core KubeVirt providers

@@ -33,9 +33,9 @@ source hack/config.sh
 echo "Building ..."
 
 # Build everyting and publish it
-${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
 ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-build.sh"
-${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-push-images.sh"
+${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PUSH_LOG_FILE=${PUSH_LOG_FILE} ./hack/bazel-push-images.sh"
+${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} PUSH_LOG_FILE=${PUSH_LOG_FILE} ./hack/build-manifests.sh"
 
 # Make sure that all nodes use the newest images
 container=""
@@ -50,8 +50,8 @@ done
 if [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
     nodes=("master-0" "worker-0")
     pull_command="podman"
-elif [[ $KUBEVIRT_PROVIDER == "external" ]]; then
-    nodes=() # in case of external provider we have no control over the nodes
+elif [[ $KUBEVIRT_PROVIDER == "external" ]] || [[ $KUBEVIRT_PROVIDER =~ kind.* ]]; then
+    nodes=() # in case of external provider / kind we have no control over the nodes
 else
     nodes=()
     for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do

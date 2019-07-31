@@ -49,6 +49,9 @@ done
 
 bundle_out_dir=${MANIFESTS_OUT_DIR}/release/olm/bundle
 
+# potentially parse image push log file for getting sha sums of virt images
+source hack/parse-shasums.sh
+
 # then process variables
 args=$(cd ${KUBEVIRT_DIR}/manifests && find . -type f -name "*.yaml.in.tmp")
 for arg in $args; do
@@ -80,7 +83,13 @@ for arg in $args; do
         --package-name=${package_name} \
         --input-file=${infile} \
         --bundle-out-dir=${bundle_out_dir} \
-        --quay-repository=${QUAY_REPOSITORY} >${outfile}
+        --quay-repository=${QUAY_REPOSITORY} \
+        --virt-operator-sha=${VIRT_OPERATOR_SHA} \
+        --virt-api-sha=${VIRT_API_SHA} \
+        --virt-controller-sha=${VIRT_CONTROLLER_SHA} \
+        --virt-handler-sha=${VIRT_HANDLER_SHA} \
+        --virt-launcher-sha=${VIRT_LAUNCHER_SHA} \
+        >${outfile}
 
     if [ "$skipj2" = true ]; then
         echo "skipping j2 template for $infile"
@@ -99,7 +108,8 @@ for arg in $args; do
         --kubevirt-logo-path=${kubevirt_logo_path} \
         --package-name=${package_name} \
         --input-file=${infile} \
-        --quay-repository=${QUAY_REPOSITORY} >${template_outfile}
+        --quay-repository=${QUAY_REPOSITORY} \
+        >${template_outfile}
 done
 
 # Remove tmp files
@@ -109,7 +119,8 @@ done
 find ${MANIFESTS_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
 find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
 
-if [ "$skipj2" = true ]; then
+# we can't test this when we have image shasums, because shassums are not used in templates, so they will always differ
+if [ "$skipj2" = true ] || [ ! -z $VIRT_OPERATOR_SHA ]; then
     exit 0
 fi
 

@@ -115,6 +115,13 @@ type VirtControllerApp struct {
 	kubevirtNamespace          string
 	evacuationController       *evacuation.EvacuationController
 	disruptionBudgetController *disruptionbudget.DisruptionBudgetController
+
+	ctx context.Context
+
+	// indicates if controllers were started with or without CDI/DataVolume support
+	hasCDI bool
+	// the channel used to trigger re-initialization.
+	reInitChan chan string
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -148,12 +155,23 @@ func Execute() {
 	if err != nil {
 		golog.Fatalf("Error searching for namespace: %v", err)
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	stopChan := ctx.Done()
+	app.ctx = ctx
+
 	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.kubevirtNamespace)
 
 	configMapInformer := app.informerFactory.ConfigMap()
-	stopChan := make(chan struct{}, 1)
-	defer close(stopChan)
+	crdInformer := app.informerFactory.CRD()
 	app.informerFactory.Start(stopChan)
+
+	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced, crdInformer.HasSynced)
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, app.kubevirtNamespace)
+
+	app.reInitChan = make(chan string, 10)
+	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
+	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 
 	app.vmiInformer = app.informerFactory.VMI()
 	app.podInformer = app.informerFactory.KubeVirtPod()
@@ -173,18 +191,15 @@ func Execute() {
 
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
 
-	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced)
-	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, app.kubevirtNamespace)
-
-	if app.clusterConfig.DataVolumesEnabled() {
+	if app.hasCDI {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
-		log.Log.Infof("DataVolume integration enabled")
+		log.Log.Infof("CDI detected, DataVolume integration enabled")
 	} else {
 		// Add a dummy DataVolume informer in the event datavolume support
 		// is disabled. This lets the controller continue to work without
 		// requiring a separate branching code path.
 		app.dataVolumeInformer = app.informerFactory.DummyDataVolume()
-		log.Log.Infof("DataVolume integration disabled")
+		log.Log.Infof("CDI not detected, DataVolume integration disabled")
 	}
 
 	app.initCommon()
@@ -192,11 +207,32 @@ func Execute() {
 	app.initVirtualMachines()
 	app.initDisruptionBudgetController()
 	app.initEvacuationController()
-	app.Run()
+	go app.Run()
+
+	select {
+	case <-app.reInitChan:
+		cancel()
+	}
+}
+
+// Detects if a config has been applied that requires
+// re-initializing virt-controller.
+func (vca *VirtControllerApp) configModificationCallback() {
+	newHasCDI := vca.clusterConfig.HasDataVolumeAPI()
+	if newHasCDI != vca.hasCDI {
+		if newHasCDI {
+			log.Log.Infof("Reinitialize virt-controller, cdi api has been introduced")
+		} else {
+			log.Log.Infof("Reinitialize virt-controller, cdi api has been removed")
+		}
+		vca.reInitChan <- "reinit"
+	}
 }
 
 func (vca *VirtControllerApp) Run() {
 	logger := log.Log
+
+	stop := vca.ctx.Done()
 
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
 	if err != nil {
@@ -208,8 +244,6 @@ func (vca *VirtControllerApp) Run() {
 	if err != nil {
 		glog.Fatalf("unable to generate certificates: %v", err)
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	go func() {
 		httpLogger := logger.With("service", "http")
 		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
@@ -246,7 +280,6 @@ func (vca *VirtControllerApp) Run() {
 			RetryPeriod:   vca.LeaderElection.RetryPeriod.Duration,
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(ctx context.Context) {
-					stop := ctx.Done()
 					vca.informerFactory.Start(stop)
 					go vca.evacuationController.Run(controllerThreads, stop)
 					go vca.disruptionBudgetController.Run(controllerThreads, stop)
@@ -267,7 +300,7 @@ func (vca *VirtControllerApp) Run() {
 		golog.Fatal(err)
 	}
 
-	leaderElector.Run(ctx)
+	leaderElector.Run(vca.ctx)
 	panic("unreachable")
 }
 
