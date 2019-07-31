@@ -331,7 +331,7 @@ func createDataVolumeManifest(dataVolume *cdiv1.DataVolume, vm *virtv1.VirtualMa
 
 	labels[virtv1.CreatedByLabel] = string(vm.UID)
 
-	for k, v := range dataVolume.Labels {
+	for k, v := range dataVolume.Annotations {
 		annotations[k] = v
 	}
 	for k, v := range dataVolume.Labels {
