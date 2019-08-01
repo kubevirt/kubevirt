@@ -1735,37 +1735,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(0))
 		})
 
-		It("should reject SRIOV interface when feature gate is disabled", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-
-			vmi.Spec.Domain.Devices.Interfaces = append(
-				vmi.Spec.Domain.Devices.Interfaces,
-				v1.Interface{
-					Name: "sriov",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						SRIOV: &v1.InterfaceSRIOV{},
-					},
-				},
-			)
-			vmi.Spec.Networks = append(
-				vmi.Spec.Networks,
-				v1.Network{
-					Name: "sriov",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "sriov"},
-					},
-				},
-			)
-
-			disableFeatureGates()
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].name"))
-		})
-
 		It("should allow valid ioThreadsPolicy", func() {
 			vmi := v1.NewMinimalVMI("testvm")
 			var ioThreadPolicy v1.IOThreadsPolicy
