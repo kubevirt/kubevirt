@@ -96,6 +96,7 @@ type virtHandlerApp struct {
 	HostOverride            string
 	PodIpAddress            string
 	VirtShareDir            string
+	VirtLibDir              string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
 	MaxRequestsInFlight     int
@@ -180,7 +181,7 @@ func (app *virtHandlerApp) Run() {
 	var err error
 
 	// Copy container-disk binary
-	targetFile := filepath.Join(util.VirtShareDir, "/init/usr/bin/container-disk")
+	targetFile := filepath.Join(app.VirtLibDir, "/init/usr/bin/container-disk")
 	err = os.MkdirAll(filepath.Dir(targetFile), os.ModePerm)
 	if err != nil {
 		panic(err)
@@ -192,13 +193,15 @@ func (app *virtHandlerApp) Run() {
 
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
-		err := se.Label("container_file_t", "/var/run/kubevirt")
-		if err != nil {
-			panic(err)
-		}
-		err = se.Restore("/var/run/kubevirt")
-		if err != nil {
-			panic(err)
+		for _, dir := range []string{app.VirtShareDir, app.VirtLibDir} {
+			err := se.Label("container_file_t", dir)
+			if err != nil {
+				panic(err)
+			}
+			err = se.Restore(dir)
+			if err != nil {
+				panic(err)
+			}
 		}
 	} else if err != nil {
 		//an error occured
@@ -332,6 +335,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", util.VirtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
+
+	flag.StringVar(&app.VirtLibDir, "kubevirt-lib-dir", util.VirtLibDir,
+		"Shared lib directory between virt-handler and virt-launcher")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
 		"Watchdog file timeout")

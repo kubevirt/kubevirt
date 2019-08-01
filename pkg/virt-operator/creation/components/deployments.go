@@ -399,6 +399,7 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 	volumes := []volume{
 		{"libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes", nil},
 		{"virt-share-dir", "/var/run/kubevirt", &bidi},
+		{"virt-lib-dir", "/var/lib/kubevirt", nil},
 		{"virt-private-dir", "/var/run/kubevirt-private", nil},
 		{"device-plugin", "/var/lib/kubelet/device-plugins", nil},
 	}

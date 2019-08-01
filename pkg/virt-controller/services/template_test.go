@@ -69,6 +69,7 @@ var _ = Describe("Template", func() {
 	BeforeEach(func() {
 		svc = NewTemplateService("kubevirt/virt-launcher",
 			"/var/run/kubevirt",
+			"/var/lib/kubevirt",
 			"/var/run/kubevirt-ephemeral-disks",
 			"/var/run/kubevirt/container-disks",
 			"pull-secret-1",
@@ -598,7 +599,7 @@ var _ = Describe("Template", func() {
 						NodeSelector: nodeSelector,
 						Domain: v1.DomainSpec{
 							CPU: &v1.CPU{
-								Cores:                 2,
+								Cores: 2,
 								DedicatedCPUPlacement: true,
 							},
 						},
@@ -1206,10 +1207,10 @@ var _ = Describe("Template", func() {
 				domain := v1.DomainSpec{}
 				domain.Devices.Interfaces = []v1.Interface{
 					{Name: "testnet",
-						Ports:                  ports1,
+						Ports: ports1,
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface1}},
 					{Name: "testnet",
-						Ports:                  ports2,
+						Ports: ports2,
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface2}}}
 
 				vmi := v1.VirtualMachineInstance{

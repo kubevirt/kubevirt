@@ -83,6 +83,7 @@ type TemplateService interface {
 type templateService struct {
 	launcherImage              string
 	virtShareDir               string
+	virtLibDir                 string
 	ephemeralDiskDir           string
 	containerDiskDir           string
 	imagePullSecret            string
@@ -729,7 +730,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			Name: "virt-bin-share-dir",
 			VolumeSource: k8sv1.VolumeSource{
 				HostPath: &k8sv1.HostPathVolumeSource{
-					Path: filepath.Join(t.virtShareDir, "/init/usr/bin"),
+					Path: filepath.Join(t.virtLibDir, "/init/usr/bin"),
 				},
 			},
 		},
@@ -1131,6 +1132,7 @@ func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[strin
 
 func NewTemplateService(launcherImage string,
 	virtShareDir string,
+	virtLibDir string,
 	ephemeralDiskDir string,
 	containerDiskDir string,
 	imagePullSecret string,
@@ -1142,6 +1144,7 @@ func NewTemplateService(launcherImage string,
 	svc := templateService{
 		launcherImage:              launcherImage,
 		virtShareDir:               virtShareDir,
+		virtLibDir:                 virtLibDir,
 		ephemeralDiskDir:           ephemeralDiskDir,
 		containerDiskDir:           containerDiskDir,
 		imagePullSecret:            imagePullSecret,

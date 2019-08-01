@@ -115,6 +115,7 @@ type VirtControllerApp struct {
 	launcherImage              string
 	imagePullSecret            string
 	virtShareDir               string
+	virtLibDir                 string
 	ephemeralDiskDir           string
 	containerDiskDir           string
 	readyChan                  chan bool
@@ -327,6 +328,7 @@ func (vca *VirtControllerApp) initCommon() {
 	containerdisk.SetLocalDirectory(vca.ephemeralDiskDir + "/container-disk-data")
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.virtShareDir,
+		vca.virtLibDir,
 		vca.ephemeralDiskDir,
 		vca.containerDiskDir,
 		vca.imagePullSecret,
@@ -414,6 +416,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", util.VirtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
+
+	flag.StringVar(&vca.virtLibDir, "kubevirt-lib-dir", util.VirtLibDir,
+		"Shared lib directory between virt-handler and virt-launcher")
 
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")
