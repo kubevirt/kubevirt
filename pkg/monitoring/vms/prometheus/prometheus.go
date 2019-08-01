@@ -60,7 +60,7 @@ var (
 
 	// lower level metrics
 	storageIopsDesc = prometheus.NewDesc(
-		"kubevirt_vm_storage_iops_total",
+		"kubevirt_vmi_storage_iops_total",
 		"I/O operation performed.",
 		[]string{
 			"node", "namespace", "name",
@@ -69,7 +69,7 @@ var (
 		nil,
 	)
 	storageTrafficDesc = prometheus.NewDesc(
-		"kubevirt_vm_storage_traffic_bytes_total",
+		"kubevirt_vmi_storage_traffic_bytes_total",
 		"storage traffic.",
 		[]string{
 			"node", "namespace", "name",
@@ -78,7 +78,7 @@ var (
 		nil,
 	)
 	storageTimesDesc = prometheus.NewDesc(
-		"kubevirt_vm_storage_times_ms_total",
+		"kubevirt_vmi_storage_times_ms_total",
 		"storage operation time.",
 		[]string{
 			"node", "namespace", "name",
@@ -87,7 +87,7 @@ var (
 		nil,
 	)
 	vcpuUsageDesc = prometheus.NewDesc(
-		"kubevirt_vm_vcpu_seconds",
+		"kubevirt_vmi_vcpu_seconds",
 		"Vcpu elapsed time.",
 		[]string{
 			"node", "namespace", "name",
@@ -96,7 +96,7 @@ var (
 		nil,
 	)
 	networkTrafficBytesDesc = prometheus.NewDesc(
-		"kubevirt_vm_network_traffic_bytes_total",
+		"kubevirt_vmi_network_traffic_bytes_total",
 		"network traffic.",
 		[]string{
 			"node", "namespace", "name",
@@ -105,7 +105,7 @@ var (
 		nil,
 	)
 	networkTrafficPktsDesc = prometheus.NewDesc(
-		"kubevirt_vm_network_traffic_packets_total",
+		"kubevirt_vmi_network_traffic_packets_total",
 		"network traffic.",
 		[]string{
 			"node", "namespace", "name",
@@ -114,7 +114,7 @@ var (
 		nil,
 	)
 	networkErrorsDesc = prometheus.NewDesc(
-		"kubevirt_vm_network_errors_total",
+		"kubevirt_vmi_network_errors_total",
 		"network errors.",
 		[]string{
 			"node", "namespace", "name",
@@ -123,7 +123,7 @@ var (
 		nil,
 	)
 	memoryAvailableDesc = prometheus.NewDesc(
-		"kubevirt_vm_memory_available_bytes",
+		"kubevirt_vmi_memory_available_bytes",
 		"amount of usable memory as seen by the domain.",
 		[]string{
 			"node", "namespace", "name",
@@ -132,7 +132,7 @@ var (
 		nil,
 	)
 	memoryResidentDesc = prometheus.NewDesc(
-		"kubevirt_vm_memory_resident_bytes",
+		"kubevirt_vmi_memory_resident_bytes",
 		"resident set size of the process running the domain",
 		[]string{
 			"node", "namespace", "name",
@@ -142,7 +142,7 @@ var (
 	)
 
 	swapTrafficDesc = prometheus.NewDesc(
-		"kubevirt_vm_memory_swap_traffic_bytes_total",
+		"kubevirt_vmi_memory_swap_traffic_bytes_total",
 		"swap memory traffic.",
 		[]string{
 			"node", "namespace", "name",
