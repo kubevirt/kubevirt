@@ -110,7 +110,7 @@ kubectl create -f deploy/hco.cr.yaml
 
 Lunch the HCO locally for testing, experimenting and developing.
 
-**NOTE:** no need to install any type of kubenetes cluster as a prerequisite.
+**NOTE:** no need to install any type of Kubernetes cluster as a prerequisite.
 
 1. Navigate to the project's directory
 ```bash
