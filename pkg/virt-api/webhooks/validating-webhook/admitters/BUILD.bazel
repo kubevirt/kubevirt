@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "migration-create-admitter.go",
         "migration-update-admitter.go",
+        "pod-eviction-admitter.go",
         "vmi-create-admitter.go",
         "vmi-preset-admitter.go",
         "vmi-update-admitter.go",

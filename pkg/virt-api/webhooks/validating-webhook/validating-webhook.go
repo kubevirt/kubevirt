@@ -36,7 +36,7 @@ type admitter interface {
 	Admit(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
 }
 
-func serve(resp http.ResponseWriter, req *http.Request, a admitter) {
+func testServe(resp http.ResponseWriter, req *http.Request, a admitter) {
 	response := v1beta1.AdmissionReview{}
 	review, err := webhooks.GetAdmissionReview(req)
 
@@ -68,6 +68,39 @@ func serve(resp http.ResponseWriter, req *http.Request, a admitter) {
 	resp.WriteHeader(http.StatusOK)
 }
 
+func serve(resp http.ResponseWriter, req *http.Request, a admitter) {
+	response := v1beta1.AdmissionReview{}
+	review, err := webhooks.GetAdmissionReview(req)
+
+	if err != nil {
+		resp.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	reviewResponse := a.Admit(review)
+	if reviewResponse != nil {
+		response.Response = reviewResponse
+		response.Response.UID = review.Request.UID
+	}
+	// reset the Object and OldObject, they are not needed in a response.
+	review.Request.Object = runtime.RawExtension{}
+	review.Request.OldObject = runtime.RawExtension{}
+	review.Response.Result.Code = 401
+
+	responseBytes, err := json.Marshal(response)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed json encode webhook response")
+		resp.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if _, err := resp.Write(responseBytes); err != nil {
+		log.Log.Reason(err).Errorf("failed to write webhook response")
+		resp.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	resp.WriteHeader(http.StatusOK)
+}
+
 func ServeVMICreate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
 	serve(resp, req, &admitters.VMICreateAdmitter{ClusterConfig: clusterConfig})
 }
@@ -82,6 +115,10 @@ func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtco
 
 func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
 	serve(resp, req, &admitters.VMIRSAdmitter{ClusterConfig: clusterConfig})
+}
+
+func ServePodEviction(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
+	testServe(resp, req, &admitters.PodEvictionAdmitter{ClusterConfig: clusterConfig})
 }
 
 func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {

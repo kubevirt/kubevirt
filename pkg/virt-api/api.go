@@ -77,6 +77,7 @@ const (
 	virtApiServiceName = "virt-api"
 
 	vmiCreateValidatePath       = "/virtualmachineinstances-validate-create"
+	podEvictionValidatePath     = "/podeviction-validate"
 	vmiUpdateValidatePath       = "/virtualmachineinstances-validate-update"
 	vmValidatePath              = "/virtualmachines-validate"
 	vmirsValidatePath           = "/virtualmachinereplicaset-validate"
@@ -530,6 +531,7 @@ func (app *virtAPIApp) createWebhook() error {
 func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webhook {
 
 	vmiPathCreate := vmiCreateValidatePath
+	podPathEviction := podEvictionValidatePath
 	vmiPathUpdate := vmiUpdateValidatePath
 	vmPath := vmValidatePath
 	vmirsPath := vmirsValidatePath
@@ -539,6 +541,28 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 	failurePolicy := admissionregistrationv1beta1.Fail
 
 	webHooks := []admissionregistrationv1beta1.Webhook{
+		{
+			Name:          "pods-evictions-validator.kubevirt.io",
+			FailurePolicy: &failurePolicy,
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{
+					"*",
+				},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods/eviction"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: app.namespace,
+					Name:      virtApiServiceName,
+					Path:      &podPathEviction,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
 		{
 			Name:          "virtualmachineinstances-create-validator.kubevirt.io",
 			FailurePolicy: &failurePolicy,
@@ -738,6 +762,9 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 		}
 	}
 
+	http.HandleFunc(podEvictionValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServePodEviction(w, r, app.clusterConfig)
+	})
 	http.HandleFunc(vmiCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMICreate(w, r, app.clusterConfig)
 	})
