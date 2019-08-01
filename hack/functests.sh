@@ -21,6 +21,7 @@ set -e
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
+export ARTIFACTS=${ARTIFACTS:-_out/artifacts}
 
 source hack/common.sh
 source hack/config.sh
