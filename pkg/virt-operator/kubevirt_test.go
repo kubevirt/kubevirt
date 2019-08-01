@@ -1107,6 +1107,29 @@ var _ = Describe("KubeVirt Operator", func() {
 		return nil
 	}
 
+	shouldExpectHCOConditions := func(kv *v1.KubeVirt, available k8sv1.ConditionStatus, progressing k8sv1.ConditionStatus, degraded k8sv1.ConditionStatus) {
+		getType := func(c v1.KubeVirtCondition) v1.KubeVirtConditionType { return c.Type }
+		getStatus := func(c v1.KubeVirtCondition) k8sv1.ConditionStatus { return c.Status }
+		Expect(kv.Status.Conditions).To(ContainElement(
+			And(
+				WithTransform(getType, Equal(v1.KubeVirtConditionAvailable)),
+				WithTransform(getStatus, Equal(available)),
+			),
+		))
+		Expect(kv.Status.Conditions).To(ContainElement(
+			And(
+				WithTransform(getType, Equal(v1.KubeVirtConditionProgressing)),
+				WithTransform(getStatus, Equal(progressing)),
+			),
+		))
+		Expect(kv.Status.Conditions).To(ContainElement(
+			And(
+				WithTransform(getType, Equal(v1.KubeVirtConditionDegraded)),
+				WithTransform(getStatus, Equal(degraded)),
+			),
+		))
+	}
+
 	Context("On valid KubeVirt object", func() {
 		It("should delete install strategy configmap once kubevirt install is deleted", func(done Done) {
 			defer close(done)
@@ -1121,6 +1144,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			}
 			kv.DeletionTimestamp = now()
+			util.UpdateConditionsDeleting(kv)
 
 			shouldExpectInstallStrategyDeletion()
 
@@ -1132,6 +1156,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		It("should observe custom image tag in status during deploy", func(done Done) {
 			defer close(done)
+			defer GinkgoRecover()
 
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1143,21 +1168,7 @@ var _ = Describe("KubeVirt Operator", func() {
 					ImageTag: "custom.tag",
 				},
 				Status: v1.KubeVirtStatus{
-					Phase: v1.KubeVirtPhaseDeployed,
-					Conditions: []v1.KubeVirtCondition{
-						{
-							Type:    v1.KubeVirtConditionCreated,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentCreated,
-							Message: "All resources were created.",
-						},
-						{
-							Type:    v1.KubeVirtConditionReady,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentReady,
-							Message: "All components are ready.",
-						},
-					},
+					Phase:           v1.KubeVirtPhaseDeployed,
 					OperatorVersion: version.Get().String(),
 				},
 			}
@@ -1177,6 +1188,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			shouldExpectKubeVirtUpdateVersion(1, customConfig)
 			controller.Execute()
+			kv = getLatestKubeVirt(kv)
+			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
 
 		}, 15)
 
@@ -1190,27 +1203,14 @@ var _ = Describe("KubeVirt Operator", func() {
 					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 				Status: v1.KubeVirtStatus{
-					Phase: v1.KubeVirtPhaseDeployed,
-					Conditions: []v1.KubeVirtCondition{
-						{
-							Type:    v1.KubeVirtConditionCreated,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentCreated,
-							Message: "All resources were created.",
-						},
-						{
-							Type:    v1.KubeVirtConditionReady,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentReady,
-							Message: "All components are ready.",
-						},
-					},
+					Phase:           v1.KubeVirtPhaseDeployed,
 					OperatorVersion: version.Get().String(),
 				},
 			}
 			defaultConfig.SetTargetDeploymentConfig(kv)
 			defaultConfig.SetObservedDeploymentConfig(kv)
-
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
 			deleteFromCache = false
 
 			// create all resources which should already exist
@@ -1240,26 +1240,14 @@ var _ = Describe("KubeVirt Operator", func() {
 					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 				Status: v1.KubeVirtStatus{
-					Phase: v1.KubeVirtPhaseDeployed,
-					Conditions: []v1.KubeVirtCondition{
-						{
-							Type:    v1.KubeVirtConditionCreated,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentCreated,
-							Message: "All resources were created.",
-						},
-						{
-							Type:    v1.KubeVirtConditionReady,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentReady,
-							Message: "All components are ready.",
-						},
-					},
+					Phase:           v1.KubeVirtPhaseDeployed,
 					OperatorVersion: version.Get().String(),
 				},
 			}
 			defaultConfig.SetTargetDeploymentConfig(kv)
 			defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
@@ -1275,6 +1263,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		}, 15)
 
 		It("should delete operator managed resources not in the deployed installstrategy", func() {
+			defer GinkgoRecover()
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "test-install",
@@ -1282,20 +1271,14 @@ var _ = Describe("KubeVirt Operator", func() {
 					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 				Status: v1.KubeVirtStatus{
-					Phase: v1.KubeVirtPhaseDeployed,
-					Conditions: []v1.KubeVirtCondition{
-						{
-							Type:    v1.KubeVirtConditionCreated,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentCreated,
-							Message: "All resources were created.",
-						},
-					},
+					Phase:           v1.KubeVirtPhaseDeployed,
 					OperatorVersion: version.Get().String(),
 				},
 			}
 			defaultConfig.SetTargetDeploymentConfig(kv)
 			defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsDeploying(kv)
+			util.UpdateConditionsCreated(kv)
 
 			deleteFromCache = false
 
@@ -1325,21 +1308,7 @@ var _ = Describe("KubeVirt Operator", func() {
 					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 				Status: v1.KubeVirtStatus{
-					Phase: v1.KubeVirtPhaseDeployed,
-					Conditions: []v1.KubeVirtCondition{
-						{
-							Type:    v1.KubeVirtConditionCreated,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentCreated,
-							Message: "All resources were created.",
-						},
-						{
-							Type:    v1.KubeVirtConditionReady,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentReady,
-							Message: "All components are ready.",
-						},
-					},
+					Phase:           v1.KubeVirtPhaseDeployed,
 					OperatorVersion: "v0.0.0-master+$Format:%h$",
 				},
 			}
@@ -1354,11 +1323,13 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 
 			kubecontroller.SetLatestApiVersionAnnotation(kv1)
+			util.UpdateConditionsCreated(kv1)
+			util.UpdateConditionsAvailable(kv1)
 			addKubeVirt(kv1)
 			kubecontroller.SetLatestApiVersionAnnotation(kv2)
 			addKubeVirt(kv2)
 
-			shouldExpectKubeVirtUpdateFailureCondition(ConditionReasonDeploymentFailedExisting)
+			shouldExpectKubeVirtUpdateFailureCondition(util.ConditionReasonDeploymentFailedExisting)
 
 			controller.execute(fmt.Sprintf("%s/%s", kv2.Namespace, kv2.Name))
 
@@ -1381,26 +1352,14 @@ var _ = Describe("KubeVirt Operator", func() {
 					ImageRegistry: updatedRegistry,
 				},
 				Status: v1.KubeVirtStatus{
-					Phase: v1.KubeVirtPhaseDeployed,
-					Conditions: []v1.KubeVirtCondition{
-						{
-							Type:    v1.KubeVirtConditionCreated,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentCreated,
-							Message: "All resources were created.",
-						},
-						{
-							Type:    v1.KubeVirtConditionReady,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentReady,
-							Message: "All components are ready.",
-						},
-					},
+					Phase:           v1.KubeVirtPhaseDeployed,
 					OperatorVersion: version.Get().String(),
 				},
 			}
 			defaultConfig.SetTargetDeploymentConfig(kv)
 			defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
@@ -1524,7 +1483,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv = getLatestKubeVirt(kv)
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
-			Expect(len(kv.Status.Conditions)).To(Equal(0))
+			Expect(len(kv.Status.Conditions)).To(Equal(3))
+			shouldExpectHCOConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)
 
 			// 3 in total are yet missing at this point
 			// because waiting on controller, controller's PDB and virt-handler daemonset until API server deploys successfully
@@ -1568,26 +1528,14 @@ var _ = Describe("KubeVirt Operator", func() {
 					ImageRegistry: rollbackConfig.GetImageRegistry(),
 				},
 				Status: v1.KubeVirtStatus{
-					Phase: v1.KubeVirtPhaseDeployed,
-					Conditions: []v1.KubeVirtCondition{
-						{
-							Type:    v1.KubeVirtConditionCreated,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentCreated,
-							Message: "All resources were created.",
-						},
-						{
-							Type:    v1.KubeVirtConditionReady,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentReady,
-							Message: "All components are ready.",
-						},
-					},
+					Phase:           v1.KubeVirtPhaseDeployed,
 					OperatorVersion: version.Get().String(),
 				},
 			}
 			defaultConfig.SetTargetDeploymentConfig(kv)
 			defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
@@ -1607,6 +1555,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectKubeVirtUpdate(1)
 
 			controller.Execute()
+
+			kv = getLatestKubeVirt(kv)
+			// conditions should reflect an ongoing update
+			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
 
 			// on rollback or create, api server must be online first before controllers and daemonset.
 			// On rollback this prevents someone from posting invalid specs to
@@ -1639,26 +1591,14 @@ var _ = Describe("KubeVirt Operator", func() {
 					ImageRegistry: updatedConfig.GetImageRegistry(),
 				},
 				Status: v1.KubeVirtStatus{
-					Phase: v1.KubeVirtPhaseDeployed,
-					Conditions: []v1.KubeVirtCondition{
-						{
-							Type:    v1.KubeVirtConditionCreated,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentCreated,
-							Message: "All resources were created.",
-						},
-						{
-							Type:    v1.KubeVirtConditionReady,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentReady,
-							Message: "All components are ready.",
-						},
-					},
+					Phase:           v1.KubeVirtPhaseDeployed,
 					OperatorVersion: version.Get().String(),
 				},
 			}
 			defaultConfig.SetTargetDeploymentConfig(kv)
 			defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
@@ -1678,6 +1618,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectKubeVirtUpdate(1)
 
 			controller.Execute()
+
+			kv = getLatestKubeVirt(kv)
+			// conditions should reflect an ongoing update
+			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
 
 			// on update, apiserver won't get patched until daemonset and controller pods are online.
 			// this prevents the new API from coming online until the controllers can manage it.
@@ -1701,26 +1645,14 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 				Spec: v1.KubeVirtSpec{},
 				Status: v1.KubeVirtStatus{
-					Phase: v1.KubeVirtPhaseDeployed,
-					Conditions: []v1.KubeVirtCondition{
-						{
-							Type:    v1.KubeVirtConditionCreated,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentCreated,
-							Message: "All resources were created.",
-						},
-						{
-							Type:    v1.KubeVirtConditionReady,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentReady,
-							Message: "All components are ready.",
-						},
-					},
+					Phase:           v1.KubeVirtPhaseDeployed,
 					OperatorVersion: version.Get().String(),
 				},
 			}
 			defaultConfig.SetTargetDeploymentConfig(kv)
 			defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
@@ -1743,6 +1675,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectKubeVirtUpdate(1)
 
 			controller.Execute()
+
+			kv = getLatestKubeVirt(kv)
+			// conditions should reflect a successful update
+			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
 
 			Expect(totalPatches).To(Equal(patchCount))
 			Expect(totalUpdates).To(Equal(updateCount))
@@ -1768,26 +1704,14 @@ var _ = Describe("KubeVirt Operator", func() {
 					ImageRegistry: updatedConfig.GetImageRegistry(),
 				},
 				Status: v1.KubeVirtStatus{
-					Phase: v1.KubeVirtPhaseDeployed,
-					Conditions: []v1.KubeVirtCondition{
-						{
-							Type:    v1.KubeVirtConditionCreated,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentCreated,
-							Message: "All resources were created.",
-						},
-						{
-							Type:    v1.KubeVirtConditionReady,
-							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentReady,
-							Message: "All components are ready.",
-						},
-					},
+					Phase:           v1.KubeVirtPhaseDeployed,
 					OperatorVersion: version.Get().String(),
 				},
 			}
 			defaultConfig.SetTargetDeploymentConfig(kv)
 			defaultConfig.SetObservedDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+			util.UpdateConditionsAvailable(kv)
 
 			// create all resources which should already exist
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
@@ -1810,6 +1734,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectKubeVirtUpdate(1)
 
 			controller.Execute()
+
+			kv = getLatestKubeVirt(kv)
+			// conditions should reflect a successful update
+			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
 
 			Expect(totalPatches).To(Equal(patchCount))
 			Expect(totalUpdates).To(Equal(updateCount))
@@ -1838,13 +1766,13 @@ var _ = Describe("KubeVirt Operator", func() {
 						{
 							Type:    v1.KubeVirtConditionCreated,
 							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentCreated,
+							Reason:  util.ConditionReasonDeploymentCreated,
 							Message: "All resources were created.",
 						},
 						{
-							Type:    v1.KubeVirtConditionReady,
+							Type:    v1.KubeVirtConditionAvailable,
 							Status:  k8sv1.ConditionTrue,
-							Reason:  ConditionReasonDeploymentReady,
+							Reason:  util.ConditionReasonDeploymentReady,
 							Message: "All components are ready.",
 						},
 					},
@@ -1908,7 +1836,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv = getLatestKubeVirt(kv)
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeleted))
-			Expect(len(kv.Status.Conditions)).To(Equal(0))
+			Expect(len(kv.Status.Conditions)).To(Equal(3))
+			shouldExpectHCOConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionFalse, k8sv1.ConditionTrue)
 		}, 15)
 
 		It("should remove poddisruptionbudgets on deletion", func() {

@@ -244,14 +244,21 @@ var _ = Describe("Operator", func() {
 				return err
 			}
 
-			updating := false
+			available := false
+			progressing := false
+			degraded := false
 			for _, condition := range kv.Status.Conditions {
-				if condition.Type == v1.KubeVirtConditionUpdating {
-					updating = true
+				if condition.Type == v1.KubeVirtConditionAvailable && condition.Status == k8sv1.ConditionTrue {
+					available = true
+				} else if condition.Type == v1.KubeVirtConditionProgressing && condition.Status == k8sv1.ConditionTrue {
+					progressing = true
+				} else if condition.Type == v1.KubeVirtConditionDegraded && condition.Status == k8sv1.ConditionTrue {
+					degraded = true
 				}
 			}
-			if !updating {
-				return fmt.Errorf("Waiting for updating condition")
+
+			if !available || !progressing || !degraded {
+				return fmt.Errorf("Waiting for conditions to indicate update (conditions: %+v)", kv.Status.Conditions)
 			}
 			return nil
 		}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -269,18 +276,24 @@ var _ = Describe("Operator", func() {
 				return fmt.Errorf("Waiting for phase to be deployed (current phase: %+v)", kv.Status.Phase)
 			}
 
-			ready := false
+			available := false
+			progressing := true
+			degraded := true
 			created := false
 			for _, condition := range kv.Status.Conditions {
-				if condition.Type == v1.KubeVirtConditionReady && condition.Status == k8sv1.ConditionTrue {
-					ready = true
+				if condition.Type == v1.KubeVirtConditionAvailable && condition.Status == k8sv1.ConditionTrue {
+					available = true
+				} else if condition.Type == v1.KubeVirtConditionProgressing && condition.Status == k8sv1.ConditionFalse {
+					progressing = false
+				} else if condition.Type == v1.KubeVirtConditionDegraded && condition.Status == k8sv1.ConditionFalse {
+					degraded = false
 				} else if condition.Type == v1.KubeVirtConditionCreated && condition.Status == k8sv1.ConditionTrue {
 					created = true
 				}
 			}
 
-			if !ready || !created {
-				return fmt.Errorf("Waiting for phase to be deployed (conditions: %+v)", kv.Status.Conditions)
+			if !available || progressing || degraded || !created {
+				return fmt.Errorf("Waiting for conditions to indicate deployment (conditions: %+v)", kv.Status.Conditions)
 			}
 			return nil
 		}, time.Duration(timeoutSeconds)*time.Second, 1*time.Second).ShouldNot(HaveOccurred())

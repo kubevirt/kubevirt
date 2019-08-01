@@ -20,6 +20,7 @@ package util
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -73,12 +74,12 @@ var _ = Describe("Operator Client", func() {
 
 			Context("When it doesn't exist yet", func() {
 				It("Should add the condition", func() {
-					UpdateCondition(kv, v1.KubeVirtConditionReady, k8sv1.ConditionTrue, "NewReason", "new message")
+					updateCondition(kv, v1.KubeVirtConditionAvailable, k8sv1.ConditionTrue, "NewReason", "new message")
 					Expect(len(kv.Status.Conditions)).To(Equal(2), "should have 2 conditions")
 					condition1 := kv.Status.Conditions[0]
 					Expect(condition1.Type).To(Equal(v1.KubeVirtConditionCreated), "should keep old condition type")
 					condition2 := kv.Status.Conditions[1]
-					Expect(condition2.Type).To(Equal(v1.KubeVirtConditionReady), "should set correct condition type")
+					Expect(condition2.Type).To(Equal(v1.KubeVirtConditionAvailable), "should set correct condition type")
 					Expect(condition2.Status).To(Equal(k8sv1.ConditionTrue), "should set correct condition status")
 					Expect(condition2.Reason).To(Equal("NewReason"), "should set correct condition reason")
 					Expect(condition2.Message).To(Equal("new message"), "should set correct condition message")
@@ -87,7 +88,7 @@ var _ = Describe("Operator Client", func() {
 
 			Context("When it exists", func() {
 				It("Should update the condition", func() {
-					UpdateCondition(kv, v1.KubeVirtConditionCreated, k8sv1.ConditionTrue, "NewReason", "new message")
+					updateCondition(kv, v1.KubeVirtConditionCreated, k8sv1.ConditionTrue, "NewReason", "new message")
 					Expect(len(kv.Status.Conditions)).To(Equal(1), "should still have 1 condition")
 					condition1 := kv.Status.Conditions[0]
 					Expect(condition1.Type).To(Equal(v1.KubeVirtConditionCreated), "should keep old condition type")
@@ -103,7 +104,7 @@ var _ = Describe("Operator Client", func() {
 
 			Context("When it doesn't exist", func() {
 				It("Should not change existing conditions", func() {
-					RemoveCondition(kv, v1.KubeVirtConditionReady)
+					removeCondition(kv, v1.KubeVirtConditionAvailable)
 					Expect(len(kv.Status.Conditions)).To(Equal(1), "should still have 1 condition")
 					condition1 := kv.Status.Conditions[0]
 					Expect(condition1.Type).To(Equal(v1.KubeVirtConditionCreated))
@@ -115,7 +116,7 @@ var _ = Describe("Operator Client", func() {
 
 			Context("When it exists", func() {
 				It("Should remove the condition", func() {
-					RemoveCondition(kv, v1.KubeVirtConditionCreated)
+					removeCondition(kv, v1.KubeVirtConditionCreated)
 					Expect(kv.Status.Conditions).To(BeEmpty(), "should have no condition")
 				})
 			})
@@ -135,6 +136,75 @@ var _ = Describe("Operator Client", func() {
 					Expect(len(kv.Finalizers)).To(Equal(2), "should still have 2 finalizers")
 					Expect(kv.Finalizers[0]).To(Equal("oldFinalizer"), "should keep first old finalizer")
 					Expect(kv.Finalizers[1]).To(Equal(KubeVirtFinalizer), "should keep second old finalizer")
+				})
+			})
+		})
+
+		Describe("Setting condition timestamps", func() {
+			var kv1 *v1.KubeVirt
+			var kv2 *v1.KubeVirt
+			empty := metav1.Time{}
+			now := metav1.Time{
+				Time: time.Now(),
+			}
+
+			BeforeEach(func() {
+				kv1 = &v1.KubeVirt{
+					Status: v1.KubeVirtStatus{
+						Conditions: []v1.KubeVirtCondition{},
+					},
+				}
+				kv2 = &v1.KubeVirt{
+					Status: v1.KubeVirtStatus{
+						Conditions: []v1.KubeVirtCondition{},
+					},
+				}
+			})
+			Context("For new condition", func() {
+				It("should set lastProbeTime only", func() {
+					kv2.Status.Conditions = append(kv1.Status.Conditions, v1.KubeVirtCondition{
+						Type: v1.KubeVirtConditionAvailable,
+					})
+					SetConditionTimestamps(kv1, kv2)
+					Expect(kv2.Status.Conditions[0].LastProbeTime).ToNot(Equal(empty))
+					Expect(kv2.Status.Conditions[0].LastProbeTime.Time).To(BeTemporally(">", now.Time))
+					Expect(kv2.Status.Conditions[0].LastTransitionTime).To(Equal(empty))
+				})
+			})
+			Context("For unmodified condition", func() {
+				It("should keep timestamps", func() {
+					kv1.Status.Conditions = append(kv1.Status.Conditions, v1.KubeVirtCondition{
+						Type:   v1.KubeVirtConditionAvailable,
+						Status: k8sv1.ConditionTrue,
+					})
+					kv2.Status.Conditions = append(kv2.Status.Conditions, v1.KubeVirtCondition{
+						Type:          v1.KubeVirtConditionAvailable,
+						Status:        k8sv1.ConditionTrue,
+						LastProbeTime: now,
+					})
+					SetConditionTimestamps(kv1, kv2)
+					Expect(kv2.Status.Conditions[0].LastProbeTime).To(Equal(now))
+					Expect(kv2.Status.Conditions[0].LastTransitionTime).To(Equal(empty))
+				})
+			})
+			Context("For modified condition", func() {
+				It("should update both timestamps", func() {
+					now := metav1.Time{
+						Time: time.Now(),
+					}
+					kv1.Status.Conditions = append(kv1.Status.Conditions, v1.KubeVirtCondition{
+						Type:   v1.KubeVirtConditionAvailable,
+						Status: k8sv1.ConditionTrue,
+					})
+					kv2.Status.Conditions = append(kv2.Status.Conditions, v1.KubeVirtCondition{
+						Type:          v1.KubeVirtConditionAvailable,
+						Status:        k8sv1.ConditionFalse,
+						LastProbeTime: now,
+					})
+					SetConditionTimestamps(kv1, kv2)
+					Expect(kv2.Status.Conditions[0].LastProbeTime.Time).To(BeTemporally(">", now.Time))
+					Expect(kv2.Status.Conditions[0].LastTransitionTime).ToNot(Equal(empty))
+					Expect(kv2.Status.Conditions[0].LastTransitionTime).To(Equal(kv2.Status.Conditions[0].LastProbeTime))
 				})
 			})
 		})

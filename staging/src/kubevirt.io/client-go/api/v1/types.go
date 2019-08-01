@@ -1278,10 +1278,14 @@ const (
 	KubeVirtConditionSynchronized KubeVirtConditionType = "Synchronized"
 	// Whether all resources were created and up-to-date
 	KubeVirtConditionCreated KubeVirtConditionType = "Created"
-	// Whether all components were ready
-	KubeVirtConditionReady KubeVirtConditionType = "Ready"
-	// Whether we're in the process of updating previously deployed version
-	KubeVirtConditionUpdating KubeVirtConditionType = "Updating"
+
+	// Conditions for HCO, see https://github.com/kubevirt/hyperconverged-cluster-operator/blob/master/docs/conditions.md
+	// Whether KubeVirt is functional and available in the cluster.
+	KubeVirtConditionAvailable KubeVirtConditionType = "Available"
+	// Whether the operator is actively making changes to KubeVirt
+	KubeVirtConditionProgressing KubeVirtConditionType = "Progressing"
+	// Whether KubeVirt is not functioning completely
+	KubeVirtConditionDegraded KubeVirtConditionType = "Degraded"
 )
 
 const (

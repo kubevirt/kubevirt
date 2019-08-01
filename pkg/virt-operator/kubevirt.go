@@ -44,16 +44,6 @@ import (
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-const (
-	ConditionReasonDeploymentFailedExisting  = "ExistingDeployment"
-	ConditionReasonDeploymentFailedError     = "DeploymentFailed"
-	ConditionReasonDeletionFailedError       = "DeletionFailed"
-	ConditionReasonUpdateNotImplementedError = "UpdatesNotImplemented"
-	ConditionReasonDeploymentCreated         = "AllResourcesCreated"
-	ConditionReasonDeploymentReady           = "AllComponentsReady"
-	ConditionReasonUpdating                  = "UpdateInProgress"
-)
-
 type KubeVirtController struct {
 	clientset            kubecli.KubevirtClient
 	queue                workqueue.RateLimitingInterface
@@ -498,6 +488,9 @@ func (c *KubeVirtController) execute(key string) error {
 		syncError = c.syncDeployment(kvCopy)
 	}
 
+	// set timestamps on conditions if they changed
+	operatorutil.SetConditionTimestamps(kv, kvCopy)
+
 	// If we detect a change on KubeVirt we update it
 	if !reflect.DeepEqual(kv.Status, kvCopy.Status) ||
 		!reflect.DeepEqual(kv.Finalizers, kvCopy.Finalizers) {
@@ -820,7 +813,7 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	// TODO move this into a new validating webhook
 	if c.checkForActiveInstall(kv) {
 		logger.Warningf("There is already a KubeVirt deployment!")
-		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedExisting, "There is an active KubeVirt deployment")
+		util.UpdateConditionsFailedExists(kv)
 		return nil
 	}
 
@@ -837,18 +830,7 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	}
 
 	if isUpdating(kv) {
-		util.RemoveCondition(kv, v1.KubeVirtConditionReady)
-		util.RemoveCondition(kv, v1.KubeVirtConditionCreated)
-		util.UpdateCondition(kv,
-			v1.KubeVirtConditionUpdating,
-			k8sv1.ConditionTrue,
-			ConditionReasonUpdating,
-			fmt.Sprintf("Transitioning from previous version %s with registry %s to target version %s using registry %s",
-				kv.Status.ObservedKubeVirtVersion,
-				kv.Status.ObservedKubeVirtRegistry,
-				kv.Status.TargetKubeVirtVersion,
-				kv.Status.TargetKubeVirtRegistry))
-
+		util.UpdateConditionsUpdating(kv)
 		// If this is an update, we need to retrieve the install strategy of the
 		// previous version. This is only necessary because there are settings
 		// related to SCC privileges that we can't infere without the previous
@@ -857,6 +839,8 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 		if err != nil {
 			return err
 		}
+	} else {
+		util.UpdateConditionsDeploying(kv)
 	}
 
 	targetStrategy, targetPending, err = c.loadInstallStrategy(kv, false)
@@ -884,12 +868,10 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 
 	if err != nil {
 		// deployment failed
-		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, fmt.Sprintf("An error occurred during deployment: %v", err))
-
+		util.UpdateConditionsFailedError(kv, err)
 		logger.Errorf("Failed to create all resources: %v", err)
 		return err
 	}
-	util.RemoveCondition(kv, v1.KubeVirtConditionSynchronized)
 
 	// the entire sync can't always occur within a single control loop execution.
 	// when synced==true that means SyncAll() has completed and has nothing left to wait on.
@@ -897,26 +879,17 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 		// record the version that has been completely installed
 		config.SetObservedDeploymentConfig(kv)
 
-		// add Created condition
-		util.UpdateCondition(kv, v1.KubeVirtConditionCreated, k8sv1.ConditionTrue, ConditionReasonDeploymentCreated, "All resources were created.")
+		// update conditions
+		util.UpdateConditionsCreated(kv)
 		logger.Info("All KubeVirt resources created")
 
 		// check if components are ready
 		if c.isReady(kv) {
 			logger.Info("All KubeVirt components ready")
 			kv.Status.Phase = v1.KubeVirtPhaseDeployed
-			util.UpdateCondition(kv, v1.KubeVirtConditionReady, k8sv1.ConditionTrue, ConditionReasonDeploymentReady, "All components are ready.")
-
-			// Remove updating condition
-			util.RemoveCondition(kv, v1.KubeVirtConditionUpdating)
-
+			util.UpdateConditionsAvailable(kv)
 			return nil
 		}
-		util.RemoveCondition(kv, v1.KubeVirtConditionReady)
-
-	} else {
-		util.RemoveCondition(kv, v1.KubeVirtConditionCreated)
-		util.RemoveCondition(kv, v1.KubeVirtConditionReady)
 	}
 
 	logger.Info("Processed deployment for this round")
@@ -951,9 +924,8 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 	// set phase to deleting
 	kv.Status.Phase = v1.KubeVirtPhaseDeleting
 
-	// remove created and ready conditions
-	util.RemoveCondition(kv, v1.KubeVirtConditionCreated)
-	util.RemoveCondition(kv, v1.KubeVirtConditionReady)
+	// update conditions
+	util.UpdateConditionsDeleting(kv)
 
 	// If we still have cached objects around, more deletions need to take place.
 	if !c.stores.AllEmpty() {
@@ -970,13 +942,13 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 		err = installstrategy.DeleteAll(kv, strategy, c.stores, c.clientset, &c.kubeVirtExpectations)
 		if err != nil {
 			// deletion failed
-			util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
+			util.UpdateConditionsDeletionFailed(kv, err)
 			return err
 		}
 	}
 
-	// clear any synchronized error conditions.
-	util.RemoveCondition(kv, v1.KubeVirtConditionSynchronized)
+	// clear any synchronized error conditions by re-applying conditions
+	util.UpdateConditionsDeleting(kv)
 
 	// Once all deletions are complete,
 	// garbage collect all install strategies and
@@ -986,7 +958,7 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 		err := c.deleteAllInstallStrategy()
 		if err != nil {
 			// garbage collection of install strategies failed
-			util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
+			util.UpdateConditionsDeletionFailed(kv, err)
 			return err
 		}
 
