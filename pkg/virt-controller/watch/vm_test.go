@@ -87,13 +87,15 @@ var _ = Describe("VirtualMachine", func() {
 
 		})
 
-		shouldExpectDataVolumeCreation := func(uid types.UID, idx *int) {
+		shouldExpectDataVolumeCreation := func(uid types.UID, labels map[string]string, annotations map[string]string, idx *int) {
 			cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
 				*idx++
 				dataVolume := update.GetObject().(*cdiv1.DataVolume)
 				Expect(dataVolume.ObjectMeta.OwnerReferences[0].UID).To(Equal(uid))
+				Expect(dataVolume.ObjectMeta.Labels).To(Equal(labels))
+				Expect(dataVolume.ObjectMeta.Annotations).To(Equal(annotations))
 				return true, update.GetObject(), nil
 			})
 		}
@@ -156,7 +158,9 @@ var _ = Describe("VirtualMachine", func() {
 
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
+					Labels:      map[string]string{"my": "label"},
+					Annotations: map[string]string{"my": "annotation"},
+					Name:        "dv1",
 				},
 			})
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
@@ -170,7 +174,7 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume.Namespace = "default"
 			dataVolumeFeeder.Add(existingDataVolume)
 			createCount := 0
-			shouldExpectDataVolumeCreation(vm.UID, &createCount)
+			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": "", "my": "label"}, map[string]string{"my": "annotation"}, &createCount)
 			controller.Execute()
 			Expect(createCount).To(Equal(1))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
@@ -489,7 +493,7 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 
 			createCount := 0
-			shouldExpectDataVolumeCreation(vm.UID, &createCount)
+			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": ""}, map[string]string{}, &createCount)
 			controller.Execute()
 			Expect(createCount).To(Equal(2))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
