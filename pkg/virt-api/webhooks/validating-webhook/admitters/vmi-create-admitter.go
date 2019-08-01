@@ -1614,6 +1614,18 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				Field:   field.Index(idx).Child("cache").String(),
 			})
 		}
+
+		// Verify disk and volume name can be a valid container name since disk
+		// name can become a container name which will fail to schedule if invalid
+		errs := validation.IsDNS1123Label(disk.Name)
+
+		for _, err := range errs {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: err,
+				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
+			})
+		}
 	}
 
 	return causes
