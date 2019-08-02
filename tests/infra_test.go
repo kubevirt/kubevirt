@@ -84,6 +84,7 @@ var _ = Describe("Infrastructure", func() {
 				Expect(ips).To(HaveKey(pod.Status.PodIP), fmt.Sprintf("IP of Pod %s not found in metrics endpoint", pod.Name))
 			}
 		})
+
 		It("should return Prometheus metrics", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -284,7 +285,7 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include the memory metrics for a running VM", func() {
-			_, _, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vmi_memory_")
+			_, _, metrics := newRandomVMIsWithMetrics(2, "", virtClient, "kubevirt_vmi_memory_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -295,24 +296,25 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include VMI infos for a running VM", func() {
-			vmis, nodeName, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vmi_")
+			vmis, nodeName, metrics := newRandomVMIsWithMetrics(2, "", virtClient, "kubevirt_vmi_")
 			Expect(vmis).To(HaveLen(1))
 
-			vmi := vmis[0]
-			By("Checking the collected metrics")
-			keys := getKeysFromMetrics(metrics)
-			for _, key := range keys {
-				// we don't care about the ordering of the labels
-				// TODO: vmi.Status.NodeName is "" sometimes. Are we faster than the update?
-				if strings.HasPrefix(key, "kubevirt_vmi_phase_count") {
-					// special case: namespace and name don't make sense for this metric
-					Expect(key).To(ContainSubstring(`node="%s"`, nodeName))
-				} else {
-					Expect(key).To(SatisfyAll(
-						ContainSubstring(`node="%s"`, nodeName),
-						ContainSubstring(`namespace="%s"`, vmi.Namespace),
-						ContainSubstring(`name="%s"`, vmi.Name),
-					))
+			for _, vmi := range vmis {
+				By("Checking the collected metrics")
+				keys := getKeysFromMetrics(metrics)
+				for _, key := range keys {
+					// we don't care about the ordering of the labels
+					// TODO: vmi.Status.NodeName is "" sometimes. Are we faster than the update?
+					if strings.HasPrefix(key, "kubevirt_vmi_phase_count") {
+						// special case: namespace and name don't make sense for this metric
+						Expect(key).To(ContainSubstring(`node="%s"`, nodeName))
+					} else {
+						Expect(key).To(SatisfyAll(
+							ContainSubstring(`node="%s"`, nodeName),
+							ContainSubstring(`namespace="%s"`, vmi.Namespace),
+							ContainSubstring(`name="%s"`, vmi.Name),
+						))
+					}
 				}
 			}
 		}, 300)
