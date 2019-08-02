@@ -14,6 +14,7 @@ ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
 ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DIR}/api/openapi-spec/swagger.json
 
 (cd ${KUBEVIRT_DIR}/tools/resource-generator/ && go build)
+(cd ${KUBEVIRT_DIR}/tools/csv-generator/ && go build)
 rm -f ${KUBEVIRT_DIR}/manifests/generated/*
 rm -f ${KUBEVIRT_DIR}/examples/*
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmi >${KUBEVIRT_DIR}/manifests/generated/vmi-resource.yaml
@@ -36,19 +37,41 @@ virtapi_version=$(getVersion ".VirtApiSha")
 virtcontroller_version=$(getVersion ".VirtControllerSha")
 virthandler_version=$(getVersion ".VirtHandlerSha")
 virtlauncher_version=$(getVersion ".VirtLauncherSha")
+virtoperator_version=$(getVersion ".VirtOperatorSha")
 
 # used as env var for operator
 function getShasum() {
     echo "{{if $1}}@{{$1}}{{end}}"
+}
+
+# without the '@' symbole used in 'getShasum'
+function getRawShasum() {
+    echo "{{if $1}}{{$1}}{{end}}"
 }
 virtapi_sha=$(getShasum ".VirtApiSha")
 virtcontroller_sha=$(getShasum ".VirtControllerSha")
 virthandler_sha=$(getShasum ".VirtHandlerSha")
 virtlauncher_sha=$(getShasum ".VirtLauncherSha")
 
+virtapi_rawsha=$(getRawShasum ".VirtApiSha")
+virtcontroller_rawsha=$(getRawShasum ".VirtControllerSha")
+virthandler_rawsha=$(getRawShasum ".VirtHandlerSha")
+virtlauncher_rawsha=$(getRawShasum ".VirtLauncherSha")
+
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-api --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virtapi_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-api.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-controller --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virtcontroller_version" --launcherVersion="$virtlauncher_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-controller.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-handler --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virthandler_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-handler.yaml.in
+
+# The generation code for CSV requires a valid semver to be used.
+# But we're trying to generate a template for a CSV here from code
+# rather than an actual usable CSV. To work around this, we set the
+# versions to something absurd and do a find/replace with our templated
+# values after the file is generated.
+_fake_replaces_csv_version="1111.1111.1111"
+_fake_csv_version="2222.2222.2222"
+${KUBEVIRT_DIR}/tools/csv-generator/csv-generator --namespace={{.CSVNamespace}} --dockerPrefix={{.DockerPrefix}} --operatorImageVersion="$virtoperator_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} --apiSha="$virtapi_rawsha" --controllerSha="$virtcontroller_rawsha" --handlerSha="$virthandler_rawsha" --launcherSha="$virtlauncher_rawsha" --kubevirtLogo={{.KubeVirtLogo}} --csvVersion="$_fake_csv_version" --replacesCsvVersion="$_fake_replaces_csv_version" --csvCreatedAtTimestamp={{.CreatedAt}} --kubeVirtVersion={{.DockerTag}} >${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
+sed -i "s/$_fake_csv_version/{{.CsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
+sed -i "s/$_fake_replaces_csv_version/{{.ReplacesCsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 
 (cd ${KUBEVIRT_DIR}/tools/vms-generator/ && go build)
 vms_docker_prefix=${DOCKER_PREFIX:-registry:5000/kubevirt}

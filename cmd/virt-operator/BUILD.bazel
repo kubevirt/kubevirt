@@ -36,7 +36,10 @@ container_image(
     base = ":version-container",
     directory = "/usr/bin/",
     entrypoint = ["/usr/bin/virt-operator"],
-    files = [":virt-operator"],
+    files = [
+        ":virt-operator",
+        "//tools/csv-generator",
+    ],
     user = "1001",
     visibility = ["//visibility:public"],
 )

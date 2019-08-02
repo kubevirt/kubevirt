@@ -1,6 +1,5 @@
-# cloud.google.com/go v0.0.0-20160913182117-3b1ae45394a2
+# cloud.google.com/go v0.26.0
 cloud.google.com/go/compute/metadata
-cloud.google.com/go/internal
 # github.com/Azure/go-autorest v11.1.0+incompatible => github.com/Azure/go-autorest v11.0.0+incompatible
 github.com/Azure/go-autorest/autorest
 github.com/Azure/go-autorest/autorest/adal
@@ -20,14 +19,16 @@ github.com/beorn7/perks/quantile
 github.com/blang/semver
 # github.com/coreos/go-iptables v0.4.1
 github.com/coreos/go-iptables/iptables
+# github.com/coreos/go-semver v0.2.0
+github.com/coreos/go-semver/semver
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
-# github.com/dgrijalva/jwt-go v0.0.0-20160705203006-01aeca54ebda
+# github.com/dgrijalva/jwt-go v3.2.0+incompatible
 github.com/dgrijalva/jwt-go
 # github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c
 github.com/docker/spdystream
 github.com/docker/spdystream/spdy
-# github.com/emicklei/go-restful v2.6.0+incompatible
+# github.com/emicklei/go-restful v2.8.1+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
 # github.com/emicklei/go-restful-openapi v0.10.0
@@ -69,7 +70,7 @@ github.com/go-openapi/runtime/middleware/untyped
 github.com/go-openapi/runtime/security
 # github.com/go-openapi/spec v0.17.2
 github.com/go-openapi/spec
-# github.com/go-openapi/strfmt v0.17.0
+# github.com/go-openapi/strfmt v0.18.0
 github.com/go-openapi/strfmt
 # github.com/go-openapi/swag v0.19.0
 github.com/go-openapi/swag
@@ -77,7 +78,7 @@ github.com/go-openapi/swag
 github.com/go-openapi/validate
 # github.com/go-stack/stack v1.8.0
 github.com/go-stack/stack
-# github.com/gogo/protobuf v1.1.1
+# github.com/gogo/protobuf v1.2.0
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
@@ -86,7 +87,7 @@ github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/golang/glog
 # github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
 github.com/golang/groupcache/lru
-# github.com/golang/mock v0.0.0-20190509174753-d74b93584564
+# github.com/golang/mock v1.1.1
 github.com/golang/mock/gomock
 # github.com/golang/protobuf v1.3.1
 github.com/golang/protobuf/proto
@@ -94,7 +95,7 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/google/btree v0.0.0-20160524151835-7d79101e329e
+# github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c
 github.com/google/btree
 # github.com/google/goexpect v0.0.0-20190425035906-112704a48083
 github.com/google/goexpect
@@ -116,9 +117,9 @@ github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/openstack/utils
 github.com/gophercloud/gophercloud/openstack/identity/v2/tenants
 github.com/gophercloud/gophercloud/pagination
-# github.com/gorilla/websocket v0.0.0-20180228210902-0647012449a1
+# github.com/gorilla/websocket v1.4.0
 github.com/gorilla/websocket
-# github.com/gregjones/httpcache v0.0.0-20170728041850-787624de3eb7
+# github.com/gregjones/httpcache v0.0.0-20181110185634-c63ab54fda8f
 github.com/gregjones/httpcache
 github.com/gregjones/httpcache/diskcache
 # github.com/hashicorp/golang-lru v0.5.1
@@ -130,7 +131,7 @@ github.com/hpcloud/tail/ratelimiter
 github.com/hpcloud/tail/util
 github.com/hpcloud/tail/watch
 github.com/hpcloud/tail/winfile
-# github.com/imdario/mergo v0.3.5
+# github.com/imdario/mergo v0.3.6
 github.com/imdario/mergo
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
@@ -215,6 +216,9 @@ github.com/operator-framework/go-appr/models
 github.com/operator-framework/go-appr/appregistry/appr
 github.com/operator-framework/go-appr/appregistry/channel
 github.com/operator-framework/go-appr/appregistry/info
+# github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
+github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1
+github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
 # github.com/operator-framework/operator-marketplace v0.0.0-20190508022032-93d436f211c1
 github.com/operator-framework/operator-marketplace/pkg/appregistry
 github.com/operator-framework/operator-marketplace/pkg/datastore
@@ -238,7 +242,7 @@ github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 # github.com/spf13/cobra v0.0.3
 github.com/spf13/cobra
-# github.com/spf13/pflag v1.0.1
+# github.com/spf13/pflag v1.0.3
 github.com/spf13/pflag
 # github.com/subgraph/libmacouflage v0.0.1
 github.com/subgraph/libmacouflage
@@ -258,21 +262,21 @@ golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/subtle
 # golang.org/x/net v0.0.0-20190311183353-d8887717615a
 golang.org/x/net/context
-golang.org/x/net/http2
 golang.org/x/net/trace
+golang.org/x/net/http2
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/ipv4
-golang.org/x/net/http/httpguts
-golang.org/x/net/http2/hpack
-golang.org/x/net/idna
 golang.org/x/net/internal/timeseries
+golang.org/x/net/http2/hpack
+golang.org/x/net/http/httpguts
+golang.org/x/net/idna
 golang.org/x/net/html/charset
 golang.org/x/net/bpf
 golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
 golang.org/x/net/html
 golang.org/x/net/html/atom
-# golang.org/x/oauth2 v0.0.0-20170412232759-a6bd8cefa181
+# golang.org/x/oauth2 v0.0.0-20181105165119-ca4130e427c7
 golang.org/x/oauth2
 golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
@@ -302,22 +306,22 @@ golang.org/x/text/language
 golang.org/x/text/internal/utf8internal
 golang.org/x/text/runes
 golang.org/x/text/internal/tag
-# golang.org/x/time v0.0.0-20161028155119-f51c12702a4d
+# golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
 golang.org/x/time/rate
 # google.golang.org/appengine v1.5.0
-google.golang.org/appengine/urlfetch
 google.golang.org/appengine
+google.golang.org/appengine/urlfetch
 google.golang.org/appengine/internal
-google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/internal/app_identity
 google.golang.org/appengine/internal/modules
+google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/internal/base
 google.golang.org/appengine/internal/datastore
 google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/remote_api
-# google.golang.org/genproto v0.0.0-20170731182057-09f6ed296fc6
+# google.golang.org/genproto v0.0.0-20181016170114-94acd270e44e
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.13.0
+# google.golang.org/grpc v1.16.0
 google.golang.org/grpc
 google.golang.org/grpc/codes
 google.golang.org/grpc/status
@@ -331,6 +335,9 @@ google.golang.org/grpc/grpclog
 google.golang.org/grpc/internal
 google.golang.org/grpc/internal/backoff
 google.golang.org/grpc/internal/channelz
+google.golang.org/grpc/internal/envconfig
+google.golang.org/grpc/internal/grpcrand
+google.golang.org/grpc/internal/transport
 google.golang.org/grpc/keepalive
 google.golang.org/grpc/metadata
 google.golang.org/grpc/naming
@@ -340,9 +347,7 @@ google.golang.org/grpc/resolver/dns
 google.golang.org/grpc/resolver/passthrough
 google.golang.org/grpc/stats
 google.golang.org/grpc/tap
-google.golang.org/grpc/transport
 google.golang.org/grpc/balancer/base
-google.golang.org/grpc/internal/grpcrand
 # gopkg.in/cheggaaa/pb.v1 v1.0.28
 gopkg.in/cheggaaa/pb.v1
 # gopkg.in/fsnotify.v1 v1.4.7
@@ -446,7 +451,7 @@ k8s.io/apimachinery/third_party/forked/golang/reflect
 k8s.io/apimachinery/pkg/apis/meta/internalversion
 k8s.io/apimachinery/pkg/util/framer
 k8s.io/apimachinery/third_party/forked/golang/netutil
-# k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4 => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
+# k8s.io/client-go v8.0.0+incompatible => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
 k8s.io/client-go/rest
 k8s.io/client-go/kubernetes/scheme
 k8s.io/client-go/kubernetes/typed/core/v1

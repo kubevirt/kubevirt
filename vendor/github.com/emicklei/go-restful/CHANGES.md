@@ -1,5 +1,20 @@
 Change history of go-restful
 =
+
+v2.8.1
+- Fix Parameter 'AllowableValues' to populate swagger definition
+
+v2.8.0
+- add Request.QueryParameters()
+- add json-iterator (via build tag)
+- disable vgo module (until log is moved)
+
+v2.7.1
+- add vgo module
+
+v2.6.1
+- add JSONNewDecoderFunc to allow custom JSON Decoder usage (go 1.10+)
+
 v2.6.0
 - Make JSR 311 routing and path param processing consistent
 - Adding description to RouteBuilder.Reads()

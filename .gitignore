@@ -2,6 +2,7 @@
 *.iml
 tools/openapispec/openapispec
 tools/crd-generator/crd-generator
+tools/csv-generator/csv-generator
 tools/resource-generator/resource-generator
 tools/marketplace/marketplace
 **/bin

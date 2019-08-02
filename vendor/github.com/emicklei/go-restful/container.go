@@ -97,7 +97,7 @@ func (c *Container) Add(service *WebService) *Container {
 	// cannot have duplicate root paths
 	for _, each := range c.webServices {
 		if each.RootPath() == service.RootPath() {
-			log.Printf("[restful] WebService with duplicate root path detected:['%v']", each)
+			log.Printf("WebService with duplicate root path detected:['%v']", each)
 			os.Exit(1)
 		}
 	}
@@ -139,7 +139,7 @@ func (c *Container) addHandler(service *WebService, serveMux *http.ServeMux) boo
 
 func (c *Container) Remove(ws *WebService) error {
 	if c.ServeMux == http.DefaultServeMux {
-		errMsg := fmt.Sprintf("[restful] cannot remove a WebService from a Container using the DefaultServeMux: ['%v']", ws)
+		errMsg := fmt.Sprintf("cannot remove a WebService from a Container using the DefaultServeMux: ['%v']", ws)
 		log.Print(errMsg)
 		return errors.New(errMsg)
 	}
@@ -168,7 +168,7 @@ func (c *Container) Remove(ws *WebService) error {
 // This may be a security issue as it exposes sourcecode information.
 func logStackOnRecover(panicReason interface{}, httpWriter http.ResponseWriter) {
 	var buffer bytes.Buffer
-	buffer.WriteString(fmt.Sprintf("[restful] recover from panic situation: - %v\r\n", panicReason))
+	buffer.WriteString(fmt.Sprintf("recover from panic situation: - %v\r\n", panicReason))
 	for i := 2; ; i += 1 {
 		_, file, line, ok := runtime.Caller(i)
 		if !ok {
@@ -228,7 +228,7 @@ func (c *Container) dispatch(httpWriter http.ResponseWriter, httpRequest *http.R
 			var err error
 			writer, err = NewCompressingResponseWriter(httpWriter, encoding)
 			if err != nil {
-				log.Print("[restful] unable to install compressor: ", err)
+				log.Print("unable to install compressor: ", err)
 				httpWriter.WriteHeader(http.StatusInternalServerError)
 				return
 			}
