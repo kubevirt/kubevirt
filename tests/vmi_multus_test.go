@@ -679,7 +679,7 @@ var _ = Describe("SRIOV", func() {
 				[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
 			)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(out).To(Equal("openshift.com/sriov_net\n"))
+			Expect(out).To(Equal("openshift.io/sriov_net\n"))
 
 			checkDefaultInterfaceInPod(vmi)
 
@@ -704,7 +704,7 @@ var _ = Describe("SRIOV", func() {
 					[]string{"sh", "-c", fmt.Sprintf("echo $KUBEVIRT_RESOURCE_NAME_%s", name)},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(out).To(Equal("openshift.com/sriov_net\n"))
+				Expect(out).To(Equal("openshift.io/sriov_net\n"))
 			}
 
 			checkDefaultInterfaceInPod(vmi)
