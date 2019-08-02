@@ -33,18 +33,17 @@ wait_containers_ready
 
 ${CONTROL_PLANE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when it starts, we need it to be writeable
 
-RELEASE_VERSION=v0.9.0
-curl -OJL https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
-chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
-go get github.com/openshift/sriov-network-operator
-GOPATH=~/go
-pushd $GOPATH/src/github.com/openshift/sriov-network-operator
+git clone https://github.com/openshift/sriov-network-operator.git
+pushd sriov-network-operator
 make deploy-setup
 popd
 
 kubectl label node sriov-control-plane node-role.kubernetes.io/worker=
 kubectl label node sriov-control-plane sriov=true 
-kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 12m
+kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 6m
+
+sleep 5 #give the operator the time to spin the node config daemon
+kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 6m
 
 # TO BE FIXED IN SRIOV OPERATOR
 NETWORK_DAEMON_POD=$(kubectl get pods -n sriov-network-operator | grep sriov-network-config-daemon | awk '{print $1}')
@@ -56,10 +55,10 @@ EOL
 "
 
 kubectl create -f $MANIFESTS_DIR/network_policy.yaml
-sleep 5
+sleep 10 #let the cni daemon appear
 kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 12m
 
 ${CONTROL_PLANE_CMD} chmod 666 /dev/vfio/vfio
-
 # TO BE FIXED IN SRIOV OPERATOR
 ${CONTROL_PLANE_CMD} cp /var/lib/cni/bin/sriov /opt/cni/bin/
+
