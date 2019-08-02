@@ -43,8 +43,8 @@ import (
 )
 
 const (
-	arrayLenMax         = 256
-	maxStrLen           = 256
+	arrayLenMax = 256
+	maxStrLen   = 256
 
 	// Accomodate large userdata config
 	cloudInitUserMaxLen = 16384
