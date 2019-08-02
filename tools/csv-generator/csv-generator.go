@@ -23,6 +23,7 @@ import (
 	"flag"
 	"os"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/csv"
 	"kubevirt.io/kubevirt/tools/util"
 )
@@ -42,6 +43,7 @@ func main() {
 	csvVersion := flag.String("csvVersion", "", "the CSV version being generated")
 	replacesCsvVersion := flag.String("replacesCsvVersion", "", "the CSV version being replaced by this generated CSV")
 	csvCreatedAtTimestamp := flag.String("csvCreatedAtTimestamp", "", "creation timestamp set in the 'createdAt' annotation on the CSV")
+	dumpCRDs := flag.Bool("dumpCRDs", false, "dump CRDs along with CSV manifests to stdout")
 
 	flag.Parse()
 
@@ -67,5 +69,11 @@ func main() {
 	if err != nil {
 		panic(nil)
 	}
+
 	util.MarshallObject(operatorCsv, os.Stdout)
+
+	if *dumpCRDs {
+		kvCRD := components.NewKubeVirtCrd()
+		util.MarshallObject(kvCRD, os.Stdout)
+	}
 }
