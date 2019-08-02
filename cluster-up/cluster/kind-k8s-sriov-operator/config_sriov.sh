@@ -22,6 +22,9 @@ for ifs in "${sriov_pfs[@]}"; do
   ip link set "$ifs_name" netns "${CLUSTER_NAME}-control-plane"
 done
 
+FIRST_PF=${sriov_pfs[0]}
+echo "PF choosen $FIRST_PF"
+
 # deploy multus
 kubectl create -f $MANIFESTS_DIR/multus.yaml
 
@@ -33,8 +36,13 @@ wait_containers_ready
 
 ${CONTROL_PLANE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when it starts, we need it to be writeable
 
-git clone https://github.com/openshift/sriov-network-operator.git
-pushd sriov-network-operator
+OPERATOR_PATH=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/sriov-network-operator
+
+if [[ ! -d $OPERATOR_PATH ]]; then
+  git clone https://github.com/openshift/sriov-network-operator.git $OPERATOR_PATH
+fi
+
+pushd $OPERATOR_PATH
 make deploy-setup
 popd
 
@@ -55,8 +63,10 @@ EOL
 "
 
 kubectl create -f $MANIFESTS_DIR/network_policy.yaml
-sleep 10 #let the cni daemon appear
-kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 12m
+sleep 5 #let the cni daemon appear
+
+SRIOVCNI_DAEMON_POD=$(kubectl get pods -n sriov-network-operator | grep sriov-cni | awk '{print $1}')
+kubectl wait --for=condition=Ready -n sriov-network-operator pod $SRIOVCNI_DAEMON_POD --timeout 12m
 
 ${CONTROL_PLANE_CMD} chmod 666 /dev/vfio/vfio
 # TO BE FIXED IN SRIOV OPERATOR
