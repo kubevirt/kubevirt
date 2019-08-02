@@ -1152,7 +1152,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			tests.CreateSecret(secretName, secret_data)
 
 			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2G")
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 			tests.AddUserData(vmi, "cloud-init", "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n")
 			tests.AddConfigMapDisk(vmi, configMapName)
 			tests.AddSecretDisk(vmi, secretName)
@@ -1163,7 +1163,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migrationUID := runMigrationAndExpectCompletion(migration, 180)
+			migrationUID := runMigrationAndExpectCompletion(migration, 240)
 
 			// check VMI, confirm migration state
 			confirmVMIPostMigration(vmi, migrationUID)
