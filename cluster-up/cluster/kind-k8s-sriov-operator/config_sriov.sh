@@ -46,10 +46,20 @@ kubectl label node sriov-control-plane node-role.kubernetes.io/worker=
 kubectl label node sriov-control-plane sriov=true 
 kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 12m
 
+# TO BE FIXED IN SRIOV OPERATOR
+NETWORK_DAEMON_POD=$(kubectl get pods -n sriov-network-operator | grep sriov-network-config-daemon | awk '{print $1}')
+kubectl exec -n sriov-network-operator $NETWORK_DAEMON_POD -- bash -c "cat >bindata/scripts/enable-kargs.sh <<EOL
+#!/bin/bash
+set -x
+echo 0
+EOL
+"
+
 kubectl create -f $MANIFESTS_DIR/network_policy.yaml
 sleep 5
 kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 12m
 
 ${CONTROL_PLANE_CMD} chmod 666 /dev/vfio/vfio
 
+# TO BE FIXED IN SRIOV OPERATOR
 ${CONTROL_PLANE_CMD} cp /var/lib/cni/bin/sriov /opt/cni/bin/
