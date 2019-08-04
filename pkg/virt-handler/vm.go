@@ -41,6 +41,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -75,6 +77,7 @@ func NewController(
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	detector := isolation.NewSocketBasedIsolationDetector(virtShareDir)
 
 	c := &VirtualMachineController{
 		Queue:                    queue,
@@ -90,7 +93,8 @@ func NewController(
 		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir, tlsConfig),
-		podIsolationDetector:     isolation.NewSocketBasedIsolationDetector(virtShareDir),
+		podIsolationDetector:     detector,
+		containerDiskMounter:     &container_disk.Mounter{PodIsolationDetector: detector},
 		clusterConfig:            clusterConfig,
 	}
 
@@ -143,6 +147,7 @@ type VirtualMachineController struct {
 	kvmController            *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
+	containerDiskMounter     *container_disk.Mounter
 	clusterConfig            *virtconfig.ClusterConfig
 }
 
@@ -986,6 +991,12 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	d.migrationProxy.StopTargetListener(string(vmi.UID))
 	d.migrationProxy.StopSourceListener(string(vmi.UID))
 
+	// Unmount container disks and clean up remaining files
+	err = d.containerDiskMounter.Unmount(vmi)
+	if err != nil {
+		return err
+	}
+
 	// Watch dog file must be the last thing removed here
 	err = watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
 	if err != nil {
@@ -1352,9 +1363,15 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	}
 
 	if d.isPreMigrationTarget(vmi) {
-		err = client.SyncMigrationTarget(vmi)
-		if err != nil {
+
+		// Mount container disks
+		if err := d.containerDiskMounter.Mount(vmi, false); err != nil {
+			return err
+		}
+
+		if err := client.SyncMigrationTarget(vmi); err != nil {
 			return fmt.Errorf("syncing migration target failed: %v", err)
+
 		}
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 
@@ -1386,6 +1403,13 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is migrating.")
 		}
 	} else {
+
+		if !vmi.IsRunning() && !vmi.IsFinal() {
+			if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
+				return err
+			}
+		}
+
 		err = client.SyncVirtualMachine(vmi)
 		if err != nil {
 			return err

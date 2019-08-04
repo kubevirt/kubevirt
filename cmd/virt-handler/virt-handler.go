@@ -23,14 +23,18 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/errors"
+
+	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,8 +79,6 @@ const (
 
 	podIpAddress = ""
 
-	virtShareDir = "/var/run/kubevirt"
-
 	// This value is derived from default MaxPods in Kubelet Config
 	maxDevices = 110
 
@@ -94,6 +96,7 @@ type virtHandlerApp struct {
 	HostOverride            string
 	PodIpAddress            string
 	VirtShareDir            string
+	VirtLibDir              string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
 	MaxRequestsInFlight     int
@@ -175,9 +178,36 @@ func (app *virtHandlerApp) Run() {
 
 	logger := log.Log
 	logger.V(1).Level(log.INFO).Log("hostname", app.HostOverride)
-
-	// Create event recorder
 	var err error
+
+	// Copy container-disk binary
+	targetFile := filepath.Join(app.VirtLibDir, "/init/usr/bin/container-disk")
+	err = os.MkdirAll(filepath.Dir(targetFile), os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+	err = copy("/usr/bin/container-disk", targetFile)
+	if err != nil {
+		panic(err)
+	}
+
+	se, exists, err := selinux.NewSELinux()
+	if err == nil && exists {
+		for _, dir := range []string{app.VirtShareDir, app.VirtLibDir} {
+			err := se.Label("container_file_t", dir)
+			if err != nil {
+				panic(err)
+			}
+			err = se.Restore(dir)
+			if err != nil {
+				panic(err)
+			}
+		}
+	} else if err != nil {
+		//an error occured
+		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
+	}
+	// Create event recorder
 	app.virtCli, err = kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
@@ -303,8 +333,11 @@ func (app *virtHandlerApp) AddFlags() {
 	flag.StringVar(&app.PodIpAddress, "pod-ip-address", podIpAddress,
 		"The pod ip address")
 
-	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", virtShareDir,
+	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", util.VirtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
+
+	flag.StringVar(&app.VirtLibDir, "kubevirt-lib-dir", util.VirtLibDir,
+		"Shared lib directory between virt-handler and virt-launcher")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
 		"Watchdog file timeout")
@@ -381,4 +414,27 @@ func main() {
 	service.Setup(app)
 	log.InitializeLogging("virt-handler")
 	app.Run()
+}
+
+func copy(sourceFile string, targetFile string) error {
+
+	target, err := os.Create(targetFile)
+	if err != nil {
+		return fmt.Errorf("failed to crate target file: %v", err)
+	}
+	defer target.Close()
+	source, err := os.Open(sourceFile)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %v", err)
+	}
+	defer source.Close()
+	_, err = io.Copy(target, source)
+	if err != nil {
+		return fmt.Errorf("failed to copy file: %v", err)
+	}
+	err = os.Chmod(targetFile, 0555)
+	if err != nil {
+		return fmt.Errorf("failed to make file executable: %v", err)
+	}
+	return nil
 }

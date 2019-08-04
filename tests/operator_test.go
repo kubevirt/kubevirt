@@ -451,7 +451,7 @@ var _ = Describe("Operator", func() {
 		}
 	})
 
-	generateVmYamls := func() {
+	generatePreviousVersionVmYamls := func(previousImageRegistry string, previousImageTag string) {
 		ext, err := extclient.NewForConfig(virtClient.Config())
 		Expect(err).ToNot(HaveOccurred())
 
@@ -509,7 +509,7 @@ spec:
 
             echo 'printed from cloud-init userdata'
         name: cloudinitdisk
-`, version, version, version, version, tests.KubeVirtUtilityRepoPrefix, tests.ContainerDiskCirros, tests.KubeVirtUtilityVersionTag)
+`, version, version, version, version, previousImageRegistry, tests.ContainerDiskCirros, previousImageTag)
 
 			yamlFile := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
 			err = ioutil.WriteFile(yamlFile, []byte(vmYaml), 0644)
@@ -694,7 +694,7 @@ spec:
 			// needs to be a VM created for every api. This is how we will ensure
 			// our api remains upgradable and supportable from previous release.
 
-			generateVmYamls()
+			generatePreviousVersionVmYamls(previousImageRegistry, previousImageTag)
 			for _, vmYaml := range vmYamls {
 				By(fmt.Sprintf("Creating VM with %s api", vmYaml.vmName))
 				// NOTE: using kubectl to post yaml directly

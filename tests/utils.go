@@ -2332,11 +2332,12 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 type ContainerDisk string
 
 const (
-	ContainerDiskCirros ContainerDisk = "cirros"
-	ContainerDiskAlpine ContainerDisk = "alpine"
-	ContainerDiskFedora ContainerDisk = "fedora-cloud"
-	ContainerDiskVirtio ContainerDisk = "virtio-container-disk"
-	ContainerDiskEmpty  ContainerDisk = "empty"
+	ContainerDiskCirrosCustomLocation ContainerDisk = "cirros-custom"
+	ContainerDiskCirros               ContainerDisk = "cirros"
+	ContainerDiskAlpine               ContainerDisk = "alpine"
+	ContainerDiskFedora               ContainerDisk = "fedora-cloud"
+	ContainerDiskVirtio               ContainerDisk = "virtio-container-disk"
+	ContainerDiskEmpty                ContainerDisk = "empty"
 )
 
 // ContainerDiskFor takes the name of an image and returns the full
@@ -2344,7 +2345,7 @@ const (
 // Supported values are: cirros, fedora, alpine, guest-agent
 func ContainerDiskFor(name ContainerDisk) string {
 	switch name {
-	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora:
+	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora, ContainerDiskCirrosCustomLocation:
 		return fmt.Sprintf("%s/%s-container-disk-demo:%s", KubeVirtUtilityRepoPrefix, name, KubeVirtUtilityVersionTag)
 	case ContainerDiskVirtio:
 		return fmt.Sprintf("%s/virtio-container-disk:%s", KubeVirtUtilityRepoPrefix, KubeVirtUtilityVersionTag)

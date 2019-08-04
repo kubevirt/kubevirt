@@ -33,8 +33,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
-
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
@@ -43,6 +41,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -56,12 +55,14 @@ const (
 	EFIVarsPath            = "/usr/share/OVMF/OVMF_VARS.fd"
 )
 
+// +k8s:deepcopy-gen=false
 type ConverterContext struct {
 	UseEmulation   bool
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachineInstance
 	CPUSet         []int
 	IsBlockPVC     map[string]bool
+	DiskType       map[string]*containerdisk.DiskInfo
 	SRIOVDevices   map[string][]string
 }
 
@@ -221,10 +222,10 @@ func Add_Agent_To_api_Channel() (channel Channel) {
 	return
 }
 
-func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterContext) error {
+func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterContext, diskIndex int) error {
 
 	if source.ContainerDisk != nil {
-		return Convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, c)
+		return Convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, c, diskIndex)
 	}
 
 	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
@@ -358,18 +359,24 @@ func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 	return nil
 }
 
-func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *Disk, c *ConverterContext) error {
+func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *Disk, c *ConverterContext, diskIndex int) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
 	}
-
 	disk.Type = "file"
-	diskPath, diskType, err := containerdisk.GetFilePath(c.VirtualMachine, volumeName)
-	if err != nil {
-		return err
+	disk.Driver.Type = "qcow2"
+	disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
+	disk.BackingStore = &BackingStore{
+		Format: &BackingStoreFormat{},
+		Source: &DiskSource{},
 	}
-	disk.Driver.Type = diskType
-	disk.Source.File = diskPath
+
+	source := containerdisk.GenerateDiskTargetPathFromLauncherView(diskIndex)
+
+	disk.BackingStore.Format.Type = c.DiskType[volumeName].Format
+	disk.BackingStore.Source.File = source
+	disk.BackingStore.Type = "file"
+
 	return nil
 }
 
@@ -690,9 +697,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
+	volumeIndices := map[string]int{}
 	volumes := map[string]*v1.Volume{}
-	for _, volume := range vmi.Spec.Volumes {
+	for i, volume := range vmi.Spec.Volumes {
 		volumes[volume.Name] = volume.DeepCopy()
+		volumeIndices[volume.Name] = i
 	}
 
 	dedicatedThreads := 0
@@ -773,7 +782,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if volume == nil {
 			return fmt.Errorf("No matching volume with name %s found", disk.Name)
 		}
-		err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c)
+		err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
 		if err != nil {
 			return err
 		}

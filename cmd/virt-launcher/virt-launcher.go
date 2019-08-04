@@ -22,7 +22,6 @@ package main
 import (
 	goflag "flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -164,6 +163,7 @@ func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, st
 
 func initializeDirs(virtShareDir string,
 	ephemeralDiskDir string,
+	containerDiskDir string,
 	uid string) {
 
 	err := virtlauncher.InitializeSharedDirectories(virtShareDir)
@@ -186,7 +186,7 @@ func initializeDirs(virtShareDir string,
 		panic(err)
 	}
 
-	err = containerdisk.SetLocalDirectory(ephemeralDiskDir + "/container-disk-data")
+	err = containerdisk.SetLocalDirectory(containerDiskDir)
 	if err != nil {
 		panic(err)
 	}
@@ -312,21 +312,11 @@ func writeProtectPrivateDir(uid string) {
 	}
 }
 
-func cleanupEphemeralDiskDirectory(ephemeralDiskDir string) {
+func cleanupContainerDiskDirectory(ephemeralDiskDir string) {
 	// Cleanup the content of ephemeralDiskDir, to make sure that all containerDisk containers terminate
-	if _, err := os.Stat(ephemeralDiskDir); !os.IsNotExist(err) {
-		dir, err := ioutil.ReadDir(ephemeralDiskDir)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to read content of the ephemeral disk directory: %s", ephemeralDiskDir)
-			return
-		}
-		for _, d := range dir {
-			removePath := filepath.Join(ephemeralDiskDir, d.Name())
-			err := os.RemoveAll(removePath)
-			if err != nil {
-				log.Log.Reason(err).Errorf("could not clean up ephemeral disk directory: %s", removePath)
-			}
-		}
+	err := RemoveContents(ephemeralDiskDir)
+	if err != nil {
+		log.Log.Reason(err).Errorf("could not clean up ephemeral disk directory: %s", ephemeralDiskDir)
 	}
 }
 
@@ -334,6 +324,7 @@ func main() {
 	qemuTimeout := pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := pflag.String("ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks", "Base directory for ephemeral disk data")
+	containerDiskDir := pflag.String("container-disk-dir", "/var/run/kubevirt/container-disks", "Base directory for container disk data")
 	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
 	uid := pflag.String("uid", "", "UID of the VirtualMachineInstance")
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
@@ -354,7 +345,7 @@ func main() {
 	log.InitializeLogging("virt-launcher")
 
 	if !*noFork {
-		exitCode, err := ForkAndMonitor("qemu-system", *ephemeralDiskDir)
+		exitCode, err := ForkAndMonitor("qemu-system", *ephemeralDiskDir, *containerDiskDir)
 		if err != nil {
 			log.Log.Reason(err).Error("monitoring virt-launcher failed")
 			os.Exit(1)
@@ -372,7 +363,7 @@ func main() {
 	vm := v1.NewVMIReferenceFromNameWithNS(*namespace, *name)
 
 	// Initialize local and shared directories
-	initializeDirs(*virtShareDir, *ephemeralDiskDir, *uid)
+	initializeDirs(*virtShareDir, *ephemeralDiskDir, *containerDiskDir, *uid)
 
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
@@ -486,8 +477,8 @@ func main() {
 
 // ForkAndMonitor itself to give qemu an extra grace period to properly terminate
 // in case of virt-launcher crashes
-func ForkAndMonitor(qemuProcessCommandPrefix string, ephemeralDiskDir string) (int, error) {
-	defer cleanupEphemeralDiskDirectory(ephemeralDiskDir)
+func ForkAndMonitor(qemuProcessCommandPrefix string, ephemeralDiskDir string, containerDiskDir string) (int, error) {
+	defer cleanupContainerDiskDirectory(containerDiskDir)
 	cmd := exec.Command(os.Args[0], append(os.Args[1:], "--no-fork", "true")...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -568,4 +559,18 @@ func ForkAndMonitor(qemuProcessCommandPrefix string, ephemeralDiskDir string) (i
 		})
 	}
 	return exitCode, nil
+}
+
+func RemoveContents(dir string) error {
+	files, err := filepath.Glob(filepath.Join(dir, "*.sock"))
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		err = os.RemoveAll(file)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

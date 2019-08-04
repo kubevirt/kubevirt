@@ -390,21 +390,25 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 	pod.Volumes = []corev1.Volume{}
 
 	type volume struct {
-		name string
-		path string
+		name             string
+		path             string
+		mountPropagation *corev1.MountPropagationMode
 	}
 
+	bidi := corev1.MountPropagationBidirectional
 	volumes := []volume{
-		{"libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes"},
-		{"virt-share-dir", "/var/run/kubevirt"},
-		{"virt-private-dir", "/var/run/kubevirt-private"},
-		{"device-plugin", "/var/lib/kubelet/device-plugins"},
+		{"libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes", nil},
+		{"virt-share-dir", "/var/run/kubevirt", &bidi},
+		{"virt-lib-dir", "/var/lib/kubevirt", nil},
+		{"virt-private-dir", "/var/run/kubevirt-private", nil},
+		{"device-plugin", "/var/lib/kubelet/device-plugins", nil},
 	}
 
 	for _, volume := range volumes {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-			Name:      volume.name,
-			MountPath: volume.path,
+			Name:             volume.name,
+			MountPath:        volume.path,
+			MountPropagation: volume.mountPropagation,
 		})
 		pod.Volumes = append(pod.Volumes, corev1.Volume{
 			Name: volume.name,

@@ -95,7 +95,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
 			config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
-			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", pvcCache, app.VirtCli, config)
+			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", "whatever", "whatever", pvcCache, app.VirtCli, config)
 
 			pod, err := templateService.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -268,7 +268,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
 			config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
-			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", pvcCache, app.VirtCli, config)
+			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", "whatever", "whatever", pvcCache, app.VirtCli, config)
 
 			pod, err := templateService.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
