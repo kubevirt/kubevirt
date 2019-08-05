@@ -44,14 +44,16 @@ import (
 
 type SubresourceAPIApp struct {
 	virtCli                 kubecli.KubevirtClient
+	consoleServerPort       int
 	consoleTLSConfiguration *tls.Config
 	credentialsLock         *sync.Mutex
 }
 
-func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient) *SubresourceAPIApp {
+func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int) *SubresourceAPIApp {
 	return &SubresourceAPIApp{
-		virtCli:         virtCli,
-		credentialsLock: &sync.Mutex{},
+		virtCli:           virtCli,
+		consoleServerPort: consoleServerPort,
+		credentialsLock:   &sync.Mutex{},
 	}
 }
 
@@ -240,7 +242,7 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 		return nil
 	}
 	getConsoleURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.VNCURI(vmi)
+		return conn.SetPort(app.consoleServerPort).VNCURI(vmi)
 	}
 	app.streamRequestHandler(request, response, validate, getConsoleURL)
 }
@@ -258,7 +260,7 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 		return nil
 	}
 	getConsoleURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.ConsoleURI(vmi)
+		return conn.SetPort(app.consoleServerPort).ConsoleURI(vmi)
 	}
 	app.streamRequestHandler(request, response, validate, getConsoleURL)
 }

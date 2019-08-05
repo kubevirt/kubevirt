@@ -2,6 +2,7 @@ package kubecli
 
 import (
 	"fmt"
+	"strconv"
 
 	v1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +30,7 @@ type VirtHandlerConn interface {
 	ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	Pod() (pod *v1.Pod, err error)
+	SetPort(port int) VirtHandlerConn
 }
 
 type virtHandler struct {
@@ -39,6 +41,7 @@ type virtHandlerConn struct {
 	client KubevirtClient
 	pod    *v1.Pod
 	err    error
+	port   string
 }
 
 func (v *virtHandler) ForNode(nodeName string) VirtHandlerConn {
@@ -88,6 +91,9 @@ func (v *virtHandlerConn) ConnectionDetails() (ip string, port string, err error
 	ip = v.pod.Status.PodIP
 	// TODO get rid of the hardcoded port
 	port = "8185"
+	if v.port != "" {
+		port = v.port
+	}
 	return
 }
 
@@ -98,6 +104,11 @@ func (v *virtHandlerConn) ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string
 		return "", err
 	}
 	return fmt.Sprintf(consoleTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+}
+
+func (v *virtHandlerConn) SetPort(port int) VirtHandlerConn {
+	v.port = strconv.Itoa(port)
+	return v
 }
 
 func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error) {

@@ -90,6 +90,8 @@ const (
 	certBytesValue        = "cert-bytes"
 	keyBytesValue         = "key-bytes"
 	signingCertBytesValue = "signing-cert-bytes"
+
+	defaultConsoleServerPort = 8186
 )
 
 type VirtApi interface {
@@ -110,11 +112,12 @@ type virtAPIApp struct {
 	certsDirectory   string
 	clusterConfig    *virtconfig.ClusterConfig
 
-	signingCertBytes []byte
-	certBytes        []byte
-	keyBytes         []byte
-	namespace        string
-	tlsConfig        *tls.Config
+	signingCertBytes  []byte
+	certBytes         []byte
+	keyBytes          []byte
+	namespace         string
+	tlsConfig         *tls.Config
+	consoleServerPort int
 }
 
 var _ service.Service = &virtAPIApp{}
@@ -199,7 +202,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
 		subws.Path(rest.GroupVersionBasePath(version))
 
-		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli)
+		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort)
 
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).
@@ -1059,4 +1062,6 @@ func (app *virtAPIApp) AddFlags() {
 		"swagger-ui location")
 	flag.BoolVar(&app.SubresourcesOnly, "subresources-only", false,
 		"Only serve subresource endpoints")
+	flag.IntVar(&app.consoleServerPort, "console-server-port", defaultConsoleServerPort,
+		"The port virt-handler listens on for console requests")
 }

@@ -93,6 +93,8 @@ const (
 	// selfsigned cert secret name
 	virtHandlerCertSecretName = "kubevirt-virt-handler-certs"
 	maxRequestsInFlight       = 3
+	// Default port that virt-handler listens to console requests
+	defaultConsoleServerPort = 8186
 )
 
 type virtHandlerApp struct {
@@ -113,6 +115,7 @@ type virtHandlerApp struct {
 	namespace string
 
 	migrationTLSConfig *tls.Config
+	consoleServerPort  int
 }
 
 var _ service.Service = &virtHandlerApp{}
@@ -346,7 +349,7 @@ func (app *virtHandlerApp) runConsoleServer(errCh chan error, consoleHandler *re
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc").To(consoleHandler.VNCHandler))
 	restful.DefaultContainer.Add(ws)
 	server := &http.Server{
-		Addr:    fmt.Sprintf("%s:%s", app.ServiceListen.BindAddress, "8185"),
+		Addr:    fmt.Sprintf("%s:%d", app.ServiceListen.BindAddress, app.consoleServerPort),
 		Handler: restful.DefaultContainer,
 		// we use migration TLS also for console connections (initiated by virt-api)
 		TLSConfig: app.migrationTLSConfig,
@@ -385,6 +388,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.IntVar(&app.MaxRequestsInFlight, "max-metric-requests", maxRequestsInFlight,
 		"Number of concurrent requests to the metrics endpoint")
+
+	flag.IntVar(&app.consoleServerPort, "console-server-port", defaultConsoleServerPort,
+		"The port virt-handler listens on for console requests")
 }
 
 func (app *virtHandlerApp) setupTLS() error {
