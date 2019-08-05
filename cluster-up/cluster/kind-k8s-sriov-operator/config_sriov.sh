@@ -23,7 +23,8 @@ for ifs in "${sriov_pfs[@]}"; do
 done
 
 FIRST_PF=${sriov_pfs[0]}
-echo "PF choosen $FIRST_PF"
+FIRST_PF="${FIRST_PF%%/device/*}"
+FIRST_PF="${FIRST_PF##*/}"
 
 # deploy multus
 kubectl create -f $MANIFESTS_DIR/multus.yaml
@@ -63,6 +64,7 @@ EOL
 "
 
 kubectl create -f $MANIFESTS_DIR/network_policy.yaml
+kubectl patch SriovNetworkNodePolicy -n sriov-network-operator policy-1 -p '{"spec": {"nicSelector": {"pfNames": ["'$FIRST_PF'"]}}}' --type=merge
 sleep 5 #let the cni daemon appear
 
 SRIOVCNI_DAEMON_POD=$(kubectl get pods -n sriov-network-operator | grep sriov-cni | awk '{print $1}')
