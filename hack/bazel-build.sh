@@ -29,7 +29,7 @@ mkdir -p ${CMD_OUT_DIR}/virtctl
 bazel build \
     --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
     --workspace_status_command=./hack/print-workspace-status.sh \
-    //tools/csv-generator/... //cmd/...
+    //tools/csv-generator/... //cmd/... //staging/src/kubevirt.io/client-go/examples/...
 
 # build platform native virtctl explicitly
 bazel run \
