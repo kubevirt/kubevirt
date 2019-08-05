@@ -59,10 +59,10 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiI
 }
 
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
-	vmi, err := t.getVMI(request)
+	vmi, code, err := t.getVMI(request)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed retrieve VMI")
-		response.WriteError(http.StatusBadRequest, err)
+		response.WriteError(code, err)
 		return
 	}
 	unixSocketPath, err := t.getUnixSocketPath(vmi, "virt-vnc")
@@ -80,10 +80,10 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 }
 
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
-	vmi, err := t.getVMI(request)
+	vmi, code, err := t.getVMI(request)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed retrieve VMI")
-		response.WriteError(http.StatusBadRequest, err)
+		response.WriteError(code, err)
 		return
 	}
 	unixSocketPath, err := t.getUnixSocketPath(vmi, "virt-serial0")
@@ -100,16 +100,16 @@ func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restf
 	t.stream(vmi, request, response, unixSocketPath, stopCh, cleanup)
 }
 
-func (t *ConsoleHandler) getVMI(request *restful.Request) (*v1.VirtualMachineInstance, error) {
+func (t *ConsoleHandler) getVMI(request *restful.Request) (*v1.VirtualMachineInstance, int, error) {
 	key := fmt.Sprintf("%s/%s", request.PathParameter("namespace"), request.PathParameter("name"))
 	vmiObj, vmiExists, err := t.vmiInformer.GetStore().GetByKey(key)
 	if err != nil {
-		return nil, err
+		return nil, http.StatusInternalServerError, err
 	}
 	if !vmiExists {
-		return nil, fmt.Errorf("VMI %s does not exist", key)
+		return nil, http.StatusNotFound, fmt.Errorf("VMI %s does not exist", key)
 	}
-	return vmiObj.(*v1.VirtualMachineInstance), nil
+	return vmiObj.(*v1.VirtualMachineInstance), 0, nil
 }
 
 func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID](chan struct{})) chan struct{} {
@@ -150,7 +150,7 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to upgrade client websocket connection")
-		response.WriteError(http.StatusBadRequest, err)
+		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
 	defer clientSocket.Close()
@@ -161,6 +161,7 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 	fd, err := net.Dial("unix", unixSocketPath)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("failed to dial unix socket %s", unixSocketPath)
+		response.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	defer fd.Close()
