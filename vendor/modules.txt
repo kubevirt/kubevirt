@@ -369,13 +369,13 @@ k8s.io/api/policy/v1beta1
 k8s.io/api/rbac/v1
 k8s.io/api/authorization/v1beta1
 k8s.io/api/admission/v1beta1
-k8s.io/api/authentication/v1
 k8s.io/api/extensions/v1beta1
 k8s.io/api/autoscaling/v1
 k8s.io/api/admissionregistration/v1alpha1
 k8s.io/api/apps/v1beta1
 k8s.io/api/apps/v1beta2
 k8s.io/api/auditregistration/v1alpha1
+k8s.io/api/authentication/v1
 k8s.io/api/authentication/v1beta1
 k8s.io/api/authorization/v1
 k8s.io/api/autoscaling/v2beta1
@@ -661,10 +661,10 @@ kubevirt.io/client-go/kubecli
 kubevirt.io/client-go/precond
 kubevirt.io/client-go/version
 kubevirt.io/client-go/subresources
-# kubevirt.io/containerized-data-importer v1.10.0
+# kubevirt.io/containerized-data-importer v1.10.1
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions
-kubevirt.io/containerized-data-importer/pkg/apiserver/webhooks/api
+kubevirt.io/containerized-data-importer/pkg/clone
 kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned
 kubevirt.io/containerized-data-importer/pkg/apis/core

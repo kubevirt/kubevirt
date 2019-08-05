@@ -382,8 +382,8 @@ k8s.io/kubernetes v1.11.8-beta.0.0.20190124204751-3a10094374f2/go.mod h1:ocZa8+6
 k8s.io/utils v0.0.0-20190607212802-c55fbcfc754a h1:2jUDc9gJja832Ftp+QbDV0tVhQHMISFn01els+2ZAcw=
 k8s.io/utils v0.0.0-20190607212802-c55fbcfc754a/go.mod h1:sZAwmy6armz5eXlNoLmJcl4F1QuKu7sr+mFQ0byX7Ew=
 kubevirt.io/containerized-data-importer v1.8.1-0.20190516083534-83c12eaae2ed/go.mod h1:qF594BtRRkruyrqLwt3zbLCWdPIQNs1qWh4LR1cOzy0=
-kubevirt.io/containerized-data-importer v1.10.0 h1:VQBqDaU3/B48gxG5+6a4jIacr4/Bkk9VB0IHAdaRUrc=
-kubevirt.io/containerized-data-importer v1.10.0/go.mod h1:qF594BtRRkruyrqLwt3zbLCWdPIQNs1qWh4LR1cOzy0=
+kubevirt.io/containerized-data-importer v1.10.1 h1:EGUMeOFSn4VqRF7+l/NJFrA67yMsuD4uSc/THR3cTLk=
+kubevirt.io/containerized-data-importer v1.10.1/go.mod h1:qF594BtRRkruyrqLwt3zbLCWdPIQNs1qWh4LR1cOzy0=
 kubevirt.io/qe-tools v0.1.3-0.20190512140058-934db0579e0c h1:9FawJ0jS2NvLLE3oyBvnEgv+vVl0aIVKrgXuhLoWfjw=
 kubevirt.io/qe-tools v0.1.3-0.20190512140058-934db0579e0c/go.mod h1:PJyH/YXC4W0AmxfheDmXWMbLNsMSboVGXKpMAwfKzVE=
 sigs.k8s.io/controller-runtime v0.1.9 h1:ZcnTZfnCGynyToVwHsqV3bMoGXwViYlnUF8kfMgghK8=

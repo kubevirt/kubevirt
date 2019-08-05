@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
@@ -53,6 +54,8 @@ const (
 	dataVolumeDeleteAfterTimestampAnno = "kubevirt.io/delete-after-timestamp"
 	dataVolumeDeleteJitterSeconds      = 100
 )
+
+type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
 
 func NewVMController(vmiInformer cache.SharedIndexInformer,
 	vmiVMInformer cache.SharedIndexInformer,
@@ -69,6 +72,9 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		clientset:              clientset,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
+			return cdiclone.CanServiceAccountClonePVC(clientset, pvcNamespace, pvcName, saNamespace, saName)
+		},
 	}
 
 	c.vmiVMInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -101,6 +107,7 @@ type VMController struct {
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
+	cloneAuthFunc          CloneAuthFunc
 }
 
 func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -357,6 +364,37 @@ func createDataVolumeManifest(dataVolume *cdiv1.DataVolume, vm *virtv1.VirtualMa
 	return newDataVolume
 }
 
+func (c *VMController) authorizeDataVolume(vm *virtv1.VirtualMachine, dataVolume *cdiv1.DataVolume) error {
+	if dataVolume.Spec.Source.PVC == nil {
+		return nil
+	}
+
+	pvcNamespace := dataVolume.Spec.Source.PVC.Namespace
+	if pvcNamespace == "" {
+		pvcNamespace = vm.Namespace
+	}
+
+	pvcName := dataVolume.Spec.Source.PVC.Name
+
+	serviceAccount := "default"
+	for _, vol := range vm.Spec.Template.Spec.Volumes {
+		if vol.ServiceAccount != nil {
+			serviceAccount = vol.ServiceAccount.ServiceAccountName
+		}
+	}
+
+	allowed, reason, err := c.cloneAuthFunc(pvcNamespace, pvcName, vm.Namespace, serviceAccount)
+	if err != nil {
+		return err
+	}
+
+	if !allowed {
+		return fmt.Errorf(reason)
+	}
+
+	return nil
+}
+
 func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes []*cdiv1.DataVolume) (bool, error) {
 	ready := true
 	vmKey, err := controller.KeyFunc(vm)
@@ -376,6 +414,11 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 			// ready = false because encountered DataVolume that is not created yet
 			ready = false
 			newDataVolume := createDataVolumeManifest(&template, vm)
+
+			if err = c.authorizeDataVolume(vm, newDataVolume); err != nil {
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, UnauthorizedDataVolumeCreateReason, "Not authorized to create DataVolume %s: %v", newDataVolume.Name, err)
+				return ready, fmt.Errorf("Not authorized to create DataVolume: %v", err)
+			}
 
 			c.dataVolumeExpectations.ExpectCreations(vmKey, 1)
 			curDataVolume, err = c.clientset.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Create(newDataVolume)

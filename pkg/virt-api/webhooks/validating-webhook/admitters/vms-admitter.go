@@ -24,20 +24,19 @@ import (
 	"fmt"
 
 	"k8s.io/api/admission/v1beta1"
-	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
-	cdiwebhook "kubevirt.io/containerized-data-importer/pkg/apiserver/webhooks/api"
+	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure}
 
-type CloneAuthFunc func(namespace, name string, userInfo authenticationv1.UserInfo) (bool, string, error)
+type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
 
 type VMsAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
@@ -47,8 +46,8 @@ type VMsAdmitter struct {
 func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VMsAdmitter {
 	return &VMsAdmitter{
 		ClusterConfig: clusterConfig,
-		cloneAuthFunc: func(namespace, name string, userInfo authenticationv1.UserInfo) (bool, string, error) {
-			return cdiwebhook.CanClonePVC(client, namespace, name, userInfo)
+		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
+			return cdiclone.CanServiceAccountClonePVC(client, pvcNamespace, pvcName, saNamespace, saName)
 		},
 	}
 }
@@ -76,7 +75,7 @@ func (admitter *VMsAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 		return webhooks.ToAdmissionResponse(causes)
 	}
 
-	causes, err = admitter.authorizeVirtualMachinSpec(ar.Request, &vm)
+	causes, err = admitter.authorizeVirtualMachineSpec(ar.Request, &vm)
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}
@@ -90,7 +89,7 @@ func (admitter *VMsAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	return &reviewResponse
 }
 
-func (admitter *VMsAdmitter) authorizeVirtualMachinSpec(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
+func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	var causes []metav1.StatusCause
 
 	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
@@ -112,7 +111,19 @@ func (admitter *VMsAdmitter) authorizeVirtualMachinSpec(ar *v1beta1.AdmissionReq
 					Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
 				})
 			} else {
-				allowed, message, err := admitter.cloneAuthFunc(sourceNamespace, pvcSource.Name, ar.UserInfo)
+				targetNamespace := vm.Namespace
+				if targetNamespace == "" {
+					targetNamespace = ar.Namespace
+				}
+
+				serviceAccount := "default"
+				for _, vol := range vm.Spec.Template.Spec.Volumes {
+					if vol.ServiceAccount != nil {
+						serviceAccount = vol.ServiceAccount.ServiceAccountName
+					}
+				}
+
+				allowed, message, err := admitter.cloneAuthFunc(sourceNamespace, pvcSource.Name, targetNamespace, serviceAccount)
 				if err != nil {
 					return nil, err
 				}

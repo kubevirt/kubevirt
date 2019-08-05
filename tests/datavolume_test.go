@@ -28,6 +28,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -481,7 +482,7 @@ var _ = Describe("DataVolume Integration", func() {
 			var cloneRole *rbacv1.Role
 			var cloneRoleBinding *rbacv1.RoleBinding
 
-			serviceAccount := fmt.Sprintf("system:serviceaccount:%s:%s", tests.NamespaceTestDefault, tests.AdminServiceAccountName)
+			//serviceAccount := fmt.Sprintf("system:serviceaccount:%s:%s", tests.NamespaceTestDefault, tests.AdminServiceAccountName)
 
 			BeforeEach(func() {
 				var err error
@@ -519,15 +520,24 @@ var _ = Describe("DataVolume Integration", func() {
 				}
 			})
 
-			It("deny then allow clone request", func() {
+			table.DescribeTable("deny then allow clone request", func(role *rbacv1.Role) {
 				vm := tests.NewRandomVMWithCloneDataVolume(dataVolume.Namespace, dataVolume.Name, tests.NamespaceTestDefault)
+				saVol := v1.Volume{
+					Name: "sa",
+					VolumeSource: v1.VolumeSource{
+						ServiceAccount: &v1.ServiceAccountVolumeSource{
+							ServiceAccountName: tests.AdminServiceAccountName,
+						},
+					},
+				}
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, saVol)
 
 				vmBytes, err := json.Marshal(vm)
 				Expect(err).ToNot(HaveOccurred())
 				byteReader := bytes.NewReader(vmBytes)
 
 				// this should fail because don't have permission
-				stdOut, stdErr, err := tests.RunCommandWithNSAndInput(vm.Namespace, byteReader, "kubectl", "create", "--as", serviceAccount, "-f", "-")
+				stdOut, stdErr, err := tests.RunCommandWithNSAndInput(vm.Namespace, byteReader, "kubectl", "create", "-f", "-")
 				if err == nil {
 					fmt.Printf("command should have failed\nstdOut\n%s\nstdErr\n%s\n", stdOut, stdErr)
 					Expect(err).To(HaveOccurred())
@@ -535,12 +545,12 @@ var _ = Describe("DataVolume Integration", func() {
 				Expect(stdErr).Should(ContainSubstring("Authorization failed, message is:"))
 
 				// add permission
-				cloneRole, cloneRoleBinding = addClonePermission(virtClient, tests.AdminServiceAccountName, tests.NamespaceTestDefault, tests.NamespaceTestAlternative)
+				cloneRole, cloneRoleBinding = addClonePermission(virtClient, role, tests.AdminServiceAccountName, tests.NamespaceTestDefault, tests.NamespaceTestAlternative)
 
 				// sometimes it takes a bit for permission to actually be applied so eventually
 				Eventually(func() bool {
 					byteReader = bytes.NewReader(vmBytes)
-					stdOut, stdErr, err = tests.RunCommandWithNSAndInput(vm.Namespace, byteReader, "kubectl", "create", "--as", serviceAccount, "-f", "-")
+					stdOut, stdErr, err = tests.RunCommandWithNSAndInput(vm.Namespace, byteReader, "kubectl", "create", "-f", "-")
 					if err != nil {
 						fmt.Printf("command should have succeeded maybe new permissions not applied yet\nstdOut\n%s\nstdErr\n%s\n", stdOut, stdErr)
 						return false
@@ -564,44 +574,63 @@ var _ = Describe("DataVolume Integration", func() {
 				// start/stop vm
 				createdVirtualMachine = tests.StartVirtualMachine(createdVirtualMachine)
 				createdVirtualMachine = tests.StopVirtualMachine(createdVirtualMachine)
-			})
+			},
+				table.Entry("with explicit role", explicitCloneRole),
+				table.Entry("with implicit role", implicitCloneRole),
+			)
 		})
 	})
 })
 
-func addClonePermission(client kubecli.KubevirtClient, sa, saNamespace, targetNamesace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
-	var err error
-	resourceName := sa + "-cloner"
-
-	role := &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: resourceName,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{
-					"cdi.kubevirt.io",
-				},
-				Resources: []string{
-					"datavolumes/source",
-				},
-				Verbs: []string{
-					"create",
-				},
+var explicitCloneRole = &rbacv1.Role{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: "explicit-clone-role",
+	},
+	Rules: []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{
+				"cdi.kubevirt.io",
+			},
+			Resources: []string{
+				"datavolumes/source",
+			},
+			Verbs: []string{
+				"create",
 			},
 		},
-	}
+	},
+}
 
-	role, err = client.RbacV1().Roles(targetNamesace).Create(role)
+var implicitCloneRole = &rbacv1.Role{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: "implicit-clone-role",
+	},
+	Rules: []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
+				"pods",
+			},
+			Verbs: []string{
+				"create",
+			},
+		},
+	},
+}
+
+func addClonePermission(client kubecli.KubevirtClient, role *rbacv1.Role, sa, saNamespace, targetNamesace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
+	role, err := client.RbacV1().Roles(targetNamesace).Create(role)
 	Expect(err).ToNot(HaveOccurred())
 
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: resourceName,
+			Name: role.Name,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "Role",
-			Name:     resourceName,
+			Name:     role.Name,
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 		Subjects: []rbacv1.Subject{

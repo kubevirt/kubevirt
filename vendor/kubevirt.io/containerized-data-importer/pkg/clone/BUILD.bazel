@@ -2,9 +2,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["clone-validate.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/containerized-data-importer/pkg/apiserver/webhooks/api",
-    importpath = "kubevirt.io/containerized-data-importer/pkg/apiserver/webhooks/api",
+    srcs = ["auth.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/containerized-data-importer/pkg/clone",
+    importpath = "kubevirt.io/containerized-data-importer/pkg/clone",
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/k8s.io/api/authentication/v1:go_default_library",

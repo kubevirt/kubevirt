@@ -62,6 +62,9 @@ const (
 	// when the pod ownership transfer from the controller to virt-hander succeeds.
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
 
+	// UnauthorizedDataVolumeCreateReason is added in an event when the DataVolume
+	// ServiceAccount doesn't have permission to create a DataVolume
+	UnauthorizedDataVolumeCreateReason = "UnauthorizedDataVolumeCreate"
 	// FailedDataVolumeImportReason is added in an event when a dynamically generated
 	// dataVolume reaches the failed status phase.
 	FailedDataVolumeImportReason = "FailedDataVolumeImport"
