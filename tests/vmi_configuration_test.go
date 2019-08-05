@@ -533,7 +533,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(overcommitVmi.Spec.Domain.Resources.OvercommitGuestOverhead).To(BeTrue())
 			})
-			It("[test_id:731]Check Free memory on the VMI", func() {
+			It("[test_id:732]Check Free memory on the VMI", func() {
 				By("Expecting console")
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
