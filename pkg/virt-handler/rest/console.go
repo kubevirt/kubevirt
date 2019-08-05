@@ -61,13 +61,13 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiI
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
 	vmi, err := t.getVMI(request)
 	if err != nil {
-		log.Log.Reason(err).Error("Failed retrieve VMI")
+		log.Log.Object(vmi).Reason(err).Error("Failed retrieve VMI")
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
 	unixSocketPath, err := t.getUnixSocketPath(vmi, "virt-vnc")
 	if err != nil {
-		log.Log.Reason(err).Error("Failed unix socket for VNC console")
+		log.Log.Object(vmi).Reason(err).Error("Failed unix socket for VNC console")
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
@@ -76,19 +76,19 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 	cleanup := func() {
 		deleteStopChan(uid, stopChn, t.vncLock, t.vncStopChans)
 	}
-	t.stream(request, response, unixSocketPath, stopChn, cleanup)
+	t.stream(vmi, request, response, unixSocketPath, stopChn, cleanup)
 }
 
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
 	vmi, err := t.getVMI(request)
 	if err != nil {
-		log.Log.Reason(err).Error("Failed retrieve VMI")
+		log.Log.Object(vmi).Reason(err).Error("Failed retrieve VMI")
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
 	unixSocketPath, err := t.getUnixSocketPath(vmi, "virt-serial0")
 	if err != nil {
-		log.Log.Reason(err).Error("Failed unix socket for serial console")
+		log.Log.Object(vmi).Reason(err).Error("Failed unix socket for serial console")
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
@@ -97,7 +97,7 @@ func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restf
 	cleanup := func() {
 		deleteStopChan(uid, stopCh, t.serialLock, t.serialStopChans)
 	}
-	t.stream(request, response, unixSocketPath, stopCh, cleanup)
+	t.stream(vmi, request, response, unixSocketPath, stopCh, cleanup)
 }
 
 func (t *ConsoleHandler) getVMI(request *restful.Request) (*v1.VirtualMachineInstance, error) {
@@ -145,38 +145,38 @@ func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socke
 
 type cleanupOnError func()
 
-func (t *ConsoleHandler) stream(request *restful.Request, response *restful.Response, unixSocketPath string, stopCh chan struct{}, cleanup cleanupOnError) {
+func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, unixSocketPath string, stopCh chan struct{}, cleanup cleanupOnError) {
 	var upgrader = kubecli.NewUpgrader()
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
-		log.Log.Reason(err).Error("Failed to upgrade client websocket connection")
+		log.Log.Object(vmi).Reason(err).Error("Failed to upgrade client websocket connection")
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
 	defer clientSocket.Close()
 
-	log.Log.Infof("Websocket connection upgraded")
-	log.Log.Infof("Connecting to %s", unixSocketPath)
+	log.Log.Object(vmi).Infof("Websocket connection upgraded")
+	log.Log.Object(vmi).Infof("Connecting to %s", unixSocketPath)
 
 	fd, err := net.Dial("unix", unixSocketPath)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to dial unix socket %s", unixSocketPath)
+		log.Log.Object(vmi).Reason(err).Errorf("failed to dial unix socket %s", unixSocketPath)
 		return
 	}
 	defer fd.Close()
 
-	log.Log.Infof("Connected to %s", unixSocketPath)
+	log.Log.Object(vmi).Infof("Connected to %s", unixSocketPath)
 
 	errCh := make(chan error)
 	go func() {
 		_, err := kubecli.CopyTo(clientSocket, fd)
-		log.Log.Reason(err).Error("error encountered reading from unix socket")
+		log.Log.Object(vmi).Reason(err).Error("error encountered reading from unix socket")
 		errCh <- err
 	}()
 
 	go func() {
 		_, err := kubecli.CopyFrom(fd, clientSocket)
-		log.Log.Reason(err).Error("error encountered reading from client (virt-api) websocket")
+		log.Log.Object(vmi).Reason(err).Error("error encountered reading from client (virt-api) websocket")
 		errCh <- err
 	}()
 
@@ -185,7 +185,7 @@ func (t *ConsoleHandler) stream(request *restful.Request, response *restful.Resp
 		response.WriteHeader(http.StatusOK)
 	case err := <-errCh:
 		if err != nil && err != io.EOF {
-			log.Log.Reason(err).Error("Error in proxing websocket and unix socket")
+			log.Log.Object(vmi).Reason(err).Error("Error in proxing websocket and unix socket")
 			response.WriteHeader(http.StatusInternalServerError)
 		} else {
 			response.WriteHeader(http.StatusOK)
