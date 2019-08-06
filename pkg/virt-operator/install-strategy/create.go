@@ -1989,7 +1989,7 @@ func SyncAll(kv *v1.KubeVirt,
 		if scc, ok := obj.(*secv1.SecurityContextConstraints); ok && scc.DeletionTimestamp == nil {
 
 			// informer watches all SCC objects, it cannot be changed because of kubevirt updates
-			if v, ok := scc.Labels[v1.ManagedByLabel]; !ok || v != v1.ManagedByLabelOperatorValue {
+			if !util.IsManagedByOperator(scc.GetLabels()) {
 				continue
 			}
 

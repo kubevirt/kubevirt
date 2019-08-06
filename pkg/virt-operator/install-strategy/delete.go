@@ -337,7 +337,7 @@ func DeleteAll(kv *v1.KubeVirt,
 		if s, ok := obj.(*secv1.SecurityContextConstraints); ok && s.DeletionTimestamp == nil {
 
 			// informer watches all SCC objects, it cannot be changed because of kubevirt updates
-			if v, ok := s.Labels[v1.ManagedByLabel]; !ok || v != v1.ManagedByLabelOperatorValue {
+			if !util.IsManagedByOperator(s.GetLabels()) {
 				continue
 			}
 

@@ -220,13 +220,13 @@ func NewKubeVirtController(
 
 	c.informers.SCC.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.genericAddHandler(obj, c.kubeVirtExpectations.SCC)
+			c.sccAddHandler(obj, c.kubeVirtExpectations.SCC)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.genericDeleteHandler(obj, c.kubeVirtExpectations.SCC)
+			c.sccDeleteHandler(obj, c.kubeVirtExpectations.SCC)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.SCC)
+			c.sccUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.SCC)
 		},
 	})
 
@@ -294,6 +294,27 @@ func (c *KubeVirtController) getKubeVirtKey() (string, error) {
 		return controller.KeyFunc(kv)
 	}
 	return "", nil
+}
+
+func (c *KubeVirtController) sccAddHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+	o := obj.(metav1.Object)
+	if util.IsManagedByOperator(o.GetLabels()) {
+		c.genericAddHandler(obj, expecter)
+	}
+}
+
+func (c *KubeVirtController) sccUpdateHandler(old, cur interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+	o := cur.(metav1.Object)
+	if util.IsManagedByOperator(o.GetLabels()) {
+		c.genericUpdateHandler(old, cur, expecter)
+	}
+}
+
+func (c *KubeVirtController) sccDeleteHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+	o := obj.(metav1.Object)
+	if util.IsManagedByOperator(o.GetLabels()) {
+		c.genericDeleteHandler(obj, expecter)
+	}
 }
 
 func (c *KubeVirtController) genericAddHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {

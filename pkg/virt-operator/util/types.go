@@ -66,13 +66,18 @@ func IsStoreEmpty(store cache.Store) bool {
 	return len(store.ListKeys()) == 0
 }
 
+func IsManagedByOperator(labels map[string]string) bool {
+	if v, ok := labels[v1.ManagedByLabel]; ok && v == v1.ManagedByLabelOperatorValue {
+		return true
+	}
+	return false
+}
+
 func IsSCCStoreEmpty(store cache.Store) bool {
 	cnt := 0
 	for _, obj := range store.List() {
-		if s, ok := obj.(*secv1.SecurityContextConstraints); ok {
-			if v, ok := s.Labels[v1.ManagedByLabel]; ok && v == v1.ManagedByLabelOperatorValue {
-				cnt++
-			}
+		if s, ok := obj.(*secv1.SecurityContextConstraints); ok && IsManagedByOperator(s.GetLabels()) {
+			cnt++
 		}
 	}
 	return cnt == 0
