@@ -39,6 +39,7 @@ require (
 	github.com/libvirt/libvirt-go v5.0.0+incompatible
 	github.com/mattn/go-colorable v0.1.1 // indirect
 	github.com/mattn/go-runewidth v0.0.0-20181218000649-703b5e6b11ae // indirect
+	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.1-0.20190515112211-6a48b4839f85
 	github.com/openshift/api v3.9.1-0.20190401220125-3a6077f1f910+incompatible

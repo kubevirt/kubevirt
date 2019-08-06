@@ -35,6 +35,11 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"unsafe"
+
+	"golang.org/x/sys/unix"
+
+	ps "github.com/mitchellh/go-ps"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -53,6 +58,9 @@ type PodIsolationDetector interface {
 	// Whitelist allows specifying cgroup controller which should be considered to detect the cgroup slice
 	// It returns a PodIsolationDetector to allow configuring the PodIsolationDetector via the builder pattern.
 	Whitelist(controller []string) PodIsolationDetector
+
+	// Adjust system resources to run the passed VM
+	AdjustResources(vm *v1.VirtualMachineInstance) error
 }
 
 type MountInfo struct {
@@ -118,6 +126,59 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (*I
 	}
 
 	return NewIsolationResult(pid, slice, controller), nil
+}
+
+// standard golang libraries don't provide API to set runtime limits
+// for other processes, so we have to directly call to kernel
+func prLimit(pid int, limit uintptr, rlimit *unix.Rlimit) error {
+	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
+		uintptr(pid),
+		limit,
+		uintptr(unsafe.Pointer(rlimit)),
+		0, 0, 0)
+	if errno != 0 {
+		return fmt.Errorf("Error setting prlimit: %v", errno)
+	}
+	return nil
+}
+
+func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {
+	// bump memlock ulimit for libvirtd
+	res, err := s.Detect(vm)
+	if err != nil {
+		return err
+	}
+	launcherPid := res.Pid()
+
+	processes, err := ps.Processes()
+	if err != nil {
+		return fmt.Errorf("failed to get all processes: %v", err)
+	}
+
+	for _, process := range processes {
+		// consider all processes that are virt-launcher children
+		if process.PPid() != launcherPid {
+			continue
+		}
+
+		// libvirtd process sets the memory lock limit before fork/exec-ing into qemu
+		if process.Executable() != "libvirtd" {
+			continue
+		}
+
+		// TODO estimate actual memory size needed
+		rLimit := unix.Rlimit{
+			Max: unix.RLIM_INFINITY,
+			Cur: unix.RLIM_INFINITY,
+		}
+		err = prLimit(process.Pid(), unix.RLIMIT_MEMLOCK, &rLimit)
+		if err != nil {
+			return fmt.Errorf("failed to set rlimit for memory lock: %v", err)
+		}
+		// we assume a single process should match
+		break
+	}
+	return nil
 }
 
 func NewIsolationResult(pid int, slice string, controller []string) *IsolationResult {

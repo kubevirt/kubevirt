@@ -60,7 +60,6 @@ const GenieNetworksAnnotation = "cni"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
-const CAP_SYS_RESOURCE = "SYS_RESOURCE"
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
 // Libvirt needs roughly 10 seconds to start.
@@ -964,12 +963,6 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	res = append(res, CAP_SYS_NICE)
-
-	if isSRIOVVmi(vmi) {
-		// this capability is needed for libvirt to be able to change ulimits for device passthrough:
-		// "error : cannot limit locked memory to 2098200576: Operation not permitted"
-		res = append(res, CAP_SYS_RESOURCE)
-	}
 	return res
 }
 
