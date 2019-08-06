@@ -81,6 +81,43 @@ var _ = Describe("selinux", func() {
 		})
 	})
 
+	Context("getting the label of a directory", func() {
+
+		It("should fail if semanage does not exist", func() {
+			_, err := selinux.IsLabeled("whatever")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should fail if semanage exists but the command fails", func() {
+			touch(filepath.Join(tempDir, "/usr/bin", "semanage"))
+			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
+				return nil, fmt.Errorf("I failed")
+			}
+			_, err := selinux.IsLabeled("whatever")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should detect if the directory is not labeled", func() {
+			touch(filepath.Join(tempDir, "/usr/bin", "semanage"))
+			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
+				return []byte("not found"), nil
+			}
+			labeled, err := selinux.IsLabeled("whatever")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(labeled).To(BeFalse())
+		})
+
+		It("should detect if the directory is labeled", func() {
+			touch(filepath.Join(tempDir, "/usr/bin", "semanage"))
+			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
+				return []byte("whatever(/.*)?"), nil
+			}
+			labeled, err := selinux.IsLabeled("whatever")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(labeled).To(BeTrue())
+		})
+	})
+
 	Context("restoring labels on a directory", func() {
 
 		It("should fail if restorecon does not exist", func() {
