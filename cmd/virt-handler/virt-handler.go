@@ -423,6 +423,9 @@ func main() {
 
 func copy(sourceFile string, targetFile string) error {
 
+	if err := os.RemoveAll(targetFile); err != nil {
+		return fmt.Errorf("failed to remove target file: %v", err)
+	}
 	target, err := os.Create(targetFile)
 	if err != nil {
 		return fmt.Errorf("failed to crate target file: %v", err)
