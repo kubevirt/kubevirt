@@ -194,6 +194,11 @@ func (app *virtHandlerApp) Run() {
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
 		for _, dir := range []string{app.VirtShareDir, app.VirtLibDir} {
+			if labeled, err := se.IsLabeled(dir); err != nil {
+				panic(err)
+			} else if labeled {
+				continue
+			}
 			err := se.Label("container_file_t", dir)
 			if err != nil {
 				panic(err)

@@ -93,6 +93,18 @@ func (se *SELinuxImpl) Label(label string, dir string) (err error) {
 	return nil
 }
 
+func (se *SELinuxImpl) IsLabeled(dir string) (labeled bool, err error) {
+	dir = strings.TrimRight(dir, "/") + "(/.*)?"
+	out, err := se.execute("semanage", se.Paths, "fcontext", "-l")
+	if err != nil {
+		return false, fmt.Errorf("failed to list labels: %v ", string(out))
+	}
+	if strings.Contains(string(out), dir) {
+		return true, nil
+	}
+	return false, nil
+}
+
 func (se *SELinuxImpl) Restore(dir string) (err error) {
 	dir = strings.TrimRight(dir, "/") + "/"
 	out, err := se.execute("restorecon", se.Paths, "-r", "-v", dir)
@@ -104,5 +116,6 @@ func (se *SELinuxImpl) Restore(dir string) (err error) {
 
 type SELinux interface {
 	Label(dir string, label string) (err error)
+	IsLabeled(dir string) (labeled bool, err error)
 	Restore(dir string) (err error)
 }
