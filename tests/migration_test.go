@@ -768,7 +768,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// Start the VirtualMachineInstance with the PVC attached
 				By("Creating the  VMI")
 				vmi = tests.NewRandomVMIWithPVC(pvName)
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256M")
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 				// add userdata for guest agent and service account mount
@@ -797,7 +797,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// execute a migration, wait for finalized state
 				By("Starting the Migration for iteration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := runMigrationAndExpectCompletion(migration, 180)
+				migrationUID := runMigrationAndExpectCompletion(migration, 240)
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
