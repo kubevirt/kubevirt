@@ -53,6 +53,18 @@ const (
 	// these names need to match field names from KubeVirt Spec if they are set from there
 	AdditionalPropertiesNamePullPolicy = "ImagePullPolicy"
 
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesMonitorNamespace = "monitorNamespace"
+
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesMonitorServiceAccount = "monitorAccount"
+
+	// account to use if one is not explicitly named
+	DefaultMonitorNamespace = "openshift-monitoring"
+
+	// account to use if one is not explicitly named
+	DefaultMonitorAccount = "prometheus-k8s"
+
 	// the regex used to parse the operator image
 	operatorImageRegex = "^(.*)/virt-operator([@:].*)?$"
 )
@@ -315,6 +327,22 @@ func (c *KubeVirtDeploymentConfig) GetImagePullPolicy() k8sv1.PullPolicy {
 		return k8sv1.PullPolicy(p)
 	}
 	return k8sv1.PullIfNotPresent
+}
+
+func (c *KubeVirtDeploymentConfig) GetMonitorNamespace() string {
+	p, ok := c.AdditionalProperties[AdditionalPropertiesMonitorNamespace]
+	if !ok {
+		return DefaultMonitorNamespace
+	}
+	return p
+}
+
+func (c *KubeVirtDeploymentConfig) GetMonitorServiceAccount() string {
+	p, ok := c.AdditionalProperties[AdditionalPropertiesMonitorServiceAccount]
+	if !ok {
+		return DefaultMonitorAccount
+	}
+	return p
 }
 
 func (c *KubeVirtDeploymentConfig) GetNamespace() string {
