@@ -358,5 +358,13 @@ func SetupLibvirt() error {
 		return err
 	}
 
+	if _, ok := os.LookupEnv("LIBVIRT_DEBUG_LOGS"); ok {
+		// see https://wiki.libvirt.org/page/DebugLogs for details
+		_, err = libvirtConf.WriteString("log_filters=\"3:remote 4:event 3:util.json 3:rpc 1:*\"\n")
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
