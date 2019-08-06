@@ -61,3 +61,13 @@ func (_m *MockPodIsolationDetector) Whitelist(controller []string) PodIsolationD
 func (_mr *_MockPodIsolationDetectorRecorder) Whitelist(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Whitelist", arg0)
 }
+
+func (_m *MockPodIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "AdjustResources", vm)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockPodIsolationDetectorRecorder) AdjustResources(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AdjustResources", arg0)
+}
