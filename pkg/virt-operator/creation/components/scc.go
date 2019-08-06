@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright 2019 Red Hat, Inc.
  *
  */
 package components
@@ -28,7 +28,8 @@ import (
 
 func GetAllSCC(namespace string) []*secv1.SecurityContextConstraints {
 	return []*secv1.SecurityContextConstraints{
-		newVirtSCC(namespace),
+		NewKubeVirtPrivilegedSCC(namespace),
+		NewKubeVirtSCC(namespace),
 	}
 }
 
@@ -41,13 +42,33 @@ func newBlankSCC() *secv1.SecurityContextConstraints {
 	}
 }
 
-// NewVirtSCC provides Virt SCC for virt-controller
-// in order to controll virt-launcher privileges
-func newVirtSCC(namespace string) *secv1.SecurityContextConstraints {
+func NewKubeVirtPrivilegedSCC(namespace string) *secv1.SecurityContextConstraints {
 	scc := newBlankSCC()
 
-	scc.Name = "virt"
-	scc.Namespace = namespace
+	scc.Name = "kubevirt-handler"
+	scc.AllowPrivilegedContainer = true
+	scc.AllowHostPID = true
+	scc.AllowHostPorts = true
+	scc.AllowHostIPC = true
+	scc.RunAsUser = secv1.RunAsUserStrategyOptions{
+		Type: secv1.RunAsUserStrategyRunAsAny,
+	}
+	scc.SELinuxContext = secv1.SELinuxContextStrategyOptions{
+		Type: secv1.SELinuxStrategyRunAsAny,
+	}
+	scc.Volumes = []secv1.FSType{secv1.FSTypeAll}
+	scc.AllowHostDirVolumePlugin = true
+	scc.Users = []string{fmt.Sprintf("system:serviceaccount:%s:kubevirt-handler", namespace)}
+
+	return scc
+}
+
+// NewKubeVirtSCC provides `kubevirt` SCC for virt-controller
+// in order to control virt-launcher privileges
+func NewKubeVirtSCC(namespace string) *secv1.SecurityContextConstraints {
+	scc := newBlankSCC()
+
+	scc.Name = "kubevirt-controller"
 	scc.AllowPrivilegedContainer = false
 	scc.RunAsUser = secv1.RunAsUserStrategyOptions{
 		Type: secv1.RunAsUserStrategyRunAsAny,

@@ -98,6 +98,7 @@ rules:
   - watch
   - create
   - patch
+  - delete
 - apiGroups:
   - security.openshift.io
   resourceNames:

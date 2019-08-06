@@ -23,7 +23,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -45,10 +44,7 @@ import (
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
 
-const (
-	customSCCPrivilegedAccountsType = "KubevirtCustomSCCRule"
-	onOpenShift                     = "onOpenShift"
-)
+const customSCCPrivilegedAccountsType = "KubevirtCustomSCCRule"
 
 type customSCCPrivilegedAccounts struct {
 	// this isn't a real k8s object. We use the meta type
@@ -78,8 +74,10 @@ type InstallStrategy struct {
 	deployments []*appsv1.Deployment
 	daemonSets  []*appsv1.DaemonSet
 
-	sccs                []*secv1.SecurityContextConstraints
+	// deprecated, keep it for backwards compatibility
 	customSCCPrivileges []*customSCCPrivilegedAccounts
+
+	sccs []*secv1.SecurityContextConstraints
 }
 
 func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig) (*corev1.ConfigMap, error) {
@@ -110,13 +108,12 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig) 
 	return configMap, nil
 }
 
-func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, openShift bool) error {
+func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 
 	config, err := util.GetConfigFromEnv()
 	if err != nil {
 		return err
 	}
-	config.AdditionalProperties[onOpenShift] = strconv.FormatBool(openShift)
 
 	configMap, err := NewInstallStrategyConfigMap(config)
 	if err != nil {
@@ -171,10 +168,10 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	for _, entry := range strategy.daemonSets {
 		marshalutil.MarshallObject(entry, writer)
 	}
-	for _, entry := range strategy.sccs {
+	for _, entry := range strategy.customSCCPrivileges {
 		marshalutil.MarshallObject(entry, writer)
 	}
-	for _, entry := range strategy.customSCCPrivileges {
+	for _, entry := range strategy.sccs {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	writer.Flush()
@@ -245,23 +242,23 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	}
 	strategy.daemonSets = append(strategy.daemonSets, handler)
 
-	// add all OpenShift specific resources to InstallStrategy
-	if t, _ := strconv.ParseBool(config.AdditionalProperties[onOpenShift]); t {
-		strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
-
-		prefix := "system:serviceaccount"
-		typeMeta := metav1.TypeMeta{
-			Kind: customSCCPrivilegedAccountsType,
-		}
-		strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, &customSCCPrivilegedAccounts{
-			TypeMeta:  typeMeta,
-			TargetSCC: "privileged",
-			ServiceAccounts: []string{
-				fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-handler"),
-				fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-apiserver"),
-			},
-		})
+	prefix := "system:serviceaccount"
+	typeMeta := metav1.TypeMeta{
+		Kind: customSCCPrivilegedAccountsType,
 	}
+
+	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
+
+	// deprecated, keep it for backwards compatibility
+	strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, &customSCCPrivilegedAccounts{
+		TypeMeta:  typeMeta,
+		TargetSCC: "privileged",
+		ServiceAccounts: []string{
+			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-handler"),
+			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-apiserver"),
+			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-controller"),
+		},
+	})
 
 	return strategy, nil
 }
@@ -398,18 +395,18 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.crds = append(strategy.crds, crd)
-		case "SecurityContextConstraints":
-			s := &secv1.SecurityContextConstraints{}
-			if err := yaml.Unmarshal([]byte(entry), &s); err != nil {
-				return nil, err
-			}
-			strategy.sccs = append(strategy.sccs, s)
 		case customSCCPrivilegedAccountsType:
 			priv := &customSCCPrivilegedAccounts{}
 			if err := yaml.Unmarshal([]byte(entry), &priv); err != nil {
 				return nil, err
 			}
 			strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, priv)
+		case "SecurityContextConstraints":
+			s := &secv1.SecurityContextConstraints{}
+			if err := yaml.Unmarshal([]byte(entry), &s); err != nil {
+				return nil, err
+			}
+			strategy.sccs = append(strategy.sccs, s)
 		default:
 			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
 

@@ -19,8 +19,10 @@
 package util
 
 import (
+	secv1 "github.com/openshift/api/security/v1"
 	"k8s.io/client-go/tools/cache"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
@@ -40,6 +42,7 @@ type Stores struct {
 	InstallStrategyJobCache       cache.Store
 	InfrastructurePodCache        cache.Store
 	PodDisruptionBudgetCache      cache.Store
+	IsOnOpenshift                 bool
 }
 
 func (s *Stores) AllEmpty() bool {
@@ -54,13 +57,25 @@ func (s *Stores) AllEmpty() bool {
 		IsStoreEmpty(s.DaemonSetCache) &&
 		IsStoreEmpty(s.ValidationWebhookCache) &&
 		IsStoreEmpty(s.PodDisruptionBudgetCache) &&
-		IsStoreEmpty(s.SCCCache)
+		IsSCCStoreEmpty(s.SCCCache)
 	// Don't add InstallStrategyConfigMapCache to this list. The install
 	// strategies persist even after deletion and updates.
 }
 
 func IsStoreEmpty(store cache.Store) bool {
 	return len(store.ListKeys()) == 0
+}
+
+func IsSCCStoreEmpty(store cache.Store) bool {
+	cnt := 0
+	for _, obj := range store.List() {
+		if s, ok := obj.(*secv1.SecurityContextConstraints); ok {
+			if v, ok := s.Labels[v1.ManagedByLabel]; ok && v == v1.ManagedByLabelOperatorValue {
+				cnt++
+			}
+		}
+	}
+	return cnt == 0
 }
 
 type Expectations struct {
