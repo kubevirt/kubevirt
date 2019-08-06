@@ -168,6 +168,34 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Subdomain).To(BeEmpty())
 			})
 		})
+		Context("with debug log annotation", func() {
+			It("should add the corresponding environment variable", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+						Labels: map[string]string{
+							debugLogs: "true",
+						},
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
+				debugLogsValue := ""
+				for _, ev := range pod.Spec.Containers[0].Env {
+					if ev.Name == ENV_VAR_LIBVIRT_DEBUG_LOGS {
+						debugLogsValue = ev.Value
+					}
+				}
+				Expect(debugLogsValue).To(Equal("1"))
+			})
+		})
 		Context("with multus annotation", func() {
 			It("should add multus networks in the pod annotation", func() {
 				vmi := v1.VirtualMachineInstance{

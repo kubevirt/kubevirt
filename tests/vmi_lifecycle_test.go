@@ -134,6 +134,33 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				500*time.Millisecond).
 				Should(And(ContainSubstring("internal error: Cannot probe for supported suspend types"), ContainSubstring(`"subcomponent":"libvirt"`)))
 		})
+
+		It("should log libvirtd debug logs when enabled", func() {
+			var err error
+			vmi := tests.NewRandomVMI()
+			vmi.Labels = map[string]string{
+				"debugLogs": "true",
+			}
+
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(BeNil(), "Create VMI successfully")
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Getting virt-launcher logs")
+			logs := func() string { return getVirtLauncherLogs(virtClient, vmi) }
+
+			// there are plenty of strings we can use to identify the debug logs. Here we use something easy to see...
+			Eventually(logs,
+				11*time.Second,
+				500*time.Millisecond).
+				Should(ContainSubstring("OBJECT_REF"))
+			// ...and something we deeply care about when in debug mode.
+			Eventually(logs,
+				2*time.Second,
+				500*time.Millisecond).
+				Should(And(ContainSubstring("QEMU_MONITOR_SEND_MSG"), ContainSubstring(`"subcomponent":"libvirt"`)))
+		})
+
 		It("[test_id:1623]should reject POST if validation webhook deems the spec invalid", func() {
 
 			// Add a disk that doesn't map to a volume.
