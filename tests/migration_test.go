@@ -47,6 +47,11 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
+const (
+	migrationWaitTime = 240
+	fedoraVMSize      = "256M"
+)
+
 var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system] VM Live Migration", func() {
 	tests.FlagParse()
 
@@ -386,7 +391,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 					// execute a migration, wait for finalized state
 					By(fmt.Sprintf("Starting the Migration for iteration %d", i))
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-					migrationUID := runMigrationAndExpectCompletion(migration, 180)
+					migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
 
 					// check VMI, confirm migration state
 					confirmVMIPostMigration(vmi, migrationUID)
@@ -432,7 +437,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 			It("should complete a migration", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -465,7 +470,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := runMigrationAndExpectCompletion(migration, 240)
+				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
@@ -548,7 +553,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := runMigrationAndExpectCompletion(migration, 180)
+				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
@@ -650,7 +655,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				By("Starting a Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := runMigrationAndExpectCompletion(migration, 180)
+				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
@@ -725,7 +730,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// execute a migration, wait for finalized state
 				By("Starting the Migration for iteration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := runMigrationAndExpectCompletion(migration, 180)
+				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
@@ -768,7 +773,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// Start the VirtualMachineInstance with the PVC attached
 				By("Creating the  VMI")
 				vmi = tests.NewRandomVMIWithPVC(pvName)
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 				// add userdata for guest agent and service account mount
@@ -797,7 +802,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// execute a migration, wait for finalized state
 				By("Starting the Migration for iteration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID := runMigrationAndExpectCompletion(migration, 180)
+				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
@@ -844,7 +849,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			})
 			It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -1056,7 +1061,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 		Context("live migration cancelation", func() {
 			It("[test_id:2226]should be able successfully cancel a migration", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -1098,7 +1103,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			})
 			It("should be able successfully cancel a migration right after posting it", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -1152,7 +1157,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			tests.CreateSecret(secretName, secret_data)
 
 			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2G")
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 			tests.AddUserData(vmi, "cloud-init", "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n")
 			tests.AddConfigMapDisk(vmi, configMapName)
 			tests.AddSecretDisk(vmi, secretName)
@@ -1163,7 +1168,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
 			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-			migrationUID := runMigrationAndExpectCompletion(migration, 180)
+			migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
 
 			// check VMI, confirm migration state
 			confirmVMIPostMigration(vmi, migrationUID)
@@ -1577,7 +1582,7 @@ func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
 	vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 	strategy := v1.EvictionStrategyLiveMigrate
 	vmi.Spec.EvictionStrategy = &strategy
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 	return vmi
 }
 
