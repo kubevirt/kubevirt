@@ -482,8 +482,6 @@ var _ = Describe("DataVolume Integration", func() {
 			var cloneRole *rbacv1.Role
 			var cloneRoleBinding *rbacv1.RoleBinding
 
-			//serviceAccount := fmt.Sprintf("system:serviceaccount:%s:%s", tests.NamespaceTestDefault, tests.AdminServiceAccountName)
-
 			BeforeEach(func() {
 				var err error
 				dv := tests.NewRandomDataVolumeWithHttpImport(tests.AlpineHttpUrl, tests.NamespaceTestAlternative, k8sv1.ReadWriteOnce)
