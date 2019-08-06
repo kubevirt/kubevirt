@@ -20,6 +20,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tools/util:go_default_library",
         "//vendor/github.com/blang/semver:go_default_library",
+        "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/github.com/ghodss/yaml:go_default_library",
         "//vendor/github.com/openshift/api/security/v1:go_default_library",
         "//vendor/k8s.io/api/admissionregistration/v1beta1:go_default_library",
