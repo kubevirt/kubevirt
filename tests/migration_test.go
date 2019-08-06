@@ -43,7 +43,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
-	migrations2 "kubevirt.io/kubevirt/pkg/util/migrations"
+	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -1549,6 +1549,16 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				By("tainting the source node as non-schedulabele")
 				tests.Taint(sourceNode.Name, "kubevirt.io/drain", k8sv1.TaintEffectNoSchedule)
 
+				By("waiting until migration kicks in")
+				Eventually(func() int {
+					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					runningMigrations := migrations.FilterRunningMigrations(migrationList.Items)
+
+					return len(runningMigrations)
+				}, 2*time.Minute, 1*time.Second).Should(BeNumerically(">", 0))
+
 				By("checking that all VMIs were migrated, and we never see more than two running migrations in parallel")
 				Eventually(func() []string {
 					var nodes []string
@@ -1556,10 +1566,13 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 						vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 						nodes = append(nodes, vmi.Status.NodeName)
 					}
-					migrations, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
+
+					migrationList, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					runningMigrations := migrations2.FilterRunningMigrations(migrations.Items)
+
+					runningMigrations := migrations.FilterRunningMigrations(migrationList.Items)
 					Expect(len(runningMigrations)).To(BeNumerically("<=", 2))
+
 					return nodes
 				}, 4*time.Minute, 1*time.Second).Should(ConsistOf(
 					targetNode.Name,
