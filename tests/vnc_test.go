@@ -66,7 +66,7 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				readStop := make(chan string)
 
 				go func() {
-					GinkgoRecover()
+					defer GinkgoRecover()
 					vnc, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
 					if err != nil {
 						k8ResChan <- err
@@ -81,7 +81,7 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				// write to FD <- pipeOutReader
 				By("Reading from the VNC socket")
 				go func() {
-					GinkgoRecover()
+					defer GinkgoRecover()
 					buf := make([]byte, 1024, 1024)
 					// reading qemu vnc server
 					n, err := pipeOutReader.Read(buf)
@@ -96,22 +96,18 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					readStop <- string(buf[0:n])
 				}()
 
-				response := ""
-
 				select {
-				case response = <-readStop:
+				case response := <-readStop:
+					// This is the response capture by wireshark when the VNC server is contacted.
+					// This verifies that the test is able to establish a connection with VNC and
+					// communicate.
+					By("Checking the response from VNC server")
+					Expect(response).To(Equal("RFB 003.008\n"))
 				case err = <-k8ResChan:
 					Expect(err).ToNot(HaveOccurred())
 				case <-time.After(45 * time.Second):
 					Fail("Timout reached while waiting for valid VNC server response")
 				}
-
-				// This is the response capture by wireshark when the VNC server is contacted.
-				// This verifies that the test is able to establish a connection with VNC and
-				// communicate.
-				By("Checking the response from VNC server")
-				Expect(response).To(Equal("RFB 003.008\n"))
-				Expect(err).To(BeNil())
 			}
 
 			It("[test_id:1611]should allow accessing the VNC device", func() {
@@ -136,6 +132,7 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
 			Expect(err).ToNot(HaveOccurred())
 			req, err := kubecli.RequestFromConfig(config, vmi.Name, vmi.Namespace, subresource)
+			Expect(err).ToNot(HaveOccurred())
 
 			// Add an Origin header to look more like an arbitrary browser
 			if req.Header == nil {
