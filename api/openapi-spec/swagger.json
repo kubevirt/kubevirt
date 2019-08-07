@@ -5919,6 +5919,9 @@
    },
    "v1.VirtualMachine": {
     "description": "VirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe VirtualMachine contains the template to create the\nVirtualMachineInstance. It also mirrors the running state of the created\nVirtualMachineInstance in its status.",
+    "required": [
+     "spec"
+    ],
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -5976,6 +5979,9 @@
    },
    "v1.VirtualMachineInstance": {
     "description": "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+    "required": [
+     "spec"
+    ],
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -6093,6 +6099,9 @@
    },
    "v1.VirtualMachineInstanceMigration": {
     "description": "VirtualMachineInstanceMigration represents the object tracking a VMI's migration\nto another host in the cluster",
+    "required": [
+     "spec"
+    ],
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -6336,6 +6345,9 @@
    },
    "v1.VirtualMachineInstanceReplicaSet": {
     "description": "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+    "required": [
+     "spec"
+    ],
     "properties": {
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
@@ -6599,7 +6611,6 @@
    "v1.VirtualMachineList": {
     "description": "VirtualMachineList is a list of virtualmachines",
     "required": [
-     "metadata",
      "items"
     ],
     "properties": {
@@ -6608,7 +6619,6 @@
       "type": "string"
      },
      "items": {
-      "description": "Items is a list of VirtualMachines",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.VirtualMachine"
