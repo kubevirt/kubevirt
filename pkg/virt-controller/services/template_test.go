@@ -1478,6 +1478,63 @@ var _ = Describe("Template", func() {
 			})
 		})
 
+		Context("with gpu device interface", func() {
+			It("should not run privileged", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									"nvidia.com/gpu_name": resource.MustParse("1"),
+								},
+								Limits: kubev1.ResourceList{
+									"nvidia.com/gpu_name": resource.MustParse("1"),
+								},
+							},
+						},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
+				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
+			})
+			It("should mount pci related host directories", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									"nvidia.com/gpu_name": resource.MustParse("1"),
+								},
+								Limits: kubev1.ResourceList{
+									"nvidia.com/gpu_name": resource.MustParse("1"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
+				// Skip first three mounts that are generic for all launcher pods
+				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
+				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/sys/devices/"))
+			})
+		})
+
 		It("should add the lessPVCSpaceToleration argument to the template", func() {
 			expectedToleration := "42"
 			testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{

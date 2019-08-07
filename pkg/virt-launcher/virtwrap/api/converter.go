@@ -67,6 +67,7 @@ type ConverterContext struct {
 	DiskType       map[string]*containerdisk.DiskInfo
 	SRIOVDevices   map[string][]string
 	SMBios         *cmdv1.SMBios
+	GpuDevices     []string
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -985,6 +986,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
+	// Append HostDevices to DomXML if Nvidia GPU requested
+	if util.IsNvidiaGpuVmi(vmi) {
+		hostDevices, err := createHostDevForGpu(c)
+		if err == nil {
+			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevices...)
+		}
+	}
+
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel
 	}
@@ -1495,4 +1504,66 @@ func decoratePciAddressField(addressField string) (*Address, error) {
 		Function: "0x" + dbsfFields[3],
 	}
 	return decoratedAddrField, nil
+}
+
+func createHostDevForGpu(c *ConverterContext) ([]HostDevice, error) {
+
+	var hostDevices []HostDevice
+	var parseErr error
+	gpuPciAddresses := append([]string{}, c.GpuDevices...)
+	_, isVgpu := os.LookupEnv("IS-VGPU")
+	if isVgpu {
+		hostDevices, parseErr = createVGpuHostDevicesFromPCIAddresses(gpuPciAddresses)
+	} else {
+		hostDevices, parseErr = createHostDevicesFromPCIAddresses(gpuPciAddresses)
+	}
+	if parseErr != nil {
+		log.Log.Reason(parseErr).Error("Unable to parse PCI Device addresses")
+		return nil, parseErr
+	}
+	return hostDevices, nil
+
+}
+
+func createHostDevicesFromPCIAddresses(pcis []string) ([]HostDevice, error) {
+	var hds []HostDevice
+	for _, pciAddr := range pcis {
+		address, err := decoratePciAddressField(pciAddr)
+		if err != nil {
+			return nil, err
+		}
+
+		hostDev := HostDevice{
+			Source: HostDeviceSource{
+				Address: address,
+			},
+			Type:    "pci",
+			Managed: "yes",
+		}
+
+		hds = append(hds, hostDev)
+	}
+
+	return hds, nil
+}
+
+func createVGpuHostDevicesFromPCIAddresses(pcis []string) ([]HostDevice, error) {
+	var hds []HostDevice
+	for _, pciAddr := range pcis {
+		decoratedAddrField := &Address{
+			Uuid: pciAddr,
+		}
+
+		hostDev := HostDevice{
+			Source: HostDeviceSource{
+				Address: decoratedAddrField,
+			},
+			Type:  "mdev",
+			Mode:  "subsystem",
+			Model: "vfio-pci",
+		}
+		hds = append(hds, hostDev)
+	}
+
+	return hds, nil
 }

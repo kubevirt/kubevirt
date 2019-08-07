@@ -871,6 +871,32 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 	return networkToAddressesMap
 }
 
+// This function parses the NVIDIA-PASSTHROUGH-DEVICES variable that is set by
+// device plugin. It lists PCI IDs for devices allocated to the pod. The format
+// is as follows:
+//
+// "": for no allocated devices
+// "0000:81:11.1,": for a single device
+// "0000:81:11.1,0000:81:11.2[,...]": for multiple devices
+func getGpuPCIAddresses() []string {
+	pciAddrString, isSet := os.LookupEnv("NVIDIA-PASSTHROUGH-DEVICES")
+	if isSet {
+		addrs := strings.Split(pciAddrString, ",")
+		naddrs := len(addrs)
+		if naddrs > 0 {
+			if addrs[naddrs-1] == "" {
+				addrs = addrs[:naddrs-1]
+			}
+		}
+
+		for index, element := range addrs {
+			addrs[index] = strings.TrimSpace(element)
+		}
+		return addrs
+	}
+	return []string{}
+}
+
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
@@ -927,6 +953,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		IsBlockDV:      isBlockDVMap,
 		DiskType:       diskInfo,
 		SRIOVDevices:   getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
+		GpuDevices:     getGpuPCIAddresses(),
 	}
 	if options != nil && options.VirtualMachineSMBios != nil {
 		c.SMBios = options.VirtualMachineSMBios
