@@ -19,6 +19,12 @@ clean: ## Clean up the working environment
 start:
 	./hack/deploy.sh
 
+quay-token:
+	@./tools/token.sh $(QUAY_USERNAME) $(QUAY_PASSWORD)
+
+bundle-push: docker-build-operator-courier
+	@QUAY_USERNAME=$(QUAY_USERNAME) QUAY_PASSWORD=$(QUAY_PASSWORD) ./tools/operator-courier/push.sh
+
 hack-clean: ## Run ./hack/clean.sh
 	./hack/clean.sh
 
@@ -28,7 +34,7 @@ docker-build-operator:
 	docker build -f build/Dockerfile -t $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG) .
 
 docker-build-operator-courier:
-	docker build -f hack/operator-courier/Dockerfile -t hco-courier .
+	docker build -f tools/operator-courier/Dockerfile -t hco-courier .
 
 docker-push: docker-push-operator
 
@@ -77,6 +83,7 @@ test: test-unit
 		hack-clean \
 		docker-build \
 		docker-build-operator \
+		docker-build-operator-courier \
 		docker-push \
 		docker-push-operator \
 		cluster-up \
@@ -84,4 +91,6 @@ test: test-unit
 		cluster-sync \
 		cluster-clean \
 		stageRegistry \
-		functest
+		functest \
+		quay-token \
+		bundle-push
