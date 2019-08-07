@@ -55,3 +55,6 @@ spec:
                   fieldPath: metadata.name
             - name: RELEASE_VERSION
               value: 0.0.1-snapshot
+            - name: SRIOV_CNI_BIN_PATH
+              value: "/opt/cin/bin"
+

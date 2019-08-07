@@ -81,6 +81,4 @@ SRIOVCNI_DAEMON_POD=$(kubectl get pods -n sriov-network-operator | grep sriov-cn
 kubectl wait --for=condition=Ready -n sriov-network-operator pod $SRIOVCNI_DAEMON_POD --timeout 12m
 
 ${CONTROL_PLANE_CMD} chmod 666 /dev/vfio/vfio
-# TO BE FIXED IN SRIOV OPERATOR
-${CONTROL_PLANE_CMD} cp /var/lib/cni/bin/sriov /opt/cni/bin/
 
