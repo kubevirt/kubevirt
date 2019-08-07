@@ -55,7 +55,7 @@ var _ = Describe("[rfe_id:609]VMIheadless", func() {
 				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &f
 			})
 
-			It("should create headless vmi without any issue", func() {
+			It("[test_id:707]should create headless vmi without any issue", func() {
 				tests.RunVMIAndExpectLaunch(vmi, 30)
 			})
 
