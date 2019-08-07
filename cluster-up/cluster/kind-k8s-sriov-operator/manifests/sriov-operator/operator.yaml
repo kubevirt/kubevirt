@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sriov-network-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: sriov-network-operator
+  template:
+    metadata:
+      labels:
+        name: sriov-network-operator
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+      serviceAccountName: sriov-network-operator
+      containers:
+        - name: sriov-network-operator
+          # Replace this with the built image name
+          image: quay.io/openshift/origin-sriov-network-operator
+          command:
+          - sriov-network-operator
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: SRIOV_CNI_IMAGE
+              value: quay.io/openshift/origin-sriov-cni:4.2
+            - name: SRIOV_DEVICE_PLUGIN_IMAGE
+              value: quay.io/openshift/origin-sriov-network-device-plugin:4.2
+            - name: NETWORK_RESOURCES_INJECTOR_IMAGE
+              value: quay.io/openshift/origin-sriov-dp-admission-controller:4.2
+            - name: OPERATOR_NAME
+              value: sriov-network-operator
+            - name: SRIOV_NETWORK_CONFIG_DAEMON_IMAGE
+              value: quay.io/openshift/origin-sriov-network-config-daemon
+            - name: RESOURCE_PREFIX
+              value: openshift.io
+            - name: ENABLE_ADMISSION_CONTROLLER
+              value: "false"
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: RELEASE_VERSION
+              value: 0.0.1-snapshot

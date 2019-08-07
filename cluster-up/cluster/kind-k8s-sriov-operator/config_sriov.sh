@@ -3,10 +3,28 @@ set -x
 
 CONTROL_PLANE_CMD="docker exec -it -d ${CLUSTER_NAME}-control-plane"
 MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/manifests"
+OPERATOR_MANIFESTS_DIR="$MANIFESTS_DIR/sriov-operator"
 
 function wait_containers_ready {
     echo "Waiting for all containers to become ready ..."
     kubectl wait --for=condition=Ready pod --all -n kube-system --timeout 12m
+}
+
+function deploy_sriov_operator {
+
+  if ! kubectl get ns sriov-network-operator > /dev/null 2>&1; then
+    kubectl apply -f $OPERATOR_MANIFESTS_DIR/namespace.yaml
+  fi
+
+  kubectl apply -f $OPERATOR_MANIFESTS_DIR/crds/sriovnetwork_v1_sriovnetwork_crd.yaml -n sriov-network-operator --validate=false
+  kubectl apply -f $OPERATOR_MANIFESTS_DIR/crds/sriovnetwork_v1_sriovnetworknodepolicy_crd.yaml -n sriov-network-operator --validate=false
+  kubectl apply -f $OPERATOR_MANIFESTS_DIR/crds/sriovnetwork_v1_sriovnetworknodestate_crd.yaml -n sriov-network-operator --validate=false
+  kubectl apply -f $OPERATOR_MANIFESTS_DIR/service_account.yaml -n sriov-network-operator --validate=false
+  kubectl apply -f $OPERATOR_MANIFESTS_DIR/role.yaml -n sriov-network-operator --validate=false
+  kubectl apply -f $OPERATOR_MANIFESTS_DIR/role_binding.yaml -n sriov-network-operator --validate=false
+  kubectl apply -f $OPERATOR_MANIFESTS_DIR/clusterrole.yaml -n sriov-network-operator --validate=false
+  kubectl apply -f $OPERATOR_MANIFESTS_DIR/clusterrolebinding.yaml -n sriov-network-operator --validate=false
+  kubectl apply -f $OPERATOR_MANIFESTS_DIR/operator.yaml -n sriov-network-operator --validate=false
 }
 
 #move the pf to the node
@@ -37,15 +55,7 @@ wait_containers_ready
 
 ${CONTROL_PLANE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when it starts, we need it to be writeable
 
-OPERATOR_PATH=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/sriov-network-operator
-
-if [[ ! -d $OPERATOR_PATH ]]; then
-  git clone https://github.com/openshift/sriov-network-operator.git $OPERATOR_PATH
-fi
-
-pushd $OPERATOR_PATH
-make deploy-setup
-popd
+deploy_sriov_operator
 
 kubectl label node sriov-control-plane node-role.kubernetes.io/worker=
 kubectl label node sriov-control-plane sriov=true 

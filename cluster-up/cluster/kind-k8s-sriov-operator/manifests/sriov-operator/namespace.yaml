@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sriov-network-operator
+  labels:
+    name: sriov-network-operator
+    openshift.io/run-level: "1"
