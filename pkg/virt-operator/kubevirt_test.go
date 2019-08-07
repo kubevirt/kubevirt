@@ -129,8 +129,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var resourceChanges map[string]map[string]int
 
 	resourceCount := 33
-	patchCount := 17
-	updateCount := 16
+	patchCount := 15
+	updateCount := 18
 
 	deleteFromCache := true
 	addToCache := true
@@ -714,8 +714,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewVirtualMachineCrd())
 		all = append(all, components.NewVirtualMachineInstanceMigrationCrd())
 		// sccs
-		all = append(all, components.NewKubeVirtSCC(NAMESPACE))
-		all = append(all, components.NewKubeVirtPrivilegedSCC(NAMESPACE))
+		all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
+		all = append(all, components.NewKubeVirtHandlerSCC(NAMESPACE))
 		// services and deployments
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
@@ -1076,7 +1076,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("patch", "deployments", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", genericPatchFunc)
 
-		secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericPatchFunc)
+		secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericUpdateFunc)
 	}
 
 	shouldExpectRbacBackupCreations := func() {
@@ -1546,6 +1546,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.DaemonSetCache.List())).To(Equal(0))
 			Expect(len(controller.stores.ValidationWebhookCache.List())).To(Equal(1))
 			Expect(len(controller.stores.PodDisruptionBudgetCache.List())).To(Equal(1))
+			Expect(len(controller.stores.SCCCache.List())).To(Equal(3))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
 

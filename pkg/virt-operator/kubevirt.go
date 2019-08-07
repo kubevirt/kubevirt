@@ -311,7 +311,12 @@ func (c *KubeVirtController) sccUpdateHandler(old, cur interface{}, expecter *co
 }
 
 func (c *KubeVirtController) sccDeleteHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
-	o := obj.(metav1.Object)
+	o, err := validateDeleteObject(obj)
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to process delete notification")
+		return
+	}
+
 	if util.IsManagedByOperator(o.GetLabels()) {
 		c.genericDeleteHandler(obj, expecter)
 	}
@@ -359,18 +364,25 @@ func (c *KubeVirtController) genericUpdateHandler(old, cur interface{}, expecter
 	return
 }
 
-// When an object is deleted, mark objects as deleted and wake up the kubevirt CR
-func (c *KubeVirtController) genericDeleteHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+func validateDeleteObject(obj interface{}) (metav1.Object, error) {
 	var o metav1.Object
 	tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 	if ok {
 		o, ok = tombstone.Obj.(metav1.Object)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a k8s object %#v", obj)).Error("Failed to process delete notification")
-			return
+			return nil, fmt.Errorf("tombstone contained object that is not a k8s object %#v", obj)
 		}
 	} else if o, ok = obj.(metav1.Object); !ok {
-		log.Log.Reason(fmt.Errorf("couldn't get object from %+v", obj)).Error("Failed to process delete notification")
+		return nil, fmt.Errorf("couldn't get object from %+v", obj)
+	}
+	return o, nil
+}
+
+// When an object is deleted, mark objects as deleted and wake up the kubevirt CR
+func (c *KubeVirtController) genericDeleteHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+	o, err := validateDeleteObject(obj)
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to process delete notification")
 		return
 	}
 

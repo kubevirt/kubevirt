@@ -1463,6 +1463,8 @@ func createOrUpdateSCC(kv *v1.KubeVirt,
 			}
 			log.Log.V(2).Infof("SCC %v created", scc.Name)
 		} else if !objectMatchesVersion(&cachedSCC.ObjectMeta, version, imageRegistry, id) {
+			scc.ObjectMeta = *cachedSCC.ObjectMeta.DeepCopy()
+			injectOperatorMetadata(kv, &scc.ObjectMeta, version, imageRegistry, id)
 			_, err = sec.SecurityContextConstraints().Update(scc)
 			if err != nil {
 				return fmt.Errorf("Unable to update %s SecurityContextConstraints", scc.Name)

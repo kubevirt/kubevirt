@@ -28,8 +28,8 @@ import (
 
 func GetAllSCC(namespace string) []*secv1.SecurityContextConstraints {
 	return []*secv1.SecurityContextConstraints{
-		NewKubeVirtPrivilegedSCC(namespace),
-		NewKubeVirtSCC(namespace),
+		NewKubeVirtHandlerSCC(namespace),
+		NewKubeVirtControllerSCC(namespace),
 	}
 }
 
@@ -42,7 +42,7 @@ func newBlankSCC() *secv1.SecurityContextConstraints {
 	}
 }
 
-func NewKubeVirtPrivilegedSCC(namespace string) *secv1.SecurityContextConstraints {
+func NewKubeVirtHandlerSCC(namespace string) *secv1.SecurityContextConstraints {
 	scc := newBlankSCC()
 
 	scc.Name = "kubevirt-handler"
@@ -63,9 +63,7 @@ func NewKubeVirtPrivilegedSCC(namespace string) *secv1.SecurityContextConstraint
 	return scc
 }
 
-// NewKubeVirtSCC provides `kubevirt` SCC for virt-controller
-// in order to control virt-launcher privileges
-func NewKubeVirtSCC(namespace string) *secv1.SecurityContextConstraints {
+func NewKubeVirtControllerSCC(namespace string) *secv1.SecurityContextConstraints {
 	scc := newBlankSCC()
 
 	scc.Name = "kubevirt-controller"
@@ -77,7 +75,6 @@ func NewKubeVirtSCC(namespace string) *secv1.SecurityContextConstraints {
 		Type: secv1.SELinuxStrategyRunAsAny,
 	}
 	scc.AllowedCapabilities = []corev1.Capability{"NET_ADMIN", "SYS_NICE", "SYS_RESOURCE"}
-	scc.RequiredDropCapabilities = []corev1.Capability{"KILL", "MKNOD", "SETUID", "SETGID"}
 	scc.AllowHostDirVolumePlugin = true
 	scc.Users = []string{fmt.Sprintf("system:serviceaccount:%s:kubevirt-controller", namespace)}
 

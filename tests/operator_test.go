@@ -35,6 +35,7 @@ import (
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -1016,6 +1017,60 @@ spec:
 
 			By("Deleting duplicate KubeVirt Object")
 			deleteAllKvAndWait(true)
+		})
+
+		Context("With OpenShift cluster", func() {
+
+			BeforeEach(func() {
+				if !tests.IsOpenShift() {
+					Skip("OpenShift operator tests should not be started on k8s")
+				}
+			})
+
+			It("Should have kubevirt SCCs created", func() {
+				const OpenShiftSCCLabel = "openshift.io/scc"
+				var expectedSCCs, sccs []string
+
+				By("Checking if kubevirt SCCs have been created")
+				secClient := virtClient.SecClient()
+				operatorSCCs := components.GetAllSCC(tests.KubeVirtInstallNamespace)
+				for _, scc := range operatorSCCs {
+					expectedSCCs = append(expectedSCCs, scc.GetName())
+				}
+
+				createdSCCs, err := secClient.SecurityContextConstraints().List(metav1.ListOptions{LabelSelector: controller.OperatorLabel})
+				Expect(err).NotTo(HaveOccurred())
+				for _, scc := range createdSCCs.Items {
+					sccs = append(sccs, scc.GetName())
+				}
+				Expect(sccs).To(ConsistOf(expectedSCCs))
+
+				By("Checking if virt-handler is assigned to kubevirt-handler SCC")
+				l, err := labels.Parse("kubevirt.io=virt-handler")
+				Expect(err).ToNot(HaveOccurred())
+
+				pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
+				Expect(err).ToNot(HaveOccurred(), "Should get virt-handler")
+				Expect(pods.Items).ToNot(BeEmpty())
+				Expect(pods.Items[0].Annotations[OpenShiftSCCLabel]).To(
+					Equal("kubevirt-handler"), "Should virt-handler be assigned to kubevirt-handler SCC",
+				)
+
+				By("Checking if virt-launcher is assigned to kubevirt-controller SCC")
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(BeNil())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				uid := vmi.GetObjectMeta().GetUID()
+				labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
+				pods, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(metav1.ListOptions{LabelSelector: labelSelector})
+				Expect(err).ToNot(HaveOccurred(), "Should get virt-launcher")
+				Expect(len(pods.Items)).To(Equal(1))
+				Expect(pods.Items[0].Annotations[OpenShiftSCCLabel]).To(
+					Equal("kubevirt-controller"), "Should virt-launcher be assigned to kubevirt-controller SCC",
+				)
+			})
 		})
 	})
 
