@@ -704,6 +704,28 @@ var _ = Describe("getSRIOVPCIAddresses", func() {
 	})
 })
 
+var _ = Describe("getGpuPCIAddresses", func() {
+	It("returns empty if PCI address is not set", func() {
+		Expect(len(getGpuPCIAddresses())).To(Equal(0))
+	})
+
+	It("returns single PCI address ", func() {
+		os.Setenv("NVIDIA-PASSTHROUGH-DEVICES", "2609:19:90.0,")
+		addrs := getGpuPCIAddresses()
+		Expect(len(addrs)).To(Equal(1))
+		Expect(addrs[0]).To(Equal("2609:19:90.0"))
+	})
+
+	It("returns multiple PCI addresses", func() {
+		os.Setenv("NVIDIA-PASSTHROUGH-DEVICES", "2609:19:90.0,2609:19:90.1")
+		addrs := getGpuPCIAddresses()
+		Expect(len(addrs)).To(Equal(2))
+		Expect(addrs[0]).To(Equal("2609:19:90.0"))
+		Expect(addrs[1]).To(Equal("2609:19:90.1"))
+	})
+
+})
+
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMIWithNS(namespace, name)
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
