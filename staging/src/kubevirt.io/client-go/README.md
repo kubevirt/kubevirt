@@ -3,7 +3,7 @@
 Go clients for talking to [KubeVirt](https://github.com/kubevirt/kubevirt).
 
 ## How to use it
-please refer to some of [examples here](examples/Readme.md)
+please refer to some of [examples here](examples/README.md)
 
 -----
 KubeVirt client-go is maintained at https://github.com/kubevirt/kubevirt/tree/master/staging/src/kubevirt.io/client-go.  
