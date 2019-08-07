@@ -70,7 +70,7 @@ sleep 20
 "${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${op}"
 
 for op in cdi-operator cluster-network-addons-operator kubevirt-ssp-operator node-maintenance-operator virt-operator; do
-    "${CMD}" wait deployment/"${op}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${op}"
+    "${CMD}" wait deployment/"${op}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${op} "
 done
 
 "${CMD}" create -f _out/hco.cr.yaml
@@ -78,7 +78,7 @@ sleep 30
 "${CMD}" wait pod $("${CMD}" get pods | grep hyperconverged-cluster-operator | awk '{ print $1 }') --for=condition=Ready --timeout="360s"
 
 for dep in cdi-apiserver cdi-deployment cdi-uploadproxy virt-api virt-controller; do
-    "${CMD}" wait deployment/"${dep}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${dep}"
+    "${CMD}" wait deployment/"${dep}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${dep} "
 done
 
 if [ -z "$CONTAINER_ERRORED" ]; then
