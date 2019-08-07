@@ -24,6 +24,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"path"
 	"strconv"
 	"sync"
@@ -61,13 +62,13 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiI
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := t.getVMI(request)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed retrieve VMI")
+		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
 		response.WriteError(code, err)
 		return
 	}
 	unixSocketPath, err := t.getUnixSocketPath(vmi, "virt-vnc")
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed unix socket for VNC console")
+		log.Log.Object(vmi).Reason(err).Error("Failed finding unix socket for VNC console")
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
@@ -82,13 +83,13 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := t.getVMI(request)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed retrieve VMI")
+		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
 		response.WriteError(code, err)
 		return
 	}
 	unixSocketPath, err := t.getUnixSocketPath(vmi, "virt-serial0")
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed unix socket for serial console")
+		log.Log.Object(vmi).Reason(err).Error("Failed finding unix socket for serial console")
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
@@ -140,7 +141,16 @@ func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socke
 	if err != nil {
 		return "", err
 	}
-	return path.Join("proc", strconv.Itoa(result.Pid()), "root", "var", "run", "kubevirt-private", string(vmi.GetUID()), socketName), nil
+	socketDir := path.Join("proc", strconv.Itoa(result.Pid()), "root", "var", "run", "kubevirt-private", string(vmi.GetUID()))
+	socketPath := path.Join(socketDir, socketName)
+	if _, err = os.Stat(socketPath); os.IsNotExist(err) {
+		return "", err
+	}
+	// See https://github.com/kubevirt/kubevirt/pull/2171
+	if err = os.Chmod(socketDir, 0444); err != nil {
+		return "", err
+	}
+	return socketPath, nil
 }
 
 type cleanupOnError func()
