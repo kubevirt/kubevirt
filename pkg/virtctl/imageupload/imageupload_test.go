@@ -288,7 +288,7 @@ var _ = Describe("ImageUpload", func() {
 		DescribeTable("PVC does exist", func(pvc *v1.PersistentVolumeClaim) {
 			testInit(http.StatusOK, pvc)
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--no-create", "--pvc-name", pvcName,
-				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
+				"--uploadproxy-url", server.URL, "--pvc-size", pvcSize, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
 			Expect(createCalled).To(BeFalse())
 			validatePVC()
@@ -338,6 +338,7 @@ var _ = Describe("ImageUpload", func() {
 			Entry("No args", []string{"--pvc-name", pvcName, "--pvc-size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", imagePath}),
 			Entry("No name", []string{"--pvc-size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", imagePath}),
 			Entry("No size", []string{"--pvc-name", pvcName, "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", imagePath}),
+			Entry("Size invalid", []string{"--pvc-name", pvcName, "--pvc-size", "$$$$$", "--uploadproxy-url", "https://doesnotexist", "--insecure", "--image-path", imagePath}),
 			Entry("No image path", []string{"--pvc-name", pvcName, "--pvc-size", pvcSize, "--uploadproxy-url", "https://doesnotexist", "--insecure"}),
 		)
 

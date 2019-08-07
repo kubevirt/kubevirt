@@ -153,6 +153,9 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 		if !(k8serrors.IsNotFound(err) && !noCreate) {
 			return err
 		}
+		if !noCreate && len(pvcSize) == 0 {
+			return fmt.Errorf("When creating PVC, the size must be specified")
+		}
 
 		pvc, err = createUploadPVC(virtClient, namespace, pvcName, pvcSize, storageClass, accessMode, blockVolume)
 		if err != nil {
@@ -348,7 +351,7 @@ func waitUploadPodRunning(client kubernetes.Interface, namespace, name string, i
 func createUploadPVC(client kubernetes.Interface, namespace, name, size, storageClass, accessMode string, blockVolume bool) (*v1.PersistentVolumeClaim, error) {
 	quantity, err := resource.ParseQuantity(size)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Validation failed for size=%s: %s", size, err)
 	}
 
 	pvc := &v1.PersistentVolumeClaim{
