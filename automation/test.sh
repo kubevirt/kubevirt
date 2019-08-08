@@ -279,7 +279,7 @@ elif [[ $TARGET =~ genie.* ]]; then
 elif [[ $TARGET =~ sriov.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=SRIOV" 
 else
-  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV"
+  ginko_params="$ginko_params --ginkgo.focus=Configuration|Storage"
 fi
 
 # Prepare RHEL PV for Template testing
@@ -307,5 +307,6 @@ EOF
 fi
 
 
+export ARTIFACTS_XMLDIR=${ARTIFACTS}/xmls
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params make functest
