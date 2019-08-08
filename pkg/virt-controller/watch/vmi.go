@@ -297,6 +297,10 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					Message: syncErr.Error(),
 					Status:  k8sv1.ConditionFalse,
 				}
+				cm := controller.NewVirtualMachineInstanceConditionManager()
+				if cm.HasCondition(vmiCopy, condition.Type) {
+					cm.RemoveCondition(vmiCopy, condition.Type)
+				}
 				vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
 			}
 		}

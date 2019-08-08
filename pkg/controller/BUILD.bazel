@@ -51,6 +51,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "conditions_test.go",
         "controller_ref_manager_test.go",
         "controller_suite_test.go",
         "expectations_test.go",
