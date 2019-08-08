@@ -196,14 +196,13 @@ func (app *virtHandlerApp) Run() {
 		for _, dir := range []string{app.VirtShareDir, app.VirtLibDir} {
 			if labeled, err := se.IsLabeled(dir); err != nil {
 				panic(err)
-			} else if labeled {
-				continue
+			} else if !labeled {
+				err := se.Label("container_file_t", dir)
+				if err != nil {
+					panic(err)
+				}
 			}
-			err := se.Label("container_file_t", dir)
-			if err != nil {
-				panic(err)
-			}
-			err = se.Restore(dir)
+			err := se.Restore(dir)
 			if err != nil {
 				panic(err)
 			}
