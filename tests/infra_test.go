@@ -119,6 +119,22 @@ var _ = Describe("Infrastructure", func() {
 
 			nodeName := startVMI(vmi)
 
+			By("Expecting the VirtualMachineInstance console")
+			// This also serves as a sync point to make sure the VM completed the boot
+			// (and reduce the risk of false negatives)
+			expecter, err := tests.LoggedInAlpineExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			By("Writing some data to the disk")
+			_, err = expecter.ExpectBatch([]expect.Batcher{
+				&expect.BSnd{S: "dd if=/dev/zero of=/dev/vdb bs=1M count=1\n"},
+				&expect.BExp{R: "localhost:~#"},
+				&expect.BSnd{S: "sync\n"},
+				&expect.BExp{R: "localhost:~#"},
+			}, 10*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+
 			By("Finding the prometheus endpoint")
 			pod, err = kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
@@ -221,21 +237,6 @@ var _ = Describe("Infrastructure", func() {
 		})
 
 		It("should include the storage metrics for a running VM", func() {
-			By("Expecting the VirtualMachineInstance console")
-			expecter, err := tests.LoggedInAlpineExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
-
-			By("Writing some data to the disk")
-			_, err = expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "dd if=/dev/zero of=/dev/vdb bs=1M count=1\n"},
-				&expect.BExp{R: "localhost:~#"},
-				&expect.BSnd{S: "sync\n"},
-				&expect.BExp{R: "localhost:~#"},
-			}, 10*time.Second)
-			Expect(err).ToNot(HaveOccurred())
-			// we wrote data to the disk, so from now on the VM *is* running
-
 			metrics := collectMetrics("kubevirt_vmi_storage_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
@@ -248,11 +249,6 @@ var _ = Describe("Infrastructure", func() {
 		})
 
 		It("should include the network metrics for a running VM", func() {
-			By("Expecting the VirtualMachineInstance console")
-			expecter, err := tests.LoggedInAlpineExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
-
 			metrics := collectMetrics("kubevirt_vmi_network_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
