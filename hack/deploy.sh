@@ -50,7 +50,7 @@ CONTAINER_ERRORED=""
 function debug(){
     echo "Found pods with errors ${CONTAINER_ERRORED}"
 
-    for err in "${CONTAINER_ERRORED}"; do
+    for err in ${CONTAINER_ERRORED}; do
 	echo "------------- $err"
 	"${CMD}" logs $("${CMD}" get pods -n kubevirt-hyperconverged | grep $err | head -1 | awk '{ print $1 }')
     done
