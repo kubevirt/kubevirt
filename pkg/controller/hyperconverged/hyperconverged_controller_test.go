@@ -110,6 +110,13 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 		})
 
+		Context("KubeVirt Metrics Aggregation CR", func() {
+			It("should have metadata", func() {
+				cr := newKubeVirtMetricsAggregationForCR(instance, namespace)
+				checkMetadata(cr.ObjectMeta, "metrics-aggregation-"+instance.Name, appLabel, namespace)
+			})
+		})
+
 	})
 	Describe("Deploying HCO", func() {
 		Context("HCO Lifecycle", func() {

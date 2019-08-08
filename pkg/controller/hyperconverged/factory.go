@@ -26,6 +26,7 @@ func (r *ReconcileHyperConverged) getAllResources(cr *hcov1alpha1.HyperConverged
 		newKubeVirtCommonTemplateBundleForCR(cr, OpenshiftNamespace),
 		newKubeVirtNodeLabellerBundleForCR(cr, request.Namespace),
 		newKubeVirtTemplateValidatorForCR(cr, request.Namespace),
+		newKubeVirtMetricsAggregationForCR(cr, request.Namespace),
 	}
 }
 
@@ -125,6 +126,19 @@ func newKubeVirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged, namespace
 	return &sspv1.KubevirtTemplateValidator{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "template-validator-" + cr.Name,
+			Labels:    labels,
+			Namespace: namespace,
+		},
+	}
+}
+
+func newKubeVirtMetricsAggregationForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtMetricsAggregation {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &sspv1.KubevirtMetricsAggregation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "metrics-aggregation-" + cr.Name,
 			Labels:    labels,
 			Namespace: namespace,
 		},

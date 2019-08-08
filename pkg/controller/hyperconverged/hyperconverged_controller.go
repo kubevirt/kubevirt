@@ -73,6 +73,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&sspv1.KubevirtCommonTemplatesBundle{},
 		&sspv1.KubevirtNodeLabellerBundle{},
 		&sspv1.KubevirtTemplateValidator{},
+		&sspv1.KubevirtMetricsAggregation{},
 	} {
 		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestForOwner{
 			IsController: true,
@@ -127,6 +128,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		r.ensureKubeVirtCommonTemplatebundle,
 		r.ensureKubeVirtNodeLabellerBundle,
 		r.ensureKubeVirtTemplateValidator,
+		r.ensureKubeVirtMetricsAggregation,
 	} {
 		err = f(instance, reqLogger, request)
 		if err != nil {
@@ -170,6 +172,11 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(instance *hco
 func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
 	kubevirtTemplateValidator := newKubeVirtTemplateValidatorForCR(instance, request.Namespace)
 	return r.ensureResourceExists(instance, logger, request, kubevirtTemplateValidator)
+}
+
+func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
+	kubevirtMetricsAggregation := newKubeVirtMetricsAggregationForCR(instance, request.Namespace)
+	return r.ensureResourceExists(instance, logger, request, kubevirtMetricsAggregation)
 }
 
 func (r *ReconcileHyperConverged) ensureResourceExists(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request, desiredRuntimeObj runtime.Object) error {

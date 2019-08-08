@@ -56,6 +56,13 @@ metadata:
           }
         },
         {
+          "apiVersion": "kubevirtmetricsaggregations.kubevirt.io/v1",
+          "kind": "KubevirtMetricsAggregation",
+          "metadata": {
+            "name": "metrics-aggregation"
+          }
+        },
+        {
           "apiVersion": "kubevirt.io/v1alpha1",
           "kind": "NodeMaintenance",
           "metadata": {
