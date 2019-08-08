@@ -173,7 +173,7 @@ var _ = Describe("Infrastructure", func() {
 
 			fmt.Fprintf(GinkgoWriter, "client: total errors #%d\n", errorCount) // troubleshooting helper
 			Expect(errorCount).To(BeNumerically(">", 0))
-		}, 300)
+		})
 
 		It("should include the metrics for a running VM", func() {
 			By("Scraping the Prometheus endpoint")
@@ -182,7 +182,7 @@ var _ = Describe("Infrastructure", func() {
 				lines := takeMetricsWithPrefix(out, "kubevirt")
 				return strings.Join(lines, "\n")
 			}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
-		}, 300)
+		})
 
 		It("should include the storage metrics for a running VM", func() {
 			By("Expecting the VirtualMachineInstance console")
@@ -217,7 +217,7 @@ var _ = Describe("Infrastructure", func() {
 					Expect(value).To(BeNumerically(">", float64(0.0)))
 				}
 			}
-		}, 300)
+		})
 
 		It("should include the network metrics for a running VM", func() {
 			By("Expecting the VirtualMachineInstance console")
@@ -242,7 +242,7 @@ var _ = Describe("Infrastructure", func() {
 					Expect(value).To(BeNumerically(">=", float64(0.0)))
 				}
 			}
-		}, 300)
+		})
 
 		It("should include the memory metrics for a running VM", func() {
 			out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
@@ -257,7 +257,7 @@ var _ = Describe("Infrastructure", func() {
 				// swap metrics may (and should) be actually zero
 				Expect(value).To(BeNumerically(">=", float64(0.0)))
 			}
-		}, 300)
+		})
 
 		It("should include VMI infos for a running VM", func() {
 			out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
@@ -282,7 +282,7 @@ var _ = Describe("Infrastructure", func() {
 					))
 				}
 			}
-		}, 300)
+		})
 
 		It("should include VMI phase metrics for few running VMs", func() {
 			// run another VM, we intentionally check with only 2 VMS as CI is resource-constrained
@@ -296,7 +296,7 @@ var _ = Describe("Infrastructure", func() {
 					Expect(value).To(Equal(float64(2)))
 				}
 			}
-		}, 300)
+		})
 	})
 
 	Describe("Start a VirtualMachineInstance", func() {
