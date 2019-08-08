@@ -31,9 +31,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	promclientfake "github.com/coreos/prometheus-operator/pkg/client/versioned/fake"
 	secv1 "github.com/openshift/api/security/v1"
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
-
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -93,6 +94,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var installStrategyJobSource *framework.FakeControllerSource
 	var infrastructurePodSource *framework.FakeControllerSource
 	var podDisruptionBudgetSource *framework.FakeControllerSource
+	var serviceMonitorSource *framework.FakeControllerSource
 
 	var stop chan struct{}
 	var controller *KubeVirtController
@@ -104,6 +106,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var kubeClient *fake.Clientset
 	var secClient *secv1fake.FakeSecurityV1
 	var extClient *extclientfake.Clientset
+	var promClient *promclientfake.Clientset
 
 	var informers util.Informers
 	var stores util.Stores
@@ -128,9 +131,9 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 	var resourceChanges map[string]map[string]int
 
-	resourceCount := 33
-	patchCount := 15
-	updateCount := 18
+	resourceCount := 36
+	patchCount := 16
+	updateCount := 20
 
 	deleteFromCache := true
 	addToCache := true
@@ -152,6 +155,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		go informers.InstallStrategyConfigMap.Run(stop)
 		go informers.InfrastructurePod.Run(stop)
 		go informers.PodDisruptionBudget.Run(stop)
+		go informers.ServiceMonitor.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
 
@@ -170,6 +174,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		cache.WaitForCacheSync(stop, informers.InstallStrategyConfigMap.HasSynced)
 		cache.WaitForCacheSync(stop, informers.InfrastructurePod.HasSynced)
 		cache.WaitForCacheSync(stop, informers.PodDisruptionBudget.HasSynced)
+		cache.WaitForCacheSync(stop, informers.ServiceMonitor.HasSynced)
 	}
 
 	getSCC := func() secv1.SecurityContextConstraints {
@@ -254,6 +259,10 @@ var _ = Describe("KubeVirt Operator", func() {
 		// test OpenShift components
 		stores.IsOnOpenshift = true
 
+		informers.ServiceMonitor, serviceMonitorSource = testutils.NewFakeInformerFor(&promv1.ServiceMonitor{})
+		stores.ServiceMonitorCache = informers.ServiceMonitor.GetStore()
+		stores.ServiceMonitorEnabled = true
+
 		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers, NAMESPACE)
 
 		// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -268,6 +277,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 		extClient = extclientfake.NewSimpleClientset()
 
+		promClient = promclientfake.NewSimpleClientset()
+
 		virtClient.EXPECT().AdmissionregistrationV1beta1().Return(kubeClient.AdmissionregistrationV1beta1()).AnyTimes()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().BatchV1().Return(kubeClient.BatchV1()).AnyTimes()
@@ -276,6 +287,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 		virtClient.EXPECT().ExtensionsClient().Return(extClient).AnyTimes()
 		virtClient.EXPECT().PolicyV1beta1().Return(kubeClient.PolicyV1beta1()).AnyTimes()
+		virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -287,6 +299,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			return true, nil, nil
 		})
 		extClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Expect(action).To(BeNil())
+			return true, nil, nil
+		})
+		promClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			Expect(action).To(BeNil())
 			return true, nil, nil
 		})
@@ -420,6 +436,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	addServiceMonitor := func(serviceMonitor *promv1.ServiceMonitor) {
+		mockQueue.ExpectAdds(1)
+		serviceMonitorSource.Add(serviceMonitor)
+		mockQueue.Wait()
+	}
+
 	addResource := func(obj runtime.Object, config *util.KubeVirtDeploymentConfig) {
 		switch resource := obj.(type) {
 		case *k8sv1.ServiceAccount:
@@ -467,6 +489,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		case *secv1.SecurityContextConstraints:
 			injectMetadata(&obj.(*secv1.SecurityContextConstraints).ObjectMeta, config)
 			addSCC(resource)
+		case *promv1.ServiceMonitor:
+			injectMetadata(&obj.(*promv1.ServiceMonitor).ObjectMeta, config)
+			addServiceMonitor(resource)
 		default:
 			Fail("unknown resource type")
 		}
@@ -726,8 +751,10 @@ var _ = Describe("KubeVirt Operator", func() {
 		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
-		for _, obj := range all {
+		all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespace(), config.GetMonitorServiceAccount())...)
+		all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetMonitorNamespace(), true))
 
+		for _, obj := range all {
 			if resource, ok := obj.(runtime.Object); ok {
 				addResource(resource, config)
 			} else {
@@ -917,6 +944,14 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	deleteServiceMonitor := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.ServiceMonitor.GetStore().GetByKey(key); exists {
+			serviceMonitorSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
+
 	deleteResource := func(resource string, key string) {
 		switch resource {
 		case "serviceaccounts":
@@ -947,6 +982,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			deletePodDisruptionBudget(key)
 		case "securitycontextconstraints":
 			deleteSCC(key)
+		case "servicemonitors":
+			deleteServiceMonitor(key)
 		default:
 			Fail(fmt.Sprintf("unknown resource type %+v", resource))
 		}
@@ -1051,8 +1088,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("delete", "daemonsets", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "validatingwebhookconfigurations", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "poddisruptionbudgets", genericDeleteFunc)
-
 		secClient.Fake.PrependReactor("delete", "securitycontextconstraints", genericDeleteFunc)
+		promClient.Fake.PrependReactor("delete", "servicemonitors", genericDeleteFunc)
 	}
 
 	shouldExpectJobDeletion := func() {
@@ -1075,8 +1112,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("patch", "daemonsets", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "deployments", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", genericPatchFunc)
-
 		secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericUpdateFunc)
+		promClient.Fake.PrependReactor("patch", "servicemonitors", genericPatchFunc)
 	}
 
 	shouldExpectRbacBackupCreations := func() {
@@ -1105,8 +1142,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "validatingwebhookconfigurations", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", genericCreateFunc)
-
 		secClient.Fake.PrependReactor("create", "securitycontextconstraints", genericCreateFunc)
+		promClient.Fake.PrependReactor("create", "servicemonitors", genericCreateFunc)
 	}
 
 	shouldExpectKubeVirtUpdate := func(times int) {
@@ -1538,8 +1575,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))
 			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
-			Expect(len(controller.stores.RoleCache.List())).To(Equal(2))
-			Expect(len(controller.stores.RoleBindingCache.List())).To(Equal(2))
+			Expect(len(controller.stores.RoleCache.List())).To(Equal(3))
+			Expect(len(controller.stores.RoleBindingCache.List())).To(Equal(3))
 			Expect(len(controller.stores.CrdCache.List())).To(Equal(5))
 			Expect(len(controller.stores.ServiceCache.List())).To(Equal(2))
 			Expect(len(controller.stores.DeploymentCache.List())).To(Equal(1))
