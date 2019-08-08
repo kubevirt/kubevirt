@@ -53,11 +53,37 @@ var _ = Describe("Infrastructure", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	BeforeEach(func() {
-		tests.BeforeTestCleanup()
-	})
-
 	Describe("Prometheus Endpoints", func() {
+		var vmi *v1.VirtualMachineInstance
+		var pod *k8sv1.Pod
+		var metricsURL string
+
+		tests.BeforeAll(func() {
+			tests.BeforeTestCleanup()
+			By("Creating the VirtualMachineInstance")
+
+			// WARNING: we assume the VM will have a VirtIO disk (vda)
+			// and we add our own vdb on which we do our test.
+			// but if the default disk is not vda, the test will break
+			// TODO: introspect the VMI and get the device name of this
+			// block device?
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			tests.AppendEmptyDisk(vmi, "testdisk", "virtio", "1Gi")
+
+			By("Starting a new VirtualMachineInstance")
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+			By("Waiting until the VM is ready")
+			nodeName := tests.WaitForSuccessfulVMIStart(obj)
+
+			By("Finding the prometheus endpoint")
+			pod, err = kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+
+			metricsURL = fmt.Sprintf("https://%s:%d/metrics", pod.Status.PodIP, 8443)
+		})
+
 		It("should be exposed and registered on the metrics endpoint", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -108,24 +134,8 @@ var _ = Describe("Infrastructure", func() {
 		})
 
 		It("should throttle the Prometheus metrics access", func() {
-			By("Creating the VirtualMachineInstance")
-			vmi := tests.NewRandomVMI()
-
-			By("Starting a new VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
-			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-
-			By("Waiting until the VM is ready")
-			nodeName := tests.WaitForSuccessfulVMIStart(obj)
-
-			By("Finding the prometheus endpoint")
-			pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
-			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
-
 			By("Scraping the Prometheus endpoint")
-
 			concurrency := 100 // random value "much higher" than maxRequestsInFlight
-			metricsURL := fmt.Sprintf("https://%s:%s/metrics", pod.Status.PodIP, "8443")
 
 			tr := &http.Transport{
 				MaxIdleConnsPerHost: concurrency,
@@ -166,20 +176,6 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include the metrics for a running VM", func() {
-			By("Creating the VirtualMachineInstance")
-			vmi := tests.NewRandomVMI()
-
-			By("Starting a new VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
-			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-
-			By("Waiting until the VM is ready")
-			nodeName := tests.WaitForSuccessfulVMIStart(obj)
-
-			By("Finding the prometheus endpoint")
-			pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
-			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
-
 			By("Scraping the Prometheus endpoint")
 			Eventually(func() string {
 				out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
@@ -189,23 +185,6 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include the storage metrics for a running VM", func() {
-			By("Creating the VirtualMachineInstance")
-
-			// WARNING: we assume the VM will have a VirtIO disk (vda)
-			// and we add our own vdb on which we do our test.
-			// but if the default disk is not vda, the test will break
-			// TODO: introspect the VMI and get the device name of this
-			// block device?
-			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
-			tests.AppendEmptyDisk(vmi, "testdisk", "virtio", "1Gi")
-
-			By("Starting a new VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
-			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-
-			By("Waiting until the VM is ready")
-			nodeName := tests.WaitForSuccessfulVMIStart(obj)
-
 			By("Expecting the VirtualMachineInstance console")
 			expecter, err := tests.LoggedInAlpineExpecter(vmi)
 
@@ -221,10 +200,6 @@ var _ = Describe("Infrastructure", func() {
 			}, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 			// we wrote data to the disk, so from now on the VM *is* running
-
-			By("Finding the prometheus endpoint")
-			pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
-			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 
 			By("Scraping the Prometheus endpoint")
 			// the VM *is* running, so we must have metrics promptly reported
@@ -245,25 +220,11 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include the network metrics for a running VM", func() {
-			By("Creating the VirtualMachineInstance")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
-
-			By("Starting a new VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
-			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-
-			By("Waiting until the VM is ready")
-			nodeName := tests.WaitForSuccessfulVMIStart(obj)
-
 			By("Expecting the VirtualMachineInstance console")
 			expecter, err := tests.LoggedInAlpineExpecter(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
-
-			By("Finding the prometheus endpoint")
-			pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
-			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 
 			By("Scraping the Prometheus endpoint")
 			// the VM *is* running, so we must have metrics promptly reported
@@ -284,7 +245,11 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include the memory metrics for a running VM", func() {
-			_, _, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vmi_memory_")
+			out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
+			lines := takeMetricsWithPrefix(out, "kubevirt_vmi_")
+			metrics, err := parseMetricsToMap(lines)
+			Expect(err).ToNot(HaveOccurred())
+
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -295,10 +260,12 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include VMI infos for a running VM", func() {
-			vmis, nodeName, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vmi_")
-			Expect(vmis).To(HaveLen(1))
+			out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
+			lines := takeMetricsWithPrefix(out, "kubevirt_vmi_")
+			metrics, err := parseMetricsToMap(lines)
+			Expect(err).ToNot(HaveOccurred())
+			nodeName := pod.Spec.NodeName
 
-			vmi := vmis[0]
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -318,21 +285,25 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include VMI phase metrics for few running VMs", func() {
-			count := 2 // careful here if increasing the number: CI is resource-constrained
-			_, _, metrics := newRandomVMIsWithMetrics(count, "", virtClient, "kubevirt_vmi_")
+			// run another VM, we intentionally check with only 2 VMS as CI is resource-constrained
+			_, _, metrics := newRandomVMIWithMetrics(virtClient, pod.Spec.NodeName, "kubevirt_vmi_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 
 			for _, key := range keys {
 				if strings.Contains(key, `phase="running"`) {
 					value := metrics[key]
-					Expect(value).To(Equal(float64(count)))
+					Expect(value).To(Equal(float64(2)))
 				}
 			}
 		}, 300)
 	})
 
 	Describe("Start a VirtualMachineInstance", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+
 		Context("when the controller pod is not running and an election happens", func() {
 			It("should succeed afterwards", func() {
 				newLeaderPod := getNewLeaderPod(virtClient)
@@ -448,40 +419,31 @@ func takeMetricsWithPrefix(output, prefix string) []string {
 	return ret
 }
 
-// shortcut helper
-func newRandomVMIWithMetrics(virtClient kubecli.KubevirtClient, metricSubstring string) ([]*v1.VirtualMachineInstance, string, map[string]float64) {
-	return newRandomVMIsWithMetrics(1, "", virtClient, metricSubstring)
-}
-
-func newRandomVMIsWithMetrics(count int, preferredNodeName string, virtClient kubecli.KubevirtClient, metricSubstring string) ([]*v1.VirtualMachineInstance, string, map[string]float64) {
+func newRandomVMIWithMetrics(virtClient kubecli.KubevirtClient, preferredNodeName, metricSubstring string) ([]*v1.VirtualMachineInstance, string, map[string]float64) {
 	var vmis []*v1.VirtualMachineInstance
 	var nodeName string
 
-	for ix := 0; ix < count; ix++ {
-		By(fmt.Sprintf("Creating the VirtualMachineInstance #%d", ix))
-		vmi := tests.NewRandomVMI()
-		if preferredNodeName != "" {
-			if vmi.Spec.NodeSelector == nil {
-				vmi.Spec.NodeSelector = make(map[string]string)
-			}
-			vmi.Spec.NodeSelector["kubernetes.io/hostname"] = preferredNodeName
+	By("Creating the VirtualMachineInstance")
+	vmi := tests.NewRandomVMI()
+	if preferredNodeName != "" {
+		if vmi.Spec.NodeSelector == nil {
+			vmi.Spec.NodeSelector = make(map[string]string)
 		}
-
-		By(fmt.Sprintf("Starting a new VirtualMachineInstance #%d", ix))
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
-		Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-
-		By(fmt.Sprintf("Waiting until the VirtualMachineInstance #%d is ready", ix))
-		nodeName = tests.WaitForSuccessfulVMIStart(obj)
-		if preferredNodeName != "" {
-			Expect(nodeName).To(Equal(preferredNodeName))
-		} else {
-			// no preferred node specified, but we want to put all the instances on the same node. So stick on the first we got.
-			preferredNodeName = nodeName
-		}
-
-		vmis = append(vmis, vmi)
+		vmi.Spec.NodeSelector["kubernetes.io/hostname"] = preferredNodeName
 	}
+	By("Starting a new VirtualMachineInstance")
+	obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+	Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+	By("Waiting until the VirtualMachineInstance is ready")
+	nodeName = tests.WaitForSuccessfulVMIStart(obj)
+	if preferredNodeName != "" {
+		Expect(nodeName).To(Equal(preferredNodeName))
+	} else {
+		// no preferred node specified, but we want to put all the instances on the same node. So stick on the first we got.
+		preferredNodeName = nodeName
+	}
+
+	vmis = append(vmis, vmi)
 
 	By("Finding the prometheus endpoint")
 	pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(preferredNodeName).Pod()
