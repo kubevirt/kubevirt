@@ -14,6 +14,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 )
@@ -76,7 +78,35 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 	r.logEvents(virtCli, specSummary)
 	r.logPods(virtCli, specSummary)
 	r.logVMIs(virtCli, specSummary)
+	r.logDomainXMLs(virtCli, specSummary)
 	r.logLogs(virtCli, specSummary)
+}
+
+func (r *KubernetesReporter) logDomainXMLs(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_domains.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		return
+	}
+	defer f.Close()
+
+	vmis, err := virtCli.VirtualMachineInstance(v1.NamespaceAll).List(&v12.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch vmis: %v", err)
+		return
+	}
+
+	for _, vmi := range vmis.Items {
+		if vmi.IsFinal() {
+			continue
+		}
+		domxml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtCli, &vmi)
+		if err == nil {
+			fmt.Fprintln(f, domxml)
+		}
+	}
 }
 
 func (r *KubernetesReporter) logVMIs(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {

@@ -1212,29 +1212,43 @@ func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.
 	return obj
 }
 
-func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) *k8sv1.Pod {
+func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) (*k8sv1.Pod, error) {
 	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
+	if err != nil {
+		return nil, err
+	}
 
 	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(vmi.Name, &metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return nil, err
+	}
 
 	return GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace)
 }
 
-func GetRunningPodByLabel(label string, labelType string, namespace string) *k8sv1.Pod {
-	virtCli, err := kubecli.GetKubevirtClient()
+func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) *k8sv1.Pod {
+	pod, err := getRunningPodByVirtualMachineInstance(vmi, namespace)
 	PanicOnError(err)
+	return pod
+}
+
+func GetRunningPodByLabel(label string, labelType string, namespace string) (*k8sv1.Pod, error) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return nil, err
+	}
 
 	labelSelector := fmt.Sprintf("%s=%s", labelType, label)
 	fieldSelector := fmt.Sprintf("status.phase==%s", k8sv1.PodRunning)
 	pods, err := virtCli.CoreV1().Pods(namespace).List(
 		metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector},
 	)
-	PanicOnError(err)
+	if err != nil {
+		return nil, err
+	}
 
 	if len(pods.Items) == 0 {
-		PanicOnError(fmt.Errorf("failed to find pod with the label %s", label))
+		return nil, fmt.Errorf("failed to find pod with the label %s", label)
 	}
 
 	var readyPod *k8sv1.Pod
@@ -1252,10 +1266,10 @@ func GetRunningPodByLabel(label string, labelType string, namespace string) *k8s
 		}
 	}
 	if readyPod == nil {
-		PanicOnError(fmt.Errorf("no ready pods with the label %s", label))
+		return nil, fmt.Errorf("no ready pods with the label %s", label)
 	}
 
-	return readyPod
+	return readyPod, nil
 }
 
 func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) *k8sv1.Pod {
@@ -2558,7 +2572,10 @@ func ExecuteCommandOnPodV2(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, conta
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
-	vmiPod := GetRunningPodByVirtualMachineInstance(vmi, NamespaceTestDefault)
+	vmiPod, err := getRunningPodByVirtualMachineInstance(vmi, NamespaceTestDefault)
+	if err != nil {
+		return "", err
+	}
 
 	found := false
 	containerIdx := 0
