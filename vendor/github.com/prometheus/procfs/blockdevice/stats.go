@@ -19,8 +19,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"strings"
+
+	"github.com/prometheus/procfs/internal/fs"
 )
 
 // Info contains identifying information for a block device such as a disk drive
@@ -87,10 +88,43 @@ const (
 	sysBlockStatFormat  = "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d"
 )
 
-// ReadProcDiskstats reads the diskstats file and returns
+// FS represents the pseudo-filesystems proc and sys, which provides an
+// interface to kernel data structures.
+type FS struct {
+	proc *fs.FS
+	sys  *fs.FS
+}
+
+// NewDefaultFS returns a new blockdevice fs using the default mountPoints for proc and sys.
+// It will error if either of these mount points can't be read.
+func NewDefaultFS() (FS, error) {
+	return NewFS(fs.DefaultProcMountPoint, fs.DefaultSysMountPoint)
+}
+
+// NewFS returns a new blockdevice fs using the given mountPoints for proc and sys.
+// It will error if either of these mount points can't be read.
+func NewFS(procMountPoint string, sysMountPoint string) (FS, error) {
+	if strings.TrimSpace(procMountPoint) == "" {
+		procMountPoint = fs.DefaultProcMountPoint
+	}
+	procfs, err := fs.NewFS(procMountPoint)
+	if err != nil {
+		return FS{}, err
+	}
+	if strings.TrimSpace(sysMountPoint) == "" {
+		sysMountPoint = fs.DefaultSysMountPoint
+	}
+	sysfs, err := fs.NewFS(sysMountPoint)
+	if err != nil {
+		return FS{}, err
+	}
+	return FS{&procfs, &sysfs}, nil
+}
+
+// ProcDiskstats reads the diskstats file and returns
 // an array of Diskstats (one per line/device)
-func ReadProcDiskstats(procfs string) ([]Diskstats, error) {
-	file, err := os.Open(path.Join(procfs, procDiskstatsPath))
+func (fs FS) ProcDiskstats() ([]Diskstats, error) {
+	file, err := os.Open(fs.proc.Path(procDiskstatsPath))
 	if err != nil {
 		return nil, err
 	}
@@ -132,9 +166,9 @@ func ReadProcDiskstats(procfs string) ([]Diskstats, error) {
 	return diskstats, scanner.Err()
 }
 
-// ListSysBlockDevices lists the device names from /sys/block/<dev>
-func ListSysBlockDevices(sysfs string) ([]string, error) {
-	deviceDirs, err := ioutil.ReadDir(path.Join(sysfs, sysBlockPath))
+// SysBlockDevices lists the device names from /sys/block/<dev>
+func (fs FS) SysBlockDevices() ([]string, error) {
+	deviceDirs, err := ioutil.ReadDir(fs.sys.Path(sysBlockPath))
 	if err != nil {
 		return nil, err
 	}
@@ -147,12 +181,12 @@ func ListSysBlockDevices(sysfs string) ([]string, error) {
 	return devices, nil
 }
 
-// ReadSysBlockDeviceStat returns stats for the block device read from /sys/block/<device>/stat.
+// SysBlockDeviceStat returns stats for the block device read from /sys/block/<device>/stat.
 // The number of stats read will be 15 if the discard stats are available (kernel 4.18+)
 // and 11 if they are not available.
-func ReadSysBlockDeviceStat(sysfs string, device string) (IOStats, int, error) {
+func (fs FS) SysBlockDeviceStat(device string) (IOStats, int, error) {
 	stat := IOStats{}
-	bytes, err := ioutil.ReadFile(path.Join(sysfs, sysBlockPath, device, "stat"))
+	bytes, err := ioutil.ReadFile(fs.sys.Path(sysBlockPath, device, "stat"))
 	if err != nil {
 		return stat, 0, err
 	}

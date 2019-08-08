@@ -77,11 +77,18 @@ type PublishSettings struct {
 	ByteThreshold int
 
 	// The number of goroutines that invoke the Publish RPC concurrently.
+	//
 	// Defaults to a multiple of GOMAXPROCS.
 	NumGoroutines int
 
 	// The maximum time that the client will attempt to publish a bundle of messages.
 	Timeout time.Duration
+
+	// The maximum number of bytes that the Bundler will keep in memory before
+	// returning ErrOverflow.
+	//
+	// Defaults to DefaultPublishSettings.BufferedByteLimit.
+	BufferedByteLimit int
 }
 
 // DefaultPublishSettings holds the default values for topics' PublishSettings.
@@ -90,17 +97,47 @@ var DefaultPublishSettings = PublishSettings{
 	CountThreshold: 100,
 	ByteThreshold:  1e6,
 	Timeout:        60 * time.Second,
+	// By default, limit the bundler to 10 times the max message size. The number 10 is
+	// chosen as a reasonable amount of messages in the worst case whilst still
+	// capping the number to a low enough value to not OOM users.
+	BufferedByteLimit: 10 * MaxPublishRequestBytes,
 }
 
 // CreateTopic creates a new topic.
+//
 // The specified topic ID must start with a letter, and contain only letters
 // ([A-Za-z]), numbers ([0-9]), dashes (-), underscores (_), periods (.),
 // tildes (~), plus (+) or percent signs (%). It must be between 3 and 255
-// characters in length, and must not start with "goog".
+// characters in length, and must not start with "goog". For more information,
+// see: https://cloud.google.com/pubsub/docs/admin#resource_names
+//
 // If the topic already exists an error will be returned.
-func (c *Client) CreateTopic(ctx context.Context, id string) (*Topic, error) {
-	t := c.Topic(id)
+func (c *Client) CreateTopic(ctx context.Context, topicID string) (*Topic, error) {
+	t := c.Topic(topicID)
 	_, err := c.pubc.CreateTopic(ctx, &pb.Topic{Name: t.name})
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+// CreateTopicWithConfig creates a topic from TopicConfig.
+//
+// The specified topic ID must start with a letter, and contain only letters
+// ([A-Za-z]), numbers ([0-9]), dashes (-), underscores (_), periods (.),
+// tildes (~), plus (+) or percent signs (%). It must be between 3 and 255
+// characters in length, and must not start with "goog". For more information,
+// see: https://cloud.google.com/pubsub/docs/admin#resource_names.
+//
+// If the topic already exists, an error will be returned.
+func (c *Client) CreateTopicWithConfig(ctx context.Context, topicID string, tc *TopicConfig) (*Topic, error) {
+	t := c.Topic(topicID)
+	_, err := c.pubc.CreateTopic(ctx, &pb.Topic{
+		Name:                 t.name,
+		Labels:               tc.Labels,
+		MessageStoragePolicy: messageStoragePolicyToProto(&tc.MessageStoragePolicy),
+		KmsKeyName:           tc.KMSKeyName,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -139,8 +176,13 @@ func newTopic(c *Client, name string) *Topic {
 type TopicConfig struct {
 	// The set of labels for the topic.
 	Labels map[string]string
+
 	// The topic's message storage policy.
 	MessageStoragePolicy MessageStoragePolicy
+
+	// The name of the the Cloud KMS key to be used to protect access to messages
+	// published to this topic, in the format "projects/P/locations/L/keyRings/R/cryptoKeys/K".
+	KMSKeyName string
 }
 
 // TopicConfigToUpdate describes how to update a topic.
@@ -156,6 +198,7 @@ func protoToTopicConfig(pbt *pb.Topic) TopicConfig {
 	return TopicConfig{
 		Labels:               pbt.Labels,
 		MessageStoragePolicy: protoToMessageStoragePolicy(pbt.MessageStoragePolicy),
+		KMSKeyName:           pbt.KmsKeyName,
 	}
 }
 
@@ -177,6 +220,13 @@ func protoToMessageStoragePolicy(msp *pb.MessageStoragePolicy) MessageStoragePol
 		return MessageStoragePolicy{}
 	}
 	return MessageStoragePolicy{AllowedPersistenceRegions: msp.AllowedPersistenceRegions}
+}
+
+func messageStoragePolicyToProto(msp *MessageStoragePolicy) *pb.MessageStoragePolicy {
+	if msp == nil || len(msp.AllowedPersistenceRegions) <= 0 {
+		return nil
+	}
+	return &pb.MessageStoragePolicy{AllowedPersistenceRegions: msp.AllowedPersistenceRegions}
 }
 
 // Config returns the TopicConfig for the topic.
@@ -331,9 +381,6 @@ func (t *Topic) Publish(ctx context.Context, msg *Message) *PublishResult {
 
 	// TODO(jba) [from bcmills] consider using a shared channel per bundle
 	// (requires Bundler API changes; would reduce allocations)
-	// The call to Add should never return an error because the bundler's
-	// BufferedByteLimit is set to maxInt; we do not perform any flow
-	// control in the client.
 	err := t.bundler.Add(&bundledMessage{msg, r}, msg.size)
 	if err != nil {
 		r.set("", err)
@@ -426,10 +473,12 @@ func (t *Topic) initBundler() {
 	}
 	t.bundler.BundleByteThreshold = t.PublishSettings.ByteThreshold
 
-	// Limit the bundler to 10 times the max message size. The number 10 is
-	// chosen as a reasonable amount of messages in the worst case whilst still
-	// capping the number to a low enough value to not OOM users.
-	t.bundler.BufferedByteLimit = 10 * MaxPublishRequestBytes
+	bufferedByteLimit := DefaultPublishSettings.BufferedByteLimit
+	if t.PublishSettings.BufferedByteLimit > 0 {
+		bufferedByteLimit = t.PublishSettings.BufferedByteLimit
+	}
+	t.bundler.BufferedByteLimit = bufferedByteLimit
+
 	t.bundler.BundleByteLimit = MaxPublishRequestBytes
 	// Unless overridden, allow many goroutines per CPU to call the Publish RPC concurrently.
 	// The default value was determined via extensive load testing (see the loadtest subdirectory).

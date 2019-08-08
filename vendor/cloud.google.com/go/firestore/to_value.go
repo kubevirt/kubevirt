@@ -103,6 +103,8 @@ func toProtoValue(v reflect.Value) (pbv *pb.Value, sawTransform bool, err error)
 		return &pb.Value{ValueType: &pb.Value_DoubleValue{v.Float()}}, false, nil
 	case reflect.String:
 		return &pb.Value{ValueType: &pb.Value_StringValue{v.String()}}, false, nil
+	case reflect.Array:
+		return arrayToProtoValue(v)
 	case reflect.Slice:
 		return sliceToProtoValue(v)
 	case reflect.Map:
@@ -125,13 +127,9 @@ func toProtoValue(v reflect.Value) (pbv *pb.Value, sawTransform bool, err error)
 	}
 }
 
-// sliceToProtoValue converts a slice to a Firestore Value protobuf and reports
+// arrayToProtoValue converts a array to a Firestore Value protobuf and reports
 // whether a transform was encountered.
-func sliceToProtoValue(v reflect.Value) (*pb.Value, bool, error) {
-	// A nil slice is converted to a null value.
-	if v.IsNil() {
-		return nullValue, false, nil
-	}
+func arrayToProtoValue(v reflect.Value) (*pb.Value, bool, error) {
 	vals := make([]*pb.Value, v.Len())
 	for i := 0; i < v.Len(); i++ {
 		val, sawTransform, err := toProtoValue(v.Index(i))
@@ -144,6 +142,16 @@ func sliceToProtoValue(v reflect.Value) (*pb.Value, bool, error) {
 		vals[i] = val
 	}
 	return &pb.Value{ValueType: &pb.Value_ArrayValue{&pb.ArrayValue{Values: vals}}}, false, nil
+}
+
+// sliceToProtoValue converts a slice to a Firestore Value protobuf and reports
+// whether a transform was encountered.
+func sliceToProtoValue(v reflect.Value) (*pb.Value, bool, error) {
+	// A nil slice is converted to a null value.
+	if v.IsNil() {
+		return nullValue, false, nil
+	}
+	return arrayToProtoValue(v)
 }
 
 // mapToProtoValue converts a map to a Firestore Value protobuf and reports whether

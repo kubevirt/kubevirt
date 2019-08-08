@@ -5,9 +5,10 @@ package versions
 import "fmt"
 
 const (
-	KubevirtCommonTemplates   string = "0.6.0"
-	KubevirtNodeLabeller      string = "0.0.5"
-	KubevirtTemplateValidator string = "0.4.8"
+	KubevirtCommonTemplates    string = "0.6.0"
+	KubevirtNodeLabeller       string = "0.0.5"
+	KubevirtTemplateValidator  string = "0.6.1"
+	KubevirtMetricsAggregation string = "0.0.1"
 )
 
 // TagForVersion converts the given version in a suitable tag

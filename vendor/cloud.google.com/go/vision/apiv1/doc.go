@@ -19,9 +19,8 @@
 
 //
 // Integrates Google Vision features, including image labeling, face, logo,
-// and
-// landmark detection, optical character recognition (OCR), and detection of
-// explicit content, into applications.
+// and landmark detection, optical character recognition (OCR), and detection
+// of explicit content, into applications.
 //
 // Use of Context
 //
@@ -100,4 +99,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190404"
+const versionClient = "20190716"

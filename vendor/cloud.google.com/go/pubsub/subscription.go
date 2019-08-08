@@ -146,6 +146,18 @@ type SubscriptionConfig struct {
 	// Defaults to 7 days. Cannot be longer than 7 days or shorter than 10 minutes.
 	RetentionDuration time.Duration
 
+	// Expiration policy specifies the conditions for a subscription's expiration.
+	// A subscription is considered active as long as any connected subscriber is
+	// successfully consuming messages from the subscription or is issuing
+	// operations on the subscription. If `expiration_policy` is not set, a
+	// *default policy* with `ttl` of 31 days will be used. The minimum allowed
+	// value for `expiration_policy.ttl` is 1 day.
+	//
+	// Use time.Duration(0) to indicate that the subscription should never expire.
+	//
+	// It is EXPERIMENTAL and subject to change or removal without notice.
+	ExpirationPolicy optional.Duration
+
 	// The set of labels for the subscription.
 	Labels map[string]string
 }
@@ -170,6 +182,7 @@ func (cfg *SubscriptionConfig) toProto(name string) *pb.Subscription {
 		RetainAckedMessages:      cfg.RetainAckedMessages,
 		MessageRetentionDuration: retentionDuration,
 		Labels:                   cfg.Labels,
+		ExpirationPolicy:         expirationPolicyToProto(cfg.ExpirationPolicy),
 	}
 }
 
@@ -178,6 +191,13 @@ func protoToSubscriptionConfig(pbSub *pb.Subscription, c *Client) (SubscriptionC
 	var err error
 	if pbSub.MessageRetentionDuration != nil {
 		rd, err = ptypes.Duration(pbSub.MessageRetentionDuration)
+		if err != nil {
+			return SubscriptionConfig{}, err
+		}
+	}
+	var expirationPolicy time.Duration
+	if ttl := pbSub.ExpirationPolicy.GetTtl(); ttl != nil {
+		expirationPolicy, err = ptypes.Duration(ttl)
 		if err != nil {
 			return SubscriptionConfig{}, err
 		}
@@ -192,6 +212,7 @@ func protoToSubscriptionConfig(pbSub *pb.Subscription, c *Client) (SubscriptionC
 		RetainAckedMessages: pbSub.RetainAckedMessages,
 		RetentionDuration:   rd,
 		Labels:              pbSub.Labels,
+		ExpirationPolicy:    expirationPolicy,
 	}, nil
 }
 
@@ -315,6 +336,9 @@ type SubscriptionConfigToUpdate struct {
 	// If non-zero, RetentionDuration is changed.
 	RetentionDuration time.Duration
 
+	// If non-zero, Expiration is changed.
+	ExpirationPolicy optional.Duration
+
 	// If non-nil, the current set of labels is completely
 	// replaced by the new set.
 	// This field has beta status. It is not subject to the stability guarantee
@@ -328,6 +352,9 @@ type SubscriptionConfigToUpdate struct {
 // Update returns an error if no fields were modified.
 func (s *Subscription) Update(ctx context.Context, cfg SubscriptionConfigToUpdate) (SubscriptionConfig, error) {
 	req := s.updateRequest(&cfg)
+	if err := cfg.validate(); err != nil {
+		return SubscriptionConfig{}, fmt.Errorf("pubsub: UpdateSubscription %v", err)
+	}
 	if len(req.UpdateMask.Paths) == 0 {
 		return SubscriptionConfig{}, errors.New("pubsub: UpdateSubscription call with nothing to update")
 	}
@@ -357,6 +384,10 @@ func (s *Subscription) updateRequest(cfg *SubscriptionConfigToUpdate) *pb.Update
 		psub.MessageRetentionDuration = ptypes.DurationProto(cfg.RetentionDuration)
 		paths = append(paths, "message_retention_duration")
 	}
+	if cfg.ExpirationPolicy != nil {
+		psub.ExpirationPolicy = expirationPolicyToProto(cfg.ExpirationPolicy)
+		paths = append(paths, "expiration_policy")
+	}
 	if cfg.Labels != nil {
 		psub.Labels = cfg.Labels
 		paths = append(paths, "labels")
@@ -364,6 +395,45 @@ func (s *Subscription) updateRequest(cfg *SubscriptionConfigToUpdate) *pb.Update
 	return &pb.UpdateSubscriptionRequest{
 		Subscription: psub,
 		UpdateMask:   &fmpb.FieldMask{Paths: paths},
+	}
+}
+
+const (
+	// The minimum expiration policy duration is 1 day as per:
+	//    https://github.com/googleapis/googleapis/blob/51145ff7812d2bb44c1219d0b76dac92a8bd94b2/google/pubsub/v1/pubsub.proto#L606-L607
+	minExpirationPolicy = 24 * time.Hour
+
+	// If an expiration policy is not specified, the default of 31 days is used as per:
+	//    https://github.com/googleapis/googleapis/blob/51145ff7812d2bb44c1219d0b76dac92a8bd94b2/google/pubsub/v1/pubsub.proto#L605-L606
+	defaultExpirationPolicy = 31 * 24 * time.Hour
+)
+
+func (cfg *SubscriptionConfigToUpdate) validate() error {
+	if cfg == nil || cfg.ExpirationPolicy == nil {
+		return nil
+	}
+	policy, min := optional.ToDuration(cfg.ExpirationPolicy), minExpirationPolicy
+	if policy == 0 || policy >= min {
+		return nil
+	}
+	return fmt.Errorf("invalid expiration policy(%q) < minimum(%q)", policy, min)
+}
+
+func expirationPolicyToProto(expirationPolicy optional.Duration) *pb.ExpirationPolicy {
+	if expirationPolicy == nil {
+		return nil
+	}
+
+	dur := optional.ToDuration(expirationPolicy)
+	var ttl *durpb.Duration
+	// As per:
+	//    https://godoc.org/google.golang.org/genproto/googleapis/pubsub/v1#ExpirationPolicy.Ttl
+	// if ExpirationPolicy.Ttl is set to nil, the expirationPolicy is toggled to NEVER expire.
+	if dur != 0 {
+		ttl = ptypes.DurationProto(dur)
+	}
+	return &pb.ExpirationPolicy{
+		Ttl: ttl,
 	}
 }
 

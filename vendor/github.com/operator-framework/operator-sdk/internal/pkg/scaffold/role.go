@@ -37,7 +37,6 @@ type Role struct {
 
 	IsClusterScoped  bool
 	SkipDefaultRules bool
-	SkipMetricsRules bool
 	CustomRules      []rbacv1.PolicyRule
 }
 
@@ -166,6 +165,7 @@ rules:
   resources:
   - pods
   - services
+  - services/finalizers
   - endpoints
   - persistentvolumeclaims
   - events
@@ -213,7 +213,6 @@ rules:
   {{- end }}
   {{- end }}
 {{- end }}
-{{- if not .SkipMetricsRules }}
 - apiGroups:
   - monitoring.coreos.com
   resources:
@@ -229,5 +228,16 @@ rules:
   - {{ .ProjectName }}
   verbs:
   - "update"
-{{- end }}
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+- apiGroups:
+  - apps
+  resources:
+  - replicasets
+  verbs:
+  - get
 `

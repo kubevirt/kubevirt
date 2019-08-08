@@ -19,17 +19,11 @@ package gax
 
 import (
 	"context"
-	"log"
-	"math/rand"
-	"os"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
-
-// Logger is a logger that logs to stderr.
-var Logger = log.New(os.Stderr, "", log.LstdFlags)
 
 // APICall is a user defined call stub.
 type APICall func(context.Context) error
@@ -61,12 +55,7 @@ func invokeWithRetry(ctx context.Context, stub APICall, callSettings CallSetting
 			return err
 		}
 
-		// Sleep a random amount up to the current delay
-		d := time.Duration(rand.Int63n(int64(delay)))
 		delayCtx, _ := context.WithTimeout(ctx, delay)
-		if Logger != nil {
-			Logger.Printf("Retryable error: %v, retrying in %v", err, d)
-		}
 		<-delayCtx.Done()
 
 		delay = scaleDuration(delay, backoffSettings.DelayTimeoutSettings.Multiplier)

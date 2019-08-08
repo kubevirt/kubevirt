@@ -344,6 +344,18 @@ func setVal(v reflect.Value, p Property) (s string) {
 	case reflect.Struct:
 		switch v.Type() {
 		case typeOfTime:
+			// Some time values are converted into microsecond integer values
+			// (for example when used with projects). So, here we check first
+			// whether this value is an int64, and next whether it's time.
+			//
+			// See more at https://cloud.google.com/datastore/docs/concepts/queries#limitations_on_projections
+			micros, ok := pValue.(int64)
+			if ok {
+				s := micros / 1e6
+				ns := micros % 1e6
+				v.Set(reflect.ValueOf(time.Unix(s, ns)))
+				break
+			}
 			x, ok := pValue.(time.Time)
 			if !ok && pValue != nil {
 				return typeMismatchReason(p, v)

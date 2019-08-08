@@ -181,7 +181,7 @@ type GcloudConfig struct {
 }
 
 // GcloudCmdTokenSource holds the comamnd arguments. It is only intended to be set by the program.
-// TODO(deklerk) Can this be unexported?
+// TODO(deklerk): Can this be unexported?
 type GcloudCmdTokenSource struct {
 	Command string
 	Args    []string

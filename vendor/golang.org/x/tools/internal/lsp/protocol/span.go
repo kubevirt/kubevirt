@@ -7,10 +7,10 @@
 package protocol
 
 import (
-	"fmt"
 	"go/token"
 
 	"golang.org/x/tools/internal/span"
+	errors "golang.org/x/xerrors"
 )
 
 type ColumnMapper struct {
@@ -23,10 +23,16 @@ func NewURI(uri span.URI) string {
 	return string(uri)
 }
 
-func NewColumnMapper(uri span.URI, fset *token.FileSet, f *token.File, content []byte) *ColumnMapper {
+func NewColumnMapper(uri span.URI, filename string, fset *token.FileSet, f *token.File, content []byte) *ColumnMapper {
+	var converter *span.TokenConverter
+	if f == nil {
+		converter = span.NewContentConverter(filename, content)
+	} else {
+		converter = span.NewTokenConverter(fset, f)
+	}
 	return &ColumnMapper{
 		URI:       uri,
-		Converter: span.NewTokenConverter(fset, f),
+		Converter: converter,
 		Content:   content,
 	}
 }
@@ -41,7 +47,7 @@ func (m *ColumnMapper) Location(s span.Span) (Location, error) {
 
 func (m *ColumnMapper) Range(s span.Span) (Range, error) {
 	if span.CompareURI(m.URI, s.URI()) != 0 {
-		return Range{}, fmt.Errorf("column mapper is for file %q instead of %q", m.URI, s.URI())
+		return Range{}, errors.Errorf("column mapper is for file %q instead of %q", m.URI, s.URI())
 	}
 	s, err := s.WithAll(m.Converter)
 	if err != nil {

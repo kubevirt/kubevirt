@@ -133,6 +133,10 @@ depending on the order of such RPCs probably has a race condition: since both th
 recorded sequence of RPCs and the sequence during replay are valid orderings, the
 program should behave the same under both.
 
+The same is not true of streaming RPCs. The replayer matches streams only by method
+name, since it has no other information at the time the stream is opened. Two streams
+with the same method name that are started concurrently may replay in the wrong
+order.
 
 Other Replayer Differences
 

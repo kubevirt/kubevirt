@@ -1,30 +1,39 @@
 package snippets
 
-func foo(i int, b bool) {} //@item(snipFoo, "foo(i int, b bool)", "", "func")
-func bar(fn func()) func()    {} //@item(snipBar, "bar(fn func())", "", "func")
+func foo(i int, b bool) {} //@item(snipFoo, "foo", "func(i int, b bool)", "func")
+func bar(fn func()) func()    {} //@item(snipBar, "bar", "func(fn func())", "func")
 
 type Foo struct {
 	Bar int //@item(snipFieldBar, "Bar", "int", "field")
 }
 
-func (Foo) Baz() func() {} //@item(snipMethodBaz, "Baz()", "func()", "field")
+func (Foo) Baz() func() {} //@item(snipMethodBaz, "Baz", "func() func()", "method")
+func (Foo) BazBar() func() {} //@item(snipMethodBazBar, "BazBar", "func() func()", "method")
 
 func _() {
-	f //@snippet(" //", snipFoo, "oo(${1})", "oo(${1:i int}, ${2:b bool})")
+	f //@snippet(" //", snipFoo, "foo(${1})", "foo(${1:i int}, ${2:b bool})")
 
-	bar //@snippet(" //", snipBar, "(${1})", "(${1:fn func()})")
+	bar //@snippet(" //", snipBar, "bar(${1})", "bar(${1:fn func()})")
 
-	bar(nil) //@snippet("(", snipBar, "", "")
-	bar(ba) //@snippet(")", snipBar, "r(${1})", "r(${1:fn func()})")
+	bar(nil) //@snippet("(", snipBar, "bar", "bar")
+	bar(ba) //@snippet(")", snipBar, "bar(${1})", "bar(${1:fn func()})")
 	var f Foo
-	bar(f.Ba) //@snippet(")", snipMethodBaz, "z()", "z()")
+	bar(f.Ba) //@snippet(")", snipMethodBaz, "Baz()", "Baz()")
+	(bar)(nil) //@snippet(")", snipBar, "bar(${1})", "bar(${1:fn func()})")
+	(f.Ba)() //@snippet(")", snipMethodBaz, "Baz()", "Baz()")
 
 	Foo{
-		B //@snippet(" //", snipFieldBar, "ar: ${1},", "ar: ${1:int},")
+		B //@snippet(" //", snipFieldBar, "Bar: ${1},", "Bar: ${1:int},")
 	}
 
-	Foo{B} //@snippet("}", snipFieldBar, "ar: ${1}", "ar: ${1:int}")
+	Foo{B} //@snippet("}", snipFieldBar, "Bar: ${1}", "Bar: ${1:int}")
 	Foo{} //@snippet("}", snipFieldBar, "Bar: ${1}", "Bar: ${1:int}")
 
-	Foo{Foo{}.B} //@snippet("} ", snipFieldBar, "ar", "ar")
+	Foo{Foo{}.B} //@snippet("} ", snipFieldBar, "Bar", "Bar")
+
+	var err error
+	err.Error() //@snippet("E", Error, "Error", "Error")
+	f.Baz()     //@snippet("B", snipMethodBaz, "Baz", "Baz")
+
+	f.Baz()     //@snippet("(", snipMethodBazBar, "BazBar", "BazBar")
 }

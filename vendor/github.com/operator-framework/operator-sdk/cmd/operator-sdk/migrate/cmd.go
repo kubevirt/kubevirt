@@ -30,7 +30,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var depManager string
+var (
+	depManager string
+	headerFile string
+	repo       string
+)
 
 // NewCmd returns a command that will add source code to an existing non-go operator
 func NewCmd() *cobra.Command {
@@ -41,7 +45,9 @@ func NewCmd() *cobra.Command {
 		RunE:  migrateRun,
 	}
 
-	newCmd.Flags().StringVar(&depManager, "dep-manager", "dep", `Dependency manager the new project will use (choices: "dep")`)
+	newCmd.Flags().StringVar(&depManager, "dep-manager", "modules", `Dependency manager the new project will use (choices: "dep", "modules")`)
+	newCmd.Flags().StringVar(&headerFile, "header-file", "", "Path to file containing headers for generated Go files. Copied to hack/boilerplate.go.txt")
+	newCmd.Flags().StringVar(&repo, "repo", "", "Project repository path. Used as the project's Go import path. This must be set if outside of $GOPATH/src with Go modules, and cannot be set if --dep-manager=dep")
 
 	return newCmd
 }
@@ -51,7 +57,13 @@ func NewCmd() *cobra.Command {
 func migrateRun(cmd *cobra.Command, args []string) error {
 	projutil.MustInProjectRoot()
 
-	_ = projutil.CheckAndGetProjectGoPkg()
+	if err := verifyFlags(); err != nil {
+		return err
+	}
+
+	if repo == "" {
+		repo = projutil.GetGoPkg()
+	}
 
 	opType := projutil.GetOperatorType()
 	switch opType {
@@ -63,16 +75,23 @@ func migrateRun(cmd *cobra.Command, args []string) error {
 	return fmt.Errorf("operator of type %s cannot be migrated", opType)
 }
 
+func verifyFlags() error {
+	err := projutil.CheckDepManagerWithRepo(projutil.DepManagerType(depManager), repo)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // migrateAnsible runs the migration process for an ansible-based operator
 func migrateAnsible() error {
 	wd := projutil.MustGetwd()
 
 	cfg := &input.Config{
-		Repo:           projutil.CheckAndGetProjectGoPkg(),
+		Repo:           repo,
 		AbsProjectPath: wd,
 		ProjectName:    filepath.Base(wd),
 	}
-	s := &scaffold.Scaffold{}
 
 	dockerfile := ansible.DockerfileHybrid{
 		Watches: true,
@@ -89,6 +108,15 @@ func migrateAnsible() error {
 	}
 	if err := renameDockerfile(); err != nil {
 		return err
+	}
+
+	s := &scaffold.Scaffold{}
+	if headerFile != "" {
+		err = s.Execute(cfg, &scaffold.Boilerplate{BoilerplateSrcPath: headerFile})
+		if err != nil {
+			return fmt.Errorf("boilerplate scaffold failed: (%v)", err)
+		}
+		s.BoilerplatePath = headerFile
 	}
 
 	if err := scaffoldAnsibleDepManager(s, cfg); err != nil {
@@ -114,7 +142,7 @@ func migrateHelm() error {
 	wd := projutil.MustGetwd()
 
 	cfg := &input.Config{
-		Repo:           projutil.CheckAndGetProjectGoPkg(),
+		Repo:           repo,
 		AbsProjectPath: wd,
 		ProjectName:    filepath.Base(wd),
 	}
@@ -124,6 +152,14 @@ func migrateHelm() error {
 	}
 
 	s := &scaffold.Scaffold{}
+	if headerFile != "" {
+		err := s.Execute(cfg, &scaffold.Boilerplate{BoilerplateSrcPath: headerFile})
+		if err != nil {
+			return fmt.Errorf("boilerplate scaffold failed: (%v)", err)
+		}
+		s.BoilerplatePath = headerFile
+	}
+
 	if err := scaffoldHelmDepManager(s, cfg); err != nil {
 		return errors.Wrap(err, "migrate Helm dependency manager file scaffold failed")
 	}
@@ -159,8 +195,10 @@ func scaffoldHelmDepManager(s *scaffold.Scaffold, cfg *input.Config) error {
 	switch m := projutil.DepManagerType(depManager); m {
 	case projutil.DepManagerDep:
 		files = append(files, &helm.GopkgToml{})
+	case projutil.DepManagerGoMod:
+		files = append(files, &helm.GoMod{}, &scaffold.Tools{})
 	default:
-		return projutil.ErrInvalidDepManager
+		return projutil.ErrInvalidDepManager(depManager)
 	}
 	return s.Execute(cfg, files...)
 }
@@ -170,8 +208,10 @@ func scaffoldAnsibleDepManager(s *scaffold.Scaffold, cfg *input.Config) error {
 	switch m := projutil.DepManagerType(depManager); m {
 	case projutil.DepManagerDep:
 		files = append(files, &ansible.GopkgToml{})
+	case projutil.DepManagerGoMod:
+		files = append(files, &ansible.GoMod{}, &scaffold.Tools{})
 	default:
-		return projutil.ErrInvalidDepManager
+		return projutil.ErrInvalidDepManager(depManager)
 	}
 	return s.Execute(cfg, files...)
 }

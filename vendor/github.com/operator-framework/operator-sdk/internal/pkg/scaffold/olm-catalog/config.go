@@ -23,17 +23,23 @@ import (
 	"github.com/operator-framework/operator-sdk/internal/pkg/scaffold"
 
 	"github.com/ghodss/yaml"
+	log "github.com/sirupsen/logrus"
 )
 
 // CSVConfig is a configuration file for CSV composition. Its fields contain
 // file path information.
+// TODO(estroz): define field for path to write CSV bundle.
+// TODO(estroz): make CSVConfig a viper.Config
 type CSVConfig struct {
 	// The operator manifest file path. Defaults to deploy/operator.yaml.
 	OperatorPath string `json:"operator-path,omitempty"`
-	// The RBAC role manifest file path. Defaults to deploy/role.yaml.
-	RolePath string `json:"role-path,omitempty"`
-	// A list of CRD and CR manifest file paths. Defaults to deploy/crds.
+	// Role and ClusterRole manifest file paths. Defaults to [deploy/role.yaml].
+	RolePaths []string `json:"role-paths,omitempty"`
+	// A list of CRD and CR manifest file paths. Defaults to [deploy/crds].
 	CRDCRPaths []string `json:"crd-cr-paths,omitempty"`
+	// OperatorName is the name used to create the CSV and manifest file names.
+	// Defaults to the project's name.
+	OperatorName string `json:"operator-name,omitempty"`
 }
 
 // TODO: discuss case of no config file at default path: write new file or not.
@@ -68,20 +74,26 @@ func (c *CSVConfig) setFields() error {
 		c.OperatorPath = info.Path
 	}
 
-	if c.RolePath == "" {
+	if len(c.RolePaths) == 0 {
 		info, err := (&scaffold.Role{}).GetInput()
 		if err != nil {
 			return err
 		}
-		c.RolePath = info.Path
+		c.RolePaths = []string{info.Path}
 	}
 
 	if len(c.CRDCRPaths) == 0 {
 		paths, err := getManifestPathsFromDir(scaffold.CRDsDir)
-		if err != nil {
+		if err != nil && !os.IsNotExist(err) {
 			return err
 		}
-		c.CRDCRPaths = paths
+		if os.IsNotExist(err) {
+			log.Infof("Default CRDs dir %s does not exist. Omitting field spec.customresourcedefinitions.owned from CSV.", scaffold.CRDsDir)
+		} else if len(paths) == 0 {
+			log.Infof("Default CRDs dir %s is empty. Omitting field spec.customresourcedefinitions.owned from CSV.", scaffold.CRDsDir)
+		} else {
+			c.CRDCRPaths = paths
+		}
 	} else {
 		// Allow user to specify a list of dirs to search. Avoid duplicate files.
 		paths, seen := make([]string, 0), make(map[string]struct{})

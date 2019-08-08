@@ -26,6 +26,7 @@ import (
 	"github.com/operator-framework/operator-sdk/internal/util/fileutil"
 	"github.com/operator-framework/operator-sdk/internal/util/projutil"
 	"github.com/operator-framework/operator-sdk/internal/util/yamlutil"
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/test"
 
 	"github.com/ghodss/yaml"
@@ -40,16 +41,17 @@ import (
 var deployTestDir = filepath.Join(scaffold.DeployDir, "test")
 
 type testLocalConfig struct {
-	kubeconfig        string
-	globalManPath     string
-	namespacedManPath string
-	goTestFlags       string
-	moleculeTestFlags string
-	namespace         string
-	upLocal           bool
-	noSetup           bool
-	debug             bool
-	image             string
+	kubeconfig         string
+	globalManPath      string
+	namespacedManPath  string
+	goTestFlags        string
+	moleculeTestFlags  string
+	namespace          string
+	upLocal            bool
+	noSetup            bool
+	debug              bool
+	image              string
+	localOperatorFlags string
 }
 
 var tlConfig testLocalConfig
@@ -70,6 +72,7 @@ func newTestLocalCmd() *cobra.Command {
 	testCmd.Flags().BoolVar(&tlConfig.noSetup, "no-setup", false, "Disable test resource creation")
 	testCmd.Flags().BoolVar(&tlConfig.debug, "debug", false, "Enable debug-level logging")
 	testCmd.Flags().StringVar(&tlConfig.image, "image", "", "Use a different operator image from the one specified in the namespaced manifest")
+	testCmd.Flags().StringVar(&tlConfig.localOperatorFlags, "local-operator-flags", "", "The flags that the operator needs (while using --up-local). Example: \"--flag1 value1 --flag2=value2\"")
 
 	return testCmd
 }
@@ -205,14 +208,20 @@ func testLocalGoFunc(cmd *cobra.Command, args []string) error {
 	if tlConfig.namespace != "" || tlConfig.noSetup {
 		testArgs = append(testArgs, "-"+test.SingleNamespaceFlag, "-parallel=1")
 	}
+	env := append(os.Environ(), fmt.Sprintf("%v=%v", test.TestNamespaceEnv, tlConfig.namespace))
 	if tlConfig.upLocal {
+		env = append(env, fmt.Sprintf("%s=%s", k8sutil.ForceRunModeEnv, k8sutil.LocalRunMode))
 		testArgs = append(testArgs, "-"+test.LocalOperatorFlag)
+		if tlConfig.localOperatorFlags != "" {
+			testArgs = append(testArgs, "-"+test.LocalOperatorArgs, tlConfig.localOperatorFlags)
+		}
 	}
 	opts := projutil.GoTestOptions{
 		GoCmdOptions: projutil.GoCmdOptions{
 			PackagePath: args[0] + "/...",
-			Env:         append(os.Environ(), fmt.Sprintf("%v=%v", test.TestNamespaceEnv, tlConfig.namespace)),
+			Env:         env,
 			Dir:         projutil.MustGetwd(),
+			GoMod:       projutil.IsDepManagerGoMod(),
 		},
 		TestBinaryArgs: testArgs,
 	}

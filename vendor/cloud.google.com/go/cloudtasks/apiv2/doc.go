@@ -16,8 +16,7 @@
 
 // Package cloudtasks is an auto-generated package for the
 // Cloud Tasks API.
-//
-//   NOTE: This package is in alpha. It is not stable, and is likely to change.
+
 //
 // Manages the execution of large numbers of distributed requests.
 //
@@ -97,4 +96,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190404"
+const versionClient = "20190716"

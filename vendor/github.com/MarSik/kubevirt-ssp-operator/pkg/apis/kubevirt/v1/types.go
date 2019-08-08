@@ -31,6 +31,15 @@ type KubevirtTemplateValidator struct {
 	Spec VersionSpec `json:"spec,omitempty"`
 }
 
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type KubevirtMetricsAggregation struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec VersionSpec `json:"spec,omitempty"`
+}
+
 // custom spec
 type VersionSpec struct {
 	Version string `json:"version,omitempty"`
@@ -63,8 +72,18 @@ type KubevirtTemplateValidatorList struct {
 	Items []KubevirtTemplateValidator `json:"items"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type KubevirtMetricsAggregationList struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	metav1.ListMeta `son:"metadata,omitempty"`
+
+	Items []KubevirtMetricsAggregation `json:"items"`
+}
+
 func init() {
 	SchemeBuilder.Register(&KubevirtCommonTemplatesBundle{}, &KubevirtCommonTemplatesBundleList{})
 	SchemeBuilder.Register(&KubevirtNodeLabellerBundle{}, &KubevirtNodeLabellerBundleList{})
 	SchemeBuilder.Register(&KubevirtTemplateValidator{}, &KubevirtTemplateValidatorList{})
+	SchemeBuilder.Register(&KubevirtMetricsAggregation{}, &KubevirtMetricsAggregationList{})
 }

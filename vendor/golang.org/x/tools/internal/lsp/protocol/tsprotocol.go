@@ -1,7 +1,10 @@
-// Package protocol contains data types for LSP jsonrpcs
+// Package protocol contains data types and code for LSP jsonrpcs
 // generated automatically from vscode-languageserver-node
-//  version of Fri Apr 05 2019 10:16:07 GMT-0400 (Eastern Daylight Time)
+// commit: 8801c20b667945f455d7e023c71d2f741caeda25
+// last fetched Sat Jul 13 2019 18:33:10 GMT-0700 (Pacific Daylight Time)
 package protocol
+
+// Code generated (see typescript/README.md) DO NOT EDIT.
 
 // WorkspaceFolder is
 type WorkspaceFolder struct {
@@ -154,23 +157,6 @@ type FoldingRangeParams struct {
 
 // SelectionRangeProviderOptions is
 type SelectionRangeProviderOptions struct {
-}
-
-/*SelectionRange defined:
- * Represents a selection range
- */
-type SelectionRange struct {
-
-	/*Range defined:
-	 * Range of the selection.
-	 */
-	Range Range `json:"range"`
-
-	/*Kind defined:
-	 * Describes the kind of the selection range such as `statemet' or 'declaration'. See
-	 * [SelectionRangeKind](#SelectionRangeKind) for an enumeration of standardized kinds.
-	 */
-	Kind string `json:"kind"`
 }
 
 /*SelectionRangeParams defined:
@@ -708,6 +694,17 @@ type TextDocumentClientCapabilities struct {
 		 */
 		TagSupport bool `json:"tagSupport,omitempty"`
 	} `json:"publishDiagnostics,omitempty"`
+}
+
+/*WindowClientCapabilities defined:
+ * Window specific client capabilities.
+ */
+type WindowClientCapabilities struct {
+
+	/*Progress defined:
+	 * Whether client supports handling progress notifications.
+	 */
+	Progress bool `json:"progress,omitempty"`
 }
 
 // ClientCapabilities is
@@ -1279,6 +1276,11 @@ type ClientCapabilities struct {
 		} `json:"selectionRange,omitempty"`
 	} `json:"textDocument,omitempty"`
 
+	/*Window defined:
+	 * Window specific client capabilities.
+	 */
+	Window WindowClientCapabilities `json:"window,omitempty"`
+
 	/*Experimental defined:
 	 * Experimental client capabilities.
 	 */
@@ -1442,28 +1444,32 @@ type SaveOptions struct {
 type TextDocumentSyncOptions struct {
 
 	/*OpenClose defined:
-	 * Open and close notifications are sent to the server.
+	 * Open and close notifications are sent to the server. If omitted open close notification should not
+	 * be sent.
 	 */
 	OpenClose bool `json:"openClose,omitempty"`
 
 	/*Change defined:
 	 * Change notifications are sent to the server. See TextDocumentSyncKind.None, TextDocumentSyncKind.Full
-	 * and TextDocumentSyncKind.Incremental.
+	 * and TextDocumentSyncKind.Incremental. If omitted it defaults to TextDocumentSyncKind.None.
 	 */
 	Change TextDocumentSyncKind `json:"change,omitempty"`
 
 	/*WillSave defined:
-	 * Will save notifications are sent to the server.
+	 * If present will save notifications are sent to the server. If omitted the notification should not be
+	 * sent.
 	 */
 	WillSave bool `json:"willSave,omitempty"`
 
 	/*WillSaveWaitUntil defined:
-	 * Will save wait until requests are sent to the server.
+	 * If present will save wait until requests are sent to the server. If omitted the request should not be
+	 * sent.
 	 */
 	WillSaveWaitUntil bool `json:"willSaveWaitUntil,omitempty"`
 
 	/*Save defined:
-	 * Save notifications are sent to the server.
+	 * If present save notifications are sent to the server. If omitted the notification should not be
+	 * sent.
 	 */
 	Save *SaveOptions `json:"save,omitempty"`
 }
@@ -1560,7 +1566,7 @@ type ServerCapabilities struct {
 	 * specified if the client states that it supports
 	 * `prepareSupport` in its initial `initialize` request.
 	 */
-	RenameProvider *RenameOptions `json:"renameProvider,omitempty"` // boolean | RenameOptions
+	RenameProvider interface{} `json:"renameProvider,omitempty"` // boolean | RenameOptions
 
 	/*DocumentLinkProvider defined:
 	 * The server provides document link support.
@@ -1631,7 +1637,7 @@ type ServerCapabilities struct {
 	/*SelectionRangeProvider defined:
 	 * The server provides selection range support.
 	 */
-	SelectionRangeProvider bool `json:"selectionRangeProvider,omitempty"` // boolean | SelectionRangeProviderOptions | (SelectionRangeProviderOptions & TextDocumentRegistrationOptions & StaticRegistrationOptions)
+	SelectionRangeProvider bool `json:"selectionRangeProvider,omitempty"` // boolean | (TextDocumentRegistrationOptions & StaticRegistrationOptions & SelectionRangeProviderOptions)
 }
 
 // InitializeParams is
@@ -1658,7 +1664,7 @@ type InitializeParams struct {
 	 *
 	 * @deprecated in favour of workspaceFolders.
 	 */
-	RootURI string `json:"rootUri"`
+	RootURI DocumentUri `json:"rootUri"`
 
 	/*Capabilities defined:
 	 * The capabilities provided by the client (editor or tool)
@@ -1893,7 +1899,7 @@ type FileEvent struct {
 	/*URI defined:
 	 * The file's uri.
 	 */
-	URI string `json:"uri"`
+	URI DocumentUri `json:"uri"`
 
 	/*Type defined:
 	 * The change type.
@@ -1942,10 +1948,12 @@ type PublishDiagnosticsParams struct {
 	/*URI defined:
 	 * The URI for which diagnostic information is reported.
 	 */
-	URI string `json:"uri"`
+	URI DocumentUri `json:"uri"`
 
 	/*Version defined:
 	 * Optional the version number of the document the diagnostics are published for.
+	 *
+	 * @since 3.15
 	 */
 	Version float64 `json:"version,omitempty"`
 
@@ -2296,7 +2304,7 @@ type Range struct {
 type Location struct {
 
 	// URI is
-	URI string `json:"uri"`
+	URI DocumentUri `json:"uri"`
 
 	// Range is
 	Range Range `json:"range"`
@@ -2319,7 +2327,7 @@ type LocationLink struct {
 	/*TargetURI defined:
 	 * The target resource identifier of this link.
 	 */
-	TargetURI string `json:"targetUri"`
+	TargetURI DocumentUri `json:"targetUri"`
 
 	/*TargetRange defined:
 	 * The full target range of this link. If the target for example is a symbol then target range is the
@@ -2560,7 +2568,7 @@ type CreateFile struct {
 	/*URI defined:
 	 * The resource to create.
 	 */
-	URI string `json:"uri"`
+	URI DocumentUri `json:"uri"`
 
 	/*Options defined:
 	 * Additional options
@@ -2597,12 +2605,12 @@ type RenameFile struct {
 	/*OldURI defined:
 	 * The old (existing) location.
 	 */
-	OldURI string `json:"oldUri"`
+	OldURI DocumentUri `json:"oldUri"`
 
 	/*NewURI defined:
 	 * The new location.
 	 */
-	NewURI string `json:"newUri"`
+	NewURI DocumentUri `json:"newUri"`
 
 	/*Options defined:
 	 * Rename options.
@@ -2639,7 +2647,7 @@ type DeleteFile struct {
 	/*URI defined:
 	 * The file to delete.
 	 */
-	URI string `json:"uri"`
+	URI DocumentUri `json:"uri"`
 
 	/*Options defined:
 	 * Delete options.
@@ -2688,7 +2696,7 @@ type TextDocumentIdentifier struct {
 	/*URI defined:
 	 * The text document's uri.
 	 */
-	URI string `json:"uri"`
+	URI DocumentUri `json:"uri"`
 }
 
 /*VersionedTextDocumentIdentifier defined:
@@ -2716,7 +2724,7 @@ type TextDocumentItem struct {
 	/*URI defined:
 	 * The text document's uri.
 	 */
-	URI string `json:"uri"`
+	URI DocumentUri `json:"uri"`
 
 	/*LanguageID defined:
 	 * The text document's language identifier
@@ -2841,8 +2849,6 @@ type CompletionItem struct {
 	 * and a completion item with an `insertText` of `console` is provided it
 	 * will only insert `sole`. Therefore it is recommended to use `textEdit` instead
 	 * since it avoids additional client side interpretation.
-	 *
-	 * @deprecated Use textEdit instead.
 	 */
 	InsertText string `json:"insertText,omitempty"`
 
@@ -3294,6 +3300,23 @@ type DocumentLink struct {
 	Data interface{} `json:"data,omitempty"`
 }
 
+/*SelectionRange defined:
+ * A selection range represents a part of a selection hierarchy. A selection range
+ * may have a parent selection range that contains it.
+ */
+type SelectionRange struct {
+
+	/*Range defined:
+	 * The [range](#Range) of this selection range.
+	 */
+	Range Range `json:"range"`
+
+	/*Parent defined:
+	 * The parent selection range containing this range. Therefore `parent.range` must contain `this.range`.
+	 */
+	Parent *SelectionRange `json:"parent,omitempty"`
+}
+
 /*TextDocument defined:
  * A simple text document. Not to be implemented.
  */
@@ -3306,7 +3329,7 @@ type TextDocument struct {
 	 *
 	 * @readonly
 	 */
-	URI string `json:"uri"`
+	URI DocumentUri `json:"uri"`
 
 	/*LanguageID defined:
 	 * The identifier of the language associated with this document.
@@ -3378,11 +3401,29 @@ type TextDocumentContentChangeEvent struct {
 	Text string `json:"text"`
 }
 
+// SetTraceParams is
+type SetTraceParams struct {
+
+	// Value is
+	Value TraceValues `json:"value"`
+}
+
+// LogTraceParams is
+type LogTraceParams struct {
+
+	// Message is
+	Message string `json:"message"`
+
+	// Verbose is
+	Verbose string `json:"verbose,omitempty"`
+}
+
+// Tracer is
+type Tracer struct {
+}
+
 // FoldingRangeKind defines constants
 type FoldingRangeKind string
-
-// SelectionRangeKind defines constants
-type SelectionRangeKind string
 
 // ResourceOperationKind defines constants
 type ResourceOperationKind string
@@ -3435,6 +3476,24 @@ type CodeActionKind string
 // TextDocumentSaveReason defines constants
 type TextDocumentSaveReason float64
 
+// ErrorCodes defines constants
+type ErrorCodes float64
+
+// Touch defines constants
+type Touch float64
+
+// Trace defines constants
+type Trace string
+
+// TraceFormat defines constants
+type TraceFormat string
+
+// ConnectionErrors defines constants
+type ConnectionErrors float64
+
+// ConnectionState defines constants
+type ConnectionState float64
+
 const (
 
 	/*Comment defined:
@@ -3451,23 +3510,6 @@ const (
 	 * Folding range for a region (e.g. `#region`)
 	 */
 	Region FoldingRangeKind = "region"
-
-	/*Empty defined:
-	 * Empty Kind.
-	 */
-	Empty SelectionRangeKind = ""
-
-	/*Statement defined:
-	 * The statment kind, its value is `statement`, possible extensions can be
-	 * `statement.if` etc
-	 */
-	Statement SelectionRangeKind = "statement"
-
-	/*Declaration defined:
-	 * The declaration kind, its value is `declaration`, possible extensions can be
-	 * `declaration.function`, `declaration.class` etc.
-	 */
-	Declaration SelectionRangeKind = "declaration"
 
 	/*Create defined:
 	 * Supports creating new files and folders.
@@ -3569,10 +3611,20 @@ const (
 	 */
 	Deleted FileChangeType = 3
 
-	/*Change defined:
+	/*WatchCreate defined:
+	 * Interested in create events.
+	 */
+	WatchCreate WatchKind = 1
+
+	/*WatchChange defined:
 	 * Interested in change events
 	 */
-	Change WatchKind = 2
+	WatchChange WatchKind = 2
+
+	/*WatchDelete defined:
+	 * Interested in delete events
+	 */
+	WatchDelete WatchKind = 4
 
 	/*Invoked defined:
 	 * Completion was triggered by typing an identifier (24x7 code
@@ -3890,6 +3942,42 @@ const (
 	 * When the editor lost focus.
 	 */
 	FocusOut TextDocumentSaveReason = 3
+
+	// MessageWriteError is
+	MessageWriteError ErrorCodes = 1
+
+	// MessageReadError is
+	MessageReadError ErrorCodes = 2
+
+	// First is
+	First Touch = 1
+
+	// Last is
+	Last Touch = 2
+
+	// JSON is
+	JSON TraceFormat = "json"
+
+	/*Closed defined:
+	 * The connection is closed.
+	 */
+	Closed ConnectionErrors = 1
+
+	/*Disposed defined:
+	 * The connection got disposed.
+	 */
+	Disposed ConnectionErrors = 2
+
+	/*AlreadyListening defined:
+	 * The connection is already in listening mode.
+	 */
+	AlreadyListening ConnectionErrors = 3
+
+	// New is
+	New ConnectionState = 1
+
+	// Listening is
+	Listening ConnectionState = 2
 )
 
 // DocumentFilter is a type
@@ -3929,6 +4017,12 @@ type DocumentFilter struct {
  */
 type DocumentSelector []DocumentFilter
 
+// DocumentURI is a type
+/**
+ * A tagging type for string properties that are actually URIs.
+ */
+type DocumentURI string
+
 // DefinitionLink is a type
 /**
  * Information about where a symbol is defined.
@@ -3949,3 +4043,12 @@ type DefinitionLink LocationLink
  * by the client.
  */
 type DeclarationLink LocationLink
+
+// LSPMessageType is a type
+/**
+ * A LSP Log Entry.
+ */
+type LSPMessageType string
+
+// TraceValues is a type
+type TraceValues string

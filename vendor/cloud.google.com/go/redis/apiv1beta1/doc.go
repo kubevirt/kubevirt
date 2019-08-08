@@ -19,9 +19,7 @@
 //
 //   NOTE: This package is in beta. It is not stable, and may be subject to changes.
 //
-// The Google Cloud Memorystore for Redis API is used for creating and
-// managing
-// Redis instances on the Google Cloud Platform.
+// Creates and manages Redis instances on the Google Cloud Platform.
 //
 // Use of Context
 //
@@ -99,4 +97,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190404"
+const versionClient = "20190716"

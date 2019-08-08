@@ -16,8 +16,7 @@
 
 // Package scheduler is an auto-generated package for the
 // Cloud Scheduler API.
-//
-//   NOTE: This package is in alpha. It is not stable, and is likely to change.
+
 //
 // Creates and manages jobs run on a regular recurring schedule.
 //
@@ -97,4 +96,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190404"
+const versionClient = "20190716"

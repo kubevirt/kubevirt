@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
@@ -43,10 +45,10 @@ generates a default directory layout based on the input <project-name>.
 <project-name> is the project name of the new operator. (e.g app-operator)
 
 For example:
-	$ mkdir $GOPATH/src/github.com/example.com/
-	$ cd $GOPATH/src/github.com/example.com/
+	$ mkdir $HOME/projects/example.com/
+	$ cd $HOME/projects/example.com/
 	$ operator-sdk new app-operator
-generates a skeletal app-operator application in $GOPATH/src/github.com/example.com/app-operator.
+generates a skeletal app-operator application in $HOME/projects/example.com/app-operator.
 `,
 		RunE: newFunc,
 	}
@@ -54,10 +56,13 @@ generates a skeletal app-operator application in $GOPATH/src/github.com/example.
 	newCmd.Flags().StringVar(&apiVersion, "api-version", "", "Kubernetes apiVersion and has a format of $GROUP_NAME/$VERSION (e.g app.example.com/v1alpha1) - used with \"ansible\" or \"helm\" types")
 	newCmd.Flags().StringVar(&kind, "kind", "", "Kubernetes CustomResourceDefintion kind. (e.g AppService) - used with \"ansible\" or \"helm\" types")
 	newCmd.Flags().StringVar(&operatorType, "type", "go", "Type of operator to initialize (choices: \"go\", \"ansible\" or \"helm\")")
-	newCmd.Flags().StringVar(&depManager, "dep-manager", "dep", `Dependency manager the new project will use (choices: "dep")`)
-	newCmd.Flags().BoolVar(&skipGit, "skip-git-init", false, "Do not init the directory as a git repository")
+	newCmd.Flags().StringVar(&depManager, "dep-manager", "modules", `Dependency manager the new project will use (choices: "dep", "modules")`)
+	newCmd.Flags().StringVar(&repo, "repo", "", "Project repository path for Go operators. Used as the project's Go import path. This must be set if outside of $GOPATH/src with Go modules, and cannot be set if --dep-manager=dep")
+	newCmd.Flags().BoolVar(&gitInit, "git-init", false, "Initialize the project directory as a git repository (default false)")
+	newCmd.Flags().StringVar(&headerFile, "header-file", "", "Path to file containing headers for generated Go files. Copied to hack/boilerplate.go.txt")
+	newCmd.Flags().BoolVar(&makeVendor, "vendor", false, "Use a vendor directory for dependencies. This flag only applies when --dep-manager=modules (the default)")
+	newCmd.Flags().BoolVar(&skipValidation, "skip-validation", false, "Do not validate the resulting project's structure and dependencies. (Only used for --type go)")
 	newCmd.Flags().BoolVar(&generatePlaybook, "generate-playbook", false, "Generate a playbook skeleton. (Only used for --type ansible)")
-	newCmd.Flags().BoolVar(&isClusterScoped, "cluster-scoped", false, "Generate cluster-scoped resources instead of namespace-scoped")
 
 	newCmd.Flags().StringVar(&helmChartRef, "helm-chart", "", "Initialize helm operator with existing helm chart (<URL>, <repo>/<name>, or local path)")
 	newCmd.Flags().StringVar(&helmChartVersion, "helm-chart-version", "", "Specific version of the helm chart (default is latest version)")
@@ -72,9 +77,12 @@ var (
 	operatorType     string
 	projectName      string
 	depManager       string
-	skipGit          bool
+	headerFile       string
+	repo             string
+	gitInit          bool
+	makeVendor       bool
+	skipValidation   bool
 	generatePlaybook bool
-	isClusterScoped  bool
 
 	helmChartRef     string
 	helmChartVersion string
@@ -94,12 +102,21 @@ func newFunc(cmd *cobra.Command, args []string) error {
 
 	switch operatorType {
 	case projutil.OperatorTypeGo:
+		if repo == "" {
+			repo = path.Join(projutil.GetGoPkg(), projectName)
+		}
 		if err := doGoScaffold(); err != nil {
 			return err
 		}
 		if err := getDeps(); err != nil {
 			return err
 		}
+		if !skipValidation {
+			if err := validateProject(); err != nil {
+				return err
+			}
+		}
+
 	case projutil.OperatorTypeAnsible:
 		if err := doAnsibleScaffold(); err != nil {
 			return err
@@ -109,8 +126,11 @@ func newFunc(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
-	if err := initGit(); err != nil {
-		return err
+
+	if gitInit {
+		if err := initGit(); err != nil {
+			return err
+		}
 	}
 
 	log.Info("Project creation complete.")
@@ -146,18 +166,34 @@ func mustBeNewProject() {
 
 func doGoScaffold() error {
 	cfg := &input.Config{
-		Repo:           filepath.Join(projutil.CheckAndGetProjectGoPkg(), projectName),
+		Repo:           repo,
 		AbsProjectPath: filepath.Join(projutil.MustGetwd(), projectName),
 		ProjectName:    projectName,
 	}
 	s := &scaffold.Scaffold{}
 
+	if headerFile != "" {
+		err := s.Execute(cfg, &scaffold.Boilerplate{BoilerplateSrcPath: headerFile})
+		if err != nil {
+			return fmt.Errorf("boilerplate scaffold failed: (%v)", err)
+		}
+		s.BoilerplatePath = headerFile
+	}
+
 	var err error
 	switch m := projutil.DepManagerType(depManager); m {
 	case projutil.DepManagerDep:
 		err = s.Execute(cfg, &scaffold.GopkgToml{})
+	case projutil.DepManagerGoMod:
+		if goModOn, merr := projutil.GoModOn(); merr != nil {
+			return merr
+		} else if !goModOn {
+			return errors.New(`dependency manager "modules" requires working directory to be in $GOPATH/src` +
+				` and GO111MODULE=on, or outside of $GOPATH/src and GO111MODULE="on", "auto", or unset. More info: https://github.com/operator-framework/operator-sdk/blob/master/doc/user-guide.md#go-modules`)
+		}
+		err = s.Execute(cfg, &scaffold.GoMod{}, &scaffold.Tools{})
 	default:
-		err = projutil.ErrInvalidDepManager
+		err = projutil.ErrNoDepManager
 	}
 	if err != nil {
 		return fmt.Errorf("dependency manager file scaffold failed: (%v)", err)
@@ -169,9 +205,9 @@ func doGoScaffold() error {
 		&scaffold.Entrypoint{},
 		&scaffold.UserSetup{},
 		&scaffold.ServiceAccount{},
-		&scaffold.Role{IsClusterScoped: isClusterScoped},
-		&scaffold.RoleBinding{IsClusterScoped: isClusterScoped},
-		&scaffold.Operator{IsClusterScoped: isClusterScoped},
+		&scaffold.Role{},
+		&scaffold.RoleBinding{},
+		&scaffold.Operator{},
 		&scaffold.Apis{},
 		&scaffold.Controller{},
 		&scaffold.Version{},
@@ -200,8 +236,8 @@ func doAnsibleScaffold() error {
 	s := &scaffold.Scaffold{}
 	err = s.Execute(cfg,
 		&scaffold.ServiceAccount{},
-		&scaffold.Role{IsClusterScoped: isClusterScoped},
-		&scaffold.RoleBinding{IsClusterScoped: isClusterScoped},
+		&scaffold.Role{},
+		&scaffold.RoleBinding{},
 		&scaffold.CRD{Resource: resource},
 		&scaffold.CR{Resource: resource},
 		&ansible.BuildDockerfile{GeneratePlaybook: generatePlaybook},
@@ -229,7 +265,7 @@ func doAnsibleScaffold() error {
 			GeneratePlaybook: generatePlaybook,
 			Resource:         *resource,
 		},
-		&ansible.DeployOperator{IsClusterScoped: isClusterScoped},
+		&ansible.DeployOperator{},
 		&ansible.Travis{},
 		&ansible.MoleculeTestLocalMolecule{},
 		&ansible.MoleculeTestLocalPrepare{Resource: *resource},
@@ -289,13 +325,13 @@ func doHelmScaffold() error {
 	valuesPath := filepath.Join("<project_dir>", helm.HelmChartsDir, chart.GetMetadata().GetName(), "values.yaml")
 	crSpec := fmt.Sprintf("# Default values copied from %s\n\n%s", valuesPath, chart.GetValues().GetRaw())
 
-	k8sCfg, err := config.GetConfig()
-	if err != nil {
-		return fmt.Errorf("failed to get kubernetes config: %s", err)
-	}
-	roleScaffold, err := helm.CreateRoleScaffold(k8sCfg, chart, isClusterScoped)
-	if err != nil {
-		return fmt.Errorf("failed to generate role scaffold: %s", err)
+	roleScaffold := helm.DefaultRoleScaffold
+	if k8sCfg, err := config.GetConfig(); err != nil {
+		log.Warnf("Using default RBAC rules: failed to get Kubernetes config: %s", err)
+	} else if dc, err := discovery.NewDiscoveryClientForConfig(k8sCfg); err != nil {
+		log.Warnf("Using default RBAC rules: failed to create Kubernetes discovery client: %s", err)
+	} else {
+		roleScaffold = helm.GenerateRoleScaffold(dc, chart)
 	}
 
 	s := &scaffold.Scaffold{}
@@ -306,9 +342,9 @@ func doHelmScaffold() error {
 			ChartName: chart.GetMetadata().GetName(),
 		},
 		&scaffold.ServiceAccount{},
-		roleScaffold,
-		&scaffold.RoleBinding{IsClusterScoped: isClusterScoped},
-		&helm.Operator{IsClusterScoped: isClusterScoped},
+		&roleScaffold,
+		&scaffold.RoleBinding{IsClusterScoped: roleScaffold.IsClusterScoped},
+		&helm.Operator{},
 		&scaffold.CRD{Resource: resource},
 		&scaffold.CR{
 			Resource: resource,
@@ -343,8 +379,19 @@ func verifyFlags() error {
 		return fmt.Errorf("value of --helm-chart-version can only be used with --type=helm and --helm-chart")
 	}
 
-	if operatorType == projutil.OperatorTypeGo && (len(apiVersion) != 0 || len(kind) != 0) {
-		return fmt.Errorf("operators of type Go do not use --api-version or --kind")
+	if operatorType == projutil.OperatorTypeGo {
+		if len(apiVersion) != 0 || len(kind) != 0 {
+			return fmt.Errorf("operators of type Go do not use --api-version or --kind")
+		}
+
+		dm := projutil.DepManagerType(depManager)
+		if !makeVendor && dm == projutil.DepManagerDep {
+			log.Warnf("--dep-manager=dep requires a vendor directory; ignoring --vendor=false")
+		}
+		err := projutil.CheckDepManagerWithRepo(dm, repo)
+		if err != nil {
+			return err
+		}
 	}
 
 	// --api-version and --kind are required with --type=ansible and --type=helm, with one exception.
@@ -366,6 +413,7 @@ func verifyFlags() error {
 			return fmt.Errorf("value of --api-version has wrong format (%v); format must be $GROUP_NAME/$VERSION (e.g app.example.com/v1alpha1)", apiVersion)
 		}
 	}
+
 	return nil
 }
 
@@ -378,31 +426,61 @@ func execProjCmd(cmd string, args ...string) error {
 func getDeps() error {
 	switch m := projutil.DepManagerType(depManager); m {
 	case projutil.DepManagerDep:
-		log.Info("Running dep ensure ...")
+		log.Info("Running dep ensure")
 		if err := execProjCmd("dep", "ensure", "-v"); err != nil {
 			return err
 		}
+	case projutil.DepManagerGoMod:
+		// Only when a user requests a vendor directory be created should
+		// "go mod vendor" be run during project initialization.
+		if makeVendor {
+			log.Info("Running go mod vendor")
+			opts := projutil.GoCmdOptions{
+				Args: []string{"-v"},
+				Dir:  filepath.Join(projutil.MustGetwd(), projectName),
+			}
+			if err := projutil.GoCmd("mod vendor", opts); err != nil {
+				return err
+			}
+		} else {
+			// Avoid done message.
+			return nil
+		}
 	default:
-		return projutil.ErrInvalidDepManager
+		return projutil.ErrInvalidDepManager(depManager)
 	}
 	log.Info("Done getting dependencies")
 	return nil
 }
 
 func initGit() error {
-	if skipGit {
-		return nil
-	}
-	log.Info("Run git init ...")
+	log.Info("Running git init")
 	if err := execProjCmd("git", "init"); err != nil {
-		return err
-	}
-	if err := execProjCmd("git", "add", "--all"); err != nil {
-		return err
-	}
-	if err := execProjCmd("git", "commit", "-q", "-m", "INITIAL COMMIT"); err != nil {
-		return err
+		return errors.Wrapf(err, "failed to run git init")
 	}
 	log.Info("Run git init done")
+	return nil
+}
+
+func validateProject() error {
+	switch projutil.DepManagerType(depManager) {
+	case projutil.DepManagerGoMod:
+		log.Info("Validating project")
+		// Run "go build ./..." to make sure all packages can be built
+		// correctly. From "go help build":
+		//
+		//	When compiling multiple packages or a single non-main package,
+		//	build compiles the packages but discards the resulting object,
+		//	serving only as a check that the packages can be built.
+		opts := projutil.GoCmdOptions{
+			PackagePath: "./...",
+			Dir:         filepath.Join(projutil.MustGetwd(), projectName),
+		}
+		if err := projutil.GoBuild(opts); err != nil {
+			return err
+		}
+		log.Info("Project validation successful.")
+	}
+
 	return nil
 }

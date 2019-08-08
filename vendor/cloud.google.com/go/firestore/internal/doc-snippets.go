@@ -14,7 +14,7 @@
 
 package internal
 
-// TODO(deklerk) can this file and directory be deleted, or is it being used for documentation somewhere?
+// TODO(deklerk): can this file and directory be deleted, or is it being used for documentation somewhere?
 
 import (
 	"context"

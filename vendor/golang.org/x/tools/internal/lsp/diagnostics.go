@@ -6,72 +6,60 @@ package lsp
 
 import (
 	"context"
+	"strings"
 
-	"golang.org/x/tools/internal/lsp/cache"
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
+	"golang.org/x/tools/internal/lsp/telemetry"
+	"golang.org/x/tools/internal/lsp/telemetry/log"
 	"golang.org/x/tools/internal/span"
 )
 
-func (s *Server) cacheAndDiagnose(ctx context.Context, uri span.URI, content string) error {
-	s.log.Debugf(ctx, "cacheAndDiagnose: %s", uri)
-
-	view := s.findView(ctx, uri)
-	if err := view.SetContent(ctx, uri, []byte(content)); err != nil {
-		return err
+func (s *Server) Diagnostics(ctx context.Context, view source.View, uri span.URI) {
+	ctx = telemetry.File.With(ctx, uri)
+	f, err := view.GetFile(ctx, uri)
+	if err != nil {
+		log.Error(ctx, "no file", err, telemetry.File)
+		return
+	}
+	// For non-Go files, don't return any diagnostics.
+	gof, ok := f.(source.GoFile)
+	if !ok {
+		return
+	}
+	reports, err := source.Diagnostics(ctx, view, gof, s.disabledAnalyses)
+	if err != nil {
+		log.Error(ctx, "failed to compute diagnostics", err, telemetry.File)
+		return
 	}
 
-	s.log.Debugf(ctx, "cacheAndDiagnose: set content for %s", uri)
+	s.undeliveredMu.Lock()
+	defer s.undeliveredMu.Unlock()
 
-	go func() {
-		ctx := view.BackgroundContext()
-		if ctx.Err() != nil {
-			s.log.Errorf(ctx, "canceling diagnostics for %s: %v", uri, ctx.Err())
-			return
-		}
-
-		s.log.Debugf(ctx, "cacheAndDiagnose: going to get diagnostics for %s", uri)
-
-		reports, err := source.Diagnostics(ctx, view, uri)
-		if err != nil {
-			s.log.Errorf(ctx, "failed to compute diagnostics for %s: %v", uri, err)
-			return
-		}
-
-		s.undeliveredMu.Lock()
-		defer s.undeliveredMu.Unlock()
-
-		s.log.Debugf(ctx, "cacheAndDiagnose: publishing diagnostics")
-
-		for uri, diagnostics := range reports {
-			if err := s.publishDiagnostics(ctx, view, uri, diagnostics); err != nil {
-				if s.undelivered == nil {
-					s.undelivered = make(map[span.URI][]source.Diagnostic)
-				}
-				s.undelivered[uri] = diagnostics
-				continue
+	for uri, diagnostics := range reports {
+		if err := s.publishDiagnostics(ctx, view, uri, diagnostics); err != nil {
+			if s.undelivered == nil {
+				s.undelivered = make(map[span.URI][]source.Diagnostic)
 			}
-			// In case we had old, undelivered diagnostics.
-			delete(s.undelivered, uri)
+			log.Error(ctx, "failed to deliver diagnostic (will retry)", err, telemetry.File)
+			s.undelivered[uri] = diagnostics
+			continue
 		}
-
-		s.log.Debugf(ctx, "cacheAndDiagnose: publishing undelivered diagnostics")
-
-		// Anytime we compute diagnostics, make sure to also send along any
-		// undelivered ones (only for remaining URIs).
-		for uri, diagnostics := range s.undelivered {
-			s.publishDiagnostics(ctx, view, uri, diagnostics)
-
-			// If we fail to deliver the same diagnostics twice, just give up.
-			delete(s.undelivered, uri)
+		// In case we had old, undelivered diagnostics.
+		delete(s.undelivered, uri)
+	}
+	// Anytime we compute diagnostics, make sure to also send along any
+	// undelivered ones (only for remaining URIs).
+	for uri, diagnostics := range s.undelivered {
+		if err := s.publishDiagnostics(ctx, view, uri, diagnostics); err != nil {
+			log.Error(ctx, "failed to deliver diagnostic for (will not retry)", err, telemetry.File)
 		}
-	}()
-
-	s.log.Debugf(ctx, "cacheAndDiagnose: returned from diagnostics for %s", uri)
-	return nil
+		// If we fail to deliver the same diagnostics twice, just give up.
+		delete(s.undelivered, uri)
+	}
 }
 
-func (s *Server) publishDiagnostics(ctx context.Context, view *cache.View, uri span.URI, diagnostics []source.Diagnostic) error {
+func (s *Server) publishDiagnostics(ctx context.Context, view source.View, uri span.URI, diagnostics []source.Diagnostic) error {
 	protocolDiagnostics, err := toProtocolDiagnostics(ctx, view, diagnostics)
 	if err != nil {
 		return err
@@ -86,27 +74,35 @@ func (s *Server) publishDiagnostics(ctx context.Context, view *cache.View, uri s
 func toProtocolDiagnostics(ctx context.Context, v source.View, diagnostics []source.Diagnostic) ([]protocol.Diagnostic, error) {
 	reports := []protocol.Diagnostic{}
 	for _, diag := range diagnostics {
-		_, m, err := newColumnMap(ctx, v, diag.Span.URI())
+		diagnostic, err := toProtocolDiagnostic(ctx, v, diag)
 		if err != nil {
 			return nil, err
 		}
-		var severity protocol.DiagnosticSeverity
-		switch diag.Severity {
-		case source.SeverityError:
-			severity = protocol.SeverityError
-		case source.SeverityWarning:
-			severity = protocol.SeverityWarning
-		}
-		rng, err := m.Range(diag.Span)
-		if err != nil {
-			return nil, err
-		}
-		reports = append(reports, protocol.Diagnostic{
-			Message:  diag.Message,
-			Range:    rng,
-			Severity: severity,
-			Source:   diag.Source,
-		})
+		reports = append(reports, diagnostic)
 	}
 	return reports, nil
+}
+
+func toProtocolDiagnostic(ctx context.Context, v source.View, diag source.Diagnostic) (protocol.Diagnostic, error) {
+	_, m, err := getSourceFile(ctx, v, diag.Span.URI())
+	if err != nil {
+		return protocol.Diagnostic{}, err
+	}
+	var severity protocol.DiagnosticSeverity
+	switch diag.Severity {
+	case source.SeverityError:
+		severity = protocol.SeverityError
+	case source.SeverityWarning:
+		severity = protocol.SeverityWarning
+	}
+	rng, err := m.Range(diag.Span)
+	if err != nil {
+		return protocol.Diagnostic{}, err
+	}
+	return protocol.Diagnostic{
+		Message:  strings.TrimSpace(diag.Message), // go list returns errors prefixed by newline
+		Range:    rng,
+		Severity: severity,
+		Source:   diag.Source,
+	}, nil
 }

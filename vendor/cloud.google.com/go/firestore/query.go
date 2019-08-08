@@ -47,6 +47,10 @@ type Query struct {
 	startDoc, endDoc       *DocumentSnapshot
 	startBefore, endBefore bool
 	err                    error
+
+	// allDescendants indicates whether this query is for all collections
+	// that match the ID under the specified parentPath.
+	allDescendants bool
 }
 
 // DocumentID is the special field name representing the ID of a document
@@ -120,8 +124,8 @@ const (
 )
 
 // OrderBy returns a new Query that specifies the order in which results are
-// returned. A Query can have multiple OrderBy/OrderByPath specifications. OrderBy
-// appends the specification to the list of existing ones.
+// returned. A Query can have multiple OrderBy/OrderByPath specifications.
+// OrderBy appends the specification to the list of existing ones.
 //
 // The path argument can be a single field or a dot-separated sequence of
 // fields, and must not contain any of the runes "˜*/[]".
@@ -251,7 +255,10 @@ func (q Query) toProto() (*pb.StructuredQuery, error) {
 		}
 	}
 	p := &pb.StructuredQuery{
-		From:   []*pb.StructuredQuery_CollectionSelector{{CollectionId: q.collectionID}},
+		From: []*pb.StructuredQuery_CollectionSelector{{
+			CollectionId:   q.collectionID,
+			AllDescendants: q.allDescendants,
+		}},
 		Offset: q.offset,
 		Limit:  q.limit,
 	}

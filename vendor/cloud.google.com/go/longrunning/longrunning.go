@@ -105,7 +105,7 @@ func (op *Operation) Poll(ctx context.Context, resp proto.Message, opts ...gax.C
 
 	switch r := op.proto.Result.(type) {
 	case *pb.Operation_Error:
-		// TODO (pongad): r.Details may contain further information
+		// TODO(pongad): r.Details may contain further information
 		return status.Errorf(codes.Code(r.Error.Code), "%s", r.Error.Message)
 	case *pb.Operation_Response:
 		if resp == nil {

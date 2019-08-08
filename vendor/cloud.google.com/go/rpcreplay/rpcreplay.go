@@ -380,7 +380,7 @@ func (rep *Replayer) Connection() (*grpc.ClientConn, error) {
 	// But we do need something to attach gRPC interceptors to.
 	// So we start a local server and connect to it, then close it down.
 	srv := grpc.NewServer()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	l, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return nil, err
 	}
@@ -435,24 +435,24 @@ func (rep *Replayer) interceptUnary(_ context.Context, method string, req, res i
 
 func (rep *Replayer) interceptStream(ctx context.Context, _ *grpc.StreamDesc, _ *grpc.ClientConn, method string, _ grpc.Streamer, _ ...grpc.CallOption) (grpc.ClientStream, error) {
 	rep.log("create-stream %s", method)
-	str := rep.extractStream(method)
-	if str == nil {
-		return nil, fmt.Errorf("replayer: stream not found for method %s", method)
-	}
-	if str.createErr != nil {
-		return nil, str.createErr
-	}
-	return &repClientStream{ctx: ctx, str: str}, nil
+	return &repClientStream{ctx: ctx, rep: rep, method: method}, nil
 }
 
 type repClientStream struct {
-	ctx context.Context
-	str *stream
+	ctx    context.Context
+	rep    *Replayer
+	method string
+	str    *stream
 }
 
 func (rcs *repClientStream) Context() context.Context { return rcs.ctx }
 
-func (rcs *repClientStream) SendMsg(m interface{}) error {
+func (rcs *repClientStream) SendMsg(req interface{}) error {
+	if rcs.str == nil {
+		if err := rcs.setStream(rcs.method, req.(proto.Message)); err != nil {
+			return err
+		}
+	}
 	if len(rcs.str.sends) == 0 {
 		return fmt.Errorf("replayer: no more sends for stream %s, created at index %d",
 			rcs.str.method, rcs.str.createIndex)
@@ -463,7 +463,25 @@ func (rcs *repClientStream) SendMsg(m interface{}) error {
 	return msg.err
 }
 
+func (rcs *repClientStream) setStream(method string, req proto.Message) error {
+	str := rcs.rep.extractStream(method, req)
+	if str == nil {
+		return fmt.Errorf("replayer: stream not found for method %s and request %v", method, req)
+	}
+	if str.createErr != nil {
+		return str.createErr
+	}
+	rcs.str = str
+	return nil
+}
+
 func (rcs *repClientStream) RecvMsg(m interface{}) error {
+	if rcs.str == nil {
+		// Receive before send; fall back to matching stream by method only.
+		if err := rcs.setStream(rcs.method, nil); err != nil {
+			return err
+		}
+	}
 	if len(rcs.str.recvs) == 0 {
 		return fmt.Errorf("replayer: no more receives for stream %s, created at index %d",
 			rcs.str.method, rcs.str.createIndex)
@@ -508,17 +526,24 @@ func (rep *Replayer) extractCall(method string, req proto.Message) *call {
 	return nil
 }
 
-func (rep *Replayer) extractStream(method string) *stream {
+// extractStream find the first stream in the list with the same method and the same
+// first request sent. If req is nil, that means a receive occurred before a send, so
+// it matches only on method.
+func (rep *Replayer) extractStream(method string, req proto.Message) *stream {
 	rep.mu.Lock()
 	defer rep.mu.Unlock()
 	for i, stream := range rep.streams {
-		if stream == nil {
+		// Skip stream if it is nil (already extracted) or its method doesn't match.
+		if stream == nil || stream.method != method {
 			continue
 		}
-		if method == stream.method {
-			rep.streams[i] = nil
-			return stream
+		// If there is a first request, skip stream if it has no requests or its first
+		// request doesn't match.
+		if req != nil && len(stream.sends) > 0 && !proto.Equal(req, stream.sends[0].msg) {
+			continue
 		}
+		rep.streams[i] = nil // nil out this stream so we don't reuse it
+		return stream
 	}
 	return nil
 }
@@ -551,18 +576,17 @@ func FprintReader(w io.Writer, r io.Reader) error {
 			return nil
 		}
 
-		s := "message"
-		if e.msg.err != nil {
-			s = "error"
-		}
-		fmt.Fprintf(w, "#%d: kind: %s, method: %s, ref index: %d, %s:\n",
-			i, e.kind, e.method, e.refIndex, s)
-		if e.msg.err == nil {
+		fmt.Fprintf(w, "#%d: kind: %s, method: %s, ref index: %d", i, e.kind, e.method, e.refIndex)
+		switch {
+		case e.msg.msg != nil:
+			fmt.Fprintf(w, ", message:\n")
 			if err := proto.MarshalText(w, e.msg.msg); err != nil {
 				return err
 			}
-		} else {
-			fmt.Fprintf(w, "%v\n", e.msg.err)
+		case e.msg.err != nil:
+			fmt.Fprintf(w, ", error: %v\n", e.msg.err)
+		default:
+			fmt.Fprintln(w)
 		}
 	}
 }

@@ -89,8 +89,9 @@ func (c ResponseCapture) Write(data []byte) (int, error) {
 	return c.ResponseWriter.Write(data)
 }
 
-func (c ResponseCapture) WriteHeader(statusCode int) {
+func (c *ResponseCapture) WriteHeader(statusCode int) {
 	c.status = statusCode
+	c.wroteHeader = true
 	c.ResponseWriter.WriteHeader(statusCode)
 }
 
