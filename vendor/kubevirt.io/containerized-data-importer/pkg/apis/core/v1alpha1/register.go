@@ -11,6 +11,9 @@ import (
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: core.GroupName, Version: "v1alpha1"}
 
+//CDIGroupVersionKind group version kind
+var CDIGroupVersionKind = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: "CDI"}
+
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) schema.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()

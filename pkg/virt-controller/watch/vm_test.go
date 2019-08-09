@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 	k8sv1 "k8s.io/api/core/v1"
@@ -71,6 +72,7 @@ var _ = Describe("VirtualMachine", func() {
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
+
 			vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 			dataVolumeFeeder = testutils.NewDataVolumeFeeder(mockQueue, dataVolumeSource)
 
@@ -498,6 +500,110 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(createCount).To(Equal(2))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 		})
+
+		Context("clone authorization tests", func() {
+			dv1 := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					Source: cdiv1.DataVolumeSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
+							Namespace: "ns1",
+							Name:      "source-pvc",
+						},
+					},
+				},
+			}
+
+			dv2 := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv2",
+				},
+				Spec: cdiv1.DataVolumeSpec{
+					Source: cdiv1.DataVolumeSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
+							Name: "source-pvc",
+						},
+					},
+				},
+			}
+
+			serviceAccountVol := &v1.Volume{
+				Name: "sa",
+				VolumeSource: v1.VolumeSource{
+					ServiceAccount: &v1.ServiceAccountVolumeSource{
+						ServiceAccountName: "sa",
+					},
+				},
+			}
+
+			table.DescribeTable("create clone DataVolume for VirtualMachineInstance", func(dv *cdiv1.DataVolume, saVol *v1.Volume, fail bool) {
+				vm, _ := DefaultVirtualMachine(true)
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
+					v1.Volume{
+						Name: "test1",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name: dv.Name,
+							},
+						},
+					},
+				)
+
+				if saVol != nil {
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, *saVol)
+				}
+
+				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dv)
+
+				addVirtualMachine(vm)
+
+				createCount := 0
+				shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": ""}, map[string]string{}, &createCount)
+
+				if fail {
+					vmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(vm, nil)
+				}
+
+				controller.cloneAuthFunc = func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
+					if dv.Spec.Source.PVC.Namespace != "" {
+						Expect(pvcNamespace).Should(Equal(dv.Spec.Source.PVC.Namespace))
+					} else {
+						Expect(pvcNamespace).Should(Equal(vm.Namespace))
+					}
+
+					Expect(pvcName).Should(Equal(dv.Spec.Source.PVC.Name))
+					Expect(saNamespace).Should(Equal(vm.Namespace))
+
+					if saVol != nil {
+						Expect(saName).Should(Equal("sa"))
+					} else {
+						Expect(saName).Should(Equal("default"))
+					}
+
+					if fail {
+						return false, "Authorization failed", nil
+					}
+
+					return true, "", nil
+				}
+				controller.Execute()
+				if fail {
+					Expect(createCount).To(Equal(0))
+					testutils.ExpectEvent(recorder, UnauthorizedDataVolumeCreateReason)
+				} else {
+					Expect(createCount).To(Equal(1))
+					testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+				}
+			},
+				table.Entry("with auth and source namespace defined", dv1, serviceAccountVol, false),
+				table.Entry("with auth and no source namespace defined", dv2, serviceAccountVol, false),
+				table.Entry("with auth and source namespace no serviceaccount defined", dv1, nil, false),
+				table.Entry("with no auth and source namespace defined", dv1, serviceAccountVol, true),
+			)
+		})
+
 		It("should create missing VirtualMachineInstance", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 
