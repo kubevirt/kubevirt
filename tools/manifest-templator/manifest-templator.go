@@ -137,7 +137,7 @@ func main() {
 					if strings.HasSuffix(latestVersion, *csvVersion) {
 						panic(fmt.Errorf("CSV version %s is already published!", *csvVersion))
 					}
-					data.ReplacesCsvVersion = fmt.Sprintf("  replaces: %v", latestVersion)
+					data.ReplacesCsvVersion = latestVersion
 					// also copy old manifests to out dir
 					bundleHelper.AddOldManifests(*bundleOutDir, *csvVersion)
 				}
