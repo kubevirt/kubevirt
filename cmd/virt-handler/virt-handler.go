@@ -30,9 +30,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/certificate"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 
@@ -62,6 +64,8 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -89,6 +93,8 @@ const (
 	// selfsigned cert secret name
 	virtHandlerCertSecretName = "kubevirt-virt-handler-certs"
 	maxRequestsInFlight       = 3
+	// Default port that virt-handler listens to console requests
+	defaultConsoleServerPort = 8186
 )
 
 type virtHandlerApp struct {
@@ -109,6 +115,7 @@ type virtHandlerApp struct {
 	namespace string
 
 	migrationTLSConfig *tls.Config
+	consoleServerPort  int
 }
 
 var _ service.Service = &virtHandlerApp{}
@@ -276,6 +283,9 @@ func (app *virtHandlerApp) Run() {
 		0,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
+	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
+	vmiInformer := factory.VMI()
+
 	vmController := virthandler.NewController(
 		recorder,
 		app.virtCli,
@@ -290,6 +300,12 @@ func (app *virtHandlerApp) Run() {
 		app.MaxDevices,
 		virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), app.namespace),
 		app.migrationTLSConfig,
+		podIsolationDetector,
+	)
+
+	consoleHandler := rest.NewConsoleHandler(
+		podIsolationDetector,
+		vmiInformer,
 	)
 
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
@@ -309,18 +325,36 @@ func (app *virtHandlerApp) Run() {
 	stop := make(chan struct{})
 	defer close(stop)
 	factory.Start(stop)
-	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced)
+	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiInformer.HasSynced)
 
 	go vmController.Run(10, stop)
 
-	logger.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
-	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
+	errCh := make(chan error)
+	go app.runPrometheusServer(errCh, certStore)
+	go app.runConsoleServer(errCh, consoleHandler)
 
-	err = http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
-	if err != nil {
-		log.Log.Reason(err).Error("Serving prometheus failed.")
-		panic(err)
+	// wait for one of the servers to exit
+	<-errCh
+}
+
+func (app *virtHandlerApp) runPrometheusServer(errCh chan error, certStore certificate.FileStore) {
+	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
+	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
+	errCh <- http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
+}
+
+func (app *virtHandlerApp) runConsoleServer(errCh chan error, consoleHandler *rest.ConsoleHandler) {
+	ws := new(restful.WebService)
+	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console").To(consoleHandler.SerialHandler))
+	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc").To(consoleHandler.VNCHandler))
+	restful.DefaultContainer.Add(ws)
+	server := &http.Server{
+		Addr:    fmt.Sprintf("%s:%d", app.ServiceListen.BindAddress, app.consoleServerPort),
+		Handler: restful.DefaultContainer,
+		// we use migration TLS also for console connections (initiated by virt-api)
+		TLSConfig: app.migrationTLSConfig,
 	}
+	errCh <- server.ListenAndServeTLS("", "")
 }
 
 func (app *virtHandlerApp) AddFlags() {
@@ -354,6 +388,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.IntVar(&app.MaxRequestsInFlight, "max-metric-requests", maxRequestsInFlight,
 		"Number of concurrent requests to the metrics endpoint")
+
+	flag.IntVar(&app.consoleServerPort, "console-server-port", defaultConsoleServerPort,
+		"The port virt-handler listens on for console requests")
 }
 
 func (app *virtHandlerApp) setupTLS() error {

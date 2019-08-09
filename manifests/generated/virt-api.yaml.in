@@ -55,6 +55,8 @@ spec:
         - virt-api
         - --port
         - "8443"
+        - --console-server-port
+        - "8186"
         - --subresources-only
         - -v
         - {{.Verbosity}}

@@ -74,10 +74,10 @@ func NewController(
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
 	tlsConfig *tls.Config,
+	podIsolationDetector isolation.PodIsolationDetector,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	detector := isolation.NewSocketBasedIsolationDetector(virtShareDir)
 
 	c := &VirtualMachineController{
 		Queue:                    queue,
@@ -93,8 +93,8 @@ func NewController(
 		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir, tlsConfig),
-		podIsolationDetector:     detector,
-		containerDiskMounter:     &container_disk.Mounter{PodIsolationDetector: detector},
+		podIsolationDetector:     podIsolationDetector,
+		containerDiskMounter:     &container_disk.Mounter{PodIsolationDetector: podIsolationDetector},
 		clusterConfig:            clusterConfig,
 	}
 
@@ -787,17 +787,18 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	// Determine removal of VirtualMachineInstance from cache should result in deletion.
 	if !vmiExists {
-		if domainAlive {
+		switch {
+		case domainAlive:
 			// The VirtualMachineInstance is deleted on the cluster, and domain is alive,
 			// then shut down the domain.
 			log.Log.Object(vmi).V(3).Info("Shutting down domain for deleted VirtualMachineInstance object.")
 			shouldShutdown = true
-		} else if domainExists {
+		case domainExists:
 			// The VirtualMachineInstance is deleted on the cluster, and domain is not alive
 			// then delete the domain.
 			log.Log.Object(vmi).V(3).Info("Shutting down domain for deleted VirtualMachineInstance object.")
 			shouldDelete = true
-		} else {
+		default:
 			// If neither the domain nor the vmi object exist locally,
 			// then ensure any remaining local ephemeral data is cleaned up.
 			shouldCleanUp = true
@@ -806,13 +807,14 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	// Determine if VirtualMachineInstance is being deleted.
 	if vmiExists && vmi.ObjectMeta.DeletionTimestamp != nil {
-		if domainAlive {
+		switch {
+		case domainAlive:
 			log.Log.Object(vmi).V(3).Info("Shutting down domain for VirtualMachineInstance with deletion timestamp.")
 			shouldShutdown = true
-		} else if domainExists {
+		case domainExists:
 			log.Log.Object(vmi).V(3).Info("Deleting domain for VirtualMachineInstance with deletion timestamp.")
 			shouldDelete = true
-		} else {
+		default:
 			shouldCleanUp = true
 		}
 	}
@@ -865,21 +867,22 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	// * Shutdown and Deletion due to VirtualMachineInstance deletion, process stopping, graceful shutdown trigger, etc...
 	// * Cleanup of already shutdown and Deleted VMIs
 	// * Update due to spec change and initial start flow.
-	if forceIgnoreSync {
+	switch {
+	case forceIgnoreSync:
 		log.Log.Object(vmi).V(3).Info("No update processing required: forced ignore")
-	} else if shouldShutdown {
+	case shouldShutdown:
 		log.Log.Object(vmi).V(3).Info("Processing shutdown.")
 		syncErr = d.processVmShutdown(vmi, domain)
-	} else if shouldDelete {
+	case shouldDelete:
 		log.Log.Object(vmi).V(3).Info("Processing deletion.")
 		syncErr = d.processVmDelete(vmi, domain)
-	} else if shouldCleanUp {
+	case shouldCleanUp:
 		log.Log.Object(vmi).V(3).Info("Processing local ephemeral data cleanup for shutdown domain.")
 		syncErr = d.processVmCleanup(vmi)
-	} else if shouldUpdate {
+	case shouldUpdate:
 		log.Log.Object(vmi).V(3).Info("Processing vmi update")
 		syncErr = d.processVmUpdate(vmi)
-	} else {
+	default:
 		log.Log.Object(vmi).V(3).Info("No update processing required")
 	}
 
@@ -1431,7 +1434,8 @@ func (d *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain,
 func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vmi *v1.VirtualMachineInstance) (v1.VirtualMachineInstancePhase, error) {
 
 	if domain == nil {
-		if vmi.IsScheduled() {
+		switch {
+		case vmi.IsScheduled():
 			isExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
 
 			if err != nil {
@@ -1444,9 +1448,9 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 				return v1.Failed, nil
 			}
 			return v1.Scheduled, nil
-		} else if !vmi.IsRunning() && !vmi.IsFinal() {
+		case !vmi.IsRunning() && !vmi.IsFinal():
 			return v1.Scheduled, nil
-		} else if !vmi.IsFinal() {
+		case !vmi.IsFinal():
 			// That is unexpected. We should not be able to delete a VirtualMachineInstance before we stop it.
 			// However, if someone directly interacts with libvirt it is possible
 			return v1.Failed, nil

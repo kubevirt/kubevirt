@@ -86,7 +86,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 						vmi,
 						"login as 'cirros' user",
 					)
-				}, 140)
+				})
 			})
 
 			Context("with a fedora image", func() {
@@ -97,7 +97,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 						vmi,
 						"Welcome to",
 					)
-				}, 140)
+				})
 			})
 
 			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
@@ -108,7 +108,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				for i := 0; i < 5; i++ {
 					ExpectConsoleOutput(vmi, "login")
 				}
-			}, 220)
+			})
 
 			It("[test_id:1591]should close console connection when new console connection is opened", func(done Done) {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
@@ -143,7 +143,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, 30*time.Second)
 				Expect(err).ToNot(HaveOccurred())
-			}, 220)
+			})
 
 			It("[test_id:1593]should fail waiting for the virtual machine instance to be running", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
@@ -167,7 +167,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, 30*time.Second)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
-			}, 180)
+			})
 
 			It("[test_id:1594]should fail waiting for the expecter", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
@@ -192,7 +192,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				_, _, err := tests.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
-			}, 180)
+			})
 		})
 	})
 })

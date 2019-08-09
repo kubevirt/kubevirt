@@ -22,30 +22,22 @@ package rest
 import (
 	"flag"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 
 	"github.com/onsi/ginkgo/extensions/table"
 
 	"github.com/emicklei/go-restful"
-	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/httpstream"
-	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 var _ = Describe("VirtualMachineInstance Subresources", func() {
@@ -55,25 +47,22 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var backend *ghttp.Server
 	var request *restful.Request
 	var response *restful.Response
-	var wsURL string
 
 	running := true
 	notRunning := false
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
-	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 	app := SubresourceAPIApp{}
 	BeforeEach(func() {
 		server = ghttp.NewServer()
 		backend = ghttp.NewServer()
 		flag.Set("kubeconfig", "")
 		flag.Set("master", server.URL())
-		app.VirtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 
 		request = restful.NewRequest(&http.Request{})
 		response = restful.NewResponse(httptest.NewRecorder())
-		wsURL = "ws" + strings.TrimPrefix(backend.URL(), "http")
 
 		// To emulate rest server
 		backend.AppendHandlers(
@@ -94,15 +83,14 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
-			config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
-			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", "whatever", "whatever", pvcCache, app.VirtCli, config)
-
-			pod, err := templateService.RenderLaunchManifest(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			pod := &k8sv1.Pod{}
+			pod.Labels = map[string]string{}
+			pod.Labels[v1.AppLabel] = "virt-handler"
 			pod.ObjectMeta.Name = "madeup-name"
 
 			pod.Spec.NodeName = "mynode"
 			pod.Status.Phase = k8sv1.PodRunning
+			pod.Status.PodIP = "10.35.1.1"
 
 			podList := k8sv1.PodList{}
 			podList.Items = []k8sv1.Pod{}
@@ -110,16 +98,16 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/pods"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, podList),
 				),
 			)
 
-			podName, httpStatusCode, err := app.remoteExecInfo(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			result, err := app.getVirtHandlerConnForVMI(vmi)
 
-			Expect(podName).To(Equal("madeup-name"))
-			Expect(httpStatusCode).To(Equal(http.StatusOK))
+			Expect(err).ToNot(HaveOccurred())
+			ip, _, _ := result.ConnectionDetails()
+			Expect(ip).To(Equal("10.35.1.1"))
 			close(done)
 		}, 5)
 
@@ -128,10 +116,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi.Status.Phase = v1.Succeeded
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
-			_, httpStatusCode, err := app.remoteExecInfo(vmi)
+			_, err := app.getVirtHandlerConnForVMI(vmi)
 
 			Expect(err).To(HaveOccurred())
-			Expect(httpStatusCode).To(Equal(http.StatusBadRequest))
 			close(done)
 		}, 5)
 
@@ -145,15 +132,15 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/pods"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, podList),
 				),
 			)
 
-			_, httpStatusCode, err := app.remoteExecInfo(vmi)
-
+			conn, err := app.getVirtHandlerConnForVMI(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			_, _, err = conn.ConnectionDetails()
 			Expect(err).To(HaveOccurred())
-			Expect(httpStatusCode).To(Equal(http.StatusBadRequest))
 			close(done)
 		}, 5)
 
@@ -256,96 +243,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 			close(done)
-		}, 5)
-
-		It("Should pass client websocket io to server SPDY io", func(done Done) {
-
-			request.PathParameters()["name"] = "testvmi"
-			request.PathParameters()["namespace"] = "default"
-
-			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.Status.Phase = v1.Running
-			vmi.ObjectMeta.SetUID(uuid.NewUUID())
-
-			config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
-			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", "whatever", "whatever", pvcCache, app.VirtCli, config)
-
-			pod, err := templateService.RenderLaunchManifest(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			pod.ObjectMeta.Name = "madeup-name"
-
-			pod.Spec.NodeName = "mynode"
-			pod.Status.Phase = k8sv1.PodRunning
-
-			podList := k8sv1.PodList{}
-			podList.Items = []k8sv1.Pod{}
-			podList.Items = append(podList.Items, *pod)
-
-			newStreamChannel := make(chan httpstream.Stream)
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, podList),
-				),
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods/madeup-name/exec"),
-					func(w http.ResponseWriter, r *http.Request) {
-						upgrader := spdy.NewResponseUpgrader()
-						upgrader.UpgradeResponse(w, r,
-							func(stream httpstream.Stream, replySent <-chan struct{}) error {
-								newStreamChannel <- stream
-								return nil
-							})
-					},
-				),
-			)
-
-			ws, resp, err := websocket.DefaultDialer.Dial(wsURL, nil)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusSwitchingProtocols))
-
-			streamType := func(stream httpstream.Stream) string {
-				return stream.Headers().Get("streamType")
-			}
-
-			// Receive accepted stream
-			// FIXME: It's no good to depend on order, implementation
-			// can change
-			streamError := <-newStreamChannel
-			Expect(streamType(streamError)).To(Equal("error"))
-			streamStdin := <-newStreamChannel
-			Expect(streamType(streamStdin)).To(Equal("stdin"))
-			streamStdout := <-newStreamChannel
-			Expect(streamType(streamStdout)).To(Equal("stdout"))
-			streamStderror := <-newStreamChannel
-			Expect(streamType(streamStderror)).To(Equal("stderr"))
-
-			expected := []byte("Hello")
-			err = ws.WriteMessage(websocket.BinaryMessage, expected)
-			Expect(err).NotTo(HaveOccurred())
-
-			obtained := make([]byte, len(expected))
-			_, err = io.ReadFull(streamStdin, obtained)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(obtained).To(Equal(expected))
-
-			expected = []byte("World")
-			_, err = streamStdout.Write(expected)
-			Expect(err).NotTo(HaveOccurred())
-
-			_, obtained, err = ws.ReadMessage()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(obtained).To(Equal(expected))
-
-			// TODO: Check error streams
-			defer ws.Close()
-			close(done)
-
 		}, 5)
 
 		It("should fail if VirtualMachine not exists", func(done Done) {

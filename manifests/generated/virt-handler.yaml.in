@@ -31,6 +31,8 @@ spec:
         - $(MY_POD_IP)
         - --max-metric-requests
         - "3"
+        - --console-server-port
+        - "8186"
         - -v
         - {{.Verbosity}}
         env:
