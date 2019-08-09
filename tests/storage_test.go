@@ -650,10 +650,24 @@ var _ = Describe("Storage", func() {
 					if len(vmi.Status.Conditions) == 0 {
 						return false
 					}
-					Expect(vmi.Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)))
-					Expect(vmi.Status.Conditions[0].Reason).To(Equal(k8sv1.PodReasonUnschedulable))
-					Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
-					Expect(vmi.Status.Conditions[0].Message).To(Equal(fmt.Sprintf("failed to render launch manifest: didn't find PVC %v", pvcName)))
+
+					expectPodScheduledCondition := func(vmi *v1.VirtualMachineInstance) {
+						getType := func(c v1.VirtualMachineInstanceCondition) string { return string(c.Type) }
+						getReason := func(c v1.VirtualMachineInstanceCondition) string { return c.Reason }
+						getStatus := func(c v1.VirtualMachineInstanceCondition) k8sv1.ConditionStatus { return c.Status }
+						getMessage := func(c v1.VirtualMachineInstanceCondition) string { return c.Message }
+						Expect(vmi.Status.Conditions).To(
+							ContainElement(
+								And(
+									WithTransform(getType, Equal(string(k8sv1.PodScheduled))),
+									WithTransform(getReason, Equal(k8sv1.PodReasonUnschedulable)),
+									WithTransform(getStatus, Equal(k8sv1.ConditionFalse)),
+									WithTransform(getMessage, Equal(fmt.Sprintf("failed to render launch manifest: didn't find PVC %v", pvcName))),
+								),
+							),
+						)
+					}
+					expectPodScheduledCondition(vmi)
 					return true
 				}, time.Duration(10)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to get Unschedulable condition")
 
