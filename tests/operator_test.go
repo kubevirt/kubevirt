@@ -1152,4 +1152,55 @@ spec:
 			tests.StartVirtualMachine(vm)
 		})
 	})
+
+	Context("With ServiceMonitor Disabled", func() {
+
+		BeforeEach(func() {
+			if tests.ServiceMonitorEnabled() {
+				Skip("Test applies on when ServiceMonitor is not defined")
+			}
+		})
+
+		It("Should not create RBAC Role or RoleBinding for ServiceMonitor", func() {
+			rbacClient := virtClient.RbacV1()
+
+			By("Checking that Role for ServiceMonitor doesn't exist")
+			roleName := "kubevirt-service-monitor"
+			_, err := rbacClient.Roles(tests.KubeVirtInstallNamespace).Get(roleName, metav1.GetOptions{})
+			Expect(err).To(HaveOccurred())
+			Expect(errors.IsNotFound(err)).To(BeTrue(), "Role 'kubevirt-service-monitor' should not have been created")
+
+			By("Checking that RoleBinding for ServiceMonitor doesn't exist")
+			_, err = rbacClient.RoleBindings(tests.KubeVirtInstallNamespace).Get(roleName, metav1.GetOptions{})
+			Expect(err).To(HaveOccurred())
+			Expect(errors.IsNotFound(err)).To(BeTrue(), "RoleBinding 'kubevirt-service-monitor' should not have been created")
+		})
+	})
+
+	Context("With ServiceMonitor Enabled", func() {
+
+		BeforeEach(func() {
+			if !tests.ServiceMonitorEnabled() {
+				Skip("Test requires ServiceMonitor to be valid")
+			}
+
+			if !strings.HasPrefix(tests.KubeVirtInstallNamespace, "openshift-") {
+				Skip(fmt.Sprintf("Namespace '%s' must start with 'openshift-' for this test to be valid", tests.KubeVirtInstallNamespace))
+			}
+		})
+
+		It("Should allow Prometheus to scrape KubeVirt endpoints", func() {
+			coreClient := virtClient.CoreV1()
+
+			By("Obtaining Prometheus' configuration data")
+			secret, err := coreClient.Secrets("openshift-monitoring").Get("prometheus-k8s", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			data := secret.Data["prometheus.yaml"]
+			Expect(data).ToNot(BeNil())
+
+			By("Verifying that Prometheus is watching KubeVirt")
+			Expect(string(data)).To(ContainSubstring(tests.KubeVirtInstallNamespace), "Prometheus should be monitoring KubeVirt")
+
+		})
+	})
 })
