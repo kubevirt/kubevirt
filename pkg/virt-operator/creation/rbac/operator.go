@@ -184,6 +184,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"securitycontextconstraints",
 				},
 				Verbs: []string{
+					"create",
 					"get",
 					"list",
 					"watch",
@@ -203,6 +204,25 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"get",
 					"patch",
 					"update",
+				},
+			},
+			{
+				APIGroups: []string{
+					"security.openshift.io",
+				},
+				Resources: []string{
+					"securitycontextconstraints",
+				},
+				ResourceNames: []string{
+					"kubevirt-handler",
+					"kubevirt-controller",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"update",
+					"delete",
 				},
 			},
 			{

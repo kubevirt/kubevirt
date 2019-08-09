@@ -332,6 +332,30 @@ func DeleteAll(kv *v1.KubeVirt,
 		}
 	}
 
+	objects = stores.SCCCache.List()
+	for _, obj := range objects {
+		if s, ok := obj.(*secv1.SecurityContextConstraints); ok && s.DeletionTimestamp == nil {
+
+			// informer watches all SCC objects, it cannot be changed because of kubevirt updates
+			if !util.IsManagedByOperator(s.GetLabels()) {
+				continue
+			}
+
+			if key, err := controller.KeyFunc(s); err == nil {
+				expectations.SCC.AddExpectedDeletion(kvkey, key)
+				err := scc.SecurityContextConstraints().Delete(s.Name, deleteOptions)
+				if err != nil {
+					expectations.SCC.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete SecurityContextConstraints %+v: %v", s, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
 	deleteDummyWebhookValidators(kv, clientset, stores, expectations)
 
 	return nil

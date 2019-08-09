@@ -128,9 +128,9 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 	var resourceChanges map[string]map[string]int
 
-	resourceCount := 31
+	resourceCount := 33
 	patchCount := 15
-	updateCount := 16
+	updateCount := 18
 
 	deleteFromCache := true
 	addToCache := true
@@ -250,6 +250,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		informers.PodDisruptionBudget, podDisruptionBudgetSource = testutils.NewFakeInformerFor(&policyv1beta1.PodDisruptionBudget{})
 		stores.PodDisruptionBudgetCache = informers.PodDisruptionBudget.GetStore()
+
+		// test OpenShift components
+		stores.IsOnOpenshift = true
 
 		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers, NAMESPACE)
 
@@ -411,6 +414,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	addSCC := func(scc *secv1.SecurityContextConstraints) {
+		mockQueue.ExpectAdds(1)
+		sccSource.Add(scc)
+		mockQueue.Wait()
+	}
+
 	addResource := func(obj runtime.Object, config *util.KubeVirtDeploymentConfig) {
 		switch resource := obj.(type) {
 		case *k8sv1.ServiceAccount:
@@ -455,6 +464,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		case *policyv1beta1.PodDisruptionBudget:
 			injectMetadata(&obj.(*policyv1beta1.PodDisruptionBudget).ObjectMeta, config)
 			addPodDisruptionBudget(resource)
+		case *secv1.SecurityContextConstraints:
+			injectMetadata(&obj.(*secv1.SecurityContextConstraints).ObjectMeta, config)
+			addSCC(resource)
 		default:
 			Fail("unknown resource type")
 		}
@@ -652,6 +664,15 @@ var _ = Describe("KubeVirt Operator", func() {
 				Name: fmt.Sprintf("rand-%s", rand.String(10)),
 			},
 		})
+		all = append(all, &secv1.SecurityContextConstraints{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "security.openshift.io/v1",
+				Kind:       "SecurityContextConstraints",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("rand-%s", rand.String(10)),
+			},
+		})
 		for _, obj := range all {
 
 			if resource, ok := obj.(runtime.Object); ok {
@@ -692,6 +713,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewReplicaSetCrd())
 		all = append(all, components.NewVirtualMachineCrd())
 		all = append(all, components.NewVirtualMachineInstanceMigrationCrd())
+		// sccs
+		all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
+		all = append(all, components.NewKubeVirtHandlerSCC(NAMESPACE))
 		// services and deployments
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
@@ -885,6 +909,14 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	deleteSCC := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.SCC.GetStore().GetByKey(key); exists {
+			sccSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
+
 	deleteResource := func(resource string, key string) {
 		switch resource {
 		case "serviceaccounts":
@@ -913,6 +945,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			deleteInstallStrategyConfigMap(key)
 		case "poddisruptionbudgets":
 			deletePodDisruptionBudget(key)
+		case "securitycontextconstraints":
+			deleteSCC(key)
 		default:
 			Fail(fmt.Sprintf("unknown resource type %+v", resource))
 		}
@@ -1017,6 +1051,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("delete", "daemonsets", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "validatingwebhookconfigurations", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "poddisruptionbudgets", genericDeleteFunc)
+
+		secClient.Fake.PrependReactor("delete", "securitycontextconstraints", genericDeleteFunc)
 	}
 
 	shouldExpectJobDeletion := func() {
@@ -1039,6 +1075,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("patch", "daemonsets", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "deployments", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", genericPatchFunc)
+
+		secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericUpdateFunc)
 	}
 
 	shouldExpectRbacBackupCreations := func() {
@@ -1067,6 +1105,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "validatingwebhookconfigurations", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", genericCreateFunc)
+
+		secClient.Fake.PrependReactor("create", "securitycontextconstraints", genericCreateFunc)
 	}
 
 	shouldExpectKubeVirtUpdate := func(times int) {
@@ -1506,6 +1546,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.DaemonSetCache.List())).To(Equal(0))
 			Expect(len(controller.stores.ValidationWebhookCache.List())).To(Equal(1))
 			Expect(len(controller.stores.PodDisruptionBudgetCache.List())).To(Equal(1))
+			Expect(len(controller.stores.SCCCache.List())).To(Equal(3))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
 

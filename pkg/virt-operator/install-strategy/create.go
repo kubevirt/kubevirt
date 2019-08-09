@@ -1339,6 +1339,7 @@ func createOrUpdateService(kv *v1.KubeVirt,
 	return false, nil
 }
 
+// deprecated, keep it for backwards compatibility
 func addOrRemoveSSC(targetStrategy *InstallStrategy,
 	prevStrategy *InstallStrategy,
 	clientset kubecli.KubevirtClient,
@@ -1422,6 +1423,59 @@ func addOrRemoveSSC(targetStrategy *InstallStrategy,
 			}
 		}
 	}
+	return nil
+}
+
+func createOrUpdateSCC(kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+	sec := clientset.SecClient()
+
+	if !stores.IsOnOpenshift {
+		return nil
+	}
+
+	version := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	for _, scc := range targetStrategy.sccs {
+		var cachedSCC *secv1.SecurityContextConstraints
+		scc := scc.DeepCopy()
+		obj, exists, _ := stores.SCCCache.GetByKey(scc.Name)
+		if exists {
+			cachedSCC = obj.(*secv1.SecurityContextConstraints)
+		}
+
+		injectOperatorMetadata(kv, &scc.ObjectMeta, version, imageRegistry, id)
+		if !exists {
+			expectations.SCC.RaiseExpectations(kvkey, 1, 0)
+			_, err := sec.SecurityContextConstraints().Create(scc)
+			if err != nil {
+				expectations.SCC.LowerExpectations(kvkey, 1, 0)
+				return fmt.Errorf("unable to create SCC %+v: %v", scc, err)
+			}
+			log.Log.V(2).Infof("SCC %v created", scc.Name)
+		} else if !objectMatchesVersion(&cachedSCC.ObjectMeta, version, imageRegistry, id) {
+			scc.ObjectMeta = *cachedSCC.ObjectMeta.DeepCopy()
+			injectOperatorMetadata(kv, &scc.ObjectMeta, version, imageRegistry, id)
+			_, err = sec.SecurityContextConstraints().Update(scc)
+			if err != nil {
+				return fmt.Errorf("Unable to update %s SecurityContextConstraints", scc.Name)
+			}
+			log.Log.V(2).Infof("SecurityContextConstraints %s updated", scc.Name)
+		} else {
+			log.Log.V(4).Infof("SCC %s is up to date", scc.Name)
+		}
+
+	}
+
 	return nil
 }
 
@@ -1567,6 +1621,12 @@ func SyncAll(kv *v1.KubeVirt,
 		stores,
 		clientset,
 		expectations)
+	if err != nil {
+		return false, err
+	}
+
+	// create/update SCCs
+	err = createOrUpdateSCC(kv, targetStrategy, stores, clientset, expectations)
 	if err != nil {
 		return false, err
 	}
@@ -1918,6 +1978,37 @@ func SyncAll(kv *v1.KubeVirt,
 					if err != nil {
 						expectations.ServiceAccount.DeletionObserved(kvkey, key)
 						log.Log.Errorf("Failed to delete serviceaccount %+v: %v", sa, err)
+						return false, err
+					}
+				}
+			}
+		}
+	}
+
+	// remove unused sccs
+	objects = stores.SCCCache.List()
+	for _, obj := range objects {
+		if scc, ok := obj.(*secv1.SecurityContextConstraints); ok && scc.DeletionTimestamp == nil {
+
+			// informer watches all SCC objects, it cannot be changed because of kubevirt updates
+			if !util.IsManagedByOperator(scc.GetLabels()) {
+				continue
+			}
+
+			found := false
+			for _, targetScc := range targetStrategy.sccs {
+				if targetScc.Name == scc.Name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if key, err := controller.KeyFunc(scc); err == nil {
+					expectations.SCC.AddExpectedDeletion(kvkey, key)
+					err := clientset.SecClient().SecurityContextConstraints().Delete(scc.Name, deleteOptions)
+					if err != nil {
+						expectations.SCC.DeletionObserved(kvkey, key)
+						log.Log.Errorf("Failed to delete SecurityContextConstraints %+v: %v", scc, err)
 						return false, err
 					}
 				}

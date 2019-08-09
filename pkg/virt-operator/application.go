@@ -167,6 +167,7 @@ func Execute() {
 		log.Log.Info("we are on openshift")
 		app.informers.SCC = app.informerFactory.OperatorSCC()
 		app.stores.SCCCache = app.informerFactory.OperatorSCC().GetStore()
+		app.stores.IsOnOpenshift = true
 	} else {
 		log.Log.Info("we are on kubernetes")
 		app.informers.SCC = app.informerFactory.DummyOperatorSCC()

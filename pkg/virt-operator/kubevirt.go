@@ -83,6 +83,7 @@ func NewKubeVirtController(
 			Deployment:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
 			DaemonSet:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
 			ValidationWebhook:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ValidationWebhook")),
+			SCC:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("SCC")),
 			InstallStrategyConfigMap: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
 			InstallStrategyJob:       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Jobs")),
 			PodDisruptionBudget:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets")),
@@ -217,6 +218,18 @@ func NewKubeVirtController(
 		},
 	})
 
+	c.informers.SCC.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.sccAddHandler(obj, c.kubeVirtExpectations.SCC)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.sccDeleteHandler(obj, c.kubeVirtExpectations.SCC)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.sccUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.SCC)
+		},
+	})
+
 	c.informers.InstallStrategyConfigMap.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.InstallStrategyConfigMap)
@@ -283,6 +296,32 @@ func (c *KubeVirtController) getKubeVirtKey() (string, error) {
 	return "", nil
 }
 
+func (c *KubeVirtController) sccAddHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+	o := obj.(metav1.Object)
+	if util.IsManagedByOperator(o.GetLabels()) {
+		c.genericAddHandler(obj, expecter)
+	}
+}
+
+func (c *KubeVirtController) sccUpdateHandler(old, cur interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+	o := cur.(metav1.Object)
+	if util.IsManagedByOperator(o.GetLabels()) {
+		c.genericUpdateHandler(old, cur, expecter)
+	}
+}
+
+func (c *KubeVirtController) sccDeleteHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+	o, err := validateDeleteObject(obj)
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to process delete notification")
+		return
+	}
+
+	if util.IsManagedByOperator(o.GetLabels()) {
+		c.genericDeleteHandler(obj, expecter)
+	}
+}
+
 func (c *KubeVirtController) genericAddHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
 	o := obj.(metav1.Object)
 
@@ -325,18 +364,25 @@ func (c *KubeVirtController) genericUpdateHandler(old, cur interface{}, expecter
 	return
 }
 
-// When an object is deleted, mark objects as deleted and wake up the kubevirt CR
-func (c *KubeVirtController) genericDeleteHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+func validateDeleteObject(obj interface{}) (metav1.Object, error) {
 	var o metav1.Object
 	tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 	if ok {
 		o, ok = tombstone.Obj.(metav1.Object)
 		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a k8s object %#v", obj)).Error("Failed to process delete notification")
-			return
+			return nil, fmt.Errorf("tombstone contained object that is not a k8s object %#v", obj)
 		}
 	} else if o, ok = obj.(metav1.Object); !ok {
-		log.Log.Reason(fmt.Errorf("couldn't get object from %+v", obj)).Error("Failed to process delete notification")
+		return nil, fmt.Errorf("couldn't get object from %+v", obj)
+	}
+	return o, nil
+}
+
+// When an object is deleted, mark objects as deleted and wake up the kubevirt CR
+func (c *KubeVirtController) genericDeleteHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+	o, err := validateDeleteObject(obj)
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to process delete notification")
 		return
 	}
 

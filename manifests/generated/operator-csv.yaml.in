@@ -239,6 +239,7 @@ spec:
           resources:
           - securitycontextconstraints
           verbs:
+          - create
           - get
           - list
           - watch
@@ -252,6 +253,19 @@ spec:
           - get
           - patch
           - update
+        - apiGroups:
+          - security.openshift.io
+          resourceNames:
+          - kubevirt-handler
+          - kubevirt-controller
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - get
+          - list
+          - watch
+          - update
+          - delete
         - apiGroups:
           - admissionregistration.k8s.io
           resources:

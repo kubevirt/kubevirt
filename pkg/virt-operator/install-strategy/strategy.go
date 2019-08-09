@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	secv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -73,7 +74,10 @@ type InstallStrategy struct {
 	deployments []*appsv1.Deployment
 	daemonSets  []*appsv1.DaemonSet
 
+	// deprecated, keep it for backwards compatibility
 	customSCCPrivileges []*customSCCPrivilegedAccounts
+
+	sccs []*secv1.SecurityContextConstraints
 }
 
 func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig) (*corev1.ConfigMap, error) {
@@ -167,6 +171,9 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	for _, entry := range strategy.customSCCPrivileges {
 		marshalutil.MarshallObject(entry, writer)
 	}
+	for _, entry := range strategy.sccs {
+		marshalutil.MarshallObject(entry, writer)
+	}
 	writer.Flush()
 
 	return b.Bytes()
@@ -239,6 +246,10 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	typeMeta := metav1.TypeMeta{
 		Kind: customSCCPrivilegedAccountsType,
 	}
+
+	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
+
+	// deprecated, keep it for backwards compatibility
 	strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, &customSCCPrivilegedAccounts{
 		TypeMeta:  typeMeta,
 		TargetSCC: "privileged",
@@ -390,6 +401,12 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, priv)
+		case "SecurityContextConstraints":
+			s := &secv1.SecurityContextConstraints{}
+			if err := yaml.Unmarshal([]byte(entry), &s); err != nil {
+				return nil, err
+			}
+			strategy.sccs = append(strategy.sccs, s)
 		default:
 			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
 
