@@ -82,7 +82,15 @@ var (
 )
 
 func init() {
-	prometheus.MustRegister(progress)
+	if err := prometheus.Register(progress); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			// A counter for that metric has been registered before.
+			// Use the old counter from now on.
+			progress = are.ExistingCollector.(*prometheus.CounterVec)
+		} else {
+			klog.Errorf("Unable to create prometheus progress counter")
+		}
+	}
 	ownerUID, _ = util.ParseEnvVar(common.OwnerUID, false)
 }
 

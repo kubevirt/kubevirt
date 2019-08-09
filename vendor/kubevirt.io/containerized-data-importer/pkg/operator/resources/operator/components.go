@@ -23,18 +23,20 @@ import (
 )
 
 const (
-	//ControllerImageDefault - defualt value
+	//ControllerImageDefault - default value
 	ControllerImageDefault = "cdi-controller"
-	//ImporterImageDefault - defualt value
+	//ImporterImageDefault - default value
 	ImporterImageDefault = "cdi-importer"
-	//ClonerImageDefault - defualt value
+	//ClonerImageDefault - default value
 	ClonerImageDefault = "cdi-cloner"
-	//APIServerImageDefault - defualt value
+	//APIServerImageDefault - default value
 	APIServerImageDefault = "cdi-apiserver"
-	//UploadProxyImageDefault - defualt value
+	//UploadProxyImageDefault - default value
 	UploadProxyImageDefault = "cdi-uploadproxy"
-	//UploadServerImageDefault - defualt value
+	//UploadServerImageDefault - default value
 	UploadServerImageDefault = "cdi-uploadserver"
+	// OperatorImageDefault - default value
+	OperatorImageDefault = "cdi-operator"
 )
 
 //CdiImages - images to be provied to cdi operator
@@ -45,6 +47,7 @@ type CdiImages struct {
 	APIServerImage    string
 	UplodaProxyImage  string
 	UplodaServerImage string
+	OperatorImage     string
 }
 
 //FillDefaults - fill image names with defaults
@@ -67,18 +70,20 @@ func (ci *CdiImages) FillDefaults() *CdiImages {
 	if ci.UplodaServerImage == "" {
 		ci.UplodaServerImage = UploadServerImageDefault
 	}
+	if ci.OperatorImage == "" {
+		ci.OperatorImage = OperatorImageDefault
+	}
 
 	return ci
 }
 
 //NewCdiOperatorDeployment - provides operator deployment spec
 func NewCdiOperatorDeployment(namespace string, repository string, tag string, imagePullPolicy string, verbosity string, cdiImages *CdiImages) (*appsv1.Deployment, error) {
-	name := "cdi-operator"
 	deployment := createOperatorDeployment(
 		repository,
 		namespace,
 		"true",
-		name,
+		cdiImages.OperatorImage,
 		cdiImages.ControllerImage,
 		cdiImages.ImporterImage,
 		cdiImages.ClonerImage,

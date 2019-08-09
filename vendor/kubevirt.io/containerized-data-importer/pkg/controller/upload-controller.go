@@ -29,13 +29,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/cert/triple"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
-	"kubevirt.io/containerized-data-importer/pkg/keys"
-	"kubevirt.io/containerized-data-importer/pkg/util"
 
 	clientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
+	"kubevirt.io/containerized-data-importer/pkg/keys"
+	"kubevirt.io/containerized-data-importer/pkg/util"
+	"kubevirt.io/containerized-data-importer/pkg/util/cert/triple"
 )
 
 const (
@@ -455,6 +455,9 @@ func (c *UploadController) getOrCreateUploadPod(pvc *v1.PersistentVolumeClaim, n
 
 	if k8serrors.IsNotFound(err) {
 		pod, err = CreateUploadPod(c.client, c.serverCAKeyPair, c.clientCAKeyPair.Cert, c.uploadServiceImage, c.verbose, c.pullPolicy, name, pvc, pvc.Name+"-scratch")
+		if err != nil {
+			return nil, errors.Wrap(err, "Unable to create upload pod")
+		}
 	}
 	// Always try to get or create the scratch PVC for a pod that is not successful yet, if it exists nothing happens otherwise attempt to create.
 	_, err = c.getOrCreateScratchPvc(pvc, pod)
@@ -469,7 +472,7 @@ func (c *UploadController) getOrCreateUploadPod(pvc *v1.PersistentVolumeClaim, n
 }
 
 func (c *UploadController) getOrCreateScratchPvc(pvc *v1.PersistentVolumeClaim, pod *v1.Pod) (*v1.PersistentVolumeClaim, error) {
-	scratchPvc, err := c.pvcLister.PersistentVolumeClaims(pvc.Namespace).Get(pvc.Name + "-scratch")
+	scratchPvc, _ := c.pvcLister.PersistentVolumeClaims(pvc.Namespace).Get(pvc.Name + "-scratch")
 	if scratchPvc != nil {
 		// Scratch PVC already exists, maybe the pod crashed and the pvc didn't get cleaned up, verify this pvc is owned by the pod.
 		for _, ownerRef := range scratchPvc.OwnerReferences {
@@ -482,7 +485,7 @@ func (c *UploadController) getOrCreateScratchPvc(pvc *v1.PersistentVolumeClaim, 
 	storageClassName := GetScratchPvcStorageClass(c.client, c.cdiClient, pvc)
 
 	// Scratch PVC doesn't exist yet, create it. Determine which storage class to use.
-	scratchPvc, err = CreateScratchPersistentVolumeClaim(c.client, pvc, pod, storageClassName)
+	scratchPvc, err := CreateScratchPersistentVolumeClaim(c.client, pvc, pod, storageClassName)
 	if err != nil {
 		return nil, err
 	}

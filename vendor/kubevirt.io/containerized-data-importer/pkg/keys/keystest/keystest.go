@@ -20,13 +20,13 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 
-	"k8s.io/client-go/util/cert/triple"
-
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/cert"
+
 	"kubevirt.io/containerized-data-importer/pkg/common"
+	"kubevirt.io/containerized-data-importer/pkg/util/cert/triple"
 )
 
 // NewTLSSecret returns a new TLS secret from objects

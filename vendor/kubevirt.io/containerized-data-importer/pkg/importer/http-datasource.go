@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -65,6 +66,8 @@ type HTTPDataSource struct {
 	url *url.URL
 	// true if we are using a custom CA (and thus have to use scratch storage)
 	customCA bool
+	// the content length reported by the http server.
+	contentLength uint64
 }
 
 // NewHTTPDataSource creates a new instance of the http data provider.
@@ -74,7 +77,7 @@ func NewHTTPDataSource(endpoint, accessKey, secKey, certDir string, contentType 
 		return nil, errors.Wrapf(err, fmt.Sprintf("unable to parse endpoint %q", endpoint))
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	httpReader, err := createHTTPReader(ctx, ep, accessKey, secKey, certDir)
+	httpReader, contentLength, err := createHTTPReader(ctx, ep, accessKey, secKey, certDir)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -84,12 +87,13 @@ func NewHTTPDataSource(endpoint, accessKey, secKey, certDir string, contentType 
 		ep.User = url.UserPassword(accessKey, secKey)
 	}
 	httpSource := &HTTPDataSource{
-		ctx:         ctx,
-		cancel:      cancel,
-		httpReader:  httpReader,
-		contentType: contentType,
-		endpoint:    ep,
-		customCA:    certDir != "",
+		ctx:           ctx,
+		cancel:        cancel,
+		httpReader:    httpReader,
+		contentType:   contentType,
+		endpoint:      ep,
+		customCA:      certDir != "",
+		contentLength: contentLength,
 	}
 	// We know this is a counting reader, so no need to check.
 	countingReader := httpReader.(*util.CountingReader)
@@ -100,7 +104,10 @@ func NewHTTPDataSource(endpoint, accessKey, secKey, certDir string, contentType 
 // Info is called to get initial information about the data.
 func (hs *HTTPDataSource) Info() (ProcessingPhase, error) {
 	var err error
-	hs.readers, err = NewFormatReaders(hs.httpReader, hs.contentType)
+	hs.readers, err = NewFormatReaders(hs.httpReader, hs.contentLength)
+	if hs.contentType == cdiv1.DataVolumeArchive {
+		return ProcessingPhaseTransferDataDir, nil
+	}
 	if err != nil {
 		klog.Errorf("Error creating readers: %v", err)
 		return ProcessingPhaseError, err
@@ -111,9 +118,6 @@ func (hs *HTTPDataSource) Info() (ProcessingPhase, error) {
 		// We can pass straight to conversion from the endpoint. No scratch required.
 		hs.url = hs.endpoint
 		return ProcessingPhaseConvert, nil
-	}
-	if hs.contentType == cdiv1.DataVolumeArchive {
-		return ProcessingPhaseTransferDataDir, nil
 	}
 	if !hs.readers.Convert {
 		return ProcessingPhaseTransferDataFile, nil
@@ -148,6 +152,7 @@ func (hs *HTTPDataSource) Transfer(path string) (ProcessingPhase, error) {
 
 // TransferFile is called to transfer the data from the source to the passed in file.
 func (hs *HTTPDataSource) TransferFile(fileName string) (ProcessingPhase, error) {
+	hs.readers.StartProgressUpdate()
 	err := util.StreamDataToFile(hs.readers.TopReader(), fileName)
 	if err != nil {
 		return ProcessingPhaseError, err
@@ -228,10 +233,10 @@ func createHTTPClient(certDir string) (*http.Client, error) {
 	return client, nil
 }
 
-func createHTTPReader(ctx context.Context, ep *url.URL, accessKey, secKey, certDir string) (io.ReadCloser, error) {
+func createHTTPReader(ctx context.Context, ep *url.URL, accessKey, secKey, certDir string) (io.ReadCloser, uint64, error) {
 	client, err := createHTTPClient(certDir)
 	if err != nil {
-		return nil, errors.Wrap(err, "Error creating http client")
+		return nil, uint64(0), errors.Wrap(err, "Error creating http client")
 	}
 
 	client.CheckRedirect = func(r *http.Request, via []*http.Request) error {
@@ -241,6 +246,10 @@ func createHTTPReader(ctx context.Context, ep *url.URL, accessKey, secKey, certD
 		return nil
 	}
 
+	total, err := getContentLength(client, ep, accessKey, secKey)
+	if err != nil {
+		return nil, total, err
+	}
 	// http.NewRequest can only return error on invalid METHOD, or invalid url. Here the METHOD is always GET, and the url is always valid, thus error cannot happen.
 	req, _ := http.NewRequest("GET", ep.String(), nil)
 
@@ -251,17 +260,17 @@ func createHTTPReader(ctx context.Context, ep *url.URL, accessKey, secKey, certD
 	klog.V(2).Infof("Attempting to get object %q via http client\n", ep.String())
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, errors.Wrap(err, "HTTP request errored")
+		return nil, uint64(0), errors.Wrap(err, "HTTP request errored")
 	}
 	if resp.StatusCode != 200 {
 		klog.Errorf("http: expected status code 200, got %d", resp.StatusCode)
-		return nil, errors.Errorf("expected status code 200, got %d. Status: %s", resp.StatusCode, resp.Status)
+		return nil, uint64(0), errors.Errorf("expected status code 200, got %d. Status: %s", resp.StatusCode, resp.Status)
 	}
 	countingReader := &util.CountingReader{
 		Reader:  resp.Body,
 		Current: 0,
 	}
-	return countingReader, nil
+	return countingReader, total, nil
 }
 
 func (hs *HTTPDataSource) pollProgress(reader *util.CountingReader, idleTime, pollInterval time.Duration) {
@@ -289,4 +298,44 @@ func (hs *HTTPDataSource) pollProgress(reader *util.CountingReader, idleTime, po
 			return // Don't leak, once the transfer is cancelled or completed this is called.
 		}
 	}
+}
+
+func getContentLength(client *http.Client, ep *url.URL, accessKey, secKey string) (uint64, error) {
+	req, err := http.NewRequest("HEAD", ep.String(), nil)
+	if err != nil {
+		return uint64(0), errors.Wrap(err, "could not create HTTP request")
+	}
+	if len(accessKey) > 0 && len(secKey) > 0 {
+		req.SetBasicAuth(accessKey, secKey)
+	}
+
+	klog.V(2).Infof("Attempting to HEAD %q via http client\n", ep.String())
+	resp, err := client.Do(req)
+	if err != nil {
+		return uint64(0), errors.Wrap(err, "HTTP request errored")
+	}
+
+	if resp.StatusCode != 200 {
+		klog.Errorf("http: expected status code 200, got %d", resp.StatusCode)
+		return uint64(0), errors.Errorf("expected status code 200, got %d. Status: %s", resp.StatusCode, resp.Status)
+	}
+
+	for k, v := range resp.Header {
+		klog.V(3).Infof("GO CLIENT: key: %s, value: %s\n", k, v)
+	}
+
+	total := uint64(0)
+	if val, ok := resp.Header["Content-Length"]; ok {
+		total, err = strconv.ParseUint(val[0], 10, 64)
+		if err != nil {
+			return uint64(0), errors.Wrap(err, "could not convert content length")
+		}
+		klog.V(3).Infof("Content length: %d\n", total)
+	}
+
+	err = resp.Body.Close()
+	if err != nil {
+		return uint64(0), errors.Wrap(err, "could not close head read")
+	}
+	return total, nil
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package importer
 
 import (
-	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"encoding/hex"
@@ -30,9 +29,36 @@ import (
 
 	"k8s.io/klog"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	"github.com/prometheus/client_golang/prometheus"
+	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/image"
+	"kubevirt.io/containerized-data-importer/pkg/util"
+	prometheusutil "kubevirt.io/containerized-data-importer/pkg/util/prometheus"
 )
+
+var (
+	progress = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "import_progress",
+			Help: "The import progress in percentage",
+		},
+		[]string{"ownerUID"},
+	)
+	ownerUID string
+)
+
+func init() {
+	if err := prometheus.Register(progress); err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			// A counter for that metric has been registered before.
+			// Use the old counter from now on.
+			progress = are.ExistingCollector.(*prometheus.CounterVec)
+		} else {
+			klog.Errorf("Unable to create prometheus progress counter")
+		}
+	}
+	ownerUID, _ = util.ParseEnvVar(common.OwnerUID, false)
+}
 
 type reader struct {
 	rdrType int
@@ -41,17 +67,16 @@ type reader struct {
 
 // FormatReaders contains the stack of readers needed to get information from the input stream (io.ReadCloser)
 type FormatReaders struct {
-	readers     []reader
-	buf         []byte // holds file headers
-	Convert     bool
-	Archived    bool
-	contentType cdiv1.DataVolumeContentType
+	readers        []reader
+	buf            []byte // holds file headers
+	Convert        bool
+	Archived       bool
+	progressReader *prometheusutil.ProgressReader
 }
 
 const (
 	rdrGz = iota
 	rdrMulti
-	rdrTar
 	rdrXz
 	rdrStream
 )
@@ -59,18 +84,22 @@ const (
 // map scheme and format to rdrType
 var rdrTypM = map[string]int{
 	"gz":     rdrGz,
-	"tar":    rdrTar,
 	"xz":     rdrXz,
 	"stream": rdrStream,
 }
 
 // NewFormatReaders creates a new instance of FormatReaders using the input stream and content type passed in.
-func NewFormatReaders(stream io.ReadCloser, contentType cdiv1.DataVolumeContentType) (*FormatReaders, error) {
+func NewFormatReaders(stream io.ReadCloser, total uint64) (*FormatReaders, error) {
+	var err error
 	readers := &FormatReaders{
-		buf:         make([]byte, image.MaxExpectedHdrSize),
-		contentType: contentType,
+		buf: make([]byte, image.MaxExpectedHdrSize),
 	}
-	err := readers.constructReaders(stream)
+	if total > uint64(0) {
+		readers.progressReader = prometheusutil.NewProgressReader(stream, total, progress, ownerUID)
+		err = readers.constructReaders(readers.progressReader)
+	} else {
+		err = readers.constructReaders(stream)
+	}
 	return readers, err
 }
 
@@ -78,7 +107,6 @@ func (fr *FormatReaders) constructReaders(r io.ReadCloser) error {
 	fr.appendReader(rdrTypM["stream"], r)
 	knownHdrs := image.CopyKnownHdrs() // need local copy since keys are removed
 	klog.V(3).Infof("constructReaders: checking compression and archive formats\n")
-	var isTarFile bool
 	for {
 		hdr, err := fr.matchHeader(&knownHdrs)
 		if err != nil {
@@ -90,15 +118,10 @@ func (fr *FormatReaders) constructReaders(r io.ReadCloser) error {
 		klog.V(2).Infof("found header of type %q\n", hdr.Format)
 		// create format-specific reader and append it to dataStream readers stack
 		fr.fileFormatSelector(hdr)
-		isTarFile = isTarFile || hdr.Format == "tar"
 		// exit loop if hdr is qcow2
 		if hdr.Format == "qcow2" {
 			break
 		}
-	}
-
-	if fr.contentType == cdiv1.DataVolumeArchive && !isTarFile {
-		return errors.Errorf("cannot process a non tar file as an archive")
 	}
 
 	return nil
@@ -145,11 +168,6 @@ func (fr *FormatReaders) fileFormatSelector(hdr *image.Header) {
 	case "qcow2":
 		r, err = fr.qcow2NopReader(hdr)
 		fr.Convert = true
-	case "tar":
-		r, err = fr.tarReader()
-		if err == nil {
-			fr.Archived = true
-		}
 	case "xz":
 		r, err = fr.xzReader()
 		if err == nil {
@@ -201,31 +219,6 @@ func (fr *FormatReaders) xzReader() (io.Reader, error) {
 	return xz, nil
 }
 
-// Return the tar reader and size of the endpoint "through the eye" of the previous reader.
-// Assumes a single file was archived.
-// Note: the size stored in the header is used rather than raw metadata.
-func (fr *FormatReaders) tarReader() (io.Reader, error) {
-	if fr.contentType == cdiv1.DataVolumeArchive {
-		return fr.mulFileTarReader()
-	}
-	tr := tar.NewReader(fr.TopReader())
-	hdr, err := tr.Next() // advance cursor to 1st (and only) file in tarball
-	if err != nil {
-		return nil, errors.Wrap(err, "could not read tar header")
-	}
-	klog.V(2).Infof("tar: extracting %q\n", hdr.Name)
-	return tr, nil
-}
-
-func (fr *FormatReaders) mulFileTarReader() (io.Reader, error) {
-	buf, err := ioutil.ReadAll(fr.TopReader())
-	if err != nil {
-		return nil, err
-	}
-	tar.NewReader(bytes.NewReader(buf))
-	return bytes.NewReader(buf), nil
-}
-
 // Return the matching header, if one is found, from the passed-in map of known headers. After a
 // successful read append a multi-reader to the receiver's reader stack.
 // Note: .iso files are not detected here but rather in the Size() function.
@@ -265,4 +258,9 @@ func (fr *FormatReaders) Close() (rtnerr error) {
 		}
 	}
 	return rtnerr
+}
+
+// StartProgressUpdate starts the go routine to automatically update the progress on a set interval.
+func (fr *FormatReaders) StartProgressUpdate() {
+	fr.progressReader.StartTimedUpdate()
 }

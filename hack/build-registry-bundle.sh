@@ -15,7 +15,7 @@ fi
 TMP_ROOT="$(dirname "${BASH_SOURCE[@]}")/.."
 REPO_ROOT=$(readlink -e "${TMP_ROOT}" 2> /dev/null || perl -MCwd -e 'print Cwd::abs_path shift' "${TMP_ROOT}")
 
-pushd ${REPO_ROOT}/deploy/converged
+pushd ${REPO_ROOT}/deploy
 $CONTAINER_BUILD_CMD build --no-cache -t ${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/hco-registry:${CONTAINER_TAG} -f Dockerfile .
 $CONTAINER_BUILD_CMD push ${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/hco-registry:${CONTAINER_TAG}
 popd

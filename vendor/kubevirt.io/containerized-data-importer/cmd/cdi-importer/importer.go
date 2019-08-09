@@ -14,6 +14,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -33,16 +34,8 @@ import (
 )
 
 func init() {
+	klog.InitFlags(nil)
 	flag.Parse()
-	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
-	klog.InitFlags(klogFlags)
-	flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
-		f2 := klogFlags.Lookup(f1.Name)
-		if f2 != nil {
-			value := f1.Value.String()
-			f2.Value.Set(value)
-		}
-	})
 }
 
 func main() {
@@ -64,6 +57,12 @@ func main() {
 	imageSize, _ := util.ParseEnvVar(common.ImporterImageSize, false)
 	certDir, _ := util.ParseEnvVar(common.ImporterCertDirVar, false)
 	insecureTLS, _ := strconv.ParseBool(os.Getenv(common.InsecureTLSVar))
+
+	//Registry import currently support kubevirt content type only
+	if contentType != string(cdiv1.DataVolumeKubeVirt) && source == controller.SourceRegistry {
+		klog.Errorf("Unsupported content type %s when importing from registry", contentType)
+		os.Exit(1)
+	}
 
 	volumeMode := v1.PersistentVolumeBlock
 	if _, err := os.Stat(common.ImporterWriteBlockPath); os.IsNotExist(err) {
@@ -91,10 +90,18 @@ func main() {
 		err := image.CreateBlankImage(common.ImporterWritePath, minSizeQuantity)
 		if err != nil {
 			klog.Errorf("%+v", err)
+			err = util.WriteTerminationMessage(fmt.Sprintf("Unable to create blank image: %+v", err))
+			if err != nil {
+				klog.Errorf("%+v", err)
+			}
 			os.Exit(1)
 		}
 	} else if source == controller.SourceNone && contentType == string(cdiv1.DataVolumeArchive) {
 		klog.Errorf("%+v", errors.New("Cannot create empty disk with content type archive"))
+		err = util.WriteTerminationMessage("Cannot create empty disk with content type archive")
+		if err != nil {
+			klog.Errorf("%+v", err)
+		}
 		os.Exit(1)
 	} else {
 		klog.V(1).Infoln("begin import process")
@@ -104,6 +111,10 @@ func main() {
 			dp, err = importer.NewHTTPDataSource(ep, acc, sec, certDir, cdiv1.DataVolumeContentType(contentType))
 			if err != nil {
 				klog.Errorf("%+v", err)
+				err = util.WriteTerminationMessage(fmt.Sprintf("Unable to connect to http data source: %+v", err))
+				if err != nil {
+					klog.Errorf("%+v", err)
+				}
 				os.Exit(1)
 			}
 		case controller.SourceRegistry:
@@ -112,10 +123,18 @@ func main() {
 			dp, err = importer.NewS3DataSource(ep, acc, sec)
 			if err != nil {
 				klog.Errorf("%+v", err)
+				err = util.WriteTerminationMessage(fmt.Sprintf("Unable to connect to s3 data source: %+v", err))
+				if err != nil {
+					klog.Errorf("%+v", err)
+				}
 				os.Exit(1)
 			}
 		default:
 			klog.Errorf("Unknown source type %s\n", source)
+			err = util.WriteTerminationMessage(fmt.Sprintf("Unknown data source: %s", source))
+			if err != nil {
+				klog.Errorf("%+v", err)
+			}
 			os.Exit(1)
 		}
 		defer dp.Close()
@@ -126,8 +145,17 @@ func main() {
 			if err == importer.ErrRequiresScratchSpace {
 				os.Exit(common.ScratchSpaceNeededExitCode)
 			}
+			err = util.WriteTerminationMessage(fmt.Sprintf("Unable to process data: %+v", err))
+			if err != nil {
+				klog.Errorf("%+v", err)
+			}
 			os.Exit(1)
 		}
 	}
-	klog.V(1).Infoln("import complete")
+	err = util.WriteTerminationMessage("Import Complete")
+	if err != nil {
+		klog.Errorf("%+v", err)
+		os.Exit(1)
+	}
+	klog.V(1).Infoln("Import complete")
 }

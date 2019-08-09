@@ -60,15 +60,23 @@ func (wh *dataVolumeMutatingWebhook) Admit(ar admissionv1beta1.AdmissionReview) 
 	}
 
 	pvcSource := dataVolume.Spec.Source.PVC
+	targetNamespace, targetName := dataVolume.Namespace, dataVolume.Name
+	if targetNamespace == "" {
+		targetNamespace = ar.Request.Namespace
+	}
+
+	if targetName == "" {
+		targetName = ar.Request.Name
+	}
 
 	if pvcSource == nil {
-		klog.V(3).Infof("DataVolume %s/%s not cloning", dataVolume.Namespace, dataVolume.Name)
+		klog.V(3).Infof("DataVolume %s/%s not cloning", targetNamespace, targetName)
 		return allowedAdmissionResponse()
 	}
 
-	sourceNamespace := pvcSource.Namespace
+	sourceNamespace, sourceName := pvcSource.Namespace, pvcSource.Name
 	if sourceNamespace == "" {
-		sourceNamespace = dataVolume.Namespace
+		sourceNamespace = targetNamespace
 	}
 
 	if ar.Request.Operation == admissionv1beta1.Update {
@@ -78,12 +86,12 @@ func (wh *dataVolumeMutatingWebhook) Admit(ar admissionv1beta1.AdmissionReview) 
 
 		_, ok := oldDataVolume.Annotations[controller.AnnCloneToken]
 		if ok {
-			klog.V(3).Infof("DataVolume %s/%s already has clone token", dataVolume.Namespace, dataVolume.Name)
+			klog.V(3).Infof("DataVolume %s/%s already has clone token", targetNamespace, targetName)
 			return allowedAdmissionResponse()
 		}
 	}
 
-	ok, reason, err := api.CanClonePVC(wh.client, pvcSource.Namespace, pvcSource.Name, ar.Request.UserInfo)
+	ok, reason, err := api.CanClonePVC(wh.client, sourceNamespace, sourceName, ar.Request.UserInfo)
 	if err != nil {
 		return toAdmissionResponseError(err)
 	}
@@ -101,12 +109,12 @@ func (wh *dataVolumeMutatingWebhook) Admit(ar admissionv1beta1.AdmissionReview) 
 
 	tokenData := &token.Payload{
 		Operation: token.OperationClone,
-		Name:      pvcSource.Name,
-		Namespace: pvcSource.Namespace,
+		Name:      sourceName,
+		Namespace: sourceNamespace,
 		Resource:  tokenResource,
 		Params: map[string]string{
-			"targetNamespace": dataVolume.Namespace,
-			"targetName":      dataVolume.Name,
+			"targetNamespace": targetNamespace,
+			"targetName":      targetName,
 		},
 	}
 

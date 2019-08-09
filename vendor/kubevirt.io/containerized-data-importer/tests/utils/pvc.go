@@ -143,8 +143,7 @@ func pollPVCAnnotation(clientSet *kubernetes.Clientset, namespace string, pvc *k
 }
 
 // NewPVCDefinitionWithSelector creates a PVC definition.
-func NewPVCDefinitionWithSelector(pvcName, size string, selector map[string]string, annotations, labels map[string]string,
-	storageClassName string) *k8sv1.PersistentVolumeClaim {
+func NewPVCDefinitionWithSelector(pvcName, size, storageClassName string, selector map[string]string, annotations, labels map[string]string) *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pvcName,
@@ -158,10 +157,10 @@ func NewPVCDefinitionWithSelector(pvcName, size string, selector map[string]stri
 					k8sv1.ResourceName(k8sv1.ResourceStorage): resource.MustParse(size),
 				},
 			},
-			StorageClassName: &storageClassName,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: selector,
 			},
+			StorageClassName: &storageClassName,
 		},
 	}
 }

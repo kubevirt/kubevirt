@@ -218,7 +218,7 @@ func (c *ConfigController) processNextWorkItem() bool {
 }
 
 func (c *ConfigController) syncHandler(key string) error {
-	updateConfig := false
+	var updateConfig bool
 	_, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(errors.Errorf("invalid resource key: %s", key))
@@ -276,6 +276,9 @@ func (c *ConfigController) syncHandler(key string) error {
 	}
 
 	storageClass, err := c.scratchSpaceStorageClassStatus(config)
+	if err != nil {
+		return fmt.Errorf("Error updating CDI Config: %v", err)
+	}
 
 	if storageClass == config.Status.ScratchSpaceStorageClass {
 		updateConfig = updateConfig || false

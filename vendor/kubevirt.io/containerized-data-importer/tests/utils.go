@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -31,11 +32,15 @@ func CDIFailHandler(message string, callerSkip ...int) {
 
 //RunKubectlCommand ...
 func RunKubectlCommand(f *framework.Framework, args ...string) (string, error) {
+	var errb bytes.Buffer
 	cmd := CreateKubectlCommand(f, args...)
 
+	cmd.Stderr = &errb
 	stdOutBytes, err := cmd.Output()
 	if err != nil {
-		return string(stdOutBytes), err
+		if len(errb.String()) > 0 {
+			return errb.String(), err
+		}
 	}
 	return string(stdOutBytes), nil
 }

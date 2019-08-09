@@ -15,28 +15,3 @@ func (f *Framework) CreatePVFromDefinition(def *k8sv1.PersistentVolume) (*k8sv1.
 func (f *Framework) WaitTimeoutForPVReady(pvName string, timeout time.Duration) error {
 	return utils.WaitTimeoutForPVReady(f.K8sClient, pvName, timeout)
 }
-
-// ClearBlockPV resets the device to the initial state and wipes any junk left on it.
-func (f *Framework) ClearBlockPV() error {
-	pod, err := utils.FindPodByPrefix(f.K8sClient, f.CdiInstallNs, "cdi-block-device", "name=cdi-block-device")
-	if err != nil {
-		return err
-	}
-	_, err = f.ExecShellInPod(pod.Name, f.CdiInstallNs, "truncate --size 0 loop0")
-	if err != nil {
-		return err
-	}
-	_, err = f.ExecShellInPod(pod.Name, f.CdiInstallNs, "truncate --size 524288000 loop0")
-	if err != nil {
-		return err
-	}
-	_, err = f.ExecShellInPod(pod.Name, f.CdiInstallNs, "truncate --size 0 loop1")
-	if err != nil {
-		return err
-	}
-	_, err = f.ExecShellInPod(pod.Name, f.CdiInstallNs, "truncate --size 524288000 loop1")
-	if err != nil {
-		return err
-	}
-	return nil
-}

@@ -36,26 +36,17 @@ func main() {
 	certDir := flag.String("certDir", "", "")
 	inFile := flag.String("inFile", "", "")
 	outDir := flag.String("outDir", "", "")
+	klog.InitFlags(nil)
 	flag.Parse()
-	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
-	klog.InitFlags(klogFlags)
-	flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
-		f2 := klogFlags.Lookup(f1.Name)
-		if f2 != nil {
-			value := f1.Value.String()
-			f2.Value.Set(value)
-		}
-	})
 
 	klog.Info("Generating test files")
 	ft := &formatTable{
 		[]string{""},
-		[]string{".tar"},
 		[]string{".gz"},
 		[]string{".xz"},
-		[]string{".tar", ".gz"},
-		[]string{".tar", ".xz"},
 		[]string{".qcow2"},
+		[]string{".qcow2", ".gz"},
+		[]string{".qcow2", ".xz"},
 	}
 
 	if err := utils.CreateCertForTestService(util.GetNamespace(), serviceName, configMapName, *certDir, certFile, keyFile); err != nil {
@@ -68,6 +59,17 @@ func main() {
 	if err := ft.initializeTestFiles(*inFile, *outDir); err != nil {
 		klog.Fatal(err)
 	}
+
+	// copy archive file
+	if err := util.CopyFile("/tmp/source/archive.tar", filepath.Join(*outDir, "archive.tar")); err != nil {
+		klog.Fatal(err)
+	}
+
+	// copy invalid qcow files
+	if err := util.CopyDir("/tmp/source/invalid_qcow_images", filepath.Join(*outDir, "invalid_qcow_images")); err != nil {
+		klog.Fatal(err)
+	}
+
 	klog.Info("File initialization completed without error.")
 }
 

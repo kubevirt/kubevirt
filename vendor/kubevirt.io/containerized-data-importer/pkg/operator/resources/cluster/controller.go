@@ -59,6 +59,7 @@ func GetControllerPermissions() []rbacv1.PolicyRule {
 			},
 			Resources: []string{
 				"persistentvolumeclaims",
+				"volumesnapshots",
 			},
 			Verbs: []string{
 				"get",
@@ -77,6 +78,7 @@ func GetControllerPermissions() []rbacv1.PolicyRule {
 			Resources: []string{
 				"persistentvolumeclaims/finalizers",
 				"pods/finalizers",
+				"volumesnapshots/finalizers",
 			},
 			Verbs: []string{
 				"update",
@@ -183,6 +185,28 @@ func GetControllerPermissions() []rbacv1.PolicyRule {
 			},
 			Resources: []string{
 				"*",
+			},
+			Verbs: []string{
+				"*",
+			},
+		},
+		{
+			APIGroups: []string{
+				"snapshot.storage.k8s.io",
+			},
+			Resources: []string{
+				"*",
+			},
+			Verbs: []string{
+				"*",
+			},
+		},
+		{
+			APIGroups: []string{
+				"apiextensions.k8s.io",
+			},
+			Resources: []string{
+				"customresourcedefinitions",
 			},
 			Verbs: []string{
 				"*",

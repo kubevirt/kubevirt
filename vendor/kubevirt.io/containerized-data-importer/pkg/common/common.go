@@ -31,6 +31,8 @@ const (
 	ImporterWritePath = ImporterVolumePath + "/" + DiskImageName
 	// ImporterWriteBlockPath provides a constant for the path where the PV is mounted.
 	ImporterWriteBlockPath = "/dev/blockDevice"
+	// PodTerminationMessageFile is the name of the file to write the termination message to.
+	PodTerminationMessageFile = "/dev/termination-log"
 	// ImporterPodName provides a constant to use as a prefix for Pods created by CDI (controller only)
 	ImporterPodName = "importer"
 	// ImporterDataDir provides a constant for the controller pkg to use as a hardcoded path to where content is transferred to/from (controller only)
@@ -39,7 +41,7 @@ const (
 	ScratchDataDir = "/scratch"
 	// ImporterS3Host provides an S3 string used by importer/dataStream.go only
 	ImporterS3Host = "s3.amazonaws.com"
-	// ImporterCertDir is where the configmap containg certs will be mounted
+	// ImporterCertDir is where the configmap containing certs will be mounted
 	ImporterCertDir = "/certs"
 	// DefaultPullPolicy imports k8s "IfNotPresent" string for the import_controller_gingko_test and the cdi-controller executable
 	DefaultPullPolicy = string(v1.PullIfNotPresent)
@@ -77,6 +79,9 @@ const (
 	ClonerImagePath = "/tmp/clone/image"
 	// ClonerSocketPath (controller pkg only)
 	ClonerSocketPath = "/tmp/clone/socket"
+
+	// SmartClonerCDILabel is the label applied to resources created by the smart-clone controller
+	SmartClonerCDILabel = "cdi-smart-clone"
 
 	// UploadServerCDILabel is the label applied to upload server resources
 	UploadServerCDILabel = "cdi-upload-server"

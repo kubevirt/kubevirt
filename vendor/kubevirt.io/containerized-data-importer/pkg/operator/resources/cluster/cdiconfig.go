@@ -23,6 +23,9 @@ func createCDIConfigCRD() *extv1beta1.CustomResourceDefinition {
 				Kind:     "CDIConfig",
 				Plural:   "cdiconfigs",
 				Singular: "cdiconfig",
+				Categories: []string{
+					"all",
+				},
 			},
 			Version: "v1alpha1",
 			Scope:   "Cluster",

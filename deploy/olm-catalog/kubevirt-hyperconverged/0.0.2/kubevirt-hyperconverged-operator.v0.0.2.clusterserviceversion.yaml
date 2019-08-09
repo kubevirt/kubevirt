@@ -71,7 +71,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-08-07 15:42:18.606068233 -0400 EDT m=+0.026977880
+    createdAt: 2019-08-08 12:33:53.248708074 -0400 EDT m=+0.033000356
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -874,6 +874,7 @@ spec:
               resources:
               - pods
               - persistentvolumeclaims
+              - volumesnapshots
               verbs:
               - get
               - list
@@ -887,6 +888,7 @@ spec:
               resources:
               - persistentvolumeclaims/finalizers
               - pods/finalizers
+              - volumesnapshots/finalizers
               verbs:
               - update
             - apiGroups:
@@ -933,6 +935,18 @@ spec:
               verbs:
               - create
               - update
+            - apiGroups:
+              - snapshot.storage.k8s.io
+              resources:
+              - '*'
+              verbs:
+              - '*'
+            - apiGroups:
+              - apiextensions.k8s.io
+              resources:
+              - customresourcedefinitions
+              verbs:
+              - '*'
 
         - serviceAccountName: cluster-network-addons-operator
           rules:
@@ -1246,7 +1260,7 @@ spec:
                   - name: DOCKER_REPO
                     value: kubevirt
                   - name: DOCKER_TAG
-                    value: v1.9.4
+                    value: v1.10.0
                   - name: CONTROLLER_IMAGE
                     value: cdi-controller
                   - name: IMPORTER_IMAGE
@@ -1263,7 +1277,7 @@ spec:
                     value: "1"
                   - name: PULL_POLICY
                     value: IfNotPresent
-                  image: kubevirt/cdi-operator:v1.9.4
+                  image: kubevirt/cdi-operator:v1.10.0
                   imagePullPolicy: IfNotPresent
                   name: cdi-operator
                   ports:
@@ -1271,6 +1285,8 @@ spec:
                     name: metrics
                     protocol: TCP
                   resources: {}
+                securityContext:
+                  runAsNonRoot: true
                 serviceAccountName: cdi-operator
 
         - name: cluster-network-addons-operator
@@ -1341,7 +1357,7 @@ spec:
                 serviceAccountName: kubevirt-ssp-operator
                 containers:
                   - name: kubevirt-ssp-operator
-                    image: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.4
+                    image: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.8
                     ports:
                     - containerPort: 60000
                       name: metrics

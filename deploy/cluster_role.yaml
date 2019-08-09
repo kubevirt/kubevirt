@@ -674,6 +674,7 @@ rules:
   resources:
   - pods
   - persistentvolumeclaims
+  - volumesnapshots
   verbs:
   - get
   - list
@@ -687,6 +688,7 @@ rules:
   resources:
   - persistentvolumeclaims/finalizers
   - pods/finalizers
+  - volumesnapshots/finalizers
   verbs:
   - update
 - apiGroups:
@@ -733,6 +735,18 @@ rules:
   verbs:
   - create
   - update
+- apiGroups:
+  - snapshot.storage.k8s.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - '*'
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1

@@ -185,6 +185,7 @@ func (c *Controller) run(threadiness int, stopCh <-chan struct{}, controller int
 	if !cache.WaitForCacheSync(stopCh, c.podInformer.HasSynced) {
 		return errors.New("Timeout waiting for pod cache sync")
 	}
+
 	klog.V(3).Infoln("Controller cache has synced")
 	for i := 0; i < threadiness; i++ {
 		//Go is not pure object oriented language. The command repetition below is a result of that.

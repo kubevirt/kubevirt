@@ -469,11 +469,7 @@ func (r *ReconcileCDI) createConfigMap(cr *cdiv1alpha1.CDI) error {
 		return err
 	}
 
-	if err := r.client.Create(context.TODO(), cm); err != nil {
-		return err
-	}
-
-	return nil
+	return r.client.Create(context.TODO(), cm)
 }
 
 func (r *ReconcileCDI) getAllDeployments(cr *cdiv1alpha1.CDI) ([]*appsv1.Deployment, error) {

@@ -85,7 +85,7 @@ func (o *skopeoOperations) CopyImage(url, dest, accessKey, secKey, certDir strin
 // url: source registry url.
 // dest: the scratch space destination.
 // accessKey: accessKey for the registry described in url.
-// secKey: secretKey for the registry decribed in url.
+// secKey: secretKey for the registry described in url.
 // certDir: directory public CA keys are stored for registry identity verification
 // insecureRegistry: boolean if true will allow insecure registries.
 func CopyRegistryImage(url, dest, destFile, accessKey, secKey, certDir string, insecureRegistry bool) error {
@@ -141,7 +141,7 @@ var extractImageLayers = func(dest string, arg ...string) error {
 		layer := strings.TrimPrefix(layerID, "sha256:")
 		filePath := filepath.Join(dest, dataTmpDir, layer)
 
-		//prepend z option to the beggining of untar arguments
+		//prepend z option to the beginning of untar arguments
 		args := append([]string{"z"}, arg...)
 
 		if err := util.UnArchiveLocalTar(filePath, dest, args...); err != nil {

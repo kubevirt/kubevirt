@@ -1,4 +1,4 @@
-/*
+/*Package root is here for dep dependency manager.
  * This file is part of the KubeVirt project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");

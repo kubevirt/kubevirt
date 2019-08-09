@@ -5,7 +5,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 
-	//"time"
 	"fmt"
 	"time"
 
@@ -26,15 +25,7 @@ const (
 // An example of creating a PVC without annotations looks like this:
 // CreatePVCFromDefinition(client, namespace, NewPVCDefinition(name, size, nil, nil))
 func CreatePVFromDefinition(clientSet *kubernetes.Clientset, def *k8sv1.PersistentVolume) (*k8sv1.PersistentVolume, error) {
-	var pv *k8sv1.PersistentVolume
-	err := wait.PollImmediate(pvPollInterval, pvCreateTime, func() (bool, error) {
-		var err error
-		pv, err = clientSet.CoreV1().PersistentVolumes().Create(def)
-		if err == nil || apierrs.IsAlreadyExists(err) {
-			return true, nil
-		}
-		return false, err
-	})
+	pv, err := clientSet.CoreV1().PersistentVolumes().Create(def)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +33,7 @@ func CreatePVFromDefinition(clientSet *kubernetes.Clientset, def *k8sv1.Persiste
 }
 
 // NewPVDefinition creates a PV definition.
-func NewPVDefinition(pvName string, size string, labels map[string]string, storageClassName string) *k8sv1.PersistentVolume {
+func NewPVDefinition(pvName, size, storageClassName, node string, labels map[string]string) *k8sv1.PersistentVolume {
 	return &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   pvName,
@@ -54,7 +45,6 @@ func NewPVDefinition(pvName string, size string, labels map[string]string, stora
 			Capacity: k8sv1.ResourceList{
 				k8sv1.ResourceName(k8sv1.ResourceStorage): resource.MustParse(size),
 			},
-			StorageClassName: storageClassName,
 			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
 				Local: &k8sv1.LocalVolumeSource{
 					Path: "/mnt/local-storage/local/disk2",
@@ -69,62 +59,16 @@ func NewPVDefinition(pvName string, size string, labels map[string]string, stora
 								{
 									Key:      "kubernetes.io/hostname",
 									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{"node01"},
+									Values:   []string{node},
 								},
 							},
 						},
 					},
 				},
 			},
+			StorageClassName: storageClassName,
 		},
 	}
-}
-
-// NewBlockPVDefinition creates a PV definition with volueMode 'Block'
-func NewBlockPVDefinition(pvName string, size string, labels map[string]string, storageClassName string, nodeName string) *k8sv1.PersistentVolume {
-	volumeMode := k8sv1.PersistentVolumeBlock
-	return &k8sv1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   pvName,
-			Labels: labels,
-		},
-		Spec: k8sv1.PersistentVolumeSpec{
-			StorageClassName:              storageClassName,
-			AccessModes:                   []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-			PersistentVolumeReclaimPolicy: k8sv1.PersistentVolumeReclaimDelete,
-			Capacity: k8sv1.ResourceList{
-				k8sv1.ResourceName(k8sv1.ResourceStorage): resource.MustParse(size),
-			},
-			VolumeMode: &volumeMode,
-			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-				Local: &k8sv1.LocalVolumeSource{
-					Path: "/mnt/local-storage/block-device/loop0",
-				},
-			},
-			NodeAffinity: &k8sv1.VolumeNodeAffinity{
-				Required: &k8sv1.NodeSelector{
-					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-						{
-							MatchExpressions: []k8sv1.NodeSelectorRequirement{
-								{
-									Key:      "kubernetes.io/hostname",
-									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{nodeName},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-// NewTargetBlockPVDefinition creates a target PV definition with volueMode 'Block'
-func NewTargetBlockPVDefinition(pvName string, size string, labels map[string]string, storageClassName string, nodeName string) *k8sv1.PersistentVolume {
-	targetPV := NewBlockPVDefinition(pvName, size, labels, storageClassName, nodeName)
-	targetPV.Spec.PersistentVolumeSource.Local.Path = "/mnt/local-storage/block-device1/loop1"
-	return targetPV
 }
 
 // WaitTimeoutForPVReady waits for the given pv to be created and ready

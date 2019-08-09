@@ -23,13 +23,17 @@ const (
 
 const (
 	// TinyCoreIsoURL provides a test url for the tineyCore iso image
-	TinyCoreIsoURL = "http://cdi-file-host.cdi/tinyCore.iso"
+	TinyCoreIsoURL = "http://cdi-file-host.%s/tinyCore.iso"
 	//TinyCoreIsoRegistryURL provides a test url for the tinycore.qcow2 image wrapped in docker container
-	TinyCoreIsoRegistryURL = "docker://cdi-docker-registry-host.cdi/tinycoreqcow2"
+	TinyCoreIsoRegistryURL = "docker://cdi-docker-registry-host.%s/tinycoreqcow2"
 	// HTTPSTinyCoreIsoURL provides a test (https) url for the tineyCore iso image
-	HTTPSTinyCoreIsoURL = "https://cdi-file-host.cdi/tinyCore.iso"
+	HTTPSTinyCoreIsoURL = "https://cdi-file-host.%s/tinyCore.iso"
 	// TinyCoreQcow2URLRateLimit provides a test url for the tineyCore iso image
-	TinyCoreQcow2URLRateLimit = "http://cdi-file-host.cdi:82/tinyCore.qcow2"
+	TinyCoreQcow2URLRateLimit = "http://cdi-file-host.%s:82/tinyCore.qcow2"
+	// InvalidQcowImagesURL provides a test url for invalid qcow images
+	InvalidQcowImagesURL = "http://cdi-file-host.%s/invalid_qcow_images/"
+	// TarArchiveURL provides a test url for a tar achive file
+	TarArchiveURL = "http://cdi-file-host.%s/archive.tar"
 )
 
 // CreateDataVolumeFromDefinition is used by tests to create a testable Data Volume
@@ -110,9 +114,8 @@ func NewDataVolumeWithHTTPImport(dataVolumeName string, size string, httpURL str
 }
 
 // NewDataVolumeWithHTTPImportToBlockPV initializes a DataVolume struct with HTTP annotations to import to block PV
-func NewDataVolumeWithHTTPImportToBlockPV(dataVolumeName string, size string, httpURL string) *cdiv1.DataVolume {
+func NewDataVolumeWithHTTPImportToBlockPV(dataVolumeName string, size string, httpURL, storageClassName string) *cdiv1.DataVolume {
 	volumeMode := corev1.PersistentVolumeMode(corev1.PersistentVolumeBlock)
-	storageClassName := "manual"
 	dataVolume := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: dataVolumeName,
@@ -273,4 +276,29 @@ func WaitForDataVolumePhase(clientSet *cdiclientset.Clientset, namespace string,
 		return fmt.Errorf("DataVolume %s not in phase %s within %v", dataVolumeName, phase, dataVolumePhaseTime)
 	}
 	return nil
+}
+
+// NewDataVolumeWithArchiveContent initializes a DataVolume struct with 'archive' ContentType
+func NewDataVolumeWithArchiveContent(dataVolumeName string, size string, httpURL string) *cdiv1.DataVolume {
+	return &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dataVolumeName,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: cdiv1.DataVolumeSource{
+				HTTP: &cdiv1.DataVolumeSourceHTTP{
+					URL: httpURL,
+				},
+			},
+			ContentType: "archive",
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceName(k8sv1.ResourceStorage): resource.MustParse(size),
+					},
+				},
+			},
+		},
+	}
 }

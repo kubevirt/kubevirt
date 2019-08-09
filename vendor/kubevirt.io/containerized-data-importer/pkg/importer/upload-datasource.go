@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"k8s.io/klog"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 )
 
@@ -37,7 +36,7 @@ func NewUploadDataSource(stream io.ReadCloser) *UploadDataSource {
 func (ud *UploadDataSource) Info() (ProcessingPhase, error) {
 	var err error
 	// Hardcoded to only accept kubevirt content type.
-	ud.readers, err = NewFormatReaders(ud.stream, cdiv1.DataVolumeKubeVirt)
+	ud.readers, err = NewFormatReaders(ud.stream, uint64(0))
 	if err != nil {
 		klog.Errorf("Error creating readers: %v", err)
 		return ProcessingPhaseError, err

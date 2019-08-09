@@ -26,8 +26,10 @@ import (
 	"strconv"
 	"time"
 
+	csisnapshotv1 "github.com/kubernetes-csi/external-snapshotter/pkg/apis/volumesnapshot/v1alpha1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	extclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -51,6 +53,7 @@ import (
 	listers "kubevirt.io/containerized-data-importer/pkg/client/listers/core/v1alpha1"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	expectations "kubevirt.io/containerized-data-importer/pkg/expectations"
+	csiclientset "kubevirt.io/containerized-data-importer/pkg/snapshot-client/clientset/versioned"
 )
 
 const controllerAgentName = "datavolume-controller"
@@ -78,6 +81,12 @@ const (
 	CloneScheduled = "CloneScheduled"
 	// CloneInProgress provides a const to indicate clone is in progress
 	CloneInProgress = "CloneInProgress"
+	// SnapshotForSmartCloneInProgress provides a const to indicate snapshot creation for smart-clone is in progress
+	SnapshotForSmartCloneInProgress = "SnapshotForSmartCloneInProgress"
+	// SnapshotForSmartCloneCreated provides a const to indicate snapshot creation for smart-clone has been completed
+	SnapshotForSmartCloneCreated = "SnapshotForSmartCloneCreated"
+	// SmartClonePVCInProgress provides a const to indicate snapshot creation for smart-clone is in progress
+	SmartClonePVCInProgress = "SmartClonePVCInProgress"
 	// CloneFailed provides a const to indicate clone has failed
 	CloneFailed = "CloneFailed"
 	// CloneSucceeded provides a const to indicate clone has succeeded
@@ -114,6 +123,10 @@ const (
 	MessageCloneFailed = "Cloning from %s/%s into %s/%s failed"
 	// MessageCloneSucceeded provides a const to form clone has succeeded message
 	MessageCloneSucceeded = "Successfully cloned from %s/%s into %s/%s"
+	// MessageSmartCloneInProgress provides a const to form snapshot for smart-clone is in progress message
+	MessageSmartCloneInProgress = "Creating snapshot for smart-clone is in progress (for pvc %s/%s)"
+	// MessageSmartClonePVCInProgress provides a const to form snapshot for smart-clone is in progress message
+	MessageSmartClonePVCInProgress = "Creating PVC for smart-clone is in progress (for pvc %s/%s)"
 	// MessageUploadScheduled provides a const to form upload is scheduled message
 	MessageUploadScheduled = "Upload into %s scheduled"
 	// MessageUploadReady provides a const to form upload is ready message
@@ -132,6 +145,8 @@ type DataVolumeController struct {
 	kubeclientset kubernetes.Interface
 	// clientset is a clientset for our own API group
 	cdiClientSet clientset.Interface
+	csiClientSet csiclientset.Interface
+	extClientSet extclientset.Interface
 
 	pvcLister  corelisters.PersistentVolumeClaimLister
 	pvcsSynced cache.InformerSynced
@@ -157,6 +172,8 @@ type DataVolumeEvent struct {
 func NewDataVolumeController(
 	kubeclientset kubernetes.Interface,
 	cdiClientSet clientset.Interface,
+	csiClientSet csiclientset.Interface,
+	extClientSet extclientset.Interface,
 	pvcInformer coreinformers.PersistentVolumeClaimInformer,
 	dataVolumeInformer informers.DataVolumeInformer) *DataVolumeController {
 
@@ -173,6 +190,8 @@ func NewDataVolumeController(
 	controller := &DataVolumeController{
 		kubeclientset:     kubeclientset,
 		cdiClientSet:      cdiClientSet,
+		csiClientSet:      csiClientSet,
+		extClientSet:      extClientSet,
 		pvcLister:         pvcInformer.Lister(),
 		pvcsSynced:        pvcInformer.Informer().HasSynced,
 		dataVolumesLister: dataVolumeInformer.Lister(),
@@ -181,7 +200,6 @@ func NewDataVolumeController(
 		recorder:          recorder,
 		pvcExpectations:   expectations.NewUIDTrackingControllerExpectations(expectations.NewControllerExpectations()),
 	}
-
 	klog.V(2).Info("Setting up event handlers")
 
 	// Set up an event handler for when DataVolume resources change
@@ -307,7 +325,6 @@ func (c *DataVolumeController) processNextWorkItem() bool {
 // converge the two. It then updates the Status block of the DataVolume resource
 // with the current status of the resource.
 func (c *DataVolumeController) syncHandler(key string) error {
-
 	exists := true
 
 	// Convert the namespace/name string into a distinct namespace and name
@@ -352,20 +369,37 @@ func (c *DataVolumeController) syncHandler(key string) error {
 		return errors.Errorf(msg)
 	}
 
+	// expectations prevent us from creating multiple pods. An expectation forces
+	// us to observe a pod's creation in the cache.
 	needsSync := c.pvcExpectations.SatisfiedExpectations(key)
+
 	if !exists && needsSync {
-		newPvc, err := newPersistentVolumeClaim(dataVolume)
-		if err != nil {
-			return err
-		}
-		c.pvcExpectations.ExpectCreations(key, 1)
-		pvc, err = c.kubeclientset.CoreV1().PersistentVolumeClaims(dataVolume.Namespace).Create(newPvc)
-		if err != nil {
-			c.pvcExpectations.CreationObserved(key)
-			return err
-		}
-		if canUpdateProgress(newPvc.Annotations) {
-			go c.scheduleProgressUpdate(dataVolume.Name, dataVolume.Namespace, pvc.GetUID())
+		snapshotClassName := c.getSnapshotClassForSmartClone(dataVolume)
+		if snapshotClassName != "" {
+			klog.V(3).Infof("Smart-Clone via Snapshot is available with Volume Snapshot Class: %s", snapshotClassName)
+			newSnapshot := newSnapshot(dataVolume, snapshotClassName)
+			_, err := c.csiClientSet.SnapshotV1alpha1().VolumeSnapshots(newSnapshot.Namespace).Create(newSnapshot)
+			if err != nil {
+				return err
+			}
+			err = c.updateSmartCloneStatusPhase(cdiv1.SnapshotForSmartCloneInProgress, dataVolume)
+			if err != nil {
+				return err
+			}
+		} else {
+			newPvc, err := newPersistentVolumeClaim(dataVolume)
+			if err != nil {
+				return err
+			}
+			c.pvcExpectations.ExpectCreations(key, 1)
+			pvc, err = c.kubeclientset.CoreV1().PersistentVolumeClaims(dataVolume.Namespace).Create(newPvc)
+			if err != nil {
+				c.pvcExpectations.CreationObserved(key)
+				return err
+			}
+			if canUpdateProgress(newPvc.Annotations) {
+				go c.scheduleProgressUpdate(dataVolume.Name, dataVolume.Namespace, pvc.GetUID())
+			}
 		}
 	}
 
@@ -406,6 +440,134 @@ func (c *DataVolumeController) scheduleProgressUpdate(dataVolumeName, dataVolume
 	}
 }
 
+func (c *DataVolumeController) getSnapshotClassForSmartClone(dataVolume *cdiv1.DataVolume) string {
+	// Check if clone is requested
+	if dataVolume.Spec.Source.PVC == nil {
+		return ""
+	}
+
+	// Check if relevant CRDs are available
+	if !IsCsiCrdsDeployed(c.extClientSet) {
+		klog.V(3).Infof("Missing CSI snapshotter CRDs")
+		return ""
+	}
+
+	// Find source PVC
+	sourcePvcNs := dataVolume.Spec.Source.PVC.Namespace
+	if sourcePvcNs == "" {
+		sourcePvcNs = dataVolume.Namespace
+	}
+
+	pvc, err := c.pvcLister.PersistentVolumeClaims(sourcePvcNs).Get(dataVolume.Spec.Source.PVC.Name)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			klog.V(3).Infof("Source PVC is missing: %s/%s", dataVolume.Spec.Source.PVC.Namespace, dataVolume.Spec.Source.PVC.Name)
+		}
+		runtime.HandleError(err)
+		return ""
+	}
+
+	targetPvcStorageClassName := dataVolume.Spec.PVC.StorageClassName
+
+	// Handle unspecified storage class name, fallback to default storage class
+	if targetPvcStorageClassName == nil {
+		storageclasses, err := c.kubeclientset.StorageV1().StorageClasses().List(metav1.ListOptions{})
+		if err != nil {
+			runtime.HandleError(err)
+			return ""
+		}
+		for _, storageClass := range storageclasses.Items {
+			if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+				targetPvcStorageClassName = &storageClass.Name
+				break
+			}
+		}
+	}
+
+	if targetPvcStorageClassName == nil {
+		klog.V(3).Infof("Target PVC's Storage Class not found")
+		return ""
+	}
+
+	sourcePvcStorageClassName := pvc.Spec.StorageClassName
+
+	// Compare source and target storage classess
+	if *sourcePvcStorageClassName != *targetPvcStorageClassName {
+		klog.V(3).Infof("Source PVC and target PVC belong to different storage classes: %s - %s",
+			*sourcePvcStorageClassName, *targetPvcStorageClassName)
+		return ""
+	}
+
+	// Compare source and target namespaces
+	if pvc.Namespace != dataVolume.Namespace {
+		klog.V(3).Infof("Source PVC and target PVC belong to different namespaces: %s - %s",
+			pvc.Namespace, dataVolume.Namespace)
+		return ""
+	}
+
+	// Fetch the source storage class
+	storageclass, err := c.kubeclientset.StorageV1().StorageClasses().Get(*sourcePvcStorageClassName, metav1.GetOptions{})
+	if err != nil {
+		runtime.HandleError(err)
+		return ""
+	}
+
+	// List the snapshot classes
+	scs, err := c.csiClientSet.SnapshotV1alpha1().VolumeSnapshotClasses().List(metav1.ListOptions{})
+	if err != nil {
+		klog.V(3).Infof("Cannot list snapshot classes")
+		return ""
+	}
+	for _, snapshotClass := range scs.Items {
+		// Validate association between snapshot class and storage class
+		if snapshotClass.Snapshotter == storageclass.Provisioner {
+			klog.V(3).Infof("smart-clone is applicable for datavolume '%s' with snapshot class '%s'",
+				dataVolume.Name, snapshotClass.Name)
+			return snapshotClass.Name
+		}
+	}
+
+	return ""
+}
+
+func newSnapshot(dataVolume *cdiv1.DataVolume, snapshotClassName string) *csisnapshotv1.VolumeSnapshot {
+	annotations := make(map[string]string)
+	annotations[AnnSmartCloneRequest] = "true"
+	className := snapshotClassName
+	labels := map[string]string{
+		common.CDILabelKey:       common.CDILabelValue,
+		common.CDIComponentLabel: common.SmartClonerCDILabel,
+	}
+	snapshot := &csisnapshotv1.VolumeSnapshot{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        dataVolume.Name,
+			Namespace:   dataVolume.Namespace,
+			Labels:      labels,
+			Annotations: annotations,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(dataVolume, schema.GroupVersionKind{
+					Group:   cdiv1.SchemeGroupVersion.Group,
+					Version: cdiv1.SchemeGroupVersion.Version,
+					Kind:    "DataVolume",
+				}),
+			},
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: csisnapshotv1.SchemeGroupVersion.String(),
+			Kind:       "VolumeSnapshot",
+		},
+		Status: csisnapshotv1.VolumeSnapshotStatus{},
+		Spec: csisnapshotv1.VolumeSnapshotSpec{
+			Source: &corev1.TypedLocalObjectReference{
+				Name: dataVolume.Spec.Source.PVC.Name,
+				Kind: "PersistentVolumeClaim",
+			},
+			VolumeSnapshotClassName: &className,
+		},
+	}
+	return snapshot
+}
+
 func (c *DataVolumeController) updateImportStatusPhase(pvc *corev1.PersistentVolumeClaim, dataVolumeCopy *cdiv1.DataVolume, event *DataVolumeEvent) {
 	phase, ok := pvc.Annotations[AnnPodPhase]
 	if ok {
@@ -435,6 +597,21 @@ func (c *DataVolumeController) updateImportStatusPhase(pvc *corev1.PersistentVol
 			event.message = fmt.Sprintf(MessageImportSucceeded, pvc.Name)
 		}
 	}
+}
+
+func (c *DataVolumeController) updateSmartCloneStatusPhase(phase cdiv1.DataVolumePhase, dataVolume *cdiv1.DataVolume) error {
+	var dataVolumeCopy = dataVolume.DeepCopy()
+	var event DataVolumeEvent
+
+	switch phase {
+	case cdiv1.SnapshotForSmartCloneInProgress:
+		dataVolumeCopy.Status.Phase = cdiv1.SnapshotForSmartCloneInProgress
+		event.eventType = corev1.EventTypeNormal
+		event.reason = SnapshotForSmartCloneInProgress
+		event.message = fmt.Sprintf(MessageSmartCloneInProgress, dataVolumeCopy.Spec.Source.PVC.Namespace, dataVolumeCopy.Spec.Source.PVC.Name)
+	}
+
+	return c.emitEvent(dataVolume, dataVolumeCopy, &event)
 }
 
 func (c *DataVolumeController) updateCloneStatusPhase(pvc *corev1.PersistentVolumeClaim, dataVolumeCopy *cdiv1.DataVolume, event *DataVolumeEvent) {
@@ -502,12 +679,11 @@ func (c *DataVolumeController) updateUploadStatusPhase(pvc *corev1.PersistentVol
 
 func (c *DataVolumeController) updateDataVolumeStatus(dataVolume *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	dataVolumeCopy := dataVolume.DeepCopy()
-	var err error
 	var event DataVolumeEvent
 
 	curPhase := dataVolumeCopy.Status.Phase
 	if pvc == nil {
-		if curPhase != cdiv1.PhaseUnset && curPhase != cdiv1.Pending {
+		if curPhase != cdiv1.PhaseUnset && curPhase != cdiv1.Pending && curPhase != cdiv1.SnapshotForSmartCloneInProgress {
 
 			// if pvc doesn't exist and we're not still initializing, then
 			// something has gone wrong. Perhaps the PVC was deleted out from
@@ -519,6 +695,7 @@ func (c *DataVolumeController) updateDataVolumeStatus(dataVolume *cdiv1.DataVolu
 		}
 
 	} else {
+
 		switch pvc.Status.Phase {
 		case corev1.ClaimPending:
 			dataVolumeCopy.Status.Phase = cdiv1.Pending
@@ -558,15 +735,20 @@ func (c *DataVolumeController) updateDataVolumeStatus(dataVolume *cdiv1.DataVolu
 		}
 	}
 
+	return c.emitEvent(dataVolume, dataVolumeCopy, &event)
+}
+
+func (c *DataVolumeController) emitEvent(dataVolume *cdiv1.DataVolume, dataVolumeCopy *cdiv1.DataVolume, event *DataVolumeEvent) error {
 	// Only update the object if something actually changed in the status.
 	if !reflect.DeepEqual(dataVolume.Status, dataVolumeCopy.Status) {
-		_, err = c.cdiClientSet.CdiV1alpha1().DataVolumes(dataVolume.Namespace).Update(dataVolumeCopy)
+		_, err := c.cdiClientSet.CdiV1alpha1().DataVolumes(dataVolume.Namespace).Update(dataVolumeCopy)
 		// Emit the event only when the status change happens, not every time
 		if event.eventType != "" {
 			c.recorder.Event(dataVolume, event.eventType, event.reason, event.message)
 		}
+		return err
 	}
-	return err
+	return nil
 }
 
 // canUpdateProgress determines what kind annotations will be able generate progress update information.
@@ -779,6 +961,7 @@ func newPersistentVolumeClaim(dataVolume *cdiv1.DataVolume) (*corev1.PersistentV
 	} else if dataVolume.Spec.Source.Registry != nil {
 		annotations[AnnSource] = SourceRegistry
 		annotations[AnnEndpoint] = dataVolume.Spec.Source.Registry.URL
+		annotations[AnnContentType] = string(dataVolume.Spec.ContentType)
 		if dataVolume.Spec.Source.Registry.SecretRef != "" {
 			annotations[AnnSecret] = dataVolume.Spec.Source.Registry.SecretRef
 		}

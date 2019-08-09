@@ -10,13 +10,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 	clientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 )
 
 const (
+	importControllerAgentName = "import-controller"
+
 	// AnnSource provide a const for our PVC import source annotation
 	AnnSource = AnnAPIGroup + "/storage.import.source"
 	// AnnEndpoint provides a const for our PVC endpoint annotation
@@ -36,12 +41,16 @@ const (
 	LabelImportPvc = AnnAPIGroup + "/storage.import.importPvcName"
 	//AnnDefaultStorageClass is the annotation indicating that a storage class is the default one.
 	AnnDefaultStorageClass = "storageclass.kubernetes.io/is-default-class"
+
+	// ErrImportFailedPVC provides a const to indicate an import to the PVC failed
+	ErrImportFailedPVC = "ErrImportFailed"
 )
 
 // ImportController represents a CDI Import Controller
 type ImportController struct {
 	cdiClient clientset.Interface
 	Controller
+	recorder record.EventRecorder
 }
 
 type importPodEnvVar struct {
@@ -58,9 +67,18 @@ func NewImportController(client kubernetes.Interface,
 	image string,
 	pullPolicy string,
 	verbose string) *ImportController {
+
+	// Create event broadcaster
+	klog.V(3).Info("Creating event broadcaster")
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartLogging(klog.V(2).Infof)
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: importControllerAgentName})
+
 	c := &ImportController{
 		cdiClient:  cdiClientSet,
 		Controller: *NewController(client, pvcInformer, podInformer, image, pullPolicy, verbose),
+		recorder:   recorder,
 	}
 	return c
 }
@@ -156,6 +174,8 @@ func (ic *ImportController) processPvcItem(pvc *v1.PersistentVolumeClaim) error 
 				klog.V(3).Infof("Pod %s requires scratch space, terminating pod, and restarting with scratch space\n", pod.Name)
 				scratchExitCode = true
 				anno[AnnRequiresScratch] = "true"
+			} else {
+				ic.recorder.Event(pvc, v1.EventTypeWarning, ErrImportFailedPVC, pod.Status.ContainerStatuses[0].LastTerminationState.Terminated.Message)
 			}
 		}
 		anno[AnnImportPod] = string(pod.Name)
@@ -235,7 +255,7 @@ func (ic *ImportController) createScratchPvcForPod(pvc *v1.PersistentVolumeClaim
 	if scratchPvc == nil {
 		storageClassName := GetScratchPvcStorageClass(ic.clientset, ic.cdiClient, pvc)
 		// Scratch PVC doesn't exist yet, create it. Determine which storage class to use.
-		scratchPvc, err = CreateScratchPersistentVolumeClaim(ic.clientset, pvc, pod, storageClassName)
+		_, err = CreateScratchPersistentVolumeClaim(ic.clientset, pvc, pod, storageClassName)
 		if err != nil {
 			return err
 		}

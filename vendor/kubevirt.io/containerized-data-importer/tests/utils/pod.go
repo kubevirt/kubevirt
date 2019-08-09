@@ -62,7 +62,7 @@ func NewPodWithPVC(podName, cmd string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1
 			Containers: []k8sv1.Container{
 				{
 					Name:    "runner",
-					Image:   "fedora:29",
+					Image:   "registry.fedoraproject.org/fedora-minimal:30",
 					Command: []string{"/bin/sh", "-c", cmd},
 				},
 			},
@@ -163,11 +163,6 @@ func WaitTimeoutForPodStatus(clientSet *kubernetes.Clientset, podName, namespace
 	return wait.PollImmediate(2*time.Second, timeout, podStatus(clientSet, podName, namespace, status))
 }
 
-// IsExpectedNode waits to check if the specified pod is schedule on the specified node
-func IsExpectedNode(clientSet *kubernetes.Clientset, nodeName, podName, namespace string, timeout time.Duration) error {
-	return wait.PollImmediate(2*time.Second, timeout, isExpectedNode(clientSet, nodeName, podName, namespace))
-}
-
 func podStatus(clientSet *kubernetes.Clientset, podName, namespace string, status k8sv1.PodPhase) wait.ConditionFunc {
 	return func() (bool, error) {
 		pod, err := clientSet.CoreV1().Pods(namespace).Get(podName, metav1.GetOptions{})
@@ -180,24 +175,6 @@ func podStatus(clientSet *kubernetes.Clientset, podName, namespace string, statu
 		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Checking POD phase: %s\n", string(pod.Status.Phase))
 		switch pod.Status.Phase {
 		case status:
-			return true, nil
-		}
-		return false, nil
-	}
-}
-
-// returns true is the specified pod running on the specified nodeName. Otherwise returns false
-func isExpectedNode(clientSet *kubernetes.Clientset, nodeName, podName, namespace string) wait.ConditionFunc {
-	return func() (bool, error) {
-		pod, err := clientSet.CoreV1().Pods(namespace).Get(podName, metav1.GetOptions{})
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				return false, nil
-			}
-			return false, err
-		}
-		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Checking Node name: %s\n", string(pod.Spec.NodeName))
-		if pod.Spec.NodeName == nodeName {
 			return true, nil
 		}
 		return false, nil
@@ -229,4 +206,27 @@ func WaitPodDeleted(clientSet *kubernetes.Clientset, podName, namespace string, 
 		return false, nil
 	})
 	return result, err
+}
+
+// IsExpectedNode waits to check if the specified pod is schedule on the specified node
+func IsExpectedNode(clientSet *kubernetes.Clientset, nodeName, podName, namespace string, timeout time.Duration) error {
+	return wait.PollImmediate(2*time.Second, timeout, isExpectedNode(clientSet, nodeName, podName, namespace))
+}
+
+// returns true is the specified pod running on the specified nodeName. Otherwise returns false
+func isExpectedNode(clientSet *kubernetes.Clientset, nodeName, podName, namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		pod, err := clientSet.CoreV1().Pods(namespace).Get(podName, metav1.GetOptions{})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
+		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Checking Node name: %s\n", string(pod.Spec.NodeName))
+		if pod.Spec.NodeName == nodeName {
+			return true, nil
+		}
+		return false, nil
+	}
 }

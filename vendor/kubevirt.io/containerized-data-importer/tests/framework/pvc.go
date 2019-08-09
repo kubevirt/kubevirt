@@ -124,6 +124,23 @@ func (f *Framework) GetMD5(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolu
 	return output[:32], nil
 }
 
+// VerifyTargetPVCArchiveContent provides a function to check if the number of files extracted from an archive matches the passed in value
+func (f *Framework) VerifyTargetPVCArchiveContent(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, count string) (bool, error) {
+	var executorPod *k8sv1.Pod
+	var err error
+
+	executorPod, err = utils.CreateExecutorPodWithPVC(f.K8sClient, "verify-pvc-archive", namespace.Name, pvc)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	err = utils.WaitTimeoutForPodReady(f.K8sClient, executorPod.Name, namespace.Name, utils.PodWaitForTime)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	output, err := f.ExecShellInPod(executorPod.Name, namespace.Name, "ls "+utils.DefaultPvcMountPath+" | wc -l")
+	if err != nil {
+		return false, err
+	}
+	fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: file count found %s\n", string(output))
+	return strings.Compare(count, output) == 0, nil
+}
+
 // RunCommandAndCaptureOutput runs a command on a pod that has the passed in PVC mounted and captures the output.
 func (f *Framework) RunCommandAndCaptureOutput(pvc *k8sv1.PersistentVolumeClaim, cmd string) (string, error) {
 	executorPod, err := f.CreateExecutorPodWithPVC("execute-command", pvc)

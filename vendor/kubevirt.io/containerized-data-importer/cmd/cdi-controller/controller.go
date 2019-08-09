@@ -9,19 +9,26 @@ import (
 	"os"
 	"os/signal"
 
+	crdv1alpha1 "github.com/kubernetes-csi/external-snapshotter/pkg/apis/volumesnapshot/v1alpha1"
 	route1client "github.com/openshift/client-go/route/clientset/versioned"
 	routeinformers "github.com/openshift/client-go/route/informers/externalversions"
 	"github.com/pkg/errors"
+	v1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	crdinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	clientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	informers "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
+	csiclientset "kubevirt.io/containerized-data-importer/pkg/snapshot-client/clientset/versioned"
+	csiinformers "kubevirt.io/containerized-data-importer/pkg/snapshot-client/informers/externalversions"
 )
 
 const (
@@ -48,16 +55,8 @@ func init() {
 	// flags
 	flag.StringVar(&configPath, "kubeconfig", os.Getenv("KUBECONFIG"), "(Optional) Overrides $KUBECONFIG")
 	flag.StringVar(&masterURL, "server", "", "(Optional) URL address of a remote api server.  Do not set for local clusters.")
+	klog.InitFlags(nil)
 	flag.Parse()
-	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
-	klog.InitFlags(klogFlags)
-	flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
-		f2 := klogFlags.Lookup(f1.Name)
-		if f2 != nil {
-			value := f1.Value.String()
-			f2.Value.Set(value)
-		}
-	})
 
 	importerImage = getRequiredEnvVar("IMPORTER_IMAGE")
 	clonerImage = getRequiredEnvVar("CLONER_IMAGE")
@@ -115,7 +114,20 @@ func start(cfg *rest.Config, stopCh <-chan struct{}) {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
+	csiClient, err := csiclientset.NewForConfig(cfg)
+	if err != nil {
+		klog.Fatalf("Error building csi clientset: %s", err.Error())
+	}
+
+	extClient, err := extclientset.NewForConfig(cfg)
+	if err != nil {
+		klog.Fatalf("Error building extClient: %s", err.Error())
+	}
+
 	cdiInformerFactory := informers.NewSharedInformerFactory(cdiClient, common.DefaultResyncPeriod)
+	csiInformerFactory := csiinformers.NewFilteredSharedInformerFactory(csiClient, common.DefaultResyncPeriod, "", func(options *v1.ListOptions) {
+		options.LabelSelector = common.CDILabelSelector
+	})
 	pvcInformerFactory := k8sinformers.NewSharedInformerFactory(client, common.DefaultResyncPeriod)
 	podInformerFactory := k8sinformers.NewFilteredSharedInformerFactory(client, common.DefaultResyncPeriod, "", func(options *v1.ListOptions) {
 		options.LabelSelector = common.CDILabelSelector
@@ -125,6 +137,7 @@ func start(cfg *rest.Config, stopCh <-chan struct{}) {
 	})
 	ingressInformerFactory := k8sinformers.NewSharedInformerFactory(client, common.DefaultResyncPeriod)
 	routeInformerFactory := routeinformers.NewSharedInformerFactory(openshiftClient, common.DefaultResyncPeriod)
+	crdInformerFactory := crdinformers.NewSharedInformerFactory(extClient, common.DefaultResyncPeriod)
 
 	pvcInformer := pvcInformerFactory.Core().V1().PersistentVolumeClaims()
 	podInformer := podInformerFactory.Core().V1().Pods()
@@ -133,10 +146,14 @@ func start(cfg *rest.Config, stopCh <-chan struct{}) {
 	routeInformer := routeInformerFactory.Route().V1().Routes()
 	dataVolumeInformer := cdiInformerFactory.Cdi().V1alpha1().DataVolumes()
 	configInformer := cdiInformerFactory.Cdi().V1alpha1().CDIConfigs()
+	snapshotInformer := csiInformerFactory.Snapshot().V1alpha1().VolumeSnapshots()
+	crdInformer := crdInformerFactory.Apiextensions().V1beta1().CustomResourceDefinitions().Informer()
 
 	dataVolumeController := controller.NewDataVolumeController(
 		client,
 		cdiClient,
+		csiClient,
+		extClient,
 		pvcInformer,
 		dataVolumeInformer)
 
@@ -156,6 +173,13 @@ func start(cfg *rest.Config, stopCh <-chan struct{}) {
 		pullPolicy,
 		verbose,
 		getAPIServerPublicKey())
+
+	smartCloneController := controller.NewSmartCloneController(client,
+		cdiClient,
+		csiClient,
+		pvcInformer,
+		snapshotInformer,
+		dataVolumeInformer)
 
 	uploadController := controller.NewUploadController(
 		client,
@@ -195,9 +219,12 @@ func start(cfg *rest.Config, stopCh <-chan struct{}) {
 	go podInformerFactory.Start(stopCh)
 	go serviceInformerFactory.Start(stopCh)
 	go ingressInformerFactory.Start(stopCh)
+	go crdInformerFactory.Start(stopCh)
 	if isOpenshift := controller.IsOpenshift(client); isOpenshift {
 		go routeInformerFactory.Start(stopCh)
 	}
+
+	addCrdInformerEventHandlers(crdInformer, extClient, csiInformerFactory, smartCloneController, stopCh)
 
 	klog.V(1).Infoln("started informers")
 
@@ -235,6 +262,8 @@ func start(cfg *rest.Config, stopCh <-chan struct{}) {
 			klog.Fatalf("Error running config controller: %+v", err)
 		}
 	}()
+
+	startSmartController(extClient, csiInformerFactory, smartCloneController, stopCh)
 }
 
 func main() {
@@ -290,6 +319,43 @@ func handleSignals() <-chan struct{} {
 		os.Exit(1)
 	}()
 	return stopCh
+}
+
+func addCrdInformerEventHandlers(crdInformer cache.SharedIndexInformer, extClient extclientset.Interface,
+	csiInformerFactory csiinformers.SharedInformerFactory, smartCloneController *controller.SmartCloneController,
+	stopCh <-chan struct{}) {
+	crdInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			crd := obj.(*v1beta1.CustomResourceDefinition)
+			crdName := crd.Name
+
+			vsClass := crdv1alpha1.VolumeSnapshotClassResourcePlural + "." + crdv1alpha1.GroupName
+			vsContent := crdv1alpha1.VolumeSnapshotContentResourcePlural + "." + crdv1alpha1.GroupName
+			vs := crdv1alpha1.VolumeSnapshotResourcePlural + "." + crdv1alpha1.GroupName
+
+			switch crdName {
+			case vsClass:
+				fallthrough
+			case vsContent:
+				fallthrough
+			case vs:
+				startSmartController(extClient, csiInformerFactory, smartCloneController, stopCh)
+			}
+		},
+	})
+}
+
+func startSmartController(extclient extclientset.Interface, csiInformerFactory csiinformers.SharedInformerFactory,
+	smartCloneController *controller.SmartCloneController, stopCh <-chan struct{}) {
+	if controller.IsCsiCrdsDeployed(extclient) {
+		go csiInformerFactory.Start(stopCh)
+		go func() {
+			err := smartCloneController.Run(1, stopCh)
+			if err != nil {
+				klog.Fatalf("Error running smart clone controller: %+v", err)
+			}
+		}()
+	}
 }
 
 func getAPIServerPublicKey() *rsa.PublicKey {

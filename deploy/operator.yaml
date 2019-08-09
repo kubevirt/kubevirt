@@ -128,7 +128,7 @@ spec:
         - name: DOCKER_REPO
           value: kubevirt
         - name: DOCKER_TAG
-          value: v1.9.4
+          value: v1.10.0
         - name: CONTROLLER_IMAGE
           value: cdi-controller
         - name: IMPORTER_IMAGE
@@ -145,7 +145,7 @@ spec:
           value: "1"
         - name: PULL_POLICY
           value: IfNotPresent
-        image: kubevirt/cdi-operator:v1.9.4
+        image: kubevirt/cdi-operator:v1.10.0
         imagePullPolicy: IfNotPresent
         name: cdi-operator
         ports:
@@ -153,6 +153,8 @@ spec:
           name: metrics
           protocol: TCP
         resources: {}
+      securityContext:
+        runAsNonRoot: true
       serviceAccountName: cdi-operator
 
 ---

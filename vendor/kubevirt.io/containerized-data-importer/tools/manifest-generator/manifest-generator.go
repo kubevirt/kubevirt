@@ -16,6 +16,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -28,10 +29,7 @@ import (
 	"kubevirt.io/containerized-data-importer/pkg/operator/resources/namespaced"
 	cdinamespaced "kubevirt.io/containerized-data-importer/pkg/operator/resources/namespaced"
 	cdioperator "kubevirt.io/containerized-data-importer/pkg/operator/resources/operator"
-)
-
-const (
-	initialCsvVersion string = "0.0.0"
+	"kubevirt.io/containerized-data-importer/tools/marketplace/helper"
 )
 
 type templateData struct {
@@ -64,6 +62,7 @@ var (
 	csvVersion             = flag.String("csv-version", "", "")
 	cdiLogoPath            = flag.String("cdi-logo-path", "", "")
 	genManifestsPath       = flag.String("generated-manifests-path", "", "")
+	bundleOut              = flag.String("olm-bundle-dir", "", "")
 	quayNamespace          = flag.String("quay-namespace", "", "")
 	quayRepository         = flag.String("quay-repository", "", "")
 	deployClusterResources = flag.String("deploy-cluster-resources", "", "")
@@ -166,6 +165,33 @@ func fixResourceString(in string, indention int) string {
 	return out.String()
 }
 
+func evalOlmCsvUpdateVersion(inFile, csvVersion, bundleOutDir, quayNamespace, quayRepository string) (string, error) {
+	replacesCsvVersion := ""
+	if strings.Contains(inFile, ".csv.yaml") && bundleOutDir != "" {
+		bundleHelper, err := helper.NewBundleHelper(quayRepository, quayNamespace)
+
+		if err != nil {
+			klog.Fatalf("Failed to access quay namespace %s, repo %s, %v\n", quayNamespace, quayRepository, err)
+		}
+		if !bundleHelper.VerifyNotPublishedCSVVersion(csvVersion) {
+			klog.Fatalf("CSV version %s is already published!", csvVersion)
+		}
+		latestVersion := bundleHelper.GetLatestPublishedCSVVersion()
+		if latestVersion != "" {
+			// prevent generating the same version again
+			if strings.HasSuffix(latestVersion, csvVersion) {
+				klog.Fatalf("CSV version %s is already published!", csvVersion)
+			}
+			replacesCsvVersion = fmt.Sprintf("  replaces: %v", latestVersion)
+			// also copy old manifests to out dir
+			if *bundleOut != "" {
+				bundleHelper.AddOldManifests(bundleOutDir, csvVersion)
+			}
+		}
+	}
+	return replacesCsvVersion, nil
+}
+
 func generateFromFile(templFile string) {
 	data := &templateData{
 		Verbosity:              *verbosity,
@@ -190,10 +216,9 @@ func generateFromFile(templFile string) {
 	}
 	defer file.Close()
 
-	if strings.Contains(*csvVersion, initialCsvVersion) {
-		data.ReplacesCsvVersion = ""
-	} else {
-		klog.Fatalf("Need to implement CSV upgrade to set ReplacesVersion in CSV when CSVVersion is greater than %s\n", initialCsvVersion)
+	data.ReplacesCsvVersion, err = evalOlmCsvUpdateVersion(templFile, *csvVersion, *bundleOut, *quayNamespace, *quayRepository)
+	if err != nil {
+		klog.Fatalf("Failed to evaluate CSV Replaces Version! %s, %v", *csvVersion, err)
 	}
 
 	data.QuayRepository = *quayRepository
@@ -202,14 +227,12 @@ func generateFromFile(templFile string) {
 	data.OperatorDeploymentSpec = getOperatorDeploymentSpec()
 	data.CDILogo = getCdiLogo(*cdiLogoPath)
 
-	// Read generated manifests in order to populate templated manifest
+	// Read generated manifests and populate templated manifest
 	genDir := *genManifestsPath
-
 	data.GeneratedManifests = make(map[string]string)
-
 	manifests, err := ioutil.ReadDir(genDir)
 	if err != nil {
-		klog.Fatalf("Failed to read directory %s: %v\n", templFile, err)
+		klog.Fatalf("Failed to read directory %s: %v\n", genDir, err)
 	}
 
 	for _, manifest := range manifests {
@@ -234,7 +257,7 @@ func generateFromFile(templFile string) {
 func getCdiLogo(path string) string {
 	file, err := os.Open(path)
 	if err != nil {
-		klog.Fatalf("Error retrieving cdi logo file: %v\n", err)
+		klog.Fatalf("Error retrieving cdi logo file: %s, %v\n", path, err)
 	}
 
 	// Read entire file into byte slice.
@@ -274,9 +297,9 @@ var resourcesTable = map[string]resourceTuple{
 func generateFromCode(codeGroup string) {
 	var resources []runtime.Object
 
-	for r, disptach := range resourcesTable {
-		if disptach.resourcetype(codeGroup) {
-			crs, err := disptach.resourceGet(codeGroup)
+	for r, dispatch := range resourcesTable {
+		if dispatch.resourcetype(codeGroup) {
+			crs, err := dispatch.resourceGet(codeGroup)
 			if err != nil {
 				klog.Fatalf("Error getting %s resources: %v\n", r, err)
 			}

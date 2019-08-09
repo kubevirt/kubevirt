@@ -38,9 +38,9 @@ func UploadPVCDefinition() *k8sv1.PersistentVolumeClaim {
 }
 
 // UploadBlockPVCDefinition creates a PVC with the upload target annotation for block PV
-func UploadBlockPVCDefinition() *k8sv1.PersistentVolumeClaim {
+func UploadBlockPVCDefinition(storageClass string) *k8sv1.PersistentVolumeClaim {
 	annotations := map[string]string{uploadTargetAnnotation: ""}
-	return NewBlockPVCDefinition("upload-test", "500M", annotations, nil, "manual")
+	return NewBlockPVCDefinition("upload-test", "500M", annotations, nil, storageClass)
 }
 
 // WaitPVCUploadPodStatusRunning waits for the upload server pod status annotation to be Running

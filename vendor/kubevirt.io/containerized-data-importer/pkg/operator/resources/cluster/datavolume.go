@@ -43,6 +43,9 @@ func createDataVolumeCRD() *extv1beta1.CustomResourceDefinition {
 					"dvs",
 				},
 				Singular: "datavolume",
+				Categories: []string{
+					"all",
+				},
 			},
 			Version: "v1alpha1",
 			Scope:   "Namespaced",

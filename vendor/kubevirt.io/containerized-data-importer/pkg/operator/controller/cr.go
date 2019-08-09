@@ -46,10 +46,7 @@ func (r *ReconcileCDI) crInit(cr *cdiv1alpha1.CDI) error {
 	cr.Finalizers = append(cr.Finalizers, finalizerName)
 	cr.Status.OperatorVersion = r.namespacedArgs.DockerTag
 	cr.Status.TargetVersion = r.namespacedArgs.DockerTag
-	if err := r.crUpdate(cdiv1alpha1.CDIPhaseDeploying, cr); err != nil {
-		return err
-	}
-	return nil
+	return r.crUpdate(cdiv1alpha1.CDIPhaseDeploying, cr)
 }
 
 func (r *ReconcileCDI) crError(cr *cdiv1alpha1.CDI) error {
