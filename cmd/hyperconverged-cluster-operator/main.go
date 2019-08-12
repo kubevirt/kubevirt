@@ -13,6 +13,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
+	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"github.com/operator-framework/operator-sdk/pkg/restmapper"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -74,6 +75,15 @@ func main() {
 		log.Error(err, "Failed to get watch namespace")
 		os.Exit(1)
 	}
+
+	// Create a new file supporting readiness probe
+	r := ready.NewFileReady()
+	err = r.Set()
+	if err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+	defer r.Unset()
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
