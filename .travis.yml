@@ -49,7 +49,7 @@ deploy:
 - provider: script
   script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && DOCKER_PREFIX="index.docker.io/kubevirt"
     DOCKER_TAG="$TRAVIS_TAG" QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub"
-    sh -c 'make bazel-push-images && make manifests && make olm-push'
+    sh -c 'make bazel-push-images && make manifests'
   skip_cleanup: true
   file:
   on:
@@ -101,6 +101,12 @@ deploy:
   script: hack/publish-staging.sh
   on:
     branch: master
+- provider: script
+  script: DOCKER_TAG="$TRAVIS_TAG" QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub" make olm-push
+  skip_cleanup: true
+  file:
+  on:
+    tags: true
 
 env:
   global:
