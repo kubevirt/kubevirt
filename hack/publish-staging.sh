@@ -23,7 +23,7 @@ git clone \
     "https://${API_REFERENCE_PUSH_TOKEN}@${GITHUB_FQDN}/${API_REF_REPO}.git" \
     "${API_REF_DIR}" >/dev/null 2>&1
 pushd ${API_REF_DIR}
-git checkout -B ${TARGET_BRANCH}
+git checkout -B ${TARGET_BRANCH}-local
 git rm -rf .
 git clean -fxd
 popd
