@@ -62,6 +62,8 @@ stageRegistry:
 bundleRegistry:
 	REGISTRY_NAMESPACE=$(REGISTRY_NAMESPACE) IMAGE_REGISTRY=$(IMAGE_REGISTRY) ./hack/build-registry-bundle.sh
 
+build-push-all: docker-build-operator docker-push-operator docker-build-operator-courier bundle-push
+
 help: ## Show this help screen
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'
 	@echo ''
@@ -93,4 +95,5 @@ test: test-unit
 		stageRegistry \
 		functest \
 		quay-token \
-		bundle-push
+		bundle-push \
+		build-push-all

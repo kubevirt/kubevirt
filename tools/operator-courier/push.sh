@@ -3,6 +3,8 @@ set -e
 
 PROJECT_ROOT="$(readlink -e $(dirname "$BASH_SOURCE[0]")/../../)"
 
+QUAY_REPOSITORY="${QUAY_REPOSITORY:-kubevirt-hyperconverged}"
+PACKAGE_NAME="${PACKAGE_NAME:-kubevirt-hyperconverged}"
 SOURCE_DIR="${SOURCE_DIR:-/manifests}"
 REPO_DIR="${QUAY_REPOSITORY:-kubevirt-hyperconverged}"
 NAMESPACE="${PACKAGE_NAME:-kubevirt-hyperconverged}"
