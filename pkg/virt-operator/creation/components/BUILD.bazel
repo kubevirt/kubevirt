@@ -10,6 +10,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/creation/components",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/virt-operator/creation/rbac:go_default_library",
         "//pkg/virt-operator/util:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//vendor/github.com/openshift/api/security/v1:go_default_library",
