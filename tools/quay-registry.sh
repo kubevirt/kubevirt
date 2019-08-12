@@ -8,11 +8,14 @@ CLUSTER="${CLUSTER:-OPENSHIFT}"
 MARKETPLACE_NAMESPACE="${MARKETPLACE_NAMESPACE:-openshift-marketplace}"
 PACKAGE="${PACKAGE:-hco-operatorhub}"
 APP_REGISTRY_NAMESPACE="${APP_REGISTRY_NAMESPACE:-kubevirt-hyperconverged}"
+TARGET_NAMESPACE="${TARGET_NAMESPACE:-kubevirt-hyperconverged}"
+
+# Latest version from: https://quay.io/application/kubevirt-hyperconverged/kubevirt-hyperconverged
+PACKAGE_VERSION="${PACKAGE_VERSION:-0.0.3}"
 
 if [ "${CLUSTER}" == "KUBERNETES" ]; then
     MARKETPLACE_NAMESPACE="marketplace"
 fi
-
 if [ -z "${QUAY_USERNAME}" ]; then
     echo "QUAY_USERNAME"
     read QUAY_USERNAME
@@ -45,11 +48,11 @@ metadata:
 spec:
   type: appregistry
   endpoint: https://quay.io/cnr
-  registryNamespace: $APP_REGISTRY_NAMESPACE
+  registryNamespace: "${APP_REGISTRY_NAMESPACE}"
   displayName: "${APP_REGISTRY_NAMESPACE}"
   publisher: "Red Hat"
   authorizationToken:
-    secretName: quay-registry-$APP_REGISTRY_NAMESPACE
+    secretName: "quay-registry-${APP_REGISTRY_NAMESPACE}"
 EOF
 
 cat <<EOF | oc create -f -
@@ -59,8 +62,11 @@ metadata:
   name: hco-catalogsource-config
   namespace: "${MARKETPLACE_NAMESPACE}"
 spec:
-  targetNamespace: kubevirt-hyperconverged
+  source: "${APP_REGISTRY_NAMESPACE}"
+  targetNamespace: "${TARGET_NAMESPACE}"
   packages: "${PACKAGE}"
   csDisplayName: "CNV Operators"
   csPublisher: "Red Hat"
+  packageRepositioryVersions:
+    kubevirt-hyperconverged: "${PACKAGE_VERSION}"
 EOF
