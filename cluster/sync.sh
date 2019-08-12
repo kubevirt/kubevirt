@@ -5,7 +5,7 @@ registry=localhost:$registry_port
 
 CMD="./cluster/kubectl.sh" ./hack/clean.sh
 
-IMAGE_REGISTRY=$registry make docker-build-operator docker-push-operator
+IMAGE_REGISTRY=$registry make container-build-operator container-push-operator
 
 for i in $(seq 1 ${CLUSTER_NUM_NODES}); do
     ./cluster/cli.sh ssh "node$(printf "%02d" ${i})" "sudo docker pull registry:5000/kubevirt/hyperconverged-cluster-operator"

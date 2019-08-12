@@ -22,23 +22,23 @@ start:
 quay-token:
 	@./tools/token.sh $(QUAY_USERNAME) $(QUAY_PASSWORD)
 
-bundle-push: docker-build-operator-courier
+bundle-push: container-build-operator-courier
 	@QUAY_USERNAME=$(QUAY_USERNAME) QUAY_PASSWORD=$(QUAY_PASSWORD) ./tools/operator-courier/push.sh
 
 hack-clean: ## Run ./hack/clean.sh
 	./hack/clean.sh
 
-docker-build: docker-build-operator docker-build-operator-courier
+container-build: container-build-operator container-build-operator-courier
 
-docker-build-operator:
+container-build-operator:
 	docker build -f build/Dockerfile -t $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG) .
 
-docker-build-operator-courier:
+container-build-operator-courier:
 	docker build -f tools/operator-courier/Dockerfile -t hco-courier .
 
-docker-push: docker-push-operator
+container-push: container-push-operator
 
-docker-push-operator:
+container-push-operator:
 	docker push $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG)
 
 cluster-up:
@@ -83,11 +83,11 @@ test: test-unit
 		build \
 		help \
 		hack-clean \
-		docker-build \
-		docker-build-operator \
-		docker-build-operator-courier \
-		docker-push \
-		docker-push-operator \
+		container-build \
+		container-build-operator \
+		container-push \
+		container-push-operator \
+		container-build-operator-courier \
 		cluster-up \
 		cluster-down \
 		cluster-sync \

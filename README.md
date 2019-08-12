@@ -11,6 +11,8 @@ sometimes referred to as a "meta operator" or an "operator for operators".
 Most importantly, this operator doesn't replace or interfere with OLM.
 It only creates operator CRs, which is the user's prerogative.
 
+![](images/HCO-design.jpg)
+
 ## Installing HCO Community Operator (OpenShift Only)
 The Hyperconverged Cluster Operator is published as a Community Operator in
 Operatorhub.io.  In the UI, you can search for it under the "OperatorHub"
@@ -42,11 +44,16 @@ Run the following script to apply the HCO operator:
 $ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/deploy.sh | bash
 ```
 
-## Launching the HCO through OLM
+## Developer Workflow
+If you want to make changes to the HCO, here's how you can test your changes
+through [OLM](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/Documentation/install/install.md#installing-olm).
 
-https://github.com/operator-framework/operator-lifecycle-manager/blob/master/Documentation/install/install.md#installing-olm
+Build the HCO container using the Makefile recipes `make container-build` and
+`make container-push` with vars `IMAGE_REGISTRY`, `OPERATOR_IMAGE`, and `IMAGE_TAG`
+to direct it's location.
 
-Build and push the converged HCO operator-registry image.
+To use the HCO's container, we'll use a registry image to serve metadata to OLM.
+Build and push the HCO's registry image.
 
 ```bash
 export REGISTRY_NAMESPACE=<container_org>
@@ -101,17 +108,13 @@ spec:
 EOF
 ```
 
-Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt.
+Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt,
+CDI, Network-addons, and SSP.
 ```bash
-kubectl create -f deploy/hco.cr.yaml
+kubectl create -f deploy/hco.cr.yaml -n kubevirt-hyperconverged
 ```
 
-## Launching the HCO on a local cluster
-
-Lunch the HCO locally for testing, experimenting and developing.
-
-**NOTE:** no need to install any type of Kubernetes cluster as a prerequisite.
-
+## Create a Cluster & Launch the HCO
 1. Navigate to the project's directory
 ```bash
 $ cd <path>/hyperconverged-cluster-opertor
