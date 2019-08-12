@@ -695,6 +695,31 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
+	if vmi.Spec.Domain.Chassis != nil {
+		domain.Spec.SysInfo.Chassis = []Entry{
+			{
+				Name:  "manufacturer",
+				Value: string(vmi.Spec.Domain.Chassis.Manufacturer),
+			},
+			{
+				Name:  "version",
+				Value: string(vmi.Spec.Domain.Chassis.Version),
+			},
+			{
+				Name:  "serial",
+				Value: string(vmi.Spec.Domain.Chassis.Serial),
+			},
+			{
+				Name:  "asset",
+				Value: string(vmi.Spec.Domain.Chassis.Asset),
+			},
+			{
+				Name:  "sku",
+				Value: string(vmi.Spec.Domain.Chassis.Sku),
+			},
+		}
+	}
+
 	if domain.Spec.Memory, err = QuantityToByte(*getVirtualMemory(vmi)); err != nil {
 		return err
 	}

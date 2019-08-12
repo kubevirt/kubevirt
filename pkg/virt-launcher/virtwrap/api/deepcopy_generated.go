@@ -2372,6 +2372,11 @@ func (in *SysInfo) DeepCopyInto(out *SysInfo) {
 		*out = make([]Entry, len(*in))
 		copy(*out, *in)
 	}
+	if in.Chassis != nil {
+		in, out := &in.Chassis, &out.Chassis
+		*out = make([]Entry, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

@@ -26,6 +26,8 @@ spec:
         resources:
           requests:
             memory: 64M
+        chassis:
+          asset: 123456
       terminationGracePeriodSeconds: 0
       volumes:
       - containerDisk:

@@ -607,6 +607,7 @@ type SysInfo struct {
 	System    []Entry `xml:"system>entry"`
 	BIOS      []Entry `xml:"bios>entry"`
 	BaseBoard []Entry `xml:"baseBoard>entry"`
+	Chassis   []Entry `xml:"chassis>entry"`
 }
 
 type Entry struct {

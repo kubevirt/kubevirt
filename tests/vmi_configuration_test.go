@@ -1857,4 +1857,27 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 	})
+
+	Context("Check Chassis value", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = tests.NewRandomVMI()
+		})
+
+		It("Test Chassis value in a newly created VM", func() {
+			vmi.Spec.Domain.Chassis = &v1.Chassis{
+				Asset: "Test-123",
+			}
+
+			By("Starting a VirtualMachineInstance")
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
+		})
+	})
 })
