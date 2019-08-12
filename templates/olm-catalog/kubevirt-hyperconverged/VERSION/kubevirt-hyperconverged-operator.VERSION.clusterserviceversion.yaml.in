@@ -221,6 +221,16 @@ spec:
             verbs:
             - '*'
           - apiGroups:
+            - monitoring.coreos.com
+            resources:
+            - prometheusrules
+            verbs:
+            - create
+            - get
+            - list
+            - patch
+            - watch
+          - apiGroups:
             - rbac.authorization.k8s.io
             resources:
             - clusterroles
@@ -504,6 +514,11 @@ spec:
         kind: KubevirtTemplateValidator
         displayName: KubeVirt Template Validator
         description: KubeVirt Template Validator
+      - name: kubevirtmetricsaggregations.kubevirt.io
+        version: v1
+        kind: KubevirtMetricsAggregation
+        displayName: KubeVirt Metrics Aggregation Rules
+        description: KubeVirt Metrics Aggregation Rules
       - name: nodemaintenances.kubevirt.io
         version: v1alpha1
         kind: NodeMaintenance
