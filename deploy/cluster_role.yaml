@@ -796,6 +796,16 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - prometheusrules
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - clusterroles
