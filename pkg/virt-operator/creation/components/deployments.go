@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 
 	appsv1 "k8s.io/api/apps/v1"
