@@ -4165,7 +4165,7 @@
     }
    },
    "v1.Chassis": {
-    "description": "Chassis specifies the chassins info passed to the domain.",
+    "description": "Chassis specifies the chassis info passed to the domain.",
     "properties": {
      "asset": {
       "type": "string"
@@ -4519,7 +4519,7 @@
     ],
     "properties": {
      "chassis": {
-      "description": "Chassis specifies the chassins info passed to the domain.\n+optional",
+      "description": "Chassis specifies the chassis info passed to the domain.\n+optional",
       "$ref": "#/definitions/v1.Chassis"
      },
      "clock": {

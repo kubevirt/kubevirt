@@ -291,7 +291,7 @@ func schema_kubevirtio_client_go_api_v1_Chassis(ref common.ReferenceCallback) co
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Chassis specifies the chassins info passed to the domain.",
+				Description: "Chassis specifies the chassis info passed to the domain.",
 				Properties: map[string]spec.Schema{
 					"manufacturer": {
 						SchemaProps: spec.SchemaProps{
@@ -954,7 +954,7 @@ func schema_kubevirtio_client_go_api_v1_DomainSpec(ref common.ReferenceCallback)
 					},
 					"chassis": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Chassis specifies the chassins info passed to the domain.",
+							Description: "Chassis specifies the chassis info passed to the domain.",
 							Ref:         ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Chassis"),
 						},
 					},
