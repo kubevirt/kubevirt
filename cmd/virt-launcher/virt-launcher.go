@@ -292,26 +292,6 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	}
 }
 
-// writeProtectPrivateDir waits until the kubevirt private vnc socket exists and than mark its folder as read only
-// this is a workaround preventing QEMU from deleting its sockets prematurely as described in a bug https://bugs.launchpad.net/qemu/+bug/1795100
-// once the QEMU 4.0 is released the need for this workaround goes away
-// Fixes https://bugzilla.redhat.com/show_bug.cgi?id=1683964
-func writeProtectPrivateDir(uid string) {
-	vncAppeared := false
-	// waits maximum of 20s for vnc file to appear
-	for i := 0; i < 20; i++ {
-		if _, err := os.Stat(filepath.Join("/var/run/kubevirt-private", uid, "virt-vnc")); os.IsNotExist(err) {
-			time.Sleep(1 * time.Second)
-			continue
-		}
-		vncAppeared = true
-		break
-	}
-	if vncAppeared {
-		os.Chmod(filepath.Join("/var/run/kubevirt-private", uid), 0444)
-	}
-}
-
 func cleanupContainerDiskDirectory(ephemeralDiskDir string) {
 	// Cleanup the content of ephemeralDiskDir, to make sure that all containerDisk containers terminate
 	err := RemoveContents(ephemeralDiskDir)
@@ -451,12 +431,6 @@ func main() {
 			gracefulShutdownTriggerFile,
 			*gracePeriodSeconds,
 			shutdownCallback)
-
-		// waits until virt-vnc socket is ready and than mark its parent folder as read only
-		// workaround preventing QEMU from deleting socket prematurely
-		// the code need to be executed after the QEMU reports VM is running, so the wait
-		// for socket creation is the shortest possible
-		go writeProtectPrivateDir(*uid)
 
 		// This is a wait loop that monitors the qemu pid. When the pid
 		// exits, the wait loop breaks.
