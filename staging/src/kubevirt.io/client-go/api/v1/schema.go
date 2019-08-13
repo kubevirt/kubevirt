@@ -170,12 +170,12 @@ type DomainSpec struct {
 	// One of: shared, auto
 	// +optional
 	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
-	// Chassis specifies the chassins info passed to the domain.
+	// Chassis specifies the chassis info passed to the domain.
 	// +optional
 	Chassis *Chassis `json:"chassis,omitempty"`
 }
 
-// Chassis specifies the chassins info passed to the domain.
+// Chassis specifies the chassis info passed to the domain.
 // ---
 // +k8s:openapi-gen=true
 type Chassis struct {
