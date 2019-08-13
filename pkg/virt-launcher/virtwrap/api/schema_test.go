@@ -38,6 +38,7 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
     </system>
     <bios></bios>
     <baseBoard></baseBoard>
+    <chassis></chassis>
   </sysinfo>
   <devices>
     <controller type="raw" index="0" model="none"></controller>
