@@ -53,6 +53,8 @@ const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 
+const debugLogs = "debugLogs"
+
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 const GenieNetworksAnnotation = "cni"
 
@@ -75,6 +77,8 @@ const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
 
 // Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
 const ISTIO_KUBEVIRT_ANNOTATION = "traffic.sidecar.istio.io/kubevirtInterfaces"
+
+const ENV_VAR_LIBVIRT_DEBUG_LOGS = "LIBVIRT_DEBUG_LOGS"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -713,6 +717,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	for networkName, resourceName := range networkToResourceMap {
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
 		container.Env = append(container.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
+	}
+
+	if _, ok := vmi.Labels[debugLogs]; ok {
+		container.Env = append(container.Env, k8sv1.EnvVar{Name: ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: "1"})
 	}
 
 	containers = append(containers, container)
