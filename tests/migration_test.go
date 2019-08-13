@@ -228,19 +228,21 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 		By("Waiting until the Migration Completes")
 
 		uid := ""
-		Eventually(func() bool {
+		Eventually(func() error {
 			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
-			Expect(err).To(BeNil())
+			if err != nil {
+				return err
+			}
 
 			Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed))
 
 			uid = string(migration.UID)
 			if migration.Status.Phase == v1.MigrationSucceeded {
-				return true
+				return nil
 			}
-			return false
+			return fmt.Errorf("Migration is in the phase: %s", migration.Status.Phase)
 
-		}, timeout, 1*time.Second).Should(BeTrue())
+		}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
 		return uid
 	}
 	runAndCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, timeout int) string {
