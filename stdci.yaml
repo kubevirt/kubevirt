@@ -1,6 +1,7 @@
 sub-stages:
-  - k8s-1.11.0
+  - k8s-1.15.1
   - os-3.11.0
+  - okd-4.1.0
 
 runtime_requirements:
   support_nesting_level: 2

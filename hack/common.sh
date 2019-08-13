@@ -17,17 +17,24 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
+set -e
+
 source hack/defaults
 
 CDI_OPERATOR_URL="https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator.yaml"
 KUBEVIRT_OPERATOR_URL="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-operator.yaml"
 CNA_URL_PREFIX="https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}"
 
+mem_size=${KUBEVIRT_MEMORY_SIZE:-5120M}
+num_nodes=${KUBEVIRT_NUM_NODES:-1}
+KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.13.3}
+BASE_PATH=${KUBEVIRTCI_CONFIG_PATH:-$PWD}
+
 # Change 'master' to '${SSP_MANIFEST_VERSION}' when ssp will release a new version (newer than v1.0.0)
 # ( SSP v1.0.0 has problems that were fixed on master )
 SSP_URL_PREFIX="https://raw.githubusercontent.com/MarSik/kubevirt-ssp-operator/master/cluster/${SSP_MANIFEST_VERSION:1}"
 
-KUBECTL=$(which kubectl 2> /dev/null)
+KUBECTL=$(which kubectl 2> /dev/null) || true
 
 if [ -z "${CMD}" ]; then
     if [ -z "${KUBECTL}" ] ; then

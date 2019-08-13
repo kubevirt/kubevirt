@@ -133,7 +133,7 @@ $ make cluster-up
 $ make cluster-sync
 ```
 ### Command-Line Tool
-Use `./cluster/kubectl.sh` as the command-line tool. for example:
+Use `./cluster-up/kubectl.sh` as the command-line tool. for example:
 ```bash
-$ ./cluster/kubectl.sh get pods --all-namespaces
+$ ./cluster-up/kubectl.sh get pods --all-namespaces
 ```

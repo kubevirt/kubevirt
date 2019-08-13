@@ -17,6 +17,8 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
+set -e
+
 source hack/common.sh
 
 HCO_IMAGE=${HCO_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:latest}

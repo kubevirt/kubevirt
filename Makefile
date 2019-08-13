@@ -42,16 +42,16 @@ container-push-operator:
 	docker push $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG)
 
 cluster-up:
-	./cluster/up.sh
+	./cluster-up/up.sh
 
 cluster-down:
-	./cluster/down.sh
+	./cluster-up/down.sh
 
 cluster-sync:
-	./cluster/sync.sh
+	./cluster-up/sync.sh
 
 cluster-clean:
-	CMD="./cluster/kubectl.sh" ./hack/clean.sh
+	CMD="./cluster-up/kubectl.sh" ./hack/clean.sh
 
 functest:
 	./hack/functest.sh
