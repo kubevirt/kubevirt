@@ -1,9 +1,7 @@
 package releases
 
 import (
-	"bytes"
 	"fmt"
-	"os/exec"
 	"sort"
 
 	"github.com/blang/semver"
@@ -11,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	opv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
+	. "github.com/kubevirt/cluster-network-addons-operator/test/kubectl"
 	. "github.com/kubevirt/cluster-network-addons-operator/test/operations"
 )
 
@@ -61,7 +60,7 @@ func LatestRelease() Release {
 func InstallRelease(release Release) {
 	By(fmt.Sprintf("Installing release %s", release.Version))
 	for _, manifestName := range release.Manifests {
-		out, err := kubectl("apply", "-f", "_out/cluster-network-addons/"+release.Version+"/"+manifestName)
+		out, err := Kubectl("apply", "-f", "_out/cluster-network-addons/"+release.Version+"/"+manifestName)
 		Expect(err).NotTo(HaveOccurred(), out)
 	}
 }
@@ -70,7 +69,7 @@ func InstallRelease(release Release) {
 func UninstallRelease(release Release) {
 	By(fmt.Sprintf("Uninstalling release %s", release.Version))
 	for _, manifestName := range release.Manifests {
-		out, err := kubectl("delete", "--ignore-not-found", "-f", "_out/cluster-network-addons/"+release.Version+"/"+manifestName)
+		out, err := Kubectl("delete", "--ignore-not-found", "-f", "_out/cluster-network-addons/"+release.Version+"/"+manifestName)
 		Expect(err).NotTo(HaveOccurred(), out)
 	}
 }
@@ -96,13 +95,4 @@ func sortContainers(containers []opv1alpha1.Container) []opv1alpha1.Container {
 			sort.StringsAreSorted([]string{containers[a].Name, containers[b].Name}))
 	})
 	return containers
-}
-
-func kubectl(command ...string) (string, error) {
-	var stdout, stderr bytes.Buffer
-	cmd := exec.Command("./cluster/kubectl.sh", command...)
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
-	err := cmd.Run()
-	return stdout.String() + stderr.String(), err
 }

@@ -1,19 +1,18 @@
 package check
 
 import (
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
-
-	opv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 )
 
-type ConditionType opv1alpha1.NetworkAddonsConditionType
+type ConditionType conditionsv1.ConditionType
 
 type ConditionStatus corev1.ConditionStatus
 
 const (
-	ConditionAvailable   = ConditionType(opv1alpha1.NetworkAddonsConditionAvailable)
-	ConditionProgressing = ConditionType(opv1alpha1.NetworkAddonsConditionProgressing)
-	ConditionFailing     = ConditionType(opv1alpha1.NetworkAddonsConditionFailing)
+	ConditionAvailable   = ConditionType(conditionsv1.ConditionAvailable)
+	ConditionProgressing = ConditionType(conditionsv1.ConditionProgressing)
+	ConditionDegraded    = ConditionType(conditionsv1.ConditionDegraded)
 
 	ConditionTrue  = ConditionStatus(corev1.ConditionTrue)
 	ConditionFalse = ConditionStatus(corev1.ConditionFalse)

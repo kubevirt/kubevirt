@@ -56,6 +56,13 @@ metadata:
           }
         },
         {
+          "apiVersion": "kubevirtmetricsaggregations.kubevirt.io/v1",
+          "kind": "KubevirtMetricsAggregation",
+          "metadata": {
+            "name": "metrics-aggregation"
+          }
+        },
+        {
           "apiVersion": "kubevirt.io/v1alpha1",
           "kind": "NodeMaintenance",
           "metadata": {
@@ -71,7 +78,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-08-08 12:33:53.248708074 -0400 EDT m=+0.033000356
+    createdAt: 2019-08-14 12:53:24.12037478 +0200 CEST m=+0.016872655
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -961,6 +968,14 @@ spec:
               - list
               - watch
             - apiGroups:
+              - operator.openshift.io
+              resources:
+              - networks
+              verbs:
+              - get
+              - list
+              - watch
+            - apiGroups:
               - networkaddonsoperator.network.kubevirt.io
               resources:
               - networkaddonsconfigs
@@ -985,6 +1000,16 @@ spec:
             - '*'
             verbs:
             - '*'
+          - apiGroups:
+            - monitoring.coreos.com
+            resources:
+            - prometheusrules
+            verbs:
+            - create
+            - get
+            - list
+            - patch
+            - watch
           - apiGroups:
             - rbac.authorization.k8s.io
             resources:
@@ -1306,28 +1331,23 @@ spec:
                   - name: MULTUS_IMAGE
                     value: quay.io/kubevirt/cluster-network-addon-multus:v3.2.0-1.gitbf61002
                   - name: LINUX_BRIDGE_IMAGE
-                    value: quay.io/kubevirt/cni-default-plugins:v0.8.0
+                    value: quay.io/kubevirt/cni-default-plugins:v0.8.1
                   - name: LINUX_BRIDGE_MARKER_IMAGE
-                    value: quay.io/kubevirt/bridge-marker:0.1.0
-                  - name: SRIOV_DP_IMAGE
-                    value: quay.io/kubevirt/cluster-network-addon-sriov-device-plugin:v2.0.0-1.git9a20829
-                  - name: SRIOV_CNI_IMAGE
-                    value: quay.io/kubevirt/cluster-network-addon-sriov-cni:v1.1.0-1.git9e4c973
+                    value: quay.io/kubevirt/bridge-marker:0.2.0
                   - name: NMSTATE_HANDLER_IMAGE
-                    value: quay.io/nmstate/kubernetes-nmstate-handler:v0.3.0
-                  - name: SRIOV_ROOT_DEVICES
-                  - name: SRIOV_NETWORK_NAME
-                    value: sriov-network
-                  - name: SRIOV_NETWORK_TYPE
-                    value: sriov
+                    value: quay.io/nmstate/kubernetes-nmstate-handler:v0.6.0
+                  - name: OVS_CNI_IMAGE
+                    value: quay.io/kubevirt/ovs-cni-plugin:v0.6.0
+                  - name: OVS_MARKER_IMAGE
+                    value: quay.io/kubevirt/ovs-cni-marker:v0.6.0
                   - name: KUBEMACPOOL_IMAGE
-                    value: quay.io/kubevirt/kubemacpool:v0.3.0
+                    value: quay.io/kubevirt/kubemacpool:v0.4.0
                   - name: OPERATOR_IMAGE
-                    value: quay.io/kubevirt/cluster-network-addons-operator:0.11.0
+                    value: quay.io/kubevirt/cluster-network-addons-operator:0.12.0
                   - name: OPERATOR_NAME
                     value: cluster-network-addons-operator
                   - name: OPERATOR_VERSION
-                    value: 0.11.0
+                    value: 0.12.0
                   - name: OPERATOR_NAMESPACE
                     valueFrom:
                       fieldRef:
@@ -1337,7 +1357,7 @@ spec:
                       fieldRef:
                         fieldPath: metadata.name
                   - name: WATCH_NAMESPACE
-                  image: quay.io/kubevirt/cluster-network-addons-operator:0.11.0
+                  image: quay.io/kubevirt/cluster-network-addons-operator:0.12.0
                   imagePullPolicy: IfNotPresent
                   name: cluster-network-addons-operator
                   resources: {}
@@ -1402,7 +1422,7 @@ spec:
                         fieldPath: metadata.name
                   - name: OPERATOR_NAME
                     value: node-maintenance-operator
-                  image: quay.io/kubevirt/node-maintenance-operator:v0.3.0
+                  image: quay.io/kubevirt/node-maintenance-operator:v0.4.0
                   imagePullPolicy: Always
                   name: node-maintenance-operator
                   resources: {}
@@ -1449,6 +1469,11 @@ spec:
         kind: KubevirtTemplateValidator
         displayName: KubeVirt Template Validator
         description: KubeVirt Template Validator
+      - name: kubevirtmetricsaggregations.kubevirt.io
+        version: v1
+        kind: KubevirtMetricsAggregation
+        displayName: KubeVirt Metrics Aggregation Rules
+        description: KubeVirt Metrics Aggregation Rules
       - name: nodemaintenances.kubevirt.io
         version: v1alpha1
         kind: NodeMaintenance

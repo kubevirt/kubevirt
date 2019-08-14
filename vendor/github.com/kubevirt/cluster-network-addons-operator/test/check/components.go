@@ -45,13 +45,15 @@ var (
 		SecurityContextConstraints: "nmstate",
 		DaemonSets:                 []string{"nmstate-handler"},
 	}
-	SriovComponent = Component{
-		ComponentName:              "SR-IOV",
-		Namespace:                  "sriov",
-		SecurityContextConstraints: "sriov",
+
+	OvsComponent = Component{
+		ComponentName:              "Ovs",
+		Namespace:                  "ovs",
+		ClusterRole:                "ovs-cni-marker-cr",
+		ClusterRoleBinding:         "ovs-cni-marker-crb",
+		SecurityContextConstraints: "ovs-cni-marker",
 		DaemonSets: []string{
-			"kube-sriov-cni-plugin",
-			"kube-sriov-device-plugin",
+			"ovs-cni-amd64",
 		},
 	}
 	AllComponents = []Component{
@@ -59,6 +61,6 @@ var (
 		LinuxBridgeComponent,
 		MultusComponent,
 		NMStateComponent,
-		SriovComponent,
+		OvsComponent,
 	}
 )

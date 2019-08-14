@@ -66,10 +66,10 @@ func IsChangeSafe(prev, next *opv1alpha1.NetworkAddonsConfigSpec) error {
 
 	errs = append(errs, changeSafeMultus(prev, next)...)
 	errs = append(errs, changeSafeLinuxBridge(prev, next)...)
-	errs = append(errs, changeSafeSriov(prev, next)...)
 	errs = append(errs, changeSafeKubeMacPool(prev, next)...)
 	errs = append(errs, changeSafeImagePullPolicy(prev, next)...)
 	errs = append(errs, changeSafeNMState(prev, next)...)
+	errs = append(errs, changeSafeOvs(prev, next)...)
 
 	if len(errs) > 0 {
 		return errors.Errorf("invalid configuration:\n%s", errorListToMultiLineString(errs))
@@ -95,13 +95,6 @@ func Render(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir string, opensh
 	}
 	objs = append(objs, o...)
 
-	// render SR-IOV
-	o, err = renderSriov(conf, manifestDir, clusterInfo)
-	if err != nil {
-		return nil, err
-	}
-	objs = append(objs, o...)
-
 	// render kubeMacPool
 	o, err = renderKubeMacPool(conf, manifestDir)
 	if err != nil {
@@ -111,6 +104,13 @@ func Render(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir string, opensh
 
 	// render NMState
 	o, err = renderNMState(conf, manifestDir, clusterInfo)
+	if err != nil {
+		return nil, err
+	}
+	objs = append(objs, o...)
+
+	// render Ovs
+	o, err = renderOvs(conf, manifestDir, clusterInfo)
 	if err != nil {
 		return nil, err
 	}

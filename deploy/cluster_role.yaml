@@ -767,6 +767,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - operator.openshift.io
+  resources:
+  - networks
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - networkaddonsoperator.network.kubevirt.io
   resources:
   - networkaddonsconfigs

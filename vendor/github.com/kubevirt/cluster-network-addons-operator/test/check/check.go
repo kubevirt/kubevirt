@@ -2,13 +2,16 @@ package check
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	securityapi "github.com/openshift/origin/pkg/security/apis/security"
 	framework "github.com/operator-framework/operator-sdk/pkg/test"
 	"gopkg.in/yaml.v2"
@@ -153,9 +156,16 @@ func CheckForLeftoverObjects(currentVersion string) {
 	Expect(namespaces.Items).To(BeEmpty(), "Found leftover objects from the previous operator version")
 
 	secrets := corev1.SecretList{}
+	copyList := []corev1.Secret{}
 	err = framework.Global.Client.List(context.Background(), &listOptions, &secrets)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(secrets.Items).To(BeEmpty(), "Found leftover objects from the previous operator version")
+	// TODO: remove this after fixing https://github.com/kubevirt/cluster-network-addons-operator/issues/190
+	for _, secret := range secrets.Items {
+		if secret.Name != "kubemacpool-webhook-secret" {
+			copyList = append(copyList, secret)
+		}
+	}
+	Expect(copyList).To(BeEmpty(), "Found leftover objects from the previous operator version")
 
 	clusterRoles := rbacv1.ClusterRoleList{}
 	err = framework.Global.Client.List(context.Background(), &listOptions, &clusterRoles)
@@ -387,11 +397,11 @@ func isNotFound(componentType string, componentName string, clientGetOutput erro
 
 func checkConfigCondition(conf *opv1alpha1.NetworkAddonsConfig, conditionType ConditionType, conditionStatus ConditionStatus) error {
 	for _, condition := range conf.Status.Conditions {
-		if condition.Type == opv1alpha1.NetworkAddonsConditionType(conditionType) {
+		if condition.Type == conditionsv1.ConditionType(conditionType) {
 			if condition.Status == corev1.ConditionStatus(conditionStatus) {
 				return nil
 			}
-			return fmt.Errorf("condition %q is not in expected state %q", conditionType, conditionStatus)
+			return fmt.Errorf("condition %q is not in expected state %q, obtained state %q, obtained config %v", conditionType, conditionStatus, condition.Status, configToYaml(conf))
 		}
 	}
 
@@ -413,4 +423,47 @@ func configToYaml(config *opv1alpha1.NetworkAddonsConfig) string {
 		panic(err)
 	}
 	return string(manifest)
+}
+
+// CheckUnicast return an error in case that the given addresses support multicast or is invalid.
+func CheckUnicastAndValidity() (string, string) {
+	rangeStart, rangeEnd := retrieveRange()
+	parsedRangeStart, err := net.ParseMAC(rangeStart)
+	Expect(err).ToNot(HaveOccurred())
+	checkUnicast(parsedRangeStart)
+
+	parsedRangeEnd, err := net.ParseMAC(rangeEnd)
+	Expect(err).ToNot(HaveOccurred())
+	checkUnicast(parsedRangeEnd)
+	return rangeStart, rangeEnd
+}
+
+func checkUnicast(mac net.HardwareAddr) {
+	// A bitwise AND between 00000001 and the mac address first octet.
+	// In case where the LSB of the first octet (the multicast bit) is on, it will return 1, and 0 otherwise.
+	multicastBit := 1 & mac[0]
+	Expect(multicastBit).ToNot(BeNumerically("==", 1), "invalid mac address. Multicast addressing is not supported. Unicast addressing must be used. The first octet is %#0X", mac[0])
+}
+
+func retrieveRange() (string, string) {
+	configMap := &corev1.ConfigMap{}
+	Eventually(func() error {
+
+		return framework.Global.Client.Get(context.TODO(),
+			types.NamespacedName{Namespace: components.Namespace, Name: names.APPLIED_PREFIX + names.OPERATOR_CONFIG}, configMap)
+
+	}, 50*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
+
+	appliedData, exist := configMap.Data["applied"]
+	Expect(exist).To(BeTrue(), "applied data not found in configMap")
+
+	appliedConfig := &opv1alpha1.NetworkAddonsConfigSpec{}
+	err := json.Unmarshal([]byte(appliedData), appliedConfig)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(appliedConfig.KubeMacPool).ToNot(BeNil(), "kubemacpool config doesn't exist")
+
+	rangeStart := appliedConfig.KubeMacPool.RangeStart
+	rangeEnd := appliedConfig.KubeMacPool.RangeEnd
+	return rangeStart, rangeEnd
 }
