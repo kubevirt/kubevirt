@@ -27,7 +27,7 @@ CNA_URL_PREFIX="https://github.com/kubevirt/cluster-network-addons-operator/rele
 
 mem_size=${KUBEVIRT_MEMORY_SIZE:-5120M}
 num_nodes=${KUBEVIRT_NUM_NODES:-1}
-KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.13.3}
+KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.15.1}
 BASE_PATH=${KUBEVIRTCI_CONFIG_PATH:-$PWD}
 
 # Change 'master' to '${SSP_MANIFEST_VERSION}' when ssp will release a new version (newer than v1.0.0)

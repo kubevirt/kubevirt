@@ -115,25 +115,35 @@ kubectl create -f deploy/hco.cr.yaml -n kubevirt-hyperconverged
 ```
 
 ## Create a Cluster & Launch the HCO
-1. Navigate to the project's directory
+1. Choose the provider  
+```bash
+#For k8s cluster:  
+$ export KUBEVIRT_PROVIDER="k8s-1.15.1"
+```
+```bash
+#For okd cluster:
+$ export KUBEVIRT_PROVIDER="okd-4.1.0"
+```
+2. Navigate to the project's directory
 ```bash
 $ cd <path>/hyperconverged-cluster-opertor
 ```
-2. Remove an old cluster
+3. Remove an old cluster
 ```bash
 $ make cluster-down
 ```
-3. Create a new cluster
+4. Create a new cluster
 ```bash
 $ make cluster-up
 ```
-4. Clean previous HCO deployment and re-deploy HCO \
+5. Clean previous HCO deployment and re-deploy HCO \
    (When making a change, execute only this command - no need to repeat steps 1-3)
 ```bash
 $ make cluster-sync
 ```
 ### Command-Line Tool
-Use `./cluster-up/kubectl.sh` as the command-line tool. for example:
+Use `./cluster-up/kubectl.sh` as the command-line tool.  
+For example:
 ```bash
 $ ./cluster-up/kubectl.sh get pods --all-namespaces
 ```
