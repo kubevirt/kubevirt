@@ -62,7 +62,7 @@ stageRegistry:
 bundleRegistry:
 	REGISTRY_NAMESPACE=$(REGISTRY_NAMESPACE) IMAGE_REGISTRY=$(IMAGE_REGISTRY) ./hack/build-registry-bundle.sh
 
-build-push-all: docker-build-operator docker-push-operator docker-build-operator-courier bundle-push
+build-push-all: container-build-operator container-push-operator container-build-operator-courier bundle-push
 
 help: ## Show this help screen
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'
