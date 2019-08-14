@@ -27,9 +27,12 @@ package isolation
 
 import (
 	"bufio"
+	"encoding/csv"
 	"fmt"
+	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -45,14 +48,43 @@ type PodIsolationDetector interface {
 	// It returns an IsolationResult containing all isolation information
 	Detect(vm *v1.VirtualMachineInstance) (*IsolationResult, error)
 
+	DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (*IsolationResult, error)
+
 	// Whitelist allows specifying cgroup controller which should be considered to detect the cgroup slice
 	// It returns a PodIsolationDetector to allow configuring the PodIsolationDetector via the builder pattern.
 	Whitelist(controller []string) PodIsolationDetector
 }
 
+type MountInfo struct {
+	DeviceContainingFile string
+	Root                 string
+	MountPoint           string
+}
+
 type socketBasedIsolationDetector struct {
 	socketDir  string
 	controller []string
+}
+
+func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (*IsolationResult, error) {
+	var pid int
+	var slice string
+	var err error
+	var controller []string
+
+	if pid, err = s.getPid(socket); err != nil {
+		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
+		return nil, err
+
+	}
+
+	// Look up the cgroup slice based on the whitelisted controller
+	if controller, slice, err = s.getSlice(pid); err != nil {
+		log.Log.Object(vm).Reason(err).Errorf("Could not get cgroup slice for Pid %d", pid)
+		return nil, err
+	}
+
+	return NewIsolationResult(pid, slice, controller), nil
 }
 
 // NewSocketBasedIsolationDetector takes socketDir and creates a socket based IsolationDetector
@@ -77,7 +109,6 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (*I
 	if pid, err = s.getPid(socket); err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
 		return nil, err
-
 	}
 
 	// Look up the cgroup slice based on the whitelisted controller
@@ -105,6 +136,129 @@ func (r *IsolationResult) Slice() string {
 
 func (r *IsolationResult) PIDNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/pid", r.pid)
+}
+
+func (r *IsolationResult) MountNamespace() string {
+	return fmt.Sprintf("/proc/%d/ns/mnt", r.pid)
+}
+
+func (r *IsolationResult) mountInfo() string {
+	return fmt.Sprintf("/proc/%d/mountinfo", r.pid)
+}
+
+// MountInfoRoot returns information about the root entry in /proc/mountinfo
+func (r *IsolationResult) MountInfoRoot() (*MountInfo, error) {
+	in, err := os.Open(r.mountInfo())
+	if err != nil {
+		return nil, fmt.Errorf("could not open mountinfo: %v", err)
+	}
+	defer in.Close()
+	c := csv.NewReader(in)
+	c.Comma = ' '
+	c.LazyQuotes = true
+	for {
+		record, err := c.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			if e, ok := err.(*csv.ParseError); ok {
+				if e.Err != csv.ErrFieldCount {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		}
+
+		if record[3] == "/" && record[4] == "/" {
+			return &MountInfo{
+				DeviceContainingFile: record[2],
+				Root:                 record[3],
+				MountPoint:           record[4],
+			}, nil
+		}
+	}
+
+	//impossible
+	return nil, fmt.Errorf("process has no root entry")
+}
+
+// IsMounted checks if a path in the mount namespace of a
+// given process isolation result is a mount point. Works with symlinks.
+func (r *IsolationResult) IsMounted(mountPoint string) (bool, error) {
+	mountPoint, err := filepath.EvalSymlinks(mountPoint)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("could not resolve mount point path: %v", err)
+	}
+	in, err := os.Open(r.mountInfo())
+	if err != nil {
+		return false, fmt.Errorf("could not open mountinfo: %v", err)
+	}
+	defer in.Close()
+	c := csv.NewReader(in)
+	c.Comma = ' '
+	c.LazyQuotes = true
+	for {
+		record, err := c.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			if e, ok := err.(*csv.ParseError); ok {
+				if e.Err != csv.ErrFieldCount {
+					return false, err
+				}
+			} else {
+				return false, err
+			}
+		}
+
+		if record[4] == mountPoint {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// ParentMountInfoFor takes the mount info from a container, and looks the corresponding
+// entry in /proc/mountinfo of the isolation result of the given process.
+func (r *IsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (*MountInfo, error) {
+	in, err := os.Open(r.mountInfo())
+	if err != nil {
+		return nil, fmt.Errorf("could not open mountinfo: %v", err)
+	}
+	defer in.Close()
+	c := csv.NewReader(in)
+	c.Comma = ' '
+	c.LazyQuotes = true
+	for {
+		record, err := c.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			if e, ok := err.(*csv.ParseError); ok {
+				if e.Err != csv.ErrFieldCount {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		}
+
+		if record[2] == mountInfo.DeviceContainingFile {
+			return &MountInfo{
+				DeviceContainingFile: record[2],
+				Root:                 record[3],
+				MountPoint:           record[4],
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("no parent entry for %v found in the mount namespace of %d", mountInfo.DeviceContainingFile, r.pid)
 }
 
 func (r *IsolationResult) NetNamespace() string {

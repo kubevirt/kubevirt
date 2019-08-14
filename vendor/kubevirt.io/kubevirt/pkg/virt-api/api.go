@@ -46,7 +46,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/client-go/version"
+	virtversion "kubevirt.io/client-go/version"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
@@ -90,6 +90,8 @@ const (
 	certBytesValue        = "cert-bytes"
 	keyBytesValue         = "key-bytes"
 	signingCertBytesValue = "signing-cert-bytes"
+
+	defaultConsoleServerPort = 8186
 )
 
 type VirtApi interface {
@@ -110,11 +112,12 @@ type virtAPIApp struct {
 	certsDirectory   string
 	clusterConfig    *virtconfig.ClusterConfig
 
-	signingCertBytes []byte
-	certBytes        []byte
-	keyBytes         []byte
-	namespace        string
-	tlsConfig        *tls.Config
+	signingCertBytes  []byte
+	certBytes         []byte
+	keyBytes          []byte
+	namespace         string
+	tlsConfig         *tls.Config
+	consoleServerPort int
 }
 
 var _ service.Service = &virtAPIApp{}
@@ -168,14 +171,17 @@ func subresourceAPIGroup() metav1.APIGroup {
 	apiGroup := metav1.APIGroup{
 		Name: "subresource.kubevirt.io",
 		PreferredVersion: metav1.GroupVersionForDiscovery{
-			GroupVersion: v1.SubresourceGroupVersion.Group + "/" + v1.SubresourceGroupVersion.Version,
-			Version:      v1.SubresourceGroupVersion.Version,
+			GroupVersion: v1.SubresourceGroupVersions[0].Group + "/" + v1.SubresourceGroupVersions[0].Version,
+			Version:      v1.SubresourceGroupVersions[0].Version,
 		},
 	}
-	apiGroup.Versions = append(apiGroup.Versions, metav1.GroupVersionForDiscovery{
-		GroupVersion: v1.SubresourceGroupVersion.Group + "/" + v1.SubresourceGroupVersion.Version,
-		Version:      v1.SubresourceGroupVersion.Version,
-	})
+
+	for _, version := range v1.SubresourceGroupVersions {
+		apiGroup.Versions = append(apiGroup.Versions, metav1.GroupVersionForDiscovery{
+			GroupVersion: version.Group + "/" + version.Version,
+			Version:      version.Version,
+		})
+	}
 	apiGroup.ServerAddressByClientCIDRs = append(apiGroup.ServerAddressByClientCIDRs, metav1.ServerAddressByClientCIDR{
 		ClientCIDR:    "0.0.0.0/0",
 		ServerAddress: "",
@@ -186,137 +192,142 @@ func subresourceAPIGroup() metav1.APIGroup {
 
 func (app *virtAPIApp) composeSubresources() {
 
-	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachines"}
-	subresourcesvmiGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachineinstances"}
+	var subwss []*restful.WebService
 
-	subws := new(restful.WebService)
-	subws.Doc("The KubeVirt Subresource API.")
-	subws.Path(rest.GroupVersionBasePath(v1.SubresourceGroupVersion))
+	for _, version := range v1.SubresourceGroupVersions {
+		subresourcesvmGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: "virtualmachines"}
+		subresourcesvmiGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: "virtualmachineinstances"}
 
-	subresourceApp := &rest.SubresourceAPIApp{
-		VirtCli: app.virtCli,
+		subws := new(restful.WebService)
+		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
+		subws.Path(rest.GroupVersionBasePath(version))
+
+		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort)
+
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("restart")).
+			To(subresourceApp.RestartVMRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("restart").
+			Doc("Restart a VirtualMachine object.").
+			Returns(http.StatusOK, "OK", nil).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			Returns(http.StatusBadRequest, "Bad Request", nil))
+
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("start")).
+			To(subresourceApp.StartVMRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("start").
+			Doc("Start a VirtualMachine object.").
+			Returns(http.StatusOK, "OK", nil).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			Returns(http.StatusBadRequest, "Bad Request", nil))
+
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("stop")).
+			To(subresourceApp.StopVMRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("stop").
+			Doc("Stop a VirtualMachine object.").
+			Returns(http.StatusOK, "OK", nil).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			Returns(http.StatusBadRequest, "Bad Request", nil))
+
+		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("console")).
+			To(subresourceApp.ConsoleRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("console").
+			Doc("Open a websocket connection to a serial console on the specified VirtualMachineInstance."))
+
+		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("vnc")).
+			To(subresourceApp.VNCRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("vnc").
+			Doc("Open a websocket connection to connect to VNC on the specified VirtualMachineInstance."))
+
+		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("test")).
+			To(func(request *restful.Request, response *restful.Response) {
+				response.WriteHeader(http.StatusOK)
+			}).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("test").
+			Doc("Test endpoint verifying apiserver connectivity."))
+
+		subws.Route(subws.GET(rest.SubResourcePath("version")).Produces(restful.MIME_JSON).
+			To(func(request *restful.Request, response *restful.Response) {
+				response.WriteAsJson(virtversion.Get())
+			}).Operation("version"))
+
+		subws.Route(subws.GET(rest.SubResourcePath("healthz")).
+			To(healthz.KubeConnectionHealthzFunc).
+			Consumes(restful.MIME_JSON).
+			Produces(restful.MIME_JSON).
+			Operation("checkHealth").
+			Doc("Health endpoint").
+			Returns(http.StatusOK, "OK", nil).
+			Returns(http.StatusInternalServerError, "Unhealthy", nil))
+
+		// Return empty api resource list.
+		// K8s expects to be able to retrieve a resource list for each aggregated
+		// app in order to discover what resources it provides. Without returning
+		// an empty list here, there's a bug in the k8s resource discovery that
+		// breaks kubectl's ability to reference short names for resources.
+		subws.Route(subws.GET("/").
+			Produces(restful.MIME_JSON).Writes(metav1.APIResourceList{}).
+			To(func(request *restful.Request, response *restful.Response) {
+				list := &metav1.APIResourceList{}
+
+				list.Kind = "APIResourceList"
+				list.GroupVersion = version.Group + "/" + version.Version
+				list.APIVersion = version.Version
+				list.APIResources = []metav1.APIResource{
+					{
+						Name:       "virtualmachineinstances/vnc",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachines/restart",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachines/start",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachines/stop",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/console",
+						Namespaced: true,
+					},
+				}
+
+				response.WriteAsJson(list)
+			}).
+			Operation("getAPIResources").
+			Doc("Get a KubeVirt API resources").
+			Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
+			Returns(http.StatusNotFound, "Not Found", nil))
+
+		restful.Add(subws)
+
+		subwss = append(subwss, subws)
 	}
-
-	subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("restart")).
-		To(subresourceApp.RestartVMRequestHandler).
-		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-		Operation("restart").
-		Doc("Restart a VirtualMachine object.").
-		Returns(http.StatusOK, "OK", nil).
-		Returns(http.StatusNotFound, "Not Found", nil).
-		Returns(http.StatusBadRequest, "Bad Request", nil))
-
-	subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("start")).
-		To(subresourceApp.StartVMRequestHandler).
-		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-		Operation("start").
-		Doc("Start a VirtualMachine object.").
-		Returns(http.StatusOK, "OK", nil).
-		Returns(http.StatusNotFound, "Not Found", nil).
-		Returns(http.StatusBadRequest, "Bad Request", nil))
-
-	subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("stop")).
-		To(subresourceApp.StopVMRequestHandler).
-		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-		Operation("stop").
-		Doc("Stop a VirtualMachine object.").
-		Returns(http.StatusOK, "OK", nil).
-		Returns(http.StatusNotFound, "Not Found", nil).
-		Returns(http.StatusBadRequest, "Bad Request", nil))
-
-	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("console")).
-		To(subresourceApp.ConsoleRequestHandler).
-		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-		Operation("console").
-		Doc("Open a websocket connection to a serial console on the specified VirtualMachineInstance."))
-
-	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("vnc")).
-		To(subresourceApp.VNCRequestHandler).
-		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-		Operation("vnc").
-		Doc("Open a websocket connection to connect to VNC on the specified VirtualMachineInstance."))
-
-	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("test")).
-		To(func(request *restful.Request, response *restful.Response) {
-			response.WriteHeader(http.StatusOK)
-		}).
-		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
-		Operation("test").
-		Doc("Test endpoint verifying apiserver connectivity."))
-
-	subws.Route(subws.GET(rest.SubResourcePath("version")).Produces(restful.MIME_JSON).
-		To(func(request *restful.Request, response *restful.Response) {
-			response.WriteAsJson(version.Get())
-		}).Operation("version"))
-
-	subws.Route(subws.GET(rest.SubResourcePath("healthz")).
-		To(healthz.KubeConnectionHealthzFunc).
-		Consumes(restful.MIME_JSON).
-		Produces(restful.MIME_JSON).
-		Operation("checkHealth").
-		Doc("Health endpoint").
-		Returns(http.StatusOK, "OK", nil).
-		Returns(http.StatusInternalServerError, "Unhealthy", nil))
-
-	// Return empty api resource list.
-	// K8s expects to be able to retrieve a resource list for each aggregated
-	// app in order to discover what resources it provides. Without returning
-	// an empty list here, there's a bug in the k8s resource discovery that
-	// breaks kubectl's ability to reference short names for resources.
-	subws.Route(subws.GET("/").
-		Produces(restful.MIME_JSON).Writes(metav1.APIResourceList{}).
-		To(func(request *restful.Request, response *restful.Response) {
-			list := &metav1.APIResourceList{}
-
-			list.Kind = "APIResourceList"
-			list.GroupVersion = v1.SubresourceGroupVersion.Group + "/" + v1.SubresourceGroupVersion.Version
-			list.APIVersion = v1.SubresourceGroupVersion.Version
-			list.APIResources = []metav1.APIResource{
-				{
-					Name:       "virtualmachineinstances/vnc",
-					Namespaced: true,
-				},
-				{
-					Name:       "virtualmachines/restart",
-					Namespaced: true,
-				},
-				{
-					Name:       "virtualmachines/start",
-					Namespaced: true,
-				},
-				{
-					Name:       "virtualmachines/stop",
-					Namespaced: true,
-				},
-				{
-					Name:       "virtualmachineinstances/console",
-					Namespaced: true,
-				},
-			}
-
-			response.WriteAsJson(list)
-		}).
-		Operation("getAPIResources").
-		Doc("Get a KubeVirt API resources").
-		Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
-		Returns(http.StatusNotFound, "Not Found", nil))
-
-	restful.Add(subws)
-
 	ws := new(restful.WebService)
 
 	// K8s needs the ability to query the root paths
 	ws.Route(ws.GET("/").
 		Produces(restful.MIME_JSON).Writes(metav1.RootPaths{}).
 		To(func(request *restful.Request, response *restful.Response) {
+			paths := []string{"/apis",
+				"/apis/",
+				"/openapi/v2",
+			}
+			for _, version := range v1.SubresourceGroupVersions {
+				paths = append(paths, rest.GroupBasePath(version))
+				paths = append(paths, rest.GroupVersionBasePath(version))
+			}
 			response.WriteAsJson(&metav1.RootPaths{
-				Paths: []string{
-					"/apis",
-					"/apis/",
-					rest.GroupBasePath(v1.SubresourceGroupVersion),
-					rest.GroupVersionBasePath(v1.SubresourceGroupVersion),
-					"/openapi/v2",
-				},
+				Paths: paths,
 			})
 		}).
 		Operation("getRootPaths").
@@ -324,16 +335,18 @@ func (app *virtAPIApp) composeSubresources() {
 		Returns(http.StatusOK, "OK", metav1.RootPaths{}).
 		Returns(http.StatusNotFound, "Not Found", nil))
 
-	// K8s needs the ability to query info about a specific API group
-	ws.Route(ws.GET(rest.GroupBasePath(v1.SubresourceGroupVersion)).
-		Produces(restful.MIME_JSON).Writes(metav1.APIGroup{}).
-		To(func(request *restful.Request, response *restful.Response) {
-			response.WriteAsJson(subresourceAPIGroup())
-		}).
-		Operation("getAPIGroup").
-		Doc("Get a KubeVirt API Group").
-		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
-		Returns(http.StatusNotFound, "Not Found", nil))
+	for _, version := range v1.SubresourceGroupVersions {
+		// K8s needs the ability to query info about a specific API group
+		ws.Route(ws.GET(rest.GroupBasePath(version)).
+			Produces(restful.MIME_JSON).Writes(metav1.APIGroup{}).
+			To(func(request *restful.Request, response *restful.Response) {
+				response.WriteAsJson(subresourceAPIGroup())
+			}).
+			Operation("getAPIGroup").
+			Doc("Get a KubeVirt API Group").
+			Returns(http.StatusOK, "OK", metav1.APIGroup{}).
+			Returns(http.StatusNotFound, "Not Found", nil))
+	}
 
 	// K8s needs the ability to query the list of API groups this endpoint supports
 	ws.Route(ws.GET("apis").
@@ -356,8 +369,8 @@ func (app *virtAPIApp) composeSubresources() {
 		Produces(restful.MIME_JSON).
 		To(func(request *restful.Request, response *restful.Response) {
 			once.Do(func() {
-				openapispec = openapi.LoadOpenAPISpec([]*restful.WebService{ws, subws})
-				openapispec.Info.Version = version.Get().String()
+				openapispec = openapi.LoadOpenAPISpec([]*restful.WebService{ws, subwss[0]})
+				openapispec.Info.Version = virtversion.Get().String()
 			})
 			response.WriteAsJson(openapispec)
 		}))
@@ -536,7 +549,7 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VirtualMachineInstanceGroupVersionKind.Version},
+					APIVersions: v1.ApiSupportedWebhookVersions,
 					Resources:   []string{"virtualmachineinstances"},
 				},
 			}},
@@ -558,7 +571,7 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VirtualMachineInstanceGroupVersionKind.Version},
+					APIVersions: v1.ApiSupportedWebhookVersions,
 					Resources:   []string{"virtualmachineinstances"},
 				},
 			}},
@@ -581,7 +594,7 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VirtualMachineGroupVersionKind.Version},
+					APIVersions: v1.ApiSupportedWebhookVersions,
 					Resources:   []string{"virtualmachines"},
 				},
 			}},
@@ -604,7 +617,7 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version},
+					APIVersions: v1.ApiSupportedWebhookVersions,
 					Resources:   []string{"virtualmachineinstancereplicasets"},
 				},
 			}},
@@ -627,7 +640,7 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VirtualMachineInstancePresetGroupVersionKind.Version},
+					APIVersions: v1.ApiSupportedWebhookVersions,
 					Resources:   []string{"virtualmachineinstancepresets"},
 				},
 			}},
@@ -649,7 +662,7 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VirtualMachineInstanceMigrationGroupVersionKind.Version},
+					APIVersions: v1.ApiSupportedWebhookVersions,
 					Resources:   []string{"virtualmachineinstancemigrations"},
 				},
 			}},
@@ -671,7 +684,7 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VirtualMachineInstanceMigrationGroupVersionKind.Version},
+					APIVersions: v1.ApiSupportedWebhookVersions,
 					Resources:   []string{"virtualmachineinstancemigrations"},
 				},
 			}},
@@ -733,7 +746,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 		validating_webhook.ServeVMIUpdate(w, r)
 	})
 	http.HandleFunc(vmValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMs(w, r, app.clusterConfig)
+		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli)
 	})
 	http.HandleFunc(vmirsValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
@@ -763,7 +776,7 @@ func (app *virtAPIApp) mutatingWebhooks() []admissionregistrationv1beta1.Webhook
 				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VirtualMachineInstanceGroupVersionKind.Version},
+					APIVersions: v1.ApiSupportedWebhookVersions,
 					Resources:   []string{"virtualmachineinstances"},
 				},
 			}},
@@ -784,7 +797,7 @@ func (app *virtAPIApp) mutatingWebhooks() []admissionregistrationv1beta1.Webhook
 				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
-					APIVersions: []string{v1.VirtualMachineInstanceMigrationGroupVersionKind.Version},
+					APIVersions: v1.ApiSupportedWebhookVersions,
 					Resources:   []string{"virtualmachineinstancemigrations"},
 				},
 			}},
@@ -847,9 +860,9 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 	return nil
 }
 
-func (app *virtAPIApp) subresourceApiservice() *apiregistrationv1beta1.APIService {
+func (app *virtAPIApp) subresourceApiservice(version schema.GroupVersion) *apiregistrationv1beta1.APIService {
 
-	subresourceAggregatedApiName := v1.SubresourceGroupVersion.Version + "." + v1.SubresourceGroupName
+	subresourceAggregatedApiName := version.Version + "." + version.Group
 
 	return &apiregistrationv1beta1.APIService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -864,19 +877,18 @@ func (app *virtAPIApp) subresourceApiservice() *apiregistrationv1beta1.APIServic
 				Namespace: app.namespace,
 				Name:      virtApiServiceName,
 			},
-			Group:                v1.SubresourceGroupName,
-			Version:              v1.SubresourceGroupVersion.Version,
+			Group:                version.Group,
+			Version:              version.Version,
 			CABundle:             app.signingCertBytes,
 			GroupPriorityMinimum: 1000,
 			VersionPriority:      15,
 		},
 	}
-
 }
 
-func (app *virtAPIApp) createSubresourceApiservice() error {
+func (app *virtAPIApp) createSubresourceApiservice(version schema.GroupVersion) error {
 
-	subresourceApiservice := app.subresourceApiservice()
+	subresourceApiservice := app.subresourceApiservice(version)
 
 	registerApiService := false
 
@@ -890,14 +902,14 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 	}
 
 	if registerApiService {
-		_, err = app.aggregatorClient.ApiregistrationV1beta1().APIServices().Create(app.subresourceApiservice())
+		_, err = app.aggregatorClient.ApiregistrationV1beta1().APIServices().Create(app.subresourceApiservice(version))
 		if err != nil {
 			return err
 		}
 	} else {
 
 		// Always update spec to latest.
-		apiService.Spec = app.subresourceApiservice().Spec
+		apiService.Spec = app.subresourceApiservice(version).Spec
 		_, err := app.aggregatorClient.ApiregistrationV1beta1().APIServices().Update(apiService)
 		if err != nil {
 			return err
@@ -999,15 +1011,18 @@ func (app *virtAPIApp) Run() {
 	}
 
 	// Verify/create aggregator endpoint.
-	err = app.createSubresourceApiservice()
-	if err != nil {
-		panic(err)
+	for _, version := range v1.SubresourceGroupVersions {
+		err = app.createSubresourceApiservice(version)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	// Run informers for webhooks usage
 	webhookInformers := webhooks.GetInformers()
 	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.namespace)
 	configMapInformer := kubeInformerFactory.ConfigMap()
+	crdInformer := kubeInformerFactory.CRD()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
@@ -1015,6 +1030,7 @@ func (app *virtAPIApp) Run() {
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
 	go configMapInformer.Run(stopChan)
+	go crdInformer.Run(stopChan)
 
 	cache.WaitForCacheSync(stopChan,
 		webhookInformers.VMIInformer.HasSynced,
@@ -1022,7 +1038,7 @@ func (app *virtAPIApp) Run() {
 		webhookInformers.NamespaceLimitsInformer.HasSynced,
 		configMapInformer.HasSynced)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, app.namespace)
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, app.namespace)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()
@@ -1046,4 +1062,6 @@ func (app *virtAPIApp) AddFlags() {
 		"swagger-ui location")
 	flag.BoolVar(&app.SubresourcesOnly, "subresources-only", false,
 		"Only serve subresource endpoints")
+	flag.IntVar(&app.consoleServerPort, "console-server-port", defaultConsoleServerPort,
+		"The port virt-handler listens on for console requests")
 }

@@ -210,6 +210,9 @@ func getKubeVirt(data *templateData) {
 		data.KubeVirt.OperatorTag,
 		v1.PullPolicy(data.ImagePullPolicy),
 		"2",
+		"", "", "", "", "",
+		// args in lasst line are needed when using shasums for virt-* images, but we don't know them here
+		// leaving them empty falls back to using the operator tag for all images
 	)
 	kvdeployment.ObjectMeta.Namespace = ""
 	check(err)

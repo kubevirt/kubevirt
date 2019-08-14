@@ -35,7 +35,7 @@ type VMIPresetAdmitter struct {
 }
 
 func (admitter *VMIPresetAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	if ar.Request.Resource != webhooks.VirtualMachineInstancePresetGroupVersionResource {
+	if !webhooks.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstancePresetGroupVersionResource.Group, webhooks.VirtualMachineInstancePresetGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstancePresetGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
 	}

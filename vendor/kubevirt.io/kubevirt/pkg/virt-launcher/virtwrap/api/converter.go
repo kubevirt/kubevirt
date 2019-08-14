@@ -41,6 +41,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -54,12 +55,14 @@ const (
 	EFIVarsPath            = "/usr/share/OVMF/OVMF_VARS.fd"
 )
 
+// +k8s:deepcopy-gen=false
 type ConverterContext struct {
 	UseEmulation   bool
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachineInstance
 	CPUSet         []int
 	IsBlockPVC     map[string]bool
+	DiskType       map[string]*containerdisk.DiskInfo
 	SRIOVDevices   map[string][]string
 }
 
@@ -219,10 +222,10 @@ func Add_Agent_To_api_Channel() (channel Channel) {
 	return
 }
 
-func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterContext) error {
+func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterContext, diskIndex int) error {
 
 	if source.ContainerDisk != nil {
-		return Convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, c)
+		return Convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, c, diskIndex)
 	}
 
 	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
@@ -230,7 +233,7 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	}
 
 	if source.HostDisk != nil {
-		return Convert_v1_HostDisk_To_api_Disk(source.HostDisk.Path, disk, c)
+		return Convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk, c)
 	}
 
 	if source.PersistentVolumeClaim != nil {
@@ -310,10 +313,10 @@ func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *
 	return nil
 }
 
-func Convert_v1_HostDisk_To_api_Disk(path string, disk *Disk, c *ConverterContext) error {
+func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *Disk, c *ConverterContext) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	disk.Source.File = path
+	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
 	return nil
 }
 
@@ -356,18 +359,24 @@ func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 	return nil
 }
 
-func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *Disk, c *ConverterContext) error {
+func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *Disk, c *ConverterContext, diskIndex int) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
 	}
-
 	disk.Type = "file"
-	diskPath, diskType, err := containerdisk.GetFilePath(c.VirtualMachine, volumeName)
-	if err != nil {
-		return err
+	disk.Driver.Type = "qcow2"
+	disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
+	disk.BackingStore = &BackingStore{
+		Format: &BackingStoreFormat{},
+		Source: &DiskSource{},
 	}
-	disk.Driver.Type = diskType
-	disk.Source.File = diskPath
+
+	source := containerdisk.GenerateDiskTargetPathFromLauncherView(diskIndex)
+
+	disk.BackingStore.Format.Type = c.DiskType[volumeName].Format
+	disk.BackingStore.Source.File = source
+	disk.BackingStore.Type = "file"
+
 	return nil
 }
 
@@ -678,17 +687,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
-	// Take memory from the requested memory
-	if v, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
-		if domain.Spec.Memory, err = QuantityToByte(v); err != nil {
-			return err
-		}
-	}
-	// In case that guest memory is explicitly set, override it
-	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-		if domain.Spec.Memory, err = QuantityToByte(*vmi.Spec.Domain.Memory.Guest); err != nil {
-			return err
-		}
+	if domain.Spec.Memory, err = QuantityToByte(*getVirtualMemory(vmi)); err != nil {
+		return err
 	}
 
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
@@ -697,9 +697,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
+	volumeIndices := map[string]int{}
 	volumes := map[string]*v1.Volume{}
-	for _, volume := range vmi.Spec.Volumes {
+	for i, volume := range vmi.Spec.Volumes {
 		volumes[volume.Name] = volume.DeepCopy()
+		volumeIndices[volume.Name] = i
 	}
 
 	dedicatedThreads := 0
@@ -780,7 +782,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if volume == nil {
 			return fmt.Errorf("No matching volume with name %s found", disk.Name)
 		}
-		err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c)
+		err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
 		if err != nil {
 			return err
 		}
@@ -1152,6 +1154,22 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionpath)})
 	}
 	return nil
+}
+
+func getVirtualMemory(vmi *v1.VirtualMachineInstance) *resource.Quantity {
+	// In case that guest memory is explicitly set, return it
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+		return vmi.Spec.Domain.Memory.Guest
+	}
+
+	// Otherwise, take memory from the memory-limit, if set
+	if v, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory]; ok {
+		return &v
+	}
+
+	// Otherwise, take memory from the requested memory
+	v, _ := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+	return &v
 }
 
 func getCPUTopology(vmi *v1.VirtualMachineInstance) *CPUTopology {

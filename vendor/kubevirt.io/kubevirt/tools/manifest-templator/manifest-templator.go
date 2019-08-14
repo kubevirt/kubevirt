@@ -27,10 +27,11 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/spf13/pflag"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -38,13 +39,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 	"kubevirt.io/kubevirt/tools/marketplace/helper"
 	"kubevirt.io/kubevirt/tools/util"
-
-	"github.com/spf13/pflag"
 )
 
 type templateData struct {
 	Namespace              string
 	CDINamespace           string
+	CSVNamespace           string
 	DockerTag              string
 	DockerPrefix           string
 	ImagePullPolicy        string
@@ -53,15 +53,22 @@ type templateData struct {
 	QuayRepository         string
 	ReplacesCsvVersion     string
 	OperatorDeploymentSpec string
+	OperatorCsv            string
 	OperatorRules          string
 	KubeVirtLogo           string
 	PackageName            string
 	CreatedAt              string
+	VirtOperatorSha        string
+	VirtApiSha             string
+	VirtControllerSha      string
+	VirtHandlerSha         string
+	VirtLauncherSha        string
 	GeneratedManifests     map[string]string
 }
 
 func main() {
 	namespace := flag.String("namespace", "", "")
+	csvNamespace := flag.String("csv-namespace", "placeholder", "")
 	cdiNamespace := flag.String("cdi-namespace", "", "")
 	dockerPrefix := flag.String("container-prefix", "", "")
 	dockerTag := flag.String("container-tag", "", "")
@@ -76,6 +83,11 @@ func main() {
 	packageName := flag.String("package-name", "", "")
 	bundleOutDir := flag.String("bundle-out-dir", "", "")
 	quayRepository := flag.String("quay-repository", "", "")
+	virtOperatorSha := flag.String("virt-operator-sha", "", "")
+	virtApiSha := flag.String("virt-api-sha", "", "")
+	virtControllerSha := flag.String("virt-controller-sha", "", "")
+	virtHandlerSha := flag.String("virt-handler-sha", "", "")
+	virtLauncherSha := flag.String("virt-launcher-sha", "", "")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -91,6 +103,7 @@ func main() {
 
 	if *processVars {
 		data.Namespace = *namespace
+		data.CSVNamespace = *csvNamespace
 		data.CDINamespace = *cdiNamespace
 		data.DockerTag = *dockerTag
 		data.DockerPrefix = *dockerPrefix
@@ -98,27 +111,34 @@ func main() {
 		data.Verbosity = fmt.Sprintf("\"%s\"", *verbosity)
 		data.CsvVersion = *csvVersion
 		data.QuayRepository = *quayRepository
-		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data)
+		data.VirtOperatorSha = *virtOperatorSha
+		data.VirtApiSha = *virtApiSha
+		data.VirtControllerSha = *virtControllerSha
+		data.VirtHandlerSha = *virtHandlerSha
+		data.VirtLauncherSha = *virtLauncherSha
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
 		data.PackageName = *packageName
 		data.CreatedAt = getTimestamp()
-		// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
 		data.ReplacesCsvVersion = ""
-		if strings.Contains(*inputFile, ".csv.yaml") && *bundleOutDir != "" && data.QuayRepository != "" {
-			bundleHelper, err := helper.NewBundleHelper(*quayRepository, *packageName)
-			if err != nil {
-				panic(err)
-			}
-			latestVersion := bundleHelper.GetLatestPublishedCSVVersion()
-			if latestVersion != "" {
-				// prevent generating the same version again
-				if strings.HasSuffix(latestVersion, *csvVersion) {
-					panic(fmt.Errorf("CSV version %s is already published!", *csvVersion))
+		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data, 2)
+
+		// operator deployment differs a bit in normal manifest and CSV
+		if strings.Contains(*inputFile, ".clusterserviceversion.yaml") {
+			// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
+			if *bundleOutDir != "" && data.QuayRepository != "" {
+				bundleHelper, err := helper.NewBundleHelper(*quayRepository, *packageName)
+				if err != nil {
+					panic(err)
 				}
-				data.ReplacesCsvVersion = fmt.Sprintf("  replaces: %v", latestVersion)
-				// also copy old manifests to out dir
-				if *bundleOutDir != "" {
+				latestVersion := bundleHelper.GetLatestPublishedCSVVersion()
+				if latestVersion != "" {
+					// prevent generating the same version again
+					if strings.HasSuffix(latestVersion, *csvVersion) {
+						panic(fmt.Errorf("CSV version %s is already published!", *csvVersion))
+					}
+					data.ReplacesCsvVersion = latestVersion
+					// also copy old manifests to out dir
 					bundleHelper.AddOldManifests(*bundleOutDir, *csvVersion)
 				}
 			}
@@ -134,8 +154,14 @@ func main() {
 		data.Verbosity = "{{.Verbosity}}"
 		data.CsvVersion = "{{.CsvVersion}}"
 		data.QuayRepository = "{{.QuayRepository}}"
+		data.VirtOperatorSha = "{{.VirtOperatorSha}}"
+		data.VirtApiSha = "{{.VirtApiSha}}"
+		data.VirtControllerSha = "{{.VirtControllerSha}}"
+		data.VirtHandlerSha = "{{.VirtHandlerSha}}"
+		data.VirtLauncherSha = "{{.VirtLauncherSha}}"
 		data.ReplacesCsvVersion = "{{.ReplacesCsvVersion}}"
 		data.OperatorDeploymentSpec = "{{.OperatorDeploymentSpec}}"
+		data.OperatorCsv = "{{.OperatorCsv}}"
 		data.OperatorRules = "{{.OperatorRules}}"
 		data.KubeVirtLogo = "{{.KubeVirtLogo}}"
 		data.PackageName = "{{.PackageName}}"
@@ -179,11 +205,26 @@ func getOperatorRules() string {
 	return fixResourceString(writer.String(), 14)
 }
 
-func getOperatorDeploymentSpec(data templateData) string {
-	deployment, err := components.NewOperatorDeployment(data.Namespace, data.DockerPrefix, data.DockerTag, v1.PullPolicy(data.ImagePullPolicy), data.Verbosity)
+func getOperatorDeploymentSpec(data templateData, indentation int) string {
+	version := data.DockerTag
+	if data.VirtOperatorSha != "" {
+		version = data.VirtOperatorSha
+	}
+
+	deployment, err := components.NewOperatorDeployment(data.Namespace,
+		data.DockerPrefix,
+		version,
+		v1.PullPolicy(data.ImagePullPolicy),
+		data.Verbosity,
+		data.DockerTag,
+		data.VirtApiSha,
+		data.VirtControllerSha,
+		data.VirtHandlerSha,
+		data.VirtLauncherSha)
 	if err != nil {
 		panic(err)
 	}
+
 	writer := strings.Builder{}
 	err = util.MarshallObject(deployment.Spec, &writer)
 	if err != nil {
@@ -191,15 +232,7 @@ func getOperatorDeploymentSpec(data templateData) string {
 	}
 	spec := writer.String()
 
-	// remove creationTimestamp
-	re := regexp.MustCompile("(?m)[\r\n]+^.*creationTimestamp.*$")
-	spec = re.ReplaceAllString(spec, "")
-
-	// operatorhub.io CI currently doesn't support more than 1 replica
-	re = regexp.MustCompile("(?m)^replicas: 2$")
-	spec = re.ReplaceAllString(spec, "replicas: 1")
-
-	return fixResourceString(spec, 12)
+	return fixResourceString(spec, indentation)
 }
 
 func fixResourceString(in string, indention int) string {

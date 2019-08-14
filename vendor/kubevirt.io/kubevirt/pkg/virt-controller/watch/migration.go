@@ -159,6 +159,15 @@ func (c *MigrationController) execute(key string) error {
 	migration := obj.(*virtv1.VirtualMachineInstanceMigration)
 	logger := log.Log.Object(migration)
 
+	// this must be first step in execution. Writing the object
+	// when api version changes ensures our api stored version is updated.
+	if !controller.ObservedLatestApiVersionAnnotation(migration) {
+		migration := migration.DeepCopy()
+		controller.SetLatestApiVersionAnnotation(migration)
+		_, err = c.clientset.VirtualMachineInstanceMigration(migration.ObjectMeta.Namespace).Update(migration)
+		return err
+	}
+
 	vmiObj, vmiExists, err := c.vmiInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName))
 	if err != nil {
 		return err

@@ -38,7 +38,7 @@ type VMIRSAdmitter struct {
 }
 
 func (admitter *VMIRSAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	if ar.Request.Resource != webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource {
+	if !webhooks.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource.Group, webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
 	}

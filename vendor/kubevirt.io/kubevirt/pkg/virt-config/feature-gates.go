@@ -20,8 +20,7 @@
 package virtconfig
 
 /*
- This module is intended for determining whether an optional feature is enabled or not at the system-level.
- Note that the virtconfig package needs to be initialized before using this (see config-map.Init)
+ This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
 */
 
 import (
@@ -31,19 +30,15 @@ import (
 const (
 	dataVolumesGate       = "DataVolumes"
 	cpuManager            = "CPUManager"
-	ignitionGate          = "ExperimentalIgnitionSupport"
+	IgnitionGate          = "ExperimentalIgnitionSupport"
 	liveMigrationGate     = "LiveMigration"
-	SRIOVGate             = "SRIOV"
 	CPUNodeDiscoveryGate  = "CPUNodeDiscovery"
 	HypervStrictCheckGate = "HypervStrictCheck"
+	SidecarGate           = "Sidecar"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 	return strings.Contains(c.getConfig().FeatureGates, featureGate)
-}
-
-func (config *ClusterConfig) DataVolumesEnabled() bool {
-	return config.isFeatureGateEnabled(dataVolumesGate)
 }
 
 func (config *ClusterConfig) CPUManagerEnabled() bool {
@@ -51,15 +46,11 @@ func (config *ClusterConfig) CPUManagerEnabled() bool {
 }
 
 func (config *ClusterConfig) IgnitionEnabled() bool {
-	return config.isFeatureGateEnabled(ignitionGate)
+	return config.isFeatureGateEnabled(IgnitionGate)
 }
 
 func (config *ClusterConfig) LiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(liveMigrationGate)
-}
-
-func (config *ClusterConfig) SRIOVEnabled() bool {
-	return config.isFeatureGateEnabled(SRIOVGate)
 }
 
 func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
@@ -68,4 +59,8 @@ func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
 
 func (config *ClusterConfig) CPUNodeDiscoveryEnabled() bool {
 	return config.isFeatureGateEnabled(CPUNodeDiscoveryGate)
+}
+
+func (config *ClusterConfig) SidecarEnabled() bool {
+	return config.isFeatureGateEnabled(SidecarGate)
 }

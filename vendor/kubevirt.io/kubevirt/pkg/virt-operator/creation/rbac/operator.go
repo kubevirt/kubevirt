@@ -93,6 +93,9 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"serviceaccounts",
 					"services",
 					"endpoints",
+					// pods/exec is required for testing upgrades - that can be removed when we stop
+					// supporting upgrades from versions in which virt-api required pods/exec privileges
+					"pods/exec",
 				},
 				Verbs: []string{
 					"get",
@@ -181,6 +184,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"securitycontextconstraints",
 				},
 				Verbs: []string{
+					"create",
 					"get",
 					"list",
 					"watch",
@@ -204,6 +208,25 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"security.openshift.io",
+				},
+				Resources: []string{
+					"securitycontextconstraints",
+				},
+				ResourceNames: []string{
+					"kubevirt-handler",
+					"kubevirt-controller",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"update",
+					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
 					"admissionregistration.k8s.io",
 				},
 				Resources: []string{
@@ -211,6 +234,22 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get", "list", "watch", "create", "delete",
+				},
+			},
+			{
+				// this is needed for being able to update from older versions (<= v0.18), which included the removed
+				// "put" verb on subresources for admin and edit cluster roles.
+				// Remove this when upgrade path from v0.18 and earlier is not supported anymore
+				APIGroups: []string{
+					"subresources.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachines/start",
+					"virtualmachines/stop",
+					"virtualmachines/restart",
+				},
+				Verbs: []string{
+					"put",
 				},
 			},
 		},

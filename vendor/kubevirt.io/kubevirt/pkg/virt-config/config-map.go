@@ -27,6 +27,7 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,23 +56,10 @@ const (
 	NodeSelectorsKey          = "node-selectors"
 	NetworkInterfaceKey       = "default-network-interface"
 	PermitSlirpInterface      = "permitSlirpInterface"
-
-	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
-	ParallelMigrationsPerClusterDefault      uint32 = 5
-	BandwithPerMigrationDefault                     = "64Mi"
-	MigrationAllowAutoConverge               bool   = false
-	MigrationProgressTimeout                 int64  = 150
-	MigrationCompletionTimeoutPerGiB         int64  = 800
-	DefaultMachineType                              = "q35"
-	DefaultCPURequest                               = "100m"
-	DefaultMemoryOvercommit                         = 100
-	DefaultEmulatedMachines                         = "q35*,pc-q35*"
-	DefaultLessPVCSpaceToleration                   = 10
-	DefaultNodeSelectors                            = ""
-	DefaultNetworkInterface                         = "bridge"
-
-	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
+	NodeDrainTaintDefaultKey  = "kubevirt.io/drain"
 )
+
+type ConfigModifiedFn func()
 
 func getConfigMap() *k8sv1.ConfigMap {
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -114,16 +102,71 @@ func getConfigMap() *k8sv1.ConfigMap {
 // 1. Check if the config exists. If it does not exist, return the default config
 // 2. Check if the config got updated. If so, try to parse and return it
 // 3. In case of errors or no updates (resource version stays the same), it returns the values from the last good config
-func NewClusterConfig(configMapInformer cache.SharedIndexInformer, namespace string) *ClusterConfig {
+func NewClusterConfig(configMapInformer cache.SharedIndexInformer, crdInformer cache.SharedIndexInformer, namespace string) *ClusterConfig {
 
 	c := &ClusterConfig{
-		informer:        configMapInformer,
-		lock:            &sync.Mutex{},
-		namespace:       namespace,
-		lastValidConfig: defaultClusterConfig(),
-		defaultConfig:   defaultClusterConfig(),
+		configMapInformer: configMapInformer,
+		crdInformer:       crdInformer,
+		lock:              &sync.Mutex{},
+		namespace:         namespace,
+		lastValidConfig:   defaultClusterConfig(),
+		defaultConfig:     defaultClusterConfig(),
 	}
+
+	c.configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.configAddedDeleted,
+		DeleteFunc: c.configAddedDeleted,
+		UpdateFunc: c.configUpdated,
+	})
+
+	c.crdInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.crdAddedDeleted,
+		DeleteFunc: c.crdAddedDeleted,
+		UpdateFunc: c.crdUpdated,
+	})
+
 	return c
+}
+
+func (c *ClusterConfig) configAddedDeleted(obj interface{}) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.configModifiedCallback != nil {
+		go c.configModifiedCallback()
+	}
+}
+func (c *ClusterConfig) configUpdated(old, cur interface{}) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.configModifiedCallback != nil {
+		go c.configModifiedCallback()
+	}
+}
+
+func isDataVolumeCrd(crd *extv1beta1.CustomResourceDefinition) bool {
+	if crd.Spec.Names.Kind == "DataVolume" {
+		return true
+	}
+
+	return false
+
+}
+
+func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
+	crd := obj.(*extv1beta1.CustomResourceDefinition)
+	if !isDataVolumeCrd(crd) {
+		return
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.configModifiedCallback != nil {
+		go c.configModifiedCallback()
+	}
+}
+
+func (c *ClusterConfig) crdUpdated(old, cur interface{}) {
+	c.crdAddedDeleted(cur)
 }
 
 func defaultClusterConfig() *Config {
@@ -140,8 +183,8 @@ func defaultClusterConfig() *Config {
 	defaultNetworkInterface := DefaultNetworkInterface
 	return &Config{
 		ResourceVersion: "0",
-		ImagePullPolicy: k8sv1.PullIfNotPresent,
-		UseEmulation:    false,
+		ImagePullPolicy: DefaultImagePullPolicy,
+		UseEmulation:    DefaultUseEmulation,
 		MigrationConfig: &MigrationConfig{
 			ParallelMigrationsPerCluster:      &parallelMigrationsPerClusterDefault,
 			ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNodeDefault,
@@ -149,7 +192,7 @@ func defaultClusterConfig() *Config {
 			NodeDrainTaintKey:                 &nodeDrainTaintDefaultKey,
 			ProgressTimeout:                   &progressTimeout,
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-			UnsafeMigrationOverride:           false,
+			UnsafeMigrationOverride:           DefaultUnsafeMigrationOverride,
 			AllowAutoConverge:                 allowAutoConverge,
 		},
 		MachineType:            DefaultMachineType,
@@ -159,7 +202,7 @@ func defaultClusterConfig() *Config {
 		LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
 		NodeSelectors:          nodeSelectorsDefault,
 		NetworkInterface:       defaultNetworkInterface,
-		PermitSlirpInterface:   false,
+		PermitSlirpInterface:   DefaultPermitSlirpInterface,
 	}
 }
 
@@ -192,60 +235,21 @@ type MigrationConfig struct {
 }
 
 type ClusterConfig struct {
-	informer                         cache.SharedIndexInformer
+	configMapInformer                cache.SharedIndexInformer
+	crdInformer                      cache.SharedIndexInformer
 	namespace                        string
 	lock                             *sync.Mutex
 	lastValidConfig                  *Config
 	defaultConfig                    *Config
 	lastInvalidConfigResourceVersion string
+	configModifiedCallback           ConfigModifiedFn
 }
 
-func (c *ClusterConfig) IsUseEmulation() bool {
-	return c.getConfig().UseEmulation
-}
-
-func (c *ClusterConfig) GetMigrationConfig() *MigrationConfig {
-	return c.getConfig().MigrationConfig
-}
-
-func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {
-	return c.getConfig().ImagePullPolicy
-}
-
-func (c *ClusterConfig) GetMachineType() string {
-	return c.getConfig().MachineType
-}
-
-func (c *ClusterConfig) GetCPUModel() string {
-	return c.getConfig().CPUModel
-}
-
-func (c *ClusterConfig) GetCPURequest() resource.Quantity {
-	return c.getConfig().CPURequest
-}
-
-func (c *ClusterConfig) GetMemoryOvercommit() int {
-	return c.getConfig().MemoryOvercommit
-}
-
-func (c *ClusterConfig) GetEmulatedMachines() []string {
-	return c.getConfig().EmulatedMachines
-}
-
-func (c *ClusterConfig) GetLessPVCSpaceToleration() int {
-	return c.getConfig().LessPVCSpaceToleration
-}
-
-func (c *ClusterConfig) GetNodeSelectors() map[string]string {
-	return c.getConfig().NodeSelectors
-}
-
-func (c *ClusterConfig) GetDefaultNetworkInterface() string {
-	return c.getConfig().NetworkInterface
-}
-
-func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
-	return c.getConfig().PermitSlirpInterface
+func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.configModifiedCallback = cb
+	go c.configModifiedCallback()
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -376,7 +380,7 @@ func (c *ClusterConfig) getConfig() (config *Config) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if obj, exists, err := c.informer.GetStore().GetByKey(c.namespace + "/" + configMapName); err != nil {
+	if obj, exists, err := c.configMapInformer.GetStore().GetByKey(c.namespace + "/" + configMapName); err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Error loading the cluster config from cache, falling back to last good resource version '%s'", c.lastValidConfig.ResourceVersion)
 		return c.lastValidConfig
 	} else if !exists {
@@ -397,6 +401,21 @@ func (c *ClusterConfig) getConfig() (config *Config) {
 		c.lastValidConfig = config
 		return c.lastValidConfig
 	}
+}
+
+func (c *ClusterConfig) HasDataVolumeAPI() bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	objects := c.crdInformer.GetStore().List()
+	for _, obj := range objects {
+		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+			if isDataVolumeCrd(crd) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func parseNodeSelectors(str string) (map[string]string, error) {

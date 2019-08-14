@@ -135,6 +135,7 @@ rules:
   - serviceaccounts
   - services
   - endpoints
+  - pods/exec
   verbs:
   - get
   - list
@@ -197,6 +198,7 @@ rules:
   resources:
   - securitycontextconstraints
   verbs:
+  - create
   - get
   - list
   - watch
@@ -211,6 +213,19 @@ rules:
   - patch
   - update
 - apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - kubevirt-handler
+  - kubevirt-controller
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - delete
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - validatingwebhookconfigurations
@@ -220,6 +235,14 @@ rules:
   - watch
   - create
   - delete
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachines/start
+  - virtualmachines/stop
+  - virtualmachines/restart
+  verbs:
+  - put
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
@@ -244,12 +267,6 @@ rules:
   verbs:
   - get
   - list
-- apiGroups:
-  - ""
-  resources:
-  - pods/exec
-  verbs:
-  - create
 - apiGroups:
   - kubevirt.io
   resources:
@@ -284,6 +301,14 @@ rules:
   - watch
   - list
 - apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   - secrets
@@ -311,6 +336,7 @@ rules:
   - watch
   - delete
   - create
+  - patch
 - apiGroups:
   - ""
   resources:
@@ -377,6 +403,20 @@ rules:
   - list
   - watch
 - apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachineinstances
@@ -404,6 +444,14 @@ rules:
   verbs:
   - create
   - patch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -440,7 +488,6 @@ rules:
   - virtualmachines/restart
   verbs:
   - update
-  - put
 - apiGroups:
   - kubevirt.io
   resources:
@@ -473,7 +520,6 @@ rules:
   - virtualmachines/restart
   verbs:
   - update
-  - put
 - apiGroups:
   - kubevirt.io
   resources:

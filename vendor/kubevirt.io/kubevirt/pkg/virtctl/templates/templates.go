@@ -3,32 +3,32 @@ package templates
 // UsageTemplate returns the usage template for all subcommands
 func UsageTemplate() string {
 	return `Usage:{{if .Runnable}}
-  {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
+  {{ProgramName}} {{prepare .Use}}{{end}}{{if .HasAvailableSubCommands}}
   {{.CommandPath}} [command]{{end}}{{if gt (len .Aliases) 0}}
 
 Aliases:
   {{.NameAndAliases}}{{end}}{{if .HasExample}}
 
 Examples:
-{{.Example}}{{end}}{{if .HasAvailableSubCommands}}
+{{prepare .Example}}{{end}}{{if .HasAvailableSubCommands}}
 
 Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
-  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
+  {{rpad .Name .NamePadding }} {{prepare .Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
 
 Flags:
 {{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
 
-Use "virtctl options" for a list of global command-line options (applies to all commands).{{end}}
+Use "{{ProgramName}} options" for a list of global command-line options (applies to all commands).{{end}}
 `
 }
 
 // MainUsageTemplate returns the usage template for the root command
 func MainUsageTemplate() string {
 	return `Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
-  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}
+  {{rpad .Name .NamePadding }} {{prepare .Short}}{{end}}{{end}}
 
-Use "{{.CommandPath}} <command> --help" for more information about a given command.
-Use "{{.CommandPath}} options" for a list of global command-line options (applies to all commands).
+Use "{{ProgramName}} <command> --help" for more information about a given command.
+Use "{{ProgramName}} options" for a list of global command-line options (applies to all commands).
 `
 }
 

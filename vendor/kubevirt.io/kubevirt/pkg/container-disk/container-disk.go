@@ -21,30 +21,35 @@ package containerdisk
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strconv"
 
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/precond"
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-)
+	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 
-const filePrefix = "disk-image"
+	v1 "kubevirt.io/client-go/api/v1"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/util"
+)
 
 var containerDiskOwner = "qemu"
 
-var mountBaseDir = "/var/run/kubevirt-ephemeral-disks/container-disk-data"
+var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
-func generateVMIBaseDir(vmi *v1.VirtualMachineInstance) string {
-	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
-	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-	return fmt.Sprintf("%s/%s/%s", mountBaseDir, namespace, domain)
+func GenerateVolumeMountDir(vmi *v1.VirtualMachineInstance) string {
+	return filepath.Join(mountBaseDir, string(vmi.UID))
 }
-func generateVolumeMountDir(vmi *v1.VirtualMachineInstance, volumeName string) string {
-	baseDir := generateVMIBaseDir(vmi)
-	return fmt.Sprintf("%s/disk_%s", baseDir, volumeName)
+
+func GenerateDiskTargetPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex int) string {
+	return filepath.Join(GenerateVolumeMountDir(vmi), fmt.Sprintf("disk_%d.img", volumeIndex))
+}
+
+func GenerateDiskTargetPathFromLauncherView(volumeIndex int) string {
+	return filepath.Join(mountBaseDir, fmt.Sprintf("disk_%d.img", volumeIndex))
 }
 
 func SetLocalDirectory(dir string) error {
@@ -57,84 +62,96 @@ func SetLocalDataOwner(user string) {
 	containerDiskOwner = user
 }
 
-// GetFilePath returns  (path to disk image, image type, and error)
-func GetFilePath(vmi *v1.VirtualMachineInstance, volumeName string) (string, string, error) {
+// GetDiskTargetPartFromLauncherView returns (path to disk image, image type, and error)
+func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
 
-	volumeMountDir := generateVolumeMountDir(vmi, volumeName)
-	suffixes := map[string]string{".raw": "raw", ".qcow2": "qcow2", ".raw.virt": "raw", ".qcow2.virt": "qcow2"}
-
-	for k, v := range suffixes {
-		path := volumeMountDir + "/" + filePrefix + k
-		exists, err := diskutils.FileExists(path)
-		if err != nil {
-			return "", "", err
-		} else if exists {
-			return path, v, nil
-		}
+	path := GenerateDiskTargetPathFromLauncherView(volumeIndex)
+	exists, err := diskutils.FileExists(path)
+	if err != nil {
+		return "", err
+	} else if exists {
+		return path, nil
 	}
 
-	return "", "", fmt.Errorf("no supported file disk found in directory %s", volumeMountDir)
+	return "", fmt.Errorf("no supported file disk found for volume with index %d", volumeIndex)
 }
 
-func SetFilePermissions(vmi *v1.VirtualMachineInstance) error {
-	for _, volume := range vmi.Spec.Volumes {
-		if volume.ContainerDisk != nil {
-			diskPath, _, err := GetFilePath(vmi, volume.Name)
-			if err != nil {
-				return err
-			}
+func GenerateSocketPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex int) string {
+	return fmt.Sprintf("%s/%s/disk_%d.sock", mountBaseDir, vmi.UID, volumeIndex)
+}
 
-			err = diskutils.SetFileOwnership(containerDiskOwner, diskPath)
-			if err != nil {
-				return err
+func GetImage(root string, imagePath string) (string, error) {
+	fallbackPath := filepath.Join(root, DiskSourceFallbackPath)
+	if imagePath != "" {
+		imagePath = filepath.Join(root, imagePath)
+		if _, err := os.Stat(imagePath); err != nil {
+			if os.IsNotExist(err) {
+				return "", fmt.Errorf("No image on path %s", imagePath)
+			} else {
+				return "", fmt.Errorf("Failed to check if an image exists at %s", imagePath)
 			}
 		}
+	} else {
+		files, err := ioutil.ReadDir(fallbackPath)
+		if err != nil {
+			return "", fmt.Errorf("Failed to check %s for disks: %v", fallbackPath, err)
+		}
+		if len(files) > 1 {
+			return "", fmt.Errorf("More than one file found in folder %s, only one disk is allowed", DiskSourceFallbackPath)
+		}
+		imagePath = filepath.Join(fallbackPath, files[0].Name())
 	}
-
-	return nil
+	return imagePath, nil
 }
 
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
-func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, podVolumeMountDir string) []kubev1.Container {
+func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) []kubev1.Container {
 	var containers []kubev1.Container
 
-	initialDelaySeconds := 2
-	timeoutSeconds := 5
-	periodSeconds := 5
-	successThreshold := 2
+	initialDelaySeconds := 1
+	timeoutSeconds := 1
+	periodSeconds := 1
+	successThreshold := 1
 	failureThreshold := 5
 
 	// Make VirtualMachineInstance Image Wrapper Containers
-	for _, volume := range vmi.Spec.Volumes {
+	for index, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
 
-			volumeMountDir := generateVolumeMountDir(vmi, volume.Name)
+			volumeMountDir := GenerateVolumeMountDir(vmi)
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
 			diskContainerImage := volume.ContainerDisk.Image
 			resources := kubev1.ResourceRequirements{}
 			if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
 				resources.Limits = make(kubev1.ResourceList)
-				// TODO(vladikr): adjust the correct cpu/mem values - this is mainly needed to allow QemuImg to run correctly
-				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("400m")
-				// k8s minimum memory reservation is linuxMinMemory = 4194304
-				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("128M")
+				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("10m")
+				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("20M")
+				resources.Requests = make(kubev1.ResourceList)
+				resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
+				resources.Requests[kubev1.ResourceMemory] = resource.MustParse("20M")
+			} else {
+				resources.Limits = make(kubev1.ResourceList)
+				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("100m")
+				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("20M")
+				resources.Requests = make(kubev1.ResourceList)
+				resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
+				resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1M")
 			}
 			container := kubev1.Container{
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
 				ImagePullPolicy: volume.ContainerDisk.ImagePullPolicy,
-				Command:         []string{"/entry-point.sh"},
-				Env: []kubev1.EnvVar{
-					{
-						Name:  "COPY_PATH",
-						Value: volumeMountDir + "/" + filePrefix,
-					},
-				},
+				Command:         []string{"/usr/bin/container-disk"},
+				Args:            []string{"--copy-path", volumeMountDir + "/disk_" + strconv.Itoa(index)},
 				VolumeMounts: []kubev1.VolumeMount{
 					{
 						Name:      podVolumeName,
-						MountPath: podVolumeMountDir,
+						MountPath: volumeMountDir,
+					},
+					{
+						Name:      binVolumeName,
+						MountPath: "/usr/bin",
 					},
 				},
 				Resources: resources,
@@ -145,8 +162,8 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 					Handler: kubev1.Handler{
 						Exec: &kubev1.ExecAction{
 							Command: []string{
-								"cat",
-								"/tmp/healthy",
+								"/usr/bin/container-disk",
+								"--health-check",
 							},
 						},
 					},
@@ -158,15 +175,26 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 				},
 			}
 
-			if volume.ContainerDisk.Path != "" {
-				container.Env = append(container.Env, kubev1.EnvVar{
-					Name:  "IMAGE_PATH",
-					Value: volume.ContainerDisk.Path,
-				})
-			}
-
 			containers = append(containers, container)
 		}
 	}
 	return containers
+}
+
+func CreateEphemeralImages(vmi *v1.VirtualMachineInstance) error {
+	// The domain is setup to use the COW image instead of the base image. What we have
+	// to do here is only create the image where the domain expects it (GetDiskTargetPartFromLauncherView)
+	// for each disk that requires it.
+
+	for i, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.ContainerDisk != nil {
+			if backingFile, err := GetDiskTargetPartFromLauncherView(i); err != nil {
+				return err
+			} else if err := ephemeraldisk.CreateBackedImageForVolume(volume, backingFile); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

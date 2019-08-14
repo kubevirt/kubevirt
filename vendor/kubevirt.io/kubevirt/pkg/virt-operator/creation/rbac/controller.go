@@ -71,7 +71,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"poddisruptionbudgets",
 				},
 				Verbs: []string{
-					"get", "list", "watch", "delete", "create",
+					"get", "list", "watch", "delete", "create", "patch",
 				},
 			},
 			{
@@ -160,6 +160,30 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"apiextensions.k8s.io",
+				},
+				Resources: []string{
+					"customresourcedefinitions",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"authorization.k8s.io",
+				},
+				Resources: []string{
+					"subjectaccessreviews",
+				},
+				Verbs: []string{
+					"create",
 				},
 			},
 		},

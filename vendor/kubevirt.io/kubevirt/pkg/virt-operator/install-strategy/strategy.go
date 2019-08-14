@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	secv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -39,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
 
@@ -72,17 +74,15 @@ type InstallStrategy struct {
 	deployments []*appsv1.Deployment
 	daemonSets  []*appsv1.DaemonSet
 
+	// deprecated, keep it for backwards compatibility
 	customSCCPrivileges []*customSCCPrivilegedAccounts
+
+	sccs []*secv1.SecurityContextConstraints
 }
 
-func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistry string, pullPolicy corev1.PullPolicy) (*corev1.ConfigMap, error) {
+func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig) (*corev1.ConfigMap, error) {
 
-	strategy, err := GenerateCurrentInstallStrategy(
-		namespace,
-		imageTag,
-		imageRegistry,
-		pullPolicy,
-		"2")
+	strategy, err := GenerateCurrentInstallStrategy(config)
 	if err != nil {
 		return nil, err
 	}
@@ -90,14 +90,15 @@ func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistr
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "kubevirt-install-strategy-",
-			Namespace:    namespace,
+			Namespace:    config.GetNamespace(),
 			Labels: map[string]string{
 				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
 				v1.InstallStrategyLabel: "",
 			},
 			Annotations: map[string]string{
-				v1.InstallStrategyVersionAnnotation:  imageTag,
-				v1.InstallStrategyRegistryAnnotation: imageRegistry,
+				v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
+				v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
+				v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 			},
 		},
 		Data: map[string]string{
@@ -109,26 +110,21 @@ func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistr
 
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 
-	conf := util.GetConfig()
-	imageTag := conf.ImageTag
-	imageRegistry := conf.ImageRegistry
-
-	namespace, err := util.GetTargetInstallNamespace()
-	if err != nil {
-		return err
-	}
-	pullPolicy := util.GetTargetImagePullPolicy()
-
-	configMap, err := NewInstallStrategyConfigMap(namespace, imageTag, imageRegistry, pullPolicy)
+	config, err := util.GetConfigFromEnv()
 	if err != nil {
 		return err
 	}
 
-	_, err = clientset.CoreV1().ConfigMaps(namespace).Create(configMap)
+	configMap, err := NewInstallStrategyConfigMap(config)
+	if err != nil {
+		return err
+	}
+
+	_, err = clientset.CoreV1().ConfigMaps(config.GetNamespace()).Create(configMap)
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
 			// force update if already exists
-			_, err = clientset.CoreV1().ConfigMaps(namespace).Update(configMap)
+			_, err = clientset.CoreV1().ConfigMaps(config.GetNamespace()).Update(configMap)
 			if err != nil {
 				return err
 			}
@@ -175,16 +171,15 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	for _, entry := range strategy.customSCCPrivileges {
 		marshalutil.MarshallObject(entry, writer)
 	}
+	for _, entry := range strategy.sccs {
+		marshalutil.MarshallObject(entry, writer)
+	}
 	writer.Flush()
 
 	return b.Bytes()
 }
 
-func GenerateCurrentInstallStrategy(namespace string,
-	version string,
-	repository string,
-	imagePullPolicy corev1.PullPolicy,
-	verbosity string) (*InstallStrategy, error) {
+func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfig) (*InstallStrategy, error) {
 
 	strategy := &InstallStrategy{}
 
@@ -195,10 +190,10 @@ func GenerateCurrentInstallStrategy(namespace string,
 	strategy.crds = append(strategy.crds, components.NewVirtualMachineInstanceMigrationCrd())
 
 	rbaclist := make([]interface{}, 0)
-	rbaclist = append(rbaclist, rbac.GetAllCluster(namespace)...)
-	rbaclist = append(rbaclist, rbac.GetAllApiServer(namespace)...)
-	rbaclist = append(rbaclist, rbac.GetAllController(namespace)...)
-	rbaclist = append(rbaclist, rbac.GetAllHandler(namespace)...)
+	rbaclist = append(rbaclist, rbac.GetAllCluster(config.GetNamespace())...)
+	rbaclist = append(rbaclist, rbac.GetAllApiServer(config.GetNamespace())...)
+	rbaclist = append(rbaclist, rbac.GetAllController(config.GetNamespace())...)
+	rbaclist = append(rbaclist, rbac.GetAllHandler(config.GetNamespace())...)
 
 	for _, entry := range rbaclist {
 		cr, ok := entry.(*rbacv1.ClusterRole)
@@ -226,22 +221,22 @@ func GenerateCurrentInstallStrategy(namespace string,
 		}
 	}
 
-	strategy.services = append(strategy.services, components.NewPrometheusService(namespace))
+	strategy.services = append(strategy.services, components.NewPrometheusService(config.GetNamespace()))
 
-	strategy.services = append(strategy.services, components.NewApiServerService(namespace))
-	apiDeployment, err := components.NewApiServerDeployment(namespace, repository, version, imagePullPolicy, verbosity)
+	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
+	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
 	}
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller, err := components.NewControllerDeployment(namespace, repository, version, imagePullPolicy, verbosity)
+	controller, err := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-controller deployment %v", err)
 	}
 	strategy.deployments = append(strategy.deployments, controller)
 
-	handler, err := components.NewHandlerDaemonSet(namespace, repository, version, imagePullPolicy, verbosity)
+	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}
@@ -251,13 +246,17 @@ func GenerateCurrentInstallStrategy(namespace string,
 	typeMeta := metav1.TypeMeta{
 		Kind: customSCCPrivilegedAccountsType,
 	}
+
+	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
+
+	// deprecated, keep it for backwards compatibility
 	strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, &customSCCPrivilegedAccounts{
 		TypeMeta:  typeMeta,
 		TargetSCC: "privileged",
 		ServiceAccounts: []string{
-			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-handler"),
-			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-apiserver"),
-			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-controller"),
+			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-handler"),
+			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-apiserver"),
+			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-controller"),
 		},
 	})
 
@@ -280,29 +279,34 @@ func mostRecentConfigMap(configMaps []*corev1.ConfigMap) *corev1.ConfigMap {
 	return configMap
 }
 
-func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag string, imageRegistry string) (*InstallStrategy, error) {
+func LoadInstallStrategyFromCache(stores util.Stores, config *operatorutil.KubeVirtDeploymentConfig) (*InstallStrategy, error) {
 	var configMap *corev1.ConfigMap
 	var matchingConfigMaps []*corev1.ConfigMap
 
 	for _, obj := range stores.InstallStrategyConfigMapCache.List() {
-		config, ok := obj.(*corev1.ConfigMap)
+		cm, ok := obj.(*corev1.ConfigMap)
 		if !ok {
 			continue
-		} else if config.ObjectMeta.Annotations == nil {
+		} else if cm.ObjectMeta.Annotations == nil {
 			continue
-		} else if config.ObjectMeta.Namespace != namespace {
+		} else if cm.ObjectMeta.Namespace != config.GetNamespace() {
 			continue
 		}
 
-		version, _ := config.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
-		registry, _ := config.ObjectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
-		if version == imageTag && registry == imageRegistry {
-			matchingConfigMaps = append(matchingConfigMaps, config)
+		// deprecated, keep it for backwards compatibility
+		version, _ := cm.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
+		// deprecated, keep it for backwards compatibility
+		registry, _ := cm.ObjectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
+		id, _ := cm.ObjectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation]
+
+		if id == config.GetDeploymentID() ||
+			(id == "" && version == config.GetKubeVirtVersion() && registry == config.GetImageRegistry()) {
+			matchingConfigMaps = append(matchingConfigMaps, cm)
 		}
 	}
 
 	if len(matchingConfigMaps) == 0 {
-		return nil, fmt.Errorf("no install strategy configmap found for version %s with registry %s", imageTag, imageRegistry)
+		return nil, fmt.Errorf("no install strategy configmap found for version %s with registry %s", config.GetKubeVirtVersion(), config.GetImageRegistry())
 	}
 
 	// choose the most recent configmap if multiple match.
@@ -397,6 +401,12 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, priv)
+		case "SecurityContextConstraints":
+			s := &secv1.SecurityContextConstraints{}
+			if err := yaml.Unmarshal([]byte(entry), &s); err != nil {
+				return nil, err
+			}
+			strategy.sccs = append(strategy.sccs, s)
 		default:
 			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
 

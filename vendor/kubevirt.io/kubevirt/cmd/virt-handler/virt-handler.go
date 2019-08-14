@@ -23,14 +23,20 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/certificate"
+
+	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +64,8 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -75,8 +83,6 @@ const (
 
 	podIpAddress = ""
 
-	virtShareDir = "/var/run/kubevirt"
-
 	// This value is derived from default MaxPods in Kubelet Config
 	maxDevices = 110
 
@@ -87,6 +93,8 @@ const (
 	// selfsigned cert secret name
 	virtHandlerCertSecretName = "kubevirt-virt-handler-certs"
 	maxRequestsInFlight       = 3
+	// Default port that virt-handler listens to console requests
+	defaultConsoleServerPort = 8186
 )
 
 type virtHandlerApp struct {
@@ -94,6 +102,7 @@ type virtHandlerApp struct {
 	HostOverride            string
 	PodIpAddress            string
 	VirtShareDir            string
+	VirtLibDir              string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
 	MaxRequestsInFlight     int
@@ -106,6 +115,7 @@ type virtHandlerApp struct {
 	namespace string
 
 	migrationTLSConfig *tls.Config
+	consoleServerPort  int
 }
 
 var _ service.Service = &virtHandlerApp{}
@@ -175,9 +185,40 @@ func (app *virtHandlerApp) Run() {
 
 	logger := log.Log
 	logger.V(1).Level(log.INFO).Log("hostname", app.HostOverride)
-
-	// Create event recorder
 	var err error
+
+	// Copy container-disk binary
+	targetFile := filepath.Join(app.VirtLibDir, "/init/usr/bin/container-disk")
+	err = os.MkdirAll(filepath.Dir(targetFile), os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+	err = copy("/usr/bin/container-disk", targetFile)
+	if err != nil {
+		panic(err)
+	}
+
+	se, exists, err := selinux.NewSELinux()
+	if err == nil && exists {
+		for _, dir := range []string{app.VirtShareDir, app.VirtLibDir} {
+			if labeled, err := se.IsLabeled(dir); err != nil {
+				panic(err)
+			} else if !labeled {
+				err := se.Label("container_file_t", dir)
+				if err != nil {
+					panic(err)
+				}
+			}
+			err := se.Restore(dir)
+			if err != nil {
+				panic(err)
+			}
+		}
+	} else if err != nil {
+		//an error occured
+		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
+	}
+	// Create event recorder
 	app.virtCli, err = kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
@@ -242,6 +283,9 @@ func (app *virtHandlerApp) Run() {
 		0,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
+	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
+	vmiInformer := factory.VMI()
+
 	vmController := virthandler.NewController(
 		recorder,
 		app.virtCli,
@@ -254,8 +298,14 @@ func (app *virtHandlerApp) Run() {
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
-		virtconfig.NewClusterConfig(factory.ConfigMap(), app.namespace),
+		virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), app.namespace),
 		app.migrationTLSConfig,
+		podIsolationDetector,
+	)
+
+	consoleHandler := rest.NewConsoleHandler(
+		podIsolationDetector,
+		vmiInformer,
 	)
 
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
@@ -275,18 +325,36 @@ func (app *virtHandlerApp) Run() {
 	stop := make(chan struct{})
 	defer close(stop)
 	factory.Start(stop)
-	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced)
+	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiInformer.HasSynced)
 
-	go vmController.Run(3, stop)
+	go vmController.Run(10, stop)
 
-	logger.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
+	errCh := make(chan error)
+	go app.runPrometheusServer(errCh, certStore)
+	go app.runConsoleServer(errCh, consoleHandler)
+
+	// wait for one of the servers to exit
+	<-errCh
+}
+
+func (app *virtHandlerApp) runPrometheusServer(errCh chan error, certStore certificate.FileStore) {
+	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
 	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
+	errCh <- http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
+}
 
-	err = http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
-	if err != nil {
-		log.Log.Reason(err).Error("Serving prometheus failed.")
-		panic(err)
+func (app *virtHandlerApp) runConsoleServer(errCh chan error, consoleHandler *rest.ConsoleHandler) {
+	ws := new(restful.WebService)
+	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console").To(consoleHandler.SerialHandler))
+	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc").To(consoleHandler.VNCHandler))
+	restful.DefaultContainer.Add(ws)
+	server := &http.Server{
+		Addr:    fmt.Sprintf("%s:%d", app.ServiceListen.BindAddress, app.consoleServerPort),
+		Handler: restful.DefaultContainer,
+		// we use migration TLS also for console connections (initiated by virt-api)
+		TLSConfig: app.migrationTLSConfig,
 	}
+	errCh <- server.ListenAndServeTLS("", "")
 }
 
 func (app *virtHandlerApp) AddFlags() {
@@ -303,8 +371,11 @@ func (app *virtHandlerApp) AddFlags() {
 	flag.StringVar(&app.PodIpAddress, "pod-ip-address", podIpAddress,
 		"The pod ip address")
 
-	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", virtShareDir,
+	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", util.VirtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
+
+	flag.StringVar(&app.VirtLibDir, "kubevirt-lib-dir", util.VirtLibDir,
+		"Shared lib directory between virt-handler and virt-launcher")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
 		"Watchdog file timeout")
@@ -317,6 +388,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.IntVar(&app.MaxRequestsInFlight, "max-metric-requests", maxRequestsInFlight,
 		"Number of concurrent requests to the metrics endpoint")
+
+	flag.IntVar(&app.consoleServerPort, "console-server-port", defaultConsoleServerPort,
+		"The port virt-handler listens on for console requests")
 }
 
 func (app *virtHandlerApp) setupTLS() error {
@@ -381,4 +455,30 @@ func main() {
 	service.Setup(app)
 	log.InitializeLogging("virt-handler")
 	app.Run()
+}
+
+func copy(sourceFile string, targetFile string) error {
+
+	if err := os.RemoveAll(targetFile); err != nil {
+		return fmt.Errorf("failed to remove target file: %v", err)
+	}
+	target, err := os.Create(targetFile)
+	if err != nil {
+		return fmt.Errorf("failed to crate target file: %v", err)
+	}
+	defer target.Close()
+	source, err := os.Open(sourceFile)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %v", err)
+	}
+	defer source.Close()
+	_, err = io.Copy(target, source)
+	if err != nil {
+		return fmt.Errorf("failed to copy file: %v", err)
+	}
+	err = os.Chmod(targetFile, 0555)
+	if err != nil {
+		return fmt.Errorf("failed to make file executable: %v", err)
+	}
+	return nil
 }

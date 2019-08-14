@@ -92,6 +92,11 @@ func Execute() {
 
 	log.InitializeLogging("virt-operator")
 
+	err = util.VerifyEnv()
+	if err != nil {
+		golog.Fatal(err)
+	}
+
 	app.clientSet, err = kubecli.GetKubevirtClient()
 
 	if err != nil {
@@ -134,6 +139,7 @@ func Execute() {
 		InstallStrategyConfigMap: app.informerFactory.OperatorInstallStrategyConfigMaps(),
 		InstallStrategyJob:       app.informerFactory.OperatorInstallStrategyJob(),
 		InfrastructurePod:        app.informerFactory.OperatorPod(),
+		PodDisruptionBudget:      app.informerFactory.OperatorPodDisruptionBudget(),
 	}
 
 	app.stores = util.Stores{
@@ -150,6 +156,7 @@ func Execute() {
 		InstallStrategyConfigMapCache: app.informerFactory.OperatorInstallStrategyConfigMaps().GetStore(),
 		InstallStrategyJobCache:       app.informerFactory.OperatorInstallStrategyJob().GetStore(),
 		InfrastructurePodCache:        app.informerFactory.OperatorPod().GetStore(),
+		PodDisruptionBudgetCache:      app.informerFactory.OperatorPodDisruptionBudget().GetStore(),
 	}
 
 	onOpenShift, err := util.IsOnOpenshift(app.clientSet)
@@ -160,6 +167,7 @@ func Execute() {
 		log.Log.Info("we are on openshift")
 		app.informers.SCC = app.informerFactory.OperatorSCC()
 		app.stores.SCCCache = app.informerFactory.OperatorSCC().GetStore()
+		app.stores.IsOnOpenshift = true
 	} else {
 		log.Log.Info("we are on kubernetes")
 		app.informers.SCC = app.informerFactory.DummyOperatorSCC()

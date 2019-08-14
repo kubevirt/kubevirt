@@ -34,6 +34,7 @@ import (
 
 	v1 "k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,11 +52,33 @@ const SubresourceGroupName = "subresources.kubevirt.io"
 
 const DefaultGracePeriodSeconds int64 = 30
 
-// GroupVersion is group version used to register these objects
-var GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha3"}
+var ApiLatestVersion = "v1alpha3"
+var ApiSupportedWebhookVersions = []string{"v1alpha3"}
+var ApiStorageVersion = "v1alpha3"
+var ApiSupportedVersions = []extv1beta1.CustomResourceDefinitionVersion{
+	extv1beta1.CustomResourceDefinitionVersion{
+		Name:    "v1alpha3",
+		Served:  true,
+		Storage: true,
+	},
+}
 
-// GroupVersion is group version used to register these objects
-var SubresourceGroupVersion = schema.GroupVersion{Group: SubresourceGroupName, Version: "v1alpha3"}
+// GroupVersion is the latest group version for the KubeVirt api
+var GroupVersion = schema.GroupVersion{Group: GroupName, Version: ApiLatestVersion}
+
+// StorageGroupVersion is the group version our api is persistented internally as
+var StorageGroupVersion = schema.GroupVersion{Group: GroupName, Version: ApiStorageVersion}
+
+// SubresourceStorageGroupVersion is the group version our api is persistented internally as
+var SubresourceStorageGroupVersion = schema.GroupVersion{Group: SubresourceGroupName, Version: ApiStorageVersion}
+
+// GroupVersions is group version list used to register these objects
+// The preferred group version is the first item in the list.
+var GroupVersions = []schema.GroupVersion{{Group: GroupName, Version: "v1alpha3"}}
+
+// SubresourceGroupVersions is group version list used to register these objects
+// The preferred group version is the first item in the list.
+var SubresourceGroupVersions = []schema.GroupVersion{{Group: SubresourceGroupName, Version: "v1alpha3"}}
 
 // GroupVersionKind
 var VirtualMachineInstanceGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstance"}
@@ -72,23 +95,26 @@ var KubeVirtGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version
 
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypes(GroupVersion,
-		&VirtualMachineInstance{},
-		&VirtualMachineInstanceList{},
-		&metav1.ListOptions{},
-		&metav1.DeleteOptions{},
-		&VirtualMachineInstanceReplicaSet{},
-		&VirtualMachineInstanceReplicaSetList{},
-		&VirtualMachineInstancePreset{},
-		&VirtualMachineInstancePresetList{},
-		&VirtualMachineInstanceMigration{},
-		&VirtualMachineInstanceMigrationList{},
-		&metav1.GetOptions{},
-		&VirtualMachine{},
-		&VirtualMachineList{},
-		&KubeVirt{},
-		&KubeVirtList{},
-	)
+
+	for _, groupVersion := range GroupVersions {
+		scheme.AddKnownTypes(groupVersion,
+			&VirtualMachineInstance{},
+			&VirtualMachineInstanceList{},
+			&metav1.ListOptions{},
+			&metav1.DeleteOptions{},
+			&VirtualMachineInstanceReplicaSet{},
+			&VirtualMachineInstanceReplicaSetList{},
+			&VirtualMachineInstancePreset{},
+			&VirtualMachineInstancePresetList{},
+			&VirtualMachineInstanceMigration{},
+			&VirtualMachineInstanceMigrationList{},
+			&metav1.GetOptions{},
+			&VirtualMachine{},
+			&VirtualMachineList{},
+			&KubeVirt{},
+			&KubeVirtList{},
+		)
+	}
 	scheme.AddKnownTypes(metav1.Unversioned,
 		&metav1.Status{},
 	)
@@ -482,7 +508,9 @@ const (
 	// used to detect virtual machines with dead pods. Used on Pod.
 	DomainAnnotation string = "kubevirt.io/domain"
 	// Represents the name of the migration job this target pod is associated with
-	MigrationJobNameAnnotation string = "kubevirt.io/migrationJobName"
+	MigrationJobNameAnnotation                    string = "kubevirt.io/migrationJobName"
+	ControllerAPILatestVersionObservedAnnotation  string = "kubevirt.io/latest-observed-api-version"
+	ControllerAPIStorageVersionObservedAnnotation string = "kubevirt.io/storage-observed-api-version"
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
 	// Internal use only.
@@ -511,6 +539,8 @@ const (
 	InstallStrategyVersionAnnotation = "kubevirt.io/install-strategy-version"
 	// This annotation represents the kubevirt registry used for an install strategy configmap.
 	InstallStrategyRegistryAnnotation = "kubevirt.io/install-strategy-registry"
+	// This annotation represents the kubevirt deployment identifier used for an install strategy configmap.
+	InstallStrategyIdentifierAnnotation = "kubevirt.io/install-strategy-identifier"
 	// This annotation represents that this object is for temporary use during updates
 	EphemeralBackupObject = "kubevirt.io/ephemeral-backup-object"
 
@@ -1199,10 +1229,14 @@ type KubeVirtStatus struct {
 	Phase                    KubeVirtPhase       `json:"phase,omitempty"`
 	Conditions               []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
 	OperatorVersion          string              `json:"operatorVersion,omitempty" optional:"true"`
-	TargetKubeVirtVersion    string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
 	TargetKubeVirtRegistry   string              `json:"targetKubeVirtRegistry,omitempty" optional:"true"`
-	ObservedKubeVirtVersion  string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
+	TargetKubeVirtVersion    string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
+	TargetDeploymentConfig   string              `json:"targetDeploymentConfig,omitempty" optional:"true"`
+	TargetDeploymentID       string              `json:"targetDeploymentID,omitempty" optional:"true"`
 	ObservedKubeVirtRegistry string              `json:"observedKubeVirtRegistry,omitempty" optional:"true"`
+	ObservedKubeVirtVersion  string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
+	ObservedDeploymentConfig string              `json:"observedDeploymentConfig,omitempty" optional:"true"`
+	ObservedDeploymentID     string              `json:"observedDeploymentID,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.
@@ -1244,10 +1278,14 @@ const (
 	KubeVirtConditionSynchronized KubeVirtConditionType = "Synchronized"
 	// Whether all resources were created and up-to-date
 	KubeVirtConditionCreated KubeVirtConditionType = "Created"
-	// Whether all components were ready
-	KubeVirtConditionReady KubeVirtConditionType = "Ready"
-	// Whether we're in the process of updating previously deployed version
-	KubeVirtConditionUpdating KubeVirtConditionType = "Updating"
+
+	// Conditions for HCO, see https://github.com/kubevirt/hyperconverged-cluster-operator/blob/master/docs/conditions.md
+	// Whether KubeVirt is functional and available in the cluster.
+	KubeVirtConditionAvailable KubeVirtConditionType = "Available"
+	// Whether the operator is actively making changes to KubeVirt
+	KubeVirtConditionProgressing KubeVirtConditionType = "Progressing"
+	// Whether KubeVirt is not functioning completely
+	KubeVirtConditionDegraded KubeVirtConditionType = "Degraded"
 )
 
 const (

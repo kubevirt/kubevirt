@@ -31,6 +31,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -81,7 +83,9 @@ type TemplateService interface {
 type templateService struct {
 	launcherImage              string
 	virtShareDir               string
+	virtLibDir                 string
 	ephemeralDiskDir           string
+	containerDiskDir           string
 	imagePullSecret            string
 	persistentVolumeClaimStore cache.Store
 	virtClient                 kubecli.KubevirtClient
@@ -307,9 +311,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	nodeSelector := map[string]string{}
 
-	initialDelaySeconds := 2
+	initialDelaySeconds := 4
 	timeoutSeconds := 5
-	periodSeconds := 2
+	periodSeconds := 1
 	successThreshold := 1
 	failureThreshold := 5
 
@@ -330,6 +334,13 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		MountPath: t.ephemeralDiskDir,
 	})
 
+	prop := k8sv1.MountPropagationHostToContainer
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:             "container-disks",
+		MountPath:        t.containerDiskDir,
+		MountPropagation: &prop,
+	})
+
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "virt-share-dir",
 		MountPath: t.virtShareDir,
@@ -341,23 +352,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	})
 
 	if isSRIOVVmi(vmi) {
-		// libvirt needs this volume to unbind the device from kernel
-		// driver, and register it with vfio userspace driver
-		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-			Name:      "pci-bus",
-			MountPath: "/sys/bus/pci/",
-		})
-		volumes = append(volumes, k8sv1.Volume{
-			Name: "pci-bus",
-			VolumeSource: k8sv1.VolumeSource{
-				HostPath: &k8sv1.HostPathVolumeSource{
-					Path: "/sys/bus/pci/",
-				},
-			},
-		})
-
-		// libvirt needs this volume to determine iommu group assigned
-		// to the device
+		// libvirt needs this volume to access PCI device config;
+		// note that the volume should not be read-only because libvirt
+		// opens the config for writing
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      "pci-devices",
 			MountPath: "/sys/devices/",
@@ -370,20 +367,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				},
 			},
 		})
-
-		// libvirt uses vfio-pci to pass host devices through
-		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-			Name:      "dev-vfio",
-			MountPath: "/dev/vfio/",
-		})
-		volumes = append(volumes, k8sv1.Volume{
-			Name: "dev-vfio",
-			VolumeSource: k8sv1.VolumeSource{
-				HostPath: &k8sv1.HostPathVolumeSource{
-					Path: "/dev/vfio/",
-				},
-			},
-		})
 	}
 
 	serviceAccountName := ""
@@ -391,7 +374,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	for _, volume := range vmi.Spec.Volumes {
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
-			MountPath: filepath.Join("/var/run/kubevirt-private", "vmi-disks", volume.Name),
+			MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
 		}
 		if volume.PersistentVolumeClaim != nil {
 			logger := log.DefaultLogger()
@@ -446,7 +429,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 				Name:      volume.Name,
-				MountPath: filepath.Dir(volume.HostDisk.Path),
+				MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
 			})
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
@@ -629,6 +612,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--namespace", namespace,
 		"--kubevirt-share-dir", t.virtShareDir,
 		"--ephemeral-disk-dir", t.ephemeralDiskDir,
+		"--container-disk-dir", t.containerDiskDir,
 		"--readiness-file", "/var/run/kubevirt-infra/healthy",
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
@@ -681,7 +665,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	volumes = append(volumes, k8sv1.Volume{Name: "infra-ready-mount", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}})
 
-	containers := containerdisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
+	containers := containerdisk.GenerateContainers(vmi, "container-disks", "virt-bin-share-dir")
 
 	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
 	if err != nil {
@@ -733,14 +717,24 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	containers = append(containers, container)
 
-	volumes = append(volumes, k8sv1.Volume{
-		Name: "virt-share-dir",
-		VolumeSource: k8sv1.VolumeSource{
-			HostPath: &k8sv1.HostPathVolumeSource{
-				Path: t.virtShareDir,
+	volumes = append(volumes,
+		k8sv1.Volume{
+			Name: "virt-share-dir",
+			VolumeSource: k8sv1.VolumeSource{
+				HostPath: &k8sv1.HostPathVolumeSource{
+					Path: t.virtShareDir,
+				},
 			},
 		},
-	})
+		k8sv1.Volume{
+			Name: "virt-bin-share-dir",
+			VolumeSource: k8sv1.VolumeSource{
+				HostPath: &k8sv1.HostPathVolumeSource{
+					Path: filepath.Join(t.virtLibDir, "/init/usr/bin"),
+				},
+			},
+		},
+	)
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "libvirt-runtime",
 		VolumeSource: k8sv1.VolumeSource{
@@ -751,6 +745,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Name: "ephemeral-disks",
 		VolumeSource: k8sv1.VolumeSource{
 			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "container-disks",
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: filepath.Join(t.containerDiskDir, string(vmi.UID)),
+			},
 		},
 	})
 
@@ -1130,7 +1132,9 @@ func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[strin
 
 func NewTemplateService(launcherImage string,
 	virtShareDir string,
+	virtLibDir string,
 	ephemeralDiskDir string,
+	containerDiskDir string,
 	imagePullSecret string,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
@@ -1140,7 +1144,9 @@ func NewTemplateService(launcherImage string,
 	svc := templateService{
 		launcherImage:              launcherImage,
 		virtShareDir:               virtShareDir,
+		virtLibDir:                 virtLibDir,
 		ephemeralDiskDir:           ephemeralDiskDir,
+		containerDiskDir:           containerDiskDir,
 		imagePullSecret:            imagePullSecret,
 		persistentVolumeClaimStore: persistentVolumeClaimCache,
 		virtClient:                 virtClient,

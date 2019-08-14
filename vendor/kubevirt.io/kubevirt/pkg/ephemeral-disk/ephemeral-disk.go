@@ -77,43 +77,52 @@ func GetFilePath(volumeName string) string {
 	return filepath.Join(volumeMountDir, "disk.qcow2")
 }
 
+func CreateBackedImageForVolume(volume v1.Volume, backingFile string) error {
+	err := createVolumeDirectory(volume.Name)
+	if err != nil {
+		return err
+	}
+
+	imagePath := GetFilePath(volume.Name)
+
+	if _, err := os.Stat(imagePath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	var args []string
+
+	args = append(args, "create")
+	args = append(args, "-f")
+	args = append(args, "qcow2")
+	args = append(args, "-b")
+	args = append(args, backingFile)
+	args = append(args, imagePath)
+
+	cmd := exec.Command("qemu-img", args...)
+	output, err := cmd.CombinedOutput()
+
+	// Cleanup of previous images isn't really necessary as they're all on EmptyDir.
+	if err != nil {
+		return fmt.Errorf("qemu-img failed with output '%s': %v", string(output), err)
+	}
+
+	// We need to ensure that the permissions are setup correctly.
+	err = diskutils.SetFileOwnership(ephemeralImageDiskOwner, imagePath)
+	return err
+}
+
 func CreateEphemeralImages(vmi *v1.VirtualMachineInstance) error {
 	// The domain is setup to use the COW image instead of the base image. What we have
 	// to do here is only create the image where the domain expects it (GetFilePath)
 	// for each disk that requires it.
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.Ephemeral != nil {
-			err := createVolumeDirectory(volume.Name)
-			if err != nil {
-				return err
-			}
-
-			imagePath := GetFilePath(volume.Name)
-
-			var args []string
-
-			args = append(args, "create")
-			args = append(args, "-f")
-			args = append(args, "qcow2")
-			args = append(args, "-b")
-			args = append(args, getBackingFilePath(volume.Name))
-			args = append(args, imagePath)
-
-			cmd := exec.Command("qemu-img", args...)
-			err = cmd.Run()
-
-			// Cleanup of previous images isn't really necessary as they're all on EmptyDir.
-			if err != nil {
-				return err
-			}
-
-			// We need to ensure that the permissions are setup correctly.
-			err = diskutils.SetFileOwnership(ephemeralImageDiskOwner, imagePath)
-			if err != nil {
+			if err := CreateBackedImageForVolume(volume, getBackingFilePath(volume.Name)); err != nil {
 				return err
 			}
 		}
-
 	}
 
 	return nil

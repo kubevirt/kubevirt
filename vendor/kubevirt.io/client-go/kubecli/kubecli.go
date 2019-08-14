@@ -51,9 +51,15 @@ var (
 var virtclient KubevirtClient
 var once sync.Once
 
-func init() {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
-	flag.StringVar(&master, "master", "", "master url")
+// Init adds the default `kubeconfig` and `master` flags. It is not added by default to allow integration into
+// the different controller generators which normally add these flags too.
+func Init() {
+	if flag.CommandLine.Lookup("kubeconfig") == nil {
+		flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
+	}
+	if flag.CommandLine.Lookup("master") == nil {
+		flag.StringVar(&master, "master", "", "master url")
+	}
 }
 
 func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
@@ -62,7 +68,7 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
-	config.GroupVersion = &v1.SubresourceGroupVersion
+	config.GroupVersion = &v1.SubresourceStorageGroupVersion
 	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
@@ -187,7 +193,7 @@ var GetKubevirtClientFromClientConfig = func(cmdConfig clientcmd.ClientConfig) (
 }
 
 func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error) {
-	config.GroupVersion = &v1.GroupVersion
+	config.GroupVersion = &v1.StorageGroupVersion
 	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: v1.Codecs}
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON

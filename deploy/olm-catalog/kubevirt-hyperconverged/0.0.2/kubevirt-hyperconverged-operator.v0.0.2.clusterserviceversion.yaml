@@ -78,7 +78,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-08-14 12:53:24.12037478 +0200 CEST m=+0.016872655
+    createdAt: 2019-08-14 18:20:00.350551627 +0200 CEST m=+0.018187517
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -348,6 +348,7 @@ spec:
               - serviceaccounts
               - services
               - endpoints
+              - pods/exec
               verbs:
               - get
               - list
@@ -410,6 +411,7 @@ spec:
               resources:
               - securitycontextconstraints
               verbs:
+              - create
               - get
               - list
               - watch
@@ -424,6 +426,19 @@ spec:
               - patch
               - update
             - apiGroups:
+              - security.openshift.io
+              resourceNames:
+              - kubevirt-handler
+              - kubevirt-controller
+              resources:
+              - securitycontextconstraints
+              verbs:
+              - get
+              - list
+              - watch
+              - update
+              - delete
+            - apiGroups:
               - admissionregistration.k8s.io
               resources:
               - validatingwebhookconfigurations
@@ -433,6 +448,14 @@ spec:
               - watch
               - create
               - delete
+            - apiGroups:
+              - subresources.kubevirt.io
+              resources:
+              - virtualmachines/start
+              - virtualmachines/stop
+              - virtualmachines/restart
+              verbs:
+              - put
             - apiGroups:
               - admissionregistration.k8s.io
               resources:
@@ -457,12 +480,6 @@ spec:
               verbs:
               - get
               - list
-            - apiGroups:
-              - ""
-              resources:
-              - pods/exec
-              verbs:
-              - create
             - apiGroups:
               - kubevirt.io
               resources:
@@ -497,6 +514,14 @@ spec:
               - watch
               - list
             - apiGroups:
+              - apiextensions.k8s.io
+              resources:
+              - customresourcedefinitions
+              verbs:
+              - get
+              - list
+              - watch
+            - apiGroups:
               - ""
               resources:
               - secrets
@@ -524,6 +549,7 @@ spec:
               - watch
               - delete
               - create
+              - patch
             - apiGroups:
               - ""
               resources:
@@ -590,6 +616,20 @@ spec:
               - list
               - watch
             - apiGroups:
+              - apiextensions.k8s.io
+              resources:
+              - customresourcedefinitions
+              verbs:
+              - get
+              - list
+              - watch
+            - apiGroups:
+              - authorization.k8s.io
+              resources:
+              - subjectaccessreviews
+              verbs:
+              - create
+            - apiGroups:
               - kubevirt.io
               resources:
               - virtualmachineinstances
@@ -617,6 +657,14 @@ spec:
               verbs:
               - create
               - patch
+            - apiGroups:
+              - apiextensions.k8s.io
+              resources:
+              - customresourcedefinitions
+              verbs:
+              - get
+              - list
+              - watch
             - apiGroups:
               - ""
               resources:
@@ -653,7 +701,6 @@ spec:
               - virtualmachines/restart
               verbs:
               - update
-              - put
             - apiGroups:
               - kubevirt.io
               resources:
@@ -686,7 +733,6 @@ spec:
               - virtualmachines/restart
               verbs:
               - update
-              - put
             - apiGroups:
               - kubevirt.io
               resources:
@@ -1240,12 +1286,12 @@ spec:
                   - "2"
                   env:
                   - name: OPERATOR_IMAGE
-                    value: kubevirt/virt-operator:v0.19.0
+                    value: kubevirt/virt-operator:v0.20.1
                   - name: WATCH_NAMESPACE
                     valueFrom:
                       fieldRef:
                         fieldPath: metadata.annotations['olm.targetNamespaces']
-                  image: kubevirt/virt-operator:v0.19.0
+                  image: kubevirt/virt-operator:v0.20.1
                   imagePullPolicy: IfNotPresent
                   name: virt-operator
                   ports:
@@ -1390,7 +1436,7 @@ spec:
                       - name: WATCH_NAMESPACE
                         value: ""
                       - name: VIRT_LAUNCHER_TAG
-                        value: v0.19.0
+                        value: v0.20.1
                       - name: OPERATOR_NAME
                         value: "kubevirt-ssp-operator"
 

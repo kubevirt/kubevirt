@@ -28,18 +28,32 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	cdiclone "kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure}
 
+type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error)
+
 type VMsAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	cloneAuthFunc CloneAuthFunc
+}
+
+func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VMsAdmitter {
+	return &VMsAdmitter{
+		ClusterConfig: clusterConfig,
+		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
+			return cdiclone.CanServiceAccountClonePVC(client, pvcNamespace, pvcName, saNamespace, saName)
+		},
+	}
 }
 
 func (admitter *VMsAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	if ar.Request.Resource != webhooks.VirtualMachineGroupVersionResource {
+	if !webhooks.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineGroupVersionResource.Group, webhooks.VirtualMachineGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
 	}
@@ -61,9 +75,71 @@ func (admitter *VMsAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 		return webhooks.ToAdmissionResponse(causes)
 	}
 
+	causes, err = admitter.authorizeVirtualMachineSpec(ar.Request, &vm)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	if len(causes) > 0 {
+		return webhooks.ToAdmissionResponse(causes)
+	}
+
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
+}
+
+func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
+	var causes []metav1.StatusCause
+
+	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
+		pvcSource := dataVolume.Spec.Source.PVC
+		if pvcSource != nil {
+			sourceNamespace := pvcSource.Namespace
+			if sourceNamespace == "" {
+				if vm.Namespace != "" {
+					sourceNamespace = vm.Namespace
+				} else {
+					sourceNamespace = ar.Namespace
+				}
+			}
+
+			if sourceNamespace == "" || pvcSource.Name == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotFound,
+					Message: fmt.Sprintf("Clone source %s/%s invalid", sourceNamespace, pvcSource.Name),
+					Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
+				})
+			} else {
+				targetNamespace := vm.Namespace
+				if targetNamespace == "" {
+					targetNamespace = ar.Namespace
+				}
+
+				serviceAccount := "default"
+				for _, vol := range vm.Spec.Template.Spec.Volumes {
+					if vol.ServiceAccount != nil {
+						serviceAccount = vol.ServiceAccount.ServiceAccountName
+					}
+				}
+
+				allowed, message, err := admitter.cloneAuthFunc(sourceNamespace, pvcSource.Name, targetNamespace, serviceAccount)
+				if err != nil {
+					return nil, err
+				}
+
+				if !allowed {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: "Authorization failed, message is: " + message,
+						Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
+					})
+				}
+			}
+		}
+	}
+
+	return causes, nil
 }
 
 func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
@@ -77,6 +153,7 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		})
 	}
 
+	causes = append(causes, ValidateVirtualMachineInstanceMetadata(field.Child("template", "metadata"), &spec.Template.ObjectMeta, config)...)
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
 
 	if len(spec.DataVolumeTemplates) > 0 {
@@ -144,13 +221,5 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		}
 	}
 
-	// Validate ignition feature gate if set when the corresponding annotation is found
-	if spec.Template.ObjectMeta.GetAnnotations()[v1.IgnitionAnnotation] != "" && !config.IgnitionEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config"),
-			Field:   field.String(),
-		})
-	}
 	return causes
 }

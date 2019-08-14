@@ -62,6 +62,9 @@ const (
 	// when the pod ownership transfer from the controller to virt-hander succeeds.
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
 
+	// UnauthorizedDataVolumeCreateReason is added in an event when the DataVolume
+	// ServiceAccount doesn't have permission to create a DataVolume
+	UnauthorizedDataVolumeCreateReason = "UnauthorizedDataVolumeCreate"
 	// FailedDataVolumeImportReason is added in an event when a dynamically generated
 	// dataVolume reaches the failed status phase.
 	FailedDataVolumeImportReason = "FailedDataVolumeImport"
@@ -222,6 +225,15 @@ func (c *VMIController) execute(key string) error {
 
 	logger := log.Log.Object(vmi)
 
+	// this must be first step in execution. Writing the object
+	// when api version changes ensures our api stored version is updated.
+	if !controller.ObservedLatestApiVersionAnnotation(vmi) {
+		vmi := vmi.DeepCopy()
+		controller.SetLatestApiVersionAnnotation(vmi)
+		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
+		return err
+	}
+
 	// Only consider pods which belong to this vmi
 	// excluding unfinalized migration targets from this list.
 	pod, err := c.currentPod(vmi)
@@ -287,6 +299,10 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					Reason:  k8sv1.PodReasonUnschedulable,
 					Message: syncErr.Error(),
 					Status:  k8sv1.ConditionFalse,
+				}
+				cm := controller.NewVirtualMachineInstanceConditionManager()
+				if cm.HasCondition(vmiCopy, condition.Type) {
+					cm.RemoveCondition(vmiCopy, condition.Type)
 				}
 				vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
 			}

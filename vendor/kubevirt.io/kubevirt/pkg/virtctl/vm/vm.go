@@ -92,7 +92,7 @@ func NewCommand(command string) *Command {
 
 func usage(cmd string) string {
 	usage := fmt.Sprintf("  # %s a virtual machine called 'myvm':\n", strings.Title(cmd))
-	usage += fmt.Sprintf("  virtctl %s myvm", cmd)
+	usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
 	return usage
 }
 

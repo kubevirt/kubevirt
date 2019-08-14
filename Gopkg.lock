@@ -53,6 +53,14 @@
   version = "v1.0.1"
 
 [[projects]]
+  digest = "1:ef796be125d656ea1556ea57c6b1911092c9c763085644ef9035c63ac3f2b573"
+  name = "github.com/coreos/go-semver"
+  packages = ["semver"]
+  pruneopts = "NT"
+  revision = "8ab6407b697782a06568d4b7f1db25550ec2e4c6"
+  version = "v0.2.0"
+
+[[projects]]
   digest = "1:c61f4f97321a37adcb5b4fd4fd61209cd553e46c99ee606c465553541b12a229"
   name = "github.com/coreos/prometheus-operator"
   packages = [
@@ -99,6 +107,21 @@
   pruneopts = "NT"
   revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
   version = "v1.0.0"
+
+[[projects]]
+  digest = "1:8374d4f7516cfe85e562346ed77422697372146898bda4224bfaba21558001cb"
+  name = "github.com/go-kit/kit"
+  packages = ["log"]
+  pruneopts = "NT"
+  revision = "fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7"
+
+[[projects]]
+  digest = "1:738c75300725db7262825a96ba5b6a8a737f0faa93d9dadcf3977504034877e0"
+  name = "github.com/go-logfmt/logfmt"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "07c9b44f60d7ffdfb7d8efe1ad539965737836dc"
+  version = "v0.4.0"
 
 [[projects]]
   digest = "1:d421af4c4fe51d399667d573982d663fe1fa67020a88d3ae43466ebfe8e2b5c9"
@@ -149,6 +172,14 @@
   version = "v0.19.4"
 
 [[projects]]
+  digest = "1:91358b3a314c1ddfd4d6445ca9c1fb846842c31c153e626730594b3c95f73f4a"
+  name = "github.com/go-stack/stack"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "2fee6af1a9795aafbe0253a0cfbdf668e1fb8a9a"
+  version = "v1.8.0"
+
+[[projects]]
   digest = "1:53151cc4366e3945282d4b783fd41f35222cabbc75601e68d8133648c63498d1"
   name = "github.com/gobuffalo/envy"
   packages = ["."]
@@ -182,6 +213,14 @@
   packages = ["lru"]
   pruneopts = "NT"
   revision = "869f871628b6baa9cfbc11732cdf6546b17c1298"
+
+[[projects]]
+  digest = "1:e6eb1dec8cf5be2ac3fad30e00ce80c9f0e61239478d0ef6b5616f068590d8e8"
+  name = "github.com/golang/mock"
+  packages = ["gomock"]
+  pruneopts = "NT"
+  revision = "9fa652df1129bef0e734c9cf9bf6dbae9ef3b9fa"
+  version = "1.3.1"
 
 [[projects]]
   digest = "1:440a3032b9e2db5bbf14535c63caf0e886f13d4f1d128a4a4d9deb03f924aa0c"
@@ -232,6 +271,14 @@
   pruneopts = "NT"
   revision = "e73c7ec21d36ddb0711cb36d1502d18363b5c2c9"
   version = "v0.3.0"
+
+[[projects]]
+  digest = "1:0f9fbe4a905d2923bcd2131de2ecf0040aeac9037ecab5195e14ef8db9b495c1"
+  name = "github.com/gorilla/websocket"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "66b9c49e59c6c48f0ffce28c2d8b8a5678502c6d"
+  version = "v1.4.0"
 
 [[projects]]
   branch = "master"
@@ -292,6 +339,28 @@
   pruneopts = "NT"
   revision = "27518f6661eba504be5a7a9a9f6d9460d892ade3"
   version = "v1.1.7"
+
+[[projects]]
+  branch = "master"
+  digest = "1:b16200bc30132e631a8a66be61a3571097555364260775cae06ed2a3d5ecc2b0"
+  name = "github.com/k8snetworkplumbingwg/network-attachment-definition-client"
+  packages = [
+    "pkg/apis/k8s.cni.cncf.io",
+    "pkg/apis/k8s.cni.cncf.io/v1",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1",
+  ]
+  pruneopts = "NT"
+  revision = "386d141f4c94392047e2361a44ad1573a577e666"
+
+[[projects]]
+  branch = "master"
+  digest = "1:f91bb67d051a94cf6ab2cf07eee0550432afc31655838d42cdec258db4b348f0"
+  name = "github.com/kr/logfmt"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
 
 [[projects]]
   digest = "1:abd4aeb5e7b8f278dca7f09c8bddcf526d7ea8e8ae00940ec091007a5311d376"
@@ -406,6 +475,16 @@
   revision = "5ad8479f64f1b60ee9c62ce8ef1fe6638838725e"
 
 [[projects]]
+  digest = "1:7a400f10664543108f603f64a5228112995fb64c89881bb148f56af5989df030"
+  name = "github.com/openshift/client-go"
+  packages = [
+    "security/clientset/versioned/scheme",
+    "security/clientset/versioned/typed/security/v1",
+  ]
+  pruneopts = "NT"
+  revision = "431ec9a26e5021f35fa41ee9a89842db9bfdb370"
+
+[[projects]]
   branch = "master"
   digest = "1:a6657401620fd8bcffe0b118491ffba6c485b529836576a3315f2be02a0eb8c4"
   name = "github.com/openshift/custom-resource-status"
@@ -415,6 +494,17 @@
   ]
   pruneopts = "NT"
   revision = "4c95b3a336cd95e8c46f80b6f65656c32fd88004"
+
+[[projects]]
+  digest = "1:5f7d166863096a9fb654cedff9e14ea2ec1fe48dc1dd69f7504ef3d87943dc3f"
+  name = "github.com/operator-framework/operator-lifecycle-manager"
+  packages = [
+    "pkg/api/apis/operators",
+    "pkg/api/apis/operators/v1alpha1",
+  ]
+  pruneopts = "NT"
+  revision = "2abd0e2b4d93b4100220204d429d68a9990a160b"
+  version = "v3.11.0"
 
 [[projects]]
   branch = "master"
@@ -787,6 +877,9 @@
   packages = [
     "pkg/apis/apiextensions",
     "pkg/apis/apiextensions/v1beta1",
+    "pkg/client/clientset/clientset",
+    "pkg/client/clientset/clientset/scheme",
+    "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
   ]
   pruneopts = "NT"
   revision = "0fe22c71c47604641d9aa352c785b7912c200562"
@@ -826,6 +919,7 @@
     "pkg/util/mergepatch",
     "pkg/util/naming",
     "pkg/util/net",
+    "pkg/util/rand",
     "pkg/util/runtime",
     "pkg/util/sets",
     "pkg/util/strategicpatch",
@@ -848,6 +942,52 @@
   packages = [
     "discovery",
     "dynamic",
+    "informers",
+    "informers/admissionregistration",
+    "informers/admissionregistration/v1alpha1",
+    "informers/admissionregistration/v1beta1",
+    "informers/apps",
+    "informers/apps/v1",
+    "informers/apps/v1beta1",
+    "informers/apps/v1beta2",
+    "informers/auditregistration",
+    "informers/auditregistration/v1alpha1",
+    "informers/autoscaling",
+    "informers/autoscaling/v1",
+    "informers/autoscaling/v2beta1",
+    "informers/autoscaling/v2beta2",
+    "informers/batch",
+    "informers/batch/v1",
+    "informers/batch/v1beta1",
+    "informers/batch/v2alpha1",
+    "informers/certificates",
+    "informers/certificates/v1beta1",
+    "informers/coordination",
+    "informers/coordination/v1beta1",
+    "informers/core",
+    "informers/core/v1",
+    "informers/events",
+    "informers/events/v1beta1",
+    "informers/extensions",
+    "informers/extensions/v1beta1",
+    "informers/internalinterfaces",
+    "informers/networking",
+    "informers/networking/v1",
+    "informers/policy",
+    "informers/policy/v1beta1",
+    "informers/rbac",
+    "informers/rbac/v1",
+    "informers/rbac/v1alpha1",
+    "informers/rbac/v1beta1",
+    "informers/scheduling",
+    "informers/scheduling/v1alpha1",
+    "informers/scheduling/v1beta1",
+    "informers/settings",
+    "informers/settings/v1alpha1",
+    "informers/storage",
+    "informers/storage/v1",
+    "informers/storage/v1alpha1",
+    "informers/storage/v1beta1",
     "kubernetes",
     "kubernetes/scheme",
     "kubernetes/typed/admissionregistration/v1alpha1",
@@ -882,6 +1022,34 @@
     "kubernetes/typed/storage/v1",
     "kubernetes/typed/storage/v1alpha1",
     "kubernetes/typed/storage/v1beta1",
+    "listers/admissionregistration/v1alpha1",
+    "listers/admissionregistration/v1beta1",
+    "listers/apps/v1",
+    "listers/apps/v1beta1",
+    "listers/apps/v1beta2",
+    "listers/auditregistration/v1alpha1",
+    "listers/autoscaling/v1",
+    "listers/autoscaling/v2beta1",
+    "listers/autoscaling/v2beta2",
+    "listers/batch/v1",
+    "listers/batch/v1beta1",
+    "listers/batch/v2alpha1",
+    "listers/certificates/v1beta1",
+    "listers/coordination/v1beta1",
+    "listers/core/v1",
+    "listers/events/v1beta1",
+    "listers/extensions/v1beta1",
+    "listers/networking/v1",
+    "listers/policy/v1beta1",
+    "listers/rbac/v1",
+    "listers/rbac/v1alpha1",
+    "listers/rbac/v1beta1",
+    "listers/scheduling/v1alpha1",
+    "listers/scheduling/v1beta1",
+    "listers/settings/v1alpha1",
+    "listers/storage/v1",
+    "listers/storage/v1alpha1",
+    "listers/storage/v1beta1",
     "pkg/apis/clientauthentication",
     "pkg/apis/clientauthentication/v1alpha1",
     "pkg/apis/clientauthentication/v1beta1",
@@ -895,6 +1063,7 @@
     "third_party/forked/golang/template",
     "tools/auth",
     "tools/cache",
+    "tools/cache/testing",
     "tools/clientcmd",
     "tools/clientcmd/api",
     "tools/clientcmd/api/latest",
@@ -1002,15 +1171,19 @@
   version = "v1.6.0"
 
 [[projects]]
-  digest = "1:e506d17784b0a4ed17a78836ad6c88a33b48f82bbf9db394e6a3cb13cabd2b34"
+  digest = "1:c345f7fac6fa77553857d50f04c95a3bf66c1b836b13da426eb533ee1a2ead7d"
   name = "kubevirt.io/client-go"
   packages = [
     "api/v1",
+    "kubecli",
+    "log",
     "precond",
+    "subresources",
+    "version",
   ]
   pruneopts = "NT"
-  revision = "f7b247301033cc7dc3da457939d72a129d460021"
-  version = "v0.19.0"
+  revision = "52a8eff9a75056eb844dc201f5ccaccab3d61d70"
+  version = "v0.20.1"
 
 [[projects]]
   digest = "1:f9aba1238e40ba5b55f41c9c46378d09671599b7ca0d4fede9036f6d935ebcc5"
@@ -1019,6 +1192,20 @@
     ".",
     "pkg/apis/core",
     "pkg/apis/core/v1alpha1",
+    "pkg/apis/upload",
+    "pkg/apis/upload/v1alpha1",
+    "pkg/client/clientset/versioned",
+    "pkg/client/clientset/versioned/scheme",
+    "pkg/client/clientset/versioned/typed/core/v1alpha1",
+    "pkg/client/clientset/versioned/typed/upload/v1alpha1",
+    "pkg/client/informers/externalversions",
+    "pkg/client/informers/externalversions/core",
+    "pkg/client/informers/externalversions/core/v1alpha1",
+    "pkg/client/informers/externalversions/internalinterfaces",
+    "pkg/client/informers/externalversions/upload",
+    "pkg/client/informers/externalversions/upload/v1alpha1",
+    "pkg/client/listers/core/v1alpha1",
+    "pkg/client/listers/upload/v1alpha1",
     "pkg/common",
     "pkg/operator/resources/cluster",
     "pkg/operator/resources/operator",
@@ -1029,16 +1216,33 @@
   version = "v1.10.0"
 
 [[projects]]
-  digest = "1:4b332b3172b2767ca1428fdbad02fd9b4ca8062f5eaa20ce22cbb852be7cff48"
+  digest = "1:d30062b3f3df4e6de20076c6ee972e8527a6ce7595f2b8e63d230ad10dacb969"
   name = "kubevirt.io/kubevirt"
   packages = [
     ".",
+    "pkg/cloud-init",
+    "pkg/config",
+    "pkg/container-disk",
+    "pkg/controller",
+    "pkg/emptydisk",
+    "pkg/ephemeral-disk",
+    "pkg/ephemeral-disk-utils",
+    "pkg/host-disk",
+    "pkg/ignition",
+    "pkg/rest",
+    "pkg/testutils",
+    "pkg/util",
+    "pkg/util/net/dns",
+    "pkg/util/types",
+    "pkg/virt-config",
+    "pkg/virt-launcher/virtwrap/api",
     "pkg/virt-operator/creation/components",
     "pkg/virt-operator/creation/rbac",
+    "pkg/virt-operator/util",
   ]
   pruneopts = "NT"
-  revision = "b54712d720ae7bde6400cd3bb81087f2694b2a40"
-  version = "v0.19.0"
+  revision = "c2cacac0af5c2b1ee69845a2bb62ee1c5dc74b84"
+  version = "v0.20.1"
 
 [[projects]]
   digest = "1:06035489efbd51ccface65fc878ceeb849aba05b2f9443c8993f363fc96e80ac"

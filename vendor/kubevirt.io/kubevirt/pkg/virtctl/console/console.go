@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017, 2018 Red Hat, Inc.
+ * Copyright 2017 - 2019 Red Hat, Inc.
  *
  */
 
@@ -26,6 +26,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
 	"k8s.io/client-go/tools/clientcmd"
@@ -59,9 +60,9 @@ type Console struct {
 
 func usage() string {
 	usage := `  # Connect to the console on VirtualMachineInstance 'myvmi':
-  virtctl console myvmi
+  {{ProgramName}} console myvmi
   # Configure one minute timeout (default 5 minutes)
-  virtctl console --timeout=1 myvmi`
+  {{ProgramName}} console --timeout=1 myvmi`
 
 	return usage
 }
@@ -177,6 +178,11 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	terminal.Restore(int(os.Stdin.Fd()), state)
 
 	if err != nil {
+		if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseAbnormalClosure {
+			fmt.Fprint(os.Stderr, "\nYou were disconnected from the console. This has one of the following reasons:"+
+				"\n - another user connected to the console of the target vm"+
+				"\n - network issues\n")
+		}
 		return err
 	}
 	return nil

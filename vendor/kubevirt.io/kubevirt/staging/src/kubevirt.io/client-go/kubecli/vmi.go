@@ -22,7 +22,6 @@ package kubecli
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -36,10 +35,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/subresources"
-)
-
-const (
-	WebsocketMessageBufferSize = 10240
 )
 
 func (k *kubevirt) VirtualMachineInstance(namespace string) VirtualMachineInstanceInterface {
@@ -60,70 +55,6 @@ type vmis struct {
 	resource   string
 	master     string
 	kubeconfig string
-}
-
-type BinaryReadWriter struct {
-	Conn *websocket.Conn
-}
-
-func (s *BinaryReadWriter) Write(p []byte) (int, error) {
-	wsFrameHeaderSize := 2 + 8 + 4 // Fixed header + length + mask (RFC 6455)
-	// our websocket package has an issue where it truncates messages
-	// when the message+header is greater than the buffer size we allocate.
-	// because of this, we have to chunk messages
-	chunkSize := WebsocketMessageBufferSize - wsFrameHeaderSize
-	bytesWritten := 0
-
-	for i := 0; i < len(p); i += chunkSize {
-		w, err := s.Conn.NextWriter(websocket.BinaryMessage)
-		if err != nil {
-			return bytesWritten, s.err(err)
-		}
-		defer w.Close()
-
-		end := i + chunkSize
-		if end > len(p) {
-			end = len(p)
-		}
-		n, err := w.Write(p[i:end])
-		if err != nil {
-			return bytesWritten, err
-		}
-
-		bytesWritten = n + bytesWritten
-	}
-	return bytesWritten, nil
-
-}
-
-func (s *BinaryReadWriter) Read(p []byte) (int, error) {
-	for {
-		msgType, r, err := s.Conn.NextReader()
-		if err != nil {
-			return 0, s.err(err)
-		}
-
-		switch msgType {
-		case websocket.BinaryMessage:
-			n, err := r.Read(p)
-			return n, s.err(err)
-
-		case websocket.CloseMessage:
-			return 0, io.EOF
-		}
-	}
-}
-
-func (s *BinaryReadWriter) err(err error) error {
-	if err == nil {
-		return nil
-	}
-	if e, ok := err.(*websocket.CloseError); ok {
-		if e.Code == websocket.CloseNormalClosure {
-			return io.EOF
-		}
-	}
-	return err
 }
 
 type RoundTripCallback func(conn *websocket.Conn, resp *http.Response, err error) error
@@ -206,7 +137,7 @@ func RequestFromConfig(config *rest.Config, vmi string, namespace string, resour
 		return nil, fmt.Errorf("Unsupported Protocol %s", u.Scheme)
 	}
 
-	u.Path = fmt.Sprintf("/apis/subresources.kubevirt.io/v1alpha3/namespaces/%s/virtualmachineinstances/%s/%s", namespace, vmi, resource)
+	u.Path = fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachineinstances/%s/%s", v1.ApiStorageVersion, namespace, vmi, resource)
 	req := &http.Request{
 		Method: http.MethodGet,
 		URL:    u,
@@ -225,17 +156,15 @@ func (ws *wsStreamer) streamDone() {
 }
 
 func (ws *wsStreamer) Stream(options StreamOptions) error {
-	wsReadWriter := &BinaryReadWriter{Conn: ws.conn}
-
 	copyErr := make(chan error, 1)
 
 	go func() {
-		_, err := io.Copy(wsReadWriter, options.In)
+		_, err := CopyTo(ws.conn, options.In)
 		copyErr <- err
 	}()
 
 	go func() {
-		_, err := io.Copy(options.Out, wsReadWriter)
+		_, err := CopyFrom(options.Out, ws.conn)
 		copyErr <- err
 	}()
 

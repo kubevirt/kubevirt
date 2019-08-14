@@ -44,7 +44,7 @@ func main() {
 	genDir := flag.String("generated-vms-dir", "", "")
 	flag.Parse()
 
-	config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{
+	config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{
 		Data: map[string]string{
 			// Required to validate DataVolume usage
 			virtconfig.FeatureGatesKey:      "DataVolumes,LiveMigration,SRIOV",
