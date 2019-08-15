@@ -73,3 +73,14 @@ var _ = Describe("Isolation", func() {
 		})
 	})
 })
+
+var _ = Describe("getMemlockSize", func() {
+	vm := v1.NewMinimalVMIWithNS("default", "testvm")
+
+	It("Should return correct number of bytes for memlock limit", func() {
+		bytes_, err := getMemlockSize(vm)
+		Expect(err).ToNot(HaveOccurred())
+		// 1Gb (static part for vfio VMs) + 256Mb (estimated overhead) + 8 Mb (VM)
+		Expect(int(bytes_)).To(Equal(1264389000))
+	})
+})
