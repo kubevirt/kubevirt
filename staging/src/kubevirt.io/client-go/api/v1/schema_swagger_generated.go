@@ -69,6 +69,13 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"features":        "Features like acpi, apic, hyperv, smm.\n+optional",
 		"devices":         "Devices allows adding disks, network interfaces, ...",
 		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
+		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
+	}
+}
+
+func (Chassis) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Chassis specifies the chassis info passed to the domain.",
 	}
 }
 

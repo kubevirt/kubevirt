@@ -4164,6 +4164,26 @@
      }
     }
    },
+   "v1.Chassis": {
+    "description": "Chassis specifies the chassis info passed to the domain.",
+    "properties": {
+     "asset": {
+      "type": "string"
+     },
+     "manufacturer": {
+      "type": "string"
+     },
+     "serial": {
+      "type": "string"
+     },
+     "sku": {
+      "type": "string"
+     },
+     "version": {
+      "type": "string"
+     }
+    }
+   },
    "v1.Clock": {
     "description": "Represents the clock and timers of a vmi.",
     "required": [
@@ -4498,6 +4518,10 @@
      "devices"
     ],
     "properties": {
+     "chassis": {
+      "description": "Chassis specifies the chassis info passed to the domain.\n+optional",
+      "$ref": "#/definitions/v1.Chassis"
+     },
      "clock": {
       "description": "Clock sets the clock and timers of the vmi.\n+optional",
       "$ref": "#/definitions/v1.Clock"

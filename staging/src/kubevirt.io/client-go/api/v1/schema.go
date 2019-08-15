@@ -170,6 +170,20 @@ type DomainSpec struct {
 	// One of: shared, auto
 	// +optional
 	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
+	// Chassis specifies the chassis info passed to the domain.
+	// +optional
+	Chassis *Chassis `json:"chassis,omitempty"`
+}
+
+// Chassis specifies the chassis info passed to the domain.
+// ---
+// +k8s:openapi-gen=true
+type Chassis struct {
+	Manufacturer string `json:"manufacturer,omitempty"`
+	Version      string `json:"version,omitempty"`
+	Serial       string `json:"serial,omitempty"`
+	Asset        string `json:"asset,omitempty"`
+	Sku          string `json:"sku,omitempty"`
 }
 
 // Represents the firmware blob used to assist in the domain creation process.

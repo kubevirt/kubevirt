@@ -34,6 +34,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.CDRomTarget":                               schema_kubevirtio_client_go_api_v1_CDRomTarget(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.CPU":                                       schema_kubevirtio_client_go_api_v1_CPU(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.CPUFeature":                                schema_kubevirtio_client_go_api_v1_CPUFeature(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Chassis":                                   schema_kubevirtio_client_go_api_v1_Chassis(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Clock":                                     schema_kubevirtio_client_go_api_v1_Clock(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.ClockOffset":                               schema_kubevirtio_client_go_api_v1_ClockOffset(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.ClockOffsetUTC":                            schema_kubevirtio_client_go_api_v1_ClockOffsetUTC(ref),
@@ -280,6 +281,49 @@ func schema_kubevirtio_client_go_api_v1_CPUFeature(ref common.ReferenceCallback)
 					},
 				},
 				Required: []string{"name"},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_Chassis(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Chassis specifies the chassis info passed to the domain.",
+				Properties: map[string]spec.Schema{
+					"manufacturer": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"serial": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"asset": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sku": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 		Dependencies: []string{},
@@ -908,12 +952,18 @@ func schema_kubevirtio_client_go_api_v1_DomainSpec(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"chassis": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Chassis specifies the chassis info passed to the domain.",
+							Ref:         ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Chassis"),
+						},
+					},
 				},
 				Required: []string{"devices"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.CPU", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Clock", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Devices", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Features", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Firmware", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Machine", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Memory", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.ResourceRequirements"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.CPU", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Chassis", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Clock", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Devices", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Features", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Firmware", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Machine", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Memory", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.ResourceRequirements"},
 	}
 }
 
