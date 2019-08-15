@@ -874,14 +874,19 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 // This function parses the NVIDIA-PASSTHROUGH-DEVICES variable that is set by
 // device plugin. It lists PCI IDs for devices allocated to the pod. The format
 // is as follows:
-//
+// For GPU passthrough:
 // "": for no allocated devices
 // "0000:81:11.1,": for a single device
 // "0000:81:11.1,0000:81:11.2[,...]": for multiple devices
-func getGpuPCIAddresses() []string {
-	pciAddrString, isSet := os.LookupEnv("NVIDIA-PASSTHROUGH-DEVICES")
+
+// For vGPU passthrough:
+// "":for no allocated devices
+// "aa618089-8b16-4d01-a136-25a0f3c73123,": for a single device
+// "aa618089-8b16-4d01-a136-25a0f3c73123,1a527489-7cde-4a50-b8d6-3d5b0dc01e3b[,...]": for multiple devices
+func getGpuAddresses() []string {
+	addrString, isSet := os.LookupEnv("NVIDIA-PASSTHROUGH-DEVICES")
 	if isSet {
-		addrs := strings.Split(pciAddrString, ",")
+		addrs := strings.Split(addrString, ",")
 		naddrs := len(addrs)
 		if naddrs > 0 {
 			if addrs[naddrs-1] == "" {
@@ -953,7 +958,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		IsBlockDV:      isBlockDVMap,
 		DiskType:       diskInfo,
 		SRIOVDevices:   getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
-		GpuDevices:     getGpuPCIAddresses(),
+		GpuDevices:     getGpuAddresses(),
 	}
 	if options != nil && options.VirtualMachineSMBios != nil {
 		c.SMBios = options.VirtualMachineSMBios
