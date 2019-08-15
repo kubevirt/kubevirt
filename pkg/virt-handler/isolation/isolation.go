@@ -40,6 +40,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	ps "github.com/mitchellh/go-ps"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -166,10 +167,14 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 			continue
 		}
 
-		// TODO estimate actual memory size needed
+		// make the best estimate for memory required by libvirt
+		memlockSize, err := getMemlockSize(vm)
+		if err != nil {
+			return err
+		}
 		rLimit := unix.Rlimit{
-			Max: unix.RLIM_INFINITY,
-			Cur: unix.RLIM_INFINITY,
+			Max: uint64(memlockSize),
+			Cur: uint64(memlockSize),
 		}
 		err = prLimit(process.Pid(), unix.RLIMIT_MEMLOCK, &rLimit)
 		if err != nil {
@@ -179,6 +184,27 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 		break
 	}
 	return nil
+}
+
+// consider reusing getMemoryOverhead()
+func getMemlockSize(vm *v1.VirtualMachineInstance) (int64, error) {
+	memlockSize := resource.NewQuantity(0, resource.DecimalSI)
+
+	// start with base memory requested for the VM
+	vmiMemoryReq := vm.Spec.Domain.Resources.Requests.Memory()
+	memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
+
+	// allocate 1Gb for VFIO needs
+	memlockSize.Add(resource.MustParse("1G"))
+
+	// add some more memory for NUMA / CPU topology, platform memory alignment and other needs
+	memlockSize.Add(resource.MustParse("256M"))
+
+	bytes_, ok := memlockSize.AsInt64()
+	if !ok {
+		return 0, fmt.Errorf("could not calculate memory lock size")
+	}
+	return bytes_, nil
 }
 
 func NewIsolationResult(pid int, slice string, controller []string) *IsolationResult {
