@@ -51,7 +51,7 @@ import (
 
 const (
 	migrationWaitTime = 240
-	fedoraVMSize      = "256M"
+	fedoraVMSize      = "1Gi"
 )
 
 var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system] VM Live Migration", func() {
@@ -403,7 +403,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				Expect(err).To(BeNil())
 				expecter.Close()
 
-				num := 2
+				num := 40
 
 				for i := 0; i < num; i++ {
 					// execute a migration, wait for finalized state
