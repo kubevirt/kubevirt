@@ -43,13 +43,15 @@ import (
 )
 
 const (
-	cloudInitUserMaxLen = 2048
-	arrayLenMax         = 256
-	maxStrLen           = 256
+	arrayLenMax = 256
+	maxStrLen   = 256
 
-	// cloudInitNetworkMaxLen size is an arbitrary limit. It was selected to
-	// accommodate a reasonable number of interfaces and routes.
-	cloudInitNetworkMaxLen = 16384
+	// cloudInitNetworkMaxLen and CloudInitUserMaxLen are being limited
+	// to 2K to allow scaling of config as edits will cause entire object
+	// to be distributed to large no of nodes. For larger than 2K, user should
+	// use NetworkDataSecretRef and UserDataSecretRef
+	cloudInitUserMaxLen    = 2048
+	cloudInitNetworkMaxLen = 2048
 
 	// Copied from kubernetes/pkg/apis/core/validation/validation.go
 	maxDNSNameservers     = 3
@@ -1331,7 +1333,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if userDataLen > cloudInitUserMaxLen {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s userdata exceeds %d byte limit", field.Index(idx).Child(dataSourceType).String(), cloudInitUserMaxLen),
+					Message: fmt.Sprintf("%s userdata exceeds %d byte limit. Should use UserDataSecretRef for larger data.", field.Index(idx).Child(dataSourceType).String(), cloudInitUserMaxLen),
 					Field:   field.Index(idx).Child(dataSourceType).String(),
 				})
 			}
@@ -1367,7 +1369,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if networkDataLen > cloudInitNetworkMaxLen {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s networkdata exceeds %d byte limit", field.Index(idx).Child(dataSourceType).String(), cloudInitNetworkMaxLen),
+					Message: fmt.Sprintf("%s networkdata exceeds %d byte limit. Should use NetworkDataSecretRef for larger data.", field.Index(idx).Child(dataSourceType).String(), cloudInitNetworkMaxLen),
 					Field:   field.Index(idx).Child(dataSourceType).String(),
 				})
 			}
