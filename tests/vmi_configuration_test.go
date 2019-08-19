@@ -1865,7 +1865,7 @@ var _ = Describe("Configurations", func() {
 			vmi = tests.NewRandomVMI()
 		})
 
-		It("Test Chassis value in a newly created VM", func() {
+		It("[test_id:2927]Test Chassis value in a newly created VM", func() {
 			vmi.Spec.Domain.Chassis = &v1.Chassis{
 				Asset: "Test-123",
 			}
