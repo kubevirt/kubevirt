@@ -876,7 +876,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	isBlockPVCMap := make(map[string]bool)
 	diskInfo := make(map[string]*containerdisk.DiskInfo)
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.PersistentVolumeClaim != nil {
+		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil {
 			isBlockPVC, err := isBlockDeviceVolume(volume.Name)
 			if err != nil {
 				logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and PVC %v.",

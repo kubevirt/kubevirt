@@ -380,9 +380,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			Name:      volume.Name,
 			MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
 		}
-		if volume.PersistentVolumeClaim != nil {
+		if volume.PersistentVolumeClaim != nil || volume.DataVolume != nil {
 			logger := log.DefaultLogger()
-			claimName := volume.PersistentVolumeClaim.ClaimName
+			claimName := ""
+			if volume.PersistentVolumeClaim != nil {
+				claimName = volume.PersistentVolumeClaim.ClaimName
+			} else {
+				claimName = volume.DataVolume.Name
+			}
 			_, exists, isBlock, err := types.IsPVCBlockFromStore(t.persistentVolumeClaimStore, namespace, claimName)
 			if err != nil {
 				logger.Errorf("error getting PVC: %v", claimName)
@@ -400,12 +405,23 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			} else {
 				volumeMounts = append(volumeMounts, volumeMount)
 			}
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: volume.PersistentVolumeClaim,
-				},
-			})
+			if volume.PersistentVolumeClaim != nil {
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volume.Name,
+					VolumeSource: k8sv1.VolumeSource{
+						PersistentVolumeClaim: volume.PersistentVolumeClaim,
+					},
+				})
+			} else {
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volume.Name,
+					VolumeSource: k8sv1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: volume.DataVolume.Name,
+						},
+					},
+				})
+			}
 		}
 		if volume.Ephemeral != nil {
 			volumeMounts = append(volumeMounts, volumeMount)
@@ -441,17 +457,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 					HostPath: &k8sv1.HostPathVolumeSource{
 						Path: filepath.Dir(volume.HostDisk.Path),
 						Type: &hostPathType,
-					},
-				},
-			})
-		}
-		if volume.DataVolume != nil {
-			volumeMounts = append(volumeMounts, volumeMount)
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: volume.DataVolume.Name,
 					},
 				},
 			})

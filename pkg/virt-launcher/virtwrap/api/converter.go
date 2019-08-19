@@ -236,12 +236,8 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 		return Convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk, c)
 	}
 
-	if source.PersistentVolumeClaim != nil {
+	if source.PersistentVolumeClaim != nil || source.DataVolume != nil {
 		return Convert_v1_PersistentVolumeClaim_To_api_Disk(source.Name, disk, c)
-	}
-
-	if source.DataVolume != nil {
-		return Convert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
 	}
 
 	if source.Ephemeral != nil {
