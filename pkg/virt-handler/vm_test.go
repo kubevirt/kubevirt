@@ -73,7 +73,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var mockQueue *testutils.MockWorkQueue
 	var mockWatchdog *MockWatchdog
 	var mockGracefulShutdown *MockGracefulShutdown
-	var mockIsolationDetector *MockIsolationDetector
+	var mockIsolationDetector *isolation.MockPodIsolationDetector
 
 	var vmiFeeder *testutils.VirtualMachineFeeder
 	var domainFeeder *testutils.DomainFeeder
@@ -128,7 +128,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
 		config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
-		mockIsolationDetector = &MockIsolationDetector{}
+		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
+		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(&isolation.IsolationResult{}, nil).AnyTimes()
+		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any()).Return(nil).AnyTimes()
+
 		controller = NewController(recorder,
 			virtClient,
 			host,
@@ -1302,24 +1305,6 @@ func (m *MockGracefulShutdown) TriggerShutdown(vmi *v1.VirtualMachineInstance) {
 	triggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(m.baseDir, namespace, domain)
 	err := virtlauncher.GracefulShutdownTriggerInitiate(triggerFile)
 	Expect(err).NotTo(HaveOccurred())
-}
-
-type MockIsolationDetector struct{}
-
-func (_m *MockIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (*isolation.IsolationResult, error) {
-	return &isolation.IsolationResult{}, nil
-}
-
-func (_m *MockIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInstance, socket string) (*isolation.IsolationResult, error) {
-	return nil, nil
-}
-
-func (_m *MockIsolationDetector) Whitelist(controller []string) isolation.PodIsolationDetector {
-	return _m
-}
-
-func (_m *MockIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {
-	return nil
 }
 
 type MockWatchdog struct {
