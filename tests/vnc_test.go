@@ -110,11 +110,7 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				}
 			}
 
-			It("[test_id:1611]should allow accessing the VNC device", func() {
-				vncConnect()
-			})
-
-			It("should allow accessing the VNC device multiple times", func() {
+			It("[test_id:1611]should allow accessing the VNC device multiple times", func() {
 
 				for i := 0; i < 10; i++ {
 					vncConnect()
