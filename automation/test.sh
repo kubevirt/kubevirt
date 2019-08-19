@@ -1,8 +1,6 @@
 #!/bin/bash -xe
 
-if [[ $TARGET =~ os-.* ]]; then
-  export KUBEVIRT_PROVIDER="os-3.11.0"
-elif [[ $TARGET =~ okd-.* ]]; then
+if [[ $TARGET =~ okd-.* ]]; then
   export KUBEVIRT_PROVIDER="okd-4.1.0"
   export KUBEVIRT_MEMORY_SIZE=6144M
 elif [[ $TARGET =~ k8s-.* ]]; then
