@@ -43,7 +43,7 @@ const (
 	labelValue                           = "selected"
 )
 
-var _ = Describe("KubeVirt control plane resilience", func() {
+var _ = Describe("[ref_id:2717]KubeVirt control plane resilience", func() {
 
 	RegisterFailHandler(Fail)
 
@@ -262,7 +262,7 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 			eventuallyWithTimeout(waitForDeploymentsToStabilize)
 		})
 
-		When("[ref_id:2717]evicting pods of control plane", func() {
+		When("evicting pods of control plane", func() {
 
 			test := func(podName string) {
 				By(fmt.Sprintf("Try to evict all pods %s from node %s\n", podName, selectedNodeName))
@@ -287,7 +287,7 @@ var _ = Describe("KubeVirt control plane resilience", func() {
 
 	Context("control plane components check", func() {
 
-		When("[ref_id:2717]control plane pods are running", func() {
+		When("control plane pods are running", func() {
 
 			It("[test_id:2806]virt-controller and virt-api pods have a pod disruption budget", func() {
 
