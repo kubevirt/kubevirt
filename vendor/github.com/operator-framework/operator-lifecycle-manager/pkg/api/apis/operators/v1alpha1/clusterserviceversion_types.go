@@ -4,17 +4,44 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 
 	"github.com/coreos/go-semver/semver"
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators"
 )
 
 const (
-	ClusterServiceVersionAPIVersion = operators.GroupName + "/" + GroupVersion
-	ClusterServiceVersionKind       = "ClusterServiceVersion"
+	ClusterServiceVersionAPIVersion     = operators.GroupName + "/" + GroupVersion
+	ClusterServiceVersionKind           = "ClusterServiceVersion"
+	OperatorGroupNamespaceAnnotationKey = "olm.operatorNamespace"
 )
+
+// InstallModeType is a supported type of install mode for CSV installation
+type InstallModeType string
+
+const (
+	// InstallModeTypeOwnNamespace indicates that the operator can be a member of an `OperatorGroup` that selects its own namespace.
+	InstallModeTypeOwnNamespace InstallModeType = "OwnNamespace"
+	// InstallModeTypeSingleNamespace indicates that the operator can be a member of an `OperatorGroup` that selects one namespace.
+	InstallModeTypeSingleNamespace InstallModeType = "SingleNamespace"
+	// InstallModeTypeMultiNamespace indicates that the operator can be a member of an `OperatorGroup` that selects more than one namespace.
+	InstallModeTypeMultiNamespace InstallModeType = "MultiNamespace"
+	// InstallModeTypeAllNamespaces indicates that the operator can be a member of an `OperatorGroup` that selects all namespaces (target namespace set is the empty string "").
+	InstallModeTypeAllNamespaces InstallModeType = "AllNamespaces"
+)
+
+// InstallMode associates an InstallModeType with a flag representing if the CSV supports it
+// +k8s:openapi-gen=true
+type InstallMode struct {
+	Type      InstallModeType `json:"type"`
+	Supported bool            `json:"supported"`
+}
+
+// InstallModeSet is a mapping of unique InstallModeTypes to whether they are supported.
+type InstallModeSet map[InstallModeType]bool
 
 // NamedInstallStrategy represents the block of an ClusterServiceVersion resource
 // where the install strategy is specified.
@@ -23,7 +50,7 @@ type NamedInstallStrategy struct {
 	StrategySpecRaw json.RawMessage `json:"spec,omitempty"`
 }
 
-// StatusDescriptor describes a field in a status block of a CRD so that ALM can consume it
+// StatusDescriptor describes a field in a status block of a CRD so that OLM can consume it
 type StatusDescriptor struct {
 	Path         string           `json:"path"`
 	DisplayName  string           `json:"displayName,omitempty"`
@@ -32,7 +59,7 @@ type StatusDescriptor struct {
 	Value        *json.RawMessage `json:"value,omitempty"`
 }
 
-// SpecDescriptor describes a field in a spec block of a CRD so that ALM can consume it
+// SpecDescriptor describes a field in a spec block of a CRD so that OLM can consume it
 type SpecDescriptor struct {
 	Path         string           `json:"path"`
 	DisplayName  string           `json:"displayName,omitempty"`
@@ -50,24 +77,45 @@ type ActionDescriptor struct {
 	Value        *json.RawMessage `json:"value,omitempty"`
 }
 
-// CRDDescription provides details to ALM about the CRDs
+// CRDDescription provides details to OLM about the CRDs
 type CRDDescription struct {
 	Name              string                 `json:"name"`
 	Version           string                 `json:"version"`
 	Kind              string                 `json:"kind"`
 	DisplayName       string                 `json:"displayName,omitempty"`
 	Description       string                 `json:"description,omitempty"`
-	Resources         []CRDResourceReference `json:"resources,omitempty"`
+	Resources         []APIResourceReference `json:"resources,omitempty"`
 	StatusDescriptors []StatusDescriptor     `json:"statusDescriptors,omitempty"`
 	SpecDescriptors   []SpecDescriptor       `json:"specDescriptors,omitempty"`
 	ActionDescriptor  []ActionDescriptor     `json:"actionDescriptors,omitempty"`
 }
 
-// CRDResourceReference is a Kubernetes resource type used by a custom resource
-type CRDResourceReference struct {
+// APIServiceDescription provides details to OLM about apis provided via aggregation
+type APIServiceDescription struct {
+	Name              string                 `json:"name"`
+	Group             string                 `json:"group"`
+	Version           string                 `json:"version"`
+	Kind              string                 `json:"kind"`
+	DeploymentName    string                 `json:"deploymentName,omitempty"`
+	ContainerPort     int32                  `json:"containerPort,omitempty"`
+	DisplayName       string                 `json:"displayName,omitempty"`
+	Description       string                 `json:"description,omitempty"`
+	Resources         []APIResourceReference `json:"resources,omitempty"`
+	StatusDescriptors []StatusDescriptor     `json:"statusDescriptors,omitempty"`
+	SpecDescriptors   []SpecDescriptor       `json:"specDescriptors,omitempty"`
+	ActionDescriptor  []ActionDescriptor     `json:"actionDescriptors,omitempty"`
+}
+
+// APIResourceReference is a Kubernetes resource type used by a custom resource
+type APIResourceReference struct {
 	Name    string `json:"name"`
 	Kind    string `json:"kind"`
 	Version string `json:"version"`
+}
+
+// GetName returns the name of an APIService as derived from its group and version.
+func (d APIServiceDescription) GetName() string {
+	return fmt.Sprintf("%s.%s", d.Version, d.Group)
 }
 
 // CustomResourceDefinitions declares all of the CRDs managed or required by
@@ -79,13 +127,23 @@ type CustomResourceDefinitions struct {
 	Required []CRDDescription `json:"required,omitempty"`
 }
 
-// ClusterServiceVersionSpec declarations tell the ALM how to install an operator
-// that can manage apps for given version and AppType.
+// APIServiceDefinitions declares all of the extension apis managed or required by
+// an operator being ran by ClusterServiceVersion.
+type APIServiceDefinitions struct {
+	Owned    []APIServiceDescription `json:"owned,omitempty"`
+	Required []APIServiceDescription `json:"required,omitempty"`
+}
+
+// ClusterServiceVersionSpec declarations tell OLM how to install an operator
+// that can manage apps for a given version.
 type ClusterServiceVersionSpec struct {
 	InstallStrategy           NamedInstallStrategy      `json:"install"`
 	Version                   semver.Version            `json:"version,omitempty"`
 	Maturity                  string                    `json:"maturity,omitempty"`
 	CustomResourceDefinitions CustomResourceDefinitions `json:"customresourcedefinitions,omitempty"`
+	APIServiceDefinitions     APIServiceDefinitions     `json:"apiservicedefinitions,omitempty"`
+	NativeAPIs                []metav1.GroupVersionKind `json:"nativeAPIs,omitempty"`
+	MinKubeVersion            string                    `json:"minKubeVersion,omitempty"`
 	DisplayName               string                    `json:"displayName"`
 	Description               string                    `json:"description,omitempty"`
 	Keywords                  []string                  `json:"keywords,omitempty"`
@@ -93,6 +151,10 @@ type ClusterServiceVersionSpec struct {
 	Provider                  AppLink                   `json:"provider,omitempty"`
 	Links                     []AppLink                 `json:"links,omitempty"`
 	Icon                      []Icon                    `json:"icon,omitempty"`
+
+	// InstallModes specify supported installation types
+	// +optional
+	InstallModes []InstallMode `json:"installModes,omitempty"`
 
 	// The name of a CSV this one replaces. Should match the `metadata.Name` field of the old CSV.
 	// +optional
@@ -151,24 +213,39 @@ const (
 	CSVPhaseReplacing ClusterServiceVersionPhase = "Replacing"
 	// CSVPhaseDeleting means that a CSV has been replaced by a new one and will be checked for safety before being deleted
 	CSVPhaseDeleting ClusterServiceVersionPhase = "Deleting"
+	// CSVPhaseAny matches all other phases in CSV queries
+	CSVPhaseAny ClusterServiceVersionPhase = ""
 )
 
 // ConditionReason is a camelcased reason for the state transition
 type ConditionReason string
 
 const (
-	CSVReasonRequirementsUnknown ConditionReason = "RequirementsUnknown"
-	CSVReasonRequirementsNotMet  ConditionReason = "RequirementsNotMet"
-	CSVReasonRequirementsMet     ConditionReason = "AllRequirementsMet"
-	CSVReasonOwnerConflict       ConditionReason = "OwnerConflict"
-	CSVReasonComponentFailed     ConditionReason = "InstallComponentFailed"
-	CSVReasonInvalidStrategy     ConditionReason = "InvalidInstallStrategy"
-	CSVReasonWaiting             ConditionReason = "InstallWaiting"
-	CSVReasonInstallSuccessful   ConditionReason = "InstallSucceeded"
-	CSVReasonInstallCheckFailed  ConditionReason = "InstallCheckFailed"
-	CSVReasonComponentUnhealthy  ConditionReason = "ComponentUnhealthy"
-	CSVReasonBeingReplaced       ConditionReason = "BeingReplaced"
-	CSVReasonReplaced            ConditionReason = "Replaced"
+	CSVReasonRequirementsUnknown                         ConditionReason = "RequirementsUnknown"
+	CSVReasonRequirementsNotMet                          ConditionReason = "RequirementsNotMet"
+	CSVReasonRequirementsMet                             ConditionReason = "AllRequirementsMet"
+	CSVReasonOwnerConflict                               ConditionReason = "OwnerConflict"
+	CSVReasonComponentFailed                             ConditionReason = "InstallComponentFailed"
+	CSVReasonInvalidStrategy                             ConditionReason = "InvalidInstallStrategy"
+	CSVReasonWaiting                                     ConditionReason = "InstallWaiting"
+	CSVReasonInstallSuccessful                           ConditionReason = "InstallSucceeded"
+	CSVReasonInstallCheckFailed                          ConditionReason = "InstallCheckFailed"
+	CSVReasonComponentUnhealthy                          ConditionReason = "ComponentUnhealthy"
+	CSVReasonBeingReplaced                               ConditionReason = "BeingReplaced"
+	CSVReasonReplaced                                    ConditionReason = "Replaced"
+	CSVReasonNeedsReinstall                              ConditionReason = "NeedsReinstall"
+	CSVReasonNeedsCertRotation                           ConditionReason = "NeedsCertRotation"
+	CSVReasonAPIServiceResourceIssue                     ConditionReason = "APIServiceResourceIssue"
+	CSVReasonAPIServiceResourcesNeedReinstall            ConditionReason = "APIServiceResourcesNeedReinstall"
+	CSVReasonAPIServiceInstallFailed                     ConditionReason = "APIServiceInstallFailed"
+	CSVReasonCopied                                      ConditionReason = "Copied"
+	CSVReasonInvalidInstallModes                         ConditionReason = "InvalidInstallModes"
+	CSVReasonNoTargetNamespaces                          ConditionReason = "NoTargetNamespaces"
+	CSVReasonUnsupportedOperatorGroup                    ConditionReason = "UnsupportedOperatorGroup"
+	CSVReasonNoOperatorGroup                             ConditionReason = "NoOperatorGroup"
+	CSVReasonTooManyOperatorGroups                       ConditionReason = "TooManyOperatorGroups"
+	CSVReasonInterOperatorGroupOwnerConflict             ConditionReason = "InterOperatorGroupOwnerConflict"
+	CSVReasonCannotModifyStaticOperatorGroupProvidedAPIs ConditionReason = "CannotModifyStaticOperatorGroupProvidedAPIs"
 )
 
 // Conditions appear in the status as a record of state transitions on the ClusterServiceVersion
@@ -192,8 +269,8 @@ type ClusterServiceVersionCondition struct {
 
 // OwnsCRD determines whether the current CSV owns a paritcular CRD.
 func (csv ClusterServiceVersion) OwnsCRD(name string) bool {
-	for _, crdDescription := range csv.Spec.CustomResourceDefinitions.Owned {
-		if crdDescription.Name == name {
+	for _, desc := range csv.Spec.CustomResourceDefinitions.Owned {
+		if desc.Name == name {
 			return true
 		}
 	}
@@ -201,13 +278,50 @@ func (csv ClusterServiceVersion) OwnsCRD(name string) bool {
 	return false
 }
 
+// OwnsAPIService determines whether the current CSV owns a paritcular APIService.
+func (csv ClusterServiceVersion) OwnsAPIService(name string) bool {
+	for _, desc := range csv.Spec.APIServiceDefinitions.Owned {
+		apiServiceName := fmt.Sprintf("%s.%s", desc.Version, desc.Group)
+		if apiServiceName == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+// StatusReason is a camelcased reason for the status of a RequirementStatus or DependentStatus
+type StatusReason string
+
+const (
+	RequirementStatusReasonPresent             StatusReason = "Present"
+	RequirementStatusReasonNotPresent          StatusReason = "NotPresent"
+	RequirementStatusReasonPresentNotSatisfied StatusReason = "PresentNotSatisfied"
+	// The CRD is present but the Established condition is False (not available)
+	RequirementStatusReasonNotAvailable StatusReason = "PresentNotAvailable"
+	DependentStatusReasonSatisfied      StatusReason = "Satisfied"
+	DependentStatusReasonNotSatisfied   StatusReason = "NotSatisfied"
+)
+
+// DependentStatus is the status for a dependent requirement (to prevent infinite nesting)
+type DependentStatus struct {
+	Group   string       `json:"group"`
+	Version string       `json:"version"`
+	Kind    string       `json:"kind"`
+	Status  StatusReason `json:"status"`
+	UUID    string       `json:"uuid,omitempty"`
+	Message string       `json:"message,omitempty"`
+}
+
 type RequirementStatus struct {
-	Group   string `json:"group"`
-	Version string `json:"version"`
-	Kind    string `json:"kind"`
-	Name    string `json:"name"`
-	Status  string `json:"status"`
-	UUID    string `json:"uuid,omitempty"`
+	Group      string            `json:"group"`
+	Version    string            `json:"version"`
+	Kind       string            `json:"kind"`
+	Name       string            `json:"name"`
+	Status     StatusReason      `json:"status"`
+	Message    string            `json:"message"`
+	UUID       string            `json:"uuid,omitempty"`
+	Dependents []DependentStatus `json:"dependents,omitempty"`
 }
 
 // ClusterServiceVersionStatus represents information about the status of a pod. Status may trail the actual
@@ -232,11 +346,17 @@ type ClusterServiceVersionStatus struct {
 	Conditions []ClusterServiceVersionCondition `json:"conditions,omitempty"`
 	// The status of each requirement for this CSV
 	RequirementStatus []RequirementStatus `json:"requirementStatus,omitempty"`
+	// Last time the owned APIService certs were updated
+	// +optional
+	CertsLastUpdated metav1.Time `json:"certsLastUpdated,omitempty"`
+	// Time the owned APIService certs will rotate next
+	// +optional
+	CertsRotateAt metav1.Time `json:"certsRotateAt,omitempty"`
 }
 
+// ClusterServiceVersion is a Custom Resource of type `ClusterServiceVersionSpec`.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
-// ClusterServiceVersion is a Custom Resource of type `ClusterServiceVersionSpec`.
 type ClusterServiceVersion struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
@@ -276,6 +396,95 @@ func (csv ClusterServiceVersion) GetAllCRDDescriptions() []CRDDescription {
 	sort.StringSlice(keys).Sort()
 
 	descs := make([]CRDDescription, 0)
+	for _, key := range keys {
+		descs = append(descs, set[key])
+	}
+
+	return descs
+}
+
+// GetAllAPIServiceDescriptions returns a deduplicated set of APIServiceDescriptions that is
+// the union of the owned and required APIServiceDescriptions.
+//
+// Descriptions with the same name prefer the value in Owned.
+// Descriptions are returned in alphabetical order.
+func (csv ClusterServiceVersion) GetAllAPIServiceDescriptions() []APIServiceDescription {
+	set := make(map[string]APIServiceDescription)
+	for _, required := range csv.Spec.APIServiceDefinitions.Required {
+		name := fmt.Sprintf("%s.%s", required.Version, required.Group)
+		set[name] = required
+	}
+
+	for _, owned := range csv.Spec.APIServiceDefinitions.Owned {
+		name := fmt.Sprintf("%s.%s", owned.Version, owned.Group)
+		set[name] = owned
+	}
+
+	keys := make([]string, 0)
+	for key := range set {
+		keys = append(keys, key)
+	}
+	sort.StringSlice(keys).Sort()
+
+	descs := make([]APIServiceDescription, 0)
+	for _, key := range keys {
+		descs = append(descs, set[key])
+	}
+
+	return descs
+}
+
+// GetRequiredAPIServiceDescriptions returns a deduplicated set of required APIServiceDescriptions
+// with the intersection of required and owned removed
+// Equivalent to the set subtraction required - owned
+//
+// Descriptions are returned in alphabetical order.
+func (csv ClusterServiceVersion) GetRequiredAPIServiceDescriptions() []APIServiceDescription {
+	set := make(map[string]APIServiceDescription)
+	for _, required := range csv.Spec.APIServiceDefinitions.Required {
+		name := fmt.Sprintf("%s.%s", required.Version, required.Group)
+		set[name] = required
+	}
+
+	// Remove any shared owned from the set
+	for _, owned := range csv.Spec.APIServiceDefinitions.Owned {
+		name := fmt.Sprintf("%s.%s", owned.Version, owned.Group)
+		if _, ok := set[name]; ok {
+			delete(set, name)
+		}
+	}
+
+	keys := make([]string, 0)
+	for key := range set {
+		keys = append(keys, key)
+	}
+	sort.StringSlice(keys).Sort()
+
+	descs := make([]APIServiceDescription, 0)
+	for _, key := range keys {
+		descs = append(descs, set[key])
+	}
+
+	return descs
+}
+
+// GetOwnedAPIServiceDescriptions returns a deduplicated set of owned APIServiceDescriptions
+//
+// Descriptions are returned in alphabetical order.
+func (csv ClusterServiceVersion) GetOwnedAPIServiceDescriptions() []APIServiceDescription {
+	set := make(map[string]APIServiceDescription)
+	for _, owned := range csv.Spec.APIServiceDefinitions.Owned {
+		name := owned.GetName()
+		set[name] = owned
+	}
+
+	keys := make([]string, 0)
+	for key := range set {
+		keys = append(keys, key)
+	}
+	sort.StringSlice(keys).Sort()
+
+	descs := make([]APIServiceDescription, 0)
 	for _, key := range keys {
 		descs = append(descs, set[key])
 	}

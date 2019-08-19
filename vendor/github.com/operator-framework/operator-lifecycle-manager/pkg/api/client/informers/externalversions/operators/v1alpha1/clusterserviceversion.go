@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2019 Red Hat, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ package v1alpha1
 import (
 	time "time"
 
-	operators_v1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	operatorsv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	versioned "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned"
 	internalinterfaces "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/informers/externalversions/internalinterfaces"
 	v1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/listers/operators/v1alpha1"
@@ -70,7 +70,7 @@ func NewFilteredClusterServiceVersionInformer(client versioned.Interface, namesp
 				return client.OperatorsV1alpha1().ClusterServiceVersions(namespace).Watch(options)
 			},
 		},
-		&operators_v1alpha1.ClusterServiceVersion{},
+		&operatorsv1alpha1.ClusterServiceVersion{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *clusterServiceVersionInformer) defaultInformer(client versioned.Interfa
 }
 
 func (f *clusterServiceVersionInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&operators_v1alpha1.ClusterServiceVersion{}, f.defaultInformer)
+	return f.factory.InformerFor(&operatorsv1alpha1.ClusterServiceVersion{}, f.defaultInformer)
 }
 
 func (f *clusterServiceVersionInformer) Lister() v1alpha1.ClusterServiceVersionLister {

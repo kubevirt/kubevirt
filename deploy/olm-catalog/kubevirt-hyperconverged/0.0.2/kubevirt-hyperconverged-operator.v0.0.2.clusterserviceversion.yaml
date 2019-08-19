@@ -63,6 +63,13 @@ metadata:
           }
         },
         {
+          "apiVersion": "machineremediation.kubevirt.io/v1alpha1",
+          "kind": "MachineRemediationOperator",
+          "metadata": {
+            "name": "mro",
+          }
+        },
+        {
           "apiVersion": "kubevirt.io/v1alpha1",
           "kind": "NodeMaintenance",
           "metadata": {
@@ -78,7 +85,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-08-14 18:20:00.350551627 +0200 CEST m=+0.018187517
+    createdAt: 2019-08-15 16:34:10.428354276 +0300 IDT m=+0.036956029
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -327,6 +334,13 @@ spec:
               - get
               - patch
               - update
+            - apiGroups:
+              - machineremediation.kubevirt.io
+              resources:
+              - machineremediationoperators
+              - machineremediationoperators/status
+              verbs:
+              - '*'
 
 
         - serviceAccountName: kubevirt-operator
@@ -1036,6 +1050,44 @@ spec:
               verbs:
               - '*'
 
+        - serviceAccountName: machine-remediation-operator
+          rules:
+            - apiGroups:
+              - machineremediation.kubevirt.io
+              resources:
+              - machineremediationoperators
+              - machineremediationoperators/status
+              verbs:
+              - get
+              - list
+              - update
+              - watch
+            - apiGroups:
+              - ""
+              resources:
+              - serviceaccounts
+              verbs:
+              - '*'
+            - apiGroups:
+              - apps
+              resources:
+              - deployments
+              verbs:
+              - '*'
+            - apiGroups:
+              - apiextensions.k8s.io
+              resources:
+              - customresourcedefinitions
+              verbs:
+              - '*'
+            - apiGroups:
+              - rbac.authorization.k8s.io
+              resources:
+              - clusterroles
+              - clusterrolebindings
+              verbs:
+              - '*'
+
         - serviceAccountName: kubevirt-ssp-operator
           rules:
           - apiGroups:
@@ -1409,6 +1461,69 @@ spec:
                   resources: {}
                 serviceAccountName: cluster-network-addons-operator
 
+        - name: machine-remediation-operator
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                machineremediation.kubevirt.io: machine-remediation-operator
+                machineremediation.kubevirt.io/version: release-4.2
+            strategy:
+              type: RollingUpdate
+            template:
+              metadata:
+                labels:
+                  machineremediation.kubevirt.io: machine-remediation-operator
+                  machineremediation.kubevirt.io/version: release-4.2
+              spec:
+                affinity:
+                  podAntiAffinity:
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                    - podAffinityTerm:
+                        labelSelector:
+                          matchExpressions:
+                          - key: machineremediation.kubevirt.io
+                            operator: In
+                            values:
+                            - machine-remediation-operator
+                        topologyKey: kubernetes.io/hostname
+                      weight: 50
+                containers:
+                - args:
+                  - --logtostderr=true
+                  - --v=2
+                  - --namespace=kubevirt-hyperconverged
+                  command:
+                  - /usr/bin/machine-remediation-operator
+                  env:
+                  - name: OPERATOR_VERSION
+                    value: release-4.2
+                  image: kubevirt/machine-remediation-operator:release-4.2
+                  imagePullPolicy: IfNotPresent
+                  name: machine-remediation-operator
+                  resources:
+                    requests:
+                      cpu: 10m
+                      memory: 20Mi
+                nodeSelector:
+                  node-role.kubernetes.io/master: ""
+                securityContext:
+                  runAsNonRoot: true
+                serviceAccountName: machine-remediation-operator
+                tolerations:
+                - effect: NoSchedule
+                  key: node-role.kubernetes.io/master
+                - key: CriticalAddonsOnly
+                  operator: Exists
+                - effect: NoExecute
+                  key: node.kubernetes.io/not-ready
+                  operator: Exists
+                  tolerationSeconds: 120
+                - effect: NoExecute
+                  key: node.kubernetes.io/unreachable
+                  operator: Exists
+                  tolerationSeconds: 120
+
         - name: kubevirt-ssp-operator
           spec:
             replicas: 1
@@ -1500,6 +1615,11 @@ spec:
         kind: NetworkAddonsConfig
         displayName: Cluster Network Addons
         description: Cluster Network Addons
+      - name: machineremediationoperators.machineremediation.kubevirt.io
+        version: v1alpha1
+        kind: MachineRemediationOperator
+        displayName: Machine Remediation Operator deployment
+        description: Represents a Machine Remediation Operator deployment
       - name: kubevirtcommontemplatesbundles.kubevirt.io
         version: v1
         kind: KubevirtCommonTemplatesBundle

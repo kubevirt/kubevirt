@@ -8,11 +8,14 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/api/apps/v1"
 	v10 "k8s.io/api/core/v1"
+	v11 "k8s.io/api/rbac/v1"
 	clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	labels "k8s.io/apimachinery/pkg/labels"
 	kubernetes "k8s.io/client-go/kubernetes"
+	v13 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
+	clientset0 "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 	reflect "reflect"
 )
 
@@ -61,6 +64,69 @@ func (m *MockClientInterface) ApiextensionsV1beta1Interface() clientset.Interfac
 // ApiextensionsV1beta1Interface indicates an expected call of ApiextensionsV1beta1Interface
 func (mr *MockClientInterfaceMockRecorder) ApiextensionsV1beta1Interface() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApiextensionsV1beta1Interface", reflect.TypeOf((*MockClientInterface)(nil).ApiextensionsV1beta1Interface))
+}
+
+// ApiregistrationV1Interface mocks base method
+func (m *MockClientInterface) ApiregistrationV1Interface() clientset0.Interface {
+	ret := m.ctrl.Call(m, "ApiregistrationV1Interface")
+	ret0, _ := ret[0].(clientset0.Interface)
+	return ret0
+}
+
+// ApiregistrationV1Interface indicates an expected call of ApiregistrationV1Interface
+func (mr *MockClientInterfaceMockRecorder) ApiregistrationV1Interface() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApiregistrationV1Interface", reflect.TypeOf((*MockClientInterface)(nil).ApiregistrationV1Interface))
+}
+
+// CreateAPIService mocks base method
+func (m *MockClientInterface) CreateAPIService(arg0 *v13.APIService) (*v13.APIService, error) {
+	ret := m.ctrl.Call(m, "CreateAPIService", arg0)
+	ret0, _ := ret[0].(*v13.APIService)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateAPIService indicates an expected call of CreateAPIService
+func (mr *MockClientInterfaceMockRecorder) CreateAPIService(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAPIService", reflect.TypeOf((*MockClientInterface)(nil).CreateAPIService), arg0)
+}
+
+// GetAPIService mocks base method
+func (m *MockClientInterface) GetAPIService(name string) (*v13.APIService, error) {
+	ret := m.ctrl.Call(m, "GetAPIService", name)
+	ret0, _ := ret[0].(*v13.APIService)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAPIService indicates an expected call of GetAPIService
+func (mr *MockClientInterfaceMockRecorder) GetAPIService(name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIService", reflect.TypeOf((*MockClientInterface)(nil).GetAPIService), name)
+}
+
+// UpdateAPIService mocks base method
+func (m *MockClientInterface) UpdateAPIService(modified *v13.APIService) (*v13.APIService, error) {
+	ret := m.ctrl.Call(m, "UpdateAPIService", modified)
+	ret0, _ := ret[0].(*v13.APIService)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateAPIService indicates an expected call of UpdateAPIService
+func (mr *MockClientInterfaceMockRecorder) UpdateAPIService(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAPIService", reflect.TypeOf((*MockClientInterface)(nil).UpdateAPIService), modified)
+}
+
+// DeleteAPIService mocks base method
+func (m *MockClientInterface) DeleteAPIService(name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteAPIService", name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteAPIService indicates an expected call of DeleteAPIService
+func (mr *MockClientInterfaceMockRecorder) DeleteAPIService(name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAPIService", reflect.TypeOf((*MockClientInterface)(nil).DeleteAPIService), name, options)
 }
 
 // GetCustomResource mocks base method
@@ -199,6 +265,108 @@ func (mr *MockClientInterfaceMockRecorder) ListCustomResource(apiGroup, version,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCustomResource", reflect.TypeOf((*MockClientInterface)(nil).ListCustomResource), apiGroup, version, namespace, resourceKind)
 }
 
+// CreateSecret mocks base method
+func (m *MockClientInterface) CreateSecret(arg0 *v10.Secret) (*v10.Secret, error) {
+	ret := m.ctrl.Call(m, "CreateSecret", arg0)
+	ret0, _ := ret[0].(*v10.Secret)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSecret indicates an expected call of CreateSecret
+func (mr *MockClientInterfaceMockRecorder) CreateSecret(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecret", reflect.TypeOf((*MockClientInterface)(nil).CreateSecret), arg0)
+}
+
+// GetSecret mocks base method
+func (m *MockClientInterface) GetSecret(namespace, name string) (*v10.Secret, error) {
+	ret := m.ctrl.Call(m, "GetSecret", namespace, name)
+	ret0, _ := ret[0].(*v10.Secret)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecret indicates an expected call of GetSecret
+func (mr *MockClientInterfaceMockRecorder) GetSecret(namespace, name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockClientInterface)(nil).GetSecret), namespace, name)
+}
+
+// UpdateSecret mocks base method
+func (m *MockClientInterface) UpdateSecret(modified *v10.Secret) (*v10.Secret, error) {
+	ret := m.ctrl.Call(m, "UpdateSecret", modified)
+	ret0, _ := ret[0].(*v10.Secret)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateSecret indicates an expected call of UpdateSecret
+func (mr *MockClientInterfaceMockRecorder) UpdateSecret(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockClientInterface)(nil).UpdateSecret), modified)
+}
+
+// DeleteSecret mocks base method
+func (m *MockClientInterface) DeleteSecret(namespace, name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteSecret", namespace, name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSecret indicates an expected call of DeleteSecret
+func (mr *MockClientInterfaceMockRecorder) DeleteSecret(namespace, name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockClientInterface)(nil).DeleteSecret), namespace, name, options)
+}
+
+// CreateService mocks base method
+func (m *MockClientInterface) CreateService(arg0 *v10.Service) (*v10.Service, error) {
+	ret := m.ctrl.Call(m, "CreateService", arg0)
+	ret0, _ := ret[0].(*v10.Service)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateService indicates an expected call of CreateService
+func (mr *MockClientInterfaceMockRecorder) CreateService(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateService", reflect.TypeOf((*MockClientInterface)(nil).CreateService), arg0)
+}
+
+// GetService mocks base method
+func (m *MockClientInterface) GetService(namespace, name string) (*v10.Service, error) {
+	ret := m.ctrl.Call(m, "GetService", namespace, name)
+	ret0, _ := ret[0].(*v10.Service)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetService indicates an expected call of GetService
+func (mr *MockClientInterfaceMockRecorder) GetService(namespace, name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetService", reflect.TypeOf((*MockClientInterface)(nil).GetService), namespace, name)
+}
+
+// UpdateService mocks base method
+func (m *MockClientInterface) UpdateService(modified *v10.Service) (*v10.Service, error) {
+	ret := m.ctrl.Call(m, "UpdateService", modified)
+	ret0, _ := ret[0].(*v10.Service)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateService indicates an expected call of UpdateService
+func (mr *MockClientInterfaceMockRecorder) UpdateService(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateService", reflect.TypeOf((*MockClientInterface)(nil).UpdateService), modified)
+}
+
+// DeleteService mocks base method
+func (m *MockClientInterface) DeleteService(namespace, name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteService", namespace, name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteService indicates an expected call of DeleteService
+func (mr *MockClientInterfaceMockRecorder) DeleteService(namespace, name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteService", reflect.TypeOf((*MockClientInterface)(nil).DeleteService), namespace, name, options)
+}
+
 // CreateServiceAccount mocks base method
 func (m *MockClientInterface) CreateServiceAccount(arg0 *v10.ServiceAccount) (*v10.ServiceAccount, error) {
 	ret := m.ctrl.Call(m, "CreateServiceAccount", arg0)
@@ -239,7 +407,7 @@ func (mr *MockClientInterfaceMockRecorder) UpdateServiceAccount(modified interfa
 }
 
 // DeleteServiceAccount mocks base method
-func (m *MockClientInterface) DeleteServiceAccount(namespace, name string, options *v11.DeleteOptions) error {
+func (m *MockClientInterface) DeleteServiceAccount(namespace, name string, options *v12.DeleteOptions) error {
 	ret := m.ctrl.Call(m, "DeleteServiceAccount", namespace, name, options)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -248,6 +416,210 @@ func (m *MockClientInterface) DeleteServiceAccount(namespace, name string, optio
 // DeleteServiceAccount indicates an expected call of DeleteServiceAccount
 func (mr *MockClientInterfaceMockRecorder) DeleteServiceAccount(namespace, name, options interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceAccount", reflect.TypeOf((*MockClientInterface)(nil).DeleteServiceAccount), namespace, name, options)
+}
+
+// CreateRole mocks base method
+func (m *MockClientInterface) CreateRole(arg0 *v11.Role) (*v11.Role, error) {
+	ret := m.ctrl.Call(m, "CreateRole", arg0)
+	ret0, _ := ret[0].(*v11.Role)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateRole indicates an expected call of CreateRole
+func (mr *MockClientInterfaceMockRecorder) CreateRole(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRole", reflect.TypeOf((*MockClientInterface)(nil).CreateRole), arg0)
+}
+
+// GetRole mocks base method
+func (m *MockClientInterface) GetRole(namespace, name string) (*v11.Role, error) {
+	ret := m.ctrl.Call(m, "GetRole", namespace, name)
+	ret0, _ := ret[0].(*v11.Role)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRole indicates an expected call of GetRole
+func (mr *MockClientInterfaceMockRecorder) GetRole(namespace, name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRole", reflect.TypeOf((*MockClientInterface)(nil).GetRole), namespace, name)
+}
+
+// UpdateRole mocks base method
+func (m *MockClientInterface) UpdateRole(modified *v11.Role) (*v11.Role, error) {
+	ret := m.ctrl.Call(m, "UpdateRole", modified)
+	ret0, _ := ret[0].(*v11.Role)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateRole indicates an expected call of UpdateRole
+func (mr *MockClientInterfaceMockRecorder) UpdateRole(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRole", reflect.TypeOf((*MockClientInterface)(nil).UpdateRole), modified)
+}
+
+// DeleteRole mocks base method
+func (m *MockClientInterface) DeleteRole(namespace, name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteRole", namespace, name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRole indicates an expected call of DeleteRole
+func (mr *MockClientInterfaceMockRecorder) DeleteRole(namespace, name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRole", reflect.TypeOf((*MockClientInterface)(nil).DeleteRole), namespace, name, options)
+}
+
+// CreateRoleBinding mocks base method
+func (m *MockClientInterface) CreateRoleBinding(arg0 *v11.RoleBinding) (*v11.RoleBinding, error) {
+	ret := m.ctrl.Call(m, "CreateRoleBinding", arg0)
+	ret0, _ := ret[0].(*v11.RoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateRoleBinding indicates an expected call of CreateRoleBinding
+func (mr *MockClientInterfaceMockRecorder) CreateRoleBinding(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRoleBinding", reflect.TypeOf((*MockClientInterface)(nil).CreateRoleBinding), arg0)
+}
+
+// GetRoleBinding mocks base method
+func (m *MockClientInterface) GetRoleBinding(namespace, name string) (*v11.RoleBinding, error) {
+	ret := m.ctrl.Call(m, "GetRoleBinding", namespace, name)
+	ret0, _ := ret[0].(*v11.RoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRoleBinding indicates an expected call of GetRoleBinding
+func (mr *MockClientInterfaceMockRecorder) GetRoleBinding(namespace, name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRoleBinding", reflect.TypeOf((*MockClientInterface)(nil).GetRoleBinding), namespace, name)
+}
+
+// UpdateRoleBinding mocks base method
+func (m *MockClientInterface) UpdateRoleBinding(modified *v11.RoleBinding) (*v11.RoleBinding, error) {
+	ret := m.ctrl.Call(m, "UpdateRoleBinding", modified)
+	ret0, _ := ret[0].(*v11.RoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateRoleBinding indicates an expected call of UpdateRoleBinding
+func (mr *MockClientInterfaceMockRecorder) UpdateRoleBinding(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRoleBinding", reflect.TypeOf((*MockClientInterface)(nil).UpdateRoleBinding), modified)
+}
+
+// DeleteRoleBinding mocks base method
+func (m *MockClientInterface) DeleteRoleBinding(namespace, name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteRoleBinding", namespace, name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRoleBinding indicates an expected call of DeleteRoleBinding
+func (mr *MockClientInterfaceMockRecorder) DeleteRoleBinding(namespace, name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRoleBinding", reflect.TypeOf((*MockClientInterface)(nil).DeleteRoleBinding), namespace, name, options)
+}
+
+// CreateClusterRoleBinding mocks base method
+func (m *MockClientInterface) CreateClusterRoleBinding(arg0 *v11.ClusterRoleBinding) (*v11.ClusterRoleBinding, error) {
+	ret := m.ctrl.Call(m, "CreateClusterRoleBinding", arg0)
+	ret0, _ := ret[0].(*v11.ClusterRoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateClusterRoleBinding indicates an expected call of CreateClusterRoleBinding
+func (mr *MockClientInterfaceMockRecorder) CreateClusterRoleBinding(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClusterRoleBinding", reflect.TypeOf((*MockClientInterface)(nil).CreateClusterRoleBinding), arg0)
+}
+
+// GetClusterRoleBinding mocks base method
+func (m *MockClientInterface) GetClusterRoleBinding(name string) (*v11.ClusterRoleBinding, error) {
+	ret := m.ctrl.Call(m, "GetClusterRoleBinding", name)
+	ret0, _ := ret[0].(*v11.ClusterRoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClusterRoleBinding indicates an expected call of GetClusterRoleBinding
+func (mr *MockClientInterfaceMockRecorder) GetClusterRoleBinding(name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterRoleBinding", reflect.TypeOf((*MockClientInterface)(nil).GetClusterRoleBinding), name)
+}
+
+// UpdateClusterRoleBinding mocks base method
+func (m *MockClientInterface) UpdateClusterRoleBinding(modified *v11.ClusterRoleBinding) (*v11.ClusterRoleBinding, error) {
+	ret := m.ctrl.Call(m, "UpdateClusterRoleBinding", modified)
+	ret0, _ := ret[0].(*v11.ClusterRoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateClusterRoleBinding indicates an expected call of UpdateClusterRoleBinding
+func (mr *MockClientInterfaceMockRecorder) UpdateClusterRoleBinding(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClusterRoleBinding", reflect.TypeOf((*MockClientInterface)(nil).UpdateClusterRoleBinding), modified)
+}
+
+// DeleteClusterRoleBinding mocks base method
+func (m *MockClientInterface) DeleteClusterRoleBinding(name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteClusterRoleBinding", name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteClusterRoleBinding indicates an expected call of DeleteClusterRoleBinding
+func (mr *MockClientInterfaceMockRecorder) DeleteClusterRoleBinding(name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteClusterRoleBinding", reflect.TypeOf((*MockClientInterface)(nil).DeleteClusterRoleBinding), name, options)
+}
+
+// CreateClusterRole mocks base method
+func (m *MockClientInterface) CreateClusterRole(arg0 *v11.ClusterRole) (*v11.ClusterRole, error) {
+	ret := m.ctrl.Call(m, "CreateClusterRole", arg0)
+	ret0, _ := ret[0].(*v11.ClusterRole)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateClusterRole indicates an expected call of CreateClusterRole
+func (mr *MockClientInterfaceMockRecorder) CreateClusterRole(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClusterRole", reflect.TypeOf((*MockClientInterface)(nil).CreateClusterRole), arg0)
+}
+
+// GetClusterRole mocks base method
+func (m *MockClientInterface) GetClusterRole(name string) (*v11.ClusterRole, error) {
+	ret := m.ctrl.Call(m, "GetClusterRole", name)
+	ret0, _ := ret[0].(*v11.ClusterRole)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClusterRole indicates an expected call of GetClusterRole
+func (mr *MockClientInterfaceMockRecorder) GetClusterRole(name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterRole", reflect.TypeOf((*MockClientInterface)(nil).GetClusterRole), name)
+}
+
+// UpdateClusterRole mocks base method
+func (m *MockClientInterface) UpdateClusterRole(modified *v11.ClusterRole) (*v11.ClusterRole, error) {
+	ret := m.ctrl.Call(m, "UpdateClusterRole", modified)
+	ret0, _ := ret[0].(*v11.ClusterRole)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateClusterRole indicates an expected call of UpdateClusterRole
+func (mr *MockClientInterfaceMockRecorder) UpdateClusterRole(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClusterRole", reflect.TypeOf((*MockClientInterface)(nil).UpdateClusterRole), modified)
+}
+
+// DeleteClusterRole mocks base method
+func (m *MockClientInterface) DeleteClusterRole(name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteClusterRole", name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteClusterRole indicates an expected call of DeleteClusterRole
+func (mr *MockClientInterfaceMockRecorder) DeleteClusterRole(name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteClusterRole", reflect.TypeOf((*MockClientInterface)(nil).DeleteClusterRole), name, options)
 }
 
 // GetDeployment mocks base method
@@ -277,7 +649,7 @@ func (mr *MockClientInterfaceMockRecorder) CreateDeployment(arg0 interface{}) *g
 }
 
 // DeleteDeployment mocks base method
-func (m *MockClientInterface) DeleteDeployment(namespace, name string, options *v11.DeleteOptions) error {
+func (m *MockClientInterface) DeleteDeployment(namespace, name string, options *v12.DeleteOptions) error {
 	ret := m.ctrl.Call(m, "DeleteDeployment", namespace, name, options)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -558,6 +930,228 @@ func (mr *MockCustomResourceClientMockRecorder) ListCustomResource(apiGroup, ver
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCustomResource", reflect.TypeOf((*MockCustomResourceClient)(nil).ListCustomResource), apiGroup, version, namespace, resourceKind)
 }
 
+// MockAPIServiceClient is a mock of APIServiceClient interface
+type MockAPIServiceClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockAPIServiceClientMockRecorder
+}
+
+// MockAPIServiceClientMockRecorder is the mock recorder for MockAPIServiceClient
+type MockAPIServiceClientMockRecorder struct {
+	mock *MockAPIServiceClient
+}
+
+// NewMockAPIServiceClient creates a new mock instance
+func NewMockAPIServiceClient(ctrl *gomock.Controller) *MockAPIServiceClient {
+	mock := &MockAPIServiceClient{ctrl: ctrl}
+	mock.recorder = &MockAPIServiceClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockAPIServiceClient) EXPECT() *MockAPIServiceClientMockRecorder {
+	return m.recorder
+}
+
+// CreateAPIService mocks base method
+func (m *MockAPIServiceClient) CreateAPIService(arg0 *v13.APIService) (*v13.APIService, error) {
+	ret := m.ctrl.Call(m, "CreateAPIService", arg0)
+	ret0, _ := ret[0].(*v13.APIService)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateAPIService indicates an expected call of CreateAPIService
+func (mr *MockAPIServiceClientMockRecorder) CreateAPIService(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAPIService", reflect.TypeOf((*MockAPIServiceClient)(nil).CreateAPIService), arg0)
+}
+
+// GetAPIService mocks base method
+func (m *MockAPIServiceClient) GetAPIService(name string) (*v13.APIService, error) {
+	ret := m.ctrl.Call(m, "GetAPIService", name)
+	ret0, _ := ret[0].(*v13.APIService)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAPIService indicates an expected call of GetAPIService
+func (mr *MockAPIServiceClientMockRecorder) GetAPIService(name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPIService", reflect.TypeOf((*MockAPIServiceClient)(nil).GetAPIService), name)
+}
+
+// UpdateAPIService mocks base method
+func (m *MockAPIServiceClient) UpdateAPIService(modified *v13.APIService) (*v13.APIService, error) {
+	ret := m.ctrl.Call(m, "UpdateAPIService", modified)
+	ret0, _ := ret[0].(*v13.APIService)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateAPIService indicates an expected call of UpdateAPIService
+func (mr *MockAPIServiceClientMockRecorder) UpdateAPIService(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAPIService", reflect.TypeOf((*MockAPIServiceClient)(nil).UpdateAPIService), modified)
+}
+
+// DeleteAPIService mocks base method
+func (m *MockAPIServiceClient) DeleteAPIService(name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteAPIService", name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteAPIService indicates an expected call of DeleteAPIService
+func (mr *MockAPIServiceClientMockRecorder) DeleteAPIService(name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAPIService", reflect.TypeOf((*MockAPIServiceClient)(nil).DeleteAPIService), name, options)
+}
+
+// MockSecretClient is a mock of SecretClient interface
+type MockSecretClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockSecretClientMockRecorder
+}
+
+// MockSecretClientMockRecorder is the mock recorder for MockSecretClient
+type MockSecretClientMockRecorder struct {
+	mock *MockSecretClient
+}
+
+// NewMockSecretClient creates a new mock instance
+func NewMockSecretClient(ctrl *gomock.Controller) *MockSecretClient {
+	mock := &MockSecretClient{ctrl: ctrl}
+	mock.recorder = &MockSecretClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockSecretClient) EXPECT() *MockSecretClientMockRecorder {
+	return m.recorder
+}
+
+// CreateSecret mocks base method
+func (m *MockSecretClient) CreateSecret(arg0 *v10.Secret) (*v10.Secret, error) {
+	ret := m.ctrl.Call(m, "CreateSecret", arg0)
+	ret0, _ := ret[0].(*v10.Secret)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSecret indicates an expected call of CreateSecret
+func (mr *MockSecretClientMockRecorder) CreateSecret(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecret", reflect.TypeOf((*MockSecretClient)(nil).CreateSecret), arg0)
+}
+
+// GetSecret mocks base method
+func (m *MockSecretClient) GetSecret(namespace, name string) (*v10.Secret, error) {
+	ret := m.ctrl.Call(m, "GetSecret", namespace, name)
+	ret0, _ := ret[0].(*v10.Secret)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecret indicates an expected call of GetSecret
+func (mr *MockSecretClientMockRecorder) GetSecret(namespace, name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockSecretClient)(nil).GetSecret), namespace, name)
+}
+
+// UpdateSecret mocks base method
+func (m *MockSecretClient) UpdateSecret(modified *v10.Secret) (*v10.Secret, error) {
+	ret := m.ctrl.Call(m, "UpdateSecret", modified)
+	ret0, _ := ret[0].(*v10.Secret)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateSecret indicates an expected call of UpdateSecret
+func (mr *MockSecretClientMockRecorder) UpdateSecret(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockSecretClient)(nil).UpdateSecret), modified)
+}
+
+// DeleteSecret mocks base method
+func (m *MockSecretClient) DeleteSecret(namespace, name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteSecret", namespace, name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteSecret indicates an expected call of DeleteSecret
+func (mr *MockSecretClientMockRecorder) DeleteSecret(namespace, name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockSecretClient)(nil).DeleteSecret), namespace, name, options)
+}
+
+// MockServiceClient is a mock of ServiceClient interface
+type MockServiceClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockServiceClientMockRecorder
+}
+
+// MockServiceClientMockRecorder is the mock recorder for MockServiceClient
+type MockServiceClientMockRecorder struct {
+	mock *MockServiceClient
+}
+
+// NewMockServiceClient creates a new mock instance
+func NewMockServiceClient(ctrl *gomock.Controller) *MockServiceClient {
+	mock := &MockServiceClient{ctrl: ctrl}
+	mock.recorder = &MockServiceClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockServiceClient) EXPECT() *MockServiceClientMockRecorder {
+	return m.recorder
+}
+
+// CreateService mocks base method
+func (m *MockServiceClient) CreateService(arg0 *v10.Service) (*v10.Service, error) {
+	ret := m.ctrl.Call(m, "CreateService", arg0)
+	ret0, _ := ret[0].(*v10.Service)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateService indicates an expected call of CreateService
+func (mr *MockServiceClientMockRecorder) CreateService(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateService", reflect.TypeOf((*MockServiceClient)(nil).CreateService), arg0)
+}
+
+// GetService mocks base method
+func (m *MockServiceClient) GetService(namespace, name string) (*v10.Service, error) {
+	ret := m.ctrl.Call(m, "GetService", namespace, name)
+	ret0, _ := ret[0].(*v10.Service)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetService indicates an expected call of GetService
+func (mr *MockServiceClientMockRecorder) GetService(namespace, name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetService", reflect.TypeOf((*MockServiceClient)(nil).GetService), namespace, name)
+}
+
+// UpdateService mocks base method
+func (m *MockServiceClient) UpdateService(modified *v10.Service) (*v10.Service, error) {
+	ret := m.ctrl.Call(m, "UpdateService", modified)
+	ret0, _ := ret[0].(*v10.Service)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateService indicates an expected call of UpdateService
+func (mr *MockServiceClientMockRecorder) UpdateService(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateService", reflect.TypeOf((*MockServiceClient)(nil).UpdateService), modified)
+}
+
+// DeleteService mocks base method
+func (m *MockServiceClient) DeleteService(namespace, name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteService", namespace, name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteService indicates an expected call of DeleteService
+func (mr *MockServiceClientMockRecorder) DeleteService(namespace, name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteService", reflect.TypeOf((*MockServiceClient)(nil).DeleteService), namespace, name, options)
+}
+
 // MockServiceAccountClient is a mock of ServiceAccountClient interface
 type MockServiceAccountClient struct {
 	ctrl     *gomock.Controller
@@ -621,7 +1215,7 @@ func (mr *MockServiceAccountClientMockRecorder) UpdateServiceAccount(modified in
 }
 
 // DeleteServiceAccount mocks base method
-func (m *MockServiceAccountClient) DeleteServiceAccount(namespace, name string, options *v11.DeleteOptions) error {
+func (m *MockServiceAccountClient) DeleteServiceAccount(namespace, name string, options *v12.DeleteOptions) error {
 	ret := m.ctrl.Call(m, "DeleteServiceAccount", namespace, name, options)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -630,6 +1224,302 @@ func (m *MockServiceAccountClient) DeleteServiceAccount(namespace, name string, 
 // DeleteServiceAccount indicates an expected call of DeleteServiceAccount
 func (mr *MockServiceAccountClientMockRecorder) DeleteServiceAccount(namespace, name, options interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceAccount", reflect.TypeOf((*MockServiceAccountClient)(nil).DeleteServiceAccount), namespace, name, options)
+}
+
+// MockRoleClient is a mock of RoleClient interface
+type MockRoleClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockRoleClientMockRecorder
+}
+
+// MockRoleClientMockRecorder is the mock recorder for MockRoleClient
+type MockRoleClientMockRecorder struct {
+	mock *MockRoleClient
+}
+
+// NewMockRoleClient creates a new mock instance
+func NewMockRoleClient(ctrl *gomock.Controller) *MockRoleClient {
+	mock := &MockRoleClient{ctrl: ctrl}
+	mock.recorder = &MockRoleClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockRoleClient) EXPECT() *MockRoleClientMockRecorder {
+	return m.recorder
+}
+
+// CreateRole mocks base method
+func (m *MockRoleClient) CreateRole(arg0 *v11.Role) (*v11.Role, error) {
+	ret := m.ctrl.Call(m, "CreateRole", arg0)
+	ret0, _ := ret[0].(*v11.Role)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateRole indicates an expected call of CreateRole
+func (mr *MockRoleClientMockRecorder) CreateRole(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRole", reflect.TypeOf((*MockRoleClient)(nil).CreateRole), arg0)
+}
+
+// GetRole mocks base method
+func (m *MockRoleClient) GetRole(namespace, name string) (*v11.Role, error) {
+	ret := m.ctrl.Call(m, "GetRole", namespace, name)
+	ret0, _ := ret[0].(*v11.Role)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRole indicates an expected call of GetRole
+func (mr *MockRoleClientMockRecorder) GetRole(namespace, name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRole", reflect.TypeOf((*MockRoleClient)(nil).GetRole), namespace, name)
+}
+
+// UpdateRole mocks base method
+func (m *MockRoleClient) UpdateRole(modified *v11.Role) (*v11.Role, error) {
+	ret := m.ctrl.Call(m, "UpdateRole", modified)
+	ret0, _ := ret[0].(*v11.Role)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateRole indicates an expected call of UpdateRole
+func (mr *MockRoleClientMockRecorder) UpdateRole(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRole", reflect.TypeOf((*MockRoleClient)(nil).UpdateRole), modified)
+}
+
+// DeleteRole mocks base method
+func (m *MockRoleClient) DeleteRole(namespace, name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteRole", namespace, name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRole indicates an expected call of DeleteRole
+func (mr *MockRoleClientMockRecorder) DeleteRole(namespace, name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRole", reflect.TypeOf((*MockRoleClient)(nil).DeleteRole), namespace, name, options)
+}
+
+// MockRoleBindingClient is a mock of RoleBindingClient interface
+type MockRoleBindingClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockRoleBindingClientMockRecorder
+}
+
+// MockRoleBindingClientMockRecorder is the mock recorder for MockRoleBindingClient
+type MockRoleBindingClientMockRecorder struct {
+	mock *MockRoleBindingClient
+}
+
+// NewMockRoleBindingClient creates a new mock instance
+func NewMockRoleBindingClient(ctrl *gomock.Controller) *MockRoleBindingClient {
+	mock := &MockRoleBindingClient{ctrl: ctrl}
+	mock.recorder = &MockRoleBindingClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockRoleBindingClient) EXPECT() *MockRoleBindingClientMockRecorder {
+	return m.recorder
+}
+
+// CreateRoleBinding mocks base method
+func (m *MockRoleBindingClient) CreateRoleBinding(arg0 *v11.RoleBinding) (*v11.RoleBinding, error) {
+	ret := m.ctrl.Call(m, "CreateRoleBinding", arg0)
+	ret0, _ := ret[0].(*v11.RoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateRoleBinding indicates an expected call of CreateRoleBinding
+func (mr *MockRoleBindingClientMockRecorder) CreateRoleBinding(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateRoleBinding", reflect.TypeOf((*MockRoleBindingClient)(nil).CreateRoleBinding), arg0)
+}
+
+// GetRoleBinding mocks base method
+func (m *MockRoleBindingClient) GetRoleBinding(namespace, name string) (*v11.RoleBinding, error) {
+	ret := m.ctrl.Call(m, "GetRoleBinding", namespace, name)
+	ret0, _ := ret[0].(*v11.RoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRoleBinding indicates an expected call of GetRoleBinding
+func (mr *MockRoleBindingClientMockRecorder) GetRoleBinding(namespace, name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRoleBinding", reflect.TypeOf((*MockRoleBindingClient)(nil).GetRoleBinding), namespace, name)
+}
+
+// UpdateRoleBinding mocks base method
+func (m *MockRoleBindingClient) UpdateRoleBinding(modified *v11.RoleBinding) (*v11.RoleBinding, error) {
+	ret := m.ctrl.Call(m, "UpdateRoleBinding", modified)
+	ret0, _ := ret[0].(*v11.RoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateRoleBinding indicates an expected call of UpdateRoleBinding
+func (mr *MockRoleBindingClientMockRecorder) UpdateRoleBinding(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRoleBinding", reflect.TypeOf((*MockRoleBindingClient)(nil).UpdateRoleBinding), modified)
+}
+
+// DeleteRoleBinding mocks base method
+func (m *MockRoleBindingClient) DeleteRoleBinding(namespace, name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteRoleBinding", namespace, name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRoleBinding indicates an expected call of DeleteRoleBinding
+func (mr *MockRoleBindingClientMockRecorder) DeleteRoleBinding(namespace, name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRoleBinding", reflect.TypeOf((*MockRoleBindingClient)(nil).DeleteRoleBinding), namespace, name, options)
+}
+
+// MockClusterRoleClient is a mock of ClusterRoleClient interface
+type MockClusterRoleClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockClusterRoleClientMockRecorder
+}
+
+// MockClusterRoleClientMockRecorder is the mock recorder for MockClusterRoleClient
+type MockClusterRoleClientMockRecorder struct {
+	mock *MockClusterRoleClient
+}
+
+// NewMockClusterRoleClient creates a new mock instance
+func NewMockClusterRoleClient(ctrl *gomock.Controller) *MockClusterRoleClient {
+	mock := &MockClusterRoleClient{ctrl: ctrl}
+	mock.recorder = &MockClusterRoleClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockClusterRoleClient) EXPECT() *MockClusterRoleClientMockRecorder {
+	return m.recorder
+}
+
+// CreateClusterRole mocks base method
+func (m *MockClusterRoleClient) CreateClusterRole(arg0 *v11.ClusterRole) (*v11.ClusterRole, error) {
+	ret := m.ctrl.Call(m, "CreateClusterRole", arg0)
+	ret0, _ := ret[0].(*v11.ClusterRole)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateClusterRole indicates an expected call of CreateClusterRole
+func (mr *MockClusterRoleClientMockRecorder) CreateClusterRole(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClusterRole", reflect.TypeOf((*MockClusterRoleClient)(nil).CreateClusterRole), arg0)
+}
+
+// GetClusterRole mocks base method
+func (m *MockClusterRoleClient) GetClusterRole(name string) (*v11.ClusterRole, error) {
+	ret := m.ctrl.Call(m, "GetClusterRole", name)
+	ret0, _ := ret[0].(*v11.ClusterRole)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClusterRole indicates an expected call of GetClusterRole
+func (mr *MockClusterRoleClientMockRecorder) GetClusterRole(name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterRole", reflect.TypeOf((*MockClusterRoleClient)(nil).GetClusterRole), name)
+}
+
+// UpdateClusterRole mocks base method
+func (m *MockClusterRoleClient) UpdateClusterRole(modified *v11.ClusterRole) (*v11.ClusterRole, error) {
+	ret := m.ctrl.Call(m, "UpdateClusterRole", modified)
+	ret0, _ := ret[0].(*v11.ClusterRole)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateClusterRole indicates an expected call of UpdateClusterRole
+func (mr *MockClusterRoleClientMockRecorder) UpdateClusterRole(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClusterRole", reflect.TypeOf((*MockClusterRoleClient)(nil).UpdateClusterRole), modified)
+}
+
+// DeleteClusterRole mocks base method
+func (m *MockClusterRoleClient) DeleteClusterRole(name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteClusterRole", name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteClusterRole indicates an expected call of DeleteClusterRole
+func (mr *MockClusterRoleClientMockRecorder) DeleteClusterRole(name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteClusterRole", reflect.TypeOf((*MockClusterRoleClient)(nil).DeleteClusterRole), name, options)
+}
+
+// MockClusterRoleBindingClient is a mock of ClusterRoleBindingClient interface
+type MockClusterRoleBindingClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockClusterRoleBindingClientMockRecorder
+}
+
+// MockClusterRoleBindingClientMockRecorder is the mock recorder for MockClusterRoleBindingClient
+type MockClusterRoleBindingClientMockRecorder struct {
+	mock *MockClusterRoleBindingClient
+}
+
+// NewMockClusterRoleBindingClient creates a new mock instance
+func NewMockClusterRoleBindingClient(ctrl *gomock.Controller) *MockClusterRoleBindingClient {
+	mock := &MockClusterRoleBindingClient{ctrl: ctrl}
+	mock.recorder = &MockClusterRoleBindingClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockClusterRoleBindingClient) EXPECT() *MockClusterRoleBindingClientMockRecorder {
+	return m.recorder
+}
+
+// CreateClusterRoleBinding mocks base method
+func (m *MockClusterRoleBindingClient) CreateClusterRoleBinding(arg0 *v11.ClusterRoleBinding) (*v11.ClusterRoleBinding, error) {
+	ret := m.ctrl.Call(m, "CreateClusterRoleBinding", arg0)
+	ret0, _ := ret[0].(*v11.ClusterRoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateClusterRoleBinding indicates an expected call of CreateClusterRoleBinding
+func (mr *MockClusterRoleBindingClientMockRecorder) CreateClusterRoleBinding(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClusterRoleBinding", reflect.TypeOf((*MockClusterRoleBindingClient)(nil).CreateClusterRoleBinding), arg0)
+}
+
+// GetClusterRoleBinding mocks base method
+func (m *MockClusterRoleBindingClient) GetClusterRoleBinding(name string) (*v11.ClusterRoleBinding, error) {
+	ret := m.ctrl.Call(m, "GetClusterRoleBinding", name)
+	ret0, _ := ret[0].(*v11.ClusterRoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClusterRoleBinding indicates an expected call of GetClusterRoleBinding
+func (mr *MockClusterRoleBindingClientMockRecorder) GetClusterRoleBinding(name interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterRoleBinding", reflect.TypeOf((*MockClusterRoleBindingClient)(nil).GetClusterRoleBinding), name)
+}
+
+// UpdateClusterRoleBinding mocks base method
+func (m *MockClusterRoleBindingClient) UpdateClusterRoleBinding(modified *v11.ClusterRoleBinding) (*v11.ClusterRoleBinding, error) {
+	ret := m.ctrl.Call(m, "UpdateClusterRoleBinding", modified)
+	ret0, _ := ret[0].(*v11.ClusterRoleBinding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateClusterRoleBinding indicates an expected call of UpdateClusterRoleBinding
+func (mr *MockClusterRoleBindingClientMockRecorder) UpdateClusterRoleBinding(modified interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClusterRoleBinding", reflect.TypeOf((*MockClusterRoleBindingClient)(nil).UpdateClusterRoleBinding), modified)
+}
+
+// DeleteClusterRoleBinding mocks base method
+func (m *MockClusterRoleBindingClient) DeleteClusterRoleBinding(name string, options *v12.DeleteOptions) error {
+	ret := m.ctrl.Call(m, "DeleteClusterRoleBinding", name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteClusterRoleBinding indicates an expected call of DeleteClusterRoleBinding
+func (mr *MockClusterRoleBindingClientMockRecorder) DeleteClusterRoleBinding(name, options interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteClusterRoleBinding", reflect.TypeOf((*MockClusterRoleBindingClient)(nil).DeleteClusterRoleBinding), name, options)
 }
 
 // MockDeploymentClient is a mock of DeploymentClient interface
@@ -682,7 +1572,7 @@ func (mr *MockDeploymentClientMockRecorder) CreateDeployment(arg0 interface{}) *
 }
 
 // DeleteDeployment mocks base method
-func (m *MockDeploymentClient) DeleteDeployment(namespace, name string, options *v11.DeleteOptions) error {
+func (m *MockDeploymentClient) DeleteDeployment(namespace, name string, options *v12.DeleteOptions) error {
 	ret := m.ctrl.Call(m, "DeleteDeployment", namespace, name, options)
 	ret0, _ := ret[0].(error)
 	return ret0

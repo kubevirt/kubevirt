@@ -59,6 +59,10 @@ required = [
   version = "=v0.1.8"
 
 [[override]]
+  name = "kubevirt.io/machine-remediation-operator"
+  branch = "release-4.2"
+
+[[override]]
   name = "k8s.io/api"
   # revision for tag "kubernetes-1.13.1"
   revision = "05914d821849570fba9eacfb29466f2d8d3cd229"
@@ -94,6 +98,10 @@ required = [
   name = "sigs.k8s.io/controller-runtime"
   version = "=v0.1.10"
 
+[[override]]
+  name = "github.com/operator-framework/operator-lifecycle-manager"
+  version = "=0.9.0"
+
 [[constraint]]
   name = "github.com/operator-framework/operator-sdk"
   # The version rule is used for a specific release and the master branch for in between releases.
@@ -111,4 +119,3 @@ required = [
   [[prune.project]]
     name = "k8s.io/gengo"
     non-go = false
-

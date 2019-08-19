@@ -496,15 +496,15 @@
   revision = "4c95b3a336cd95e8c46f80b6f65656c32fd88004"
 
 [[projects]]
-  digest = "1:5f7d166863096a9fb654cedff9e14ea2ec1fe48dc1dd69f7504ef3d87943dc3f"
+  digest = "1:e23f911287c9b01dd85ad7d21ec1913cb562ff46c06f5b399eb19bd26ae82a2e"
   name = "github.com/operator-framework/operator-lifecycle-manager"
   packages = [
     "pkg/api/apis/operators",
     "pkg/api/apis/operators/v1alpha1",
   ]
   pruneopts = "NT"
-  revision = "2abd0e2b4d93b4100220204d429d68a9990a160b"
-  version = "v3.11.0"
+  revision = "aeb24aeb363b25c8f9e8267f27579c1483dacc42"
+  version = "0.9.0"
 
 [[projects]]
   branch = "master"
@@ -1171,6 +1171,14 @@
   version = "v1.6.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:8ce127d755418ce5f27f1e9178656b7484c5f8794a874c3f9345011dc881852b"
+  name = "k8s.io/utils"
+  packages = ["pointer"]
+  pruneopts = "NT"
+  revision = "6c36bc71fc4aeb1f49801054e71aebdaef1fbeb4"
+
+[[projects]]
   digest = "1:c345f7fac6fa77553857d50f04c95a3bf66c1b836b13da426eb533ee1a2ead7d"
   name = "kubevirt.io/client-go"
   packages = [
@@ -1243,6 +1251,18 @@
   pruneopts = "NT"
   revision = "c2cacac0af5c2b1ee69845a2bb62ee1c5dc74b84"
   version = "v0.20.1"
+
+[[projects]]
+  branch = "release-4.2"
+  digest = "1:712f726f56166e1641267d47f78119503bd72b189bec0a0fc0cbf5239580b1bc"
+  name = "kubevirt.io/machine-remediation-operator"
+  packages = [
+    "pkg/apis/machineremediation",
+    "pkg/apis/machineremediation/v1alpha1",
+    "pkg/operator/components",
+  ]
+  pruneopts = "NT"
+  revision = "570d094229b1176a979c4784b5cb0ac4f2793288"
 
 [[projects]]
   digest = "1:06035489efbd51ccface65fc878ceeb849aba05b2f9443c8993f363fc96e80ac"
@@ -1364,6 +1384,8 @@
     "kubevirt.io/kubevirt",
     "kubevirt.io/kubevirt/pkg/virt-operator/creation/components",
     "kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac",
+    "kubevirt.io/machine-remediation-operator/pkg/apis/machineremediation/v1alpha1",
+    "kubevirt.io/machine-remediation-operator/pkg/operator/components",
     "sigs.k8s.io/controller-runtime/pkg/client",
     "sigs.k8s.io/controller-runtime/pkg/client/config",
     "sigs.k8s.io/controller-runtime/pkg/client/fake",

@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2019 Red Hat, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ package externalversions
 import (
 	"fmt"
 
+	v1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1"
 	v1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
@@ -52,7 +53,11 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=operators.coreos.com, Version=v1alpha1
+	// Group=operators.coreos.com, Version=v1
+	case v1.SchemeGroupVersion.WithResource("operatorgroups"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Operators().V1().OperatorGroups().Informer()}, nil
+
+		// Group=operators.coreos.com, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("catalogsources"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Operators().V1alpha1().CatalogSources().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("clusterserviceversions"):

@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2019 Red Hat, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,8 +20,10 @@ package fake
 
 import (
 	clientset "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/client/clientset/versioned"
-	packagemanifestv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/client/clientset/versioned/typed/packagemanifest/v1alpha1"
-	fakepackagemanifestv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/client/clientset/versioned/typed/packagemanifest/v1alpha1/fake"
+	appsv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/client/clientset/versioned/typed/apps/v1alpha1"
+	fakeappsv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/client/clientset/versioned/typed/apps/v1alpha1/fake"
+	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/client/clientset/versioned/typed/operators/v1"
+	fakeoperatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/client/clientset/versioned/typed/operators/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -71,12 +73,22 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 var _ clientset.Interface = &Clientset{}
 
-// PackagemanifestV1alpha1 retrieves the PackagemanifestV1alpha1Client
-func (c *Clientset) PackagemanifestV1alpha1() packagemanifestv1alpha1.PackagemanifestV1alpha1Interface {
-	return &fakepackagemanifestv1alpha1.FakePackagemanifestV1alpha1{Fake: &c.Fake}
+// AppsV1alpha1 retrieves the AppsV1alpha1Client
+func (c *Clientset) AppsV1alpha1() appsv1alpha1.AppsV1alpha1Interface {
+	return &fakeappsv1alpha1.FakeAppsV1alpha1{Fake: &c.Fake}
 }
 
-// Packagemanifest retrieves the PackagemanifestV1alpha1Client
-func (c *Clientset) Packagemanifest() packagemanifestv1alpha1.PackagemanifestV1alpha1Interface {
-	return &fakepackagemanifestv1alpha1.FakePackagemanifestV1alpha1{Fake: &c.Fake}
+// Apps retrieves the AppsV1alpha1Client
+func (c *Clientset) Apps() appsv1alpha1.AppsV1alpha1Interface {
+	return &fakeappsv1alpha1.FakeAppsV1alpha1{Fake: &c.Fake}
+}
+
+// OperatorsV1 retrieves the OperatorsV1Client
+func (c *Clientset) OperatorsV1() operatorsv1.OperatorsV1Interface {
+	return &fakeoperatorsv1.FakeOperatorsV1{Fake: &c.Fake}
+}
+
+// Operators retrieves the OperatorsV1Client
+func (c *Clientset) Operators() operatorsv1.OperatorsV1Interface {
+	return &fakeoperatorsv1.FakeOperatorsV1{Fake: &c.Fake}
 }

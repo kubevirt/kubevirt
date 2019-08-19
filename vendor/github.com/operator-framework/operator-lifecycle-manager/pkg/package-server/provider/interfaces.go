@@ -1,10 +1,8 @@
 package provider
 
-import (
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/packagemanifest/v1alpha1"
-)
+import "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators"
 
 type PackageManifestProvider interface {
-	ListPackageManifests(namespace string) (*v1alpha1.PackageManifestList, error)
-	GetPackageManifest(namespace, name string) (*v1alpha1.PackageManifest, error)
+	Get(name, namespace string) (*operators.PackageManifest, error)
+	List(namespace string) (*operators.PackageManifestList, error)
 }

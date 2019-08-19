@@ -5,6 +5,14 @@ set -x
 # Create the namespaces for the HCO
 kubectl create ns kubevirt-hyperconverged
 
+# Create additional namespaces needed for HCO components
+namespaces=("openshift" "openshift-machine-api")
+for namespace in ${namespaces[@]}; do
+    if [[ $(kubectl get ns ${namespace}) == "" ]]; then
+        kubectl create ns ${namespace}
+    fi
+done
+
 # Switch to the HCO namespace.
 kubectl config set-context $(kubectl config current-context) --namespace=kubevirt-hyperconverged
 
@@ -18,6 +26,7 @@ kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-clus
 kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/crds/template-validator.crd.yaml
 kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/crds/metrics-aggregation.crd.yaml
 kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/crds/nodemaintenance.crd.yaml
+kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/crds/mro.crd.yaml
 
 # Launch all of the Service Accounts, Cluster Role(Binding)s, and Operators.
 kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/cluster_role.yaml

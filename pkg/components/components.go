@@ -261,6 +261,18 @@ func GetClusterRole() *rbacv1.ClusterRole {
 					"update",
 				},
 			},
+			{
+				APIGroups: []string{
+					"machineremediation.kubevirt.io",
+				},
+				Resources: []string{
+					"machineremediationoperators",
+					"machineremediationoperators/status",
+				},
+				Verbs: []string{
+					rbacv1.VerbAll,
+				},
+			},
 		},
 	}
 	return role

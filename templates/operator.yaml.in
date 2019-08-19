@@ -3,6 +3,7 @@
 {{.KubeVirt.Deployment}}
 {{.CDI.Deployment}}
 {{.CNA.Deployment}}
+{{.MRO.Deployment}}
 ---
 apiVersion: apps/v1
 kind: Deployment

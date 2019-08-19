@@ -2,27 +2,16 @@
 package fakes
 
 import (
-	"sync"
+	sync "sync"
 
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/install"
+	install "github.com/operator-framework/operator-lifecycle-manager/pkg/controller/install"
 )
 
 type FakeStrategyInstaller struct {
-	InstallStub        func(strategy install.Strategy) error
-	installMutex       sync.RWMutex
-	installArgsForCall []struct {
-		strategy install.Strategy
-	}
-	installReturns struct {
-		result1 error
-	}
-	installReturnsOnCall map[int]struct {
-		result1 error
-	}
-	CheckInstalledStub        func(strategy install.Strategy) (bool, error)
+	CheckInstalledStub        func(install.Strategy) (bool, error)
 	checkInstalledMutex       sync.RWMutex
 	checkInstalledArgsForCall []struct {
-		strategy install.Strategy
+		arg1 install.Strategy
 	}
 	checkInstalledReturns struct {
 		result1 bool
@@ -32,73 +21,37 @@ type FakeStrategyInstaller struct {
 		result1 bool
 		result2 error
 	}
+	InstallStub        func(install.Strategy) error
+	installMutex       sync.RWMutex
+	installArgsForCall []struct {
+		arg1 install.Strategy
+	}
+	installReturns struct {
+		result1 error
+	}
+	installReturnsOnCall map[int]struct {
+		result1 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeStrategyInstaller) Install(strategy install.Strategy) error {
-	fake.installMutex.Lock()
-	ret, specificReturn := fake.installReturnsOnCall[len(fake.installArgsForCall)]
-	fake.installArgsForCall = append(fake.installArgsForCall, struct {
-		strategy install.Strategy
-	}{strategy})
-	fake.recordInvocation("Install", []interface{}{strategy})
-	fake.installMutex.Unlock()
-	if fake.InstallStub != nil {
-		return fake.InstallStub(strategy)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fake.installReturns.result1
-}
-
-func (fake *FakeStrategyInstaller) InstallCallCount() int {
-	fake.installMutex.RLock()
-	defer fake.installMutex.RUnlock()
-	return len(fake.installArgsForCall)
-}
-
-func (fake *FakeStrategyInstaller) InstallArgsForCall(i int) install.Strategy {
-	fake.installMutex.RLock()
-	defer fake.installMutex.RUnlock()
-	return fake.installArgsForCall[i].strategy
-}
-
-func (fake *FakeStrategyInstaller) InstallReturns(result1 error) {
-	fake.InstallStub = nil
-	fake.installReturns = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeStrategyInstaller) InstallReturnsOnCall(i int, result1 error) {
-	fake.InstallStub = nil
-	if fake.installReturnsOnCall == nil {
-		fake.installReturnsOnCall = make(map[int]struct {
-			result1 error
-		})
-	}
-	fake.installReturnsOnCall[i] = struct {
-		result1 error
-	}{result1}
-}
-
-func (fake *FakeStrategyInstaller) CheckInstalled(strategy install.Strategy) (bool, error) {
+func (fake *FakeStrategyInstaller) CheckInstalled(arg1 install.Strategy) (bool, error) {
 	fake.checkInstalledMutex.Lock()
 	ret, specificReturn := fake.checkInstalledReturnsOnCall[len(fake.checkInstalledArgsForCall)]
 	fake.checkInstalledArgsForCall = append(fake.checkInstalledArgsForCall, struct {
-		strategy install.Strategy
-	}{strategy})
-	fake.recordInvocation("CheckInstalled", []interface{}{strategy})
+		arg1 install.Strategy
+	}{arg1})
+	fake.recordInvocation("CheckInstalled", []interface{}{arg1})
 	fake.checkInstalledMutex.Unlock()
 	if fake.CheckInstalledStub != nil {
-		return fake.CheckInstalledStub(strategy)
+		return fake.CheckInstalledStub(arg1)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
 	}
-	return fake.checkInstalledReturns.result1, fake.checkInstalledReturns.result2
+	fakeReturns := fake.checkInstalledReturns
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *FakeStrategyInstaller) CheckInstalledCallCount() int {
@@ -107,13 +60,22 @@ func (fake *FakeStrategyInstaller) CheckInstalledCallCount() int {
 	return len(fake.checkInstalledArgsForCall)
 }
 
+func (fake *FakeStrategyInstaller) CheckInstalledCalls(stub func(install.Strategy) (bool, error)) {
+	fake.checkInstalledMutex.Lock()
+	defer fake.checkInstalledMutex.Unlock()
+	fake.CheckInstalledStub = stub
+}
+
 func (fake *FakeStrategyInstaller) CheckInstalledArgsForCall(i int) install.Strategy {
 	fake.checkInstalledMutex.RLock()
 	defer fake.checkInstalledMutex.RUnlock()
-	return fake.checkInstalledArgsForCall[i].strategy
+	argsForCall := fake.checkInstalledArgsForCall[i]
+	return argsForCall.arg1
 }
 
 func (fake *FakeStrategyInstaller) CheckInstalledReturns(result1 bool, result2 error) {
+	fake.checkInstalledMutex.Lock()
+	defer fake.checkInstalledMutex.Unlock()
 	fake.CheckInstalledStub = nil
 	fake.checkInstalledReturns = struct {
 		result1 bool
@@ -122,6 +84,8 @@ func (fake *FakeStrategyInstaller) CheckInstalledReturns(result1 bool, result2 e
 }
 
 func (fake *FakeStrategyInstaller) CheckInstalledReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.checkInstalledMutex.Lock()
+	defer fake.checkInstalledMutex.Unlock()
 	fake.CheckInstalledStub = nil
 	if fake.checkInstalledReturnsOnCall == nil {
 		fake.checkInstalledReturnsOnCall = make(map[int]struct {
@@ -135,13 +99,73 @@ func (fake *FakeStrategyInstaller) CheckInstalledReturnsOnCall(i int, result1 bo
 	}{result1, result2}
 }
 
+func (fake *FakeStrategyInstaller) Install(arg1 install.Strategy) error {
+	fake.installMutex.Lock()
+	ret, specificReturn := fake.installReturnsOnCall[len(fake.installArgsForCall)]
+	fake.installArgsForCall = append(fake.installArgsForCall, struct {
+		arg1 install.Strategy
+	}{arg1})
+	fake.recordInvocation("Install", []interface{}{arg1})
+	fake.installMutex.Unlock()
+	if fake.InstallStub != nil {
+		return fake.InstallStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.installReturns
+	return fakeReturns.result1
+}
+
+func (fake *FakeStrategyInstaller) InstallCallCount() int {
+	fake.installMutex.RLock()
+	defer fake.installMutex.RUnlock()
+	return len(fake.installArgsForCall)
+}
+
+func (fake *FakeStrategyInstaller) InstallCalls(stub func(install.Strategy) error) {
+	fake.installMutex.Lock()
+	defer fake.installMutex.Unlock()
+	fake.InstallStub = stub
+}
+
+func (fake *FakeStrategyInstaller) InstallArgsForCall(i int) install.Strategy {
+	fake.installMutex.RLock()
+	defer fake.installMutex.RUnlock()
+	argsForCall := fake.installArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeStrategyInstaller) InstallReturns(result1 error) {
+	fake.installMutex.Lock()
+	defer fake.installMutex.Unlock()
+	fake.InstallStub = nil
+	fake.installReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeStrategyInstaller) InstallReturnsOnCall(i int, result1 error) {
+	fake.installMutex.Lock()
+	defer fake.installMutex.Unlock()
+	fake.InstallStub = nil
+	if fake.installReturnsOnCall == nil {
+		fake.installReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.installReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *FakeStrategyInstaller) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.installMutex.RLock()
-	defer fake.installMutex.RUnlock()
 	fake.checkInstalledMutex.RLock()
 	defer fake.checkInstalledMutex.RUnlock()
+	fake.installMutex.RLock()
+	defer fake.installMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

@@ -30,6 +30,7 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	mrv1alpha1 "kubevirt.io/machine-remediation-operator/pkg/apis/machineremediation/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
@@ -120,6 +121,7 @@ func main() {
 		cdiv1alpha1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspopv1.AddToScheme,
+		mrv1alpha1.AddToScheme,
 	} {
 		if err := f(mgr.GetScheme()); err != nil {
 			log.Error(err, "Failed to add to scheme")

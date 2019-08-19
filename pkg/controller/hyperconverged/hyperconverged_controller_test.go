@@ -28,6 +28,7 @@ import (
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
 	kubevirt "kubevirt.io/client-go/api/v1"
 	cdi "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	mrv1alpha1 "kubevirt.io/machine-remediation-operator/pkg/apis/machineremediation/v1alpha1"
 )
 
 const (
@@ -48,6 +49,7 @@ func init() {
 	networkaddons.SchemeBuilder.AddToScheme(scheme.Scheme)
 	cdi.AddToScheme(scheme.Scheme)
 	kubevirt.AddToScheme(scheme.Scheme)
+	mrv1alpha1.AddToScheme(scheme.Scheme)
 }
 
 var _ = Describe("HyperconvergedController", func() {
@@ -114,6 +116,13 @@ var _ = Describe("HyperconvergedController", func() {
 			It("should have metadata", func() {
 				cr := newKubeVirtMetricsAggregationForCR(instance, namespace)
 				checkMetadata(cr.ObjectMeta, "metrics-aggregation-"+instance.Name, appLabel, namespace)
+			})
+		})
+
+		Context("MachineRemediationCR CR", func() {
+			It("should have metadata", func() {
+				cr := newMachineRemediationOperatorForCR(instance, namespace)
+				checkMetadata(cr.ObjectMeta, "mro-"+instance.Name, appLabel, namespace)
 			})
 		})
 

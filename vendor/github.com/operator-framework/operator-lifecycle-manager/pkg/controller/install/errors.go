@@ -3,11 +3,12 @@ package install
 import "fmt"
 
 const (
-	StrategyErrReasonComponentMissing = "ComponentMissing"
-	StrategyErrReasonWaiting          = "Waiting"
-	StrategyErrReasonInvalidStrategy  = "InvalidStrategy"
-	StrategyErrReasonTimeout          = "Timeout"
-	StrategyErrReasonUnknown          = "Unknown"
+	StrategyErrReasonComponentMissing   = "ComponentMissing"
+	StrategyErrReasonAnnotationsMissing = "AnnotationsMissing"
+	StrategyErrReasonWaiting            = "Waiting"
+	StrategyErrReasonInvalidStrategy    = "InvalidStrategy"
+	StrategyErrReasonTimeout            = "Timeout"
+	StrategyErrReasonUnknown            = "Unknown"
 )
 
 // unrecoverableErrors are the set of errors that mean we can't recover an install strategy

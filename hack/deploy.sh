@@ -40,11 +40,19 @@ sed -i "s#image: quay.io/kubevirt/hyperconverged-cluster-operator:latest#image: 
 # create namespaces
 "${CMD}" create ns kubevirt-hyperconverged
 
+# Create additional namespaces needed for HCO components
+namespaces=("openshift" "openshift-machine-api")
+for namespace in ${namespaces[@]}; do
+    if [[ $(${CMD} get ns ${namespace}) == "" ]]; then
+        ${CMD} create ns ${namespace}
+    fi
+done
+
 if [ "${CMD}" == "oc" ]; then
-    # Switch project to kubevirt
+    # Switch project to kubevirt-hyperconverged
     oc project kubevirt-hyperconverged
 else
-    # switch namespace to kubevirt
+    # switch namespace to kubevirt-hyperconverged
     ${CMD} config set-context $(${CMD} config current-context) --namespace=kubevirt-hyperconverged
 fi
 
@@ -59,6 +67,11 @@ function debug(){
     exit 1
 }
 
+# machine CRD already exists on OKD clusters, so we do not want to deploy it again
+if [[ $(${CMD} get crd machines.machine.openshift.io) != "" ]]; then
+    rm -rf _out/crds/machine.crd.yaml
+fi
+
 # Deploy local manifests
 "${CMD}" create -f _out/cluster_role.yaml
 "${CMD}" create -f _out/service_account.yaml
@@ -71,7 +84,7 @@ sleep 20
 
 "${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${op}"
 
-for op in cdi-operator cluster-network-addons-operator kubevirt-ssp-operator node-maintenance-operator virt-operator; do
+for op in cdi-operator cluster-network-addons-operator kubevirt-ssp-operator node-maintenance-operator virt-operator machine-remediation-operator; do
     "${CMD}" wait deployment/"${op}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${op} "
 done
 
@@ -81,6 +94,11 @@ sleep 30
 
 for dep in cdi-apiserver cdi-deployment cdi-uploadproxy virt-api virt-controller; do
     "${CMD}" wait deployment/"${dep}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${dep} "
+done
+
+# Wait for machine-remediation controllers under the openshift-machine-api namespace
+for dep in machine-health-check machine-disruption-budget machine-remediation; do
+    "${CMD}" -n openshift-machine-api wait deployment/"${dep}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${dep} "
 done
 
 if [ -z "$CONTAINER_ERRORED" ]; then

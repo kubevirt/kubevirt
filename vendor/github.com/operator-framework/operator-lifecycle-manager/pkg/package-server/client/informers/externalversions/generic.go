@@ -1,5 +1,5 @@
 /*
-Copyright The Kubernetes Authors.
+Copyright 2019 Red Hat, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/packagemanifest/v1alpha1"
+	v1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/apps/v1alpha1"
+	v1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -52,9 +53,13 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=packagemanifest, Version=v1alpha1
+	// Group=apps.redhat.com, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("packagemanifests"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Packagemanifest().V1alpha1().PackageManifests().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Apps().V1alpha1().PackageManifests().Informer()}, nil
+
+		// Group=operators.coreos.com, Version=v1
+	case v1.SchemeGroupVersion.WithResource("packagemanifests"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Operators().V1().PackageManifests().Informer()}, nil
 
 	}
 

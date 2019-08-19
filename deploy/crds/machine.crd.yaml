@@ -1,0 +1,196 @@
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: machines.machine.openshift.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.annotations['machine\.openshift\.io/instance-state']
+    description: State of instance
+    name: State
+    type: string
+  - JSONPath: .metadata.labels['machine\.openshift\.io/instance-type']
+    description: Type of instance
+    name: Type
+    type: string
+  - JSONPath: .metadata.labels['machine\.openshift\.io/region']
+    description: Region associated with machine
+    name: Region
+    type: string
+  - JSONPath: .metadata.labels['machine\.openshift\.io/zone']
+    description: Zone associated with machine
+    name: Zone
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: Machine age
+    name: Age
+    type: date
+  - JSONPath: .status.nodeRef.name
+    description: Node associated with machine
+    name: Node
+    priority: 1
+    type: string
+  - JSONPath: .spec.providerID
+    description: Provider ID of machine created in cloud provider
+    name: ProviderID
+    priority: 1
+    type: string
+  group: machine.openshift.io
+  names:
+    kind: Machine
+    plural: machines
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            metadata:
+              description: ObjectMeta will autopopulate the Node created. Use this
+                to indicate what labels, annotations, name prefix, etc., should be
+                used when creating the Node.
+              type: object
+            providerID:
+              description: ProviderID is the identification ID of the machine provided
+                by the provider. This field must match the provider ID as seen on
+                the node object corresponding to this machine. This field is required
+                by higher level consumers of cluster-api. Example use case is cluster
+                autoscaler with cluster-api as provider. Clean-up logic in the autoscaler
+                compares machines to nodes to find out machines at provider which
+                could not get registered as Kubernetes nodes. With cluster-api as
+                a generic out-of-tree provider for autoscaler, this field is required
+                by autoscaler to be able to have a provider view of the list of machines.
+                Another list of nodes is queried from the k8s apiserver and then a
+                comparison is done to find out unregistered machines and are marked
+                for delete. This field will be set by the actuators and consumed by
+                higher level entities like autoscaler that will be interfacing with
+                cluster-api as generic provider.
+              type: string
+            providerSpec:
+              description: ProviderSpec details Provider-specific configuration to
+                use during node creation.
+              properties:
+                value:
+                  description: Value is an inlined, serialized representation of the
+                    resource configuration. It is recommended that providers maintain
+                    their own versioned API types that should be serialized/deserialized
+                    from this field, akin to component config.
+                  type: object
+              type: object
+            taints:
+              description: The list of the taints to be applied to the corresponding
+                Node in additive manner. This list will not overwrite any other taints
+                added to the Node on an ongoing basis by other entities. These taints
+                should be actively reconciled e.g. if you ask the machine controller
+                to apply a taint and then manually remove the taint the machine controller
+                will put it back) but not have the machine controller remove any taints
+              items:
+                type: object
+              type: array
+          required:
+          - providerSpec
+          type: object
+        status:
+          properties:
+            addresses:
+              description: Addresses is a list of addresses assigned to the machine.
+                Queried from cloud provider, if available.
+              items:
+                type: object
+              type: array
+            errorMessage:
+              description: ErrorMessage will be set in the event that there is a terminal
+                problem reconciling the Machine and will contain a more verbose string
+                suitable for logging and human consumption.  This field should not
+                be set for transitive errors that a controller faces that are expected
+                to be fixed automatically over time (like service outages), but instead
+                indicate that something is fundamentally wrong with the Machine's
+                spec or the configuration of the controller, and that manual intervention
+                is required. Examples of terminal errors would be invalid combinations
+                of settings in the spec, values that are unsupported by the controller,
+                or the responsible controller itself being critically misconfigured.  Any
+                transient errors that occur during the reconciliation of Machines
+                can be added as events to the Machine object and/or logged in the
+                controller's output.
+              type: string
+            errorReason:
+              description: ErrorReason will be set in the event that there is a terminal
+                problem reconciling the Machine and will contain a succinct value
+                suitable for machine interpretation.  This field should not be set
+                for transitive errors that a controller faces that are expected to
+                be fixed automatically over time (like service outages), but instead
+                indicate that something is fundamentally wrong with the Machine's
+                spec or the configuration of the controller, and that manual intervention
+                is required. Examples of terminal errors would be invalid combinations
+                of settings in the spec, values that are unsupported by the controller,
+                or the responsible controller itself being critically misconfigured.  Any
+                transient errors that occur during the reconciliation of Machines
+                can be added as events to the Machine object and/or logged in the
+                controller's output.
+              type: string
+            lastOperation:
+              description: LastOperation describes the last-operation performed by
+                the machine-controller. This API should be useful as a history in
+                terms of the latest operation performed on the specific machine. It
+                should also convey the state of the latest-operation for example if
+                it is still on-going, failed or completed successfully.
+              properties:
+                description:
+                  description: Description is the human-readable description of the
+                    last operation.
+                  type: string
+                lastUpdated:
+                  description: LastUpdated is the timestamp at which LastOperation
+                    API was last-updated.
+                  format: date-time
+                  type: string
+                state:
+                  description: State is the current status of the last performed operation.
+                    E.g. Processing, Failed, Successful etc
+                  type: string
+                type:
+                  description: Type is the type of operation which was last performed.
+                    E.g. Create, Delete, Update etc
+                  type: string
+              type: object
+            lastUpdated:
+              description: LastUpdated identifies when this status was last observed.
+              format: date-time
+              type: string
+            nodeRef:
+              description: NodeRef will point to the corresponding Node if it exists.
+              type: object
+            phase:
+              description: Phase represents the current phase of machine actuation.
+                E.g. Pending, Running, Terminating, Failed etc.
+              type: string
+            providerStatus:
+              description: ProviderStatus details a Provider-specific status. It is
+                recommended that providers maintain their own versioned API types
+                that should be serialized/deserialized from this field.
+              type: object
+          type: object
+  version: v1beta1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

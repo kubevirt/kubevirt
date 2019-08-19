@@ -2,16 +2,17 @@
 package fakes
 
 import (
-	"sync"
+	sync "sync"
 
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/install"
+	install "github.com/operator-framework/operator-lifecycle-manager/pkg/controller/install"
 )
 
 type FakeStrategy struct {
 	GetStrategyNameStub        func() string
 	getStrategyNameMutex       sync.RWMutex
-	getStrategyNameArgsForCall []struct{}
-	getStrategyNameReturns     struct {
+	getStrategyNameArgsForCall []struct {
+	}
+	getStrategyNameReturns struct {
 		result1 string
 	}
 	getStrategyNameReturnsOnCall map[int]struct {
@@ -24,7 +25,8 @@ type FakeStrategy struct {
 func (fake *FakeStrategy) GetStrategyName() string {
 	fake.getStrategyNameMutex.Lock()
 	ret, specificReturn := fake.getStrategyNameReturnsOnCall[len(fake.getStrategyNameArgsForCall)]
-	fake.getStrategyNameArgsForCall = append(fake.getStrategyNameArgsForCall, struct{}{})
+	fake.getStrategyNameArgsForCall = append(fake.getStrategyNameArgsForCall, struct {
+	}{})
 	fake.recordInvocation("GetStrategyName", []interface{}{})
 	fake.getStrategyNameMutex.Unlock()
 	if fake.GetStrategyNameStub != nil {
@@ -33,7 +35,8 @@ func (fake *FakeStrategy) GetStrategyName() string {
 	if specificReturn {
 		return ret.result1
 	}
-	return fake.getStrategyNameReturns.result1
+	fakeReturns := fake.getStrategyNameReturns
+	return fakeReturns.result1
 }
 
 func (fake *FakeStrategy) GetStrategyNameCallCount() int {
@@ -42,7 +45,15 @@ func (fake *FakeStrategy) GetStrategyNameCallCount() int {
 	return len(fake.getStrategyNameArgsForCall)
 }
 
+func (fake *FakeStrategy) GetStrategyNameCalls(stub func() string) {
+	fake.getStrategyNameMutex.Lock()
+	defer fake.getStrategyNameMutex.Unlock()
+	fake.GetStrategyNameStub = stub
+}
+
 func (fake *FakeStrategy) GetStrategyNameReturns(result1 string) {
+	fake.getStrategyNameMutex.Lock()
+	defer fake.getStrategyNameMutex.Unlock()
 	fake.GetStrategyNameStub = nil
 	fake.getStrategyNameReturns = struct {
 		result1 string
@@ -50,6 +61,8 @@ func (fake *FakeStrategy) GetStrategyNameReturns(result1 string) {
 }
 
 func (fake *FakeStrategy) GetStrategyNameReturnsOnCall(i int, result1 string) {
+	fake.getStrategyNameMutex.Lock()
+	defer fake.getStrategyNameMutex.Unlock()
 	fake.GetStrategyNameStub = nil
 	if fake.getStrategyNameReturnsOnCall == nil {
 		fake.getStrategyNameReturnsOnCall = make(map[int]struct {
