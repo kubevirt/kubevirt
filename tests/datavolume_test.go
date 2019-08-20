@@ -59,8 +59,7 @@ var _ = Describe("DataVolume Integration", func() {
 	})
 
 	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-		By("Checking that the DataVolume has succeeded")
-		tests.WaitForSuccessfulDataVolumeImport(vmi, timeout)
+		tests.WaitForSuccessfulDataVolumeImportOfVMI(vmi, timeout)
 
 		By("Starting a VirtualMachineInstance with DataVolume")
 		var obj *v1.VirtualMachineInstance

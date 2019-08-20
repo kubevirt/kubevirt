@@ -2161,16 +2161,20 @@ func NewRandomVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
 }
 
 // Block until DataVolume succeeds.
-func WaitForSuccessfulDataVolumeImport(obj runtime.Object, seconds int) {
+func WaitForSuccessfulDataVolumeImportOfVMI(obj runtime.Object, seconds int) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
 	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
+	waitForSuccessfulDataVolumeImport(vmi.Namespace, vmi.Spec.Volumes[0].DataVolume.Name, seconds)
+}
 
+func waitForSuccessfulDataVolumeImport(namespace, name string, seconds int) {
+	By("Checking that the DataVolume has succeeded")
 	virtClient, err := kubecli.GetKubevirtClient()
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(2, err).ToNot(HaveOccurred())
 
-	EventuallyWithOffset(1, func() cdiv1.DataVolumePhase {
-		dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vmi.Namespace).Get(vmi.Spec.Volumes[0].DataVolume.Name, metav1.GetOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	EventuallyWithOffset(2, func() cdiv1.DataVolumePhase {
+		dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(name, metav1.GetOptions{})
+		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 
 		return dv.Status.Phase
 	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded), "Timed out waiting for DataVolume to enter Succeeded phase")
