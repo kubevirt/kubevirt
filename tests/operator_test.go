@@ -1019,7 +1019,7 @@ spec:
 			deleteAllKvAndWait(true)
 		})
 
-		Context("With OpenShift cluster", func() {
+		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
 
 			BeforeEach(func() {
 				if !tests.IsOpenShift() {
@@ -1027,7 +1027,7 @@ spec:
 				}
 			})
 
-			It("Should have kubevirt SCCs created", func() {
+			It("[test_id:2910]Should have kubevirt SCCs created", func() {
 				const OpenShiftSCCLabel = "openshift.io/scc"
 				var expectedSCCs, sccs []string
 
