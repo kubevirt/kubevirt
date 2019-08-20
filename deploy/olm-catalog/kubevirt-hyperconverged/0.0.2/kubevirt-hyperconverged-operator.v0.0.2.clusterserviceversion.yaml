@@ -66,7 +66,7 @@ metadata:
           "apiVersion": "machineremediation.kubevirt.io/v1alpha1",
           "kind": "MachineRemediationOperator",
           "metadata": {
-            "name": "mro",
+            "name": "mro"
           }
         },
         {
@@ -85,7 +85,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-08-15 16:34:10.428354276 +0300 IDT m=+0.036956029
+    createdAt: 2019-08-20 09:32:40.412571647 -0400 EDT m=+0.028283780
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
