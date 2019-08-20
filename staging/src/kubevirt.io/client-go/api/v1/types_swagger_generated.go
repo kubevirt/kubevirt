@@ -276,15 +276,3 @@ func (KubeVirtCondition) SwaggerDoc() map[string]string {
 		"": "KubeVirtCondition represents a condition of a KubeVirt deployment",
 	}
 }
-
-func (VirtualMachineInstanceSMBios) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "VirtualMachineInstanceSMBios defines the SMBios configuration for VMs",
-	}
-}
-
-func (VirtualMachineOptions) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "VirtualMachineOptions holds any extra options to be passed to the VM, like SMBIOS",
-	}
-}

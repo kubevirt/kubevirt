@@ -70,7 +70,7 @@ type MigrationOptions struct {
 }
 
 type LauncherClient interface {
-	SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) error
+	SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
@@ -238,14 +238,9 @@ func IsDisconnected(err error) bool {
 	return false
 }
 
-func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) error {
+func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
 
 	vmiJson, err := json.Marshal(vmi)
-	if err != nil {
-		return err
-	}
-
-	optionsJson, err := json.Marshal(options)
 	if err != nil {
 		return err
 	}
@@ -254,7 +249,9 @@ func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance, 
 		Vmi: &cmdv1.VMI{
 			VmiJson: vmiJson,
 		},
-		Options: optionsJson,
+		Options: &cmdv1.VirtualMachineOptions{
+			VirtualMachineSMBios: options.VirtualMachineSMBios,
+		},
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)

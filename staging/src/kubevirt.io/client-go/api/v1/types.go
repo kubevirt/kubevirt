@@ -1299,19 +1299,3 @@ const (
 const (
 	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
 )
-
-// VirtualMachineInstanceSMBios defines the SMBios configuration for VMs
-// ---
-// +k8s:openapi-gen=true
-type VirtualMachineInstanceSMBios struct {
-	Family       string `json:"Family,omitempty"`
-	Product      string `json:"Product,omitempty"`
-	Manufacturer string `json:"Manufacturer,omitempty"`
-}
-
-// VirtualMachineOptions holds any extra options to be passed to the VM, like SMBIOS
-// ---
-// +k8s:openapi-gen=true
-type VirtualMachineOptions struct {
-	SMBIOS *VirtualMachineInstanceSMBios
-}

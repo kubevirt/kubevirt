@@ -20,9 +20,21 @@ message VMI {
   bytes vmiJson = 1;
 }
 
+message SMBios {
+  string manufacturer = 1;
+  string product = 2;
+  string version = 3;
+  string sku = 4;
+  string family = 5;
+}
+
+message VirtualMachineOptions {
+  SMBios VirtualMachineSMBios = 1;
+}
+
 message VMIRequest {
   VMI vmi = 1;
-  bytes options = 2;
+  VirtualMachineOptions options = 2;
 }
 
 message MigrationRequest {
