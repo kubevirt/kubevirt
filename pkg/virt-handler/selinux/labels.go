@@ -136,19 +136,13 @@ func (se *SELinuxImpl) Restore(dir string) (err error) {
 func (*SELinuxImpl) InstallPolicy(dir string) (err error) {
 	for _, policyName := range POLICY_FILES {
 		fileDest := dir + "/" + policyName + ".cil"
-		modules, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/semodule", "-l").CombinedOutput()
+		err := copyPolicy(policyName, dir)
 		if err != nil {
-			return fmt.Errorf("failed to retrive a list of installed modules, err: % v", err)
+			return fmt.Errorf("failed to copy policy %v - err: % v", fileDest, err)
 		}
-		if !strings.Contains(string(modules), policyName) {
-			err := copyPolicy(policyName, dir)
-			if err != nil {
-				return fmt.Errorf("failed to copy policy %v - err: % v", fileDest, err)
-			}
-			_, err = exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/semodule", "-i", fileDest).CombinedOutput()
-			if err != nil {
-				return fmt.Errorf("failed to install policy %v - err: % v", fileDest, err)
-			}
+		_, err = exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/semodule", "-i", fileDest).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to install policy %v - err: % v", fileDest, err)
 		}
 	}
 	return nil
