@@ -1488,12 +1488,11 @@ var _ = Describe("Template", func() {
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
-							Resources: v1.ResourceRequirements{
-								Requests: kubev1.ResourceList{
-									"nvidia.com/gpu_name": resource.MustParse("1"),
-								},
-								Limits: kubev1.ResourceList{
-									"nvidia.com/gpu_name": resource.MustParse("1"),
+							Devices: v1.Devices{
+								Gpus: []v1.Gpu{
+									v1.Gpu{
+										Name: "nvidia.com/gpu_name",
+									},
 								},
 							},
 						},
@@ -1514,12 +1513,11 @@ var _ = Describe("Template", func() {
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
-							Resources: v1.ResourceRequirements{
-								Requests: kubev1.ResourceList{
-									"nvidia.com/gpu_name": resource.MustParse("1"),
-								},
-								Limits: kubev1.ResourceList{
-									"nvidia.com/gpu_name": resource.MustParse("1"),
+							Devices: v1.Devices{
+								Gpus: []v1.Gpu{
+									v1.Gpu{
+										Name: "nvidia.com/gpu_name",
+									},
 								},
 							},
 						},

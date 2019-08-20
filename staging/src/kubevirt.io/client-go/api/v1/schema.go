@@ -341,6 +341,9 @@ type Devices struct {
 	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature
 	// +optional
 	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
+	//Whether to attach a GPU device to the vmi.
+	// +optional
+	Gpus []Gpu `json:"gpus,omitempty"`
 }
 
 // ---
@@ -353,6 +356,13 @@ type Input struct {
 	// Supported values: tablet.
 	Type string `json:"type"`
 	// Name is the device name
+	Name string `json:"name"`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type Gpu struct {
+	// Name of the GPU device as exposed by a device plugin
 	Name string `json:"name"`
 }
 

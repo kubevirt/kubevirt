@@ -68,6 +68,7 @@ type ConverterContext struct {
 	SRIOVDevices   map[string][]string
 	SMBios         *cmdv1.SMBios
 	GpuDevices     []string
+	VgpuDevices    []string
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -987,9 +988,19 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	// Append HostDevices to DomXML if Nvidia GPU requested
-	if util.IsNvidiaGpuVmi(vmi) {
-		hostDevices, err := createHostDevForGpu(c)
-		if err == nil {
+	if util.IsGpuVmi(vmi) {
+		vgpuPciAddresses := append([]string{}, c.VgpuDevices...)
+		hostDevices, err := createHostDevicesFromMdevUuidList(vgpuPciAddresses)
+		if err != nil {
+			log.Log.Reason(err).Error("Unable to parse Mdev Uuid addresses")
+		} else {
+			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevices...)
+		}
+		gpuPciAddresses := append([]string{}, c.GpuDevices...)
+		hostDevices, err = createHostDevicesFromPCIAddresses(gpuPciAddresses)
+		if err != nil {
+			log.Log.Reason(err).Error("Unable to parse pci addresses")
+		} else {
 			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevices...)
 		}
 	}
@@ -1504,25 +1515,6 @@ func decoratePciAddressField(addressField string) (*Address, error) {
 		Function: "0x" + dbsfFields[3],
 	}
 	return decoratedAddrField, nil
-}
-
-func createHostDevForGpu(c *ConverterContext) ([]HostDevice, error) {
-
-	var hostDevices []HostDevice
-	var parseErr error
-	gpuPciAddresses := append([]string{}, c.GpuDevices...)
-	_, isVgpu := os.LookupEnv("IS-VGPU")
-	if isVgpu {
-		hostDevices, parseErr = createHostDevicesFromMdevUuidList(gpuPciAddresses)
-	} else {
-		hostDevices, parseErr = createHostDevicesFromPCIAddresses(gpuPciAddresses)
-	}
-	if parseErr != nil {
-		log.Log.Reason(parseErr).Error("Unable to parse PCI Device addresses")
-		return nil, parseErr
-	}
-	return hostDevices, nil
-
 }
 
 func createHostDevicesFromPCIAddresses(pcis []string) ([]HostDevice, error) {

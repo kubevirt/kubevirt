@@ -1763,12 +1763,11 @@ var _ = Describe("Converter", func() {
 			},
 			Spec: v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
-					Resources: v1.ResourceRequirements{
-						Requests: k8sv1.ResourceList{
-							"nvidia.com/gpu_name": resource.MustParse("1"),
-						},
-						Limits: k8sv1.ResourceList{
-							"nvidia.com/gpu_name": resource.MustParse("1"),
+					Devices: v1.Devices{
+						Gpus: []v1.Gpu{
+							v1.Gpu{
+								Name: "nvidia.com/gpu_name",
+							},
 						},
 					},
 				},
@@ -1802,21 +1801,20 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should convert GPU resource request into host devices for VGPU", func() {
-			os.Setenv("IS-VGPU", "YES")
 			c := &ConverterContext{
 				UseEmulation: true,
-				GpuDevices:   []string{"2609:19:90.0", "2609:19:90.1"},
+				VgpuDevices:  []string{"aa618089-8b16-4d01-a136-25a0f3c73123", "aa618089-8b16-4d01-a136-25a0f3c73124"},
 			}
 
 			domain := vmiToDomain(vmi, c)
 
 			Expect(len(domain.Spec.Devices.HostDevices)).To(Equal(2))
 			Expect(domain.Spec.Devices.HostDevices[0].Type).To(Equal("mdev"))
-			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Uuid).To(Equal("2609:19:90.0"))
+			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Uuid).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73123"))
 			Expect(domain.Spec.Devices.HostDevices[0].Mode).To(Equal("subsystem"))
 			Expect(domain.Spec.Devices.HostDevices[0].Model).To(Equal("vfio-pci"))
 			Expect(domain.Spec.Devices.HostDevices[1].Type).To(Equal("mdev"))
-			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Uuid).To(Equal("2609:19:90.1"))
+			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Uuid).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73124"))
 			Expect(domain.Spec.Devices.HostDevices[1].Mode).To(Equal("subsystem"))
 			Expect(domain.Spec.Devices.HostDevices[1].Model).To(Equal("vfio-pci"))
 
