@@ -871,37 +871,48 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 	return networkToAddressesMap
 }
 
-// This function parses the NVIDIA-PASSTHROUGH-DEVICES variable that is set by
+// This function parses the GPU-PASSTHROUGH-DEVICES variable that is set by
 // device plugin. It lists PCI IDs for devices allocated to the pod. The format
 // is as follows:
-// For GPU passthrough:
 // "": for no allocated devices
 // "0000:81:11.1,": for a single device
 // "0000:81:11.1,0000:81:11.2[,...]": for multiple devices
-
-// For vGPU passthrough:
-// "":for no allocated devices
-// "aa618089-8b16-4d01-a136-25a0f3c73123,": for a single device
-// "aa618089-8b16-4d01-a136-25a0f3c73123,1a527489-7cde-4a50-b8d6-3d5b0dc01e3b[,...]": for multiple devices
 func getGpuAddresses() []string {
-	addrString, isSet := os.LookupEnv("NVIDIA-PASSTHROUGH-DEVICES")
+	addrString, isSet := os.LookupEnv("GPU-PASSTHROUGH-DEVICES")
 	if isSet {
-		addrs := strings.Split(addrString, ",")
-		naddrs := len(addrs)
-		if naddrs > 0 {
-			if addrs[naddrs-1] == "" {
-				addrs = addrs[:naddrs-1]
-			}
-		}
-
-		for index, element := range addrs {
-			addrs[index] = strings.TrimSpace(element)
-		}
-		return addrs
+		return parseDeviceAddress(addrString)
 	}
 	return []string{}
 }
 
+// This function parses the VGPU-PASSTHROUGH-DEVICES variable that is set by
+// device plugin. It lists Mdev Uuids for devices allocated to the pod. The format
+// is as follows:
+// "":for no allocated devices
+// "aa618089-8b16-4d01-a136-25a0f3c73123,": for a single device
+// "aa618089-8b16-4d01-a136-25a0f3c73123,1a527489-7cde-4a50-b8d6-3d5b0dc01e3b[,...]": for multiple devices
+func getVgpuAddresses() []string {
+	addrString, isSet := os.LookupEnv("VGPU-PASSTHROUGH-DEVICES")
+	if isSet {
+		return parseDeviceAddress(addrString)
+	}
+	return []string{}
+}
+
+func parseDeviceAddress(addrString string) []string {
+	addrs := strings.Split(addrString, ",")
+	naddrs := len(addrs)
+	if naddrs > 0 {
+		if addrs[naddrs-1] == "" {
+			addrs = addrs[:naddrs-1]
+		}
+	}
+
+	for index, element := range addrs {
+		addrs[index] = strings.TrimSpace(element)
+	}
+	return addrs
+}
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
@@ -959,6 +970,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		DiskType:       diskInfo,
 		SRIOVDevices:   getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
 		GpuDevices:     getGpuAddresses(),
+                VgpuDevices:    getVgpuAddresses(),
 	}
 	if options != nil && options.VirtualMachineSMBios != nil {
 		c.SMBios = options.VirtualMachineSMBios

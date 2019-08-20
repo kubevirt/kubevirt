@@ -13,7 +13,6 @@ const ExtensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentic
 const RequestHeaderClientCAFileKey = "requestheader-client-ca-file"
 const VirtShareDir = "/var/run/kubevirt"
 const VirtLibDir = "/var/lib/kubevirt"
-const GpuDevice = "nvidia.com/"
 
 func IsSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
@@ -24,17 +23,10 @@ func IsSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func IsNvidiaGpuVmi(vmi *v1.VirtualMachineInstance) bool {
-	for key := range vmi.Spec.Domain.Resources.Requests {
-		if strings.HasPrefix(string(key), GpuDevice) {
-			return true
-		}
-	}
-
-	for key := range vmi.Spec.Domain.Resources.Limits {
-		if strings.HasPrefix(string(key), GpuDevice) {
-			return true
-		}
+// Check if a VMI spec requests GPU
+func IsGpuVmi(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.Gpus != nil {
+		return true
 	}
 	return false
 }
