@@ -294,7 +294,7 @@ var _ = Describe("[ref_id:2717]KubeVirt control plane resilience", func() {
 				By("check deployments")
 				deployments, err := deploymentsClient.List(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				expectedDeployments := []string{"cdi-http-import-server", "virt-operator", "virt-api", "virt-controller"}
+				expectedDeployments := []string{"virt-api", "virt-controller"}
 				for _, expectedDeployment := range expectedDeployments {
 					found := false
 					for _, deployment := range deployments.Items {
