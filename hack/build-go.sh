@@ -92,7 +92,16 @@ for arg in $args; do
 
             # always build and link the linux/amd64 binary
             LINUX_NAME=${ARCH_BASENAME}-linux-amd64
-            GOPROXY=off GOFLAGS=-mod=vendor GOOS=linux GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
+
+            # the containerdisk bianry needs to be static, as it runs in a scratch container
+            if [[ $BIN_NAME == *"container-disk"* ]]; then
+                echo "building static binary $BIN_NAME"
+                CGO_ENABLED=0 GOPROXY=off GOFLAGS=-mod=vendor GOOS=linux GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -tags netgo -ldflags "-extldflags '-static' $(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
+            else
+                echo "building dynamic binary $BIN_NAME"
+                GOPROXY=off GOFLAGS=-mod=vendor GOOS=linux GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
+            fi
+
             (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${LINUX_NAME} ${BIN_NAME})
 
             kubevirt::version::get_version_vars
