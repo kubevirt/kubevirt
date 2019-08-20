@@ -540,8 +540,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).To(BeNil())
 
-				By("checking that the datavolume has succeeded")
-				tests.WaitForSuccessfulDataVolumeImport(vmi, 340)
+				tests.WaitForSuccessfulDataVolumeImportOfVMI(vmi, 340)
 
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
@@ -586,8 +585,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).To(BeNil())
 
-				By("checking that the datavolume has succeeded")
-				tests.WaitForSuccessfulDataVolumeImport(vmi, 240)
+				tests.WaitForSuccessfulDataVolumeImportOfVMI(vmi, 240)
 
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 

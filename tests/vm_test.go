@@ -30,6 +30,7 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	v13 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -116,20 +117,22 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	})
 
 	Context("A valid VirtualMachine given", func() {
+		newVirtualMachineInstanceWithContainerDisk := func() *v1.VirtualMachineInstance {
+			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
+			return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
+		}
+
+		createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
+			By("Creating VirtualMachine")
+			vm := NewRandomVirtualMachine(template, running)
+			newVM, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+			return newVM
+		}
 
 		newVirtualMachine := func(running bool) *v1.VirtualMachine {
-			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
-			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
-
-			var newVM *v1.VirtualMachine
-			var err error
-
-			newVM = NewRandomVirtualMachine(template, running)
-
-			newVM, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(newVM)
-			Expect(err).ToNot(HaveOccurred())
-
-			return newVM
+			template := newVirtualMachineInstanceWithContainerDisk()
+			return createVirtualMachine(running, template)
 		}
 
 		newVirtualMachineWithRunStrategy := func(runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
@@ -212,26 +215,30 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return updatedVM
 		}
 
-		It("[test_id:1520]should update VirtualMachine once VMIs are up", func() {
-			newVM := newVirtualMachine(true)
+		table.DescribeTable("[test_id:1520]should update VirtualMachine once VMIs are up", func(template *v1.VirtualMachineInstance) {
+			newVM := createVirtualMachine(true, template)
 			Eventually(func() bool {
 				vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(newVM.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
-		})
+		},
+			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk()),
+		)
 
-		It("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func() {
-			newVM := newVirtualMachine(true)
+		table.DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(template *v1.VirtualMachineInstance) {
+			newVM := createVirtualMachine(true, template)
 			// Delete it
 			Expect(virtClient.VirtualMachine(newVM.Namespace).Delete(newVM.Name, &v12.DeleteOptions{})).To(Succeed())
-			// Wait until VMIs are gone
+			// Wait until VMI is gone
 			Eventually(func() int {
 				vmis, err := virtClient.VirtualMachineInstance(newVM.Namespace).List(&v12.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return len(vmis.Items)
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
-		})
+		},
+			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk()),
+		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
 
@@ -349,11 +356,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(pod.Name).ToNot(Equal(firstPod.Name))
 		})
 
-		It("[test_id:1525]should stop VirtualMachineInstance if running set to false", func() {
-			vm := newVirtualMachine(false)
+		table.DescribeTable("[test_id:1525]should stop VirtualMachineInstance if running set to false", func(template *v1.VirtualMachineInstance) {
+			vm := createVirtualMachine(false, template)
 			vm = startVM(vm)
 			vm = stopVM(vm)
-		})
+		},
+			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk()),
+		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {
 			vm := newVirtualMachine(false)
