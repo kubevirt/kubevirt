@@ -261,11 +261,13 @@ func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
 }
 
 // SmbiosConfig struct to take the mentioned values from Kubevirt-Config
-// and same values are passed to VMs eventually
+// and same values are synced with VMs
 type SmbiosConfig struct {
-	Family       string `json:"Family,omitempty"`
-	Product      string `json:"Product,omitempty"`
-	Manufacturer string `json:"Manufacturer,omitempty"`
+	Manufacturer string `json:"manufacturer,omitempty"`
+	Product      string `json:"product,omitempty"`
+	Version      string `json:"version,omitempty"`
+	Sku          string `json:"sku,omitempty"`
+	Family       string `json:"family,omitempty"`
 }
 
 // setConfig parses the provided config map and updates the provided config.

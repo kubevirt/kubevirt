@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -360,10 +361,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) {
-				Expect(options.SMBIOS.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
-				Expect(options.SMBIOS.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
-				Expect(options.SMBIOS.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
+				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
 			controller.Execute()
 		})
@@ -444,10 +445,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) {
-				Expect(options.SMBIOS.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
-				Expect(options.SMBIOS.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
-				Expect(options.SMBIOS.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
+				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
 
@@ -496,10 +497,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) {
-				Expect(options.SMBIOS.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
-				Expect(options.SMBIOS.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
-				Expect(options.SMBIOS.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
+				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
 
@@ -567,10 +568,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
 
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *v1.VirtualMachineOptions) {
-				Expect(options.SMBIOS.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
-				Expect(options.SMBIOS.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
-				Expect(options.SMBIOS.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
+				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
 			vmiInterface.EXPECT().Update(updatedVMI)
 

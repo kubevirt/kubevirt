@@ -42,6 +42,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/tests"
@@ -1906,7 +1907,7 @@ var _ = Describe("Configurations", func() {
 
 		It("[test_id:2752]test custom SMBios values", func() {
 			// Set a custom test SMBios
-			test_smbios := &v1.VirtualMachineInstanceSMBios{Family: "test", Product: "test", Manufacturer: "None"}
+			test_smbios := &cmdv1.SMBios{Family: "test", Product: "test", Manufacturer: "None", Sku: "1.0", Version: "1.0"}
 			smbiosJson, err := json.Marshal(test_smbios)
 			Expect(err).ToNot(HaveOccurred())
 			tests.UpdateClusterConfigValue("smbios", string(smbiosJson))
@@ -1921,6 +1922,8 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='family'>test</entry>"))
 			Expect(domXml).To(ContainSubstring("<entry name='product'>test</entry>"))
 			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>None</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='sku'>1.0</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='version'>1.0</entry>"))
 		})
 	})
 })

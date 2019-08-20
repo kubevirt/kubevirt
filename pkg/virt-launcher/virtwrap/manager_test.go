@@ -41,6 +41,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -87,7 +88,7 @@ var _ = Describe("Manager", func() {
 		c := &api.ConverterContext{
 			VirtualMachine: vmi,
 			UseEmulation:   true,
-			SMBios:         &v1.VirtualMachineInstanceSMBios{},
+			SMBios:         &cmdv1.SMBios{},
 		}
 		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.SetObjectDefaults_Domain(domain)
@@ -112,7 +113,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
-			newspec, err := manager.SyncVMI(vmi, true, &v1.VirtualMachineOptions{SMBIOS: &v1.VirtualMachineInstanceSMBios{}})
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -134,7 +135,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
-			newspec, err := manager.SyncVMI(vmi, true, &v1.VirtualMachineOptions{SMBIOS: &v1.VirtualMachineInstanceSMBios{}})
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -155,7 +156,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
-			newspec, err := manager.SyncVMI(vmi, true, &v1.VirtualMachineOptions{SMBIOS: &v1.VirtualMachineInstanceSMBios{}})
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -170,7 +171,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
-			newspec, err := manager.SyncVMI(vmi, true, &v1.VirtualMachineOptions{SMBIOS: &v1.VirtualMachineInstanceSMBios{}})
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -188,7 +189,7 @@ var _ = Describe("Manager", func() {
 				mockDomain.EXPECT().Create().Return(nil)
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 				manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
-				newspec, err := manager.SyncVMI(vmi, true, &v1.VirtualMachineOptions{SMBIOS: &v1.VirtualMachineInstanceSMBios{}})
+				newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 				Expect(err).To(BeNil())
 				Expect(newspec).ToNot(BeNil())
 			},
@@ -209,7 +210,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Resume().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
-			newspec, err := manager.SyncVMI(vmi, true, &v1.VirtualMachineOptions{SMBIOS: &v1.VirtualMachineInstanceSMBios{}})
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})

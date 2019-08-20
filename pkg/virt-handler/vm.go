@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/client-go/log"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -1413,11 +1414,13 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 		}
 
-		options := &v1.VirtualMachineOptions{
-			SMBIOS: &v1.VirtualMachineInstanceSMBios{
+		options := &cmdv1.VirtualMachineOptions{
+			VirtualMachineSMBios: &cmdv1.SMBios{
 				Family:       d.clusterConfig.GetSMBIOS().Family,
 				Product:      d.clusterConfig.GetSMBIOS().Product,
 				Manufacturer: d.clusterConfig.GetSMBIOS().Manufacturer,
+				Sku:          d.clusterConfig.GetSMBIOS().Sku,
+				Version:      d.clusterConfig.GetSMBIOS().Version,
 			},
 		}
 

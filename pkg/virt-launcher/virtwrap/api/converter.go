@@ -41,6 +41,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -64,7 +65,7 @@ type ConverterContext struct {
 	IsBlockPVC     map[string]bool
 	DiskType       map[string]*containerdisk.DiskInfo
 	SRIOVDevices   map[string][]string
-	SMBios         *v1.VirtualMachineInstanceSMBios
+	SMBios         *cmdv1.SMBios
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -700,6 +701,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			Entry{
 				Name:  "product",
 				Value: c.SMBios.Product,
+			},
+			Entry{
+				Name:  "sku",
+				Value: c.SMBios.Sku,
+			},
+			Entry{
+				Name:  "version",
+				Value: c.SMBios.Version,
 			},
 		)
 	}

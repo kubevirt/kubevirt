@@ -18,6 +18,7 @@ go_library(
         "//pkg/container-disk:go_default_library",
         "//pkg/emptydisk:go_default_library",
         "//pkg/ephemeral-disk:go_default_library",
+        "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/host-disk:go_default_library",
         "//pkg/ignition:go_default_library",
         "//pkg/util:go_default_library",
@@ -46,6 +47,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/google/gofuzz:go_default_library",
