@@ -1433,10 +1433,30 @@ func PanicOnError(err error) {
 	}
 }
 
-func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+func NewRandomDataVolumeWithHttpImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+	return newRandomDataVolumeWithHttpImport(imageUrl, namespace, Config.StorageClassLocal, accessMode)
+}
 
+func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+	if !HasCDI() {
+		Skip("Skip DataVolume tests when CDI is not present")
+	}
+	sc, exists := getCephStorageClass()
+	if !exists {
+		Skip("Skip OCS tests when Ceph is not present")
+	}
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	dv := newRandomDataVolumeWithHttpImport(imageUrl, namespace, sc, accessMode)
+	_, err = virtCli.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+	Expect(err).ToNot(HaveOccurred())
+	WaitForSuccessfulDataVolumeImport(dv, 240)
+	return NewRandomVMIWithDataVolume(dv.Name), dv
+}
+
+func newRandomDataVolumeWithHttpImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
 	name := "test-datavolume-" + rand.String(12)
-	storageClass := Config.StorageClassLocal
 	quantity, err := resource.ParseQuantity("1Gi")
 	PanicOnError(err)
 	dataVolume := &cdiv1.DataVolume{
@@ -2165,6 +2185,10 @@ func WaitForSuccessfulDataVolumeImportOfVMI(obj runtime.Object, seconds int) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
 	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
 	waitForSuccessfulDataVolumeImport(vmi.Namespace, vmi.Spec.Volumes[0].DataVolume.Name, seconds)
+}
+
+func WaitForSuccessfulDataVolumeImport(dv *cdiv1.DataVolume, seconds int) {
+	waitForSuccessfulDataVolumeImport(dv.Namespace, dv.Name, seconds)
 }
 
 func waitForSuccessfulDataVolumeImport(namespace, name string, seconds int) {
@@ -3668,6 +3692,19 @@ func HasDataVolumeCRD() bool {
 
 func HasCDI() bool {
 	return HasFeature("DataVolumes")
+}
+
+func getCephStorageClass() (string, bool) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	storageClassList, err := virtClient.StorageV1().StorageClasses().List(metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	for _, storageClass := range storageClassList.Items {
+		if storageClass.Provisioner == "csi-rbdplugin" {
+			return storageClass.Name, true
+		}
+	}
+	return "", false
 }
 
 func HasExperimentalIgnitionSupport() bool {

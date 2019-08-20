@@ -35,12 +35,14 @@ import (
 	v13 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
@@ -117,9 +119,22 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	})
 
 	Context("A valid VirtualMachine given", func() {
-		newVirtualMachineInstanceWithContainerDisk := func() *v1.VirtualMachineInstance {
+		type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
+
+		newVirtualMachineInstanceWithContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
-			return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
+			return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
+		}
+
+		newVirtualMachineInstanceWithOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.AlpineHttpUrl, tests.NamespaceTestDefault, v13.ReadWriteOnce)
+		}
+
+		deleteDataVolume := func(dv *cdiv1.DataVolume) {
+			if dv != nil {
+				By("Deleting the DataVolume")
+				ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+			}
 		}
 
 		createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
@@ -131,7 +146,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		newVirtualMachine := func(running bool) *v1.VirtualMachine {
-			template := newVirtualMachineInstanceWithContainerDisk()
+			template, _ := newVirtualMachineInstanceWithContainerDisk()
 			return createVirtualMachine(running, template)
 		}
 
@@ -288,7 +303,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(vmi.Annotations).ShouldNot(HaveKey("kubernetes.io/test"), "kubernetes internal annotations should be ignored")
 		})
 
-		table.DescribeTable("[test_id:1520]should update VirtualMachine once VMIs are up", func(template *v1.VirtualMachineInstance) {
+		table.DescribeTable("[test_id:1520]should update VirtualMachine once VMIs are up", func(createTemplate vmiBuilder) {
+			template, dv := createTemplate()
+			defer deleteDataVolume(dv)
 			newVM := createVirtualMachine(true, template)
 			Eventually(func() bool {
 				vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(newVM.Name, &v12.GetOptions{})
@@ -296,10 +313,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				return vm.Status.Ready
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		},
-			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk()),
+			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
+			table.Entry("with OCS Disk", newVirtualMachineInstanceWithOCSDisk),
 		)
 
-		table.DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(template *v1.VirtualMachineInstance) {
+		table.DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
+			template, dv := createTemplate()
+			defer deleteDataVolume(dv)
 			newVM := createVirtualMachine(true, template)
 			// Delete it
 			Expect(virtClient.VirtualMachine(newVM.Namespace).Delete(newVM.Name, &v12.DeleteOptions{})).To(Succeed())
@@ -310,7 +330,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				return len(vmis.Items)
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 		},
-			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk()),
+			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
+			table.Entry("with OCS Disk", newVirtualMachineInstanceWithOCSDisk),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
@@ -429,12 +450,15 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(pod.Name).ToNot(Equal(firstPod.Name))
 		})
 
-		table.DescribeTable("[test_id:1525]should stop VirtualMachineInstance if running set to false", func(template *v1.VirtualMachineInstance) {
+		table.DescribeTable("[test_id:1525]should stop VirtualMachineInstance if running set to false", func(createTemplate vmiBuilder) {
+			template, dv := createTemplate()
+			defer deleteDataVolume(dv)
 			vm := createVirtualMachine(false, template)
 			vm = startVM(vm)
 			vm = stopVM(vm)
 		},
-			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk()),
+			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
+			table.Entry("with OCS Disk", newVirtualMachineInstanceWithOCSDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {
