@@ -1,6 +1,7 @@
 kind: ConfigMap 
 apiVersion: v1 
 metadata:
-  name: disable-reboot 
+  name: disable-reboot
+  namespace: sriov-network-operator
 data:
   disabled: "true"
