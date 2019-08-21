@@ -182,7 +182,7 @@ func defaultClusterConfig() *Config {
 	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	defaultNetworkInterface := DefaultNetworkInterface
-	SmbiosDefaultConfig := &SmbiosConfig{
+	SmbiosDefaultConfig := &cmdv1.SMBios{
 		Family:       SmbiosConfigDefaultFamily,
 		Manufacturer: SmbiosConfigDefaultManufacturer,
 		Product:      SmbiosConfigDefaultProduct,
@@ -228,7 +228,7 @@ type Config struct {
 	NodeSelectors          map[string]string
 	NetworkInterface       string
 	PermitSlirpInterface   bool
-	SmbiosConfig           *SmbiosConfig
+	SmbiosConfig           *cmdv1.SMBios
 }
 
 type MigrationConfig struct {
@@ -258,16 +258,6 @@ func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
 	defer c.lock.Unlock()
 	c.configModifiedCallback = cb
 	go c.configModifiedCallback()
-}
-
-// SmbiosConfig struct to take the mentioned values from Kubevirt-Config
-// and same values are synced with VMs
-type SmbiosConfig struct {
-	Manufacturer string `json:"manufacturer,omitempty"`
-	Product      string `json:"product,omitempty"`
-	Version      string `json:"version,omitempty"`
-	Sku          string `json:"sku,omitempty"`
-	Family       string `json:"family,omitempty"`
 }
 
 // setConfig parses the provided config map and updates the provided config.
