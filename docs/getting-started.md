@@ -111,13 +111,13 @@ forth. `node01` is always the master of the cluster.
 Every node can be accessed via its name:
 
 ```bash
-cluster/cli.sh ssh node01
+cluster-up/cli.sh ssh node01
 ```
 
 To execute a remote command, e.g `ls`, simply type
 
 ```bash
-cluster/cli.sh ssh node01 -- ls -lh
+cluster-up/cli.sh ssh node01 -- ls -lh
 ```
 
 ### Automatic Code Generation
@@ -183,20 +183,20 @@ Finally start a VMI called `vmi-ephemeral`:
     # This can be done from your GIT repo, no need to log into a VMI
 
     # Create a VMI
-    ./cluster/kubectl.sh create -f cluster/examples/vmi-ephemeral.yaml
+    ./cluster-up/kubectl.sh create -f examples/vmi-ephemeral.yaml
 
     # Sure? Let's list all created VMIs
-    ./cluster/kubectl.sh get vmis
+    ./cluster-up/kubectl.sh get vmis
 
     # Enough, let's get rid of it
-    ./cluster/kubectl.sh delete -f cluster/examples/vmi-ephemeral.yaml
+    ./cluster-up/kubectl.sh delete -f examples/vmi-ephemeral.yaml
 
 
     # You can actually use kubelet.sh to introspect the cluster in general
-    ./cluster/kubectl.sh get pods
+    ./cluster-up/kubectl.sh get pods
 
     # To check the running kubevirt services you need to introspect the `kubevirt` namespace:
-    ./cluster/kubectl.sh -n kubevirt get pods
+    ./cluster-up/kubectl.sh -n kubevirt get pods
 ```
 
 This will start a VMI on master or one of the running nodes with a macvtap and a
@@ -205,18 +205,18 @@ tap networking device attached.
 #### Example
 
 ```bash
-$ ./cluster/kubectl.sh create -f cluster/examples/vmi-ephemeral.yaml
+$ ./cluster-up/kubectl.sh create -f examples/vmi-ephemeral.yaml
 vm "vmi-ephemeral" created
 
-$ ./cluster/kubectl.sh get pods
+$ ./cluster-up/kubectl.sh get pods
 NAME                              READY     STATUS    RESTARTS   AGE
 virt-launcher-vmi-ephemeral9q7es  1/1       Running   0          10s
 
-$ ./cluster/kubectl.sh get vmis
+$ ./cluster-up/kubectl.sh get vmis
 NAME           LABELS                        DATA
 vmi-ephemera    kubevirt.io/nodeName=node01   {"apiVersion":"kubevirt.io/v1alpha2","kind":"VMI","...
 
-$ ./cluster/kubectl.sh get vmis -o json
+$ ./cluster-up/kubectl.sh get vmis -o json
 {
     "kind": "List",
     "apiVersion": "v1",
@@ -254,12 +254,12 @@ to add virt-viewer installation folder to their `PATH`.
 Then, after you made sure that the VMI `vmi-ephemeral` is running, type
 
 ```
-cluster/virtctl.sh vnc vmi-ephemeral
+cluster-up/virtctl.sh vnc vmi-ephemeral
 ```
 
 to start a remote session with `remote-viewer`.
 
-`cluster/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
+`cluster-up/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
 virtual machine specific commands with it and is a supplement to `kubectl`.
 
 **Note:** If accessing your cluster through ssh, be sure to forward your X11 session in order to launch `virtctl vnc`.
