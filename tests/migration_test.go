@@ -426,8 +426,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(5 * time.Second)
-
-			}, 60)
+			})
 
 			AfterEach(func() {
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
@@ -509,8 +508,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(5 * time.Second)
-
-			}, 60)
+			})
 
 			AfterEach(func() {
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
@@ -577,7 +575,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
-			}, 60)
+			})
 			It("should reject a migration of a vmi with a non-shared data volume", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -621,6 +619,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
 			})
+
 		})
 		Context("with an Alpine shared ISCSI PVC", func() {
 			var pvName string
@@ -633,7 +632,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
 				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.PersistentVolumeBlock)
-			}, 60)
+			})
 
 			AfterEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
@@ -706,7 +705,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
 				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.PersistentVolumeBlock)
-			}, 60)
+			})
 
 			AfterEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
@@ -756,7 +755,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
 				tests.CreateNFSPvAndPvc(pvName, "5Gi", nfsIP, os)
-			}, 60)
+			})
 
 			AfterEach(func() {
 				// delete VMI
@@ -1017,7 +1016,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
 				tests.NewISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
-			}, 60)
+			})
 
 			AfterEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
