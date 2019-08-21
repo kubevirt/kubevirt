@@ -282,10 +282,10 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			table.DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(resource string) {
 				testRights(resource, "no")
 			},
-				table.Entry("given a vmi", "virtualmachineinstances"),
-				table.Entry("given a vm", "virtualmachines"),
-				table.Entry("given a vmi preset", "virtualmachineinstancepresets"),
-				table.Entry("given a vmi replica set", "virtualmachineinstancereplicasets"),
+				table.Entry("[test_id:2921]given a vmi", "virtualmachineinstances"),
+				table.Entry("[test_id:2915]given a vm", "virtualmachines"),
+				table.Entry("[test_id:2917]given a vmi preset", "virtualmachineinstancepresets"),
+				table.Entry("[test_id:2919]given a vmi replica set", "virtualmachineinstancereplicasets"),
 				table.Entry("given a vmi migration", "virtualmachineinstancemigrations"),
 			)
 		})
@@ -313,10 +313,10 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			table.DescribeTable("should verify permissions on resources are correct the test user", func(resource string) {
 				testRights(resource, "yes")
 			},
-				table.Entry("[test_id:2894]given a vmi", "virtualmachineinstances"),
+				table.Entry("[test_id:2920]given a vmi", "virtualmachineinstances"),
 				table.Entry("[test_id:2831]given a vm", "virtualmachines"),
-				table.Entry("[test_id:2835]given a vmi preset", "virtualmachineinstancepresets"),
-				table.Entry("[test_id:2836][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
+				table.Entry("[test_id:2916]given a vmi preset", "virtualmachineinstancepresets"),
+				table.Entry("[test_id:2918][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
 				table.Entry("[test_id:2837]given a vmi migration", "virtualmachineinstancemigrations"),
 			)
 		})
