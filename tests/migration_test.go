@@ -641,6 +641,9 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			})
 		})
 		Context("with an Alpine shared ISCSI PVC", func() {
 			var pvName string

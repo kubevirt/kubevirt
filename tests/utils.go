@@ -1467,7 +1467,14 @@ func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, acce
 	_, err = virtCli.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 	Expect(err).ToNot(HaveOccurred())
 	WaitForSuccessfulDataVolumeImport(dv, 240)
-	return NewRandomVMIWithDataVolume(dv.Name), dv
+
+	switch volMode {
+	case k8sv1.PersistentVolumeBlock:
+		// workaround for: https://github.com/kubevirt/kubevirt/issues/2438
+		return NewRandomVMIWithPVC(dv.Name), dv
+	default:
+		return NewRandomVMIWithDataVolume(dv.Name), dv
+	}
 }
 
 func newRandomDataVolumeWithHttpImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
