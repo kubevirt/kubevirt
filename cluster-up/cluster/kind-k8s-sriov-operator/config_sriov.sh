@@ -11,20 +11,14 @@ function wait_containers_ready {
 }
 
 function deploy_sriov_operator {
-
-  if ! kubectl get ns sriov-network-operator > /dev/null 2>&1; then
-    kubectl apply -f $OPERATOR_MANIFESTS_DIR/namespace.yaml
+  OPERATOR_PATH=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/sriov-network-operator
+  if [[ ! -d $OPERATOR_PATH ]]; then
+    git clone https://github.com/openshift/sriov-network-operator.git $OPERATOR_PATH
   fi
 
-  kubectl apply -f $OPERATOR_MANIFESTS_DIR/crds/sriovnetwork_v1_sriovnetwork_crd.yaml -n sriov-network-operator --validate=false
-  kubectl apply -f $OPERATOR_MANIFESTS_DIR/crds/sriovnetwork_v1_sriovnetworknodepolicy_crd.yaml -n sriov-network-operator --validate=false
-  kubectl apply -f $OPERATOR_MANIFESTS_DIR/crds/sriovnetwork_v1_sriovnetworknodestate_crd.yaml -n sriov-network-operator --validate=false
-  kubectl apply -f $OPERATOR_MANIFESTS_DIR/service_account.yaml -n sriov-network-operator --validate=false
-  kubectl apply -f $OPERATOR_MANIFESTS_DIR/role.yaml -n sriov-network-operator --validate=false
-  kubectl apply -f $OPERATOR_MANIFESTS_DIR/role_binding.yaml -n sriov-network-operator --validate=false
-  kubectl apply -f $OPERATOR_MANIFESTS_DIR/clusterrole.yaml -n sriov-network-operator --validate=false
-  kubectl apply -f $OPERATOR_MANIFESTS_DIR/clusterrolebinding.yaml -n sriov-network-operator --validate=false
-  kubectl apply -f $OPERATOR_MANIFESTS_DIR/operator.yaml -n sriov-network-operator --validate=false
+  pushd $OPERATOR_PATH
+    make deploy-setup-k8s
+  popd
 }
 
 #move the pf to the node
