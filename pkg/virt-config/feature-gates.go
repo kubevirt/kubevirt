@@ -28,7 +28,6 @@ import (
 )
 
 const (
-	dataVolumesGate       = "DataVolumes"
 	cpuManager            = "CPUManager"
 	IgnitionGate          = "ExperimentalIgnitionSupport"
 	liveMigrationGate     = "LiveMigration"
