@@ -44,6 +44,10 @@ FIRST_PF=${sriov_pfs[0]}
 FIRST_PF="${FIRST_PF%%/device/*}"
 FIRST_PF="${FIRST_PF##*/}"
 
+# if we don't set this value equals to the total, in case of mellanox 
+# the sriov operator will trigger a node reboot to update the firmware
+FIRST_PF_NUM_VFS=$(cat /sys/class/net/"$FIRST_PF"/device/sriov_totalvfs)
+
 # deploy multus
 kubectl create -f $MANIFESTS_DIR/multus.yaml
 
@@ -73,10 +77,9 @@ echo 0
 EOL
 "
 
-kubectl create -f $MANIFESTS_DIR/network_policy.yaml
-kubectl patch SriovNetworkNodePolicy -n sriov-network-operator policy-1 -p '{"spec": {"nicSelector": {"pfNames": ["'$FIRST_PF'"]}}}' --type=merge
-sleep 5 #let the cni daemon appear
+envsubst < $MANIFESTS_DIR/network_policy.yaml | kubectl create -f -
 
+sleep 5 #let the cni daemon appear
 SRIOVCNI_DAEMON_POD=$(kubectl get pods -n sriov-network-operator | grep sriov-cni | awk '{print $1}')
 kubectl wait --for=condition=Ready -n sriov-network-operator pod $SRIOVCNI_DAEMON_POD --timeout 12m
 
