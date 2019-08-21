@@ -928,7 +928,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		DiskType:       diskInfo,
 		SRIOVDevices:   getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
 	}
-	if options.VirtualMachineSMBios != nil {
+	if options != nil && options.VirtualMachineSMBios != nil {
 		c.SMBios = options.VirtualMachineSMBios
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
