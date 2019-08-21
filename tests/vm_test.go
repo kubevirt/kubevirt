@@ -117,7 +117,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		newVirtualMachineInstanceWithOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.AlpineHttpUrl, tests.NamespaceTestDefault, v13.ReadWriteOnce)
+			return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.AlpineHttpUrl, tests.NamespaceTestDefault, v13.ReadWriteOnce, v13.PersistentVolumeFilesystem)
 		}
 
 		deleteDataVolume := func(dv *cdiv1.DataVolume) {

@@ -1437,7 +1437,7 @@ func NewRandomDataVolumeWithHttpImport(imageUrl, namespace string, accessMode k8
 	return newRandomDataVolumeWithHttpImport(imageUrl, namespace, Config.StorageClassLocal, accessMode)
 }
 
-func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 	if !HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
 	}
@@ -1449,10 +1449,18 @@ func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, acce
 	PanicOnError(err)
 
 	dv := newRandomDataVolumeWithHttpImport(imageUrl, namespace, sc, accessMode)
+	dv.Spec.PVC.VolumeMode = &volMode
 	_, err = virtCli.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 	Expect(err).ToNot(HaveOccurred())
 	WaitForSuccessfulDataVolumeImport(dv, 240)
-	return NewRandomVMIWithDataVolume(dv.Name), dv
+
+	switch volMode {
+	case k8sv1.PersistentVolumeBlock:
+		// workaround for: https://github.com/kubevirt/kubevirt/issues/2438
+		return NewRandomVMIWithPVC(dv.Name), dv
+	default:
+		return NewRandomVMIWithDataVolume(dv.Name), dv
+	}
 }
 
 func newRandomDataVolumeWithHttpImport(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
