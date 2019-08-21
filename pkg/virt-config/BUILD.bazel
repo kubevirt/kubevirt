@@ -10,6 +10,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-config",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/util:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
@@ -33,6 +34,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/testutils:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

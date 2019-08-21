@@ -26,6 +26,8 @@ package virtconfig
 import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 const (
@@ -99,6 +101,6 @@ func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
 	return c.getConfig().PermitSlirpInterface
 }
 
-func (c *ClusterConfig) GetSMBIOS() *SmbiosConfig {
+func (c *ClusterConfig) GetSMBIOS() *cmdv1.SMBios {
 	return c.getConfig().SmbiosConfig
 }
