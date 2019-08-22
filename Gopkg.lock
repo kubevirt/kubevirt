@@ -1333,6 +1333,7 @@
   input-imports = [
     "github.com/MarSik/kubevirt-ssp-operator/pkg/apis",
     "github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1",
+    "github.com/blang/semver",
     "github.com/ghodss/yaml",
     "github.com/go-logr/logr",
     "github.com/go-openapi/spec",
@@ -1346,6 +1347,7 @@
     "github.com/openshift/custom-resource-status/conditions/v1",
     "github.com/openshift/custom-resource-status/objectreferences/v1",
     "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1",
+    "github.com/operator-framework/operator-lifecycle-manager/pkg/lib/version",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/kube-metrics",
     "github.com/operator-framework/operator-sdk/pkg/leader",

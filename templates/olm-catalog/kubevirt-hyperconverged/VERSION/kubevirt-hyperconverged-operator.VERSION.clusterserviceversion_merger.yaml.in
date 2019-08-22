@@ -10,7 +10,7 @@ metadata:
           "metadata": {
             "name": "kubevirt-hyperconverged",
             "namespace": "kubevirt-hyperconverged"
-          }{{if .Converged}}
+          }
         },
         {
           "apiVersion": "cdi.kubevirt.io/v1alpha1",
@@ -78,7 +78,7 @@ metadata:
           "spec": {
             "nodeName": "nodename",
             "reason": "node maintenance reason"
-          }{{end}}
+          }
         }
       ]
     capabilities: Full Lifecycle
@@ -197,15 +197,163 @@ spec:
   install:
     strategy: deployment
     spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - hco.kubevirt.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - cdi.kubevirt.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - networkaddonsoperator.network.kubevirt.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - ''
+          resources:
+          - configmaps
+          - pods
+          - serviceaccounts
+          - services
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+        - apiGroups:
+          - batch
+          resources:
+          - jobs
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - daemonsets
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterroles
+          - clusterrolebindings
+          - roles
+          - rolebindings
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - patch
+          - update
+        - apiGroups:
+          - security.openshift.io
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - security.openshift.io
+          resourceNames:
+          - privileged
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - machineremediation.kubevirt.io
+          resources:
+          - machineremediationoperators
+          - machineremediationoperators/status
+          verbs:
+          - '*'
+        serviceAccountName: hyperconverged-cluster-operator
       permissions:
       deployments:
         - name: hco-operator
           spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                name: hyperconverged-cluster-operator
+            strategy: {}
+            template:
+              metadata:
+                labels:
+                  name: hyperconverged-cluster-operator
+              spec:
+                containers:
+                - command:
+                  - hyperconverged-cluster-operator
+                  env:
+                  - name: OPERATOR_IMAGE
+                    value: quay.io/kubevirt/hyperconverged-cluster-operator:latest
+                  - name: OPERATOR_NAME
+                    value: hyperconverged-cluster-operator
+                  - name: POD_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.name
+                  - name: WATCH_NAMESPACE
+                  image: quay.io/kubevirt/hyperconverged-cluster-operator:latest
+                  imagePullPolicy: Always
+                  name: hyperconverged-cluster-operator
+                  readinessProbe:
+                    exec:
+                      command:
+                      - stat
+                      - /tmp/operator-sdk-ready
+                    failureThreshold: 1
+                    initialDelaySeconds: 5
+                    periodSeconds: 5
+                  resources: {}
+                serviceAccountName: hyperconverged-cluster-operator
   customresourcedefinitions:
     owned:
-      - name: .HCO.CRD.ObjectMeta.Name
-        version: .HCO.CRD.Spec.Version
-        kind: .HCO.CRD.Spec.Names.Kind
+      - name: hyperconvergeds.hco.kubevirt.io
+        version: v1alpha1
+        kind: HyperConverged
         displayName: KubeVirt HyperConverged Cluster Operator Deployment
         description: Represents the deployment of a KubeVirt HyperConverged Cluster Operator
     required:
