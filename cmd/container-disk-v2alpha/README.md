@@ -15,9 +15,9 @@ registry.
 Example: Place a bootable VMI disk into a container image in the /disk directory
 and upload to the container registry.
 ```
-cat << END > Dockerfile 
+cat << END > Dockerfile
 FROM scratch
-ADD fedora25.qcow2 /disk
+ADD fedora25.qcow2 /disk/
 END
 
 docker build -t vmdisks/fedora25:latest .
@@ -62,7 +62,7 @@ END
 ```
 
 After creating the VMI definition, starting the VMI is as simple starting a pod.
- 
+
 ```
 kubectl create -f vm.yaml
 ```
