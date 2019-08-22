@@ -44,6 +44,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -144,6 +145,11 @@ func prLimit(pid int, limit uintptr, rlimit *unix.Rlimit) error {
 }
 
 func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {
+	// only VFIO attached domains require MEMLOCK adjustment
+	if !util.IsSRIOVVmi(vm) {
+		return nil
+	}
+
 	// bump memlock ulimit for libvirtd
 	res, err := s.Detect(vm)
 	if err != nil {
