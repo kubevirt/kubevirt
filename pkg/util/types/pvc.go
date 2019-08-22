@@ -59,22 +59,19 @@ func isPVCBlock(pvc *k8sv1.PersistentVolumeClaim) bool {
 	return pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock
 }
 
-func IsPVCShared(pvc *k8sv1.PersistentVolumeClaim) (isShared bool) {
+func IsPVCShared(pvc *k8sv1.PersistentVolumeClaim) bool {
 	for _, accessMode := range pvc.Spec.AccessModes {
 		if accessMode == k8sv1.ReadWriteMany {
-			isShared = true
-			break
+			return true
 		}
 	}
-	return
+	return false
 }
 
 func IsSharedPVCFromClient(client kubecli.KubevirtClient, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, isShared bool, err error) {
 	pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Get(claimName, v1.GetOptions{})
-	if err != nil {
-		return nil, false, err
+	if err == nil {
+		isShared = IsPVCShared(pvc)
 	}
-
-	isShared = IsPVCShared(pvc)
-	return pvc, isShared, nil
+	return
 }

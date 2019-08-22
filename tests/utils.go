@@ -1761,23 +1761,6 @@ func GetGuestAgentUserData() string {
                 `, GuestAgentHttpUrl, StressHttpUrl)
 }
 
-func WaitForGuestAgentChannel(vmi *v1.VirtualMachineInstance) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	By("Waiting for guest agent connection")
-	EventuallyWithOffset(1, func() bool {
-		updatedVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, condition := range updatedVmi.Status.Conditions {
-			if condition.Type == v1.VirtualMachineInstanceAgentConnected && condition.Status == k8sv1.ConditionTrue {
-				return true
-			}
-		}
-		return false
-	}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
-}
-
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
 	AddUserData(vmi, "disk1", userData)
@@ -2202,8 +2185,6 @@ func waitForSuccessfulDataVolumeImport(namespace, name string, seconds int) {
 
 		return dv.Status.Phase
 	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded), "Timed out waiting for DataVolume to enter Succeeded phase")
-
-	return
 }
 
 // Block until the specified VirtualMachineInstance started and return the target node name.
@@ -3882,11 +3863,12 @@ func UpdateClusterConfigValue(key string, value string) {
 }
 
 func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
-	Eventually(func() bool {
+	By("Waiting for guest agent connection")
+	EventuallyWithOffset(1, func() bool {
 		updatedVmi, err := virtClient.VirtualMachineInstance(NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		for _, condition := range updatedVmi.Status.Conditions {
-			if condition.Type == "AgentConnected" && condition.Status == "True" {
+			if condition.Type == v1.VirtualMachineInstanceAgentConnected && condition.Status == k8sv1.ConditionTrue {
 				return true
 			}
 		}

@@ -43,7 +43,6 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -67,11 +66,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		It("[test_id:1518]should be rejected on POST", func() {
 			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
-			newVM := NewRandomVirtualMachine(template, false)
-			newVM.TypeMeta = v12.TypeMeta{
-				APIVersion: v1.StorageGroupVersion.String(),
-				Kind:       "VirtualMachine",
-			}
+			newVM := tests.NewRandomVirtualMachine(template, false)
 
 			jsonBytes, err := json.Marshal(newVM)
 			Expect(err).To(BeNil())
@@ -80,7 +75,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
 
 			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
-
 			// Verify validation failed.
 			statusCode := 0
 			result.StatusCode(&statusCode)
@@ -95,11 +89,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			template.Spec.Domain.Devices.Disks = append(template.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 			})
-			newVM := NewRandomVirtualMachine(template, false)
-			newVM.TypeMeta = v12.TypeMeta{
-				APIVersion: v1.GroupVersion.String(),
-				Kind:       "VirtualMachine",
-			}
+			newVM := tests.NewRandomVirtualMachine(template, false)
 
 			result := virtClient.RestClient().Post().Resource("virtualmachines").Namespace(tests.NamespaceTestDefault).Body(newVM).Do()
 
@@ -139,7 +129,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
 			By("Creating VirtualMachine")
-			vm := NewRandomVirtualMachine(template, running)
+			vm := tests.NewRandomVirtualMachine(template, running)
 			newVM, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 			return newVM
@@ -1395,53 +1385,10 @@ func getExpectedPodName(vm *v1.VirtualMachine) string {
 	return expectedPodName
 }
 
-// NewRandomVirtualMachine creates new VirtualMachine
-func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
-	name := vmi.Name
-	namespace := vmi.Namespace
-	vm := &v1.VirtualMachine{
-		ObjectMeta: v12.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: v1.VirtualMachineSpec{
-			Running:     &running,
-			RunStrategy: nil,
-			Template: &v1.VirtualMachineInstanceTemplateSpec{
-				ObjectMeta: v12.ObjectMeta{
-					Labels:    map[string]string{"name": dns.SanitizeHostname(vmi)},
-					Name:      name,
-					Namespace: namespace,
-				},
-				Spec: vmi.Spec,
-			},
-		},
-	}
-	return vm
-}
-
-// NewRandomVirtualMachineWithRunStrategy creates new VirtualMachine
 func NewRandomVirtualMachineWithRunStrategy(vmi *v1.VirtualMachineInstance, runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
-	name := vmi.Name
-	namespace := vmi.Namespace
-	vm := &v1.VirtualMachine{
-		ObjectMeta: v12.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: v1.VirtualMachineSpec{
-			Running:     nil,
-			RunStrategy: &runStrategy,
-			Template: &v1.VirtualMachineInstanceTemplateSpec{
-				ObjectMeta: v12.ObjectMeta{
-					Labels:    map[string]string{"name": dns.SanitizeHostname(vmi)},
-					Name:      name,
-					Namespace: namespace,
-				},
-				Spec: vmi.Spec,
-			},
-		},
-	}
+	vm := tests.NewRandomVirtualMachine(vmi, false)
+	vm.Spec.Running = nil
+	vm.Spec.RunStrategy = &runStrategy
 	return vm
 }
 
