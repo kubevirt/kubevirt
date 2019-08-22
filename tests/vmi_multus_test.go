@@ -22,6 +22,7 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -47,8 +48,7 @@ const (
 	linuxBridgeConfCRD   = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"br10\", \"vlan\": 100, \"ipam\": {}},{\"type\": \"tuning\"}]}"}}`
 	ptpConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"name\": \"mynet\", \"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	ptpConfWithTuningCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
-	// note: we assume resource name has intel.com prefix even if the actual driver is not Intel
-	sriovConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"intel.com/sriov"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	sriovConfCRD         = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 )
 
 var _ = Describe("Multus", func() {
@@ -150,20 +150,6 @@ var _ = Describe("Multus", func() {
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf-tuning")).
 			Body([]byte(fmt.Sprintf(ptpConfWithTuningCRD, "ptp-conf-tuning", tests.NamespaceTestDefault))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
-
-		// Create two sriov networks referring to the same resource name
-		result = virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
-		result = virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov2")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
@@ -591,21 +577,40 @@ var _ = Describe("SRIOV", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
+	sriovResourceName := os.Getenv("SRIOV_RESOURCE_NAME")
+
+	if sriovResourceName == "" {
+		sriovResourceName = "openshift.io/sriov_net"
+	}
+
 	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
 		// Create two sriov networks referring to the same resource name
 		result := virtClient.RestClient().
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault))).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault, sriovResourceName))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 		result = virtClient.RestClient().
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov2")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault))).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault, sriovResourceName))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		// Multus tests need to ensure that old VMIs are gone
+		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
+		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
+		Eventually(func() int {
+			list1, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v13.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			list2, err := virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).List(&v13.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return len(list1.Items) + len(list2.Items)
+		}, 6*time.Minute, 1*time.Second).Should(BeZero())
 	})
 
 	Context("VirtualMachineInstance with sriov plugin interface", func() {
@@ -690,7 +695,9 @@ var _ = Describe("SRIOV", func() {
 				[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
 			)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(out).To(Equal("intel.com/sriov\n"))
+
+			expectedSriovResourceName := fmt.Sprintf("%s\n", sriovResourceName)
+			Expect(out).To(Equal(expectedSriovResourceName))
 
 			checkDefaultInterfaceInPod(vmi)
 
@@ -725,7 +732,9 @@ var _ = Describe("SRIOV", func() {
 					[]string{"sh", "-c", fmt.Sprintf("echo $KUBEVIRT_RESOURCE_NAME_%s", name)},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(out).To(Equal("intel.com/sriov\n"))
+
+				expectedSriovResourceName := fmt.Sprintf("%s\n", sriovResourceName)
+				Expect(out).To(Equal(expectedSriovResourceName))
 			}
 
 			checkDefaultInterfaceInPod(vmi)
