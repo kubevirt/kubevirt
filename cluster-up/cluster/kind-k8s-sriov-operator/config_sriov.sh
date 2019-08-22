@@ -3,7 +3,6 @@ set -x
 
 CONTROL_PLANE_CMD="docker exec -it -d ${CLUSTER_NAME}-control-plane"
 MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/manifests"
-OPERATOR_MANIFESTS_DIR="$MANIFESTS_DIR/sriov-operator"
 
 function wait_containers_ready {
     echo "Waiting for all containers to become ready ..."
