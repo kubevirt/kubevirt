@@ -16,7 +16,6 @@ import (
 	"bufio"
 	"encoding/base64"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -30,6 +29,7 @@ import (
 	cdinamespaced "kubevirt.io/containerized-data-importer/pkg/operator/resources/namespaced"
 	cdioperator "kubevirt.io/containerized-data-importer/pkg/operator/resources/operator"
 	"kubevirt.io/containerized-data-importer/tools/marketplace/helper"
+	"kubevirt.io/containerized-data-importer/tools/util"
 )
 
 type templateData struct {
@@ -106,7 +106,7 @@ func getOperatorRules() string {
 
 	writer := strings.Builder{}
 	for _, rule := range rules {
-		err := MarshallObject(rule, &writer)
+		err := util.MarshallObject(rule, &writer)
 		if err != nil {
 			panic(err)
 		}
@@ -129,13 +129,16 @@ func getOperatorDeploymentSpec() string {
 		UploadServerImage:      *uploadServerImage,
 		PullPolicy:             *pullPolicy,
 		Namespace:              *namespace,
+
+		CsvVersion: *csvVersion,
+		CDILogo:    getCdiLogo(*cdiLogoPath),
 	}
 
 	spec := cdioperator.GetOperatorDeploymentSpec(args)
 
 	writer := strings.Builder{}
 
-	err := MarshallObject(spec, &writer)
+	err := util.MarshallObject(spec, &writer)
 	if err != nil {
 		panic(err)
 	}
@@ -165,11 +168,21 @@ func fixResourceString(in string, indention int) string {
 	return out.String()
 }
 
-func evalOlmCsvUpdateVersion(inFile, csvVersion, bundleOutDir, quayNamespace, quayRepository string) (string, error) {
-	replacesCsvVersion := ""
+func getReplacesVersion(csvVersion, quayNamespace, quayRepository string) string {
+	bundleHelper, err := helper.NewBundleHelper(quayRepository, quayNamespace)
+	if err != nil {
+		klog.Fatalf("Failed to access quay namespace %s, repo %s, %v\n", quayNamespace, quayRepository, err)
+	}
+	if !bundleHelper.VerifyNotPublishedCSVVersion(csvVersion) {
+		klog.Fatalf("CSV version %s is already published!", csvVersion)
+	}
+	return bundleHelper.GetLatestPublishedCSVVersion()
+}
+
+func evalOlmCsvUpdateVersion(inFile, csvVersion, bundleOutDir, quayNamespace, quayRepository string) string {
+	latestVersion := ""
 	if strings.Contains(inFile, ".csv.yaml") && bundleOutDir != "" {
 		bundleHelper, err := helper.NewBundleHelper(quayRepository, quayNamespace)
-
 		if err != nil {
 			klog.Fatalf("Failed to access quay namespace %s, repo %s, %v\n", quayNamespace, quayRepository, err)
 		}
@@ -182,14 +195,13 @@ func evalOlmCsvUpdateVersion(inFile, csvVersion, bundleOutDir, quayNamespace, qu
 			if strings.HasSuffix(latestVersion, csvVersion) {
 				klog.Fatalf("CSV version %s is already published!", csvVersion)
 			}
-			replacesCsvVersion = fmt.Sprintf("  replaces: %v", latestVersion)
 			// also copy old manifests to out dir
 			if *bundleOut != "" {
 				bundleHelper.AddOldManifests(bundleOutDir, csvVersion)
 			}
 		}
 	}
-	return replacesCsvVersion, nil
+	return latestVersion
 }
 
 func generateFromFile(templFile string) {
@@ -216,11 +228,7 @@ func generateFromFile(templFile string) {
 	}
 	defer file.Close()
 
-	data.ReplacesCsvVersion, err = evalOlmCsvUpdateVersion(templFile, *csvVersion, *bundleOut, *quayNamespace, *quayRepository)
-	if err != nil {
-		klog.Fatalf("Failed to evaluate CSV Replaces Version! %s, %v", *csvVersion, err)
-	}
-
+	data.ReplacesCsvVersion = evalOlmCsvUpdateVersion(templFile, *csvVersion, *bundleOut, *quayNamespace, *quayRepository)
 	data.QuayRepository = *quayRepository
 	data.QuayNamespace = *quayNamespace
 	data.OperatorRules = getOperatorRules()
@@ -308,7 +316,7 @@ func generateFromCode(codeGroup string) {
 	} //iterate through all resources
 
 	for _, resource := range resources {
-		err := MarshallObject(resource, os.Stdout)
+		err := util.MarshallObject(resource, os.Stdout)
 		if err != nil {
 			klog.Fatalf("Error marshalling resource: %v\n", err)
 		}
@@ -325,6 +333,11 @@ const (
 )
 
 func getOperatorClusterResources(codeGroup string) ([]runtime.Object, error) {
+	replacesCsvVersion := ""
+	if codeGroup == cdioperator.OperatorCSV || codeGroup == ClusterResourcesCodeOperatorGroupEverything {
+		replacesCsvVersion = getReplacesVersion(*csvVersion, *quayNamespace, *quayRepository)
+	}
+
 	args := &cdioperator.FactoryArgs{
 		Verbosity:              *verbosity,
 		DockerRepo:             *dockerRepo,
@@ -339,6 +352,10 @@ func getOperatorClusterResources(codeGroup string) ([]runtime.Object, error) {
 		UploadServerImage:      *uploadServerImage,
 		PullPolicy:             *pullPolicy,
 		Namespace:              *namespace,
+
+		CsvVersion:         *csvVersion,
+		ReplacesCsvVersion: replacesCsvVersion,
+		CDILogo:            getCdiLogo(*cdiLogoPath),
 	}
 
 	if codeGroup == ClusterResourcesCodeOperatorGroupEverything {

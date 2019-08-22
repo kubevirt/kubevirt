@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
@@ -9,14 +10,16 @@ import (
 	"time"
 
 	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorclient"
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorstatus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	utilclock "k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/operators/catalog"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorclient"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorstatus"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/profile"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/signals"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/metrics"
 	olmversion "github.com/operator-framework/operator-lifecycle-manager/pkg/version"
@@ -59,6 +62,9 @@ var (
 
 	tlsCertPath = flag.String(
 		"tls-cert", "", "Path to use for certificate key (requires tls-key)")
+
+	profiling = flag.Bool(
+		"profiling", false, "serve profiling data (on port 8080)")
 )
 
 func init() {
@@ -66,7 +72,9 @@ func init() {
 }
 
 func main() {
-	stopCh := signals.SetupSignalHandler()
+	// Get exit signal context
+	ctx, cancel := context.WithCancel(signals.Context())
+	defer cancel()
 
 	// Parse the command-line flags.
 	flag.Parse()
@@ -99,22 +107,42 @@ func main() {
 	if *tlsCertPath != "" && *tlsKeyPath == "" || *tlsCertPath == "" && *tlsKeyPath != "" {
 		logger.Warn("both --tls-key and --tls-crt must be provided for TLS to be enabled, falling back to non-https")
 	} else if *tlsCertPath == "" && *tlsKeyPath == "" {
-		logger.Info("TLS keys not set, using non-https")
+		logger.Info("TLS keys not set, using non-https for metrics")
 	} else {
+		logger.Info("TLS keys set, using https for metrics")
 		useTLS = true
 	}
 
 	// Serve a health check.
-	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	healthMux := http.NewServeMux()
+	healthMux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	go http.ListenAndServe(":8080", nil)
 
-	http.Handle("/metrics", promhttp.Handler())
+	// Serve profiling if enabled
+	if *profiling {
+		logger.Infof("profiling enabled")
+		profile.RegisterHandlers(healthMux)
+	}
+
+	go http.ListenAndServe(":8080", healthMux)
+
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
 	if useTLS {
-		go http.ListenAndServeTLS(":8081", *tlsCertPath, *tlsKeyPath, nil)
+		go func() {
+			err := http.ListenAndServeTLS(":8081", *tlsCertPath, *tlsKeyPath, metricsMux)
+			if err != nil {
+				logger.Errorf("Metrics (https) serving failed: %v", err)
+			}
+		}()
 	} else {
-		go http.ListenAndServe(":8081", nil)
+		go func() {
+			err := http.ListenAndServe(":8081", metricsMux)
+			if err != nil {
+				logger.Errorf("Metrics (http) serving failed: %v", err)
+			}
+		}()
 	}
 
 	// create a config client for operator status
@@ -129,17 +157,17 @@ func main() {
 	opClient := operatorclient.NewClientFromConfig(*kubeConfigPath, logger)
 
 	// Create a new instance of the operator.
-	catalogOperator, err := catalog.NewOperator(*kubeConfigPath, logger, *wakeupInterval, *configmapServerImage, *catalogNamespace, namespaces...)
+	op, err := catalog.NewOperator(ctx, *kubeConfigPath, utilclock.RealClock{}, logger, *wakeupInterval, *configmapServerImage, *catalogNamespace, namespaces...)
 	if err != nil {
 		log.Panicf("error configuring operator: %s", err.Error())
 	}
 
-	ready, done, sync := catalogOperator.Run(stopCh)
-	<-ready
+	op.Run(ctx)
+	<-op.Ready()
 
 	if *writeStatusName != "" {
-		operatorstatus.MonitorClusterStatus(*writeStatusName, sync, stopCh, opClient, configClient)
+		operatorstatus.MonitorClusterStatus(*writeStatusName, op.AtLevel(), op.Done(), opClient, configClient)
 	}
 
-	<-done
+	<-op.Done()
 }

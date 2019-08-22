@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"reflect"
 
 	"k8s.io/api/admission/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -52,6 +53,19 @@ func validateSourceURL(sourceURL string) string {
 		return fmt.Sprintf("Invalid source URL scheme: %s", sourceURL)
 	}
 	return ""
+}
+
+func validateDataVolumeName(name string) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	// name of data volume cannot be more than 55 characters (not including '-scratch')
+	if len(name) > 55 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Name of data volume cannot be more than 55 characters"),
+			Field:   "",
+		})
+	}
+	return causes
 }
 
 func (wh *dataVolumeValidatingWebhook) validateDataVolumeSpec(request *v1beta1.AdmissionRequest, field *k8sfield.Path, spec *cdicorev1alpha1.DataVolumeSpec) []metav1.StatusCause {
@@ -222,9 +236,33 @@ func (wh *dataVolumeValidatingWebhook) Admit(ar v1beta1.AdmissionReview) *v1beta
 	dv := cdicorev1alpha1.DataVolume{}
 
 	err := json.Unmarshal(raw, &dv)
-
 	if err != nil {
 		return toAdmissionResponseError(err)
+	}
+
+	if ar.Request.Operation == v1beta1.Update {
+		oldDV := cdicorev1alpha1.DataVolume{}
+		err = json.Unmarshal(ar.Request.OldObject.Raw, &oldDV)
+		if err != nil {
+			return toAdmissionResponseError(err)
+		}
+
+		if !reflect.DeepEqual(dv.Spec, oldDV.Spec) {
+			klog.Errorf("Cannot update spec for DataVolume %s/%s", dv.GetNamespace(), dv.GetName())
+			var causes []metav1.StatusCause
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("Cannot update DataVolume Spec"),
+				Field:   k8sfield.NewPath("DataVolume").Child("Spec").String(),
+			})
+			return toRejectedAdmissionResponse(causes)
+		}
+	}
+
+	causes := validateDataVolumeName(dv.Name)
+	if len(causes) > 0 {
+		klog.Infof("rejected DataVolume admission")
+		return toRejectedAdmissionResponse(causes)
 	}
 
 	if wh.client != nil && ar.Request.Operation == v1beta1.Create {
@@ -244,7 +282,7 @@ func (wh *dataVolumeValidatingWebhook) Admit(ar v1beta1.AdmissionReview) *v1beta
 		}
 	}
 
-	causes := wh.validateDataVolumeSpec(ar.Request, k8sfield.NewPath("spec"), &dv.Spec)
+	causes = wh.validateDataVolumeSpec(ar.Request, k8sfield.NewPath("spec"), &dv.Spec)
 	if len(causes) > 0 {
 		klog.Infof("rejected DataVolume admission")
 		return toRejectedAdmissionResponse(causes)

@@ -3,11 +3,10 @@ package reconciler
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -19,15 +18,18 @@ import (
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/ownerutil"
 )
 
-var timeNow = func() metav1.Time { return metav1.NewTime(time.Now().UTC()) }
-
 // configMapCatalogSourceDecorator wraps CatalogSource to add additional methods
 type configMapCatalogSourceDecorator struct {
 	*v1alpha1.CatalogSource
 }
 
+const (
+	// ConfigMapServerPostfix is a postfix appended to the names of resources generated for a ConfigMap server.
+	ConfigMapServerPostfix string = "-configmap-server"
+)
+
 func (s *configMapCatalogSourceDecorator) serviceAccountName() string {
-	return s.GetName() + "-configmap-server"
+	return s.GetName() + ConfigMapServerPostfix
 }
 
 func (s *configMapCatalogSourceDecorator) roleName() string {
@@ -36,16 +38,21 @@ func (s *configMapCatalogSourceDecorator) roleName() string {
 
 func (s *configMapCatalogSourceDecorator) Selector() map[string]string {
 	return map[string]string{
-		"olm.catalogSource": s.GetName(),
+		CatalogSourceLabelKey: s.GetName(),
 	}
 }
 
+const (
+	// ConfigMapRVLabelKey is the key for a label used to track the resource version of a related ConfigMap.
+	ConfigMapRVLabelKey string = "olm.configMapResourceVersion"
+)
+
 func (s *configMapCatalogSourceDecorator) Labels() map[string]string {
 	labels := map[string]string{
-		"olm.catalogSource": s.GetName(),
+		CatalogSourceLabelKey: s.GetName(),
 	}
 	if s.Spec.SourceType == v1alpha1.SourceTypeInternal || s.Spec.SourceType == v1alpha1.SourceTypeConfigmap {
-		labels["olm.configMapResourceVersion"] = s.Status.ConfigMapResource.ResourceVersion
+		labels[ConfigMapRVLabelKey] = s.Status.ConfigMapResource.ResourceVersion
 	}
 	return labels
 }
@@ -82,50 +89,9 @@ func (s *configMapCatalogSourceDecorator) Service() *v1.Service {
 }
 
 func (s *configMapCatalogSourceDecorator) Pod(image string) *v1.Pod {
-	pod := &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: s.GetName() + "-",
-			Namespace:    s.GetNamespace(),
-			Labels:       s.Labels(),
-		},
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
-				{
-					Name:    "configmap-registry-server",
-					Image:   image,
-					Command: []string{"configmap-server", "-c", s.Spec.ConfigMap, "-n", s.GetNamespace()},
-					Ports: []v1.ContainerPort{
-						{
-							Name:          "grpc",
-							ContainerPort: 50051,
-						},
-					},
-					ReadinessProbe: &v1.Probe{
-						Handler: v1.Handler{
-							Exec: &v1.ExecAction{
-								Command: []string{"grpc_health_probe", "-addr=localhost:50051"},
-							},
-						},
-						InitialDelaySeconds: 1,
-					},
-					LivenessProbe: &v1.Probe{
-						Handler: v1.Handler{
-							Exec: &v1.ExecAction{
-								Command: []string{"grpc_health_probe", "-addr=localhost:50051"},
-							},
-						},
-						InitialDelaySeconds: 2,
-					},
-				},
-			},
-			Tolerations: []v1.Toleration{
-				{
-					Operator: v1.TolerationOpExists,
-				},
-			},
-			ServiceAccountName: s.GetName() + "-configmap-server",
-		},
-	}
+	pod := Pod(s.CatalogSource, "configmap-registry-server", image, s.Labels(), 1, 2)
+	pod.Spec.ServiceAccountName = s.GetName() + ConfigMapServerPostfix
+	pod.Spec.Containers[0].Command = []string{"configmap-server", "-c", s.Spec.ConfigMap, "-n", s.GetNamespace()}
 	ownerutil.AddOwner(pod, s.CatalogSource, false, false)
 	return pod
 }
@@ -184,11 +150,14 @@ func (s *configMapCatalogSourceDecorator) RoleBinding() *rbacv1.RoleBinding {
 }
 
 type ConfigMapRegistryReconciler struct {
+	now      nowFunc
 	Lister   operatorlister.OperatorLister
 	OpClient operatorclient.ClientInterface
 	Image    string
 }
 
+var _ RegistryEnsurer = &ConfigMapRegistryReconciler{}
+var _ RegistryChecker = &ConfigMapRegistryReconciler{}
 var _ RegistryReconciler = &ConfigMapRegistryReconciler{}
 
 func (c *ConfigMapRegistryReconciler) currentService(source configMapCatalogSourceDecorator) *v1.Service {
@@ -257,7 +226,7 @@ func (c *ConfigMapRegistryReconciler) currentPodsWithCorrectResourceVersion(sour
 	return pods
 }
 
-// Ensure that all components of registry server are up to date.
+// EnsureRegistryServer ensures that all components of registry server are up to date.
 func (c *ConfigMapRegistryReconciler) EnsureRegistryServer(catalogSource *v1alpha1.CatalogSource) error {
 	source := configMapCatalogSourceDecorator{catalogSource}
 
@@ -316,14 +285,15 @@ func (c *ConfigMapRegistryReconciler) EnsureRegistryServer(catalogSource *v1alph
 	}
 
 	if overwritePod {
+		now := c.now()
 		catalogSource.Status.RegistryServiceStatus = &v1alpha1.RegistryServiceStatus{
-			CreatedAt:        timeNow(),
+			CreatedAt:        now,
 			Protocol:         "grpc",
 			ServiceName:      source.Service().GetName(),
 			ServiceNamespace: source.GetNamespace(),
 			Port:             fmt.Sprintf("%d", source.Service().Spec.Ports[0].Port),
 		}
-		catalogSource.Status.LastSync = timeNow()
+		catalogSource.Status.LastSync = now
 	}
 	return nil
 }
@@ -402,4 +372,49 @@ func (c *ConfigMapRegistryReconciler) ensureService(source configMapCatalogSourc
 	}
 	_, err := c.OpClient.CreateService(service)
 	return err
+}
+
+// CheckRegistryServer returns true if the given CatalogSource is considered healthy; false otherwise.
+func (c *ConfigMapRegistryReconciler) CheckRegistryServer(catalogSource *v1alpha1.CatalogSource) (healthy bool, err error) {
+	source := configMapCatalogSourceDecorator{catalogSource}
+
+	image := c.Image
+	if source.Spec.SourceType == "grpc" {
+		image = source.Spec.Image
+	}
+	if image == "" {
+		err = fmt.Errorf("no image for registry")
+		return
+	}
+
+	if source.Spec.SourceType == v1alpha1.SourceTypeConfigmap || source.Spec.SourceType == v1alpha1.SourceTypeInternal {
+		configMap, err := c.Lister.CoreV1().ConfigMapLister().ConfigMaps(source.GetNamespace()).Get(source.Spec.ConfigMap)
+		if err != nil {
+			return false, fmt.Errorf("unable to get configmap %s/%s from cache", source.GetNamespace(), source.Spec.ConfigMap)
+		}
+
+		if source.ConfigMapChanges(configMap) {
+			return false, nil
+		}
+
+		// recreate the pod if no existing pod is serving the latest image
+		if len(c.currentPodsWithCorrectResourceVersion(source, image)) == 0 {
+			return false, nil
+		}
+	}
+
+	// Check on registry resources
+	// TODO: more complex checks for resources
+	// TODO: add gRPC health check
+	if c.currentServiceAccount(source) == nil ||
+		c.currentRole(source) == nil ||
+		c.currentRoleBinding(source) == nil ||
+		c.currentService(source) == nil ||
+		len(c.currentPods(source, c.Image)) < 1 {
+		healthy = false
+		return
+	}
+
+	healthy = true
+	return
 }

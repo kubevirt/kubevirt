@@ -2,11 +2,11 @@
 package fakes
 
 import (
-	context "context"
-	sync "sync"
+	"context"
+	"sync"
 
-	api "github.com/operator-framework/operator-registry/pkg/api"
-	grpc "google.golang.org/grpc"
+	"github.com/operator-framework/operator-registry/pkg/api"
+	"google.golang.org/grpc"
 )
 
 type FakeRegistryClient struct {

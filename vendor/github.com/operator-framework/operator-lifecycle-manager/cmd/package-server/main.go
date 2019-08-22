@@ -7,10 +7,10 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	k8sserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/apiserver/pkg/util/logs"
+	"k8s.io/component-base/logs"
 
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/server"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/signals"
 )
 
 const (
@@ -19,13 +19,13 @@ const (
 
 // config flags defined globally so that they appear on the test binary as well
 var (
-	stopCh  = k8sserver.SetupSignalHandler()
+	ctx  = signals.Context()
 	options = server.NewPackageServerOptions(os.Stdout, os.Stderr)
 	cmd     = &cobra.Command{
 		Short: "Launch a package-server",
 		Long:  "Launch a package-server",
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := options.Run(stopCh); err != nil {
+			if err := options.Run(ctx); err != nil {
 				return err
 			}
 			return nil

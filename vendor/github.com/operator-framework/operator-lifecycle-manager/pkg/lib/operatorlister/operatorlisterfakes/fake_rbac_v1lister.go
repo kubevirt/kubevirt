@@ -2,9 +2,9 @@
 package operatorlisterfakes
 
 import (
-	sync "sync"
+	"sync"
 
-	operatorlister "github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorlister"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorlister"
 	v1 "k8s.io/client-go/listers/rbac/v1"
 )
 

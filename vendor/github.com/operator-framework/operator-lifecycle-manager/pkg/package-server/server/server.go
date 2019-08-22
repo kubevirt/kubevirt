@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -25,12 +26,12 @@ import (
 
 // NewCommandStartPackageServer provides a CLI handler for 'start master' command
 // with a default PackageServerOptions.
-func NewCommandStartPackageServer(defaults *PackageServerOptions, stopCh <-chan struct{}) *cobra.Command {
+func NewCommandStartPackageServer(ctx context.Context, defaults *PackageServerOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Short: "Launch a package API server",
 		Long:  "Launch a package API server",
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := defaults.Run(stopCh); err != nil {
+			if err := defaults.Run(ctx); err != nil {
 				return err
 			}
 			return nil
@@ -128,7 +129,7 @@ func (o *PackageServerOptions) Config() (*apiserver.Config, error) {
 	}, nil
 }
 
-func (o *PackageServerOptions) Run(stopCh <-chan struct{}) error {
+func (o *PackageServerOptions) Run(ctx context.Context) error {
 	if o.Debug {
 		log.SetLevel(log.DebugLevel)
 	}
@@ -164,12 +165,15 @@ func (o *PackageServerOptions) Run(stopCh <-chan struct{}) error {
 		return err
 	}
 
-	queueOperator, err := queueinformer.NewOperator(o.Kubeconfig, log.New())
+	queueOperator, err := queueinformer.NewOperator(crClient.Discovery())
 	if err != nil {
 		return err
 	}
 
-	sourceProvider := provider.NewRegistryProvider(crClient, queueOperator, o.WakeupInterval, o.WatchedNamespaces, o.GlobalNamespace)
+	sourceProvider, err := provider.NewRegistryProvider(ctx, crClient, queueOperator, o.WakeupInterval, o.WatchedNamespaces, o.GlobalNamespace)
+	if err != nil {
+		return err
+	}
 	config.ProviderConfig.Provider = sourceProvider
 
 	// we should never need to resync, since we're not worried about missing events,
@@ -182,15 +186,11 @@ func (o *PackageServerOptions) Run(stopCh <-chan struct{}) error {
 		return err
 	}
 
-	// Ensure that provider stops after the apiserver gracefully shuts down
-	provCh := make(chan struct{})
-	ready, done, _ := sourceProvider.Run(provCh)
-	<-ready
+	sourceProvider.Run(ctx)
+	<-sourceProvider.Ready()
 
-	err = server.GenericAPIServer.PrepareRun().Run(stopCh)
-	go func() { provCh <- struct{}{} }()
-
-	<-done
+	err = server.GenericAPIServer.PrepareRun().Run(ctx.Done())
+	<-sourceProvider.Done()
 
 	return err
 }

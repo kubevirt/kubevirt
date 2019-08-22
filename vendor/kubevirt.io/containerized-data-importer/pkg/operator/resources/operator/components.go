@@ -17,6 +17,7 @@ limitations under the License.
 package operator
 
 import (
+	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -38,6 +39,21 @@ const (
 	// OperatorImageDefault - default value
 	OperatorImageDefault = "cdi-operator"
 )
+
+//NewClusterServiceVersionData - Data arguments used to create CDI's CSV manifest
+type NewClusterServiceVersionData struct {
+	CsvVersion         string
+	ReplacesCsvVersion string
+	Namespace          string
+	ImagePullPolicy    string
+	IconBase64         string
+	Verbosity          string
+
+	DockerPrefix string
+	DockerTag    string
+
+	CdiImageNames *CdiImages
+}
 
 //CdiImages - images to be provied to cdi operator
 type CdiImages struct {
@@ -105,4 +121,9 @@ func NewCdiOperatorClusterRole() *rbacv1.ClusterRole {
 //NewCdiCrd - provides CDI CRD
 func NewCdiCrd() *extv1beta1.CustomResourceDefinition {
 	return createCDIListCRD()
+}
+
+//NewClusterServiceVersion - generates CSV for CDI
+func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.ClusterServiceVersion, error) {
+	return createClusterServiceVersion(data)
 }

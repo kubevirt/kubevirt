@@ -30,7 +30,7 @@ const (
 	// ImporterWritePath provides a constant for the cmd/cdi-importer/importer.go executable
 	ImporterWritePath = ImporterVolumePath + "/" + DiskImageName
 	// ImporterWriteBlockPath provides a constant for the path where the PV is mounted.
-	ImporterWriteBlockPath = "/dev/blockDevice"
+	ImporterWriteBlockPath = "/dev/cdi-block-volume"
 	// PodTerminationMessageFile is the name of the file to write the termination message to.
 	PodTerminationMessageFile = "/dev/termination-log"
 	// ImporterPodName provides a constant to use as a prefix for Pods created by CDI (controller only)
@@ -65,20 +65,14 @@ const (
 	// InsecureTLSVar provides a constant to capture our env variable "INSECURE_TLS"
 	InsecureTLSVar = "INSECURE_TLS"
 
-	// CloningLabelKey provides a constant to use as a label name for pod affinity (controller pkg only)
-	CloningLabelKey = "cloning"
 	// CloningLabelValue provides a constant to use as a label value for pod affinity (controller pkg only)
 	CloningLabelValue = "host-assisted-cloning"
 	// CloningTopologyKey  (controller pkg only)
 	CloningTopologyKey = "kubernetes.io/hostname"
 	// ClonerSourcePodName (controller pkg only)
-	ClonerSourcePodName = "clone-source-pod"
-	// ClonerTargetPodName (controller pkg only)
-	ClonerTargetPodName = "clone-target-pod"
-	// ClonerImagePath (controller pkg only)
-	ClonerImagePath = "/tmp/clone/image"
-	// ClonerSocketPath (controller pkg only)
-	ClonerSocketPath = "/tmp/clone/socket"
+	ClonerSourcePodName = "cdi-clone-source"
+	// ClonerMountPath (controller pkg only)
+	ClonerMountPath = "/var/run/cdi/clone/source"
 
 	// SmartClonerCDILabel is the label applied to resources created by the smart-clone controller
 	SmartClonerCDILabel = "cdi-smart-clone"
@@ -116,6 +110,9 @@ const (
 	// UploadTokenIssuer is the JWT issuer of upload tokens
 	UploadTokenIssuer = "cdi-apiserver"
 
-	// CloneTokenIssuer is the TWT issuer for clone tokens
+	// CloneTokenIssuer is the JWT issuer for clone tokens
 	CloneTokenIssuer = "cdi-apiserver"
+
+	// UploadPath is the path to POST CDI uploads
+	UploadPath = "/v1alpha1/upload"
 )

@@ -131,7 +131,7 @@ func (c *FakeClusterServiceVersions) DeleteCollection(options *v1.DeleteOptions,
 // Patch applies the patch and returns the patched clusterServiceVersion.
 func (c *FakeClusterServiceVersions) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.ClusterServiceVersion, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(clusterserviceversionsResource, c.ns, name, data, subresources...), &v1alpha1.ClusterServiceVersion{})
+		Invokes(testing.NewPatchSubresourceAction(clusterserviceversionsResource, c.ns, name, pt, data, subresources...), &v1alpha1.ClusterServiceVersion{})
 
 	if obj == nil {
 		return nil, err

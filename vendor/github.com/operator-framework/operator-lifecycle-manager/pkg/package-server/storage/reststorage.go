@@ -13,6 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	genericreq "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
+	"k8s.io/kubernetes/pkg/printers"
+	printerstorage "k8s.io/kubernetes/pkg/printers/storage"
 
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/provider"
@@ -22,6 +24,7 @@ type PackageManifestStorage struct {
 	groupResource schema.GroupResource
 	prov          provider.PackageManifestProvider
 	scheme        *runtime.Scheme
+	rest.TableConvertor
 }
 
 var _ rest.Storage = &PackageManifestStorage{}
@@ -29,13 +32,15 @@ var _ rest.KindProvider = &PackageManifestStorage{}
 var _ rest.Lister = &PackageManifestStorage{}
 var _ rest.Getter = &PackageManifestStorage{}
 var _ rest.Scoper = &PackageManifestStorage{}
+var _ rest.TableConvertor = &PackageManifestStorage{}
 
 // NewStorage returns a struct that implements methods needed for Kubernetes to satisfy API requests for the `PackageManifest` resource
 func NewStorage(groupResource schema.GroupResource, prov provider.PackageManifestProvider, scheme *runtime.Scheme) *PackageManifestStorage {
 	return &PackageManifestStorage{
-		groupResource: groupResource,
-		prov:          prov,
-		scheme:        scheme,
+		groupResource:  groupResource,
+		prov:           prov,
+		scheme:         scheme,
+		TableConvertor: printerstorage.TableConvertor{TablePrinter: printers.NewTablePrinter().With(addTableHandlers)},
 	}
 }
 

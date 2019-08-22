@@ -36,9 +36,10 @@ const (
 	privilegedAccountPrefix  = "system:serviceaccount"
 )
 
-func getControllerPrivilegedAccounts(args *FactoryArgs) []string {
-	return []string{
-		fmt.Sprintf("%s:%s:%s", privilegedAccountPrefix, args.Namespace, controllerServiceAccount),
+func getControllerPrivilegedAccounts(args *FactoryArgs) map[string][]string {
+	csa := fmt.Sprintf("%s:%s:%s", privilegedAccountPrefix, args.Namespace, controllerServiceAccount)
+	return map[string][]string{
+		"anyuid": {csa},
 	}
 }
 

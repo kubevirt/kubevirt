@@ -57,19 +57,17 @@ func (e *NamespaceGenerationEvolver) checkForUpdates() error {
 			continue
 		}
 
-		bundle, key, err := e.querier.FindReplacement(op.Identifier(), op.SourceInfo().Package, op.SourceInfo().Channel, op.SourceInfo().Catalog)
+		bundle, key, err := e.querier.FindReplacement(op.Version(), op.Identifier(), op.SourceInfo().Package, op.SourceInfo().Channel, op.SourceInfo().Catalog)
 		if err != nil || bundle == nil {
 			continue
 		}
 
-		o, err := NewOperatorFromBundle(bundle, op.SourceInfo().StartingCSV, *key)
+		o, err := NewOperatorFromBundle(bundle, op.Identifier(), op.SourceInfo().StartingCSV, *key)
 		if err != nil {
 			return errors.Wrap(err, "error parsing bundle")
 		}
 		if err := e.gen.AddOperator(o); err != nil {
-			if err != nil {
-				return errors.Wrap(err, "error calculating generation changes due to new bundle")
-			}
+			return errors.Wrap(err, "error calculating generation changes due to new bundle")
 		}
 		e.gen.RemoveOperator(op)
 	}
@@ -91,7 +89,7 @@ func (e *NamespaceGenerationEvolver) addNewOperators(add map[OperatorSourceInfo]
 			return errors.Wrapf(err, "%s not found", s)
 		}
 
-		o, err := NewOperatorFromBundle(bundle, s.StartingCSV, *key)
+		o, err := NewOperatorFromBundle(bundle, "", s.StartingCSV, *key)
 		if err != nil {
 			return errors.Wrap(err, "error parsing bundle")
 		}
@@ -117,7 +115,7 @@ func (e *NamespaceGenerationEvolver) queryForRequiredAPIs() error {
 		// attempt to find a bundle that provides that api
 		if bundle, key, err := e.querier.FindProvider(*api); err == nil {
 			// add a bundle that provides the api to the generation
-			o, err := NewOperatorFromBundle(bundle, "", *key)
+			o, err := NewOperatorFromBundle(bundle, "", "", *key)
 			if err != nil {
 				return errors.Wrap(err, "error parsing bundle")
 			}

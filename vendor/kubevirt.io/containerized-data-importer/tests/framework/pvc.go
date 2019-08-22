@@ -121,6 +121,7 @@ func (f *Framework) GetMD5(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolu
 	}
 
 	fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: md5sum found %s\n", string(output[:32]))
+	f.DeletePod(executorPod)
 	return output[:32], nil
 }
 

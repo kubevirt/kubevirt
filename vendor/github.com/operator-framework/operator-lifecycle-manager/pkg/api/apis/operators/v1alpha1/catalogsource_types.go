@@ -5,12 +5,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators"
 )
 
 const (
-	CatalogSourceCRDAPIVersion = operators.GroupName + "/" + GroupVersion
+	CatalogSourceCRDAPIVersion = GroupName + "/" + GroupVersion
 	CatalogSourceKind          = "CatalogSource"
 )
 
@@ -91,6 +89,8 @@ type ConfigMapResourceReference struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
+
+// CatalogSource is a repository of CSVs, CRDs, and operator packages.
 type CatalogSource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
@@ -107,6 +107,8 @@ func (c *CatalogSource) Address() string {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// CatalogSourceList is a repository of CSVs, CRDs, and operator packages.
 type CatalogSourceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

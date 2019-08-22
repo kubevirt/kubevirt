@@ -1,5 +1,12 @@
 package utils
 
+import (
+	"github.com/onsi/ginkgo"
+	storagev1 "k8s.io/api/storage/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+)
+
 // cdi-file-host pod/service relative values
 const (
 	//RegistryHostName provides a deploymnet and service name for registry
@@ -27,3 +34,52 @@ const (
 	// FileHostCertConfigMap is the ConfigMap where the cert fir the file host is stored
 	FileHostCertConfigMap = "cdi-file-host-certs"
 )
+
+var (
+	// DefaultNodeName the default node to use in tests
+	DefaultNodeName string
+	// DefaultStorageClass the defauld storage class used in tests
+	DefaultStorageClass *storagev1.StorageClass
+)
+
+func getDefaultNodeName(client *kubernetes.Clientset) string {
+	nodes, err := client.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		ginkgo.Fail("Unable to list nodes")
+	}
+	return nodes.Items[0].Name
+}
+
+func getDefaultStorageClass(client *kubernetes.Clientset) *storagev1.StorageClass {
+	storageclasses, err := client.StorageV1().StorageClasses().List(metav1.ListOptions{})
+	if err != nil {
+		ginkgo.Fail("Unable to list storage classes")
+		return nil
+	}
+	for _, storageClass := range storageclasses.Items {
+		if storageClass.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+			return &storageClass
+		}
+	}
+	ginkgo.Fail("Unable to find default storage classes")
+	return nil
+}
+
+// IsHostpathProvisioner returns true if hostpath-provisioner is the default storage class
+func IsHostpathProvisioner() bool {
+	if DefaultStorageClass == nil {
+		return false
+	}
+	return DefaultStorageClass.Provisioner == "kubevirt.io/hostpath-provisioner"
+}
+
+// AddProvisionOnNodeToAnn adds 'kubevirt.io/provisionOnNode' annotaion
+func AddProvisionOnNodeToAnn(pvcAnn map[string]string) {
+	pvcAnn["kubevirt.io/provisionOnNode"] = DefaultNodeName
+}
+
+// CacheTestsData fetch and cache data required for tests
+func CacheTestsData(client *kubernetes.Clientset) {
+	DefaultNodeName = getDefaultNodeName(client)
+	DefaultStorageClass = getDefaultStorageClass(client)
+}

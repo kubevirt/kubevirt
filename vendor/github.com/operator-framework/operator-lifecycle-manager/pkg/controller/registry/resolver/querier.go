@@ -5,10 +5,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/blang/semver"
 	"github.com/operator-framework/operator-registry/pkg/client"
 	opregistry "github.com/operator-framework/operator-registry/pkg/registry"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/errors"
 )
+
+const SkipPackageAnnotationKey = "olm.skipRange"
 
 type SourceRef struct {
 	Address     string
@@ -21,7 +25,7 @@ type SourceQuerier interface {
 	FindProvider(api opregistry.APIKey) (*opregistry.Bundle, *CatalogKey, error)
 	FindBundle(pkgName, channelName, bundleName string, initialSource CatalogKey) (*opregistry.Bundle, *CatalogKey, error)
 	FindLatestBundle(pkgName, channelName string, initialSource CatalogKey) (*opregistry.Bundle, *CatalogKey, error)
-	FindReplacement(bundleName, pkgName, channelName string, initialSource CatalogKey) (*opregistry.Bundle, *CatalogKey, error)
+	FindReplacement(currentVersion *semver.Version, bundleName, pkgName, channelName string, initialSource CatalogKey) (*opregistry.Bundle, *CatalogKey, error)
 	Queryable() error
 }
 
@@ -102,24 +106,84 @@ func (q *NamespaceSourceQuerier) FindLatestBundle(pkgName, channelName string, i
 	return nil, nil, fmt.Errorf("%s/%s not found in any available CatalogSource", pkgName, channelName)
 }
 
-func (q *NamespaceSourceQuerier) FindReplacement(bundleName, pkgName, channelName string, initialSource CatalogKey) (*opregistry.Bundle, *CatalogKey, error) {
+func (q *NamespaceSourceQuerier) FindReplacement(currentVersion *semver.Version, bundleName, pkgName, channelName string, initialSource CatalogKey) (*opregistry.Bundle, *CatalogKey, error) {
+	errs := []error{}
+
 	if initialSource.Name != "" && initialSource.Namespace != "" {
 		source, ok := q.sources[initialSource]
 		if !ok {
 			return nil, nil, fmt.Errorf("CatalogSource %s not found", initialSource.Name)
 		}
-		bundle, err := source.GetReplacementBundleInPackageChannel(context.TODO(), bundleName, pkgName, channelName)
-		if err != nil {
-			return nil, nil, err
+
+		bundle, err := q.findChannelHead(currentVersion, pkgName, channelName, source)
+		if bundle != nil {
+			return bundle, &initialSource, nil
 		}
-		return bundle, &initialSource, nil
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		bundle, err = source.GetReplacementBundleInPackageChannel(context.TODO(), bundleName, pkgName, channelName)
+		if bundle != nil {
+			return bundle, &initialSource, nil
+		}
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		return nil, nil, errors.NewAggregate(errs)
 	}
 
 	for key, source := range q.sources {
-		bundle, err := source.GetReplacementBundleInPackageChannel(context.TODO(), bundleName, pkgName, channelName)
-		if err == nil {
+		bundle, err := q.findChannelHead(currentVersion, pkgName, channelName, source)
+		if bundle != nil {
+			return bundle, &initialSource, nil
+		}
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		bundle, err = source.GetReplacementBundleInPackageChannel(context.TODO(), bundleName, pkgName, channelName)
+		if bundle != nil {
 			return bundle, &key, nil
 		}
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
-	return nil, nil, fmt.Errorf("%s/%s not found in any available CatalogSource", pkgName, channelName)
+	return nil, nil, errors.NewAggregate(errs)
+}
+
+func (q *NamespaceSourceQuerier) findChannelHead(currentVersion *semver.Version, pkgName, channelName string, source client.Interface) (*opregistry.Bundle, error) {
+	if currentVersion == nil {
+		return nil, nil
+	}
+
+	latest, err := source.GetBundleInPackageChannel(context.TODO(), pkgName, channelName)
+	if err != nil {
+		return nil, err
+	}
+
+	csv, err := latest.ClusterServiceVersion()
+	if err != nil {
+		return nil, err
+	}
+	if csv == nil {
+		return nil, nil
+	}
+
+	skipRange, ok := csv.GetAnnotations()[SkipPackageAnnotationKey]
+	if !ok {
+		return nil, nil
+	}
+
+	r, err := semver.ParseRange(skipRange)
+	if err != nil {
+		return nil, err
+	}
+
+	if r(*currentVersion) {
+		return latest, nil
+	}
+	return nil, nil
 }

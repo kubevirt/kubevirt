@@ -27,6 +27,7 @@ import (
 type CountingReader struct {
 	Reader  io.ReadCloser
 	Current uint64
+	Done    bool
 }
 
 // RandAlphaNum provides an implementation to generate a random alpha numeric string of the specified length
@@ -71,6 +72,7 @@ func ParseEnvVar(envVarName string, decode bool) (string, error) {
 func (r *CountingReader) Read(p []byte) (n int, err error) {
 	n, err = r.Reader.Read(p)
 	r.Current += uint64(n)
+	r.Done = err == io.EOF
 	return n, err
 }
 
@@ -151,7 +153,7 @@ func StreamDataToFile(r io.Reader, fileName string) error {
 // UnArchiveTar unarchives a tar file and streams its files
 // using the specified io.Reader to the specified destination.
 func UnArchiveTar(reader io.Reader, destDir string, arg ...string) error {
-	klog.V(1).Infof("begin untar...\n")
+	klog.V(1).Infof("begin untar to %s...\n", destDir)
 
 	var tarOptions string
 	var args = arg

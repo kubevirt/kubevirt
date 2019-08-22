@@ -4,7 +4,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"k8s.io/api/core/v1"
+
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -14,16 +15,21 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
+
 	"kubevirt.io/containerized-data-importer/pkg/expectations"
 )
 
 const (
 	// AnnAPIGroup is the APIGroup for CDI
 	AnnAPIGroup = "cdi.kubevirt.io"
-	//AnnCreatedBy is a pod annotation indicating if the pod was created by the PVC
+	// AnnCreatedBy is a pod annotation indicating if the pod was created by the PVC
 	AnnCreatedBy = AnnAPIGroup + "/storage.createdByController"
-	//AnnPodPhase is a PVC annotation indicating the related pod progress (phase)
+	// AnnPodPhase is a PVC annotation indicating the related pod progress (phase)
 	AnnPodPhase = AnnAPIGroup + "/storage.pod.phase"
+	// AnnPodReady tells whether the pod is ready
+	AnnPodReady = AnnAPIGroup + "/storage.pod.ready"
+	// AnnOwnerRef is used when owner is in a different namespace
+	AnnOwnerRef = AnnAPIGroup + "/storage.ownerRef"
 )
 
 //Controller is a struct that contains common information and functionality used by all CDI controllers.
@@ -108,6 +114,7 @@ func (c *Controller) observePodCreate(pvcKey string) {
 func (c *Controller) handlePodObject(obj interface{}, verb string) {
 	var object metav1.Object
 	var ok bool
+
 	if object, ok = obj.(metav1.Object); !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
@@ -121,42 +128,59 @@ func (c *Controller) handlePodObject(obj interface{}, verb string) {
 		}
 		klog.V(3).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
-	klog.V(3).Infof("Processing object: %s", object.GetName())
-	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
-		_, createdByUs := object.GetAnnotations()[AnnCreatedBy]
 
-		if ownerRef.Kind != "PersistentVolumeClaim" {
-			return
-		} else if !createdByUs {
-			return
-		}
-
-		var err error
-		var pvc *v1.PersistentVolumeClaim
-		_, annTargetPodNamespace := object.GetAnnotations()[AnnTargetPodNamespace]
-		if annTargetPodNamespace {
-			pvc, err = c.pvcLister.PersistentVolumeClaims(object.GetAnnotations()[AnnTargetPodNamespace]).Get(ownerRef.Name)
-		} else {
-			pvc, err = c.pvcLister.PersistentVolumeClaims(object.GetNamespace()).Get(ownerRef.Name)
-		}
-
-		if err != nil {
-			klog.V(3).Infof("ignoring orphaned object '%s' of pvc '%s'", object.GetSelfLink(), ownerRef.Name)
-			return
-		}
-
-		if verb == "add" {
-			pvcKey, err := cache.MetaNamespaceKeyFunc(pvc)
-			if err != nil {
-				runtime.HandleError(err)
-				return
-			}
-
-			c.observePodCreate(pvcKey)
-		}
-		c.enqueuePVC(pvc)
+	_, createdByUs := object.GetAnnotations()[AnnCreatedBy]
+	if !createdByUs {
+		klog.V(3).Infof("Ignoring pod %s/%s, as it's not created by us", object.GetNamespace(), object.GetName())
 		return
 	}
+
+	klog.V(3).Infof("Processing object: %s/%s", object.GetNamespace(), object.GetName())
+
+	var pvc *v1.PersistentVolumeClaim
+	var err error
+
+	if ownerRefObj := metav1.GetControllerOf(object); ownerRefObj != nil {
+		if ownerRefObj.Kind == "PersistentVolumeClaim" {
+			pvc, err = c.pvcLister.PersistentVolumeClaims(object.GetNamespace()).Get(ownerRefObj.Name)
+			if err != nil {
+				klog.V(3).Infof("ignoring orphaned object '%s' of pvc '%s'", object.GetSelfLink(), ownerRefObj.Name)
+				return
+			}
+		}
+	}
+
+	if pvc == nil {
+		ownerRefAnno, exists := object.GetAnnotations()[AnnOwnerRef]
+		if ok {
+			pvc, exists, err = c.pvcFromKey(ownerRefAnno)
+			if err != nil {
+				runtime.HandleError(errors.Wrapf(err, "error getting PVC %s", ownerRefAnno))
+				return
+			} else if !exists {
+				runtime.HandleError(errors.Errorf("error getting PVC %s from ownerref", ownerRefAnno))
+				return
+			}
+		}
+	}
+
+	if pvc == nil {
+		klog.V(3).Infof("Object: %s/%s has unexpected owner and no ownerRef annotation", object.GetNamespace(), object.GetName())
+		return
+	}
+
+	klog.V(3).Infof("Will queue PVC %s/%s in response to %s %s/%s", pvc.Namespace, pvc.Name, verb, object.GetNamespace(), object.GetName())
+
+	if verb == "add" {
+		pvcKey, err := cache.MetaNamespaceKeyFunc(pvc)
+		if err != nil {
+			runtime.HandleError(err)
+			return
+		}
+		c.observePodCreate(pvcKey)
+	}
+
+	c.enqueuePVC(pvc)
 }
 
 func (c *Controller) enqueuePVC(obj interface{}) {
@@ -170,7 +194,7 @@ func (c *Controller) enqueuePVC(obj interface{}) {
 }
 
 //Run is being called from cdi controllers
-func (c *Controller) run(threadiness int, stopCh <-chan struct{}, controller interface{}) error { //*CloneContorler
+func (c *Controller) run(threadiness int, stopCh <-chan struct{}, f func()) error { //*CloneContorler
 	defer func() {
 		c.queue.ShutDown()
 	}()
@@ -188,13 +212,7 @@ func (c *Controller) run(threadiness int, stopCh <-chan struct{}, controller int
 
 	klog.V(3).Infoln("Controller cache has synced")
 	for i := 0; i < threadiness; i++ {
-		//Go is not pure object oriented language. The command repetition below is a result of that.
-		switch t := controller.(type) {
-		case *ImportController:
-			go wait.Until(t.runPVCWorkers, time.Second, stopCh)
-		case *CloneController:
-			go wait.Until(t.runPVCWorkers, time.Second, stopCh)
-		}
+		go wait.Until(f, time.Second, stopCh)
 	}
 	<-stopCh
 	return nil
@@ -210,7 +228,7 @@ func (c *Controller) forgetKey(key interface{}, msg string) bool {
 }
 
 // return a pvc pointer based on the passed-in work queue key.
-func (c *Controller) pvcFromKey(key interface{}) (*v1.PersistentVolumeClaim, bool, error) {
+func (c *Controller) pvcFromKey(key string) (*v1.PersistentVolumeClaim, bool, error) {
 	obj, exists, err := c.objFromKey(c.pvcInformer, key)
 	if err != nil {
 		return nil, false, errors.Wrap(err, "could not get pvc object from key")
@@ -225,32 +243,14 @@ func (c *Controller) pvcFromKey(key interface{}) (*v1.PersistentVolumeClaim, boo
 	return pvc, true, nil
 }
 
-func (c *Controller) objFromKey(informer cache.SharedIndexInformer, key interface{}) (interface{}, bool, error) {
-	keyString, ok := key.(string)
-	if !ok {
-		return nil, false, errors.New("keys is not of type string")
-	}
-	obj, ok, err := informer.GetIndexer().GetByKey(keyString)
+func (c *Controller) objFromKey(informer cache.SharedIndexInformer, key string) (interface{}, bool, error) {
+	obj, ok, err := informer.GetIndexer().GetByKey(key)
 	if err != nil {
 		return nil, false, errors.Wrap(err, "error getting interface obj from store")
 	}
+
 	if !ok {
 		return nil, false, nil
 	}
 	return obj, true, nil
-}
-
-func (c *Controller) podFromKey(key interface{}) (*v1.Pod, error) {
-	obj, exists, err := c.objFromKey(c.podInformer, key)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get pod object from key")
-	} else if !exists {
-		return nil, errors.New("interface object not found in store")
-	}
-
-	pod, ok := obj.(*v1.Pod)
-	if !ok {
-		return nil, errors.New("error casting object to type \"v1.Pod\"")
-	}
-	return pod, nil
 }

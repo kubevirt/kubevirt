@@ -93,21 +93,18 @@ func newPodTemplateSpec(data *DeploymentData) *corev1.PodTemplateSpec {
 		Spec: corev1.PodSpec{
 			Affinity: &corev1.Affinity{
 				PodAntiAffinity: &corev1.PodAntiAffinity{
-					PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
 						{
-							Weight: 50,
-							PodAffinityTerm: corev1.PodAffinityTerm{
-								LabelSelector: &metav1.LabelSelector{
-									MatchExpressions: []metav1.LabelSelectorRequirement{
-										{
-											Key:      mrv1.SchemeGroupVersion.Group,
-											Operator: metav1.LabelSelectorOpIn,
-											Values:   []string{data.Name},
-										},
+							LabelSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      mrv1.SchemeGroupVersion.Group,
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   []string{data.Name},
 									},
 								},
-								TopologyKey: "kubernetes.io/hostname",
 							},
+							TopologyKey: "kubernetes.io/hostname",
 						},
 					},
 				},

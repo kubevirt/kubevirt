@@ -3,7 +3,6 @@ package machinehealthcheck
 import (
 	"context"
 	golangerrors "errors"
-	"fmt"
 	"time"
 
 	"github.com/golang/glog"
@@ -34,17 +33,14 @@ const (
 	disableRemediationAnotationKey = "healthchecking.openshift.io/disabled"
 )
 
-var _ reconcile.Reconciler = &ReconcileMachineHealthCheck{}
-
 // Add creates a new MachineHealthCheck Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and start it when the Manager is started.
 func Add(mgr manager.Manager, opts manager.Options) error {
-	r := newReconciler(mgr, opts)
-	return add(mgr, r, r.nodeRequestsFromMachineHealthCheck)
+	return add(mgr, newReconciler(mgr, opts))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, opts manager.Options) *ReconcileMachineHealthCheck {
+func newReconciler(mgr manager.Manager, opts manager.Options) reconcile.Reconciler {
 	return &ReconcileMachineHealthCheck{
 		client:    mgr.GetClient(),
 		namespace: opts.Namespace,
@@ -52,90 +48,16 @@ func newReconciler(mgr manager.Manager, opts manager.Options) *ReconcileMachineH
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler, mapFn handler.ToRequestsFunc) error {
+func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
 	c, err := controller.New("machinehealthcheck-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
-
-	// Watch MachineHealthChecks and enqueue reconcile.Request for the backed nodes.
-	// This is useful to trigger remediation when a machineHealCheck is created against
-	// a node which is already unhealthy and is not able to receive status updates.
-	err = c.Watch(&source.Kind{Type: &mrv1.MachineHealthCheck{}}, &handler.EnqueueRequestsFromMapFunc{ToRequests: mapFn})
-	if err != nil {
-		return err
-	}
-
 	return c.Watch(&source.Kind{Type: &corev1.Node{}}, &handler.EnqueueRequestForObject{})
 }
 
-func (r *ReconcileMachineHealthCheck) nodeRequestsFromMachineHealthCheck(o handler.MapObject) []reconcile.Request {
-	glog.V(3).Infof("Watched machineHealthCheck event, finding nodes to reconcile.Request...")
-	key := client.ObjectKey{
-		Namespace: o.Meta.GetNamespace(),
-		Name:      o.Meta.GetName(),
-	}
-	mhc := &mrv1.MachineHealthCheck{}
-	if err := r.client.Get(context.Background(), key, mhc); err != nil {
-		glog.Errorf("No-op: Unable to retrieve mhc %s/%s from store: %v", o.Meta.GetNamespace(), o.Meta.GetName(), err)
-		return nil
-	}
-
-	if mhc.DeletionTimestamp != nil {
-		glog.V(3).Infof("No-op: mhc %q is being deleted", o.Meta.GetName())
-		return nil
-	}
-
-	// get nodes covered by then mhc
-	nodeNames, err := r.getNodeNamesForMHC(mhc)
-	if err != nil {
-		glog.Errorf("No-op: failed to get nodes for mhc %q", o.Meta.GetName())
-		return nil
-	}
-
-	if nodeNames != nil {
-		var requests []reconcile.Request
-		for _, nodeName := range nodeNames {
-			// convert to namespacedName to satisfy type Request struct
-			nodeNamespacedName := client.ObjectKey{Name: string(nodeName)}
-			requests = append(requests, reconcile.Request{NamespacedName: nodeNamespacedName})
-		}
-		return requests
-	}
-	return nil
-}
-
-func (r *ReconcileMachineHealthCheck) getNodeNamesForMHC(mhc *mrv1.MachineHealthCheck) ([]types.NodeName, error) {
-	machineList := &mapiv1.MachineList{}
-	selector, err := metav1.LabelSelectorAsSelector(&mhc.Spec.Selector)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build selector")
-	}
-	options := &client.ListOptions{
-		Namespace:     mhc.Namespace,
-		LabelSelector: selector,
-	}
-
-	if err := r.client.List(context.Background(), machineList, client.UseListOptions(options)); err != nil {
-		return nil, fmt.Errorf("failed to list machines: %v", err)
-	}
-
-	if len(machineList.Items) < 1 {
-		return nil, nil
-	}
-
-	var nodeNames []types.NodeName
-	for _, machine := range machineList.Items {
-		if machine.Status.NodeRef != nil {
-			nodeNames = append(nodeNames, types.NodeName(machine.Status.NodeRef.Name))
-		}
-	}
-	if len(nodeNames) < 1 {
-		return nil, nil
-	}
-	return nodeNames, nil
-}
+var _ reconcile.Reconciler = &ReconcileMachineHealthCheck{}
 
 // ReconcileMachineHealthCheck reconciles a MachineHealthCheck object
 type ReconcileMachineHealthCheck struct {

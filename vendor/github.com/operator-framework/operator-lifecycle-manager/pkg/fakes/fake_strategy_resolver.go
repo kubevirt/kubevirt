@@ -2,13 +2,13 @@
 package fakes
 
 import (
-	sync "sync"
+	"sync"
 
-	v1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
-	install "github.com/operator-framework/operator-lifecycle-manager/pkg/controller/install"
-	operatorclient "github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorclient"
-	operatorlister "github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorlister"
-	ownerutil "github.com/operator-framework/operator-lifecycle-manager/pkg/lib/ownerutil"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/install"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorclient"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorlister"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/ownerutil"
 )
 
 type FakeStrategyResolverInterface struct {

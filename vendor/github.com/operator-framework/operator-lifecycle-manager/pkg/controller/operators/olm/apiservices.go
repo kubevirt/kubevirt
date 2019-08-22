@@ -1,6 +1,7 @@
 package olm
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -65,18 +66,6 @@ func (a *Operator) checkAPIServiceResources(csv *v1alpha1.ClusterServiceVersion,
 	})
 
 	errs := []error{}
-	owners := []ownerutil.Owner{csv}
-
-	// Get replacing CSV if exists
-	replacing, err := a.lister.OperatorsV1alpha1().ClusterServiceVersionLister().ClusterServiceVersions(csv.GetNamespace()).Get(csv.Spec.Replaces)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		logger.WithError(err).Warn("could not get replacement csv")
-		return err
-	}
-	if replacing != nil {
-		owners = append(owners, replacing)
-	}
-
 	ruleChecker := install.NewCSVRuleChecker(a.lister.RbacV1().RoleLister(), a.lister.RbacV1().RoleBindingLister(), a.lister.RbacV1().ClusterRoleLister(), a.lister.RbacV1().ClusterRoleBindingLister(), csv)
 	for _, desc := range csv.GetOwnedAPIServiceDescriptions() {
 		apiServiceName := desc.GetName()
@@ -92,8 +81,15 @@ func (a *Operator) checkAPIServiceResources(csv *v1alpha1.ClusterServiceVersion,
 		}
 
 		// Check if the APIService is adoptable
-		if !ownerutil.AdoptableLabels(apiService.GetLabels(), true, owners...) {
-			logger.WithFields(log.Fields{"obj": "apiService", "labels": apiService.GetLabels()}).Debug("adoption failed")
+		adoptable, err := a.isAPIServiceAdoptable(csv, apiService)
+		if err != nil {
+			logger.WithFields(log.Fields{"obj": "apiService", "labels": apiService.GetLabels()}).Errorf("adoption check failed - %v", err)
+			errs = append(errs, err)
+			return utilerrors.NewAggregate(errs)
+		}
+
+		if !adoptable {
+			logger.WithFields(log.Fields{"obj": "apiService", "labels": apiService.GetLabels()}).Errorf("adoption failed")
 			err := olmerrors.NewUnadoptableError("", apiServiceName)
 			logger.WithError(err).Warn("found unadoptable apiservice")
 			errs = append(errs, err)
@@ -375,14 +371,14 @@ func (a *Operator) installAPIServiceRequirements(desc v1alpha1.APIServiceDescrip
 		service.SetOwnerReferences(append(service.GetOwnerReferences(), existingService.GetOwnerReferences()...))
 
 		// Delete the Service to replace
-		deleteErr := a.OpClient.DeleteService(service.GetNamespace(), service.GetName(), &metav1.DeleteOptions{})
+		deleteErr := a.opClient.DeleteService(service.GetNamespace(), service.GetName(), &metav1.DeleteOptions{})
 		if err != nil && !k8serrors.IsNotFound(deleteErr) {
 			return nil, fmt.Errorf("could not delete existing service %s", service.GetName())
 		}
 	}
 
 	// Attempt to create the Service
-	_, err = a.OpClient.CreateService(service)
+	_, err = a.opClient.CreateService(service)
 	if err != nil {
 		logger.Warnf("could not create service %s", service.GetName())
 		return nil, fmt.Errorf("could not create service %s: %s", service.GetName(), err.Error())
@@ -433,14 +429,14 @@ func (a *Operator) installAPIServiceRequirements(desc v1alpha1.APIServiceDescrip
 		}
 
 		// Attempt an update
-		if _, err := a.OpClient.UpdateSecret(secret); err != nil {
+		if _, err := a.opClient.UpdateSecret(secret); err != nil {
 			logger.Warnf("could not update secret %s", secret.GetName())
 			return nil, err
 		}
 	} else if k8serrors.IsNotFound(err) {
 		// Create the secret
 		ownerutil.AddNonBlockingOwner(secret, csv)
-		_, err = a.OpClient.CreateSecret(secret)
+		_, err = a.opClient.CreateSecret(secret)
 		if err != nil {
 			log.Warnf("could not create secret %s", secret.GetName())
 			return nil, err
@@ -471,14 +467,14 @@ func (a *Operator) installAPIServiceRequirements(desc v1alpha1.APIServiceDescrip
 		}
 
 		// Attempt an update
-		if _, err := a.OpClient.UpdateRole(secretRole); err != nil {
+		if _, err := a.opClient.UpdateRole(secretRole); err != nil {
 			logger.Warnf("could not update secret role %s", secretRole.GetName())
 			return nil, err
 		}
 	} else if k8serrors.IsNotFound(err) {
 		// Create the role
 		ownerutil.AddNonBlockingOwner(secretRole, csv)
-		_, err = a.OpClient.CreateRole(secretRole)
+		_, err = a.opClient.CreateRole(secretRole)
 		if err != nil {
 			log.Warnf("could not create secret role %s", secretRole.GetName())
 			return nil, err
@@ -517,14 +513,14 @@ func (a *Operator) installAPIServiceRequirements(desc v1alpha1.APIServiceDescrip
 		}
 
 		// Attempt an update
-		if _, err := a.OpClient.UpdateRoleBinding(secretRoleBinding); err != nil {
+		if _, err := a.opClient.UpdateRoleBinding(secretRoleBinding); err != nil {
 			logger.Warnf("could not update secret rolebinding %s", secretRoleBinding.GetName())
 			return nil, err
 		}
 	} else if k8serrors.IsNotFound(err) {
 		// Create the role
 		ownerutil.AddNonBlockingOwner(secretRoleBinding, csv)
-		_, err = a.OpClient.CreateRoleBinding(secretRoleBinding)
+		_, err = a.opClient.CreateRoleBinding(secretRoleBinding)
 		if err != nil {
 			log.Warnf("could not create secret rolebinding with dep spec: %+v", depSpec)
 			return nil, err
@@ -562,7 +558,7 @@ func (a *Operator) installAPIServiceRequirements(desc v1alpha1.APIServiceDescrip
 		}
 
 		// Attempt an update.
-		if _, err := a.OpClient.UpdateClusterRoleBinding(authDelegatorClusterRoleBinding); err != nil {
+		if _, err := a.opClient.UpdateClusterRoleBinding(authDelegatorClusterRoleBinding); err != nil {
 			logger.Warnf("could not update auth delegator clusterrolebinding %s", authDelegatorClusterRoleBinding.GetName())
 			return nil, err
 		}
@@ -571,7 +567,7 @@ func (a *Operator) installAPIServiceRequirements(desc v1alpha1.APIServiceDescrip
 		if err := ownerutil.AddOwnerLabels(authDelegatorClusterRoleBinding, csv); err != nil {
 			return nil, err
 		}
-		_, err = a.OpClient.CreateClusterRoleBinding(authDelegatorClusterRoleBinding)
+		_, err = a.opClient.CreateClusterRoleBinding(authDelegatorClusterRoleBinding)
 		if err != nil {
 			log.Warnf("could not create auth delegator clusterrolebinding %s", authDelegatorClusterRoleBinding.GetName())
 			return nil, err
@@ -609,7 +605,7 @@ func (a *Operator) installAPIServiceRequirements(desc v1alpha1.APIServiceDescrip
 			}
 		}
 		// Attempt an update.
-		if _, err := a.OpClient.UpdateRoleBinding(authReaderRoleBinding); err != nil {
+		if _, err := a.opClient.UpdateRoleBinding(authReaderRoleBinding); err != nil {
 			logger.Warnf("could not update auth reader role binding %s", authReaderRoleBinding.GetName())
 			return nil, err
 		}
@@ -618,7 +614,7 @@ func (a *Operator) installAPIServiceRequirements(desc v1alpha1.APIServiceDescrip
 		if err := ownerutil.AddOwnerLabels(authReaderRoleBinding, csv); err != nil {
 			return nil, err
 		}
-		_, err = a.OpClient.CreateRoleBinding(authReaderRoleBinding)
+		_, err = a.opClient.CreateRoleBinding(authReaderRoleBinding)
 		if err != nil {
 			log.Warnf("could not create auth reader role binding %s", authReaderRoleBinding.GetName())
 			return nil, err
@@ -707,17 +703,12 @@ func (a *Operator) installAPIServiceRequirements(desc v1alpha1.APIServiceDescrip
 		}
 		apiService.SetName(apiServiceName)
 	} else {
-		owners := []ownerutil.Owner{csv}
-
-		// Get replacing CSV
-		replaces, err := a.lister.OperatorsV1alpha1().ClusterServiceVersionLister().ClusterServiceVersions(csv.GetNamespace()).Get(csv.Spec.Replaces)
-		if err == nil {
-			owners = append(owners, replaces)
+		adoptable, err := a.isAPIServiceAdoptable(csv, apiService)
+		if err != nil {
+			logger.WithFields(log.Fields{"obj": "apiService", "labels": apiService.GetLabels()}).Errorf("adoption check failed - %v", err)
 		}
 
-		// check if the APIService is adoptable
-		if !ownerutil.AdoptableLabels(apiService.GetLabels(), true, owners...) {
-			logger.WithFields(log.Fields{"obj": "apiService", "labels": apiService.GetLabels()}).Debug("adoption failed")
+		if !adoptable{
 			return nil, fmt.Errorf("pre-existing APIService %s is not adoptable", apiServiceName)
 		}
 	}
@@ -739,10 +730,10 @@ func (a *Operator) installAPIServiceRequirements(desc v1alpha1.APIServiceDescrip
 	// attempt a update or create
 	if exists {
 		logger.Debug("updating APIService")
-		_, err = a.OpClient.UpdateAPIService(apiService)
+		_, err = a.opClient.UpdateAPIService(apiService)
 	} else {
 		logger.Debug("creating APIService")
-		_, err = a.OpClient.CreateAPIService(apiService)
+		_, err = a.opClient.CreateAPIService(apiService)
 	}
 
 	if err != nil {
@@ -758,4 +749,55 @@ func (a *Operator) installAPIServiceRequirements(desc v1alpha1.APIServiceDescrip
 func APIServiceNameToServiceName(apiServiceName string) string {
 	// Replace all '.'s with "-"s to convert to a DNS-1035 label
 	return strings.Replace(apiServiceName, ".", "-", -1)
+}
+
+func (a *Operator) isAPIServiceAdoptable(target *v1alpha1.ClusterServiceVersion, apiService *apiregistrationv1.APIService) (adoptable bool, err error) {
+	if apiService == nil || target == nil {
+		err = errors.New("invalid input")
+		return
+	}
+
+	labels := apiService.GetLabels()
+	ownerKind := labels[ownerutil.OwnerKind]
+	ownerName := labels[ownerutil.OwnerKey]
+	ownerNamespace := labels[ownerutil.OwnerNamespaceKey]
+
+	if ownerKind == "" || ownerNamespace == "" || ownerName == "" {
+		return
+	}
+
+	if err := ownerutil.InferGroupVersionKind(target); err != nil {
+		a.logger.Warn(err.Error())
+	}	
+
+	targetKind := target.GetObjectKind().GroupVersionKind().Kind
+	if ownerKind != targetKind {
+		return
+	}
+
+	// Get the CSV that target replaces
+	replacing, replaceGetErr := a.lister.OperatorsV1alpha1().ClusterServiceVersionLister().ClusterServiceVersions(target.GetNamespace()).Get(target.Spec.Replaces)
+	if replaceGetErr != nil && !k8serrors.IsNotFound(replaceGetErr) && !k8serrors.IsGone(replaceGetErr) {
+		err = replaceGetErr
+		return
+	}
+
+	// Get the current owner CSV of the APIService
+	currentOwnerCSV, ownerGetErr := a.lister.OperatorsV1alpha1().ClusterServiceVersionLister().ClusterServiceVersions(ownerNamespace).Get(ownerName)
+	if ownerGetErr != nil && !k8serrors.IsNotFound(ownerGetErr) && !k8serrors.IsGone(ownerGetErr) {
+		err = ownerGetErr
+		return
+	}
+
+	owners := []ownerutil.Owner{target}
+	if replacing != nil {
+		owners = append(owners, replacing)
+	}
+	if currentOwnerCSV != nil && (
+		currentOwnerCSV.Status.Phase == v1alpha1.CSVPhaseReplacing || currentOwnerCSV.Status.Phase == v1alpha1.CSVPhaseDeleting) {
+		owners = append(owners, currentOwnerCSV)
+	}
+
+	adoptable = ownerutil.AdoptableLabels(apiService.GetLabels(), true, owners...)
+	return
 }

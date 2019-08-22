@@ -45,7 +45,6 @@ func (c *Config) Complete(informers informers.SharedInformerFactory) completedCo
 	c.GenericConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(generatedopenapi.GetOpenAPIDefinitions, openapinamer.NewDefinitionNamer(generic.Scheme))
 	c.GenericConfig.OpenAPIConfig.Info.Title = "Package API server"
 	c.GenericConfig.OpenAPIConfig.Info.Version = strings.Split(c.GenericConfig.Version.String(), "-")[0]
-	c.GenericConfig.SwaggerConfig = genericapiserver.DefaultSwaggerConfig()
 
 	return completedConfig{
 		CompletedConfig: c.GenericConfig.Complete(informers),

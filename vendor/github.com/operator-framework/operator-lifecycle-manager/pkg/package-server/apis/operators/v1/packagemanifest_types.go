@@ -1,10 +1,10 @@
 package v1
 
 import (
-	"github.com/coreos/go-semver/semver"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	operatorv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/version"
 )
 
 // PackageManifestList is a list of PackageManifest objects.
@@ -91,8 +91,7 @@ type CSVDescription struct {
 	Icon []Icon `json:"icon,omitempty"`
 
 	// Version is the CSV's semantic version
-	// +k8s:openapi-gen=false
-	Version semver.Version `json:"version,omitempty"`
+	Version version.OperatorVersion `json:"version,omitempty"`
 
 	// Provider is the CSV's provider
 	Provider    AppLink           `json:"provider,omitempty"`
@@ -103,6 +102,9 @@ type CSVDescription struct {
 
 	// InstallModes specify supported installation types
 	InstallModes []operatorv1alpha1.InstallMode `json:"installModes,omitempty"`
+
+	CustomResourceDefinitions operatorv1alpha1.CustomResourceDefinitions `json:"customresourcedefinitions,omitempty"`
+	APIServiceDefinitions     operatorv1alpha1.APIServiceDefinitions     `json:"apiservicedefinitions,omitempty"`
 }
 
 // AppLink defines a link to an application

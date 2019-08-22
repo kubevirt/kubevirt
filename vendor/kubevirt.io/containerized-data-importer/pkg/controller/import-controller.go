@@ -328,7 +328,7 @@ func (ic *ImportController) syncPvc(key string) error {
 
 //Run is being called from cdi-controller (cmd)
 func (ic *ImportController) Run(threadiness int, stopCh <-chan struct{}) error {
-	ic.Controller.run(threadiness, stopCh, ic)
+	ic.Controller.run(threadiness, stopCh, ic.runPVCWorkers)
 	return nil
 }
 

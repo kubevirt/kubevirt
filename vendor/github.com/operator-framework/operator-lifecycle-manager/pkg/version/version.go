@@ -13,7 +13,7 @@ func String() string {
 	return fmt.Sprintf("OLM version: %s\ngit commit: %s\n", OLMVersion, GitCommit)
 }
 
-// Full returns a hypenated concatenation of just OLMVersion and GitCommit
+// Full returns a hyphenated concatenation of just OLMVersion and GitCommit
 func Full() string {
 	return fmt.Sprintf("%s-%s", OLMVersion, GitCommit)
 }

@@ -21,6 +21,7 @@ limitations under the License.
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -99,7 +100,6 @@ func (in *OperatorGroupSpec) DeepCopyInto(out *OperatorGroupSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	in.ServiceAccount.DeepCopyInto(&out.ServiceAccount)
 	return
 }
 
@@ -120,6 +120,11 @@ func (in *OperatorGroupStatus) DeepCopyInto(out *OperatorGroupStatus) {
 		in, out := &in.Namespaces, &out.Namespaces
 		*out = make([]string, len(*in))
 		copy(*out, *in)
+	}
+	if in.ServiceAccountRef != nil {
+		in, out := &in.ServiceAccountRef, &out.ServiceAccountRef
+		*out = new(corev1.ObjectReference)
+		**out = **in
 	}
 	in.LastUpdated.DeepCopyInto(&out.LastUpdated)
 	return

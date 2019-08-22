@@ -172,6 +172,12 @@ func NewPVCDefinitionWithSelector(pvcName, size, storageClassName string, select
 // AnnCloneRequest
 // You can also pass in any label you want.
 func NewPVCDefinition(pvcName string, size string, annotations, labels map[string]string) *k8sv1.PersistentVolumeClaim {
+	if IsHostpathProvisioner() {
+		if annotations == nil {
+			annotations = map[string]string{}
+		}
+		AddProvisionOnNodeToAnn(annotations)
+	}
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        pvcName,

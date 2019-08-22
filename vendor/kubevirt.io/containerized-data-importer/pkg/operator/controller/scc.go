@@ -72,41 +72,43 @@ func (r *ReconcileCDI) watchSecurityContextConstraints(c controller.Controller) 
 }
 
 func (r *ReconcileCDI) syncPrivilegedAccounts(logger logr.Logger, cr *cdiv1alpha1.CDI, add bool) error {
-	constraints := &secv1.SecurityContextConstraints{}
-	if err := r.client.Get(context.TODO(), client.ObjectKey{Name: "privileged"}, constraints); err != nil {
-		if errors.IsNotFound(err) || meta.IsNoMatchError(err) {
-			return nil
+	accountMap := cdinamespaced.GetPrivilegedAccounts(r.getNamespacedArgs(cr))
+
+	for sccName, accounts := range accountMap {
+		update := false
+		sccObj := &secv1.SecurityContextConstraints{}
+		if err := r.client.Get(context.TODO(), client.ObjectKey{Name: sccName}, sccObj); err != nil {
+			if meta.IsNoMatchError(err) {
+				// not openshift
+				return nil
+			}
+			return err
 		}
 
-		return err
-	}
+		for _, account := range accounts {
+			i := -1
+			for j, u := range sccObj.Users {
+				if u == account {
+					i = j
+					break
+				}
+			}
 
-	accounts := cdinamespaced.GetPrivilegedAccounts(r.getNamespacedArgs(cr))
-
-	update := false
-	for _, account := range accounts {
-		i := -1
-		for j, u := range constraints.Users {
-			if u == account {
-				i = j
-				break
+			if i == -1 && add {
+				sccObj.Users = append(sccObj.Users, account)
+				update = true
+			} else if i >= 0 && !add {
+				sccObj.Users = append(sccObj.Users[:i], sccObj.Users[i+1:]...)
+				update = true
 			}
 		}
 
-		if i == -1 && add {
-			constraints.Users = append(constraints.Users, account)
-			update = true
-		} else if i >= 0 && !add {
-			constraints.Users = append(constraints.Users[:i], constraints.Users[i+1:]...)
-			update = true
-		}
-	}
+		if update {
+			logger.Info("Updating SecurityContextConstraints")
 
-	if update {
-		logger.Info("Updating SecurityContextConstraints")
-
-		if err := r.client.Update(context.TODO(), constraints); err != nil {
-			return err
+			if err := r.client.Update(context.TODO(), sccObj); err != nil {
+				return err
+			}
 		}
 	}
 

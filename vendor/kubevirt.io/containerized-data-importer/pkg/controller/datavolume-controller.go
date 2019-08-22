@@ -397,9 +397,8 @@ func (c *DataVolumeController) syncHandler(key string) error {
 				c.pvcExpectations.CreationObserved(key)
 				return err
 			}
-			if canUpdateProgress(newPvc.Annotations) {
-				go c.scheduleProgressUpdate(dataVolume.Name, dataVolume.Namespace, pvc.GetUID())
-			}
+
+			c.scheduleProgressUpdate(dataVolume, pvc.GetUID())
 		}
 	}
 
@@ -414,30 +413,42 @@ func (c *DataVolumeController) syncHandler(key string) error {
 	return nil
 }
 
-func (c *DataVolumeController) scheduleProgressUpdate(dataVolumeName, dataVolumeNamespace string, pvcUID types.UID) {
-	for {
-		time.Sleep(2 * time.Second)
-		dataVolume, err := c.dataVolumesLister.DataVolumes(dataVolumeNamespace).Get(dataVolumeName)
-		if k8serrors.IsNotFound(err) {
-			// Data volume is no longer there, or not found.
-			klog.V(3).Info("DV is gone, cancelling update thread.")
-			return
-		} else if err != nil {
-			klog.Errorf("error retrieving data volume %+v", err)
-		}
-		if dataVolume.Status.Phase == cdiv1.Succeeded || dataVolume.Status.Phase == cdiv1.Failed {
-			// Data volume completed progress, or failed, either way stop queueing the data volume.
-			return
-		}
-		pod, err := c.getPodFromPvc(dataVolumeNamespace, pvcUID)
-		if err == nil {
-			c.updateProgressUsingPod(dataVolume, pod)
-			_, err = c.cdiClientSet.CdiV1alpha1().DataVolumes(dataVolume.Namespace).Update(dataVolume)
-			if err != nil {
-				klog.Errorf("Unable to update data volume %s progress %+v", dataVolume.Name, err)
+func (c *DataVolumeController) scheduleProgressUpdate(dataVolume *cdiv1.DataVolume, pvcUID types.UID) {
+	var podNamespace string
+	if dataVolume.Spec.Source.HTTP != nil {
+		podNamespace = dataVolume.Namespace
+	} else if dataVolume.Spec.Source.PVC != nil {
+		podNamespace = dataVolume.Spec.Source.PVC.Namespace
+	} else {
+		return
+	}
+
+	go func() {
+		for {
+			time.Sleep(2 * time.Second)
+			dataVolume, err := c.dataVolumesLister.DataVolumes(dataVolume.Namespace).Get(dataVolume.Name)
+			if k8serrors.IsNotFound(err) {
+				// Data volume is no longer there, or not found.
+				klog.V(3).Info("DV is gone, cancelling update thread.")
+				return
+			} else if err != nil {
+				klog.Errorf("error retrieving data volume %+v", err)
+			}
+			if dataVolume.Status.Phase == cdiv1.Succeeded || dataVolume.Status.Phase == cdiv1.Failed {
+				// Data volume completed progress, or failed, either way stop queueing the data volume.
+				klog.V(3).Infof("DV %s/%s phase is %s, no longer updating progress", dataVolume.Namespace, dataVolume.Name, dataVolume.Status.Phase)
+				return
+			}
+			pod, err := c.getPodFromPvc(podNamespace, pvcUID)
+			if err == nil {
+				c.updateProgressUsingPod(dataVolume, pod)
+				_, err = c.cdiClientSet.CdiV1alpha1().DataVolumes(dataVolume.Namespace).Update(dataVolume)
+				if err != nil {
+					klog.Errorf("Unable to update data volume %s progress %+v", dataVolume.Name, err)
+				}
 			}
 		}
-	}
+	}()
 }
 
 func (c *DataVolumeController) getSnapshotClassForSmartClone(dataVolume *cdiv1.DataVolume) string {
@@ -751,20 +762,6 @@ func (c *DataVolumeController) emitEvent(dataVolume *cdiv1.DataVolume, dataVolum
 	return nil
 }
 
-// canUpdateProgress determines what kind annotations will be able generate progress update information.
-// currently only http importer and clone have progress information.
-func canUpdateProgress(ann map[string]string) bool {
-	value, ok := ann[AnnSource]
-	if ok && value == SourceHTTP {
-		return true
-	}
-	_, ok = ann[AnnCloneRequest]
-	if ok {
-		return true
-	}
-	return false
-}
-
 // getPodFromPvc determines the pod associated with the pvc UID passed in.
 func (c *DataVolumeController) getPodFromPvc(namespace string, pvcUID types.UID) (*corev1.Pod, error) {
 	l, _ := labels.Parse(common.PrometheusLabel)
@@ -772,8 +769,16 @@ func (c *DataVolumeController) getPodFromPvc(namespace string, pvcUID types.UID)
 	if err != nil {
 		return nil, err
 	}
+
 	for _, pod := range pods.Items {
-		if pod.OwnerReferences[0].UID == pvcUID {
+		for _, or := range pod.OwnerReferences {
+			if or.UID == pvcUID {
+				return &pod, nil
+			}
+		}
+
+		val, exists := pod.Labels[CloneUniqueID]
+		if exists && val == string(pvcUID)+"-source-pod" {
 			return &pod, nil
 		}
 	}
@@ -799,6 +804,7 @@ func (c *DataVolumeController) updateProgressUsingPod(dataVolumeCopy *cdiv1.Data
 		if err != nil {
 			return
 		}
+
 		match := importRegExp.FindStringSubmatch(string(body))
 		if match == nil {
 			klog.V(3).Info("No match found")
@@ -814,11 +820,9 @@ func (c *DataVolumeController) updateProgressUsingPod(dataVolumeCopy *cdiv1.Data
 
 func (c *DataVolumeController) getPodMetricsPort(pod *corev1.Pod) (int, error) {
 	for _, container := range pod.Spec.Containers {
-		if container.Name == common.ImporterPodName {
-			for _, port := range container.Ports {
-				if port.Name == "metrics" {
-					return int(port.ContainerPort), nil
-				}
+		for _, port := range container.Ports {
+			if port.Name == "metrics" {
+				return int(port.ContainerPort), nil
 			}
 		}
 	}
@@ -938,6 +942,10 @@ func newPersistentVolumeClaim(dataVolume *cdiv1.DataVolume) (*corev1.PersistentV
 	}
 
 	annotations := make(map[string]string)
+
+	for k, v := range dataVolume.ObjectMeta.Annotations {
+		annotations[k] = v
+	}
 
 	if dataVolume.Spec.Source.HTTP != nil {
 		annotations[AnnEndpoint] = dataVolume.Spec.Source.HTTP.URL

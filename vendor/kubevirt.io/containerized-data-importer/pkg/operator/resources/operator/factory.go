@@ -39,6 +39,9 @@ type FactoryArgs struct {
 	Verbosity              string `required:"true"`
 	PullPolicy             string `required:"true" split_words:"true"`
 	Namespace              string
+	CsvVersion             string `required:"true"`
+	ReplacesCsvVersion     string
+	CDILogo                string
 }
 
 type operatorFactoryFunc func(*FactoryArgs) []runtime.Object
@@ -52,6 +55,8 @@ const (
 	OperatorCdiCRD string = "operator-cdi-crd"
 	//OperatorConfigMapCR - operartor configmap
 	OperatorConfigMapCR string = "operator-configmap-cr"
+	//OperatorCSV - operator csv
+	OperatorCSV string = "operator-csv"
 )
 
 var operatorFactoryFunctions = map[string]operatorFactoryFunc{
@@ -59,6 +64,7 @@ var operatorFactoryFunctions = map[string]operatorFactoryFunc{
 	OperatorDeployment:  createOperatorClusterDeployment,
 	OperatorCdiCRD:      createOperatorCDIClusterResource,
 	OperatorConfigMapCR: createOperatorConfigMapClusterResource,
+	OperatorCSV:         createOperatorClusterServiceVersion,
 }
 
 //IsFactoryResource returns true id codeGroupo belolngs to factory functions

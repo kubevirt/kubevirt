@@ -9,6 +9,11 @@ import (
 	v1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/listers/operators/v1alpha1"
 )
 
+const (
+	NAME_LABEL      = "name"
+	INSTALLED_LABEL = "installed"
+)
+
 // TODO(alecmerdler): Can we use this to emit Kubernetes events?
 type MetricsProvider interface {
 	HandleMetrics() error
@@ -132,6 +137,14 @@ var (
 			Help: "Monotonic count of CSV upgrades",
 		},
 	)
+
+	SubscriptionSyncCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "subscription_sync_total",
+			Help: "Monotonic count of subscription syncs",
+		},
+		[]string{NAME_LABEL, INSTALLED_LABEL},
+	)
 )
 
 func RegisterOLM() {
@@ -143,4 +156,9 @@ func RegisterCatalog() {
 	prometheus.MustRegister(installPlanCount)
 	prometheus.MustRegister(subscriptionCount)
 	prometheus.MustRegister(catalogSourceCount)
+	prometheus.MustRegister(SubscriptionSyncCount)
+}
+
+func CounterForSubscription(name, installedCSV string) prometheus.Counter {
+	return SubscriptionSyncCount.WithLabelValues(name, installedCSV)
 }

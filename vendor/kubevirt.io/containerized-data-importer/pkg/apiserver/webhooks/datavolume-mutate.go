@@ -27,7 +27,7 @@ import (
 	"k8s.io/klog"
 
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	"kubevirt.io/containerized-data-importer/pkg/apiserver/webhooks/api"
+	"kubevirt.io/containerized-data-importer/pkg/clone"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
 	"kubevirt.io/containerized-data-importer/pkg/token"
 )
@@ -91,7 +91,7 @@ func (wh *dataVolumeMutatingWebhook) Admit(ar admissionv1beta1.AdmissionReview) 
 		}
 	}
 
-	ok, reason, err := api.CanClonePVC(wh.client, sourceNamespace, sourceName, ar.Request.UserInfo)
+	ok, reason, err := clone.CanUserClonePVC(wh.client, sourceNamespace, sourceName, targetNamespace, ar.Request.UserInfo)
 	if err != nil {
 		return toAdmissionResponseError(err)
 	}

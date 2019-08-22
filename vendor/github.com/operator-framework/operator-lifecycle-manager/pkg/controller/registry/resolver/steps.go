@@ -83,22 +83,31 @@ func NewSubscriptionStepResource(namespace string, info OperatorSourceInfo) (v1a
 			CatalogSourceNamespace: info.Catalog.Namespace,
 			Package:                info.Package,
 			Channel:                info.Channel,
+			StartingCSV:            info.StartingCSV,
 			InstallPlanApproval:    v1alpha1.ApprovalAutomatic,
 		},
 	}, info.Catalog.Name, info.Catalog.Namespace)
 }
 
-func NewStepResourceFromBundle(bundle *registry.Bundle, namespace, catalogSourceName, catalogSourceNamespace string) ([]v1alpha1.StepResource, error) {
-	steps := []v1alpha1.StepResource{}
-
+func NewStepResourceFromBundle(bundle *registry.Bundle, namespace, replaces, catalogSourceName, catalogSourceNamespace string) ([]v1alpha1.StepResource, error) {
 	csv, err := bundle.ClusterServiceVersion()
 	if err != nil {
 		return nil, err
 	}
 
 	csv.SetNamespace(namespace)
+	csv.Spec.Replaces = replaces
+
+	step, err := NewStepResourceFromObject(csv, catalogSourceName, catalogSourceNamespace)
+	if err != nil {
+		return nil, err
+	}
+	steps := []v1alpha1.StepResource{step}
 
 	for _, object := range bundle.Objects {
+		if object.GetObjectKind().GroupVersionKind().Kind == v1alpha1.ClusterServiceVersionKind {
+			continue
+		}
 		step, err := NewStepResourceFromObject(object, catalogSourceName, catalogSourceNamespace)
 		if err != nil {
 			return nil, err

@@ -2,13 +2,23 @@
 package operatorlisterfakes
 
 import (
-	sync "sync"
+	"sync"
 
-	v1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/listers/operators/v1alpha1"
-	operatorlister "github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorlister"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/listers/operators/v1alpha1"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorlister"
 )
 
 type FakeOperatorsV1alpha1Lister struct {
+	CatalogSourceListerStub        func() v1alpha1.CatalogSourceLister
+	catalogSourceListerMutex       sync.RWMutex
+	catalogSourceListerArgsForCall []struct {
+	}
+	catalogSourceListerReturns struct {
+		result1 v1alpha1.CatalogSourceLister
+	}
+	catalogSourceListerReturnsOnCall map[int]struct {
+		result1 v1alpha1.CatalogSourceLister
+	}
 	ClusterServiceVersionListerStub        func() v1alpha1.ClusterServiceVersionLister
 	clusterServiceVersionListerMutex       sync.RWMutex
 	clusterServiceVersionListerArgsForCall []struct {
@@ -28,6 +38,12 @@ type FakeOperatorsV1alpha1Lister struct {
 	}
 	installPlanListerReturnsOnCall map[int]struct {
 		result1 v1alpha1.InstallPlanLister
+	}
+	RegisterCatalogSourceListerStub        func(string, v1alpha1.CatalogSourceLister)
+	registerCatalogSourceListerMutex       sync.RWMutex
+	registerCatalogSourceListerArgsForCall []struct {
+		arg1 string
+		arg2 v1alpha1.CatalogSourceLister
 	}
 	RegisterClusterServiceVersionListerStub        func(string, v1alpha1.ClusterServiceVersionLister)
 	registerClusterServiceVersionListerMutex       sync.RWMutex
@@ -59,6 +75,58 @@ type FakeOperatorsV1alpha1Lister struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeOperatorsV1alpha1Lister) CatalogSourceLister() v1alpha1.CatalogSourceLister {
+	fake.catalogSourceListerMutex.Lock()
+	ret, specificReturn := fake.catalogSourceListerReturnsOnCall[len(fake.catalogSourceListerArgsForCall)]
+	fake.catalogSourceListerArgsForCall = append(fake.catalogSourceListerArgsForCall, struct {
+	}{})
+	fake.recordInvocation("CatalogSourceLister", []interface{}{})
+	fake.catalogSourceListerMutex.Unlock()
+	if fake.CatalogSourceListerStub != nil {
+		return fake.CatalogSourceListerStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.catalogSourceListerReturns
+	return fakeReturns.result1
+}
+
+func (fake *FakeOperatorsV1alpha1Lister) CatalogSourceListerCallCount() int {
+	fake.catalogSourceListerMutex.RLock()
+	defer fake.catalogSourceListerMutex.RUnlock()
+	return len(fake.catalogSourceListerArgsForCall)
+}
+
+func (fake *FakeOperatorsV1alpha1Lister) CatalogSourceListerCalls(stub func() v1alpha1.CatalogSourceLister) {
+	fake.catalogSourceListerMutex.Lock()
+	defer fake.catalogSourceListerMutex.Unlock()
+	fake.CatalogSourceListerStub = stub
+}
+
+func (fake *FakeOperatorsV1alpha1Lister) CatalogSourceListerReturns(result1 v1alpha1.CatalogSourceLister) {
+	fake.catalogSourceListerMutex.Lock()
+	defer fake.catalogSourceListerMutex.Unlock()
+	fake.CatalogSourceListerStub = nil
+	fake.catalogSourceListerReturns = struct {
+		result1 v1alpha1.CatalogSourceLister
+	}{result1}
+}
+
+func (fake *FakeOperatorsV1alpha1Lister) CatalogSourceListerReturnsOnCall(i int, result1 v1alpha1.CatalogSourceLister) {
+	fake.catalogSourceListerMutex.Lock()
+	defer fake.catalogSourceListerMutex.Unlock()
+	fake.CatalogSourceListerStub = nil
+	if fake.catalogSourceListerReturnsOnCall == nil {
+		fake.catalogSourceListerReturnsOnCall = make(map[int]struct {
+			result1 v1alpha1.CatalogSourceLister
+		})
+	}
+	fake.catalogSourceListerReturnsOnCall[i] = struct {
+		result1 v1alpha1.CatalogSourceLister
+	}{result1}
 }
 
 func (fake *FakeOperatorsV1alpha1Lister) ClusterServiceVersionLister() v1alpha1.ClusterServiceVersionLister {
@@ -163,6 +231,38 @@ func (fake *FakeOperatorsV1alpha1Lister) InstallPlanListerReturnsOnCall(i int, r
 	fake.installPlanListerReturnsOnCall[i] = struct {
 		result1 v1alpha1.InstallPlanLister
 	}{result1}
+}
+
+func (fake *FakeOperatorsV1alpha1Lister) RegisterCatalogSourceLister(arg1 string, arg2 v1alpha1.CatalogSourceLister) {
+	fake.registerCatalogSourceListerMutex.Lock()
+	fake.registerCatalogSourceListerArgsForCall = append(fake.registerCatalogSourceListerArgsForCall, struct {
+		arg1 string
+		arg2 v1alpha1.CatalogSourceLister
+	}{arg1, arg2})
+	fake.recordInvocation("RegisterCatalogSourceLister", []interface{}{arg1, arg2})
+	fake.registerCatalogSourceListerMutex.Unlock()
+	if fake.RegisterCatalogSourceListerStub != nil {
+		fake.RegisterCatalogSourceListerStub(arg1, arg2)
+	}
+}
+
+func (fake *FakeOperatorsV1alpha1Lister) RegisterCatalogSourceListerCallCount() int {
+	fake.registerCatalogSourceListerMutex.RLock()
+	defer fake.registerCatalogSourceListerMutex.RUnlock()
+	return len(fake.registerCatalogSourceListerArgsForCall)
+}
+
+func (fake *FakeOperatorsV1alpha1Lister) RegisterCatalogSourceListerCalls(stub func(string, v1alpha1.CatalogSourceLister)) {
+	fake.registerCatalogSourceListerMutex.Lock()
+	defer fake.registerCatalogSourceListerMutex.Unlock()
+	fake.RegisterCatalogSourceListerStub = stub
+}
+
+func (fake *FakeOperatorsV1alpha1Lister) RegisterCatalogSourceListerArgsForCall(i int) (string, v1alpha1.CatalogSourceLister) {
+	fake.registerCatalogSourceListerMutex.RLock()
+	defer fake.registerCatalogSourceListerMutex.RUnlock()
+	argsForCall := fake.registerCatalogSourceListerArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *FakeOperatorsV1alpha1Lister) RegisterClusterServiceVersionLister(arg1 string, arg2 v1alpha1.ClusterServiceVersionLister) {
@@ -316,10 +416,14 @@ func (fake *FakeOperatorsV1alpha1Lister) SubscriptionListerReturnsOnCall(i int, 
 func (fake *FakeOperatorsV1alpha1Lister) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.catalogSourceListerMutex.RLock()
+	defer fake.catalogSourceListerMutex.RUnlock()
 	fake.clusterServiceVersionListerMutex.RLock()
 	defer fake.clusterServiceVersionListerMutex.RUnlock()
 	fake.installPlanListerMutex.RLock()
 	defer fake.installPlanListerMutex.RUnlock()
+	fake.registerCatalogSourceListerMutex.RLock()
+	defer fake.registerCatalogSourceListerMutex.RUnlock()
 	fake.registerClusterServiceVersionListerMutex.RLock()
 	defer fake.registerClusterServiceVersionListerMutex.RUnlock()
 	fake.registerInstallPlanListerMutex.RLock()

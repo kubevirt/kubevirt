@@ -20,6 +20,7 @@
 package uploadserver
 
 import (
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -31,15 +32,24 @@ import (
 	"path/filepath"
 	"sync"
 
+	"kubevirt.io/containerized-data-importer/pkg/util"
+
 	"github.com/pkg/errors"
 	"k8s.io/klog"
+
 	"kubevirt.io/containerized-data-importer/pkg/common"
-	"kubevirt.io/containerized-data-importer/pkg/controller"
 	"kubevirt.io/containerized-data-importer/pkg/importer"
 )
 
 const (
-	uploadPath = "/v1alpha1/upload"
+	// UploadContentTypeHeader is the header upload clients may use to set the content type explicitly
+	UploadContentTypeHeader = "x-cdi-content-type"
+
+	// FilesystemCloneContentType is the content type when cloning a filesystem
+	FilesystemCloneContentType = "filesystem-clone"
+
+	// BlockdeviceCloneContentType is the content type when cloning a block device
+	BlockdeviceCloneContentType = "blockdevice-clone"
 
 	healthzPort = 8080
 	healthzPath = "/healthz"
@@ -70,11 +80,6 @@ type uploadServerApp struct {
 // may be overridden in tests
 var uploadProcessorFunc = newUploadStreamProcessor
 
-// GetUploadServerURL returns the url the proxy should post to for a particular pvc
-func GetUploadServerURL(namespace, pvc string) string {
-	return fmt.Sprintf("https://%s.%s.svc%s", controller.GetUploadResourceName(pvc), namespace, uploadPath)
-}
-
 // NewUploadServer returns a new instance of uploadServerApp
 func NewUploadServer(bindAddress string, bindPort int, destination, tlsKey, tlsCert, clientCert, imageSize string) UploadServer {
 	server := &uploadServerApp{
@@ -91,7 +96,7 @@ func NewUploadServer(bindAddress string, bindPort int, destination, tlsKey, tlsC
 		doneChan:    make(chan struct{}),
 	}
 	server.mux.HandleFunc(healthzPath, server.healthzHandler)
-	server.mux.HandleFunc(uploadPath, server.uploadHandler)
+	server.mux.HandleFunc(common.UploadPath, server.uploadHandler)
 	return server
 }
 
@@ -234,7 +239,11 @@ func (app *uploadServerApp) uploadHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err := uploadProcessorFunc(r.Body, app.destination, app.imageSize)
+	cdiContentType := r.Header.Get(UploadContentTypeHeader)
+
+	klog.Infof("Content type header is %q\n", cdiContentType)
+
+	err := uploadProcessorFunc(r.Body, app.destination, app.imageSize, cdiContentType)
 
 	app.mutex.Lock()
 	defer app.mutex.Unlock()
@@ -254,8 +263,46 @@ func (app *uploadServerApp) uploadHandler(w http.ResponseWriter, r *http.Request
 	klog.Infof("Wrote data to %s", app.destination)
 }
 
-func newUploadStreamProcessor(stream io.ReadCloser, dest, imageSize string) error {
+func newUploadStreamProcessor(stream io.ReadCloser, dest, imageSize, contentType string) error {
+	if contentType == FilesystemCloneContentType {
+		return filesystemCloneProcessor(stream, common.ImporterVolumePath)
+	}
+
+	if contentType == BlockdeviceCloneContentType {
+
+	}
+
 	uds := importer.NewUploadDataSource(stream)
 	processor := importer.NewDataProcessor(uds, dest, common.ImporterVolumePath, common.ScratchDataDir, imageSize)
 	return processor.ProcessData()
+}
+
+func filesystemCloneProcessor(stream io.ReadCloser, destDir string) error {
+	if err := importer.CleanDir(destDir); err != nil {
+		return errors.Wrapf(err, "error removing contents of %s", destDir)
+	}
+
+	gzr, err := gzip.NewReader(stream)
+	if err != nil {
+		return errors.Wrap(err, "error creting gzip reader")
+	}
+
+	if err = util.UnArchiveTar(gzr, destDir); err != nil {
+		return errors.Wrapf(err, "error unarchiving to %s", destDir)
+	}
+
+	return nil
+}
+
+func blockdeviceCloneProcessor(stream io.ReadCloser, dest string) error {
+	gzr, err := gzip.NewReader(stream)
+	if err != nil {
+		return errors.Wrap(err, "error creting gzip reader")
+	}
+
+	if err = util.StreamDataToFile(gzr, dest); err != nil {
+		return errors.Wrapf(err, "error streamng to %s", dest)
+	}
+
+	return nil
 }

@@ -9,16 +9,18 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
 
 const (
 	dataVolumePollInterval = 3 * time.Second
-	dataVolumeCreateTime   = 60 * time.Second
-	dataVolumeDeleteTime   = 60 * time.Second
-	dataVolumePhaseTime    = 60 * time.Second
+	dataVolumeCreateTime   = 90 * time.Second
+	dataVolumeDeleteTime   = 90 * time.Second
+	dataVolumePhaseTime    = 90 * time.Second
 )
 
 const (
@@ -34,10 +36,18 @@ const (
 	InvalidQcowImagesURL = "http://cdi-file-host.%s/invalid_qcow_images/"
 	// TarArchiveURL provides a test url for a tar achive file
 	TarArchiveURL = "http://cdi-file-host.%s/archive.tar"
+	// CirrosURL provides the standard cirros image qcow image
+	CirrosURL = "http://cdi-file-host.%s/cirros-qcow2.img"
 )
 
 // CreateDataVolumeFromDefinition is used by tests to create a testable Data Volume
 func CreateDataVolumeFromDefinition(clientSet *cdiclientset.Clientset, namespace string, def *cdiv1.DataVolume) (*cdiv1.DataVolume, error) {
+	if IsHostpathProvisioner() {
+		if def.ObjectMeta.Annotations == nil {
+			def.ObjectMeta.Annotations = map[string]string{}
+		}
+		AddProvisionOnNodeToAnn(def.ObjectMeta.Annotations)
+	}
 	var dataVolume *cdiv1.DataVolume
 	err := wait.PollImmediate(dataVolumePollInterval, dataVolumeCreateTime, func() (bool, error) {
 		var err error
@@ -66,27 +76,7 @@ func DeleteDataVolume(clientSet *cdiclientset.Clientset, namespace, name string)
 
 // NewCloningDataVolume initializes a DataVolume struct with PVC annotations
 func NewCloningDataVolume(dataVolumeName string, size string, sourcePvc *k8sv1.PersistentVolumeClaim) *cdiv1.DataVolume {
-	return &cdiv1.DataVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: dataVolumeName,
-		},
-		Spec: cdiv1.DataVolumeSpec{
-			Source: cdiv1.DataVolumeSource{
-				PVC: &cdiv1.DataVolumeSourcePVC{
-					Name:      sourcePvc.Name,
-					Namespace: sourcePvc.Namespace,
-				},
-			},
-			PVC: &k8sv1.PersistentVolumeClaimSpec{
-				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-				Resources: k8sv1.ResourceRequirements{
-					Requests: k8sv1.ResourceList{
-						k8sv1.ResourceName(k8sv1.ResourceStorage): resource.MustParse(size),
-					},
-				},
-			},
-		},
-	}
+	return NewDataVolumeForImageCloning(dataVolumeName, size, sourcePvc.Namespace, sourcePvc.Name)
 }
 
 // NewDataVolumeWithHTTPImport initializes a DataVolume struct with HTTP annotations
@@ -300,5 +290,23 @@ func NewDataVolumeWithArchiveContent(dataVolumeName string, size string, httpURL
 				},
 			},
 		},
+	}
+}
+
+// PersistentVolumeClaimFromDataVolume creates a PersistentVolumeClaim definition so we can use PersistentVolumeClaim for various operations.
+func PersistentVolumeClaimFromDataVolume(datavolume *cdiv1.DataVolume) *corev1.PersistentVolumeClaim {
+	return &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      datavolume.Name,
+			Namespace: datavolume.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(datavolume, schema.GroupVersionKind{
+					Group:   cdiv1.SchemeGroupVersion.Group,
+					Version: cdiv1.SchemeGroupVersion.Version,
+					Kind:    "DataVolume",
+				}),
+			},
+		},
+		Spec: *datavolume.Spec.PVC,
 	}
 }

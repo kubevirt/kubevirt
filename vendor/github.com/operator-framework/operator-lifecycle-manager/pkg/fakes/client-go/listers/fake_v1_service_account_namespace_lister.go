@@ -2,45 +2,45 @@
 package listers
 
 import (
-	sync "sync"
+	"sync"
 
-	v1 "k8s.io/api/core/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	v1a "k8s.io/client-go/listers/core/v1"
+	v1a "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	v1 "k8s.io/client-go/listers/core/v1"
 )
 
 type FakeServiceAccountNamespaceLister struct {
-	GetStub        func(string) (*v1.ServiceAccount, error)
+	GetStub        func(string) (*v1a.ServiceAccount, error)
 	getMutex       sync.RWMutex
 	getArgsForCall []struct {
 		arg1 string
 	}
 	getReturns struct {
-		result1 *v1.ServiceAccount
+		result1 *v1a.ServiceAccount
 		result2 error
 	}
 	getReturnsOnCall map[int]struct {
-		result1 *v1.ServiceAccount
+		result1 *v1a.ServiceAccount
 		result2 error
 	}
-	ListStub        func(labels.Selector) ([]*v1.ServiceAccount, error)
+	ListStub        func(labels.Selector) ([]*v1a.ServiceAccount, error)
 	listMutex       sync.RWMutex
 	listArgsForCall []struct {
 		arg1 labels.Selector
 	}
 	listReturns struct {
-		result1 []*v1.ServiceAccount
+		result1 []*v1a.ServiceAccount
 		result2 error
 	}
 	listReturnsOnCall map[int]struct {
-		result1 []*v1.ServiceAccount
+		result1 []*v1a.ServiceAccount
 		result2 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeServiceAccountNamespaceLister) Get(arg1 string) (*v1.ServiceAccount, error) {
+func (fake *FakeServiceAccountNamespaceLister) Get(arg1 string) (*v1a.ServiceAccount, error) {
 	fake.getMutex.Lock()
 	ret, specificReturn := fake.getReturnsOnCall[len(fake.getArgsForCall)]
 	fake.getArgsForCall = append(fake.getArgsForCall, struct {
@@ -64,7 +64,7 @@ func (fake *FakeServiceAccountNamespaceLister) GetCallCount() int {
 	return len(fake.getArgsForCall)
 }
 
-func (fake *FakeServiceAccountNamespaceLister) GetCalls(stub func(string) (*v1.ServiceAccount, error)) {
+func (fake *FakeServiceAccountNamespaceLister) GetCalls(stub func(string) (*v1a.ServiceAccount, error)) {
 	fake.getMutex.Lock()
 	defer fake.getMutex.Unlock()
 	fake.GetStub = stub
@@ -77,33 +77,33 @@ func (fake *FakeServiceAccountNamespaceLister) GetArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *FakeServiceAccountNamespaceLister) GetReturns(result1 *v1.ServiceAccount, result2 error) {
+func (fake *FakeServiceAccountNamespaceLister) GetReturns(result1 *v1a.ServiceAccount, result2 error) {
 	fake.getMutex.Lock()
 	defer fake.getMutex.Unlock()
 	fake.GetStub = nil
 	fake.getReturns = struct {
-		result1 *v1.ServiceAccount
+		result1 *v1a.ServiceAccount
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeServiceAccountNamespaceLister) GetReturnsOnCall(i int, result1 *v1.ServiceAccount, result2 error) {
+func (fake *FakeServiceAccountNamespaceLister) GetReturnsOnCall(i int, result1 *v1a.ServiceAccount, result2 error) {
 	fake.getMutex.Lock()
 	defer fake.getMutex.Unlock()
 	fake.GetStub = nil
 	if fake.getReturnsOnCall == nil {
 		fake.getReturnsOnCall = make(map[int]struct {
-			result1 *v1.ServiceAccount
+			result1 *v1a.ServiceAccount
 			result2 error
 		})
 	}
 	fake.getReturnsOnCall[i] = struct {
-		result1 *v1.ServiceAccount
+		result1 *v1a.ServiceAccount
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeServiceAccountNamespaceLister) List(arg1 labels.Selector) ([]*v1.ServiceAccount, error) {
+func (fake *FakeServiceAccountNamespaceLister) List(arg1 labels.Selector) ([]*v1a.ServiceAccount, error) {
 	fake.listMutex.Lock()
 	ret, specificReturn := fake.listReturnsOnCall[len(fake.listArgsForCall)]
 	fake.listArgsForCall = append(fake.listArgsForCall, struct {
@@ -127,7 +127,7 @@ func (fake *FakeServiceAccountNamespaceLister) ListCallCount() int {
 	return len(fake.listArgsForCall)
 }
 
-func (fake *FakeServiceAccountNamespaceLister) ListCalls(stub func(labels.Selector) ([]*v1.ServiceAccount, error)) {
+func (fake *FakeServiceAccountNamespaceLister) ListCalls(stub func(labels.Selector) ([]*v1a.ServiceAccount, error)) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = stub
@@ -140,28 +140,28 @@ func (fake *FakeServiceAccountNamespaceLister) ListArgsForCall(i int) labels.Sel
 	return argsForCall.arg1
 }
 
-func (fake *FakeServiceAccountNamespaceLister) ListReturns(result1 []*v1.ServiceAccount, result2 error) {
+func (fake *FakeServiceAccountNamespaceLister) ListReturns(result1 []*v1a.ServiceAccount, result2 error) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = nil
 	fake.listReturns = struct {
-		result1 []*v1.ServiceAccount
+		result1 []*v1a.ServiceAccount
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeServiceAccountNamespaceLister) ListReturnsOnCall(i int, result1 []*v1.ServiceAccount, result2 error) {
+func (fake *FakeServiceAccountNamespaceLister) ListReturnsOnCall(i int, result1 []*v1a.ServiceAccount, result2 error) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = nil
 	if fake.listReturnsOnCall == nil {
 		fake.listReturnsOnCall = make(map[int]struct {
-			result1 []*v1.ServiceAccount
+			result1 []*v1a.ServiceAccount
 			result2 error
 		})
 	}
 	fake.listReturnsOnCall[i] = struct {
-		result1 []*v1.ServiceAccount
+		result1 []*v1a.ServiceAccount
 		result2 error
 	}{result1, result2}
 }
@@ -192,4 +192,4 @@ func (fake *FakeServiceAccountNamespaceLister) recordInvocation(key string, args
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ v1a.ServiceAccountNamespaceLister = new(FakeServiceAccountNamespaceLister)
+var _ v1.ServiceAccountNamespaceLister = new(FakeServiceAccountNamespaceLister)

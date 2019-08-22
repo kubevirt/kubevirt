@@ -24,7 +24,6 @@ import (
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
 	"kubevirt.io/containerized-data-importer/pkg/token"
-	"kubevirt.io/containerized-data-importer/pkg/uploadserver"
 )
 
 const (
@@ -93,7 +92,7 @@ func NewUploadProxy(bindAddress string,
 		client:      client,
 		keyBytes:    []byte(serviceKey),
 		certBytes:   []byte(serviceCert),
-		urlResolver: uploadserver.GetUploadServerURL,
+		urlResolver: controller.GetUploadServerURL,
 	}
 	// retrieve RSA key used by apiserver to sign tokens
 	err = app.getSigningKey(apiServerPublicKey)

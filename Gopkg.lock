@@ -53,12 +53,12 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:ef796be125d656ea1556ea57c6b1911092c9c763085644ef9035c63ac3f2b573"
-  name = "github.com/coreos/go-semver"
-  packages = ["semver"]
+  digest = "1:dafc9bfdb2d9816587ca63844a722b36525183e14423b1f356fd9a8a805b6230"
+  name = "github.com/blang/semver"
+  packages = ["."]
   pruneopts = "NT"
-  revision = "8ab6407b697782a06568d4b7f1db25550ec2e4c6"
-  version = "v0.2.0"
+  revision = "ba2c2ddd89069b46a7011d4106f6868f17ee1705"
+  version = "v3.6.1"
 
 [[projects]]
   digest = "1:c61f4f97321a37adcb5b4fd4fd61209cd553e46c99ee606c465553541b12a229"
@@ -496,15 +496,16 @@
   revision = "4c95b3a336cd95e8c46f80b6f65656c32fd88004"
 
 [[projects]]
-  digest = "1:e23f911287c9b01dd85ad7d21ec1913cb562ff46c06f5b399eb19bd26ae82a2e"
+  digest = "1:157bd6d23c3c0bc5397b9354f049dcef1d7ebc2ff64a76ad213ae5be75c20d7c"
   name = "github.com/operator-framework/operator-lifecycle-manager"
   packages = [
     "pkg/api/apis/operators",
     "pkg/api/apis/operators/v1alpha1",
+    "pkg/lib/version",
   ]
   pruneopts = "NT"
-  revision = "aeb24aeb363b25c8f9e8267f27579c1483dacc42"
-  version = "0.9.0"
+  revision = "b56e63a643cc6b147bab695fa44f613c50a217b9"
+  version = "0.11.0"
 
 [[projects]]
   branch = "master"
@@ -1194,7 +1195,7 @@
   version = "v0.20.1"
 
 [[projects]]
-  digest = "1:f9aba1238e40ba5b55f41c9c46378d09671599b7ca0d4fede9036f6d935ebcc5"
+  digest = "1:539ffc2a0be5cd805fd36f614f72eb032f811dca65a4b07555f8ffd615acc183"
   name = "kubevirt.io/containerized-data-importer"
   packages = [
     ".",
@@ -1220,8 +1221,8 @@
     "pkg/operator/resources/utils",
   ]
   pruneopts = "NT"
-  revision = "3dcef90a28402b4b9cde7dc40dbebc075cc7b6ad"
-  version = "v1.10.0"
+  revision = "2fef55b80362c6c6144b01a3f4eab86a78ba03d9"
+  version = "v1.10.2"
 
 [[projects]]
   digest = "1:d30062b3f3df4e6de20076c6ee972e8527a6ce7595f2b8e63d230ad10dacb969"
@@ -1253,8 +1254,7 @@
   version = "v0.20.1"
 
 [[projects]]
-  branch = "release-4.2"
-  digest = "1:712f726f56166e1641267d47f78119503bd72b189bec0a0fc0cbf5239580b1bc"
+  digest = "1:d8afbdbd0254ba639d9ca43779192de86c08edc3a14b594c5589d767a198883b"
   name = "kubevirt.io/machine-remediation-operator"
   packages = [
     "pkg/apis/machineremediation",
@@ -1262,7 +1262,8 @@
     "pkg/operator/components",
   ]
   pruneopts = "NT"
-  revision = "570d094229b1176a979c4784b5cb0ac4f2793288"
+  revision = "4a7f171fefc3e4bb8ca50634c3e76e6803e4c5a6"
+  version = "v0.3.7"
 
 [[projects]]
   digest = "1:06035489efbd51ccface65fc878ceeb849aba05b2f9443c8993f363fc96e80ac"

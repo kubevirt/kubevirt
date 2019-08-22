@@ -690,7 +690,7 @@ func (app *cdiAPIApp) createMutatingWebhook() error {
 	if registerWebhook {
 		config := &admissionregistrationv1beta1.MutatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: apiWebhookValidator,
+				Name: apiWebhookMutator,
 			},
 			Webhooks: webHooks,
 		}

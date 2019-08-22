@@ -70,6 +70,11 @@ func main() {
 		klog.Fatal(err)
 	}
 
+	// copy cirros qcow file
+	if err := util.CopyFile("/tmp/source/cirros-qcow2.img", filepath.Join(*outDir, "cirros-qcow2.img")); err != nil {
+		klog.Fatal(err)
+	}
+
 	klog.Info("File initialization completed without error.")
 }
 

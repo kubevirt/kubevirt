@@ -1,6 +1,7 @@
 package olm
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -8,17 +9,22 @@ import (
 
 	v1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1"
 	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	extinf "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilclock "k8s.io/apimachinery/pkg/util/clock"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
+	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	kagg "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
@@ -27,6 +33,7 @@ import (
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/certs"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/install"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry/resolver"
+	csvutility "github.com/operator-framework/operator-lifecycle-manager/pkg/lib/csv"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/event"
 	index "github.com/operator-framework/operator-lifecycle-manager/pkg/lib/index"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/labeler"
@@ -34,6 +41,9 @@ import (
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorlister"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/ownerutil"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/queueinformer"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/scoped"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/proxy"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/operators/olm/envvar"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/metrics"
 )
 
@@ -43,268 +53,479 @@ var (
 	ErrAPIServiceOwnerConflict = errors.New("unable to adopt APIService")
 )
 
-var timeNow = func() metav1.Time { return metav1.NewTime(time.Now().UTC()) }
-
-const (
-	FallbackWakeupInterval = 30 * time.Second
-)
-
 type Operator struct {
-	*queueinformer.Operator
-	csvQueueSet      *queueinformer.ResourceQueueSet
-	ogQueueSet       *queueinformer.ResourceQueueSet
-	client           versioned.Interface
-	resolver         install.StrategyResolverInterface
-	apiReconciler    resolver.APIIntersectionReconciler
-	lister           operatorlister.OperatorLister
-	recorder         record.EventRecorder
-	copyQueueIndexer *queueinformer.QueueIndexer
-	gcQueueIndexer   *queueinformer.QueueIndexer
-	apiLabeler       labeler.Labeler
-	csvIndexers      map[string]cache.Indexer
+	queueinformer.Operator
+
+	clock                 utilclock.Clock
+	logger                *logrus.Logger
+	opClient              operatorclient.ClientInterface
+	client                versioned.Interface
+	lister                operatorlister.OperatorLister
+	ogQueueSet            *queueinformer.ResourceQueueSet
+	csvQueueSet           *queueinformer.ResourceQueueSet
+	csvCopyQueueSet       *queueinformer.ResourceQueueSet
+	csvGCQueueSet         *queueinformer.ResourceQueueSet
+	apiServiceQueue       workqueue.RateLimitingInterface
+	csvIndexers           map[string]cache.Indexer
+	recorder              record.EventRecorder
+	resolver              install.StrategyResolverInterface
+	apiReconciler         resolver.APIIntersectionReconciler
+	apiLabeler            labeler.Labeler
+	csvSetGenerator       csvutility.SetGenerator
+	csvReplaceFinder      csvutility.ReplaceFinder
+	csvNotification       csvutility.WatchNotification
+	serviceAccountSyncer  *scoped.UserDefinedServiceAccountSyncer
+	clientAttenuator      *scoped.ClientAttenuator
+	serviceAccountQuerier *scoped.UserDefinedServiceAccountQuerier
 }
 
-func NewOperator(logger *logrus.Logger, crClient versioned.Interface, opClient operatorclient.ClientInterface, strategyResolver install.StrategyResolverInterface, wakeupInterval time.Duration, namespaces []string) (*Operator, error) {
-	if wakeupInterval < 0 {
-		wakeupInterval = FallbackWakeupInterval
-	}
-	if len(namespaces) < 1 {
-		namespaces = []string{metav1.NamespaceAll}
+func NewOperator(ctx context.Context, options ...OperatorOption) (*Operator, error) {
+	config := defaultOperatorConfig()
+	config.apply(options)
+
+	return newOperatorWithConfig(ctx, config)
+}
+
+func newOperatorWithConfig(ctx context.Context, config *operatorConfig) (*Operator, error) {
+	if err := config.validate(); err != nil {
+		return nil, err
 	}
 
-	queueOperator, err := queueinformer.NewOperatorFromClient(opClient, logger)
+	queueOperator, err := queueinformer.NewOperator(config.operatorClient.KubernetesInterface().Discovery(), queueinformer.WithOperatorLogger(config.logger))
 	if err != nil {
 		return nil, err
 	}
-	eventRecorder, err := event.NewRecorder(opClient.KubernetesInterface().CoreV1().Events(metav1.NamespaceAll))
+
+	eventRecorder, err := event.NewRecorder(config.operatorClient.KubernetesInterface().CoreV1().Events(metav1.NamespaceAll))
 	if err != nil {
+		return nil, err
+	}
+
+	lister := operatorlister.NewLister()
+
+	scheme := runtime.NewScheme()
+	if err := k8sscheme.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
 
 	op := &Operator{
-		Operator:      queueOperator,
-		csvQueueSet:   queueinformer.NewEmptyResourceQueueSet(),
-		ogQueueSet:    queueinformer.NewEmptyResourceQueueSet(),
-		client:        crClient,
-		resolver:      strategyResolver,
-		apiReconciler: resolver.APIIntersectionReconcileFunc(resolver.ReconcileAPIIntersection),
-		lister:        operatorlister.NewLister(),
-		recorder:      eventRecorder,
-		apiLabeler:    labeler.Func(resolver.LabelSetsFor),
-		csvIndexers:   map[string]cache.Indexer{},
+		Operator:              queueOperator,
+		clock:                 config.clock,
+		logger:                config.logger,
+		opClient:              config.operatorClient,
+		client:                config.externalClient,
+		ogQueueSet:            queueinformer.NewEmptyResourceQueueSet(),
+		csvQueueSet:           queueinformer.NewEmptyResourceQueueSet(),
+		csvCopyQueueSet:       queueinformer.NewEmptyResourceQueueSet(),
+		csvGCQueueSet:         queueinformer.NewEmptyResourceQueueSet(),
+		apiServiceQueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "apiservice"),
+		resolver:              config.strategyResolver,
+		apiReconciler:         config.apiReconciler,
+		lister:                lister,
+		recorder:              eventRecorder,
+		apiLabeler:            config.apiLabeler,
+		csvIndexers:           map[string]cache.Indexer{},
+		csvSetGenerator:       csvutility.NewSetGenerator(config.logger, lister),
+		csvReplaceFinder:      csvutility.NewReplaceFinder(config.logger, config.externalClient),
+		serviceAccountSyncer:  scoped.NewUserDefinedServiceAccountSyncer(config.logger, scheme, config.operatorClient, config.externalClient),
+		clientAttenuator:      scoped.NewClientAttenuator(config.logger, config.restConfig, config.operatorClient, config.externalClient),
+		serviceAccountQuerier: scoped.NewUserDefinedServiceAccountQuerier(config.logger, config.externalClient),
 	}
 
-	// Set up RBAC informers
-	roleInformer := informers.NewSharedInformerFactory(opClient.KubernetesInterface(), wakeupInterval).Rbac().V1().Roles()
-	roleQueueInformer := queueinformer.NewInformer(
-		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "roles"),
-		roleInformer.Informer(),
-		op.syncObject,
-		nil,
-		"roles",
-		metrics.NewMetricsNil(),
-		logger,
-	)
-	op.RegisterQueueInformer(roleQueueInformer)
-	op.lister.RbacV1().RegisterRoleLister(metav1.NamespaceAll, roleInformer.Lister())
+	// Set up syncing for namespace-scoped resources
+	k8sSyncer := queueinformer.LegacySyncHandler(op.syncObject).ToSyncerWithDelete(op.handleDeletion)
+	for _, namespace := range config.watchedNamespaces {
+		// Wire CSVs
+		extInformerFactory := externalversions.NewSharedInformerFactoryWithOptions(op.client, config.resyncPeriod, externalversions.WithNamespace(namespace))
+		csvInformer := extInformerFactory.Operators().V1alpha1().ClusterServiceVersions()
+		op.lister.OperatorsV1alpha1().RegisterClusterServiceVersionLister(namespace, csvInformer.Lister())
+		csvQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), fmt.Sprintf("%s/csv", namespace))
+		op.csvQueueSet.Set(namespace, csvQueue)
+		csvQueueInformer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithMetricsProvider(metrics.NewMetricsCSV(csvInformer.Lister())),
+			queueinformer.WithLogger(op.logger),
+			queueinformer.WithQueue(csvQueue),
+			queueinformer.WithInformer(csvInformer.Informer()),
+			queueinformer.WithSyncer(queueinformer.LegacySyncHandler(op.syncClusterServiceVersion).ToSyncerWithDelete(op.handleClusterServiceVersionDeletion)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if err := op.RegisterQueueInformer(csvQueueInformer); err != nil {
+			return nil, err
+		}
+		if err := csvInformer.Informer().AddIndexers(cache.Indexers{index.MetaLabelIndexFuncKey: index.MetaLabelIndexFunc}); err != nil {
+			return nil, err
+		}
+		csvIndexer := csvInformer.Informer().GetIndexer()
+		op.csvIndexers[namespace] = csvIndexer
 
-	roleBindingInformer := informers.NewSharedInformerFactory(opClient.KubernetesInterface(), wakeupInterval).Rbac().V1().RoleBindings()
-	roleBindingQueueInformer := queueinformer.NewInformer(
-		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "rolebindings"),
-		roleBindingInformer.Informer(),
-		op.syncObject,
-		nil,
-		"rolebindings",
-		metrics.NewMetricsNil(),
-		logger,
-	)
-	op.RegisterQueueInformer(roleBindingQueueInformer)
-	op.lister.RbacV1().RegisterRoleBindingLister(metav1.NamespaceAll, roleBindingInformer.Lister())
+		// Register separate queue for copying csvs
+		csvCopyQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), fmt.Sprintf("%s/csv-copy", namespace))
+		op.csvCopyQueueSet.Set(namespace, csvCopyQueue)
+		csvCopyQueueInformer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithLogger(op.logger),
+			queueinformer.WithQueue(csvCopyQueue),
+			queueinformer.WithIndexer(csvIndexer),
+			queueinformer.WithSyncer(queueinformer.LegacySyncHandler(op.syncCopyCSV).ToSyncer()),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if err := op.RegisterQueueInformer(csvCopyQueueInformer); err != nil {
+			return nil, err
+		}
 
-	clusterRoleInformer := informers.NewSharedInformerFactory(opClient.KubernetesInterface(), wakeupInterval).Rbac().V1().ClusterRoles()
-	clusterRoleQueueInformer := queueinformer.NewInformer(
-		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "clusterroles"),
-		clusterRoleInformer.Informer(),
-		op.syncObject,
-		nil,
-		"clusterroles",
-		metrics.NewMetricsNil(),
-		logger,
-	)
-	op.RegisterQueueInformer(clusterRoleQueueInformer)
+		// Register separate queue for gcing csvs
+		csvGCQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), fmt.Sprintf("%s/csv-gc", namespace))
+		op.csvGCQueueSet.Set(namespace, csvGCQueue)
+		csvGCQueueInformer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithLogger(op.logger),
+			queueinformer.WithQueue(csvGCQueue),
+			queueinformer.WithIndexer(csvIndexer),
+			queueinformer.WithSyncer(queueinformer.LegacySyncHandler(op.syncGcCsv).ToSyncer()),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if err := op.RegisterQueueInformer(csvGCQueueInformer); err != nil {
+			return nil, err
+		}
+
+		// Wire OperatorGroup reconciliation
+		operatorGroupInformer := extInformerFactory.Operators().V1().OperatorGroups()
+		op.lister.OperatorsV1().RegisterOperatorGroupLister(namespace, operatorGroupInformer.Lister())
+		ogQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), fmt.Sprintf("%s/og", namespace))
+		op.ogQueueSet.Set(namespace, ogQueue)
+		operatorGroupQueueInformer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithLogger(op.logger),
+			queueinformer.WithQueue(ogQueue),
+			queueinformer.WithInformer(operatorGroupInformer.Informer()),
+			queueinformer.WithSyncer(queueinformer.LegacySyncHandler(op.syncOperatorGroups).ToSyncerWithDelete(op.operatorGroupDeleted)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if err := op.RegisterQueueInformer(operatorGroupQueueInformer); err != nil {
+			return nil, err
+		}
+
+		subInformer := extInformerFactory.Operators().V1alpha1().Subscriptions()
+		op.lister.OperatorsV1alpha1().RegisterSubscriptionLister(namespace, subInformer.Lister())		
+		subQueueInformer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithLogger(op.logger),
+			queueinformer.WithInformer(subInformer.Informer()),
+			queueinformer.WithSyncer(queueinformer.LegacySyncHandler(op.syncSubscription).ToSyncerWithDelete(op.syncSubscriptionDeleted)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		op.RegisterQueueInformer(subQueueInformer)
+
+		// Wire Deployments
+		k8sInformerFactory := informers.NewSharedInformerFactoryWithOptions(op.opClient.KubernetesInterface(), config.resyncPeriod, informers.WithNamespace(namespace))
+		depInformer := k8sInformerFactory.Apps().V1().Deployments()
+		op.lister.AppsV1().RegisterDeploymentLister(namespace, depInformer.Lister())
+		depQueueInformer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithLogger(op.logger),
+			queueinformer.WithInformer(depInformer.Informer()),
+			queueinformer.WithSyncer(k8sSyncer),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if err := op.RegisterQueueInformer(depQueueInformer); err != nil {
+			return nil, err
+		}
+
+		// Set up RBAC informers
+		roleInformer := k8sInformerFactory.Rbac().V1().Roles()
+		op.lister.RbacV1().RegisterRoleLister(namespace, roleInformer.Lister())
+		roleQueueInformer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithLogger(op.logger),
+			queueinformer.WithInformer(roleInformer.Informer()),
+			queueinformer.WithSyncer(k8sSyncer),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if err := op.RegisterQueueInformer(roleQueueInformer); err != nil {
+			return nil, err
+		}
+
+		roleBindingInformer := k8sInformerFactory.Rbac().V1().RoleBindings()
+		op.lister.RbacV1().RegisterRoleBindingLister(namespace, roleBindingInformer.Lister())
+		roleBindingQueueInformer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithLogger(op.logger),
+			queueinformer.WithInformer(roleBindingInformer.Informer()),
+			queueinformer.WithSyncer(k8sSyncer),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if err := op.RegisterQueueInformer(roleBindingQueueInformer); err != nil {
+			return nil, err
+		}
+
+		// Register Secret QueueInformer
+		secretInformer := k8sInformerFactory.Core().V1().Secrets()
+		op.lister.CoreV1().RegisterSecretLister(namespace, secretInformer.Lister())
+		secretQueueInformer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithLogger(op.logger),
+			queueinformer.WithInformer(secretInformer.Informer()),
+			queueinformer.WithSyncer(k8sSyncer),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if err := op.RegisterQueueInformer(secretQueueInformer); err != nil {
+			return nil, err
+		}
+
+		// Register Service QueueInformer
+		serviceInformer := k8sInformerFactory.Core().V1().Services()
+		op.lister.CoreV1().RegisterServiceLister(namespace, serviceInformer.Lister())
+		serviceQueueInformer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithLogger(op.logger),
+			queueinformer.WithInformer(serviceInformer.Informer()),
+			queueinformer.WithSyncer(k8sSyncer),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if err := op.RegisterQueueInformer(serviceQueueInformer); err != nil {
+			return nil, err
+		}
+
+		// Register ServiceAccount QueueInformer
+		serviceAccountInformer := k8sInformerFactory.Core().V1().ServiceAccounts()
+		op.lister.CoreV1().RegisterServiceAccountLister(metav1.NamespaceAll, serviceAccountInformer.Lister())
+		serviceAccountQueueInformer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithLogger(op.logger),
+			queueinformer.WithInformer(serviceAccountInformer.Informer()),
+			queueinformer.WithSyncer(k8sSyncer),
+		)
+		if err := op.RegisterQueueInformer(serviceAccountQueueInformer); err != nil {
+			return nil, err
+		}
+	}
+
+	k8sInformerFactory := informers.NewSharedInformerFactory(op.opClient.KubernetesInterface(), config.resyncPeriod)
+	clusterRoleInformer := k8sInformerFactory.Rbac().V1().ClusterRoles()
 	op.lister.RbacV1().RegisterClusterRoleLister(clusterRoleInformer.Lister())
-
-	clusterRoleBindingInformer := informers.NewSharedInformerFactory(opClient.KubernetesInterface(), wakeupInterval).Rbac().V1().ClusterRoleBindings()
-	clusterRoleBindingQueueInformer := queueinformer.NewInformer(
-		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "clusterrolebindings"),
-		clusterRoleBindingInformer.Informer(),
-		op.syncObject,
-		nil,
-		"clusterrolebindings",
-		metrics.NewMetricsNil(),
-		logger,
+	clusterRoleQueueInformer, err := queueinformer.NewQueueInformer(
+		ctx,
+		queueinformer.WithLogger(op.logger),
+		queueinformer.WithInformer(clusterRoleInformer.Informer()),
+		queueinformer.WithSyncer(k8sSyncer),
 	)
+	if err != nil {
+		return nil, err
+	}
+	if err := op.RegisterQueueInformer(clusterRoleQueueInformer); err != nil {
+		return nil, err
+	}
+
+	clusterRoleBindingInformer := k8sInformerFactory.Rbac().V1().ClusterRoleBindings()
 	op.lister.RbacV1().RegisterClusterRoleBindingLister(clusterRoleBindingInformer.Lister())
-	op.RegisterQueueInformer(clusterRoleBindingQueueInformer)
+	clusterRoleBindingQueueInformer, err := queueinformer.NewQueueInformer(
+		ctx,
+		queueinformer.WithLogger(op.logger),
+		queueinformer.WithInformer(clusterRoleBindingInformer.Informer()),
+		queueinformer.WithSyncer(k8sSyncer),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := op.RegisterQueueInformer(clusterRoleBindingQueueInformer); err != nil {
+		return nil, err
+	}
 
 	// register namespace queueinformer
-	namespaceInformer := informers.NewSharedInformerFactory(opClient.KubernetesInterface(), wakeupInterval).Core().V1().Namespaces()
-	namespaceQueueInformer := queueinformer.NewInformer(
-		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "namespaces"),
-		namespaceInformer.Informer(),
-		op.syncObject,
+	namespaceInformer := k8sInformerFactory.Core().V1().Namespaces()
+	op.lister.CoreV1().RegisterNamespaceLister(namespaceInformer.Lister())
+	namespaceInformer.Informer().AddEventHandler(
 		&cache.ResourceEventHandlerFuncs{
 			DeleteFunc: op.namespaceAddedOrRemoved,
 			AddFunc:    op.namespaceAddedOrRemoved,
 		},
-		"namespaces",
-		metrics.NewMetricsNil(),
-		logger,
 	)
-	op.RegisterQueueInformer(namespaceQueueInformer)
-	op.lister.CoreV1().RegisterNamespaceLister(namespaceInformer.Lister())
+	namespaceQueueInformer, err := queueinformer.NewQueueInformer(
+		ctx,
+		queueinformer.WithLogger(op.logger),
+		queueinformer.WithInformer(namespaceInformer.Informer()),
+		queueinformer.WithSyncer(queueinformer.LegacySyncHandler(op.syncObject).ToSyncer()),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := op.RegisterQueueInformer(namespaceQueueInformer); err != nil {
+		return nil, err
+	}
 
 	// Register APIService QueueInformer
-	apiServiceInformer := kagg.NewSharedInformerFactory(opClient.ApiregistrationV1Interface(), wakeupInterval).Apiregistration().V1().APIServices()
-	op.RegisterQueueInformer(queueinformer.NewInformer(
-		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "apiservices"),
-		apiServiceInformer.Informer(),
-		op.syncObject,
-		&cache.ResourceEventHandlerFuncs{
-			DeleteFunc: op.handleDeletion,
-		},
-		"apiservices",
-		metrics.NewMetricsNil(),
-		logger,
-	))
+	apiServiceInformer := kagg.NewSharedInformerFactory(op.opClient.ApiregistrationV1Interface(), config.resyncPeriod).Apiregistration().V1().APIServices()
 	op.lister.APIRegistrationV1().RegisterAPIServiceLister(apiServiceInformer.Lister())
+	apiServiceQueueInformer, err := queueinformer.NewQueueInformer(
+		ctx,
+		queueinformer.WithLogger(op.logger),
+		queueinformer.WithQueue(op.apiServiceQueue),
+		queueinformer.WithInformer(apiServiceInformer.Informer()),
+		queueinformer.WithSyncer(queueinformer.LegacySyncHandler(op.syncAPIService).ToSyncerWithDelete(op.handleDeletion)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if err := op.RegisterQueueInformer(apiServiceQueueInformer); err != nil {
+		return nil, err
+	}
 
 	// Register CustomResourceDefinition QueueInformer
-	customResourceDefinitionInformer := extinf.NewSharedInformerFactory(opClient.ApiextensionsV1beta1Interface(), wakeupInterval).Apiextensions().V1beta1().CustomResourceDefinitions()
-	op.RegisterQueueInformer(queueinformer.NewInformer(
-		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "customresourcedefinitions"),
-		customResourceDefinitionInformer.Informer(),
-		op.syncObject,
-		&cache.ResourceEventHandlerFuncs{
-			DeleteFunc: op.handleDeletion,
-		},
-		"customresourcedefinitions",
-		metrics.NewMetricsNil(),
-		logger,
-	))
-	op.lister.APIExtensionsV1beta1().RegisterCustomResourceDefinitionLister(customResourceDefinitionInformer.Lister())
-
-	// Register Secret QueueInformer
-	secretInformer := informers.NewSharedInformerFactory(opClient.KubernetesInterface(), wakeupInterval).Core().V1().Secrets()
-	op.RegisterQueueInformer(queueinformer.NewInformer(
-		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "secrets"),
-		secretInformer.Informer(),
-		op.syncObject,
-		&cache.ResourceEventHandlerFuncs{
-			DeleteFunc: op.handleDeletion,
-		},
-		"secrets",
-		metrics.NewMetricsNil(),
-		logger,
-	))
-	op.lister.CoreV1().RegisterSecretLister(metav1.NamespaceAll, secretInformer.Lister())
-
-	// Register Service QueueInformer
-	serviceInformer := informers.NewSharedInformerFactory(opClient.KubernetesInterface(), wakeupInterval).Core().V1().Services()
-	op.RegisterQueueInformer(queueinformer.NewInformer(
-		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "services"),
-		serviceInformer.Informer(),
-		op.syncObject,
-		&cache.ResourceEventHandlerFuncs{
-			DeleteFunc: op.handleDeletion,
-		},
-		"services",
-		metrics.NewMetricsNil(),
-		logger,
-	))
-	op.lister.CoreV1().RegisterServiceLister(metav1.NamespaceAll, serviceInformer.Lister())
-
-	// Register ServiceAccount QueueInformer
-	serviceAccountInformer := informers.NewSharedInformerFactory(opClient.KubernetesInterface(), wakeupInterval).Core().V1().ServiceAccounts()
-	op.RegisterQueueInformer(queueinformer.NewInformer(
-		workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "serviceaccounts"),
-		serviceAccountInformer.Informer(),
-		op.syncObject,
-		&cache.ResourceEventHandlerFuncs{
-			DeleteFunc: op.handleDeletion,
-		},
-		"serviceaccounts",
-		metrics.NewMetricsNil(),
-		logger,
-	))
-	op.lister.CoreV1().RegisterServiceAccountLister(metav1.NamespaceAll, serviceAccountInformer.Lister())
-
-	// csvInformers for each namespace all use the same backing queue keys are namespaced
-	csvHandlers := &cache.ResourceEventHandlerFuncs{
-		DeleteFunc: op.handleClusterServiceVersionDeletion,
+	crdInformer := extinf.NewSharedInformerFactory(op.opClient.ApiextensionsV1beta1Interface(), config.resyncPeriod).Apiextensions().V1beta1().CustomResourceDefinitions()
+	op.lister.APIExtensionsV1beta1().RegisterCustomResourceDefinitionLister(crdInformer.Lister())
+	crdQueueInformer, err := queueinformer.NewQueueInformer(
+		ctx,
+		queueinformer.WithLogger(op.logger),
+		queueinformer.WithInformer(crdInformer.Informer()),
+		queueinformer.WithSyncer(k8sSyncer),
+	)
+	if err != nil {
+		return nil, err
 	}
-	for _, namespace := range namespaces {
-		logger.WithField("namespace", namespace).Infof("watching CSVs")
-		sharedInformerFactory := externalversions.NewSharedInformerFactoryWithOptions(crClient, wakeupInterval, externalversions.WithNamespace(namespace))
-		csvInformer := sharedInformerFactory.Operators().V1alpha1().ClusterServiceVersions()
-		op.lister.OperatorsV1alpha1().RegisterClusterServiceVersionLister(namespace, csvInformer.Lister())
-
-		// Register queue and QueueInformer
-		queueName := fmt.Sprintf("%s/clusterserviceversions", namespace)
-		csvQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), queueName)
-		csvQueueInformer := queueinformer.NewInformer(csvQueue, csvInformer.Informer(), op.syncClusterServiceVersion, csvHandlers, queueName, metrics.NewMetricsCSV(op.lister.OperatorsV1alpha1().ClusterServiceVersionLister()), logger)
-		op.RegisterQueueInformer(csvQueueInformer)
-		op.csvQueueSet.Set(namespace, csvQueue)
-
-		csvInformer.Informer().AddIndexers(cache.Indexers{index.MetaLabelIndexFuncKey: index.MetaLabelIndexFunc})
-		op.csvIndexers[namespace] = csvInformer.Informer().GetIndexer()
+	if err := op.RegisterQueueInformer(crdQueueInformer); err != nil {
+		return nil, err
 	}
 
-	// Register separate queue for copying csvs
-	csvCopyQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "csvCopy")
-	csvQueueIndexer := queueinformer.NewQueueIndexer(csvCopyQueue, op.csvIndexers, op.syncCopyCSV, "csvCopy", logger, metrics.NewMetricsNil())
-	op.RegisterQueueIndexer(csvQueueIndexer)
-	op.copyQueueIndexer = csvQueueIndexer
 
-	// Register separate queue for gcing csvs
-	csvGCQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "csvGC")
-	csvGCQueueIndexer := queueinformer.NewQueueIndexer(csvGCQueue, op.csvIndexers, op.syncGcCsv, "csvGC", logger, metrics.NewMetricsNil())
-	op.RegisterQueueIndexer(csvGCQueueIndexer)
-	op.gcQueueIndexer = csvGCQueueIndexer
-
-	// Set up watch on deployments
-	depHandlers := &cache.ResourceEventHandlerFuncs{
-		// TODO: pass closure that forgets queue item after calling custom deletion handler.
-		DeleteFunc: op.handleDeletion,
-	}
-	for _, namespace := range namespaces {
-		logger.WithField("namespace", namespace).Infof("watching deployments")
-		depInformer := informers.NewSharedInformerFactoryWithOptions(opClient.KubernetesInterface(), wakeupInterval, informers.WithNamespace(namespace)).Apps().V1().Deployments()
-		op.lister.AppsV1().RegisterDeploymentLister(namespace, depInformer.Lister())
-
-		// Register queue and QueueInformer
-		queueName := fmt.Sprintf("%s/csv-deployments", namespace)
-		depQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), queueName)
-		depQueueInformer := queueinformer.NewInformer(depQueue, depInformer.Informer(), op.syncObject, depHandlers, queueName, metrics.NewMetricsNil(), logger)
-		op.RegisterQueueInformer(depQueueInformer)
+	// setup proxy env var injection policies
+	discovery := config.operatorClient.KubernetesInterface().Discovery()
+	proxyAPIExists, err := proxy.IsAPIAvailable(discovery)
+	if err != nil {
+		op.logger.Errorf("error happened while probing for Proxy API support - %v", err)
+		return nil, err
 	}
 
-	// Create an informer for the operator group
-	for _, namespace := range namespaces {
-		logger.WithField("namespace", namespace).Infof("watching OperatorGroups")
-		sharedInformerFactory := externalversions.NewSharedInformerFactoryWithOptions(crClient, wakeupInterval, externalversions.WithNamespace(namespace))
-		operatorGroupInformer := sharedInformerFactory.Operators().V1().OperatorGroups()
-		op.lister.OperatorsV1().RegisterOperatorGroupLister(namespace, operatorGroupInformer.Lister())
+	proxyQuerierInUse := proxy.DefaultQuerier()
+	if proxyAPIExists {
+		op.logger.Info("OpenShift Proxy API  available - setting up watch for Proxy type")
 
-		// Register queue and QueueInformer
-		queueName := fmt.Sprintf("%s/operatorgroups", namespace)
-		operatorGroupQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), queueName)
-		operatorGroupQueueInformer := queueinformer.NewInformer(operatorGroupQueue, operatorGroupInformer.Informer(), op.syncOperatorGroups, nil, queueName, metrics.NewMetricsNil(), logger)
-		op.RegisterQueueInformer(operatorGroupQueueInformer)
-		op.ogQueueSet.Set(namespace, operatorGroupQueue)
+		proxyInformer, proxySyncer, proxyQuerier, err := proxy.NewSyncer(op.logger, config.configClient, discovery)
+		if err != nil {
+			err = fmt.Errorf("failed to initialize syncer for Proxy type - %v", err)
+			return nil, err
+		}
+
+		op.logger.Info("OpenShift Proxy query will be used to fetch cluster proxy configuration")
+		proxyQuerierInUse = proxyQuerier
+
+		informer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithLogger(op.logger),
+			queueinformer.WithInformer(proxyInformer.Informer()),
+			queueinformer.WithSyncer(queueinformer.LegacySyncHandler(proxySyncer.SyncProxy).ToSyncerWithDelete(proxySyncer.HandleProxyDelete)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		op.RegisterQueueInformer(informer)
 	}
 
+	proxyEnvInjector := envvar.NewDeploymentInitializer(op.logger, proxyQuerierInUse, op.lister)
+	op.resolver = &install.StrategyResolver{
+		ProxyInjectorBuilder: proxyEnvInjector.GetDeploymentInitializer,
+	}
+	
 	return op, nil
+}
+
+func (a *Operator) now() metav1.Time {
+	return metav1.NewTime(a.clock.Now().UTC())
+}
+
+func (a *Operator) syncSubscription(obj interface{}) error {
+	_, ok := obj.(*v1alpha1.Subscription)
+	if !ok {
+		a.logger.Debugf("wrong type: %#v\n", obj)
+		return fmt.Errorf("casting Subscription failed")
+	}
+
+	return nil
+}
+
+func (a *Operator) syncSubscriptionDeleted(obj interface{}) {
+	_, ok := obj.(*v1alpha1.Subscription)
+	if !ok {
+		a.logger.Debugf("casting Subscription failed, wrong type: %#v\n", obj)
+	}
+
+	return
+}
+
+func (a *Operator) syncAPIService(obj interface{}) (syncError error) {
+	apiService, ok := obj.(*apiregistrationv1.APIService)
+	if !ok {
+		a.logger.Debugf("wrong type: %#v", obj)
+		return fmt.Errorf("casting APIService failed")
+	}
+
+	logger := a.logger.WithFields(logrus.Fields{
+		"id":         queueinformer.NewLoopID(),
+		"apiService": apiService.GetName(),
+	})
+	logger.Info("syncing APIService")
+
+	if name, ns, ok := ownerutil.GetOwnerByKindLabel(apiService, v1alpha1.ClusterServiceVersionKind); ok {
+		_, err := a.lister.CoreV1().NamespaceLister().Get(ns)
+		if k8serrors.IsNotFound(err) {
+			logger.Debug("Deleting api service since owning namespace is not found")
+			syncError = a.opClient.DeleteAPIService(apiService.GetName(), &metav1.DeleteOptions{})
+			return
+		}
+
+		_, err = a.lister.OperatorsV1alpha1().ClusterServiceVersionLister().ClusterServiceVersions(ns).Get(name)
+		if k8serrors.IsNotFound(err) {
+			logger.Debug("Deleting api service since owning CSV is not found")
+			syncError = a.opClient.DeleteAPIService(apiService.GetName(), &metav1.DeleteOptions{})
+			return
+		} else if err != nil {
+			syncError = err
+			return
+		} else {
+			if ownerutil.IsOwnedByKindLabel(apiService, v1alpha1.ClusterServiceVersionKind) {
+				logger.Debug("requeueing owner CSVs")
+				a.requeueOwnerCSVs(apiService)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (a *Operator) GetCSVSetGenerator() csvutility.SetGenerator {
+	return a.csvSetGenerator
+}
+
+func (a *Operator) GetReplaceFinder() csvutility.ReplaceFinder {
+	return a.csvReplaceFinder
+}
+
+func (a *Operator) RegisterCSVWatchNotification(csvNotification csvutility.WatchNotification) {
+	if csvNotification == nil {
+		return
+	}
+
+	a.csvNotification = csvNotification
 }
 
 func (a *Operator) syncObject(obj interface{}) (syncError error) {
@@ -312,10 +533,10 @@ func (a *Operator) syncObject(obj interface{}) (syncError error) {
 	metaObj, ok := obj.(metav1.Object)
 	if !ok {
 		syncError = errors.New("object sync: casting to metav1.Object failed")
-		a.Log.Warn(syncError.Error())
+		a.logger.Warn(syncError.Error())
 		return
 	}
-	logger := a.Log.WithFields(logrus.Fields{
+	logger := a.logger.WithFields(logrus.Fields{
 		"name":      metaObj.GetName(),
 		"namespace": metaObj.GetNamespace(),
 		"self":      metaObj.GetSelfLink(),
@@ -351,7 +572,7 @@ func (a *Operator) namespaceAddedOrRemoved(obj interface{}) {
 		return
 	}
 
-	logger := a.Log.WithFields(logrus.Fields{
+	logger := a.logger.WithFields(logrus.Fields{
 		"name": namespace.GetName(),
 	})
 
@@ -363,7 +584,7 @@ func (a *Operator) namespaceAddedOrRemoved(obj interface{}) {
 
 	for _, group := range operatorGroupList {
 		if resolver.NewNamespaceSet(group.Status.Namespaces).Contains(namespace.GetName()) {
-			if err := a.ogQueueSet.Requeue(group.Name, group.Namespace); err != nil {
+			if err := a.ogQueueSet.Requeue(group.Namespace, group.Name); err != nil {
 				logger.WithError(err).Warn("error requeuing operatorgroup")
 			}
 		}
@@ -387,7 +608,11 @@ func (a *Operator) handleClusterServiceVersionDeletion(obj interface{}) {
 		}
 	}
 
-	logger := a.Log.WithFields(logrus.Fields{
+	if a.csvNotification != nil {
+		a.csvNotification.OnDelete(clusterServiceVersion)
+	}
+
+	logger := a.logger.WithFields(logrus.Fields{
 		"id":        queueinformer.NewLoopID(),
 		"csv":       clusterServiceVersion.GetName(),
 		"namespace": clusterServiceVersion.GetNamespace(),
@@ -395,8 +620,10 @@ func (a *Operator) handleClusterServiceVersionDeletion(obj interface{}) {
 	})
 
 	defer func(csv v1alpha1.ClusterServiceVersion) {
-		logger.Debug("removing csv from queue set")
-		a.csvQueueSet.Remove(csv.GetName(), csv.GetNamespace())
+		if clusterServiceVersion.IsCopied() {
+			logger.Debug("deleted csv is copied. skipping operatorgroup requeue")
+			return
+		}
 
 		// Requeue all OperatorGroups in the namespace
 		logger.Debug("requeueing operatorgroups in namespace")
@@ -409,7 +636,7 @@ func (a *Operator) handleClusterServiceVersionDeletion(obj interface{}) {
 		for _, operatorGroup := range operatorGroups {
 			logger := logger.WithField("operatorgroup", operatorGroup.GetName())
 			logger.Debug("requeueing")
-			if err := a.ogQueueSet.Requeue(operatorGroup.GetName(), operatorGroup.GetNamespace()); err != nil {
+			if err := a.ogQueueSet.Requeue(operatorGroup.GetNamespace(), operatorGroup.GetName()); err != nil {
 				logger.WithError(err).Debug("error requeueing operatorgroup")
 			}
 		}
@@ -440,7 +667,7 @@ func (a *Operator) handleClusterServiceVersionDeletion(obj interface{}) {
 	logger.Info("gcing children")
 	namespaces := []string{}
 	if targetNamespaces == "" {
-		namespaceList, err := a.OpClient.KubernetesInterface().CoreV1().Namespaces().List(metav1.ListOptions{})
+		namespaceList, err := a.opClient.KubernetesInterface().CoreV1().Namespaces().List(metav1.ListOptions{})
 		if err != nil {
 			logger.WithError(err).Warn("cannot list all namespaces to requeue child csvs for deletion")
 			return
@@ -454,7 +681,7 @@ func (a *Operator) handleClusterServiceVersionDeletion(obj interface{}) {
 	for _, namespace := range namespaces {
 		if namespace != operatorNamespace {
 			logger.WithField("targetNamespace", namespace).Debug("requeueing child csv for deletion")
-			a.gcQueueIndexer.Add(fmt.Sprintf("%s/%s", namespace, clusterServiceVersion.GetName()))
+			a.csvGCQueueSet.Requeue(namespace, clusterServiceVersion.GetName())
 		}
 	}
 
@@ -471,7 +698,7 @@ func (a *Operator) handleClusterServiceVersionDeletion(obj interface{}) {
 		apiServiceLabels := fetched.GetLabels()
 		if clusterServiceVersion.GetName() == apiServiceLabels[ownerutil.OwnerKey] && clusterServiceVersion.GetNamespace() == apiServiceLabels[ownerutil.OwnerNamespaceKey] {
 			logger.Infof("gcing api service %v", apiServiceName)
-			err := a.OpClient.DeleteAPIService(apiServiceName, &metav1.DeleteOptions{})
+			err := a.opClient.DeleteAPIService(apiServiceName, &metav1.DeleteOptions{})
 			if err != nil {
 				logger.WithError(err).Warn("cannot delete orphaned api service")
 			}
@@ -480,7 +707,7 @@ func (a *Operator) handleClusterServiceVersionDeletion(obj interface{}) {
 }
 
 func (a *Operator) removeDanglingChildCSVs(csv *v1alpha1.ClusterServiceVersion) error {
-	logger := a.Log.WithFields(logrus.Fields{
+	logger := a.logger.WithFields(logrus.Fields{
 		"id":          queueinformer.NewLoopID(),
 		"csv":         csv.GetName(),
 		"namespace":   csv.GetNamespace(),
@@ -532,17 +759,27 @@ func (a *Operator) deleteChild(csv *v1alpha1.ClusterServiceVersion, logger *logr
 func (a *Operator) syncClusterServiceVersion(obj interface{}) (syncError error) {
 	clusterServiceVersion, ok := obj.(*v1alpha1.ClusterServiceVersion)
 	if !ok {
-		a.Log.Debugf("wrong type: %#v", obj)
+		a.logger.Debugf("wrong type: %#v", obj)
 		return fmt.Errorf("casting ClusterServiceVersion failed")
 	}
 
-	logger := a.Log.WithFields(logrus.Fields{
+	logger := a.logger.WithFields(logrus.Fields{
 		"id":        queueinformer.NewLoopID(),
 		"csv":       clusterServiceVersion.GetName(),
 		"namespace": clusterServiceVersion.GetNamespace(),
 		"phase":     clusterServiceVersion.Status.Phase,
 	})
 	logger.Debug("syncing CSV")
+
+	if a.csvNotification != nil {
+		a.csvNotification.OnAddOrUpdate(clusterServiceVersion)
+	}
+
+	if clusterServiceVersion.IsCopied() {
+		logger.Debug("skipping copied csv transition, schedule for gc check")
+		a.csvGCQueueSet.Requeue(clusterServiceVersion.GetNamespace(), clusterServiceVersion.GetName())
+		return
+	}
 
 	outCSV, syncError := a.transitionCSVState(*clusterServiceVersion)
 
@@ -562,13 +799,33 @@ func (a *Operator) syncClusterServiceVersion(obj interface{}) (syncError error) 
 			updateErr := errors.New("error updating ClusterServiceVersion status: " + err.Error())
 			if syncError == nil {
 				logger.Info(updateErr)
-				return updateErr
+				syncError = updateErr
+			} else {
+				syncError = fmt.Errorf("error transitioning ClusterServiceVersion: %s and error updating CSV status: %s", syncError, updateErr)
 			}
-			syncError = fmt.Errorf("error transitioning ClusterServiceVersion: %s and error updating CSV status: %s", syncError, updateErr)
 		}
 	}
 
-	a.copyQueueIndexer.Enqueue(outCSV)
+	operatorGroup := a.operatorGroupFromAnnotations(logger, clusterServiceVersion)
+	if operatorGroup == nil {
+		logger.WithField("reason", "no operatorgroup found for active CSV").Debug("skipping potential RBAC creation in target namespaces")
+		return
+	}
+
+	if len(operatorGroup.Status.Namespaces) == 1 && operatorGroup.Status.Namespaces[0] == operatorGroup.GetNamespace() {
+		logger.Debug("skipping copy for OwnNamespace operatorgroup")
+		return
+	}
+	// Ensure operator has access to targetnamespaces with cluster RBAC
+	// (roles/rolebindings are checked for each target namespace in syncCopyCSV)
+	if err := a.ensureRBACInTargetNamespace(clusterServiceVersion, operatorGroup); err != nil {
+		logger.WithError(err).Info("couldn't ensure RBAC in target namespaces")
+		syncError = err
+	}
+
+	if !outCSV.IsUncopiable() {
+		a.csvCopyQueueSet.Requeue(outCSV.GetNamespace(), outCSV.GetName())
+	}
 
 	return
 }
@@ -576,11 +833,11 @@ func (a *Operator) syncClusterServiceVersion(obj interface{}) (syncError error) 
 func (a *Operator) syncCopyCSV(obj interface{}) (syncError error) {
 	clusterServiceVersion, ok := obj.(*v1alpha1.ClusterServiceVersion)
 	if !ok {
-		a.Log.Debugf("wrong type: %#v", obj)
+		a.logger.Debugf("wrong type: %#v", obj)
 		return fmt.Errorf("casting ClusterServiceVersion failed")
 	}
 
-	logger := a.Log.WithFields(logrus.Fields{
+	logger := a.logger.WithFields(logrus.Fields{
 		"id":        queueinformer.NewLoopID(),
 		"csv":       clusterServiceVersion.GetName(),
 		"namespace": clusterServiceVersion.GetNamespace(),
@@ -589,19 +846,11 @@ func (a *Operator) syncCopyCSV(obj interface{}) (syncError error) {
 
 	logger.Debug("copying CSV")
 
-	if clusterServiceVersion.IsUncopiable() {
-		logger.Debug("CSV uncopiable")
-		return
-	}
-
 	operatorGroup := a.operatorGroupFromAnnotations(logger, clusterServiceVersion)
 	if operatorGroup == nil {
-		logger.WithField("reason", "no operatorgroup found for active CSV").Debug("skipping CSV resource copy to target namespaces")
-		return
-	}
-
-	if len(operatorGroup.Status.Namespaces) == 1 && operatorGroup.Status.Namespaces[0] == operatorGroup.GetNamespace() {
-		logger.Debug("skipping copy for OwnNamespace operatorgroup")
+		// since syncClusterServiceVersion is the only enqueuer, annotations should be present
+		logger.WithField("reason", "no operatorgroup found for active CSV").Error("operatorgroup should have annotations")
+		syncError = fmt.Errorf("operatorGroup for csv '%v' should have annotations", clusterServiceVersion.GetName())
 		return
 	}
 
@@ -615,24 +864,13 @@ func (a *Operator) syncCopyCSV(obj interface{}) (syncError error) {
 		syncError = err
 	}
 
-	// Ensure operator has access to targetnamespaces
-	if err := a.ensureRBACInTargetNamespace(clusterServiceVersion, operatorGroup); err != nil {
-		logger.WithError(err).Info("couldn't ensure RBAC in target namespaces")
-		syncError = err
-	}
-
-	// Ensure cluster roles exist for using provided apis
-	if err := a.ensureClusterRolesForCSV(clusterServiceVersion, operatorGroup); err != nil {
-		logger.WithError(err).Info("couldn't ensure clusterroles for provided api types")
-		syncError = err
-	}
 	return
 }
 
 func (a *Operator) syncGcCsv(obj interface{}) (syncError error) {
 	clusterServiceVersion, ok := obj.(*v1alpha1.ClusterServiceVersion)
 	if !ok {
-		a.Log.Debugf("wrong type: %#v", obj)
+		a.logger.Debugf("wrong type: %#v", obj)
 		return fmt.Errorf("casting ClusterServiceVersion failed")
 	}
 	if clusterServiceVersion.IsCopied() {
@@ -693,7 +931,7 @@ func (a *Operator) operatorGroupFromAnnotations(logger *logrus.Entry, csv *v1alp
 }
 
 func (a *Operator) operatorGroupForCSV(csv *v1alpha1.ClusterServiceVersion, logger *logrus.Entry) (*v1.OperatorGroup, error) {
-	now := timeNow()
+	now := a.now()
 
 	// Attempt to associate an OperatorGroup with the CSV.
 	operatorGroups, err := a.client.OperatorsV1().OperatorGroups(csv.GetNamespace()).List(metav1.ListOptions{})
@@ -718,6 +956,9 @@ func (a *Operator) operatorGroupForCSV(csv *v1alpha1.ClusterServiceVersion, logg
 				logger.WithError(err).Warn("error adding operatorgroup annotations")
 				return nil, err
 			}
+			if targetNamespaceList, err := a.getOperatorGroupTargets(operatorGroup); err == nil && len(targetNamespaceList) == 0 {
+				csv.SetPhaseWithEventIfChanged(v1alpha1.CSVPhaseFailed, v1alpha1.CSVReasonNoTargetNamespaces, "no targetNamespaces are matched operatorgroups namespace selection", now, a.recorder)
+			}
 			return nil, nil
 		}
 		logger.Info("csv in operatorgroup")
@@ -734,7 +975,7 @@ func (a *Operator) operatorGroupForCSV(csv *v1alpha1.ClusterServiceVersion, logg
 
 // transitionCSVState moves the CSV status state machine along based on the current value and the current cluster state.
 func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v1alpha1.ClusterServiceVersion, syncError error) {
-	logger := a.Log.WithFields(logrus.Fields{
+	logger := a.logger.WithFields(logrus.Fields{
 		"id":        queueinformer.NewLoopID(),
 		"csv":       in.GetName(),
 		"namespace": in.GetNamespace(),
@@ -742,15 +983,9 @@ func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v
 	})
 
 	out = in.DeepCopy()
-	now := timeNow()
+	now := a.now()
 
-	if out.IsCopied() {
-		logger.Debug("skipping copied csv transition, schedule for gc check")
-		a.gcQueueIndexer.Enqueue(out)
-		return
-	}
-
-	operatorSurface, err := resolver.NewOperatorFromCSV(out)
+	operatorSurface, err := resolver.NewOperatorFromV1Alpha1CSV(out)
 	if err != nil {
 		// TODO: Add failure status to CSV
 		syncError = err
@@ -769,12 +1004,6 @@ func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v
 		}
 		// Update the underlying value of out to preserve changes
 		*out = *updated
-	}
-
-	// Check if the current CSV is being replaced, return with replacing status if so
-	if err := a.checkReplacementsAndUpdateStatus(out); err != nil {
-		logger.WithError(err).Info("replacement check")
-		return
 	}
 
 	// Verify CSV operatorgroup (and update annotations if needed)
@@ -854,7 +1083,7 @@ func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v
 		if _, err := a.client.OperatorsV1().OperatorGroups(operatorGroup.GetNamespace()).Update(operatorGroup); err != nil && !k8serrors.IsNotFound(err) {
 			syncError = fmt.Errorf("could not update operatorgroups %s annotation: %v", v1.OperatorGroupProvidedAPIsAnnotationKey, err)
 		}
-		a.csvQueueSet.Requeue(out.GetName(), out.GetNamespace())
+		a.csvQueueSet.Requeue(out.GetNamespace(), out.GetName())
 		return
 	case result == resolver.RemoveAPIs:
 		// Remove the CSV's provided APIs from its OperatorGroup's annotation
@@ -867,7 +1096,7 @@ func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v
 				syncError = fmt.Errorf("could not update operatorgroups %s annotation: %v", v1.OperatorGroupProvidedAPIsAnnotationKey, err)
 			}
 		}
-		a.csvQueueSet.Requeue(out.GetName(), out.GetNamespace())
+		a.csvQueueSet.Requeue(out.GetNamespace(), out.GetName())
 		return
 	default:
 		logger.WithField("apis", providedAPIs).Debug("no intersecting operatorgroups provide the same apis")
@@ -887,9 +1116,18 @@ func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v
 		}
 		out.SetRequirementStatus(statuses)
 
+		// Check if we need to requeue the previous
+		if prev := a.isReplacing(out); prev != nil {
+			if prev.Status.Phase == v1alpha1.CSVPhaseSucceeded {
+				if err := a.csvQueueSet.Requeue(prev.GetNamespace(), prev.GetName()); err != nil {
+					a.logger.WithError(err).Warn("error requeueing previous")
+				}
+			}
+		}
+
 		if !met {
 			logger.Info("requirements were not met")
-			out.SetPhaseWithEvent(v1alpha1.CSVPhasePending, v1alpha1.CSVReasonRequirementsNotMet, "one or more requirements couldn't be found", now, a.recorder)
+			out.SetPhaseWithEventIfChanged(v1alpha1.CSVPhasePending, v1alpha1.CSVReasonRequirementsNotMet, "one or more requirements couldn't be found", now, a.recorder)
 			syncError = ErrRequirementsNotMet
 			return
 		}
@@ -897,7 +1135,7 @@ func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v
 		// Check for CRD ownership conflicts
 		if syncError = a.crdOwnerConflicts(out, a.csvSet(out.GetNamespace(), v1alpha1.CSVPhaseAny)); syncError != nil {
 			if syncError == ErrCRDOwnerConflict {
-				out.SetPhaseWithEventIfChanged(v1alpha1.CSVPhaseFailed, v1alpha1.CSVReasonOwnerConflict, syncError.Error(), now, a.recorder)
+				out.SetPhaseWithEvent(v1alpha1.CSVPhaseFailed, v1alpha1.CSVReasonOwnerConflict, syncError.Error(), now, a.recorder)
 			}
 			return
 		}
@@ -905,15 +1143,22 @@ func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v
 		// Check for APIServices ownership conflicts
 		if syncError = a.apiServiceOwnerConflicts(out); syncError != nil {
 			if syncError == ErrAPIServiceOwnerConflict {
-				out.SetPhaseWithEventIfChanged(v1alpha1.CSVPhaseFailed, v1alpha1.CSVReasonOwnerConflict, syncError.Error(), now, a.recorder)
+				out.SetPhaseWithEvent(v1alpha1.CSVPhaseFailed, v1alpha1.CSVReasonOwnerConflict, syncError.Error(), now, a.recorder)
 			}
 			return
+		}
+
+		// Check if we're not ready to install part of the replacement chain yet
+		if prev := a.isReplacing(out); prev != nil {
+			if prev.Status.Phase != v1alpha1.CSVPhaseReplacing {
+				return
+			}
 		}
 
 		logger.Info("scheduling ClusterServiceVersion for install")
 		out.SetPhaseWithEvent(v1alpha1.CSVPhaseInstallReady, v1alpha1.CSVReasonRequirementsMet, "all requirements found, attempting install", now, a.recorder)
 	case v1alpha1.CSVPhaseInstallReady:
-		installer, strategy, _ := a.parseStrategiesAndUpdateStatus(out)
+		installer, strategy := a.parseStrategiesAndUpdateStatus(out)
 		if strategy == nil {
 			return
 		}
@@ -931,14 +1176,14 @@ func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v
 		}
 
 		out.SetPhaseWithEvent(v1alpha1.CSVPhaseInstalling, v1alpha1.CSVReasonInstallSuccessful, "waiting for install components to report healthy", now, a.recorder)
-		err := a.csvQueueSet.Requeue(out.GetName(), out.GetNamespace())
+		err := a.csvQueueSet.Requeue(out.GetNamespace(), out.GetName())
 		if err != nil {
-			a.Log.Warn(err.Error())
+			a.logger.Warn(err.Error())
 		}
 		return
 
 	case v1alpha1.CSVPhaseInstalling:
-		installer, strategy, _ := a.parseStrategiesAndUpdateStatus(out)
+		installer, strategy := a.parseStrategiesAndUpdateStatus(out)
 		if strategy == nil {
 			return
 		}
@@ -948,12 +1193,18 @@ func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v
 		} else {
 			// Set phase to failed if it's been a long time since the last transition (5 minutes)
 			if metav1.Now().Sub(out.Status.LastTransitionTime.Time) >= 5*time.Minute {
-				out.SetPhaseWithEventIfChanged(v1alpha1.CSVPhaseFailed, v1alpha1.CSVReasonInstallCheckFailed, fmt.Sprintf("install timeout"), now, a.recorder)
+				out.SetPhaseWithEvent(v1alpha1.CSVPhaseFailed, v1alpha1.CSVReasonInstallCheckFailed, fmt.Sprintf("install timeout"), now, a.recorder)
 			}
 		}
 
 	case v1alpha1.CSVPhaseSucceeded:
-		installer, strategy, _ := a.parseStrategiesAndUpdateStatus(out)
+		// Check if the current CSV is being replaced, return with replacing status if so
+		if err := a.checkReplacementsAndUpdateStatus(out); err != nil {
+			logger.WithError(err).Info("replacement check")
+			return
+		}
+
+		installer, strategy := a.parseStrategiesAndUpdateStatus(out)
 		if strategy == nil {
 			return
 		}
@@ -988,8 +1239,15 @@ func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v
 			return
 		}
 
+		// Ensure cluster roles exist for using provided apis
+		if err := a.ensureClusterRolesForCSV(out, operatorGroup); err != nil {
+			logger.WithError(err).Info("couldn't ensure clusterroles for provided api types")
+			syncError = err
+			return
+		}
+
 	case v1alpha1.CSVPhaseFailed:
-		installer, strategy, _ := a.parseStrategiesAndUpdateStatus(out)
+		installer, strategy := a.parseStrategiesAndUpdateStatus(out)
 		if strategy == nil {
 			return
 		}
@@ -1064,27 +1322,24 @@ func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v
 			return
 		}
 
-		// If we can find a newer version that's successfully installed, we're safe to mark all intermediates
-		for _, csv := range a.findIntermediatesForDeletion(out) {
-			// we only mark them in this step, in case some get deleted but others fail and break the replacement chain
-			csv.SetPhaseWithEvent(v1alpha1.CSVPhaseDeleting, v1alpha1.CSVReasonReplaced, "has been replaced by a newer ClusterServiceVersion that has successfully installed.", now, a.recorder)
-
-			// Ignore errors and success here; this step is just an optimization to speed up GC
-			_, _ = a.client.OperatorsV1alpha1().ClusterServiceVersions(csv.GetNamespace()).UpdateStatus(csv)
-			err := a.csvQueueSet.Requeue(csv.GetName(), csv.GetNamespace())
-			if err != nil {
-				a.Log.Warn(err.Error())
+		// If there is a succeeded replacement, mark this for deletion
+		if next := a.isBeingReplaced(out, a.csvSet(out.GetNamespace(), v1alpha1.CSVPhaseAny)); next != nil {
+			if next.Status.Phase == v1alpha1.CSVPhaseSucceeded {
+				out.SetPhaseWithEvent(v1alpha1.CSVPhaseDeleting, v1alpha1.CSVReasonReplaced, "has been replaced by a newer ClusterServiceVersion that has successfully installed.", now, a.recorder)
+			} else {
+				// If there's a replacement, but it's not yet succeeded, requeue both (this is an active replacement)
+				if err := a.csvQueueSet.Requeue(next.GetNamespace(), next.GetName()); err != nil {
+					a.logger.Warn(err.Error())
+				}
+				if err := a.csvQueueSet.Requeue(out.GetNamespace(), out.GetName()); err != nil {
+					a.logger.Warn(err.Error())
+				}
 			}
-		}
-
-		// If there's no newer version, requeue for processing (likely will be GCable before resync)
-		err := a.csvQueueSet.Requeue(out.GetName(), out.GetNamespace())
-		if err != nil {
-			a.Log.Warn(err.Error())
+		} else {
+			syncError = fmt.Errorf("CSV marked as replacement, but no replacement CSV found in cluster.")
 		}
 	case v1alpha1.CSVPhaseDeleting:
-		var immediate int64 = 0
-		syncError = a.client.OperatorsV1alpha1().ClusterServiceVersions(out.GetNamespace()).Delete(out.GetName(), &metav1.DeleteOptions{GracePeriodSeconds: &immediate})
+		syncError = a.client.OperatorsV1alpha1().ClusterServiceVersions(out.GetNamespace()).Delete(out.GetName(), metav1.NewDeleteOptions(0))
 		if syncError != nil {
 			logger.Debugf("unable to get delete csv marked for deletion: %s", syncError.Error())
 		}
@@ -1093,53 +1348,9 @@ func (a *Operator) transitionCSVState(in v1alpha1.ClusterServiceVersion) (out *v
 	return
 }
 
-// findIntermediatesForDeletion starts at csv and follows the replacement chain until one is running and active
-func (a *Operator) findIntermediatesForDeletion(csv *v1alpha1.ClusterServiceVersion) (csvs []*v1alpha1.ClusterServiceVersion) {
-	csvsInNamespace := a.csvSet(csv.GetNamespace(), v1alpha1.CSVPhaseAny)
-	current := csv
-
-	// isBeingReplaced returns a copy
-	next := a.isBeingReplaced(current, csvsInNamespace)
-	for next != nil {
-		csvs = append(csvs, current)
-		a.Log.Debugf("checking to see if %s is running so we can delete %s", next.GetName(), csv.GetName())
-		installer, nextStrategy, currentStrategy := a.parseStrategiesAndUpdateStatus(next)
-		if nextStrategy == nil {
-			a.Log.Debugf("couldn't get strategy for %s", next.GetName())
-			continue
-		}
-		if currentStrategy == nil {
-			a.Log.Debugf("couldn't get strategy for %s", next.GetName())
-			continue
-		}
-		installed, _ := installer.CheckInstalled(nextStrategy)
-		if installed && !next.IsObsolete() && next.Status.Phase == v1alpha1.CSVPhaseSucceeded {
-			return csvs
-		}
-		current = next
-		next = a.isBeingReplaced(current, csvsInNamespace)
-	}
-
-	return nil
-}
-
 // csvSet gathers all CSVs in the given namespace into a map keyed by CSV name; if metav1.NamespaceAll gets the set across all namespaces
 func (a *Operator) csvSet(namespace string, phase v1alpha1.ClusterServiceVersionPhase) map[string]*v1alpha1.ClusterServiceVersion {
-	csvsInNamespace, err := a.lister.OperatorsV1alpha1().ClusterServiceVersionLister().ClusterServiceVersions(namespace).List(labels.Everything())
-
-	if err != nil {
-		a.Log.Warnf("could not list CSVs while constructing CSV set")
-		return nil
-	}
-
-	csvs := make(map[string]*v1alpha1.ClusterServiceVersion, len(csvsInNamespace))
-	for _, csv := range csvsInNamespace {
-		if phase != v1alpha1.CSVPhaseAny && csv.Status.Phase != phase {
-			continue
-		}
-		csvs[csv.Name] = csv.DeepCopy()
-	}
-	return csvs
+	return a.csvSetGenerator.WithNamespace(namespace, phase)
 }
 
 // checkReplacementsAndUpdateStatus returns an error if we can find a newer CSV and sets the status if so
@@ -1148,9 +1359,9 @@ func (a *Operator) checkReplacementsAndUpdateStatus(csv *v1alpha1.ClusterService
 		return nil
 	}
 	if replacement := a.isBeingReplaced(csv, a.csvSet(csv.GetNamespace(), v1alpha1.CSVPhaseAny)); replacement != nil {
-		a.Log.Infof("newer ClusterServiceVersion replacing %s, no-op", csv.SelfLink)
-		msg := fmt.Sprintf("being replaced by csv: %s", replacement.SelfLink)
-		csv.SetPhaseWithEvent(v1alpha1.CSVPhaseReplacing, v1alpha1.CSVReasonBeingReplaced, msg, timeNow(), a.recorder)
+		a.logger.Infof("newer csv replacing %s, no-op", csv.SelfLink)
+		msg := fmt.Sprintf("being replaced by csv: %s", replacement.GetName())
+		csv.SetPhaseWithEvent(v1alpha1.CSVPhaseReplacing, v1alpha1.CSVReasonBeingReplaced, msg, a.now(), a.recorder)
 		metrics.CSVUpgradeCount.Inc()
 
 		return fmt.Errorf("replacing")
@@ -1161,7 +1372,11 @@ func (a *Operator) checkReplacementsAndUpdateStatus(csv *v1alpha1.ClusterService
 func (a *Operator) updateInstallStatus(csv *v1alpha1.ClusterServiceVersion, installer install.StrategyInstaller, strategy install.Strategy, requeuePhase v1alpha1.ClusterServiceVersionPhase, requeueConditionReason v1alpha1.ConditionReason) error {
 	apiServicesInstalled, apiServiceErr := a.areAPIServicesAvailable(csv)
 	strategyInstalled, strategyErr := installer.CheckInstalled(strategy)
-	now := timeNow()
+	now := a.now()
+
+	if strategyErr != nil {
+		a.logger.WithError(strategyErr).Debug("operator not installed")
+	}
 
 	if strategyInstalled && apiServicesInstalled {
 		// if there's no error, we're successfully running
@@ -1182,8 +1397,8 @@ func (a *Operator) updateInstallStatus(csv *v1alpha1.ClusterServiceVersion, inst
 
 	if !apiServicesInstalled {
 		csv.SetPhaseWithEventIfChanged(requeuePhase, requeueConditionReason, fmt.Sprintf("APIServices not installed"), now, a.recorder)
-		if err := a.csvQueueSet.Requeue(csv.GetName(), csv.GetNamespace()); err != nil {
-			a.Log.Warn(err.Error())
+		if err := a.csvQueueSet.Requeue(csv.GetNamespace(), csv.GetName()); err != nil {
+			a.logger.Warn(err.Error())
 		}
 
 		return fmt.Errorf("APIServices not installed")
@@ -1191,8 +1406,8 @@ func (a *Operator) updateInstallStatus(csv *v1alpha1.ClusterServiceVersion, inst
 
 	if strategyErr != nil {
 		csv.SetPhaseWithEventIfChanged(requeuePhase, requeueConditionReason, fmt.Sprintf("installing: %s", strategyErr), now, a.recorder)
-		if err := a.csvQueueSet.Requeue(csv.GetName(), csv.GetNamespace()); err != nil {
-			a.Log.Warn(err.Error())
+		if err := a.csvQueueSet.Requeue(csv.GetNamespace(), csv.GetName()); err != nil {
+			a.logger.Warn(err.Error())
 		}
 
 		return strategyErr
@@ -1202,19 +1417,19 @@ func (a *Operator) updateInstallStatus(csv *v1alpha1.ClusterServiceVersion, inst
 }
 
 // parseStrategiesAndUpdateStatus returns a StrategyInstaller and a Strategy for a CSV if it can, else it sets a status on the CSV and returns
-func (a *Operator) parseStrategiesAndUpdateStatus(csv *v1alpha1.ClusterServiceVersion) (install.StrategyInstaller, install.Strategy, install.Strategy) {
+func (a *Operator) parseStrategiesAndUpdateStatus(csv *v1alpha1.ClusterServiceVersion) (install.StrategyInstaller, install.Strategy) {
 	strategy, err := a.resolver.UnmarshalStrategy(csv.Spec.InstallStrategy)
 	if err != nil {
-		csv.SetPhaseWithEvent(v1alpha1.CSVPhaseFailed, v1alpha1.CSVReasonInvalidStrategy, fmt.Sprintf("install strategy invalid: %s", err), timeNow(), a.recorder)
-		return nil, nil, nil
+		csv.SetPhaseWithEvent(v1alpha1.CSVPhaseFailed, v1alpha1.CSVReasonInvalidStrategy, fmt.Sprintf("install strategy invalid: %s", err), a.now(), a.recorder)
+		return nil, nil
 	}
 
 	previousCSV := a.isReplacing(csv)
 	var previousStrategy install.Strategy
 	if previousCSV != nil {
-		err = a.csvQueueSet.Requeue(previousCSV.Name, previousCSV.Namespace)
+		err = a.csvQueueSet.Requeue(previousCSV.Namespace, previousCSV.Name)
 		if err != nil {
-			a.Log.Warn(err.Error())
+			a.logger.Warn(err.Error())
 		}
 
 		previousStrategy, err = a.resolver.UnmarshalStrategy(previousCSV.Spec.InstallStrategy)
@@ -1223,15 +1438,30 @@ func (a *Operator) parseStrategiesAndUpdateStatus(csv *v1alpha1.ClusterServiceVe
 		}
 	}
 
+	// If an admin has specified a service account to the operator group
+	// associated with the namespace then we should use a scoped client that is
+	// bound to the service account.
+	querierFunc := a.serviceAccountQuerier.NamespaceQuerier(csv.GetNamespace())
+	kubeclient, err := a.clientAttenuator.AttenuateOperatorClient(querierFunc)
+	if err != nil {
+		a.logger.Errorf("failed to get a client for operator deployment- %v", err)
+		return nil, nil
+	}
+
 	strName := strategy.GetStrategyName()
-	installer := a.resolver.InstallerForStrategy(strName, a.OpClient, a.lister, csv, csv.Annotations, previousStrategy)
-	return installer, strategy, previousStrategy
+	installer := a.resolver.InstallerForStrategy(strName, kubeclient, a.lister, csv, csv.Annotations, previousStrategy)
+	return installer, strategy
 }
 
-func (a *Operator) crdOwnerConflicts(in *v1alpha1.ClusterServiceVersion, csvs map[string]*v1alpha1.ClusterServiceVersion) error {
-	for _, crd := range in.Spec.CustomResourceDefinitions.Owned {
-		for name, csv := range csvs {
-			if name != in.GetName() && in.Spec.Replaces != name && csv.OwnsCRD(crd.Name) {
+func (a *Operator) crdOwnerConflicts(in *v1alpha1.ClusterServiceVersion, csvsInNamespace map[string]*v1alpha1.ClusterServiceVersion) error {
+	csvsInChain := a.getReplacementChain(in, csvsInNamespace)
+	// find csvs in the namespace that are not part of the replacement chain
+	for name, csv := range csvsInNamespace {
+		if _, ok := csvsInChain[name]; ok {
+			continue
+		}
+		for _, crd := range in.Spec.CustomResourceDefinitions.Owned {
+			if name != in.GetName() && csv.OwnsCRD(crd.Name) {
 				return ErrCRDOwnerConflict
 			}
 		}
@@ -1240,18 +1470,54 @@ func (a *Operator) crdOwnerConflicts(in *v1alpha1.ClusterServiceVersion, csvs ma
 	return nil
 }
 
+func (a *Operator) getReplacementChain(in *v1alpha1.ClusterServiceVersion, csvsInNamespace map[string]*v1alpha1.ClusterServiceVersion) map[string]struct{} {
+	current := in.GetName()
+	csvsInChain := map[string]struct{}{
+		current: {},
+	}
+
+	replacement := func(csvName string) *string {
+		for _, csv := range csvsInNamespace {
+			if csv.Spec.Replaces == csvName {
+				name := csv.GetName()
+				return &name
+			}
+		}
+		return nil
+	}
+
+	replaces := func(replaces string) *string {
+		for _, csv := range csvsInNamespace {
+			name := csv.GetName()
+			if name == replaces {
+				rep := csv.Spec.Replaces
+				return &rep
+			}
+		}
+		return nil
+	}
+
+	next := replacement(current)
+	for next != nil {
+		csvsInChain[*next] = struct{}{}
+		current = *next
+		next = replacement(current)
+	}
+
+	current = in.Spec.Replaces
+	prev := replaces(current)
+	if prev != nil {
+		csvsInChain[current] = struct{}{}
+	}
+	for prev != nil && *prev != "" {
+		current = *prev
+		csvsInChain[current] = struct{}{}
+		prev = replaces(current)
+	}
+	return csvsInChain
+}
+
 func (a *Operator) apiServiceOwnerConflicts(csv *v1alpha1.ClusterServiceVersion) error {
-	// Get replacing CSV if exists
-	replacing, err := a.lister.OperatorsV1alpha1().ClusterServiceVersionLister().ClusterServiceVersions(csv.GetNamespace()).Get(csv.Spec.Replaces)
-	if err != nil && !k8serrors.IsNotFound(err) && !k8serrors.IsGone(err) {
-		return err
-	}
-
-	owners := []ownerutil.Owner{csv}
-	if replacing != nil {
-		owners = append(owners, replacing)
-	}
-
 	for _, desc := range csv.GetOwnedAPIServiceDescriptions() {
 		// Check if the APIService exists
 		apiService, err := a.lister.APIRegistrationV1().APIServiceLister().Get(desc.GetName())
@@ -1263,7 +1529,12 @@ func (a *Operator) apiServiceOwnerConflicts(csv *v1alpha1.ClusterServiceVersion)
 			continue
 		}
 
-		if !ownerutil.AdoptableLabels(apiService.GetLabels(), true, owners...) {
+		adoptable, err := a.isAPIServiceAdoptable(csv, apiService)
+		if err != nil {
+			a.logger.WithFields(log.Fields{"obj": "apiService", "labels": apiService.GetLabels()}).Errorf("adoption check failed - %v", err)
+		}
+
+		if !adoptable {
 			return ErrAPIServiceOwnerConflict
 		}
 	}
@@ -1272,28 +1543,11 @@ func (a *Operator) apiServiceOwnerConflicts(csv *v1alpha1.ClusterServiceVersion)
 }
 
 func (a *Operator) isBeingReplaced(in *v1alpha1.ClusterServiceVersion, csvsInNamespace map[string]*v1alpha1.ClusterServiceVersion) (replacedBy *v1alpha1.ClusterServiceVersion) {
-	for _, csv := range csvsInNamespace {
-		a.Log.Infof("checking %s", csv.GetName())
-		if csv.Spec.Replaces == in.GetName() {
-			a.Log.Infof("%s replaced by %s", in.GetName(), csv.GetName())
-			replacedBy = csv.DeepCopy()
-			return
-		}
-	}
-	return
+	return a.csvReplaceFinder.IsBeingReplaced(in, csvsInNamespace)
 }
 
 func (a *Operator) isReplacing(in *v1alpha1.ClusterServiceVersion) *v1alpha1.ClusterServiceVersion {
-	a.Log.Debugf("checking if csv is replacing an older version")
-	if in.Spec.Replaces == "" {
-		return nil
-	}
-	previous, err := a.lister.OperatorsV1alpha1().ClusterServiceVersionLister().ClusterServiceVersions(in.GetNamespace()).Get(in.Spec.Replaces)
-	if err != nil {
-		a.Log.WithField("replacing", in.Spec.Replaces).WithError(err).Debugf("unable to get previous csv")
-		return nil
-	}
-	return previous
+	return a.csvReplaceFinder.IsReplacing(in)
 }
 
 func (a *Operator) handleDeletion(obj interface{}) {
@@ -1311,7 +1565,7 @@ func (a *Operator) handleDeletion(obj interface{}) {
 			return
 		}
 	}
-	logger := a.Log.WithFields(logrus.Fields{
+	logger := a.logger.WithFields(logrus.Fields{
 		"name":      metaObj.GetName(),
 		"namespace": metaObj.GetNamespace(),
 		"self":      metaObj.GetSelfLink(),
@@ -1347,7 +1601,7 @@ func (a *Operator) requeueCSVsByLabelSet(logger *logrus.Entry, labelSets ...labe
 }
 
 func (a *Operator) requeueOwnerCSVs(ownee metav1.Object) {
-	logger := a.Log.WithFields(logrus.Fields{
+	logger := a.logger.WithFields(logrus.Fields{
 		"ownee":     ownee.GetName(),
 		"selflink":  ownee.GetSelfLink(),
 		"namespace": ownee.GetNamespace(),
@@ -1358,7 +1612,7 @@ func (a *Operator) requeueOwnerCSVs(ownee metav1.Object) {
 	if len(owners) > 0 && ownee.GetNamespace() != metav1.NamespaceAll {
 		for _, ownerCSV := range owners {
 			// Since cross-namespace CSVs can't exist we're guaranteed the owner will be in the same namespace
-			err := a.csvQueueSet.Requeue(ownerCSV.Name, ownee.GetNamespace())
+			err := a.csvQueueSet.Requeue(ownee.GetNamespace(), ownerCSV.Name)
 			if err != nil {
 				logger.Warn(err.Error())
 			}
@@ -1368,7 +1622,7 @@ func (a *Operator) requeueOwnerCSVs(ownee metav1.Object) {
 
 	// Requeue owners based on labels
 	if name, ns, ok := ownerutil.GetOwnerByKindLabel(ownee, v1alpha1.ClusterServiceVersionKind); ok {
-		err := a.csvQueueSet.Requeue(name, ns)
+		err := a.csvQueueSet.Requeue(ns, name)
 		if err != nil {
 			logger.Warn(err.Error())
 		}
@@ -1394,7 +1648,7 @@ func (a *Operator) cleanupCSVDeployments(logger *logrus.Entry, csv *v1alpha1.Clu
 	for _, spec := range strategyDetailsDeployment.DeploymentSpecs {
 		logger := logger.WithField("deployment", spec.Name)
 		logger.Debug("cleaning up CSV deployment")
-		if err := a.OpClient.DeleteDeployment(csv.GetNamespace(), spec.Name, &metav1.DeleteOptions{}); err != nil {
+		if err := a.opClient.DeleteDeployment(csv.GetNamespace(), spec.Name, &metav1.DeleteOptions{}); err != nil {
 			logger.WithField("err", err).Warn("error cleaning up CSV deployment")
 		}
 	}
@@ -1433,11 +1687,20 @@ func (a *Operator) ensureDeploymentAnnotations(logger *logrus.Entry, csv *v1alph
 		if dep.Spec.Template.Annotations == nil {
 			dep.Spec.Template.Annotations = map[string]string{}
 		}
+
+		changed := false
 		for key, value := range annotations {
-			dep.Spec.Template.Annotations[key] = value
+			if v, ok := dep.Spec.Template.Annotations[key]; !ok || v != value {
+				dep.Spec.Template.Annotations[key] = value
+				changed = true
+			}
 		}
-		if _, _, err := a.OpClient.UpdateDeployment(dep); err != nil {
-			updateErrs = append(updateErrs, err)
+
+		if changed {
+			if _, _, err := a.opClient.UpdateDeployment(dep); err != nil {
+				logger.Info("annotations updated!")
+				updateErrs = append(updateErrs, err)
+			}
 		}
 	}
 	logger.Info("updated annotations to match current operatorgroup")
@@ -1456,7 +1719,7 @@ func (a *Operator) ensureLabels(in *v1alpha1.ClusterServiceVersion, labelSets ..
 		return in, nil
 	}
 
-	a.Log.WithField("labels", merged).Error("Labels updated!")
+	a.logger.WithField("labels", merged).Info("Labels updated!")
 
 	out := in.DeepCopy()
 	out.SetLabels(merged)

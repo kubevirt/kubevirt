@@ -1,3 +1,4 @@
+//go:generate mockgen -source client.go -destination operatorclientmocks/mock_client.go -package operatorclientmocks
 package operatorclient
 
 import (
@@ -154,6 +155,31 @@ func NewClientFromConfig(kubeconfig string, logger *logrus.Logger) ClientInterfa
 	}
 
 	return &Client{kubernetes.NewForConfigOrDie(config), apiextensions.NewForConfigOrDie(config), apiregistration.NewForConfigOrDie(config)}
+}
+
+func NewClientFromRestConfig(config *rest.Config) (client ClientInterface, err error) {
+	kubernetes, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return
+	}
+
+	apiextensions, err := apiextensions.NewForConfig(config)
+	if err != nil {
+		return
+	}
+
+	apiregistration, err := apiregistration.NewForConfig(config)
+	if err != nil {
+		return
+	}
+
+	client = &Client{
+		kubernetes, 
+		apiextensions,
+		apiregistration,
+	}
+
+	return
 }
 
 // NewClient creates a kubernetes client

@@ -1,4 +1,3 @@
-//go:generate counterfeiter -o fakes/fake_generation.go . SourceQuerier
 package resolver
 
 import (
@@ -48,7 +47,7 @@ func NewGenerationFromCluster(csvs []*v1alpha1.ClusterServiceVersion, subs []*v1
 		}
 	}
 	for _, csv := range csvs {
-		op, err := NewOperatorFromCSV(csv)
+		op, err := NewOperatorFromV1Alpha1CSV(csv)
 		if err != nil {
 			return nil, err
 		}

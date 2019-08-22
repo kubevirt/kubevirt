@@ -4,7 +4,7 @@ package tools
 
 import (
 	_ "github.com/golang/mock/mockgen"
-	_ "github.com/maxbrunsfeld/counterfeiter"
+	_ "github.com/maxbrunsfeld/counterfeiter/v6"
 	_ "k8s.io/code-generator/cmd/client-gen"
 	_ "k8s.io/code-generator/cmd/conversion-gen/"
 	_ "k8s.io/code-generator/cmd/deepcopy-gen"

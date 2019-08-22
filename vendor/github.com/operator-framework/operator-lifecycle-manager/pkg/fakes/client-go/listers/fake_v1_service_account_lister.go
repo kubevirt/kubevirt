@@ -2,43 +2,43 @@
 package listers
 
 import (
-	sync "sync"
+	"sync"
 
-	v1 "k8s.io/api/core/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	v1a "k8s.io/client-go/listers/core/v1"
+	v1a "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	v1 "k8s.io/client-go/listers/core/v1"
 )
 
 type FakeServiceAccountLister struct {
-	ListStub        func(labels.Selector) ([]*v1.ServiceAccount, error)
+	ListStub        func(labels.Selector) ([]*v1a.ServiceAccount, error)
 	listMutex       sync.RWMutex
 	listArgsForCall []struct {
 		arg1 labels.Selector
 	}
 	listReturns struct {
-		result1 []*v1.ServiceAccount
+		result1 []*v1a.ServiceAccount
 		result2 error
 	}
 	listReturnsOnCall map[int]struct {
-		result1 []*v1.ServiceAccount
+		result1 []*v1a.ServiceAccount
 		result2 error
 	}
-	ServiceAccountsStub        func(string) v1a.ServiceAccountNamespaceLister
+	ServiceAccountsStub        func(string) v1.ServiceAccountNamespaceLister
 	serviceAccountsMutex       sync.RWMutex
 	serviceAccountsArgsForCall []struct {
 		arg1 string
 	}
 	serviceAccountsReturns struct {
-		result1 v1a.ServiceAccountNamespaceLister
+		result1 v1.ServiceAccountNamespaceLister
 	}
 	serviceAccountsReturnsOnCall map[int]struct {
-		result1 v1a.ServiceAccountNamespaceLister
+		result1 v1.ServiceAccountNamespaceLister
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeServiceAccountLister) List(arg1 labels.Selector) ([]*v1.ServiceAccount, error) {
+func (fake *FakeServiceAccountLister) List(arg1 labels.Selector) ([]*v1a.ServiceAccount, error) {
 	fake.listMutex.Lock()
 	ret, specificReturn := fake.listReturnsOnCall[len(fake.listArgsForCall)]
 	fake.listArgsForCall = append(fake.listArgsForCall, struct {
@@ -62,7 +62,7 @@ func (fake *FakeServiceAccountLister) ListCallCount() int {
 	return len(fake.listArgsForCall)
 }
 
-func (fake *FakeServiceAccountLister) ListCalls(stub func(labels.Selector) ([]*v1.ServiceAccount, error)) {
+func (fake *FakeServiceAccountLister) ListCalls(stub func(labels.Selector) ([]*v1a.ServiceAccount, error)) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = stub
@@ -75,33 +75,33 @@ func (fake *FakeServiceAccountLister) ListArgsForCall(i int) labels.Selector {
 	return argsForCall.arg1
 }
 
-func (fake *FakeServiceAccountLister) ListReturns(result1 []*v1.ServiceAccount, result2 error) {
+func (fake *FakeServiceAccountLister) ListReturns(result1 []*v1a.ServiceAccount, result2 error) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = nil
 	fake.listReturns = struct {
-		result1 []*v1.ServiceAccount
+		result1 []*v1a.ServiceAccount
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeServiceAccountLister) ListReturnsOnCall(i int, result1 []*v1.ServiceAccount, result2 error) {
+func (fake *FakeServiceAccountLister) ListReturnsOnCall(i int, result1 []*v1a.ServiceAccount, result2 error) {
 	fake.listMutex.Lock()
 	defer fake.listMutex.Unlock()
 	fake.ListStub = nil
 	if fake.listReturnsOnCall == nil {
 		fake.listReturnsOnCall = make(map[int]struct {
-			result1 []*v1.ServiceAccount
+			result1 []*v1a.ServiceAccount
 			result2 error
 		})
 	}
 	fake.listReturnsOnCall[i] = struct {
-		result1 []*v1.ServiceAccount
+		result1 []*v1a.ServiceAccount
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *FakeServiceAccountLister) ServiceAccounts(arg1 string) v1a.ServiceAccountNamespaceLister {
+func (fake *FakeServiceAccountLister) ServiceAccounts(arg1 string) v1.ServiceAccountNamespaceLister {
 	fake.serviceAccountsMutex.Lock()
 	ret, specificReturn := fake.serviceAccountsReturnsOnCall[len(fake.serviceAccountsArgsForCall)]
 	fake.serviceAccountsArgsForCall = append(fake.serviceAccountsArgsForCall, struct {
@@ -125,7 +125,7 @@ func (fake *FakeServiceAccountLister) ServiceAccountsCallCount() int {
 	return len(fake.serviceAccountsArgsForCall)
 }
 
-func (fake *FakeServiceAccountLister) ServiceAccountsCalls(stub func(string) v1a.ServiceAccountNamespaceLister) {
+func (fake *FakeServiceAccountLister) ServiceAccountsCalls(stub func(string) v1.ServiceAccountNamespaceLister) {
 	fake.serviceAccountsMutex.Lock()
 	defer fake.serviceAccountsMutex.Unlock()
 	fake.ServiceAccountsStub = stub
@@ -138,26 +138,26 @@ func (fake *FakeServiceAccountLister) ServiceAccountsArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *FakeServiceAccountLister) ServiceAccountsReturns(result1 v1a.ServiceAccountNamespaceLister) {
+func (fake *FakeServiceAccountLister) ServiceAccountsReturns(result1 v1.ServiceAccountNamespaceLister) {
 	fake.serviceAccountsMutex.Lock()
 	defer fake.serviceAccountsMutex.Unlock()
 	fake.ServiceAccountsStub = nil
 	fake.serviceAccountsReturns = struct {
-		result1 v1a.ServiceAccountNamespaceLister
+		result1 v1.ServiceAccountNamespaceLister
 	}{result1}
 }
 
-func (fake *FakeServiceAccountLister) ServiceAccountsReturnsOnCall(i int, result1 v1a.ServiceAccountNamespaceLister) {
+func (fake *FakeServiceAccountLister) ServiceAccountsReturnsOnCall(i int, result1 v1.ServiceAccountNamespaceLister) {
 	fake.serviceAccountsMutex.Lock()
 	defer fake.serviceAccountsMutex.Unlock()
 	fake.ServiceAccountsStub = nil
 	if fake.serviceAccountsReturnsOnCall == nil {
 		fake.serviceAccountsReturnsOnCall = make(map[int]struct {
-			result1 v1a.ServiceAccountNamespaceLister
+			result1 v1.ServiceAccountNamespaceLister
 		})
 	}
 	fake.serviceAccountsReturnsOnCall[i] = struct {
-		result1 v1a.ServiceAccountNamespaceLister
+		result1 v1.ServiceAccountNamespaceLister
 	}{result1}
 }
 
@@ -187,4 +187,4 @@ func (fake *FakeServiceAccountLister) recordInvocation(key string, args []interf
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ v1a.ServiceAccountLister = new(FakeServiceAccountLister)
+var _ v1.ServiceAccountLister = new(FakeServiceAccountLister)

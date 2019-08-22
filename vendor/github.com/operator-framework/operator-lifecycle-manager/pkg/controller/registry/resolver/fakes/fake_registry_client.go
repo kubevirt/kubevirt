@@ -2,14 +2,25 @@
 package fakes
 
 import (
-	context "context"
-	sync "sync"
+	"context"
+	"sync"
+	"time"
 
-	client "github.com/operator-framework/operator-registry/pkg/client"
-	registry "github.com/operator-framework/operator-registry/pkg/registry"
+	"github.com/operator-framework/operator-registry/pkg/client"
+	"github.com/operator-framework/operator-registry/pkg/registry"
 )
 
 type FakeInterface struct {
+	CloseStub        func() error
+	closeMutex       sync.RWMutex
+	closeArgsForCall []struct {
+	}
+	closeReturns struct {
+		result1 error
+	}
+	closeReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GetBundleStub        func(context.Context, string, string, string) (*registry.Bundle, error)
 	getBundleMutex       sync.RWMutex
 	getBundleArgsForCall []struct {
@@ -73,8 +84,74 @@ type FakeInterface struct {
 		result1 *registry.Bundle
 		result2 error
 	}
+	HealthCheckStub        func(context.Context, time.Duration) (bool, error)
+	healthCheckMutex       sync.RWMutex
+	healthCheckArgsForCall []struct {
+		arg1 context.Context
+		arg2 time.Duration
+	}
+	healthCheckReturns struct {
+		result1 bool
+		result2 error
+	}
+	healthCheckReturnsOnCall map[int]struct {
+		result1 bool
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeInterface) Close() error {
+	fake.closeMutex.Lock()
+	ret, specificReturn := fake.closeReturnsOnCall[len(fake.closeArgsForCall)]
+	fake.closeArgsForCall = append(fake.closeArgsForCall, struct {
+	}{})
+	fake.recordInvocation("Close", []interface{}{})
+	fake.closeMutex.Unlock()
+	if fake.CloseStub != nil {
+		return fake.CloseStub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	fakeReturns := fake.closeReturns
+	return fakeReturns.result1
+}
+
+func (fake *FakeInterface) CloseCallCount() int {
+	fake.closeMutex.RLock()
+	defer fake.closeMutex.RUnlock()
+	return len(fake.closeArgsForCall)
+}
+
+func (fake *FakeInterface) CloseCalls(stub func() error) {
+	fake.closeMutex.Lock()
+	defer fake.closeMutex.Unlock()
+	fake.CloseStub = stub
+}
+
+func (fake *FakeInterface) CloseReturns(result1 error) {
+	fake.closeMutex.Lock()
+	defer fake.closeMutex.Unlock()
+	fake.CloseStub = nil
+	fake.closeReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeInterface) CloseReturnsOnCall(i int, result1 error) {
+	fake.closeMutex.Lock()
+	defer fake.closeMutex.Unlock()
+	fake.CloseStub = nil
+	if fake.closeReturnsOnCall == nil {
+		fake.closeReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.closeReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *FakeInterface) GetBundle(arg1 context.Context, arg2 string, arg3 string, arg4 string) (*registry.Bundle, error) {
@@ -340,9 +417,75 @@ func (fake *FakeInterface) GetReplacementBundleInPackageChannelReturnsOnCall(i i
 	}{result1, result2}
 }
 
+func (fake *FakeInterface) HealthCheck(arg1 context.Context, arg2 time.Duration) (bool, error) {
+	fake.healthCheckMutex.Lock()
+	ret, specificReturn := fake.healthCheckReturnsOnCall[len(fake.healthCheckArgsForCall)]
+	fake.healthCheckArgsForCall = append(fake.healthCheckArgsForCall, struct {
+		arg1 context.Context
+		arg2 time.Duration
+	}{arg1, arg2})
+	fake.recordInvocation("HealthCheck", []interface{}{arg1, arg2})
+	fake.healthCheckMutex.Unlock()
+	if fake.HealthCheckStub != nil {
+		return fake.HealthCheckStub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	fakeReturns := fake.healthCheckReturns
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeInterface) HealthCheckCallCount() int {
+	fake.healthCheckMutex.RLock()
+	defer fake.healthCheckMutex.RUnlock()
+	return len(fake.healthCheckArgsForCall)
+}
+
+func (fake *FakeInterface) HealthCheckCalls(stub func(context.Context, time.Duration) (bool, error)) {
+	fake.healthCheckMutex.Lock()
+	defer fake.healthCheckMutex.Unlock()
+	fake.HealthCheckStub = stub
+}
+
+func (fake *FakeInterface) HealthCheckArgsForCall(i int) (context.Context, time.Duration) {
+	fake.healthCheckMutex.RLock()
+	defer fake.healthCheckMutex.RUnlock()
+	argsForCall := fake.healthCheckArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeInterface) HealthCheckReturns(result1 bool, result2 error) {
+	fake.healthCheckMutex.Lock()
+	defer fake.healthCheckMutex.Unlock()
+	fake.HealthCheckStub = nil
+	fake.healthCheckReturns = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeInterface) HealthCheckReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.healthCheckMutex.Lock()
+	defer fake.healthCheckMutex.Unlock()
+	fake.HealthCheckStub = nil
+	if fake.healthCheckReturnsOnCall == nil {
+		fake.healthCheckReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 error
+		})
+	}
+	fake.healthCheckReturnsOnCall[i] = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeInterface) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
+	fake.closeMutex.RLock()
+	defer fake.closeMutex.RUnlock()
 	fake.getBundleMutex.RLock()
 	defer fake.getBundleMutex.RUnlock()
 	fake.getBundleInPackageChannelMutex.RLock()
@@ -351,6 +494,8 @@ func (fake *FakeInterface) Invocations() map[string][][]interface{} {
 	defer fake.getBundleThatProvidesMutex.RUnlock()
 	fake.getReplacementBundleInPackageChannelMutex.RLock()
 	defer fake.getReplacementBundleInPackageChannelMutex.RUnlock()
+	fake.healthCheckMutex.RLock()
+	defer fake.healthCheckMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

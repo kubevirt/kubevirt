@@ -28,7 +28,9 @@ type StrategyResolverInterface interface {
 	InstallerForStrategy(strategyName string, opClient operatorclient.ClientInterface, opLister operatorlister.OperatorLister, owner ownerutil.Owner, annotations map[string]string, previousStrategy Strategy) StrategyInstaller
 }
 
-type StrategyResolver struct{}
+type StrategyResolver struct {
+	ProxyInjectorBuilder DeploymentInitializerFuncBuilder
+}
 
 func (r *StrategyResolver) UnmarshalStrategy(s v1alpha1.NamedInstallStrategy) (strategy Strategy, err error) {
 	switch s.StrategyName {
@@ -47,7 +49,13 @@ func (r *StrategyResolver) InstallerForStrategy(strategyName string, opClient op
 	switch strategyName {
 	case InstallStrategyNameDeployment:
 		strategyClient := wrappers.NewInstallStrategyDeploymentClient(opClient, opLister, owner.GetNamespace())
-		return NewStrategyDeploymentInstaller(strategyClient, annotations, owner, previousStrategy)
+
+		initializers := []DeploymentInitializerFunc{}
+		if r.ProxyInjectorBuilder != nil {
+			initializers = append(initializers, r.ProxyInjectorBuilder(owner))
+		}
+
+		return NewStrategyDeploymentInstaller(strategyClient, annotations, owner, previousStrategy, initializers)
 	}
 
 	// Insurance against these functions being called incorrectly (unmarshal strategy will return a valid strategy name)

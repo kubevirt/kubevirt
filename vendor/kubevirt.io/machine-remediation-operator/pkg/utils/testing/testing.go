@@ -117,7 +117,7 @@ func NewBareMetalHost(name string, online bool, powerOn bool) *bmov1.BareMetalHo
 
 // NewMachine returns new machine object that can be used for testing
 func NewMachine(name string, nodeName string, bareMetalHostName string) *mapiv1.Machine {
-	m := &mapiv1.Machine{
+	return &mapiv1.Machine{
 		TypeMeta: metav1.TypeMeta{Kind: "Machine"},
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
@@ -129,16 +129,13 @@ func NewMachine(name string, nodeName string, bareMetalHostName string) *mapiv1.
 			Labels:          FooBar(),
 		},
 		Spec: mapiv1.MachineSpec{},
-	}
-	if nodeName != "" {
-		m.Status = mapiv1.MachineStatus{
+		Status: mapiv1.MachineStatus{
 			NodeRef: &corev1.ObjectReference{
 				Name:      nodeName,
 				Namespace: metav1.NamespaceNone,
 			},
-		}
+		},
 	}
-	return m
 }
 
 // NewMachineRemediation returns new machine remediation object that can be used for testing

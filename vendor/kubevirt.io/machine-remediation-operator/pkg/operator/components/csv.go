@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/coreos/go-semver/semver"
+	"github.com/blang/semver"
 	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/version"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -93,6 +94,11 @@ func NewClusterServiceVersion(data *ClusterServiceVersionData) (*csvv1.ClusterSe
 		return nil, err
 	}
 
+	csvVersion, err := semver.Make(data.CSVVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	csv := &csvv1.ClusterServiceVersion{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       csvv1.ClusterServiceVersionKind,
@@ -117,7 +123,7 @@ func NewClusterServiceVersion(data *ClusterServiceVersionData) (*csvv1.ClusterSe
 			DisplayName: "Machine Remediation Operator",
 			Description: description,
 			Keywords:    []string{"remediation", "fencing", "HA", "health", "cluster-api"},
-			Version:     *semver.New(data.CSVVersion),
+			Version:     version.OperatorVersion{Version: csvVersion},
 			Maturity:    "alpha",
 			Maintainers: []csvv1.Maintainer{{
 				Name:  "KubeVirt project",

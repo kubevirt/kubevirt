@@ -46,7 +46,7 @@ func (r *ProgressReader) StartTimedUpdate() {
 
 func (r *ProgressReader) timedUpdateProgress() {
 	cont := true
-	for true && cont {
+	for cont {
 		// Update every second.
 		time.Sleep(time.Second)
 		cont = r.updateProgress()
@@ -55,17 +55,17 @@ func (r *ProgressReader) timedUpdateProgress() {
 
 func (r *ProgressReader) updateProgress() bool {
 	if r.total > 0 {
-		currentProgress := float64(r.Current) / float64(r.total) * 100.0
+		currentProgress := 100.0
+		if !r.Done && r.Current < r.total {
+			currentProgress = float64(r.Current) / float64(r.total) * 100.0
+		}
 		metric := &dto.Metric{}
 		r.progress.WithLabelValues(r.ownerUID).Write(metric)
 		if currentProgress > *metric.Counter.Value {
 			r.progress.WithLabelValues(r.ownerUID).Add(currentProgress - *metric.Counter.Value)
 		}
 		klog.V(1).Infoln(fmt.Sprintf("%.2f", currentProgress))
-		if fmt.Sprintf("%.2f", currentProgress) == "100.00" {
-			return false
-		}
-		return true
+		return !r.Done
 	}
 	return false
 }

@@ -3,16 +3,17 @@ package reconciler
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorclient"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/operatorlister"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/ownerutil"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // grpcCatalogSourceDecorator wraps CatalogSource to add additional methods
@@ -22,13 +23,13 @@ type grpcCatalogSourceDecorator struct {
 
 func (s *grpcCatalogSourceDecorator) Selector() labels.Selector {
 	return labels.SelectorFromValidatedSet(map[string]string{
-		"olm.catalogSource": s.GetName(),
+		CatalogSourceLabelKey: s.GetName(),
 	})
 }
 
 func (s *grpcCatalogSourceDecorator) Labels() map[string]string {
 	return map[string]string{
-		"olm.catalogSource": s.GetName(),
+		CatalogSourceLabelKey: s.GetName(),
 	}
 }
 
@@ -54,53 +55,13 @@ func (s *grpcCatalogSourceDecorator) Service() *v1.Service {
 }
 
 func (s *grpcCatalogSourceDecorator) Pod() *v1.Pod {
-	pod := &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: s.GetName() + "-",
-			Namespace:    s.GetNamespace(),
-			Labels:       s.Labels(),
-		},
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
-				{
-					Name:  "registry-server",
-					Image: s.Spec.Image,
-					Ports: []v1.ContainerPort{
-						{
-							Name:          "grpc",
-							ContainerPort: 50051,
-						},
-					},
-					ReadinessProbe: &v1.Probe{
-						Handler: v1.Handler{
-							Exec: &v1.ExecAction{
-								Command: []string{"grpc_health_probe", "-addr=localhost:50051"},
-							},
-						},
-						InitialDelaySeconds: 5,
-					},
-					LivenessProbe: &v1.Probe{
-						Handler: v1.Handler{
-							Exec: &v1.ExecAction{
-								Command: []string{"grpc_health_probe", "-addr=localhost:50051"},
-							},
-						},
-						InitialDelaySeconds: 10,
-					},
-				},
-			},
-			Tolerations: []v1.Toleration{
-				{
-					Operator: v1.TolerationOpExists,
-				},
-			},
-		},
-	}
+	pod := Pod(s.CatalogSource, "registry-server", s.Spec.Image, s.Labels(), 5, 10)
 	ownerutil.AddOwner(pod, s.CatalogSource, false, false)
 	return pod
 }
 
 type GrpcRegistryReconciler struct {
+	now      nowFunc
 	Lister   operatorlister.OperatorLister
 	OpClient operatorclient.ClientInterface
 }
@@ -144,7 +105,7 @@ func (c *GrpcRegistryReconciler) currentPodsWithCorrectImage(source grpcCatalogS
 	return found
 }
 
-// Ensure that all components of registry server are up to date.
+// EnsureRegistryServer ensures that all components of registry server are up to date.
 func (c *GrpcRegistryReconciler) EnsureRegistryServer(catalogSource *v1alpha1.CatalogSource) error {
 	source := grpcCatalogSourceDecorator{catalogSource}
 
@@ -162,14 +123,15 @@ func (c *GrpcRegistryReconciler) EnsureRegistryServer(catalogSource *v1alpha1.Ca
 	}
 
 	if overwritePod {
+		now := c.now()
 		catalogSource.Status.RegistryServiceStatus = &v1alpha1.RegistryServiceStatus{
-			CreatedAt:        timeNow(),
+			CreatedAt:        now,
 			Protocol:         "grpc",
 			ServiceName:      source.Service().GetName(),
 			ServiceNamespace: source.GetNamespace(),
 			Port:             fmt.Sprintf("%d", source.Service().Spec.Ports[0].Port),
 		}
-		catalogSource.Status.LastSync = timeNow()
+		catalogSource.Status.LastSync = now
 	}
 	return nil
 }
@@ -205,4 +167,20 @@ func (c *GrpcRegistryReconciler) ensureService(source grpcCatalogSourceDecorator
 	}
 	_, err := c.OpClient.CreateService(service)
 	return err
+}
+
+// CheckRegistryServer returns true if the given CatalogSource is considered healthy; false otherwise.
+func (c *GrpcRegistryReconciler) CheckRegistryServer(catalogSource *v1alpha1.CatalogSource) (healthy bool, err error) {
+	source := grpcCatalogSourceDecorator{catalogSource}
+
+	// Check on registry resources
+	// TODO: add gRPC health check
+	if len(c.currentPodsWithCorrectImage(source)) < 1 ||
+		c.currentService(source) == nil {
+		healthy = false
+		return
+	}
+
+	healthy = true
+	return
 }

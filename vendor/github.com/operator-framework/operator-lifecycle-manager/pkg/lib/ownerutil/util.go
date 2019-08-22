@@ -195,21 +195,26 @@ func OwnerLabel(owner Owner, kind string) map[string]string {
 	}
 }
 
-// AddOwnerLabels adds ownerref-like labels to an object
+// AddOwnerLabels adds ownerref-like labels to an object by inferring the owner kind
 func AddOwnerLabels(object metav1.Object, owner Owner) error {
 	err := InferGroupVersionKind(owner)
 	if err != nil {
 		return err
 	}
+	AddOwnerLabelsForKind(object, owner, owner.GetObjectKind().GroupVersionKind().Kind)
+	return nil
+}
+
+// AddOwnerLabels adds ownerref-like labels to an object, with no inference
+func AddOwnerLabelsForKind(object metav1.Object, owner Owner, kind string) {
 	labels := object.GetLabels()
 	if labels == nil {
 		labels = map[string]string{}
 	}
-	for key, val := range OwnerLabel(owner, owner.GetObjectKind().GroupVersionKind().Kind) {
+	for key, val := range OwnerLabel(owner, kind) {
 		labels[key] = val
 	}
 	object.SetLabels(labels)
-	return nil
 }
 
 // IsOwnedByKindLabel returns whether or not a label exists on the object pointing to an owner of a particular kind

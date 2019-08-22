@@ -5,17 +5,12 @@ import (
 	"runtime"
 
 	"github.com/golang/glog"
-
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	mrv1 "kubevirt.io/machine-remediation-operator/pkg/apis/machineremediation/v1alpha1"
-	"kubevirt.io/machine-remediation-operator/pkg/consts"
 	"kubevirt.io/machine-remediation-operator/pkg/controllers"
 	"kubevirt.io/machine-remediation-operator/pkg/operator"
 	"kubevirt.io/machine-remediation-operator/pkg/version"
 
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
@@ -39,14 +34,11 @@ func main() {
 		glog.Fatal(err)
 	}
 
-	namespaces := []string{consts.NamespaceOpenshiftMachineAPI, metav1.NamespaceNone}
+	opts := manager.Options{}
 	if *namespace != "" {
-		namespaces = append(namespaces, *namespace)
+		opts.Namespace = *namespace
+		glog.Infof("Watching MRO objects only in namespace %q for reconciliation.", opts.Namespace)
 	}
-	opts := manager.Options{
-		NewCache: cache.MultiNamespacedCacheBuilder(namespaces),
-	}
-
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, opts)
 	if err != nil {

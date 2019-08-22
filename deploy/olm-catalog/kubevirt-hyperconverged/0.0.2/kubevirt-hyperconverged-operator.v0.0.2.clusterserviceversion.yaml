@@ -85,7 +85,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-08-20 09:32:40.412571647 -0400 EDT m=+0.028283780
+    createdAt: 2019-08-20 12:47:24.635059686 +0300 IDT m=+0.026181776
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -810,7 +810,7 @@ spec:
             - apiGroups:
               - security.openshift.io
               resourceNames:
-              - privileged
+              - anyuid
               resources:
               - securitycontextconstraints
               verbs:
@@ -1383,7 +1383,7 @@ spec:
                   - name: DOCKER_REPO
                     value: kubevirt
                   - name: DOCKER_TAG
-                    value: v1.10.0
+                    value: v1.10.2
                   - name: CONTROLLER_IMAGE
                     value: cdi-controller
                   - name: IMPORTER_IMAGE
@@ -1400,7 +1400,7 @@ spec:
                     value: "1"
                   - name: PULL_POLICY
                     value: IfNotPresent
-                  image: kubevirt/cdi-operator:v1.10.0
+                  image: kubevirt/cdi-operator:v1.10.2
                   imagePullPolicy: IfNotPresent
                   name: cdi-operator
                   ports:

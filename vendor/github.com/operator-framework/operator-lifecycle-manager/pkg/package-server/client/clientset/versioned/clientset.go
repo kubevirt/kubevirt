@@ -29,11 +29,7 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	AppsV1alpha1() appsv1alpha1.AppsV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Apps() appsv1alpha1.AppsV1alpha1Interface
 	OperatorsV1() operatorsv1.OperatorsV1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Operators() operatorsv1.OperatorsV1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -49,20 +45,8 @@ func (c *Clientset) AppsV1alpha1() appsv1alpha1.AppsV1alpha1Interface {
 	return c.appsV1alpha1
 }
 
-// Deprecated: Apps retrieves the default version of AppsClient.
-// Please explicitly pick a version.
-func (c *Clientset) Apps() appsv1alpha1.AppsV1alpha1Interface {
-	return c.appsV1alpha1
-}
-
 // OperatorsV1 retrieves the OperatorsV1Client
 func (c *Clientset) OperatorsV1() operatorsv1.OperatorsV1Interface {
-	return c.operatorsV1
-}
-
-// Deprecated: Operators retrieves the default version of OperatorsClient.
-// Please explicitly pick a version.
-func (c *Clientset) Operators() operatorsv1.OperatorsV1Interface {
 	return c.operatorsV1
 }
 

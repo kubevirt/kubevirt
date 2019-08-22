@@ -9,10 +9,8 @@ import (
 
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -26,11 +24,11 @@ type CustomResourceList struct {
 }
 
 // GetCustomResource returns the custom resource as *unstructured.Unstructured by the given name.
-func (c *Client) GetCustomResource(apiGroup, version, namespace, resourceKind, resourceName string) (*unstructured.Unstructured, error) {
+func (c *Client) GetCustomResource(apiGroup, version, namespace, resourcePlural, resourceName string) (*unstructured.Unstructured, error) {
 	glog.V(4).Infof("[GET CUSTOM RESOURCE]: %s:%s", namespace, resourceName)
 	var object unstructured.Unstructured
 
-	b, err := c.GetCustomResourceRaw(apiGroup, version, namespace, resourceKind, resourceName)
+	b, err := c.GetCustomResourceRaw(apiGroup, version, namespace, resourcePlural, resourceName)
 	if err != nil {
 		return nil, err
 	}
@@ -42,10 +40,10 @@ func (c *Client) GetCustomResource(apiGroup, version, namespace, resourceKind, r
 }
 
 // GetCustomResourceRaw returns the custom resource's raw body data by the given name.
-func (c *Client) GetCustomResourceRaw(apiGroup, version, namespace, resourceKind, resourceName string) ([]byte, error) {
+func (c *Client) GetCustomResourceRaw(apiGroup, version, namespace, resourcePlural, resourceName string) ([]byte, error) {
 	glog.V(4).Infof("[GET CUSTOM RESOURCE RAW]: %s:%s", namespace, resourceName)
 	httpRestClient := c.extInterface.ApiextensionsV1beta1().RESTClient()
-	uri := customResourceURI(apiGroup, version, namespace, resourceKind, resourceName)
+	uri := customResourceURI(apiGroup, version, namespace, resourcePlural, resourceName)
 	glog.V(4).Infof("[GET]: %s", uri)
 
 	return httpRestClient.Get().RequestURI(uri).DoRaw()
@@ -133,12 +131,12 @@ func (c *Client) UpdateCustomResource(item *unstructured.Unstructured) error {
 }
 
 // UpdateCustomResourceRaw updates the thirdparty resource with the raw data.
-func (c *Client) UpdateCustomResourceRaw(apiGroup, version, namespace, resourceKind, resourceName string, data []byte) error {
+func (c *Client) UpdateCustomResourceRaw(apiGroup, version, namespace, resourcePlural, resourceName string, data []byte) error {
 	glog.V(4).Infof("[UPDATE CUSTOM RESOURCE RAW]: %s:%s", namespace, resourceName)
 	var statusCode int
 
 	httpRestClient := c.extInterface.ApiextensionsV1beta1().RESTClient()
-	uri := customResourceURI(apiGroup, version, namespace, resourceKind, resourceName)
+	uri := customResourceURI(apiGroup, version, namespace, resourcePlural, resourceName)
 	glog.V(4).Infof("[PUT]: %s", uri)
 	result := httpRestClient.Put().RequestURI(uri).Body(data).Do()
 
@@ -157,14 +155,14 @@ func (c *Client) UpdateCustomResourceRaw(apiGroup, version, namespace, resourceK
 
 // CreateOrUpdateCustomeResourceRaw creates the custom resource if it doesn't exist.
 // If the custom resource exists, it updates the existing one.
-func (c *Client) CreateOrUpdateCustomeResourceRaw(apiGroup, version, namespace, resourceKind, resourceName string, data []byte) error {
+func (c *Client) CreateOrUpdateCustomeResourceRaw(apiGroup, version, namespace, resourcePlural, resourceName string, data []byte) error {
 	glog.V(4).Infof("[CREATE OR UPDATE UPDATE CUSTOM RESOURCE RAW]: %s:%s", namespace, resourceName)
-	old, err := c.GetCustomResourceRaw(apiGroup, version, namespace, resourceKind, resourceName)
+	old, err := c.GetCustomResourceRaw(apiGroup, version, namespace, resourcePlural, resourceName)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return err
 		}
-		return c.CreateCustomResourceRaw(apiGroup, version, namespace, resourceKind, data)
+		return c.CreateCustomResourceRaw(apiGroup, version, namespace, resourcePlural, data)
 	}
 
 	var oldSpec, newSpec unstructured.Unstructured
@@ -183,14 +181,14 @@ func (c *Client) CreateOrUpdateCustomeResourceRaw(apiGroup, version, namespace, 
 		return err
 	}
 
-	return c.UpdateCustomResourceRaw(apiGroup, version, namespace, resourceKind, resourceName, data)
+	return c.UpdateCustomResourceRaw(apiGroup, version, namespace, resourcePlural, resourceName, data)
 }
 
 // DeleteCustomResource deletes the  with the given name.
-func (c *Client) DeleteCustomResource(apiGroup, version, namespace, resourceKind, resourceName string) error {
+func (c *Client) DeleteCustomResource(apiGroup, version, namespace, resourcePlural, resourceName string) error {
 	glog.V(4).Infof("[DELETE CUSTOM RESOURCE]: %s:%s", namespace, resourceName)
 	httpRestClient := c.extInterface.ApiextensionsV1beta1().RESTClient()
-	uri := customResourceURI(apiGroup, version, namespace, resourceKind, resourceName)
+	uri := customResourceURI(apiGroup, version, namespace, resourcePlural, resourceName)
 
 	glog.V(4).Infof("[DELETE]: %s", uri)
 	_, err := httpRestClient.Delete().RequestURI(uri).DoRaw()
@@ -202,32 +200,32 @@ type CustomResourceModifier func(*unstructured.Unstructured, interface{}) error
 
 // AtomicModifyCustomResource gets the custom resource, modifies it and writes it back.
 // If it's modified by other writers, we will retry until it succeeds.
-func (c *Client) AtomicModifyCustomResource(apiGroup, version, namespace, resourceKind, resourceName string, f CustomResourceModifier, data interface{}) error {
+func (c *Client) AtomicModifyCustomResource(apiGroup, version, namespace, resourcePlural, resourceName string, f CustomResourceModifier, data interface{}) error {
 	glog.V(4).Infof("[ATOMIC MODIFY CUSTOM RESOURCE]: %s:%s", namespace, resourceName)
 	return wait.PollInfinite(time.Second, func() (bool, error) {
 		var customResource unstructured.Unstructured
-		b, err := c.GetCustomResourceRaw(apiGroup, version, namespace, resourceKind, resourceName)
+		b, err := c.GetCustomResourceRaw(apiGroup, version, namespace, resourcePlural, resourceName)
 		if err != nil {
-			glog.Errorf("Failed to get CUSTOM RESOURCE %q, kind:%q: %v", resourceName, resourceKind, err)
+			glog.Errorf("Failed to get CUSTOM RESOURCE %q, kind:%q: %v", resourceName, resourcePlural, err)
 			return false, err
 		}
 
 		if err := json.Unmarshal(b, &customResource); err != nil {
-			glog.Errorf("Failed to unmarshal CUSTOM RESOURCE %q, kind:%q: %v", resourceName, resourceKind, err)
+			glog.Errorf("Failed to unmarshal CUSTOM RESOURCE %q, kind:%q: %v", resourceName, resourcePlural, err)
 			return false, err
 		}
 
 		if err := f(&customResource, data); err != nil {
-			glog.Errorf("Failed to modify the CUSTOM RESOURCE %q, kind:%q: %v", resourceName, resourceKind, err)
+			glog.Errorf("Failed to modify the CUSTOM RESOURCE %q, kind:%q: %v", resourceName, resourcePlural, err)
 			return false, err
 		}
 
 		if err := c.UpdateCustomResource(&customResource); err != nil {
 			if errors.IsConflict(err) {
-				glog.Errorf("Failed to update CUSTOM RESOURCE %q, kind:%q: %v, will retry", resourceName, resourceKind, err)
+				glog.Errorf("Failed to update CUSTOM RESOURCE %q, kind:%q: %v, will retry", resourceName, resourcePlural, err)
 				return false, nil
 			}
-			glog.Errorf("Failed to update CUSTOM RESOURCE %q, kind:%q: %v", resourceName, resourceKind, err)
+			glog.Errorf("Failed to update CUSTOM RESOURCE %q, kind:%q: %v", resourceName, resourcePlural, err)
 			return false, err
 		}
 
@@ -240,22 +238,18 @@ func (c *Client) AtomicModifyCustomResource(apiGroup, version, namespace, resour
 // Example of apiGroup: "tco.coreos.com"
 // Example of version: "v1"
 // Example of namespace: "default"
-// Example of resourceKind: "ChannelOperatorConfig"
+// Example of resourcePlural: "ChannelOperatorConfigs"
 // Example of resourceName: "test-config"
-func customResourceURI(apiGroup, version, namespace, resourceKind, resourceName string) string {
+func customResourceURI(apiGroup, version, namespace, resourcePlural, resourceName string) string {
 	if namespace == "" {
 		namespace = metav1.NamespaceDefault
 	}
-	plural, _ := meta.UnsafeGuessKindToResource(schema.GroupVersionKind{
-		Group:   apiGroup,
-		Version: version,
-		Kind:    resourceKind,
-	})
+
 	return fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s/%s",
 		strings.ToLower(apiGroup),
 		strings.ToLower(version),
 		strings.ToLower(namespace),
-		strings.ToLower(plural.Resource),
+		strings.ToLower(resourcePlural),
 		strings.ToLower(resourceName))
 }
 
@@ -264,31 +258,27 @@ func customResourceURI(apiGroup, version, namespace, resourceKind, resourceName 
 // Example of apiGroup: "tco.coreos.com"
 // Example of version: "v1"
 // Example of namespace: "default"
-// Example of resourceKind: "ChannelOperatorConfig"
-func customResourceDefinitionURI(apiGroup, version, namespace, resourceKind string) string {
+// Example of resourcePlural: "ChannelOperatorConfigs"
+func customResourceDefinitionURI(apiGroup, version, namespace, resourcePlural string) string {
 	if namespace == "" {
 		namespace = metav1.NamespaceDefault
 	}
-	plural, _ := meta.UnsafeGuessKindToResource(schema.GroupVersionKind{
-		Group:   apiGroup,
-		Version: version,
-		Kind:    resourceKind,
-	})
+
 	return fmt.Sprintf("/apis/%s/%s/namespaces/%s/%s",
 		strings.ToLower(apiGroup),
 		strings.ToLower(version),
 		strings.ToLower(namespace),
-		strings.ToLower(plural.Resource))
+		strings.ToLower(resourcePlural))
 }
 
 // ListCustomResource lists all custom resources for the given namespace.
-func (c *Client) ListCustomResource(apiGroup, version, namespace, resourceKind string) (*CustomResourceList, error) {
-	glog.V(4).Infof("LIST CUSTOM RESOURCE]: %s", resourceKind)
+func (c *Client) ListCustomResource(apiGroup, version, namespace, resourcePlural string) (*CustomResourceList, error) {
+	glog.V(4).Infof("LIST CUSTOM RESOURCE]: %s", resourcePlural)
 
 	var crList CustomResourceList
 
 	httpRestClient := c.extInterface.ApiextensionsV1beta1().RESTClient()
-	uri := customResourceDefinitionURI(apiGroup, version, namespace, resourceKind)
+	uri := customResourceDefinitionURI(apiGroup, version, namespace, resourcePlural)
 	glog.V(4).Infof("[GET]: %s", uri)
 	bytes, err := httpRestClient.Get().RequestURI(uri).DoRaw()
 	if err != nil {

@@ -63,7 +63,7 @@ func IsFactoryResource(codeGroup string) bool {
 
 // GetPrivilegedAccounts return special accounts for OpenShift
 // TODO should prob break this up into groups like the rest of this stuff
-func GetPrivilegedAccounts(args *FactoryArgs) []string {
+func GetPrivilegedAccounts(args *FactoryArgs) map[string][]string {
 	return getControllerPrivilegedAccounts(args)
 }
 

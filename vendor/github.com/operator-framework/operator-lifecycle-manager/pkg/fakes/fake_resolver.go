@@ -2,10 +2,10 @@
 package fakes
 
 import (
-	sync "sync"
+	"sync"
 
-	v1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
-	resolver "github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry/resolver"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	"github.com/operator-framework/operator-lifecycle-manager/pkg/controller/registry/resolver"
 )
 
 type FakeResolver struct {

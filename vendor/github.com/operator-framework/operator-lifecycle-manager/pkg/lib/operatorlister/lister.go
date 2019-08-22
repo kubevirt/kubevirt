@@ -7,7 +7,7 @@ import (
 	rbacv1 "k8s.io/client-go/listers/rbac/v1"
 	aregv1 "k8s.io/kube-aggregator/pkg/client/listers/apiregistration/v1"
 
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/listers/operators/v1"
+	v1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/listers/operators/v1"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/listers/operators/v1alpha1"
 )
 
@@ -78,10 +78,12 @@ type APIExtensionsV1beta1Lister interface {
 //go:generate counterfeiter . OperatorsV1alpha1Lister
 type OperatorsV1alpha1Lister interface {
 	RegisterClusterServiceVersionLister(namespace string, lister v1alpha1.ClusterServiceVersionLister)
+	RegisterCatalogSourceLister(namespace string, lister v1alpha1.CatalogSourceLister)
 	RegisterSubscriptionLister(namespace string, lister v1alpha1.SubscriptionLister)
 	RegisterInstallPlanLister(namespace string, lister v1alpha1.InstallPlanLister)
 
 	ClusterServiceVersionLister() v1alpha1.ClusterServiceVersionLister
+	CatalogSourceLister() v1alpha1.CatalogSourceLister
 	SubscriptionLister() v1alpha1.SubscriptionLister
 	InstallPlanLister() v1alpha1.InstallPlanLister
 }
@@ -161,6 +163,7 @@ func newAPIExtensionsV1beta1Lister() *apiExtensionsV1beta1Lister {
 
 type operatorsV1alpha1Lister struct {
 	clusterServiceVersionLister *UnionClusterServiceVersionLister
+	catalogSourceLister         *UnionCatalogSourceLister
 	subscriptionLister          *UnionSubscriptionLister
 	installPlanLister           *UnionInstallPlanLister
 }
@@ -168,6 +171,7 @@ type operatorsV1alpha1Lister struct {
 func newOperatorsV1alpha1Lister() *operatorsV1alpha1Lister {
 	return &operatorsV1alpha1Lister{
 		clusterServiceVersionLister: &UnionClusterServiceVersionLister{},
+		catalogSourceLister:         &UnionCatalogSourceLister{},
 		subscriptionLister:          &UnionSubscriptionLister{},
 		installPlanLister:           &UnionInstallPlanLister{},
 	}

@@ -151,6 +151,8 @@ func autoConvert_v1_CSVDescription_To_operators_CSVDescription(in *CSVDescriptio
 	out.Annotations = *(*map[string]string)(unsafe.Pointer(&in.Annotations))
 	out.LongDescription = in.LongDescription
 	out.InstallModes = *(*[]v1alpha1.InstallMode)(unsafe.Pointer(&in.InstallModes))
+	out.CustomResourceDefinitions = in.CustomResourceDefinitions
+	out.APIServiceDefinitions = in.APIServiceDefinitions
 	return nil
 }
 
@@ -169,6 +171,8 @@ func autoConvert_operators_CSVDescription_To_v1_CSVDescription(in *operators.CSV
 	out.Annotations = *(*map[string]string)(unsafe.Pointer(&in.Annotations))
 	out.LongDescription = in.LongDescription
 	out.InstallModes = *(*[]v1alpha1.InstallMode)(unsafe.Pointer(&in.InstallModes))
+	out.CustomResourceDefinitions = in.CustomResourceDefinitions
+	out.APIServiceDefinitions = in.APIServiceDefinitions
 	return nil
 }
 

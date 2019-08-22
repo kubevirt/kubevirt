@@ -19,7 +19,7 @@ required = [
 
 [[override]]
   name = "kubevirt.io/containerized-data-importer"
-  version = "=v1.10.0"
+  version = "=v1.10.2"
 
 [[override]]
   name = "kubevirt.io/kubevirt"
@@ -60,7 +60,7 @@ required = [
 
 [[override]]
   name = "kubevirt.io/machine-remediation-operator"
-  branch = "release-4.2"
+  version = "=v0.3.7"
 
 [[override]]
   name = "k8s.io/api"
@@ -100,7 +100,7 @@ required = [
 
 [[override]]
   name = "github.com/operator-framework/operator-lifecycle-manager"
-  version = "=0.9.0"
+  version = "=0.11.0"
 
 [[constraint]]
   name = "github.com/operator-framework/operator-sdk"

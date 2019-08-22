@@ -13,16 +13,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
+	"k8s.io/kubernetes/pkg/util/labels"
 
 	operatorsv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/informers/externalversions"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/lib/queueinformer"
-	"github.com/operator-framework/operator-lifecycle-manager/pkg/metrics"
 	"github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators"
 )
 
@@ -51,7 +49,7 @@ func newRegistryClient(source *operatorsv1alpha1.CatalogSource, conn *grpc.Clien
 
 // RegistryProvider aggregates several `CatalogSources` and establishes gRPC connections to their registry servers.
 type RegistryProvider struct {
-	*queueinformer.Operator
+	queueinformer.Operator
 
 	mu              sync.RWMutex
 	globalNamespace string
@@ -60,7 +58,7 @@ type RegistryProvider struct {
 
 var _ PackageManifestProvider = &RegistryProvider{}
 
-func NewRegistryProvider(crClient versioned.Interface, operator *queueinformer.Operator, wakeupInterval time.Duration, watchedNamespaces []string, globalNamespace string) *RegistryProvider {
+func NewRegistryProvider(ctx context.Context, crClient versioned.Interface, operator queueinformer.Operator, wakeupInterval time.Duration, watchedNamespaces []string, globalNamespace string) (*RegistryProvider, error) {
 	p := &RegistryProvider{
 		Operator: operator,
 
@@ -68,22 +66,24 @@ func NewRegistryProvider(crClient versioned.Interface, operator *queueinformer.O
 		clients:         make(map[sourceKey]registryClient),
 	}
 
-	sourceHandlers := &cache.ResourceEventHandlerFuncs{
-		DeleteFunc: p.catalogSourceDeleted,
-	}
 	for _, namespace := range watchedNamespaces {
-		factory := externalversions.NewSharedInformerFactoryWithOptions(crClient, wakeupInterval, externalversions.WithNamespace(namespace))
-		sourceInformer := factory.Operators().V1alpha1().CatalogSources()
+		informerFactory := externalversions.NewSharedInformerFactoryWithOptions(crClient, wakeupInterval, externalversions.WithNamespace(namespace))
+		catsrcInformer := informerFactory.Operators().V1alpha1().CatalogSources()
 
 		// Register queue and QueueInformer
 		logrus.WithField("namespace", namespace).Info("watching catalogsources")
-		queueName := fmt.Sprintf("%s/catalogsources", namespace)
-		sourceQueue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), queueName)
-		sourceQueueInformer := queueinformer.NewInformer(sourceQueue, sourceInformer.Informer(), p.syncCatalogSource, sourceHandlers, queueName, metrics.NewMetricsNil(), logrus.New())
-		p.RegisterQueueInformer(sourceQueueInformer)
+		catsrcQueueInformer, err := queueinformer.NewQueueInformer(
+			ctx,
+			queueinformer.WithInformer(catsrcInformer.Informer()),
+			queueinformer.WithSyncer(queueinformer.LegacySyncHandler(p.syncCatalogSource).ToSyncerWithDelete(p.catalogSourceDeleted)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		p.RegisterQueueInformer(catsrcQueueInformer)
 	}
 
-	return p
+	return p, nil
 }
 
 func (p *RegistryProvider) getClient(key sourceKey) (registryClient, bool) {
@@ -273,7 +273,9 @@ func (p *RegistryProvider) List(namespace string) (*operators.PackageManifestLis
 				}
 
 				// Set request namespace to stop kube clients from complaining about global namespace mismatch.
-				newPkg.SetNamespace(namespace)
+				if namespace != metav1.NamespaceAll {
+					newPkg.SetNamespace(namespace)
+				}
 				pkgs = append(pkgs, *newPkg)
 			}
 		}
@@ -287,9 +289,11 @@ func toPackageManifest(pkg *api.Package, client registryClient) (*operators.Pack
 	catsrc := client.source
 	manifest := &operators.PackageManifest{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              pkg.GetName(),
-			Namespace:         catsrc.GetNamespace(),
-			Labels:            catsrc.GetLabels(),
+			Name:      pkg.GetName(),
+			Namespace: catsrc.GetNamespace(),
+			Labels: labels.CloneAndAddLabel(
+				labels.CloneAndAddLabel(catsrc.GetLabels(),
+					"catalog", catsrc.GetName()), "catalog-namespace", catsrc.GetNamespace()),
 			CreationTimestamp: catsrc.GetCreationTimestamp(),
 		},
 		Status: operators.PackageManifestStatus{
@@ -302,11 +306,6 @@ func toPackageManifest(pkg *api.Package, client registryClient) (*operators.Pack
 			DefaultChannel:           pkg.GetDefaultChannelName(),
 		},
 	}
-	if manifest.GetLabels() == nil {
-		manifest.SetLabels(labels.Set{})
-	}
-	manifest.ObjectMeta.Labels["catalog"] = manifest.Status.CatalogSource
-	manifest.ObjectMeta.Labels["catalog-namespace"] = manifest.Status.CatalogSourceNamespace
 
 	for i, pkgChannel := range pkgChannels {
 		bundle, err := client.GetBundleForChannel(context.Background(), &api.GetBundleInChannelRequest{PkgName: pkg.GetName(), ChannelName: pkgChannel.GetName()})
@@ -325,7 +324,7 @@ func toPackageManifest(pkg *api.Package, client registryClient) (*operators.Pack
 			CurrentCSVDesc: operators.CreateCSVDescription(&csv),
 		}
 
-		if manifest.Status.DefaultChannel != "" && csv.GetName() == manifest.Status.DefaultChannel || i == 0 {
+		if manifest.Status.DefaultChannel != "" && pkgChannel.GetName() == manifest.Status.DefaultChannel || i == 0 {
 			manifest.Status.Provider = operators.AppLink{
 				Name: csv.Spec.Provider.Name,
 				URL:  csv.Spec.Provider.URL,

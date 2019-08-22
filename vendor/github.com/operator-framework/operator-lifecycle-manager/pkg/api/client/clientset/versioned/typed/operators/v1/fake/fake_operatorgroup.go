@@ -131,7 +131,7 @@ func (c *FakeOperatorGroups) DeleteCollection(options *v1.DeleteOptions, listOpt
 // Patch applies the patch and returns the patched operatorGroup.
 func (c *FakeOperatorGroups) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *operatorsv1.OperatorGroup, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(operatorgroupsResource, c.ns, name, data, subresources...), &operatorsv1.OperatorGroup{})
+		Invokes(testing.NewPatchSubresourceAction(operatorgroupsResource, c.ns, name, pt, data, subresources...), &operatorsv1.OperatorGroup{})
 
 	if obj == nil {
 		return nil, err

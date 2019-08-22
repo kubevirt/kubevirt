@@ -18,3 +18,13 @@
  */
 
 package tests
+
+import (
+	"kubevirt.io/containerized-data-importer/tests/framework"
+	"kubevirt.io/containerized-data-importer/tests/utils"
+)
+
+func init() {
+	f := framework.NewFrameworkOrDie("tests")
+	utils.CacheTestsData(f.K8sClient)
+}
