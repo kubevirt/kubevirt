@@ -914,71 +914,7 @@ func (r *ReconcileHyperConverged) ensureMachineRemediationOperator(instance *hco
 	}
 	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
 
-	// Handle MachineRemediationOperator resource conditions
-	if found.Status.Conditions == nil {
-		logger.Info("MachineRemediationOperator resource is not reporting Conditions on it's Status")
-		conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
-			Type:    conditionsv1.ConditionAvailable,
-			Status:  corev1.ConditionFalse,
-			Reason:  "MachineRemediationOperatorConditions",
-			Message: "MachineRemediationOperator resource has no conditions",
-		})
-		conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
-			Type:    conditionsv1.ConditionProgressing,
-			Status:  corev1.ConditionTrue,
-			Reason:  "MachineRemediationOperatorConditions",
-			Message: "MachineRemediationOperator resource has no conditions",
-		})
-		conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
-			Type:    conditionsv1.ConditionUpgradeable,
-			Status:  corev1.ConditionFalse,
-			Reason:  "MachineRemediationOperatorConditions",
-			Message: "MachineRemediationOperator resource has no conditions",
-		})
-	} else {
-		for _, condition := range found.Status.Conditions {
-			// convert the KubeVirt condition type to one we understand
-			switch conditionsv1.ConditionType(condition.Type) {
-			case conditionsv1.ConditionAvailable:
-				if condition.Status == corev1.ConditionFalse {
-					logger.Info("MachineRemediationOperator is not 'Available'")
-					conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
-						Type:    conditionsv1.ConditionAvailable,
-						Status:  corev1.ConditionFalse,
-						Reason:  "MachineRemediationOperatorNotAvailable",
-						Message: fmt.Sprintf("MachineRemediationOperator is not available: %v", string(condition.Message)),
-					})
-				}
-			case conditionsv1.ConditionProgressing:
-				if condition.Status == corev1.ConditionTrue {
-					logger.Info("MachineRemediationOperator is 'Progressing'")
-					conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
-						Type:    conditionsv1.ConditionProgressing,
-						Status:  corev1.ConditionTrue,
-						Reason:  "MachineRemediationOperatorProgressing",
-						Message: fmt.Sprintf("MachineRemediationOperator is progressing: %v", string(condition.Message)),
-					})
-					conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
-						Type:    conditionsv1.ConditionUpgradeable,
-						Status:  corev1.ConditionFalse,
-						Reason:  "MachineRemediationOperatorProgressing",
-						Message: fmt.Sprintf("MachineRemediationOperator is progressing: %v", string(condition.Message)),
-					})
-				}
-			case conditionsv1.ConditionDegraded:
-				if condition.Status == corev1.ConditionTrue {
-					logger.Info("MachineRemediationOperator is 'Degraded'")
-					conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
-						Type:    conditionsv1.ConditionDegraded,
-						Status:  corev1.ConditionTrue,
-						Reason:  "MachineRemediationOperatorDegraded",
-						Message: fmt.Sprintf("MachineRemediationOperator is degraded: %v", string(condition.Message)),
-					})
-				}
-			}
-		}
-	}
-
+	// TODO: Handle conditions
 	return r.client.Status().Update(context.TODO(), instance)
 }
 
