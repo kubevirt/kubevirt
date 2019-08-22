@@ -987,10 +987,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
-	// Append HostDevices to DomXML if Nvidia GPU requested
+	// Append HostDevices to DomXML if GPU is requested
 	if util.IsGpuVmi(vmi) {
-		vgpuPciAddresses := append([]string{}, c.VgpuDevices...)
-		hostDevices, err := createHostDevicesFromMdevUuidList(vgpuPciAddresses)
+		vgpuMdevUUID := append([]string{}, c.VgpuDevices...)
+		hostDevices, err := createHostDevicesFromMdevUuidList(vgpuMdevUUID)
 		if err != nil {
 			log.Log.Reason(err).Error("Unable to parse Mdev Uuid addresses")
 		} else {
