@@ -43,8 +43,8 @@ for ifs in "${sriov_pfs[@]}"; do
     # These values are used to populate the network definition policy yaml. 
     # We need the num of vfs because if we don't set this value equals to the total, in case of mellanox 
     # the sriov operator will trigger a node reboot to update the firmware
-    FIRST_PF="$ifs_name"
-    FIRST_PF_NUM_VFS=$(cat /sys/class/net/"$FIRST_PF"/device/sriov_totalvfs)
+    export FIRST_PF="$ifs_name"
+    export FIRST_PF_NUM_VFS=$(cat /sys/class/net/"$FIRST_PF"/device/sriov_totalvfs)
   fi
   ip link set "$ifs_name" netns "${CLUSTER_NAME}-control-plane"
   counter=$((counter+1))
@@ -70,7 +70,11 @@ kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout
 envsubst < $MANIFESTS_DIR/network_policy.yaml | kubectl create -f -
 
 sleep 5 #let the daemons appear
-kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 6m
+SRIOVCNI_DAEMON_POD=$(kubectl get pods -n sriov-network-operator | grep sriov-cni | awk '{print $1}')
+kubectl wait --for=condition=Ready -n sriov-network-operator pod $SRIOVCNI_DAEMON_POD --timeout 3m
+
+SRIOVDEVICEPL_DAEMON_POD=$(kubectl get pods -n sriov-network-operator | grep sriov-device | awk '{print $1}')
+kubectl wait --for=condition=Ready -n sriov-network-operator pod $SRIOVDEVICEPL_DAEMON_POD --timeout 3m
 
 ${CONTROL_PLANE_CMD} chmod 666 /dev/vfio/vfio
 
