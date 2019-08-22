@@ -60,11 +60,11 @@ deploy_sriov_operator
 
 kubectl label node sriov-control-plane node-role.kubernetes.io/worker=
 kubectl label node sriov-control-plane sriov=true 
-kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 6m
-
 envsubst < $MANIFESTS_DIR/network_policy.yaml | kubectl create -f -
 
-sleep 1h #let the daemons appear
+sleep 5
+kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 6m
+
 SRIOVCNI_DAEMON_POD=$(kubectl get pods -n sriov-network-operator | grep sriov-cni | awk '{print $1}')
 kubectl wait --for=condition=Ready -n sriov-network-operator pod $SRIOVCNI_DAEMON_POD --timeout 3m
 
