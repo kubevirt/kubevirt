@@ -1267,7 +1267,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
-				It("should create VM via command line", func() {
+				It("[test_id:2914]should create VM via command line", func() {
 					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 					vm := tests.NewRandomVirtualMachine(vmi, true)
 
