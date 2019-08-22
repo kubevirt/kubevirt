@@ -64,7 +64,7 @@ kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout
 
 envsubst < $MANIFESTS_DIR/network_policy.yaml | kubectl create -f -
 
-sleep 5 #let the daemons appear
+sleep 15 #let the daemons appear
 SRIOVCNI_DAEMON_POD=$(kubectl get pods -n sriov-network-operator | grep sriov-cni | awk '{print $1}')
 kubectl wait --for=condition=Ready -n sriov-network-operator pod $SRIOVCNI_DAEMON_POD --timeout 3m
 
