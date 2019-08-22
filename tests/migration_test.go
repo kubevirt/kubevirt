@@ -394,6 +394,9 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+				vmi.Labels = map[string]string{
+					"debugLogs": "true",
+				}
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 240)
@@ -1525,6 +1528,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				for i := 0; i < 4; i++ {
 					vmi := cirrosVMIWithEvictionStrategy()
 					vmi.Spec.NodeSelector = map[string]string{"tests.kubevirt.io": "target"}
+					vmi.Labels = map[string]string{"debugLogs": "true"}
 					vmis = append(vmis, vmi)
 				}
 
