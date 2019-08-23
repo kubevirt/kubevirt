@@ -212,6 +212,79 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return updatedVMI
 		}
 
+		startVMIDontWait := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
+			By("Starting the VirtualMachineInstance")
+
+			Eventually(func() error {
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				updatedVM.Spec.Running = nil
+				updatedVM.Spec.RunStrategy = &runStrategyAlways
+				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				return err
+			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			return updatedVM
+		}
+
+		It("should carry annotations to VMI", func() {
+			annotations := map[string]string{
+				"testannotation": "test",
+			}
+
+			vm := newVirtualMachine(false)
+
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vm.Annotations = annotations
+
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			startVMIDontWait(vm)
+
+			By("checking for annotations to be present")
+			Eventually(func() map[string]string {
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+				if err != nil {
+					return map[string]string{}
+				}
+				return vmi.Annotations
+			}, 300*time.Second, 1*time.Second).Should(HaveKeyWithValue("testannotation", "test"), "VM should start normaly.")
+		})
+
+		It("should ignore kubernetes and kubevirt annotations to VMI", func() {
+			annotations := map[string]string{
+				"kubevirt.io/test":   "test",
+				"kubernetes.io/test": "test",
+			}
+
+			vm := newVirtualMachine(false)
+
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vm.Annotations = annotations
+
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			startVMIDontWait(vm)
+
+			By("checking for annotations to not be present")
+			vmi := &v1.VirtualMachineInstance{}
+
+			Eventually(func() error {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+				return err
+			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "VMI should be created normaly.")
+
+			Expect(vmi.Annotations).ShouldNot(HaveKey("kubevirt.io/test"), "kubevirt internal annotations should be ignored")
+			Expect(vmi.Annotations).ShouldNot(HaveKey("kubernetes.io/test"), "kubernetes internal annotations should be ignored")
+		})
+
 		It("[test_id:1520]should update VirtualMachine once VMIs are up", func() {
 			newVMI := newVirtualMachine(true)
 			Eventually(func() bool {
