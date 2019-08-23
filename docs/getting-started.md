@@ -105,19 +105,19 @@ have a completely fresh cluster to play with.
 
 ### Accessing the containerized nodes via ssh
 
-The containerized nodes are named starting from `node01`, `node02`, and so
-forth. `node01` is always the master of the cluster.
-
-Every node can be accessed via its name:
+Based on the used cluster, node names might be different.
+You can get the names from following command:
 
 ```bash
-cluster-up/cli.sh ssh node01
+# cluster-up/kubectl.sh get nodes
+NAME                        STATUS   ROLES    AGE   VERSION
+kind-1.14.2-control-plane   Ready    master   11h   v1.14.2
 ```
 
-To execute a remote command, e.g `ls`, simply type
-
-```bash
-cluster-up/cli.sh ssh node01 -- ls -lh
+Then you can execute the following command to access the node:
+```
+# ./cluster-up/ssh.sh kind-1.14.2-control-plane
+root@kind-1:/#
 ```
 
 ### Automatic Code Generation
