@@ -4,9 +4,15 @@ set -x
 CONTROL_PLANE_CMD="docker exec -it -d ${CLUSTER_NAME}-control-plane"
 MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/manifests"
 
+# not using kubectl wait since with the sriov operator the pods get restarted a couple of times and this is
+# more reliable
 function wait_containers_ready {
-    echo "Waiting for all containers to become ready ..."
-    kubectl wait --for=condition=Ready pod --all -n kube-system --timeout 12m
+    # wait until all containers are ready
+    while [ -n "$(kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | grep false)" ]; do
+        echo "Waiting for all containers to become ready ..."
+        kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers
+        sleep 10
+    done
 }
 
 function deploy_sriov_operator {
@@ -62,7 +68,6 @@ kubectl label node sriov-control-plane node-role.kubernetes.io/worker=
 kubectl label node sriov-control-plane sriov=true 
 envsubst < $MANIFESTS_DIR/network_policy.yaml | kubectl create -f -
 
-sleep 5
 kubectl wait --for=condition=Ready pod --all -n sriov-network-operator --timeout 6m
 
 SRIOVCNI_DAEMON_POD=$(kubectl get pods -n sriov-network-operator | grep sriov-cni | awk '{print $1}')
