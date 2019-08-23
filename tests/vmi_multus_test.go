@@ -634,6 +634,11 @@ var _ = Describe("SRIOV", func() {
 			// fedora requires some more memory to boot without kernel panics
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
 
+			return
+		}
+
+		startVmi := func(vmi *v1.VirtualMachineInstance) {
+
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
@@ -674,6 +679,7 @@ var _ = Describe("SRIOV", func() {
 
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
 			vmi := getSriovVmi([]string{"sriov"})
+			startVmi(vmi)
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -696,8 +702,18 @@ var _ = Describe("SRIOV", func() {
 			// it's hard to match them.
 		})
 
+		It("should create a virtual machine with sriov interface with custom MAC address", func() {
+			vmi := getSriovVmi([]string{"sriov"})
+			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = "de:ad:00:00:be:ef"
+			startVmi(vmi)
+
+			By("checking virtual machine instance has an interface with the requested MAC address")
+			checkMacAddress(vmi, "eth1", "de:ad:00:00:be:ef")
+		})
+
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
 			vmi := getSriovVmi([]string{"sriov", "sriov2"})
+			startVmi(vmi)
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -759,6 +775,20 @@ func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName, prompt string
 		&expect.BExp{R: "0"},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "Interface %q was not found in the VMI %s within the given timeout", interfaceName, vmi.Name)
+}
+
+func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress string) {
+	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
+	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "#"},
+		&expect.BSnd{S: cmdCheck},
+		&expect.BExp{R: macAddress},
+		&expect.BExp{R: "#"},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
+	}, 15)
+	Expect(err).ToNot(HaveOccurred(), "MAC %q was not found in the VMI %s within the given timeout", macAddress, vmi.Name)
 }
 
 func pingVirtualMachine(vmi *v1.VirtualMachineInstance, ipAddr, prompt string) {
