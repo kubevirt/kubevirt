@@ -118,6 +118,38 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Should(ContainSubstring("Found PID for"))
 		})
 
+		It("should carry annotations to pod", func() {
+			vmi.Annotations = map[string]string{
+				"testannotation": "test",
+			}
+
+			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(BeNil(), "Create VMI successfully")
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(pod).NotTo(BeNil())
+
+			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "test"), "annotation should be carried to the pod")
+		})
+
+		It("should not carry kubernetes and kubevirt annotations to pod", func() {
+			vmi.Annotations = map[string]string{
+				"kubevirt.io/test":   "test",
+				"kubernetes.io/test": "test",
+			}
+
+			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(BeNil(), "Create VMI successfully")
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(pod).NotTo(BeNil())
+
+			Expect(pod.Annotations).ToNot(HaveKey("kubevirt.io/test"), "kubevirt annotation should not be carried to the pod")
+			Expect(pod.Annotations).ToNot(HaveKey("kubernetes.io/test"), "kubernetes annotation should not be carried to the pod")
+		})
+
 		It("[test_id:1622]should log libvirtd logs", func() {
 			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil(), "Create VMI successfully")
