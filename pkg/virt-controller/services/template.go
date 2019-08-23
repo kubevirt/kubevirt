@@ -877,6 +877,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		v1.DomainAnnotation: domain,
 	}
 
+	for k, v := range vmi.Annotations {
+		if strings.Contains(k, "kubernetes.io") || strings.Contains(k, "kubevirt.io") {
+			// skip kubernetes and kubevirt internal annotations
+			continue
+		}
+		annotationsList[k] = v
+	}
+
 	cniAnnotations, err := getCniAnnotations(vmi)
 	if err != nil {
 		return nil, err
