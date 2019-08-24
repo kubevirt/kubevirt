@@ -67,6 +67,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
 	var pvcInformer cache.SharedIndexInformer
+	var pvcSource *framework.FakeControllerSource
 
 	var dataVolumeSource *framework.FakeControllerSource
 	var dataVolumeInformer cache.SharedIndexInformer
@@ -142,12 +143,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
 		go podInformer.Run(stop)
+		go pvcInformer.Run(stop)
 
 		go dataVolumeInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			podInformer.HasSynced,
-			dataVolumeInformer.HasSynced)).To(BeTrue())
+			dataVolumeInformer.HasSynced,
+		        pvcInformer.HasSynced)).To(BeTrue())
 	}
 
 	BeforeEach(func() {
@@ -162,7 +165,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		recorder = record.NewFakeRecorder(100)
 
 		config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
-		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		pvcInformer, pvcSource = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		controller = NewVMIController(
 			services.NewTemplateService("a", "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config),
 			vmiInformer,
@@ -216,6 +219,16 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				},
 			})
+
+			dvPVC := &k8sv1.PersistentVolumeClaim{
+				TypeMeta:   metav1.TypeMeta{
+					Kind: "PersistentVolumeClaim",
+					APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: vmi.Namespace,
+					Name: "test1"},
+			}
+			pvcSource.Add(dvPVC)
 
 			dataVolume := &cdiv1.DataVolume{
 				ObjectMeta: metav1.ObjectMeta{
