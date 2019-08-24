@@ -123,9 +123,11 @@ func main() {
 				templateStruct.Spec.CustomResourceDefinitions.Owned = append(
 					templateStruct.Spec.CustomResourceDefinitions.Owned,
 					csvv1.CRDDescription{
-						Name:    owned.Name,
-						Version: owned.Version,
-						Kind:    owned.Kind,
+						Name:           owned.Name,
+						Version:        owned.Version,
+						Kind:           owned.Kind,
+						Description:    owned.Description,
+						DisplayName:    owned.DisplayName,
 					})
 			}
 		}
