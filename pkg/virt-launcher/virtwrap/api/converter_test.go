@@ -33,9 +33,12 @@ import (
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 var _ = Describe("Converter", func() {
+
+	TestSmbios := &cmdv1.SMBios{}
 
 	Context("with v1.Disk", func() {
 		It("Should add boot order when provided", func() {
@@ -371,11 +374,17 @@ var _ = Describe("Converter", func() {
   <memory unit="B">8388608</memory>
   <os>
     <type arch="x86_64" machine="q35">hvm</type>
+    <smbios mode="sysinfo"></smbios>
   </os>
   <sysinfo type="smbios">
     <system>
       <entry name="uuid">e4686d2c-6e8d-4335-b8fd-81bee22f4814</entry>
       <entry name="serial">e4686d2c-6e8d-4335-b8fd-81bee22f4815</entry>
+      <entry name="manufacturer"></entry>
+      <entry name="family"></entry>
+      <entry name="product"></entry>
+      <entry name="sku"></entry>
+      <entry name="version"></entry>
     </system>
     <bios></bios>
     <baseBoard></baseBoard>
@@ -555,6 +564,7 @@ var _ = Describe("Converter", func() {
 				UseEmulation: true,
 				IsBlockPVC:   isBlockPVCMap,
 				SRIOVDevices: map[string][]string{},
+				SMBios:       TestSmbios,
 			}
 		})
 
@@ -927,6 +937,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				UseEmulation: true,
+				SMBios:       TestSmbios,
 			}
 		})
 
@@ -1474,7 +1485,7 @@ var _ = Describe("Converter", func() {
 		It("should honor multiQueue setting", func() {
 			var expectedQueues uint = 2
 
-			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
+			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true, SMBios: &cmdv1.SMBios{}})
 			Expect(*(domain.Spec.Devices.Disks[0].Driver.Queues)).To(Equal(expectedQueues),
 				"expected number of queues to equal number of requested CPUs")
 		})
@@ -1506,6 +1517,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			c := &ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 				UseEmulation: true,
+				SMBios:       &cmdv1.SMBios{},
 			}
 			domain := vmiToDomain(vmi, c)
 			domain.Spec.IOThreads = &IOThreads{}

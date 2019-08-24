@@ -26,6 +26,8 @@ package virtconfig
 import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 const (
@@ -46,6 +48,9 @@ const (
 	DefaultUseEmulation                             = false
 	DefaultUnsafeMigrationOverride                  = false
 	DefaultPermitSlirpInterface                     = false
+	SmbiosConfigDefaultFamily                       = "KubeVirt"
+	SmbiosConfigDefaultManufacturer                 = "KubeVirt"
+	SmbiosConfigDefaultProduct                      = "None"
 )
 
 func (c *ClusterConfig) IsUseEmulation() bool {
@@ -94,4 +99,8 @@ func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 
 func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
 	return c.getConfig().PermitSlirpInterface
+}
+
+func (c *ClusterConfig) GetSMBIOS() *cmdv1.SMBios {
+	return c.getConfig().SmbiosConfig
 }

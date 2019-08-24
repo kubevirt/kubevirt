@@ -70,7 +70,7 @@ type MigrationOptions struct {
 }
 
 type LauncherClient interface {
-	SyncVirtualMachine(vmi *v1.VirtualMachineInstance) error
+	SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
@@ -172,7 +172,7 @@ func (c *VirtLauncherClient) Close() {
 
 func (c *VirtLauncherClient) genericSendVMICmd(cmdName string,
 	cmdFunc func(ctx context.Context, request *cmdv1.VMIRequest, opts ...grpc.CallOption) (*cmdv1.Response, error),
-	vmi *v1.VirtualMachineInstance) error {
+	vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
 
 	vmiJson, err := json.Marshal(vmi)
 	if err != nil {
@@ -183,6 +183,7 @@ func (c *VirtLauncherClient) genericSendVMICmd(cmdName string,
 		Vmi: &cmdv1.VMI{
 			VmiJson: vmiJson,
 		},
+		Options: options,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
@@ -238,21 +239,20 @@ func IsDisconnected(err error) bool {
 	return false
 }
 
-func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("SyncVMI", c.v1client.SyncVirtualMachine, vmi)
-
+func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
+	return c.genericSendVMICmd("SyncVMI", c.v1client.SyncVirtualMachine, vmi, options)
 }
 
 func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("Shutdown", c.v1client.ShutdownVirtualMachine, vmi)
+	return c.genericSendVMICmd("Shutdown", c.v1client.ShutdownVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
 func (c *VirtLauncherClient) KillVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("Kill", c.v1client.KillVirtualMachine, vmi)
+	return c.genericSendVMICmd("Kill", c.v1client.KillVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
 func (c *VirtLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("Delete", c.v1client.DeleteVirtualMachine, vmi)
+	return c.genericSendVMICmd("Delete", c.v1client.DeleteVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
 func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error {
@@ -284,11 +284,11 @@ func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstanc
 }
 
 func (c *VirtLauncherClient) CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("CancelMigration", c.v1client.CancelVirtualMachineMigration, vmi)
+	return c.genericSendVMICmd("CancelMigration", c.v1client.CancelVirtualMachineMigration, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
 func (c *VirtLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("SyncMigrationTarget", c.v1client.SyncMigrationTarget, vmi)
+	return c.genericSendVMICmd("SyncMigrationTarget", c.v1client.SyncMigrationTarget, vmi, &cmdv1.VirtualMachineOptions{})
 
 }
 

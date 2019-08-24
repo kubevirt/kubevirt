@@ -32,6 +32,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -84,9 +85,9 @@ var _ = Describe("Virt remote commands", func() {
 		It("should start a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domain := api.NewMinimalDomain("testvmi")
-			domainManager.EXPECT().SyncVMI(vmi, useEmulation).Return(&domain.Spec, nil)
+			domainManager.EXPECT().SyncVMI(vmi, useEmulation, &cmdv1.VirtualMachineOptions{}).Return(&domain.Spec, nil)
 
-			err := client.SyncVirtualMachine(vmi)
+			err := client.SyncVirtualMachine(vmi, &cmdv1.VirtualMachineOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 

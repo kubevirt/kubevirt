@@ -7,6 +7,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	v10 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmd_client "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	stats "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -33,15 +34,15 @@ func (_m *MockDomainManager) EXPECT() *_MockDomainManagerRecorder {
 	return _m.recorder
 }
 
-func (_m *MockDomainManager) SyncVMI(_param0 *v1.VirtualMachineInstance, _param1 bool) (*api.DomainSpec, error) {
-	ret := _m.ctrl.Call(_m, "SyncVMI", _param0, _param1)
+func (_m *MockDomainManager) SyncVMI(_param0 *v1.VirtualMachineInstance, _param1 bool, _param2 *v10.VirtualMachineOptions) (*api.DomainSpec, error) {
+	ret := _m.ctrl.Call(_m, "SyncVMI", _param0, _param1, _param2)
 	ret0, _ := ret[0].(*api.DomainSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockDomainManagerRecorder) SyncVMI(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVMI", arg0, arg1)
+func (_mr *_MockDomainManagerRecorder) SyncVMI(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVMI", arg0, arg1, arg2)
 }
 
 func (_m *MockDomainManager) KillVMI(_param0 *v1.VirtualMachineInstance) error {
