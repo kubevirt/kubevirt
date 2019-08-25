@@ -61,7 +61,7 @@ func main() {
 		VirtLauncherSha:      *launcherSha,
 		ReplacesCsvVersion:   *replacesCsvVersion,
 		IconBase64:           *kubeVirtLogo,
-		Replicas:             1,
+		Replicas:             2,
 		CreatedAtTimestamp:   *csvCreatedAtTimestamp,
 	}
 
