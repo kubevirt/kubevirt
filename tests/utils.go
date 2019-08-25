@@ -2722,7 +2722,7 @@ func SkipIfNotUseNetworkPolicy(virtClient kubecli.KubevirtClient) {
 	}
 }
 
-func SkipIfNotGpuDevicePlugin(virtClient kubecli.KubevirtClient) {
+func SkipIfNoGpuDevicePlugin(virtClient kubecli.KubevirtClient) {
 	_, err := virtClient.ExtensionsV1beta1().DaemonSets("kube-system").Get("nvidia-kubevirt-gpu-dp-daemonset", metav1.GetOptions{})
 	if err != nil {
 		Skip("Skipping tests which need GPU")
