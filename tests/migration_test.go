@@ -30,6 +30,7 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -1064,9 +1065,47 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			})
 		})
 		Context("live migration cancelation", func() {
-			It("[test_id:2226]should be able successfully cancel a migration", func() {
-				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+			type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
+
+			newVirtualMachineInstanceWithFedoraContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+				return tests.NewRandomFedoraVMIWitGuestAgent(), nil
+			}
+
+			newVirtualMachineInstanceWithFedoraOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+				// It could have been cleaner to import tests.ContainerDiskFedora from cdi-http-server but that does
+				// not work so as a temporary workaround the following imports the image from an ISCSI target pod
+				if !tests.HasCDI() {
+					Skip("Skip DataVolume tests when CDI is not present")
+				}
+				sc, exists := tests.GetCephStorageClass()
+				if !exists {
+					Skip("Skip OCS tests when Ceph is not present")
+				}
+
+				By("Starting an iSCSI POD")
+				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskFedora)
+				volMode := k8sv1.PersistentVolumeBlock
+				// create a new PV and PVC (PVs can't be reused)
+				pvName := "test-iscsi-lun" + rand.String(48)
+				tests.CreateISCSIPvAndPvc(pvName, "5Gi", iscsiIP, volMode)
+				Expect(err).To(BeNil())
+				defer tests.DeletePvAndPvc(pvName)
+
+				dv := tests.NewRandomDataVolumeWithPVCSourceWithStorageClass(tests.NamespaceTestDefault, pvName, tests.NamespaceTestDefault, sc, "5Gi", k8sv1.ReadWriteMany)
+				dv.Spec.PVC.VolumeMode = &volMode
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulDataVolumeImport(dv, 600)
+				// workaround for: https://github.com/kubevirt/kubevirt/issues/2438
+				vmi := tests.NewRandomVMIWithPVC(dv.Name)
+				tests.AddUserData(vmi, "disk1", tests.GetGuestAgentUserData())
+				return vmi, dv
+			}
+
+			table.DescribeTable("[test_id:2226]should be able successfully cancel a migration", func(createVMI vmiBuilder) {
+				vmi, dv := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+				defer deleteDataVolume(dv)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -1099,8 +1138,10 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-
-			})
+			},
+				table.Entry("with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
+				table.Entry("with OCS Disk", newVirtualMachineInstanceWithFedoraOCSDisk),
+			)
 			It("should be able successfully cancel a migration right after posting it", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)

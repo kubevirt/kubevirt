@@ -1442,7 +1442,7 @@ func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, acce
 	if !HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
 	}
-	sc, exists := getCephStorageClass()
+	sc, exists := GetCephStorageClass()
 	if !exists {
 		Skip("Skip OCS tests when Ceph is not present")
 	}
@@ -1500,10 +1500,12 @@ func newRandomDataVolumeWithHttpImport(imageUrl, namespace, storageClass string,
 }
 
 func NewRandomDataVolumeWithPVCSource(sourceNamespace, sourceName, targetNamespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+	return NewRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, Config.StorageClassLocal, "1Gi", accessMode)
+}
 
+func NewRandomDataVolumeWithPVCSourceWithStorageClass(sourceNamespace, sourceName, targetNamespace, storageClass, size string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
 	name := "test-datavolume-" + rand.String(12)
-	storageClass := Config.StorageClassLocal
-	quantity, err := resource.ParseQuantity("1Gi")
+	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 	dataVolume := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -3031,7 +3033,7 @@ func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string
 	image := fmt.Sprintf("%s/cdi-http-import-server:%s", KubeVirtUtilityRepoPrefix, KubeVirtUtilityVersionTag)
 	resources := k8sv1.ResourceRequirements{}
 	resources.Limits = make(k8sv1.ResourceList)
-	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("256M")
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "test-iscsi-target",
@@ -3684,7 +3686,7 @@ func HasCDI() bool {
 	return HasFeature("DataVolumes")
 }
 
-func getCephStorageClass() (string, bool) {
+func GetCephStorageClass() (string, bool) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
 	storageClassList, err := virtClient.StorageV1().StorageClasses().List(metav1.ListOptions{})
