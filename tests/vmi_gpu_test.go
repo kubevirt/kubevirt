@@ -39,7 +39,7 @@ var _ = Describe("GPU VirtualMachineInstance", func() {
 	tests.PanicOnError(err)
 
 	tests.BeforeAll(func() {
-		tests.SkipIfNotGpuDevicePlugin(virtClient)
+		tests.SkipIfNoGpuDevicePlugin(virtClient)
 	})
 
 	Context("with ephemeral disk", func() {
