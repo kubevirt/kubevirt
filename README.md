@@ -122,7 +122,7 @@ $ export KUBEVIRT_PROVIDER="k8s-1.15.1"
 ```
 ```bash
 #For okd cluster:
-$ export KUBEVIRT_PROVIDER="okd-4.1.0"
+$ export KUBEVIRT_PROVIDER="okd-4.1"
 ```
 2. Navigate to the project's directory
 ```bash

@@ -25,7 +25,7 @@ if [ -z "$node" ]; then
     exit 1
 fi
 
-if [[ $provider_prefix =~ okd.* ]]; then
+if [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
     ports=$(${KUBEVIRTCI_PATH}cli.sh --prefix $provider_prefix ports --container-name cluster)
 
     if [[ $node =~ worker-0.* ]]; then
@@ -40,7 +40,7 @@ if [[ $provider_prefix =~ okd.* ]]; then
     fi
     shift
     ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -q -lcore -p $port core@127.0.0.1 -i ${ssh_key} $@
-elif [[ $provider_prefix =~ kind.* ]]; then
+elif [[ $KUBEVIRT_PROVIDER =~ kind.* ]]; then
     _ssh_into_node "$@"
 else
     ${_cli} --prefix $provider_prefix ssh "$@"
