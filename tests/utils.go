@@ -146,6 +146,7 @@ const (
 
 const (
 	AlpineHttpUrl     = "http://cdi-http-import-server.kubevirt/images/alpine.iso"
+	FedoraHttpUrl     = "http://cdi-http-import-server.kubevirt/images/fedora.img"
 	GuestAgentHttpUrl = "http://cdi-http-import-server.kubevirt/qemu-ga"
 	StressHttpUrl     = "http://cdi-http-import-server.kubevirt/stress"
 )
