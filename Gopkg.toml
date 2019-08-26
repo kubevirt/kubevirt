@@ -35,7 +35,7 @@ required = [
 
 [[override]]
   name = "github.com/kubevirt/cluster-network-addons-operator"
-  version = "=0.12.0"
+  version = "=0.13.0"
 
 [[override]]
   name = "github.com/MarSik/kubevirt-ssp-operator"

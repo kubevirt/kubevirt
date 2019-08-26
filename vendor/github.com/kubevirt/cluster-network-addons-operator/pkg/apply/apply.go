@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -54,6 +55,24 @@ func ApplyObject(ctx context.Context, client k8sclient.Client, obj *uns.Unstruct
 	}
 	if !equality.Semantic.DeepEqual(existing, obj) {
 		if err := client.Update(ctx, obj); err != nil {
+			// In older versions of the operator, we used daemon sets of type 'extensions/v1beta1', later we
+			// changed that to 'apps/v1'. Because of this change, we are not able to seamlessly upgrade using
+			// only Update methods. Following code handles this exception by deleting the old daemon set and
+			// creating a new one.
+			// TODO: Upgrade transaction should be handled by each component module separately. Once we make
+			// that possible, this exception should be dropped.
+			bridgeMarkerDaemonSetUpdateError := "DaemonSet.apps \"bridge-marker\" is invalid: spec.selector: Invalid value: v1.LabelSelector{MatchLabels:map[string]string{\"name\":\"bridge-marker\"}, MatchExpressions:[]v1.LabelSelectorRequirement(nil)}: field is immutable"
+			if strings.Contains(err.Error(), bridgeMarkerDaemonSetUpdateError) {
+				log.Print("update failed due to change in DaemonSet API group; removing original object and recreating")
+				if err := client.Delete(ctx, existing); err != nil {
+					return errors.Wrapf(err, "could not delete %s", objDesc)
+				}
+				if err := client.Create(ctx, obj); err != nil {
+					return errors.Wrapf(err, "could not create %s", objDesc)
+				}
+				log.Print("update of conflicting DaemonSet was successful")
+			}
+
 			return errors.Wrapf(err, "could not update object %s", objDesc)
 		} else {
 			log.Print("update was successful")
