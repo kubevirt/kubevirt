@@ -32,7 +32,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	kvutil "kubevirt.io/kubevirt/pkg/util"
+	clientutil "kubevirt.io/client-go/util"
 )
 
 const (
@@ -94,7 +94,7 @@ func GetConfigFromEnv() (*KubeVirtDeploymentConfig, error) {
 	ns := os.Getenv(TargetInstallNamespace)
 	if ns == "" {
 		var err error
-		ns, err = kvutil.GetNamespace()
+		ns, err = clientutil.GetNamespace()
 		if err != nil {
 			return nil, err
 		}

@@ -38,8 +38,8 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	clientutil "kubevirt.io/client-go/util"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -72,7 +72,7 @@ func getConfigMap() *k8sv1.ConfigMap {
 	var cfgMap *k8sv1.ConfigMap
 	err = wait.PollImmediate(time.Second*1, time.Second*10, func() (bool, error) {
 
-		namespace, curErr := util.GetNamespace()
+		namespace, curErr := clientutil.GetNamespace()
 		if err != nil {
 			return false, err
 		}

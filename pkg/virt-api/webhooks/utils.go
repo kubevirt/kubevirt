@@ -35,8 +35,8 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	clientutil "kubevirt.io/client-go/util"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
@@ -119,7 +119,7 @@ func newInformers() *Informers {
 	if err != nil {
 		panic(err)
 	}
-	namespace, err := util.GetNamespace()
+	namespace, err := clientutil.GetNamespace()
 	if err != nil {
 		glog.Fatalf("Error searching for namespace: %v", err)
 	}
