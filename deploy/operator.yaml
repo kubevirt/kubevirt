@@ -227,7 +227,7 @@ spec:
   selector:
     matchLabels:
       machineremediation.kubevirt.io: machine-remediation-operator
-      machineremediation.kubevirt.io/version: release-4.2
+      machineremediation.kubevirt.io/version: v0.3.7
   strategy:
     type: RollingUpdate
   template:
@@ -235,20 +235,18 @@ spec:
       creationTimestamp: null
       labels:
         machineremediation.kubevirt.io: machine-remediation-operator
-        machineremediation.kubevirt.io/version: release-4.2
+        machineremediation.kubevirt.io/version: v0.3.7
     spec:
       affinity:
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: machineremediation.kubevirt.io
-                  operator: In
-                  values:
-                  - machine-remediation-operator
-              topologyKey: kubernetes.io/hostname
-            weight: 50
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: machineremediation.kubevirt.io
+                operator: In
+                values:
+                - machine-remediation-operator
+            topologyKey: kubernetes.io/hostname
       containers:
       - args:
         - --logtostderr=true
@@ -258,8 +256,8 @@ spec:
         - /usr/bin/machine-remediation-operator
         env:
         - name: OPERATOR_VERSION
-          value: release-4.2
-        image: kubevirt/machine-remediation-operator:release-4.2
+          value: v0.3.7
+        image: kubevirt/machine-remediation-operator:v0.3.7
         imagePullPolicy: IfNotPresent
         name: machine-remediation-operator
         resources:

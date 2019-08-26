@@ -848,7 +848,7 @@ kind: ClusterRole
 metadata:
   labels:
     machineremediation.kubevirt.io: ""
-    machineremediation.kubevirt.io/version: release-4.2
+    machineremediation.kubevirt.io/version: v0.3.7
   name: machine-remediation-operator
 rules:
 - apiGroups:

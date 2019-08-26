@@ -36,7 +36,7 @@ function versions {
 	NETWORK_ADDONS_TAG="$(dep status -f='{{if eq .ProjectRoot "github.com/kubevirt/cluster-network-addons-operator"}}{{.Version}} {{end}}')"
 	echo "Network Addons: ${NETWORK_ADDONS_TAG}"
 
-	MRO_TAG="$(dep status -f='{{if eq .ProjectRoot "kubevirt.io/machine-remediation-operator"}}{{.Version}} {{end}}' | awk '{print $2}')"
+	MRO_TAG="$(dep status -f='{{if eq .ProjectRoot "kubevirt.io/machine-remediation-operator"}}{{.Version}} {{end}}')"
 	echo "MRO: ${MRO_TAG}"
 
 	if [ -z "${GITHUB_TOKEN}" ]; then
