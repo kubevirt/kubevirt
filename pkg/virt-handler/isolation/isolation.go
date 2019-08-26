@@ -193,6 +193,8 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 }
 
 // consider reusing getMemoryOverhead()
+// This is not scientific, but neither what libvirtd does is. See details in:
+// https://www.redhat.com/archives/libvirt-users/2019-August/msg00051.html
 func getMemlockSize(vm *v1.VirtualMachineInstance) (int64, error) {
 	memlockSize := resource.NewQuantity(0, resource.DecimalSI)
 
