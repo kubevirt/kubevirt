@@ -109,6 +109,32 @@ var _ = Describe("DataVolume Integration", func() {
 		})
 	})
 
+	Describe("Starting a VirtualMachineInstance with a Block DataVolume as a volume source", func() {
+		Context("using Cirros import", func() {
+			It("should be successfully started", func() {
+
+				dataVolume := tests.NewRandomBlockDataVolumeWithHttpImport(tests.CirrosHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				Expect(err).To(BeNil())
+
+				// Without userdata the hostname isn't set correctly and the login expecter fails...
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+				tests.RunVMIAndExpectLaunch(vmi, 90)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Cirros login successfully")
+				expecter.Close()
+
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+			})
+		})
+	})
+
 	Describe("Starting a VirtualMachine with an invalid DataVolume", func() {
 		Context("using DataVolume with invalid URL", func() {
 			It("should correctly handle invalid DataVolumes", func() {

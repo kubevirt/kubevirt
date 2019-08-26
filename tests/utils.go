@@ -146,6 +146,7 @@ const (
 
 const (
 	AlpineHttpUrl     = "http://cdi-http-import-server.kubevirt/images/alpine.iso"
+	CirrosHttpUrl     = "http://cdi-http-import-server.kubevirt/images/cirros.img"
 	GuestAgentHttpUrl = "http://cdi-http-import-server.kubevirt/qemu-ga"
 	StressHttpUrl     = "http://cdi-http-import-server.kubevirt/stress"
 )
@@ -1451,6 +1452,56 @@ func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string, access
 				},
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						"storage": quantity,
+					},
+				},
+				StorageClassName: &storageClass,
+			},
+		},
+	}
+
+	dataVolume.TypeMeta = metav1.TypeMeta{
+		APIVersion: "cdi.kubevirt.io/v1alpha1",
+		Kind:       "DataVolume",
+	}
+
+	return dataVolume
+}
+
+func NewRandomBlockDataVolumeWithHttpImport(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+	name := "test-blockdatavolume-" + rand.String(12)
+	quantity, err := resource.ParseQuantity("1Gi")
+	PanicOnError(err)
+
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	labelSelector := make(map[string]string)
+	labelSelector["kubevirt-test"] = name
+
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newBlockVolumePV(name, labelSelector, "1Gi"))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+
+	mode := k8sv1.PersistentVolumeBlock
+	storageClass := Config.StorageClassBlockVolume
+	dataVolume := &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: cdiv1.DataVolumeSource{
+				HTTP: &cdiv1.DataVolumeSourceHTTP{
+					URL: imageUrl,
+				},
+			},
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				VolumeMode:  &mode,
 				AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
 				Resources: k8sv1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{

@@ -150,7 +150,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmiInformer.HasSynced,
 			podInformer.HasSynced,
 			dataVolumeInformer.HasSynced,
-		        pvcInformer.HasSynced)).To(BeTrue())
+			pvcInformer.HasSynced)).To(BeTrue())
 	}
 
 	BeforeEach(func() {
@@ -221,12 +221,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			dvPVC := &k8sv1.PersistentVolumeClaim{
-				TypeMeta:   metav1.TypeMeta{
-					Kind: "PersistentVolumeClaim",
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
 					APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
-					Name: "test1"},
+					Name:      "test1"},
 			}
 			pvcSource.Add(dvPVC)
 
