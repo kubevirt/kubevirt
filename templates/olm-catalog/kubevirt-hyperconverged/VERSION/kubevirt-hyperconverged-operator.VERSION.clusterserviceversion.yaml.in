@@ -403,23 +403,23 @@ spec:
             - '*'
 {{end}}
       deployments:
-        - name: hco-operator
+        - name: hco-operator-0-0-2
           spec:
 {{.HCO.DeploymentSpec}}
 {{if .Converged}}
-        - name: virt-operator
+        - name: virt-operator-0-0-2
           spec:
 {{.KubeVirt.DeploymentSpec}}
-        - name: cdi-operator
+        - name: cdi-operator-0-0-2
           spec:
 {{.CDI.DeploymentSpec}}
-        - name: cluster-network-addons-operator
+        - name: cluster-network-addons-operator-0-0-2
           spec:
 {{.CNA.DeploymentSpec}}
-        - name: machine-remediation-operator
+        - name: machine-remediation-operator-0-0-2
           spec:
 {{.MRO.DeploymentSpec}}
-        - name: kubevirt-ssp-operator
+        - name: kubevirt-ssp-operator-0-0-2
           spec:
             replicas: 1
             selector:
@@ -450,7 +450,7 @@ spec:
                       - name: OPERATOR_NAME
                         value: "kubevirt-ssp-operator"
 
-        - name: node-maintenance-operator
+        - name: node-maintenance-operator-0-0-2
           spec:
             replicas: 1
             selector:

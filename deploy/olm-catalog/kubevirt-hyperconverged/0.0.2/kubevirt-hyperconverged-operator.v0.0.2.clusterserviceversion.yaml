@@ -1271,7 +1271,7 @@ spec:
             - '*'
 
       deployments:
-        - name: hco-operator
+        - name: hco-operator-0-0-2
           spec:
             replicas: 1
             selector:
@@ -1311,7 +1311,7 @@ spec:
                 serviceAccountName: hyperconverged-cluster-operator
 
 
-        - name: virt-operator
+        - name: virt-operator-0-0-2
           spec:
             replicas: 2
             selector:
@@ -1362,7 +1362,7 @@ spec:
                   runAsNonRoot: true
                 serviceAccountName: kubevirt-operator
 
-        - name: cdi-operator
+        - name: cdi-operator-0-0-2
           spec:
             replicas: 1
             selector:
@@ -1412,7 +1412,7 @@ spec:
                   runAsNonRoot: true
                 serviceAccountName: cdi-operator
 
-        - name: cluster-network-addons-operator
+        - name: cluster-network-addons-operator-0-0-2
           spec:
             replicas: 1
             selector:
@@ -1461,7 +1461,7 @@ spec:
                   resources: {}
                 serviceAccountName: cluster-network-addons-operator
 
-        - name: machine-remediation-operator
+        - name: machine-remediation-operator-0-0-2
           spec:
             replicas: 1
             selector:
@@ -1522,7 +1522,7 @@ spec:
                   operator: Exists
                   tolerationSeconds: 120
 
-        - name: kubevirt-ssp-operator
+        - name: kubevirt-ssp-operator-0-0-2
           spec:
             replicas: 1
             selector:
@@ -1553,7 +1553,7 @@ spec:
                       - name: OPERATOR_NAME
                         value: "kubevirt-ssp-operator"
 
-        - name: node-maintenance-operator
+        - name: node-maintenance-operator-0-0-2
           spec:
             replicas: 1
             selector:
