@@ -117,8 +117,12 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 					return tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine)), nil
 				}
 
-				newVirtualMachineInstanceWithAlpineOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+				newVirtualMachineInstanceWithAlpineOCSFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+				}
+
+				newVirtualMachineInstanceWithAlpineOCSBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
 				}
 
 				table.DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
@@ -128,7 +132,8 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 					ExpectConsoleOutput(vmi, "login")
 				},
 					table.Entry("with ContainerDisk", newVirtualMachineInstanceWithAlpineContainerDisk),
-					table.Entry("with OCS Disk", newVirtualMachineInstanceWithAlpineOCSDisk),
+					table.Entry("with OCS Filesystem Disk", newVirtualMachineInstanceWithAlpineOCSFileDisk),
+					table.Entry("with OCS Block Disk", newVirtualMachineInstanceWithAlpineOCSBlockDisk),
 				)
 			})
 
