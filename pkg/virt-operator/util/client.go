@@ -224,7 +224,7 @@ func IsOnOpenshift(clientset kubecli.KubevirtClient) (bool, error) {
 
 func IsServiceMonitorEnabled(clientset kubecli.KubevirtClient) (bool, error) {
 	apis, err := clientset.DiscoveryClient().ServerResources()
-	if err != nil {
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
 		return false, err
 	}
 
