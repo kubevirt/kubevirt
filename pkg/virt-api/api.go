@@ -46,6 +46,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	clientutil "kubevirt.io/client-go/util"
 	virtversion "kubevirt.io/client-go/version"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -157,7 +158,7 @@ func (app *virtAPIApp) Execute() {
 	if err != nil {
 		panic(err)
 	}
-	app.namespace, err = util.GetNamespace()
+	app.namespace, err = clientutil.GetNamespace()
 	if err != nil {
 		panic(err)
 	}

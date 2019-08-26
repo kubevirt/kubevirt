@@ -40,10 +40,10 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	clientutil "kubevirt.io/client-go/util"
 	"kubevirt.io/kubevirt/pkg/certificates"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
-	kvutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -107,7 +107,7 @@ func Execute() {
 
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
-	app.operatorNamespace, err = kvutil.GetNamespace()
+	app.operatorNamespace, err = clientutil.GetNamespace()
 	if err != nil {
 		golog.Fatalf("Error searching for namespace: %v", err)
 	}

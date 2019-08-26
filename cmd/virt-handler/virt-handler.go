@@ -36,8 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/certificate"
 
-	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -51,6 +49,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	clientutil "kubevirt.io/client-go/util"
 	"kubevirt.io/kubevirt/pkg/certificates"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -66,6 +65,7 @@ import (
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
+	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -261,7 +261,7 @@ func (app *virtHandlerApp) Run() {
 
 	virtlauncher.InitializeSharedDirectories(app.VirtShareDir)
 
-	app.namespace, err = util.GetNamespace()
+	app.namespace, err = clientutil.GetNamespace()
 	if err != nil {
 		glog.Fatalf("Error searching for namespace: %v", err)
 	}
