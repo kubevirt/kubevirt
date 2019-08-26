@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -436,7 +437,7 @@ func createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
 	clientset kubecli.KubevirtClient,
 	expectations *util.Expectations) error {
 
-	if !stores.ServiceMonitorEnabled && (rb.Name == "kubevirt-service-monitor") {
+	if !stores.ServiceMonitorEnabled && (rb.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
 		return nil
 	}
 
@@ -492,7 +493,7 @@ func createOrUpdateRole(r *rbacv1.Role,
 	clientset kubecli.KubevirtClient,
 	expectations *util.Expectations) error {
 
-	if !stores.ServiceMonitorEnabled && (r.Name == "kubevirt-service-monitor") {
+	if !stores.ServiceMonitorEnabled && (r.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
 		return nil
 	}
 

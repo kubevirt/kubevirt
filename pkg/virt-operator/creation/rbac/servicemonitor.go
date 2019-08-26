@@ -26,6 +26,8 @@ import (
 	virtv1 "kubevirt.io/client-go/api/v1"
 )
 
+const MONITOR_SERVICEACCOUNT_NAME = "kubevirt-monitoring"
+
 func GetAllServiceMonitor(namespace string, monitorNamespace string, monitorServiceAccount string) []interface{} {
 	return []interface{}{
 		newServiceMonitorRole(namespace),
@@ -41,7 +43,7 @@ func newServiceMonitorRole(namespace string) *rbacv1.Role {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "kubevirt-service-monitor",
+			Name:      MONITOR_SERVICEACCOUNT_NAME,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -72,7 +74,7 @@ func newServiceMonitorRoleBinding(namespace string, monitorNamespace string, mon
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "kubevirt-service-monitor",
+			Name:      MONITOR_SERVICEACCOUNT_NAME,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -80,7 +82,7 @@ func newServiceMonitorRoleBinding(namespace string, monitorNamespace string, mon
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
-			Name:     "kubevirt-service-monitor",
+			Name:     MONITOR_SERVICEACCOUNT_NAME,
 		},
 		Subjects: []rbacv1.Subject{
 			{
