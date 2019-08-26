@@ -385,7 +385,7 @@ kind: Role
 metadata:
   labels:
     kubevirt.io: ""
-  name: kubevirt-service-monitor
+  name: kubevirt-monitoring
   namespace: {{.Namespace}}
 rules:
 - apiGroups:
@@ -404,12 +404,12 @@ kind: RoleBinding
 metadata:
   labels:
     kubevirt.io: ""
-  name: kubevirt-service-monitor
+  name: kubevirt-monitoring
   namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: kubevirt-service-monitor
+  name: kubevirt-monitoring
 subjects:
 - kind: ServiceAccount
   name: prometheus-k8s
