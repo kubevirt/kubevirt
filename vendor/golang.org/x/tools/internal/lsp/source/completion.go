@@ -9,12 +9,16 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"strings"
 
 	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/internal/imports"
 	"golang.org/x/tools/internal/lsp/fuzzy"
+	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/snippet"
-	"golang.org/x/tools/internal/lsp/telemetry/trace"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/log"
+	"golang.org/x/tools/internal/telemetry/trace"
 	errors "golang.org/x/xerrors"
 )
 
@@ -32,6 +36,14 @@ type CompletionItem struct {
 	InsertText string
 
 	Kind CompletionItemKind
+
+	// An optional array of additional TextEdits that are applied when
+	// selecting this completion.
+	//
+	// Additional text edits should be used to change text unrelated to the current cursor position
+	// (for example adding an import statement at the top of the file if the completion item will
+	// insert an unqualified type).
+	AdditionalTextEdits []protocol.TextEdit
 
 	// Depth is how many levels were searched to find this completion.
 	// For example when completing "foo<>", "fooBar" is depth 0, and
@@ -112,6 +124,25 @@ const (
 	lowScore float64 = 0.01
 )
 
+// matcher matches a candidate's label against the user input.
+// The returned score reflects the quality of the match. A score
+// less than or equal to zero indicates no match, and a score of
+// one means a perfect match.
+type matcher interface {
+	Score(candidateLabel string) (score float32)
+}
+
+// prefixMatcher implements the original case insensitive prefix matching.
+// This matcher should go away once fuzzy matching is released.
+type prefixMatcher string
+
+func (pm prefixMatcher) Score(candidateLabel string) float32 {
+	if strings.HasPrefix(strings.ToLower(candidateLabel), string(pm)) {
+		return 1
+	}
+	return 0
+}
+
 // completer contains the necessary information for a single completion request.
 type completer struct {
 	// Package-specific fields.
@@ -125,6 +156,12 @@ type completer struct {
 
 	// ctx is the context associated with this completion request.
 	ctx context.Context
+
+	// filename is the name of the file associated with this completion request.
+	filename string
+
+	// file is the AST of the file associated with this completion request.
+	file *ast.File
 
 	// pos is the position at which the request was triggered.
 	pos token.Pos
@@ -155,8 +192,16 @@ type completer struct {
 	// deepState contains the current state of our deep completion search.
 	deepState deepCompletionState
 
-	// matcher does fuzzy matching of the candidates for the surrounding prefix.
-	matcher *fuzzy.Matcher
+	// matcher matches the candidates against the surrounding prefix.
+	matcher matcher
+
+	// methodSetCache caches the types.NewMethodSet call, which is relatively
+	// expensive and can be called many times for the same type while searching
+	// for deep completions.
+	methodSetCache map[methodSetKey]*types.MethodSet
+
+	// mapper converts the positions in the file from which the completion originated.
+	mapper *protocol.ColumnMapper
 }
 
 type compLitInfo struct {
@@ -180,15 +225,20 @@ type compLitInfo struct {
 	maybeInFieldName bool
 }
 
+type methodSetKey struct {
+	typ         types.Type
+	addressable bool
+}
+
 // A Selection represents the cursor position and surrounding identifier.
 type Selection struct {
-	Content string
-	Range   span.Range
-	Cursor  token.Pos
+	content string
+	cursor  token.Pos
+	mappedRange
 }
 
 func (p Selection) Prefix() string {
-	return p.Content[:p.Cursor-p.Range.Start]
+	return p.content[:p.cursor-p.spanRange.Start]
 }
 
 func (c *completer) setSurrounding(ident *ast.Ident) {
@@ -199,20 +249,44 @@ func (c *completer) setSurrounding(ident *ast.Ident) {
 		return
 	}
 	c.surrounding = &Selection{
-		Content: ident.Name,
-		Range:   span.NewRange(c.view.Session().Cache().FileSet(), ident.Pos(), ident.End()),
-		Cursor:  c.pos,
+		content: ident.Name,
+		cursor:  c.pos,
+		mappedRange: mappedRange{
+			spanRange: span.NewRange(c.view.Session().Cache().FileSet(), ident.Pos(), ident.End()),
+			m:         c.mapper,
+		},
 	}
-	if c.surrounding.Prefix() != "" {
+
+	// Fuzzy matching shares the "useDeepCompletions" config flag, so if deep completions
+	// are enabled then also enable fuzzy matching.
+	if c.deepState.enabled {
 		c.matcher = fuzzy.NewMatcher(c.surrounding.Prefix(), fuzzy.Symbol)
+	} else {
+		c.matcher = prefixMatcher(strings.ToLower(c.surrounding.Prefix()))
 	}
+}
+
+func (c *completer) getSurrounding() *Selection {
+	if c.surrounding == nil {
+		c.surrounding = &Selection{
+			content: "",
+			cursor:  c.pos,
+			mappedRange: mappedRange{
+				spanRange: span.NewRange(c.view.Session().Cache().FileSet(), c.pos, c.pos),
+				m:         c.mapper,
+			},
+		}
+	}
+	return c.surrounding
 }
 
 // found adds a candidate completion. We will also search through the object's
 // members for more candidates.
-func (c *completer) found(obj types.Object, score float64) error {
+func (c *completer) found(obj types.Object, score float64, imp *imports.ImportInfo) {
 	if obj.Pkg() != nil && obj.Pkg() != c.types && !obj.Exported() {
-		return errors.Errorf("%s is inaccessible from %s", obj.Name(), c.types.Path())
+		// obj is not accessible because it lives in another package and is not
+		// exported. Don't treat it as a completion candidate.
+		return
 	}
 
 	if c.inDeepCompletion() {
@@ -221,13 +295,13 @@ func (c *completer) found(obj types.Object, score float64) error {
 		// "bar.Baz" even though "Baz" is represented the same types.Object in both.
 		for _, seenObj := range c.deepState.chain {
 			if seenObj == obj {
-				return nil
+				return
 			}
 		}
 	} else {
 		// At the top level, dedupe by object.
 		if c.seen[obj] {
-			return nil
+			return
 		}
 		c.seen[obj] = true
 	}
@@ -235,6 +309,7 @@ func (c *completer) found(obj types.Object, score float64) error {
 	cand := candidate{
 		obj:   obj,
 		score: score,
+		imp:   imp,
 	}
 
 	if c.matchingType(&cand) {
@@ -243,14 +318,24 @@ func (c *completer) found(obj types.Object, score float64) error {
 
 	// Favor shallow matches by lowering weight according to depth.
 	cand.score -= stdScore * float64(len(c.deepState.chain))
-	item, err := c.item(cand)
-	if err != nil {
-		return err
+
+	cand.name = c.deepState.chainString(obj.Name())
+	matchScore := c.matcher.Score(cand.name)
+	if matchScore > 0 {
+		cand.score *= float64(matchScore)
+
+		// Avoid calling c.item() for deep candidates that wouldn't be in the top
+		// MaxDeepCompletions anyway.
+		if !c.inDeepCompletion() || c.deepState.isHighScore(cand.score) {
+			if item, err := c.item(cand); err == nil {
+				c.items = append(c.items, item)
+			} else {
+				log.Error(c.ctx, "error generating completion item", err)
+			}
+		}
 	}
-	c.items = append(c.items, item)
 
 	c.deepSearch(obj)
-	return nil
 }
 
 // candidate represents a completion candidate.
@@ -261,14 +346,23 @@ type candidate struct {
 	// score is used to rank candidates.
 	score float64
 
+	// name is the deep object name path, e.g. "foo.bar"
+	name string
+
 	// expandFuncCall is true if obj should be invoked in the completion.
 	// For example, expandFuncCall=true yields "foo()", expandFuncCall=false yields "foo".
 	expandFuncCall bool
+
+	// imp is the import that needs to be added to this package in order
+	// for this candidate to be valid. nil if no import needed.
+	imp *imports.ImportInfo
 }
 
 type CompletionOptions struct {
-	DeepComplete     bool
-	WantDocumentaton bool
+	DeepComplete          bool
+	WantDocumentaton      bool
+	WantFullDocumentation bool
+	WantUnimported        bool
 }
 
 // Completion returns a list of possible candidates for completion, given a
@@ -277,28 +371,51 @@ type CompletionOptions struct {
 // The selection is computed based on the preceding identifier and can be used by
 // the client to score the quality of the completion. For instance, some clients
 // may tolerate imperfect matches as valid completion results, since users may make typos.
-func Completion(ctx context.Context, view View, f GoFile, pos token.Pos, opts CompletionOptions) ([]CompletionItem, *Selection, error) {
+func Completion(ctx context.Context, view View, f GoFile, pos protocol.Position, opts CompletionOptions) ([]CompletionItem, *Selection, error) {
 	ctx, done := trace.StartSpan(ctx, "source.Completion")
 	defer done()
 
-	file, err := f.GetAST(ctx, ParseFull)
+	pkg, err := f.GetPackage(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	var ph ParseGoHandle
+	for _, h := range pkg.GetHandles() {
+		if h.File().Identity().URI == f.URI() {
+			ph = h
+		}
+	}
+	file, err := ph.Cached(ctx)
 	if file == nil {
 		return nil, nil, err
 	}
-	pkg := f.GetPackage(ctx)
-	if pkg == nil || pkg.IsIllTyped() {
-		return nil, nil, errors.Errorf("package for %s is ill typed", f.URI())
+	data, _, err := ph.File().Read(ctx)
+	if err != nil {
+		return nil, nil, err
 	}
-
+	fset := view.Session().Cache().FileSet()
+	tok := fset.File(file.Pos())
+	if tok == nil {
+		return nil, nil, errors.Errorf("no token.File for %s", f.URI())
+	}
+	m := protocol.NewColumnMapper(f.URI(), f.URI().Filename(), fset, tok, data)
+	spn, err := m.PointSpan(pos)
+	if err != nil {
+		return nil, nil, err
+	}
+	rng, err := spn.Range(m.Converter)
+	if err != nil {
+		return nil, nil, err
+	}
 	// Completion is based on what precedes the cursor.
 	// Find the path to the position before pos.
-	path, _ := astutil.PathEnclosingInterval(file, pos-1, pos-1)
+	path, _ := astutil.PathEnclosingInterval(file, rng.Start-1, rng.Start-1)
 	if path == nil {
 		return nil, nil, errors.Errorf("cannot find node enclosing position")
 	}
 	// Skip completion inside comments.
 	for _, g := range file.Comments {
-		if g.Pos() <= pos && pos <= g.End() {
+		if g.Pos() <= rng.Start && rng.Start <= g.End() {
 			return nil, nil, nil
 		}
 	}
@@ -307,19 +424,25 @@ func Completion(ctx context.Context, view View, f GoFile, pos token.Pos, opts Co
 		return nil, nil, nil
 	}
 
-	clInfo := enclosingCompositeLiteral(path, pos, pkg.GetTypesInfo())
+	clInfo := enclosingCompositeLiteral(path, rng.Start, pkg.GetTypesInfo())
 	c := &completer{
 		types:                     pkg.GetTypes(),
 		info:                      pkg.GetTypesInfo(),
 		qf:                        qualifier(file, pkg.GetTypes(), pkg.GetTypesInfo()),
 		view:                      view,
 		ctx:                       ctx,
+		filename:                  f.URI().Filename(),
+		file:                      file,
 		path:                      path,
-		pos:                       pos,
+		pos:                       rng.Start,
 		seen:                      make(map[types.Object]bool),
-		enclosingFunction:         enclosingFunction(path, pos, pkg.GetTypesInfo()),
+		enclosingFunction:         enclosingFunction(path, rng.Start, pkg.GetTypesInfo()),
 		enclosingCompositeLiteral: clInfo,
 		opts:                      opts,
+		// default to a matcher that always matches
+		matcher:        prefixMatcher(""),
+		methodSetCache: make(map[methodSetKey]*types.MethodSet),
+		mapper:         m,
 	}
 
 	c.deepState.enabled = opts.DeepComplete
@@ -336,7 +459,7 @@ func Completion(ctx context.Context, view View, f GoFile, pos token.Pos, opts Co
 		if err := c.structLiteralFieldName(); err != nil {
 			return nil, nil, err
 		}
-		return c.items, c.surrounding, nil
+		return c.items, c.getSurrounding(), nil
 	}
 
 	switch n := path[0].(type) {
@@ -346,7 +469,7 @@ func Completion(ctx context.Context, view View, f GoFile, pos token.Pos, opts Co
 			if err := c.selector(sel); err != nil {
 				return nil, nil, err
 			}
-			return c.items, c.surrounding, nil
+			return c.items, c.getSurrounding(), nil
 		}
 		// reject defining identifiers
 		if obj, ok := pkg.GetTypesInfo().Defs[n]; ok {
@@ -394,7 +517,7 @@ func Completion(ctx context.Context, view View, f GoFile, pos token.Pos, opts Co
 		}
 	}
 
-	return c.items, c.surrounding, nil
+	return c.items, c.getSurrounding(), nil
 }
 
 func (c *completer) wantStructFieldCompletions() bool {
@@ -432,28 +555,30 @@ func (c *completer) selector(sel *ast.SelectorExpr) error {
 func (c *completer) packageMembers(pkg *types.PkgName) {
 	scope := pkg.Imported().Scope()
 	for _, name := range scope.Names() {
-		c.found(scope.Lookup(name), stdScore)
+		c.found(scope.Lookup(name), stdScore, nil)
 	}
 }
 
 func (c *completer) methodsAndFields(typ types.Type, addressable bool) error {
-	var mset *types.MethodSet
-
-	if addressable && !types.IsInterface(typ) && !isPointer(typ) {
-		// Add methods of *T, which includes methods with receiver T.
-		mset = types.NewMethodSet(types.NewPointer(typ))
-	} else {
-		// Add methods of T.
-		mset = types.NewMethodSet(typ)
+	mset := c.methodSetCache[methodSetKey{typ, addressable}]
+	if mset == nil {
+		if addressable && !types.IsInterface(typ) && !isPointer(typ) {
+			// Add methods of *T, which includes methods with receiver T.
+			mset = types.NewMethodSet(types.NewPointer(typ))
+		} else {
+			// Add methods of T.
+			mset = types.NewMethodSet(typ)
+		}
+		c.methodSetCache[methodSetKey{typ, addressable}] = mset
 	}
 
 	for i := 0; i < mset.Len(); i++ {
-		c.found(mset.At(i).Obj(), stdScore)
+		c.found(mset.At(i).Obj(), stdScore, nil)
 	}
 
 	// Add fields of T.
 	for _, f := range fieldSelections(typ) {
-		c.found(f, stdScore)
+		c.found(f, stdScore, nil)
 	}
 	return nil
 }
@@ -513,7 +638,27 @@ func (c *completer) lexical() error {
 			// If we haven't already added a candidate for an object with this name.
 			if _, ok := seen[obj.Name()]; !ok {
 				seen[obj.Name()] = struct{}{}
-				c.found(obj, score)
+				c.found(obj, score, nil)
+			}
+		}
+	}
+
+	if c.opts.WantUnimported {
+		// Suggest packages that have not been imported yet.
+		pkgs, err := CandidateImports(c.ctx, c.view, c.filename)
+		if err != nil {
+			return err
+		}
+		score := stdScore
+		// Rank unimported packages significantly lower than other results.
+		score *= 0.07
+		for _, pkg := range pkgs {
+			if _, ok := seen[pkg.IdentName]; !ok {
+				// Do not add the unimported packages to seen, since we can have
+				// multiple packages of the same name as completion suggestions, since
+				// only one will be chosen.
+				obj := types.NewPkgName(0, nil, pkg.IdentName, types.NewPackage(pkg.StmtInfo.ImportPath, pkg.IdentName))
+				c.found(obj, score, &pkg.StmtInfo)
 			}
 		}
 	}
@@ -548,7 +693,7 @@ func (c *completer) structLiteralFieldName() error {
 		for i := 0; i < t.NumFields(); i++ {
 			field := t.Field(i)
 			if !addedFields[field] {
-				c.found(field, highScore)
+				c.found(field, highScore, nil)
 			}
 		}
 

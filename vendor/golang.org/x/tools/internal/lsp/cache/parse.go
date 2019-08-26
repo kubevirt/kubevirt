@@ -5,6 +5,7 @@
 package cache
 
 import (
+	"bytes"
 	"context"
 	"go/ast"
 	"go/parser"
@@ -13,8 +14,9 @@ import (
 
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/lsp/telemetry"
-	"golang.org/x/tools/internal/lsp/telemetry/trace"
 	"golang.org/x/tools/internal/memoize"
+	"golang.org/x/tools/internal/telemetry/log"
+	"golang.org/x/tools/internal/telemetry/trace"
 	errors "golang.org/x/xerrors"
 )
 
@@ -74,9 +76,34 @@ func (h *parseGoHandle) Parse(ctx context.Context) (*ast.File, error) {
 	return data.ast, data.err
 }
 
+func (h *parseGoHandle) Cached(ctx context.Context) (*ast.File, error) {
+	v := h.handle.Cached()
+	if v == nil {
+		return nil, errors.Errorf("no cached value for %s", h.file.Identity().URI)
+	}
+	data := v.(*parseGoData)
+	return data.ast, data.err
+}
+
+func hashParseKey(ph source.ParseGoHandle) string {
+	b := bytes.NewBuffer(nil)
+	b.WriteString(ph.File().Identity().String())
+	b.WriteString(string(ph.Mode()))
+	return hashContents(b.Bytes())
+}
+
+func hashParseKeys(phs []source.ParseGoHandle) string {
+	b := bytes.NewBuffer(nil)
+	for _, ph := range phs {
+		b.WriteString(hashParseKey(ph))
+	}
+	return hashContents(b.Bytes())
+}
+
 func parseGo(ctx context.Context, c *cache, fh source.FileHandle, mode source.ParseMode) (*ast.File, error) {
 	ctx, done := trace.StartSpan(ctx, "cache.parseGo", telemetry.File.Of(fh.Identity().URI.Filename()))
 	defer done()
+
 	buf, _, err := fh.Read(ctx)
 	if err != nil {
 		return nil, err
@@ -95,7 +122,7 @@ func parseGo(ctx context.Context, c *cache, fh source.FileHandle, mode source.Pa
 		// Fix any badly parsed parts of the AST.
 		tok := c.fset.File(ast.Pos())
 		if err := fix(ctx, ast, tok, buf); err != nil {
-			// TODO: Do something with the error (need access to a logger in here).
+			log.Error(ctx, "failed to fix AST", err)
 		}
 	}
 	if ast == nil {

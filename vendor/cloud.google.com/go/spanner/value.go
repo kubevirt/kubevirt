@@ -602,7 +602,7 @@ func decodeValue(v *proto3.Value, t *sppb.Type, ptr interface{}) error {
 		}
 		err := parseNullTime(v, &nt, code, isNull)
 		if err != nil {
-			return nil
+			return err
 		}
 		*p = nt.Time
 	case *NullTime:

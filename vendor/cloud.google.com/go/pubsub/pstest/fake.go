@@ -238,8 +238,8 @@ func (s *GServer) UpdateTopic(_ context.Context, req *pb.UpdateTopicRequest) (*p
 		switch path {
 		case "labels":
 			t.proto.Labels = req.Topic.Labels
-		case "message_storage_policy": // "fetch" the policy
-			t.proto.MessageStoragePolicy = &pb.MessageStoragePolicy{AllowedPersistenceRegions: []string{"US"}}
+		case "message_storage_policy":
+			t.proto.MessageStoragePolicy = req.Topic.MessageStoragePolicy
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "unknown field name %q", path)
 		}

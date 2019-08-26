@@ -6,16 +6,14 @@ package source
 
 import (
 	"context"
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
-	"sort"
-	"strings"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/internal/imports"
-	"golang.org/x/tools/internal/lsp/diff"
 	"golang.org/x/tools/internal/span"
 )
 
@@ -23,6 +21,10 @@ import (
 type FileIdentity struct {
 	URI     span.URI
 	Version string
+}
+
+func (identity FileIdentity) String() string {
+	return fmt.Sprintf("%s%s", identity.URI, identity.Version)
 }
 
 // FileHandle represents a handle to a specific version of a single file from
@@ -78,6 +80,9 @@ type ParseGoHandle interface {
 	// Parse returns the parsed AST for the file.
 	// If the file is not available, returns nil and an error.
 	Parse(ctx context.Context) (*ast.File, error)
+
+	// Cached returns the AST for this handle, if it has already been stored.
+	Cached(ctx context.Context) (*ast.File, error)
 }
 
 // ParseMode controls the content of the AST produced when parsing a source file.
@@ -100,6 +105,22 @@ const (
 	ParseFull
 )
 
+// CheckPackageHandle represents a handle to a specific version of a package.
+// It is uniquely defined by the file handles that make up the package.
+type CheckPackageHandle interface {
+	// ParseGoHandle returns a ParseGoHandle for which to get the package.
+	Files() []ParseGoHandle
+
+	// Config is the *packages.Config that the package metadata was loaded with.
+	Config() *packages.Config
+
+	// Check returns the type-checked Package for the CheckPackageHandle.
+	Check(ctx context.Context) (Package, error)
+
+	// Cached returns the Package for the CheckPackageHandle if it has already been stored.
+	Cached(ctx context.Context) (Package, error)
+}
+
 // Cache abstracts the core logic of dealing with the environment from the
 // higher level logic that processes the information to produce results.
 // The cache provides access to files and their contents, so the source
@@ -117,11 +138,11 @@ type Cache interface {
 	// FileSet returns the shared fileset used by all files in the system.
 	FileSet() *token.FileSet
 
-	// Token returns a TokenHandle for the given file handle.
-	TokenHandle(FileHandle) TokenHandle
+	// TokenHandle returns a TokenHandle for the given file handle.
+	TokenHandle(fh FileHandle) TokenHandle
 
-	// ParseGo returns a ParseGoHandle for the given file handle.
-	ParseGoHandle(FileHandle, ParseMode) ParseGoHandle
+	// ParseGoHandle returns a ParseGoHandle for the given file handle.
+	ParseGoHandle(fh FileHandle, mode ParseMode) ParseGoHandle
 }
 
 // Session represents a single connection from a client.
@@ -164,7 +185,7 @@ type Session interface {
 	IsOpen(uri span.URI) bool
 
 	// Called to set the effective contents of a file from this session.
-	SetOverlay(uri span.URI, data []byte)
+	SetOverlay(uri span.URI, data []byte) (wasFirstChange bool)
 }
 
 // View represents a single workspace.
@@ -187,7 +208,7 @@ type View interface {
 	GetFile(ctx context.Context, uri span.URI) (File, error)
 
 	// Called to set the effective contents of a file from this view.
-	SetContent(ctx context.Context, uri span.URI, content []byte) error
+	SetContent(ctx context.Context, uri span.URI, content []byte) (wasFirstChange bool, err error)
 
 	// BackgroundContext returns a context used for all background processing
 	// on behalf of this view.
@@ -228,14 +249,23 @@ type File interface {
 type GoFile interface {
 	File
 
-	// GetAST returns the full AST for the file.
+	// GetAST returns the AST for the file, at or above the given mode.
 	GetAST(ctx context.Context, mode ParseMode) (*ast.File, error)
 
-	// GetPackage returns the package that this file belongs to.
-	GetPackage(ctx context.Context) Package
+	// GetCachedPackage returns the cached package for the file, if any.
+	GetCachedPackage(ctx context.Context) (Package, error)
 
-	// GetPackages returns all of the packages that this file belongs to.
-	GetPackages(ctx context.Context) []Package
+	// GetPackage returns the CheckPackageHandle for the package that this file belongs to.
+	GetCheckPackageHandle(ctx context.Context) (CheckPackageHandle, error)
+
+	// GetPackages returns the CheckPackageHandles of the packages that this file belongs to.
+	GetCheckPackageHandles(ctx context.Context) ([]CheckPackageHandle, error)
+
+	// GetPackage returns the CheckPackageHandle for the package that this file belongs to.
+	GetPackage(ctx context.Context) (Package, error)
+
+	// GetPackages returns the CheckPackageHandles of the packages that this file belongs to.
+	GetPackages(ctx context.Context) ([]Package, error)
 
 	// GetActiveReverseDeps returns the active files belonging to the reverse
 	// dependencies of this file's package.
@@ -255,75 +285,19 @@ type SumFile interface {
 type Package interface {
 	ID() string
 	PkgPath() string
-	GetFilenames() []string
+	GetHandles() []ParseGoHandle
 	GetSyntax(context.Context) []*ast.File
 	GetErrors() []packages.Error
 	GetTypes() *types.Package
 	GetTypesInfo() *types.Info
 	GetTypesSizes() types.Sizes
 	IsIllTyped() bool
-	GetActionGraph(ctx context.Context, a *analysis.Analyzer) (*Action, error)
-	GetImport(pkgPath string) Package
 	GetDiagnostics() []Diagnostic
 	SetDiagnostics(diags []Diagnostic)
-}
 
-// TextEdit represents a change to a section of a document.
-// The text within the specified span should be replaced by the supplied new text.
-type TextEdit struct {
-	Span    span.Span
-	NewText string
-}
+	// GetImport returns the CheckPackageHandle for a package imported by this package.
+	GetImport(ctx context.Context, pkgPath string) (Package, error)
 
-// DiffToEdits converts from a sequence of diff operations to a sequence of
-// source.TextEdit
-func DiffToEdits(uri span.URI, ops []*diff.Op) []TextEdit {
-	edits := make([]TextEdit, 0, len(ops))
-	for _, op := range ops {
-		s := span.New(uri, span.NewPoint(op.I1+1, 1, 0), span.NewPoint(op.I2+1, 1, 0))
-		switch op.Kind {
-		case diff.Delete:
-			// Delete: unformatted[i1:i2] is deleted.
-			edits = append(edits, TextEdit{Span: s})
-		case diff.Insert:
-			// Insert: formatted[j1:j2] is inserted at unformatted[i1:i1].
-			if content := strings.Join(op.Content, ""); content != "" {
-				edits = append(edits, TextEdit{Span: s, NewText: content})
-			}
-		}
-	}
-	return edits
-}
-
-func EditsToDiff(edits []TextEdit) []*diff.Op {
-	iToJ := 0
-	ops := make([]*diff.Op, len(edits))
-	for i, edit := range edits {
-		i1 := edit.Span.Start().Line() - 1
-		i2 := edit.Span.End().Line() - 1
-		kind := diff.Insert
-		if edit.NewText == "" {
-			kind = diff.Delete
-		}
-		ops[i] = &diff.Op{
-			Kind:    kind,
-			Content: diff.SplitLines(edit.NewText),
-			I1:      i1,
-			I2:      i2,
-			J1:      i1 + iToJ,
-		}
-		if kind == diff.Insert {
-			iToJ += len(ops[i].Content)
-		} else {
-			iToJ -= i2 - i1
-		}
-	}
-	return ops
-}
-
-func sortTextEdits(d []TextEdit) {
-	// Use a stable sort to maintain the order of edits inserted at the same position.
-	sort.SliceStable(d, func(i int, j int) bool {
-		return span.Compare(d[i].Span, d[j].Span) < 0
-	})
+	// GetActionGraph returns the action graph for the given package.
+	GetActionGraph(ctx context.Context, a *analysis.Analyzer) (*Action, error)
 }

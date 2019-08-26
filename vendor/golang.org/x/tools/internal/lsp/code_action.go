@@ -13,15 +13,19 @@ import (
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/lsp/telemetry"
-	"golang.org/x/tools/internal/lsp/telemetry/log"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/log"
 	errors "golang.org/x/xerrors"
 )
 
 func (s *Server) codeAction(ctx context.Context, params *protocol.CodeActionParams) ([]protocol.CodeAction, error) {
 	uri := span.NewURI(params.TextDocument.URI)
 	view := s.session.ViewOf(uri)
-	f, m, err := getSourceFile(ctx, view, uri)
+	f, err := view.GetFile(ctx, uri)
+	if err != nil {
+		return nil, err
+	}
+	m, err := getMapper(ctx, f)
 	if err != nil {
 		return nil, err
 	}
@@ -129,14 +133,14 @@ func organizeImports(ctx context.Context, view source.View, s span.Span) ([]prot
 		return nil, nil, err
 	}
 	// Convert all source edits to protocol edits.
-	pEdits, err := ToProtocolEdits(m, edits)
+	pEdits, err := source.ToProtocolEdits(m, edits)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	pEditsPerFix := make([]*protocolImportFix, len(editsPerFix))
 	for i, fix := range editsPerFix {
-		pEdits, err := ToProtocolEdits(m, fix.Edits)
+		pEdits, err := source.ToProtocolEdits(m, fix.Edits)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -219,18 +223,25 @@ func quickFixes(ctx context.Context, view source.View, gof source.GoFile) ([]pro
 	// TODO: This is technically racy because the diagnostics provided by the code action
 	// may not be the same as the ones that gopls is aware of.
 	// We need to figure out some way to solve this problem.
-	diags := gof.GetPackage(ctx).GetDiagnostics()
-	for _, diag := range diags {
-		pdiag, err := toProtocolDiagnostic(ctx, view, diag)
+	pkg, err := gof.GetPackage(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, diag := range pkg.GetDiagnostics() {
+		pdiag, err := toProtocolDiagnostic(ctx, diag)
 		if err != nil {
 			return nil, err
 		}
 		for _, ca := range diag.SuggestedFixes {
-			_, m, err := getGoFile(ctx, view, diag.URI())
+			f, err := view.GetFile(ctx, diag.URI)
 			if err != nil {
 				return nil, err
 			}
-			edits, err := ToProtocolEdits(m, ca.Edits)
+			m, err := getMapper(ctx, f)
+			if err != nil {
+				return nil, err
+			}
+			edits, err := source.ToProtocolEdits(m, ca.Edits)
 			if err != nil {
 				return nil, err
 			}
@@ -239,7 +250,7 @@ func quickFixes(ctx context.Context, view source.View, gof source.GoFile) ([]pro
 				Kind:  protocol.QuickFix, // TODO(matloob): Be more accurate about these?
 				Edit: &protocol.WorkspaceEdit{
 					Changes: &map[string][]protocol.TextEdit{
-						string(diag.URI()): edits,
+						protocol.NewURI(diag.URI): edits,
 					},
 				},
 				Diagnostics: []protocol.Diagnostic{pdiag},

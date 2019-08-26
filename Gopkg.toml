@@ -39,7 +39,7 @@ required = [
 
 [[override]]
   name = "github.com/MarSik/kubevirt-ssp-operator"
-  version = "v1.0.8"
+  version = "v1.0.9"
 
 [[override]]
   name = "k8s.io/code-generator"

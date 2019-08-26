@@ -12,8 +12,8 @@ import (
 	"strconv"
 
 	"golang.org/x/tools/go/ast/astutil"
-	"golang.org/x/tools/internal/lsp/telemetry/trace"
 	"golang.org/x/tools/internal/span"
+	"golang.org/x/tools/internal/telemetry/trace"
 	errors "golang.org/x/xerrors"
 )
 
@@ -47,33 +47,44 @@ func (i *IdentifierInfo) DeclarationRange() span.Range {
 
 // Identifier returns identifier information for a position
 // in a file, accounting for a potentially incomplete selector.
-func Identifier(ctx context.Context, view View, f GoFile, pos token.Pos) (*IdentifierInfo, error) {
-	if result, err := identifier(ctx, view, f, pos); err != nil || result != nil {
+func Identifier(ctx context.Context, f GoFile, pos token.Pos) (*IdentifierInfo, error) {
+	pkg, err := f.GetPackage(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var file *ast.File
+	for _, ph := range pkg.GetHandles() {
+		if ph.File().Identity().URI == f.URI() {
+			file, err = ph.Cached(ctx)
+		}
+	}
+	if file == nil {
+		return nil, err
+	}
+	return findIdentifier(ctx, f, pkg, file, pos)
+}
+
+func findIdentifier(ctx context.Context, f GoFile, pkg Package, file *ast.File, pos token.Pos) (*IdentifierInfo, error) {
+	if result, err := identifier(ctx, f, pkg, file, pos); err != nil || result != nil {
 		return result, err
 	}
 	// If the position is not an identifier but immediately follows
 	// an identifier or selector period (as is common when
 	// requesting a completion), use the path to the preceding node.
-	result, err := identifier(ctx, view, f, pos-1)
+	result, err := identifier(ctx, f, pkg, file, pos-1)
 	if result == nil && err == nil {
-		err = errors.Errorf("no identifier found")
+		err = errors.Errorf("no identifier found for %s", f.FileSet().Position(pos))
 	}
 	return result, err
 }
 
 // identifier checks a single position for a potential identifier.
-func identifier(ctx context.Context, view View, f GoFile, pos token.Pos) (*IdentifierInfo, error) {
+func identifier(ctx context.Context, f GoFile, pkg Package, file *ast.File, pos token.Pos) (*IdentifierInfo, error) {
 	ctx, done := trace.StartSpan(ctx, "source.identifier")
 	defer done()
 
-	file, err := f.GetAST(ctx, ParseFull)
-	if file == nil {
-		return nil, err
-	}
-	pkg := f.GetPackage(ctx)
-	if pkg == nil || pkg.IsIllTyped() {
-		return nil, errors.Errorf("pkg for %s is ill-typed", f.URI())
-	}
+	var err error
+
 	// Handle import specs separately, as there is no formal position for a package declaration.
 	if result, err := importSpec(ctx, f, file, pkg, pos); result != nil || err != nil {
 		return result, err
@@ -157,7 +168,7 @@ func identifier(ctx context.Context, view View, f GoFile, pos token.Pos) (*Ident
 	if result.decl.rng, err = objToRange(ctx, f.FileSet(), result.decl.obj); err != nil {
 		return nil, err
 	}
-	if result.decl.node, err = objToNode(ctx, view, pkg.GetTypes(), result.decl.obj, result.decl.rng); err != nil {
+	if result.decl.node, err = objToNode(ctx, f.View(), pkg.GetTypes(), result.decl.obj, result.decl.rng); err != nil {
 		return nil, err
 	}
 	typ := pkg.GetTypesInfo().TypeOf(result.ident)
@@ -232,13 +243,16 @@ func objToNode(ctx context.Context, view View, originPkg *types.Package, obj typ
 	if !ok {
 		return nil, errors.Errorf("%s is not a Go file", s.URI())
 	}
-	// If the object is exported from a different package,
-	// we don't need its full AST to find the definition.
-	mode := ParseFull
-	if obj.Exported() && obj.Pkg() != originPkg {
-		mode = ParseExported
+	declPkg, err := declFile.GetCachedPackage(ctx)
+	if err != nil {
+		return nil, err
 	}
-	declAST, err := declFile.GetAST(ctx, mode)
+	var declAST *ast.File
+	for _, ph := range declPkg.GetHandles() {
+		if ph.File().Identity().URI == f.URI() {
+			declAST, err = ph.Cached(ctx)
+		}
+	}
 	if declAST == nil {
 		return nil, err
 	}
@@ -268,7 +282,7 @@ func objToNode(ctx context.Context, view View, originPkg *types.Package, obj typ
 func importSpec(ctx context.Context, f GoFile, fAST *ast.File, pkg Package, pos token.Pos) (*IdentifierInfo, error) {
 	var imp *ast.ImportSpec
 	for _, spec := range fAST.Imports {
-		if spec.Pos() <= pos && pos < spec.End() {
+		if spec.Path.Pos() <= pos && pos < spec.Path.End() {
 			imp = spec
 		}
 	}
@@ -286,9 +300,9 @@ func importSpec(ctx context.Context, f GoFile, fAST *ast.File, pkg Package, pos 
 		pkg:   pkg,
 	}
 	// Consider the "declaration" of an import spec to be the imported package.
-	importedPkg := pkg.GetImport(importPath)
-	if importedPkg == nil {
-		return nil, errors.Errorf("no import for %q", importPath)
+	importedPkg, err := pkg.GetImport(ctx, importPath)
+	if err != nil {
+		return nil, err
 	}
 	if importedPkg.GetSyntax(ctx) == nil {
 		return nil, errors.Errorf("no syntax for for %q", importPath)

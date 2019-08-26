@@ -85,7 +85,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-08-26 15:50:20.189805121 +0200 CEST m=+0.029991218
+    createdAt: 2019-08-26 16:09:02.181475057 +0200 CEST m=+0.019475033
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -1536,7 +1536,7 @@ spec:
                 serviceAccountName: kubevirt-ssp-operator
                 containers:
                   - name: kubevirt-ssp-operator
-                    image: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.8
+                    image: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.9
                     ports:
                     - containerPort: 60000
                       name: metrics

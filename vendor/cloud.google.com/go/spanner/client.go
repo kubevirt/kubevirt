@@ -19,12 +19,12 @@ package spanner
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"sync/atomic"
 	"time"
 
 	"cloud.google.com/go/internal/trace"
-	"cloud.google.com/go/internal/version"
 	vkit "cloud.google.com/go/spanner/apiv1"
 	"cloud.google.com/go/spanner/internal/backoff"
 	"google.golang.org/api/option"
@@ -40,10 +40,6 @@ const (
 	// resourcePrefixHeader is the name of the metadata header used to indicate
 	// the resource being operated on.
 	resourcePrefixHeader = "google-cloud-resource-prefix"
-
-	// xGoogHeaderKey is the name of the metadata header used to indicate client
-	// information.
-	xGoogHeaderKey = "x-goog-api-client"
 )
 
 const (
@@ -56,7 +52,6 @@ const (
 
 var (
 	validDBPattern = regexp.MustCompile("^projects/[^/]+/instances/[^/]+/databases/[^/]+$")
-	xGoogHeaderVal = fmt.Sprintf("gl-go/%s gccl/%s grpc/%s", version.Go(), version.Repo, grpc.Version)
 )
 
 func validDatabaseName(db string) error {
@@ -122,18 +117,9 @@ func NewClient(ctx context.Context, database string, opts ...option.ClientOption
 // NewClientWithConfig creates a client to a database. A valid database name has
 // the form projects/PROJECT_ID/instances/INSTANCE_ID/databases/DATABASE_ID.
 func NewClientWithConfig(ctx context.Context, database string, config ClientConfig, opts ...option.ClientOption) (c *Client, err error) {
-	ctx = trace.StartSpan(ctx, "cloud.google.com/go/spanner.NewClient")
-	defer func() { trace.EndSpan(ctx, err) }()
-
-	// Validate database path.
-	if err := validDatabaseName(database); err != nil {
-		return nil, err
-	}
 	c = &Client{
 		database: database,
-		md: metadata.Pairs(
-			resourcePrefixHeader, database,
-			xGoogHeaderKey, xGoogHeaderVal),
+		md:       metadata.Pairs(resourcePrefixHeader, database),
 	}
 
 	// Make a copy of labels.
@@ -141,19 +127,6 @@ func NewClientWithConfig(ctx context.Context, database string, config ClientConf
 	for k, v := range config.SessionLabels {
 		c.sessionLabels[k] = v
 	}
-
-	// gRPC options.
-	allOpts := []option.ClientOption{
-		option.WithEndpoint(endpoint),
-		option.WithScopes(Scope),
-		option.WithGRPCDialOption(
-			grpc.WithDefaultCallOptions(
-				grpc.MaxCallSendMsgSize(100<<20),
-				grpc.MaxCallRecvMsgSize(100<<20),
-			),
-		),
-	}
-	allOpts = append(allOpts, opts...)
 
 	// Prepare gRPC channels.
 	if config.NumChannels == 0 {
@@ -168,13 +141,46 @@ func NewClientWithConfig(ctx context.Context, database string, config ClientConf
 		config.MaxBurst = 10
 	}
 
-	// TODO(deklerk): This should be replaced with a balancer with
-	// config.NumChannels connections, instead of config.NumChannels
-	// clients.
-	for i := 0; i < config.NumChannels; i++ {
-		client, err := vkit.NewClient(ctx, allOpts...)
+	// Validate database path.
+	if err := validDatabaseName(database); err != nil {
+		return nil, err
+	}
+
+	ctx = trace.StartSpan(ctx, "cloud.google.com/go/spanner.NewClient")
+	defer func() { trace.EndSpan(ctx, err) }()
+
+	if emulatorAddr := os.Getenv("SPANNER_EMULATOR_HOST"); emulatorAddr == "" {
+		// gRPC options.
+		allOpts := []option.ClientOption{
+			option.WithEndpoint(endpoint),
+			option.WithScopes(Scope),
+			option.WithGRPCDialOption(
+				grpc.WithDefaultCallOptions(
+					grpc.MaxCallSendMsgSize(100<<20),
+					grpc.MaxCallRecvMsgSize(100<<20),
+				),
+			),
+		}
+		allOpts = append(allOpts, opts...)
+
+		// TODO(deklerk): This should be replaced with a balancer with
+		// config.NumChannels connections, instead of config.NumChannels
+		// clients.
+		for i := 0; i < config.NumChannels; i++ {
+			client, err := vkit.NewClient(ctx, allOpts...)
+			if err != nil {
+				return nil, errDial(i, err)
+			}
+			c.clients = append(c.clients, client)
+		}
+	} else {
+		conn, err := grpc.Dial(emulatorAddr, grpc.WithInsecure())
 		if err != nil {
-			return nil, errDial(i, err)
+			return nil, errDial(0, err)
+		}
+		client, err := vkit.NewClient(ctx, option.WithGRPCConn(conn))
+		if err != nil {
+			return nil, errDial(0, err)
 		}
 		c.clients = append(c.clients, client)
 	}

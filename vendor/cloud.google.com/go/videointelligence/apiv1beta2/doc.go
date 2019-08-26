@@ -19,7 +19,9 @@
 //
 //   NOTE: This package is in beta. It is not stable, and may be subject to changes.
 //
-// Google Cloud Video Intelligence API.
+// Detects objects, explicit content, and scene changes in videos. It also
+// specifies the region for annotation and transcribes speech to text.
+// Supports both asynchronous API and streaming API.
 //
 // Use of Context
 //
@@ -97,4 +99,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190716"
+const versionClient = "20190801"

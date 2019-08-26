@@ -90,10 +90,10 @@ func toSpannerErrorWithMetadata(err error, trailers metadata.MD) error {
 		return &Error{codes.DeadlineExceeded, err.Error(), trailers}
 	case err == context.Canceled:
 		return &Error{codes.Canceled, err.Error(), trailers}
-	case grpc.Code(err) == codes.Unknown:
+	case status.Code(err) == codes.Unknown:
 		return &Error{codes.Unknown, err.Error(), trailers}
 	default:
-		return &Error{grpc.Code(err), grpc.ErrorDesc(err), trailers}
+		return &Error{status.Code(err), grpc.ErrorDesc(err), trailers}
 	}
 }
 

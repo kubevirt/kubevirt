@@ -14,6 +14,10 @@
 
 // Package errorreporting is a Google Stackdriver Error Reporting library.
 //
+// Any provided stacktraces must match the format produced by https://golang.org/pkg/runtime/#Stack
+// or as per https://cloud.google.com/error-reporting/reference/rest/v1beta1/projects.events/report#ReportedErrorEvent
+// for language specific stacktrace formats.
+//
 // This package is still experimental and subject to change.
 //
 // See https://cloud.google.com/error-reporting/ for more information.
@@ -58,7 +62,15 @@ type Entry struct {
 	Error error
 	Req   *http.Request // if error is associated with a request.
 	User  string        // an identifier for the user affected by the error
-	Stack []byte        // if user does not provide a stack trace, runtime.Stack will be called
+
+	// Stack specifies the stacktrace and call sequence correlated with
+	// the error. Stack's content must match the format specified by
+	// https://cloud.google.com/error-reporting/reference/rest/v1beta1/projects.events/report#ReportedErrorEvent.message
+	// or at least for Go programs, it must match the format produced
+	// by https://golang.org/pkg/runtime/debug/#Stack.
+	//
+	// If Stack is blank, the result of runtime.Stack will be used instead.
+	Stack []byte
 }
 
 // Client represents a Google Cloud Error Reporting client.

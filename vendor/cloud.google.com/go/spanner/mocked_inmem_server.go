@@ -56,18 +56,25 @@ func newSpannerInMemTestServer(t *testing.T) (*spannerInMemTestServer, *Client) 
 	return s, client
 }
 
+// Create a spannerInMemTestServer with default configuration and a client interceptor.
+func newSpannerInMemTestServerWithInterceptor(t *testing.T, interceptor grpc.UnaryClientInterceptor) (*spannerInMemTestServer, *Client) {
+	s := &spannerInMemTestServer{}
+	client := s.setupWithConfig(t, ClientConfig{}, interceptor)
+	return s, client
+}
+
 // Create a spannerInMemTestServer with the specified configuration.
 func newSpannerInMemTestServerWithConfig(t *testing.T, config ClientConfig) (*spannerInMemTestServer, *Client) {
 	s := &spannerInMemTestServer{}
-	client := s.setupWithConfig(t, config)
+	client := s.setupWithConfig(t, config, nil)
 	return s, client
 }
 
 func (s *spannerInMemTestServer) setup(t *testing.T) *Client {
-	return s.setupWithConfig(t, ClientConfig{})
+	return s.setupWithConfig(t, ClientConfig{}, nil)
 }
 
-func (s *spannerInMemTestServer) setupWithConfig(t *testing.T, config ClientConfig) *Client {
+func (s *spannerInMemTestServer) setupWithConfig(t *testing.T, config ClientConfig, interceptor grpc.UnaryClientInterceptor) *Client {
 	s.testSpanner = testutil.NewInMemSpannerServer()
 	s.setupFooResults()
 	s.setupSingersResults()
@@ -83,11 +90,15 @@ func (s *spannerInMemTestServer) setupWithConfig(t *testing.T, config ClientConf
 	serverAddress := lis.Addr().String()
 	ctx := context.Background()
 	var formattedDatabase = fmt.Sprintf("projects/%s/instances/%s/databases/%s", "[PROJECT]", "[INSTANCE]", "[DATABASE]")
-	client, err := NewClientWithConfig(ctx, formattedDatabase, config,
+	opts := []option.ClientOption{
 		option.WithEndpoint(serverAddress),
 		option.WithGRPCDialOption(grpc.WithInsecure()),
 		option.WithoutAuthentication(),
-	)
+	}
+	if interceptor != nil {
+		opts = append(opts, option.WithGRPCDialOption(grpc.WithUnaryInterceptor(interceptor)))
+	}
+	client, err := NewClientWithConfig(ctx, formattedDatabase, config, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}

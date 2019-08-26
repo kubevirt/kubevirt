@@ -19,13 +19,14 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/go/analysis"
-	"golang.org/x/tools/internal/lsp/telemetry/trace"
+	"golang.org/x/tools/internal/telemetry/trace"
 	errors "golang.org/x/xerrors"
 )
 
-func analyze(ctx context.Context, v View, pkgs []Package, analyzers []*analysis.Analyzer) ([]*Action, error) {
+func analyze(ctx context.Context, v View, cphs []CheckPackageHandle, analyzers []*analysis.Analyzer) ([]*Action, error) {
 	ctx, done := trace.StartSpan(ctx, "source.analyze")
 	defer done()
+
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -33,7 +34,11 @@ func analyze(ctx context.Context, v View, pkgs []Package, analyzers []*analysis.
 	// Build nodes for initial packages.
 	var roots []*Action
 	for _, a := range analyzers {
-		for _, pkg := range pkgs {
+		for _, cph := range cphs {
+			pkg, err := cph.Check(ctx)
+			if err != nil {
+				return nil, err
+			}
 			root, err := pkg.GetActionGraph(ctx, a)
 			if err != nil {
 				return nil, err
@@ -163,7 +168,7 @@ func (act *Action) execOnce(ctx context.Context, fset *token.FileSet) error {
 	}
 	act.pass = pass
 
-	if act.Pkg.IsIllTyped() && !pass.Analyzer.RunDespiteErrors {
+	if act.Pkg.IsIllTyped() {
 		act.err = errors.Errorf("analysis skipped due to errors in package: %v", act.Pkg.GetErrors())
 	} else {
 		act.result, act.err = pass.Analyzer.Run(pass)

@@ -15,6 +15,7 @@ func SetStatusCondition(conditions *[]Condition, newCondition Condition) {
 	existingCondition := FindStatusCondition(*conditions, newCondition.Type)
 	if existingCondition == nil {
 		newCondition.LastTransitionTime = metav1.NewTime(time.Now())
+		newCondition.LastHeartbeatTime = metav1.NewTime(time.Now())
 		*conditions = append(*conditions, newCondition)
 		return
 	}
@@ -26,6 +27,7 @@ func SetStatusCondition(conditions *[]Condition, newCondition Condition) {
 
 	existingCondition.Reason = newCondition.Reason
 	existingCondition.Message = newCondition.Message
+	existingCondition.LastHeartbeatTime = metav1.NewTime(time.Now())
 }
 
 // RemoveStatusCondition removes the corresponding conditionType from conditions.
