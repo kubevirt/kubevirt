@@ -2,7 +2,7 @@
 
 set -e
 
-image="okd-4.1@sha256:d452e8f910bd08b4aabe2a9b8fd82dc5984a3e95f7096b3ebd6c8ba836a5361d"
+image="okd-4.1@sha256:84ab0dcc301b1e5c801de4f30e9950641f65a39a8756663d02da6de70e22e19e"
 
 source ${KUBEVIRTCI_PATH}/cluster/ephemeral-provider-common.sh
 
@@ -11,7 +11,12 @@ function _port() {
 }
 
 function up() {
-    params="--random-ports --background --prefix $provider_prefix --master-cpu 6 --workers-cpu 6 --registry-volume $(_registry_volume) --workers 2 kubevirtci/${image}"
+    workers=$(($KUBEVIRT_NUM_NODES-1))
+    if [[ ( $workers < 1 ) ]]; then
+        workers=1
+    fi
+    echo "Number of workers: $workers"
+    params="--random-ports --background --prefix $provider_prefix --master-cpu 6 --workers-cpu 6 --registry-volume $(_registry_volume) --workers $workers kubevirtci/${image}"
     if [[ ! -z "${RHEL_NFS_DIR}" ]]; then
         params=" --nfs-data $RHEL_NFS_DIR ${params}"
     fi
