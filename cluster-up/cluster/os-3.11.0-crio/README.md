@@ -3,7 +3,7 @@
 Provides a pre-deployed OpenShift Origin with version 3.10.0 with CRI-O support purely in docker
 containers with qemu. The provided VMs are completely ephemeral and are
 recreated on every cluster restart. The KubeVirt containers are built on the
-local machine and are the pushed to a registry which is exposed at
+local machine and are then pushed to a registry which is exposed at
 `localhost:5000`.
 
 ## Bringing the cluster up
