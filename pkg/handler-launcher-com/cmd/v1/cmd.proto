@@ -14,6 +14,7 @@ service Cmd {
   rpc GetDomain(EmptyRequest) returns (DomainResponse) {}
   rpc GetDomainStats(EmptyRequest) returns (DomainStatsResponse) {}
   rpc Ping(EmptyRequest) returns (Response) {}
+  rpc ResetVirtualMachine(VMIRequest) returns (Response) {}
 }
 
 message VMI {

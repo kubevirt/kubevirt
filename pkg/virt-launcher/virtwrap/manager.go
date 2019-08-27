@@ -77,6 +77,7 @@ type DomainManager interface {
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
 	GetDomainStats() ([]*stats.DomainStats, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance) error
+	ResetVMI(vmi *v1.VirtualMachineInstance) error
 }
 
 type LibvirtDomainManager struct {
@@ -1212,4 +1213,39 @@ func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
 	}
 	return info, err
+}
+
+// ResetVMI resets a VM domain without rescheduling the VMI pod
+func (l *LibvirtDomainManager) ResetVMI(vmi *v1.VirtualMachineInstance) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	domName := util.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		// If the VirtualMachineInstance does not exist, we are done
+		if domainerrors.IsNotFound(err) {
+			return nil
+		} else {
+			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed during Reset.")
+			return err
+		}
+	}
+	defer dom.Free()
+
+	domState, _, err := dom.GetState()
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Getting the domain state failed.")
+		return err
+	}
+
+	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
+		err = dom.Reset(0)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Signalling reset failed.")
+			return err
+		}
+		log.Log.Object(vmi).Infof("Signaled Reset for %s", vmi.GetObjectMeta().GetName())
+	}
+	return nil
 }

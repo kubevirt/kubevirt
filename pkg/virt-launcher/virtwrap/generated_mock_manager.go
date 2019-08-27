@@ -126,3 +126,13 @@ func (_m *MockDomainManager) CancelVMIMigration(_param0 *v1.VirtualMachineInstan
 func (_mr *_MockDomainManagerRecorder) CancelVMIMigration(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CancelVMIMigration", arg0)
 }
+
+func (_m *MockDomainManager) ResetVMI(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "ResetVMI", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) ResetVMI(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResetVMI", arg0)
+}
