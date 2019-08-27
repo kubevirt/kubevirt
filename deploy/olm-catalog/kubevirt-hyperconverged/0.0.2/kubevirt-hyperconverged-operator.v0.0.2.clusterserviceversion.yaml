@@ -79,6 +79,13 @@ metadata:
             "nodeName": "nodename",
             "reason": "node maintenance reason"
           }
+        },
+        {
+          "apiVersion": "kubevirt.io/v1alpha1",
+          "kind": "V2VVmware",
+          "metadata": {
+            "name": "v2vvmware"
+          }
         }
       ]
     capabilities: Full Lifecycle
@@ -1296,6 +1303,10 @@ spec:
                       fieldRef:
                         fieldPath: metadata.name
                   - name: WATCH_NAMESPACE
+                  - name: CONVERSION_CONTAINER
+                    value: quay.io/kubevirt/kubevirt-v2v-conversion:v2.0.0
+                  - name: VMWARE_CONTAINER
+                    value: quay.io/kubevirt/kubevirt-vmware:v2.0.0
                   image: quay.io/kubevirt/hyperconverged-cluster-operator:latest
                   imagePullPolicy: Always
                   name: hyperconverged-cluster-operator
@@ -1643,3 +1654,8 @@ spec:
         kind: NodeMaintenance
         displayName: Node Maintenance
         description: Node Maintenance
+      - name: v2vvmwares.kubevirt.io
+        version: v1alpha1
+        kind: V2VVmware
+        displayName: V2V Vmware
+        description: V2V Vmware

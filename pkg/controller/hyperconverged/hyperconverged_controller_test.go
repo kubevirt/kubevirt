@@ -2,6 +2,7 @@ package hyperconverged
 
 import (
 	"context"
+	"os"
 	"reflect"
 
 	. "github.com/onsi/ginkgo"
@@ -131,6 +132,8 @@ var _ = Describe("HyperconvergedController", func() {
 		Context("HCO Lifecycle", func() {
 			It("should get deployed", func() {
 				args := createArgs()
+				os.Setenv("CONVERSION_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-v2v-conversion:v2.0.0")
+				os.Setenv("VMWARE_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-vmware:v2.0.0}")
 				doReconcile(args)
 
 				// TODO: should we be tracking these versions?
@@ -141,6 +144,8 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("should create all resources", func() {
 				args := createArgs()
+				os.Setenv("CONVERSION_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-v2v-conversion:v2.0.0")
+				os.Setenv("VMWARE_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-vmware:v2.0.0}")
 				doReconcile(args)
 
 				expectedResources := args.reconciler.getAllResources(args.hco, reconcileRequest(namespace))
@@ -152,6 +157,8 @@ var _ = Describe("HyperconvergedController", func() {
 
 			It("should be able to detect resources that aren't in hco", func() {
 				args := createArgs()
+				os.Setenv("CONVERSION_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-v2v-conversion:v2.0.0")
+				os.Setenv("VMWARE_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-vmware:v2.0.0}")
 				doReconcile(args)
 
 				r := &corev1.ConfigMap{

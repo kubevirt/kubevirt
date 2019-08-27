@@ -27,6 +27,7 @@ kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-clus
 kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/crds/metrics-aggregation.crd.yaml
 kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/crds/nodemaintenance.crd.yaml
 kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/crds/mro.crd.yaml
+kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/crds/v2vvmware.crd.yaml
 
 # Launch all of the Service Accounts, Cluster Role(Binding)s, and Operators.
 kubectl create -f https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/cluster_role.yaml

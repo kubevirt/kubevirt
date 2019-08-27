@@ -3,11 +3,12 @@ package hyperconverged
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/reference"
@@ -26,6 +27,7 @@ import (
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
@@ -128,7 +130,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	instance := &hcov1alpha1.HyperConverged{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			reqLogger.Info("No HyperConverged resource")
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
@@ -195,6 +197,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		r.ensureKubeVirtTemplateValidator,
 		r.ensureKubeVirtMetricsAggregation,
 		r.ensureMachineRemediationOperator,
+		r.ensureIMSConfig,
 	} {
 		err = f(instance, reqLogger, request)
 		if err != nil {
@@ -313,7 +316,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtConfig(instance *hcov1alpha1.Hyp
 
 	found := &corev1.ConfigMap{}
 	err = r.client.Get(context.TODO(), key, found)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("Creating kubevirt config")
 		return r.client.Create(context.TODO(), kubevirtConfig)
 	}
@@ -360,7 +363,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirt(instance *hcov1alpha1.HyperConv
 
 	found := &kubevirtv1.KubeVirt{}
 	err = r.client.Get(context.TODO(), key, found)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("Creating kubevirt")
 		return r.client.Create(context.TODO(), virt)
 	}
@@ -473,7 +476,7 @@ func (r *ReconcileHyperConverged) ensureCDI(instance *hcov1alpha1.HyperConverged
 
 	found := &cdiv1alpha1.CDI{}
 	err = r.client.Get(context.TODO(), key, found)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("Creating CDI")
 		return r.client.Create(context.TODO(), cdi)
 	}
@@ -593,7 +596,7 @@ func (r *ReconcileHyperConverged) ensureNetworkAddons(instance *hcov1alpha1.Hype
 
 	found := &networkaddonsv1alpha1.NetworkAddonsConfig{}
 	err = r.client.Get(context.TODO(), key, found)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("Creating Network Addons")
 		return r.client.Create(context.TODO(), networkAddons)
 	}
@@ -704,7 +707,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(instance *h
 
 	found := &sspv1.KubevirtCommonTemplatesBundle{}
 	err = r.client.Get(context.TODO(), key, found)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("Creating KubeVirt Common Templates Bundle")
 		return r.client.Create(context.TODO(), kvCTB)
 	}
@@ -752,7 +755,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(instance *hco
 
 	found := &sspv1.KubevirtNodeLabellerBundle{}
 	err = r.client.Get(context.TODO(), key, found)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("Creating KubeVirt Node Labeller Bundle")
 		return r.client.Create(context.TODO(), kvNLB)
 	}
@@ -762,6 +765,67 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(instance *hco
 	}
 
 	logger.Info("KubeVirt Node Labeller Bundle already exists", "bundle.Namespace", found.Namespace, "bundle.Name", found.Name)
+
+	// Add it to the list of RelatedObjects if found
+	objectRef, err := reference.GetReference(r.scheme, found)
+	if err != nil {
+		return err
+	}
+	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+
+	// TODO: Handle conditions
+	return r.client.Status().Update(context.TODO(), instance)
+}
+
+func newIMSConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "v2v-vmware",
+			Labels:    labels,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			"v2v-conversion-image":              os.Getenv("CONVERSION_CONTAINER"),
+			"kubevirt-vmware-image":             os.Getenv("VMWARE_CONTAINER"),
+			"kubevirt-vmware-image-pull-policy": "IfNotPresent",
+		},
+	}
+}
+
+func (r *ReconcileHyperConverged) ensureIMSConfig(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
+	if os.Getenv("CONVERSION_CONTAINER") == "" {
+		return errors.New("ims-conversion-container not specified")
+	}
+
+	if os.Getenv("VMWARE_CONTAINER") == "" {
+		return errors.New("ims-vmware-container not specified")
+	}
+
+	imsConfig := newIMSConfigForCR(instance, request.Namespace)
+	if err := controllerutil.SetControllerReference(instance, imsConfig, r.scheme); err != nil {
+		return err
+	}
+
+	key, err := client.ObjectKeyFromObject(imsConfig)
+	if err != nil {
+		logger.Error(err, "Failed to get object key for IMS Configmap")
+	}
+
+	found := &corev1.ConfigMap{}
+	err = r.client.Get(context.TODO(), key, found)
+	if err != nil && apierrors.IsNotFound(err) {
+		logger.Info("Creating IMS Configmap")
+		return r.client.Create(context.TODO(), imsConfig)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	logger.Info("IMS Configmap already exists", "imsConfigMap.Namespace", found.Namespace, "imsConfigMap.Name", found.Name)
 
 	// Add it to the list of RelatedObjects if found
 	objectRef, err := reference.GetReference(r.scheme, found)
@@ -800,7 +864,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(instance *hcov
 
 	found := &sspv1.KubevirtTemplateValidator{}
 	err = r.client.Get(context.TODO(), key, found)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("Creating KubeVirt Template Validator")
 		return r.client.Create(context.TODO(), kvTV)
 	}
@@ -848,7 +912,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(instance *hco
 
 	found := &sspv1.KubevirtMetricsAggregation{}
 	err = r.client.Get(context.TODO(), key, found)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("Creating KubeVirt Metrics Aggregation")
 		return r.client.Create(context.TODO(), kubevirtMetricsAggregation)
 	}
@@ -897,7 +961,7 @@ func (r *ReconcileHyperConverged) ensureMachineRemediationOperator(instance *hco
 
 	found := &mrv1alpha1.MachineRemediationOperator{}
 	err = r.client.Get(context.TODO(), key, found)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("Creating MachineRemediationOperator")
 		return r.client.Create(context.TODO(), mro)
 	}
@@ -930,6 +994,7 @@ func (r *ReconcileHyperConverged) getAllResources(cr *hcov1alpha1.HyperConverged
 		newKubeVirtNodeLabellerBundleForCR(cr, request.Namespace),
 		newKubeVirtTemplateValidatorForCR(cr, request.Namespace),
 		newMachineRemediationOperatorForCR(cr, request.Namespace),
+		newIMSConfigForCR(cr, request.Namespace),
 	}
 }
 

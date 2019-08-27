@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func GetDeployment(repository string, tag string, imagePullPolicy string) *appsv1.Deployment {
+func GetDeployment(repository string, tag string, imagePullPolicy string, ConversionContainer string, VMWareContainer string) *appsv1.Deployment {
 	hco_name := "hyperconverged-cluster-operator"
 	registry_name := repository + "/kubevirt/" + hco_name
 	image := fmt.Sprintf("%s:%s", registry_name, tag)
@@ -78,6 +78,14 @@ func GetDeployment(repository string, tag string, imagePullPolicy string) *appsv
 								{
 									Name:  "WATCH_NAMESPACE",
 									Value: "",
+								},
+								{
+									Name:  "CONVERSION_CONTAINER",
+									Value: ConversionContainer,
+								},
+								{
+									Name:  "VMWARE_CONTAINER",
+									Value: VMWareContainer,
 								},
 							},
 						},

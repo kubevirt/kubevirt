@@ -18,6 +18,10 @@ CONTAINER_PREFIX="${CONTAINER_PREFIX:-kubevirt}"
 CNA_CONTAINER_PREFIX="${CNA_CONTAINER_PREFIX:-quay.io/kubevirt}"
 IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 
+#CNV IMS Images
+CONVERSION_CONTAINER="${CONVERSION_CONTAINER:-quay.io/kubevirt/kubevirt-v2v-conversion:v2.0.0}"
+VMWARE_CONTAINER="${VMWARE_CONTAINER:-quay.io/kubevirt/kubevirt-vmware:v2.0.0}"
+
 # HCO Tag hardcoded to latest
 CONTAINER_TAG="${CONTAINER_TAG:-}"
 
@@ -58,7 +62,9 @@ function buildFlags {
 	--csv-version=${CSV_VERSION} \
 	--container-prefix=${CONTAINER_PREFIX} \
 	--replaces-version=${REPLACES_VERSION} \
-	--image-pull-policy=${IMAGE_PULL_POLICY}"
+	--image-pull-policy=${IMAGE_PULL_POLICY} \
+	--ims-conversion-container=${CONVERSION_CONTAINER} \
+	--ims-vmware-container=${VMWARE_CONTAINER}"
 
 	if [ -z "${CONTAINER_TAG}" ]; then
 		versions
