@@ -2,14 +2,12 @@ package hyperconverged
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,6 +51,7 @@ const (
 	OpenshiftNamespace string = "openshift"
 
 	reconcileInit             = "Init"
+	reconcileInitMessage      = "Initializing HyperConverged cluster"
 	reconcileFailed           = "ReconcileFailed"
 	reconcileCompleted        = "ReconcileCompleted"
 	reconcileCompletedMessage = "Reconcile completed successfully"
@@ -142,38 +141,39 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Add conditions if there are none
+	var init bool
 	if instance.Status.Conditions == nil {
-		message := "Initializing HyperConverged cluster"
+		init = true
 
 		conditionsv1.SetStatusCondition(&instance.Status.Conditions, conditionsv1.Condition{
 			Type:    hcov1alpha1.ConditionReconcileComplete,
 			Status:  corev1.ConditionUnknown, // we just started trying to reconcile
 			Reason:  reconcileInit,
-			Message: message,
+			Message: reconcileInitMessage,
 		})
 		conditionsv1.SetStatusCondition(&instance.Status.Conditions, conditionsv1.Condition{
 			Type:    conditionsv1.ConditionAvailable,
 			Status:  corev1.ConditionFalse,
 			Reason:  reconcileInit,
-			Message: message,
+			Message: reconcileInitMessage,
 		})
 		conditionsv1.SetStatusCondition(&instance.Status.Conditions, conditionsv1.Condition{
 			Type:    conditionsv1.ConditionProgressing,
 			Status:  corev1.ConditionTrue,
 			Reason:  reconcileInit,
-			Message: message,
+			Message: reconcileInitMessage,
 		})
 		conditionsv1.SetStatusCondition(&instance.Status.Conditions, conditionsv1.Condition{
 			Type:    conditionsv1.ConditionDegraded,
 			Status:  corev1.ConditionFalse,
 			Reason:  reconcileInit,
-			Message: message,
+			Message: reconcileInitMessage,
 		})
 		conditionsv1.SetStatusCondition(&instance.Status.Conditions, conditionsv1.Condition{
 			Type:    conditionsv1.ConditionUpgradeable,
 			Status:  corev1.ConditionUnknown,
 			Reason:  reconcileInit,
-			Message: message,
+			Message: reconcileInitMessage,
 		})
 
 		err = r.client.Status().Update(context.TODO(), instance)
@@ -201,7 +201,6 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	} {
 		err = f(instance, reqLogger, request)
 		if err != nil {
-
 			conditionsv1.SetStatusCondition(&instance.Status.Conditions, conditionsv1.Condition{
 				Type:    hcov1alpha1.ConditionReconcileComplete,
 				Status:  corev1.ConditionFalse,
@@ -224,6 +223,12 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		Reason:  reconcileCompleted,
 		Message: reconcileCompletedMessage,
 	})
+
+	// Requeue if we just created everything
+	if init {
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	if r.conditions == nil {
 		reqLogger.Info("No component operator reported negatively")
 		conditionsv1.SetStatusCondition(&instance.Status.Conditions, conditionsv1.Condition{
@@ -333,7 +338,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtConfig(instance *hcov1alpha1.Hyp
 	}
 	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
 
-	return nil
+	return r.client.Status().Update(context.TODO(), instance)
 }
 
 // newKubeVirtForCR returns a KubeVirt CR
@@ -577,8 +582,6 @@ func newNetworkAddonsForCR(cr *hcov1alpha1.HyperConverged, namespace string) *ne
 			Multus:      &networkaddonsv1alpha1.Multus{},
 			LinuxBridge: &networkaddonsv1alpha1.LinuxBridge{},
 			KubeMacPool: &networkaddonsv1alpha1.KubeMacPool{},
-			Ovs:         &networkaddonsv1alpha1.Ovs{},
-			NMState:     &networkaddonsv1alpha1.NMState{},
 		},
 	}
 }
@@ -981,52 +984,4 @@ func (r *ReconcileHyperConverged) ensureMachineRemediationOperator(instance *hco
 
 	// TODO: Handle conditions
 	return r.client.Status().Update(context.TODO(), instance)
-}
-
-// The set of resources managed by the HCO
-func (r *ReconcileHyperConverged) getAllResources(cr *hcov1alpha1.HyperConverged, request reconcile.Request) []runtime.Object {
-	return []runtime.Object{
-		newKubeVirtConfigForCR(cr, request.Namespace),
-		newKubeVirtForCR(cr, request.Namespace),
-		newCDIForCR(cr, UndefinedNamespace),
-		newNetworkAddonsForCR(cr, UndefinedNamespace),
-		newKubeVirtCommonTemplateBundleForCR(cr, OpenshiftNamespace),
-		newKubeVirtNodeLabellerBundleForCR(cr, request.Namespace),
-		newKubeVirtTemplateValidatorForCR(cr, request.Namespace),
-		newMachineRemediationOperatorForCR(cr, request.Namespace),
-		newIMSConfigForCR(cr, request.Namespace),
-	}
-}
-
-func contains(l []string, s string) bool {
-	for _, elem := range l {
-		if elem == s {
-			return true
-		}
-	}
-	return false
-}
-
-func drop(l []string, s string) []string {
-	newL := []string{}
-	for _, elem := range l {
-		if elem != s {
-			newL = append(newL, elem)
-		}
-	}
-	return newL
-}
-
-// toUnstructured convers an arbitrary object (which MUST obey the
-// k8s object conventions) to an Unstructured
-func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
-	b, err := json.Marshal(obj)
-	if err != nil {
-		return nil, err
-	}
-	u := &unstructured.Unstructured{}
-	if err := json.Unmarshal(b, u); err != nil {
-		return nil, err
-	}
-	return u, nil
 }
