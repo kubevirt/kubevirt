@@ -1044,6 +1044,54 @@ var _ = Describe("Template", func() {
 			})
 		})
 
+		Context("with blockdevice mode datavolume", func() {
+			It("should add device to template", func() {
+				namespace := "testns"
+				dataVolumeName := "blockDvDevice"
+				pvcName := dataVolumeName
+				mode := kubev1.PersistentVolumeBlock
+				pvc := kubev1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+					Spec: kubev1.PersistentVolumeClaimSpec{
+						VolumeMode: &mode,
+					},
+				}
+				err := pvcCache.Add(&pvc)
+				Expect(err).ToNot(HaveOccurred(), "Added Block DV backing PVC to cache successfully")
+				volumeName := "block-dv-device"
+				volumes := []v1.Volume{
+					{
+						Name: volumeName,
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{Name: dataVolumeName},
+						},
+					},
+				}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: namespace, UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
+
+				Expect(pod.Spec.Containers[0].VolumeDevices).ToNot(BeEmpty(), "Found some devices for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeDevices)).To(Equal(1), "Found 1 device for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName), "Found device for 1st container with correct name")
+
+				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(5), "Found 5 mounts in manifest for 1st container")
+
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(7), "Found 4 volumes in manifest")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
+			})
+		})
+
 		Context("with non existing pvc source", func() {
 			It("should result in an error", func() {
 				namespace := "testns"
