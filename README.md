@@ -57,7 +57,8 @@ Build and push the HCO's registry image.
 
 ```bash
 export REGISTRY_NAMESPACE=<container_org>
-make bundleRegistry CONTAINER_TAG=example
+export TAG=example
+make bundleRegistry
 ```
 
 Create the namespace for the HCO.
@@ -86,7 +87,7 @@ metadata:
   namespace: openshift-marketplace
 spec:
   sourceType: grpc
-  image: docker.io/$REGISTRY_NAMESPACE/hco-registry:example
+  image: docker.io/$REGISTRY_NAMESPACE/hco-registry:$TAG
   displayName: KubeVirt HyperConverged
   publisher: Red Hat
 EOF
@@ -101,7 +102,7 @@ metadata:
   name: hco-subscription
   namespace: kubevirt-hyperconverged
 spec:
-  channel: alpha
+  channel: "0.0.2"
   name: kubevirt-hyperconverged
   source: hco-catalogsource
   sourceNamespace: openshift-marketplace
