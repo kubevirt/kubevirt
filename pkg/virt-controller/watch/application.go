@@ -40,13 +40,10 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/kubevirt/pkg/certificates"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
-
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	clientutil "kubevirt.io/client-go/util"
+	"kubevirt.io/kubevirt/pkg/certificates"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -55,6 +52,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 )
 
 const (
@@ -158,7 +157,7 @@ func Execute() {
 	restful.Add(webService)
 
 	// Bootstrapping. From here on the initialization order is important
-	app.kubevirtNamespace, err = util.GetNamespace()
+	app.kubevirtNamespace, err = clientutil.GetNamespace()
 	if err != nil {
 		golog.Fatalf("Error searching for namespace: %v", err)
 	}
