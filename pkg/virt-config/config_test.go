@@ -86,8 +86,8 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("is bridge, it should return bridge", "bridge", "bridge"),
 		table.Entry("is slirp, it should return slirp", "slirp", "slirp"),
 		table.Entry("is masquerade, it should return masquerade", "masquerade", "masquerade"),
-		table.Entry("when unset, it should return the default", "", "bridge"),
-		table.Entry("when invalid, it should return the default", "invalid", "bridge"),
+		table.Entry("when unset, it should return the default", "", "masquerade"),
+		table.Entry("when invalid, it should return the default", "invalid", "masquerade"),
 	)
 
 	nodeSelectorsStr := "kubernetes.io/hostname=node02\nnode-role.kubernetes.io/compute=true\n"

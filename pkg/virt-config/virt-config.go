@@ -43,7 +43,7 @@ const (
 	DefaultEmulatedMachines                         = "q35*,pc-q35*"
 	DefaultLessPVCSpaceToleration                   = 10
 	DefaultNodeSelectors                            = ""
-	DefaultNetworkInterface                         = "bridge"
+	DefaultNetworkInterface                         = "masquerade"
 	DefaultImagePullPolicy                          = k8sv1.PullIfNotPresent
 	DefaultUseEmulation                             = false
 	DefaultUnsafeMigrationOverride                  = false
