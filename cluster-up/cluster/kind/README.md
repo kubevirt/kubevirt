@@ -1,7 +1,7 @@
 # K8S in a Kind cluster
 
 This folder serves as base to spin a k8s cluster up using [kind](https://github.com/kubernetes-sigs/kind) The cluster is completely ephemeral and is recreated on every cluster restart. 
-The KubeVirt containers are built on the local machine and are the pushed to a registry which is exposed at
+The KubeVirt containers are built on the local machine and are then pushed to a registry which is exposed at
 `localhost:5000`.
 
 A kind cluster must specify:

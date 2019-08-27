@@ -1,7 +1,7 @@
 # K8S 1.14.2 with sriov in a Kind cluster
 
 Provides a pre-deployed k8s cluster with version 1.14.2 that runs using [kind](https://github.com/kubernetes-sigs/kind) The cluster is completely ephemeral and is recreated on every cluster restart. 
-The KubeVirt containers are built on the local machine and are the pushed to a registry which is exposed at
+The KubeVirt containers are built on the local machine and are then pushed to a registry which is exposed at
 `localhost:5000`.
 
 This version also expects to have sriov-enabed nics on the current host, and will move all the physical interfaces and virtual interfaces into the `kind`'s cluster master node so that they can be used through multus.
