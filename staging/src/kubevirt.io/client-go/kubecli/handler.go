@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/util"
 )
 
 const (
@@ -65,7 +66,11 @@ func (v *virtHandler) getVirtHandler(nodeName string) (*v1.Pod, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	pods, err := v.client.CoreV1().Pods("kubevirt").List(
+	ns, err := util.GetNamespace()
+	if err != nil {
+		return nil, false, err
+	}
+	pods, err := v.client.CoreV1().Pods(ns).List(
 		k8smetav1.ListOptions{
 			FieldSelector: handlerNodeSelector.String(),
 			LabelSelector: labelSelector.String()})
