@@ -122,6 +122,7 @@ var _ = Describe("Template", func() {
 				trueVar := true
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
+					"test/test":                         "shouldwork",
 				}
 				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns", UID: "1234", Annotations: annotations}, Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}})
 				Expect(err).ToNot(HaveOccurred())
@@ -134,6 +135,7 @@ var _ = Describe("Template", func() {
 				}))
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
 					v1.DomainAnnotation: "testvmi",
+					"test/test":         "shouldwork",
 				}))
 				Expect(pod.ObjectMeta.OwnerReferences).To(Equal([]metav1.OwnerReference{{
 					APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
