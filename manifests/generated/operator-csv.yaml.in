@@ -605,7 +605,7 @@ spec:
       deployments:
       - name: virt-operator
         spec:
-          replicas: 1
+          replicas: 2
           selector:
             matchLabels:
               kubevirt.io: virt-operator
