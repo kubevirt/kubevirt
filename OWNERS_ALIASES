@@ -24,6 +24,7 @@ aliases:
       - dhiller
       - pkotas
       - vatsalparekh
+      - ahadas
   ux-reviewers:
       - matthewcarleton
   test-reviewers:
