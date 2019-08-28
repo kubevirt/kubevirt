@@ -100,6 +100,18 @@ func (c *FakeKubevirtCommonTemplatesBundles) Update(kubevirtCommonTemplatesBundl
 	return obj.(*kubevirtv1.KubevirtCommonTemplatesBundle), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeKubevirtCommonTemplatesBundles) UpdateStatus(kubevirtCommonTemplatesBundle *kubevirtv1.KubevirtCommonTemplatesBundle) (*kubevirtv1.KubevirtCommonTemplatesBundle, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceAction(kubevirtcommontemplatesbundlesResource, "status", c.ns, kubevirtCommonTemplatesBundle), &kubevirtv1.KubevirtCommonTemplatesBundle{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*kubevirtv1.KubevirtCommonTemplatesBundle), err
+}
+
 // Delete takes name of the kubevirtCommonTemplatesBundle and deletes it. Returns an error if one occurs.
 func (c *FakeKubevirtCommonTemplatesBundles) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.

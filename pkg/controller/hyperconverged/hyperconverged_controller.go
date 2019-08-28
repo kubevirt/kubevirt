@@ -684,6 +684,73 @@ func (r *ReconcileHyperConverged) ensureNetworkAddons(instance *hcov1alpha1.Hype
 	return r.client.Status().Update(context.TODO(), instance)
 }
 
+func handleConditionsSSP(r *ReconcileHyperConverged, logger logr.Logger, component string, status *sspv1.ConfigStatus) {
+	if status.Conditions == nil {
+		reason := fmt.Sprintf("%sConditions", component)
+		message := fmt.Sprintf("%s resource has no conditions", component)
+		logger.Info(fmt.Sprintf("%s's resource is not reporting Conditions on it's Status", component))
+		conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
+			Type:    conditionsv1.ConditionAvailable,
+			Status:  corev1.ConditionFalse,
+			Reason:  reason,
+			Message: message,
+		})
+		conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
+			Type:    conditionsv1.ConditionProgressing,
+			Status:  corev1.ConditionTrue,
+			Reason:  reason,
+			Message: message,
+		})
+		conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
+			Type:    conditionsv1.ConditionUpgradeable,
+			Status:  corev1.ConditionFalse,
+			Reason:  reason,
+			Message: message,
+		})
+	} else {
+		for _, condition := range status.Conditions {
+			switch conditionsv1.ConditionType(condition.Type) {
+			case conditionsv1.ConditionAvailable:
+				if condition.Status == corev1.ConditionFalse {
+					logger.Info(fmt.Sprintf("%s is not 'Available'", component))
+					conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
+						Type:    conditionsv1.ConditionAvailable,
+						Status:  corev1.ConditionFalse,
+						Reason:  fmt.Sprintf("%sNotAvailable", component),
+						Message: fmt.Sprintf("%s is not available: %v", component, string(condition.Message)),
+					})
+				}
+			case conditionsv1.ConditionProgressing:
+				if condition.Status == corev1.ConditionTrue {
+					logger.Info(fmt.Sprintf("%s is 'Progressing'", component))
+					conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
+						Type:    conditionsv1.ConditionProgressing,
+						Status:  corev1.ConditionTrue,
+						Reason:  fmt.Sprintf("%sProgressing", component),
+						Message: fmt.Sprintf("%s is progressing: %v", component, string(condition.Message)),
+					})
+					conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
+						Type:    conditionsv1.ConditionUpgradeable,
+						Status:  corev1.ConditionFalse,
+						Reason:  fmt.Sprintf("%sProgressing", component),
+						Message: fmt.Sprintf("%s is progressing: %v", component, string(condition.Message)),
+					})
+				}
+			case conditionsv1.ConditionDegraded:
+				if condition.Status == corev1.ConditionTrue {
+					logger.Info(fmt.Sprintf("%s is 'Degraded'", component))
+					conditionsv1.SetStatusCondition(&r.conditions, conditionsv1.Condition{
+						Type:    conditionsv1.ConditionDegraded,
+						Status:  corev1.ConditionTrue,
+						Reason:  fmt.Sprintf("%sDegraded", component),
+						Message: fmt.Sprintf("%s is degraded: %v", component, string(condition.Message)),
+					})
+				}
+			}
+		}
+	}
+}
+
 func newKubeVirtCommonTemplateBundleForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtCommonTemplatesBundle {
 	labels := map[string]string{
 		"app": cr.Name,
@@ -728,7 +795,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(instance *h
 	}
 	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
 
-	// TODO: Handle conditions
+	handleConditionsSSP(r, logger, "KubevirtCommonTemplatesBundle", &found.Status)
 	return r.client.Status().Update(context.TODO(), instance)
 }
 
@@ -776,7 +843,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(instance *hco
 	}
 	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
 
-	// TODO: Handle conditions
+	handleConditionsSSP(r, logger, "KubevirtNodeLabellerBundle", &found.Status)
 	return r.client.Status().Update(context.TODO(), instance)
 }
 
@@ -885,7 +952,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(instance *hcov
 	}
 	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
 
-	// TODO: Handle conditions
+	handleConditionsSSP(r, logger, "KubevirtTemplateValidator", &found.Status)
 	return r.client.Status().Update(context.TODO(), instance)
 }
 
@@ -933,7 +1000,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(instance *hco
 	}
 	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
 
-	// TODO: Handle conditions
+	handleConditionsSSP(r, logger, "KubevirtMetricsAggregation", &found.Status)
 	return r.client.Status().Update(context.TODO(), instance)
 }
 

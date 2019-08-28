@@ -37,6 +37,7 @@ type KubevirtCommonTemplatesBundlesGetter interface {
 type KubevirtCommonTemplatesBundleInterface interface {
 	Create(*v1.KubevirtCommonTemplatesBundle) (*v1.KubevirtCommonTemplatesBundle, error)
 	Update(*v1.KubevirtCommonTemplatesBundle) (*v1.KubevirtCommonTemplatesBundle, error)
+	UpdateStatus(*v1.KubevirtCommonTemplatesBundle) (*v1.KubevirtCommonTemplatesBundle, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error
 	Get(name string, options metav1.GetOptions) (*v1.KubevirtCommonTemplatesBundle, error)
@@ -114,6 +115,22 @@ func (c *kubevirtCommonTemplatesBundles) Update(kubevirtCommonTemplatesBundle *v
 		Namespace(c.ns).
 		Resource("kubevirtcommontemplatesbundles").
 		Name(kubevirtCommonTemplatesBundle.Name).
+		Body(kubevirtCommonTemplatesBundle).
+		Do().
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+
+func (c *kubevirtCommonTemplatesBundles) UpdateStatus(kubevirtCommonTemplatesBundle *v1.KubevirtCommonTemplatesBundle) (result *v1.KubevirtCommonTemplatesBundle, err error) {
+	result = &v1.KubevirtCommonTemplatesBundle{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("kubevirtcommontemplatesbundles").
+		Name(kubevirtCommonTemplatesBundle.Name).
+		SubResource("status").
 		Body(kubevirtCommonTemplatesBundle).
 		Do().
 		Into(result)

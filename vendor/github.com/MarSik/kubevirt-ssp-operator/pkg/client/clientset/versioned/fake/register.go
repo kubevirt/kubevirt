@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	kubevirtv1 "github.com/marsik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
+	kubevirtv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

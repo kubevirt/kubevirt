@@ -37,6 +37,7 @@ type KubevirtMetricsAggregationsGetter interface {
 type KubevirtMetricsAggregationInterface interface {
 	Create(*v1.KubevirtMetricsAggregation) (*v1.KubevirtMetricsAggregation, error)
 	Update(*v1.KubevirtMetricsAggregation) (*v1.KubevirtMetricsAggregation, error)
+	UpdateStatus(*v1.KubevirtMetricsAggregation) (*v1.KubevirtMetricsAggregation, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error
 	Get(name string, options metav1.GetOptions) (*v1.KubevirtMetricsAggregation, error)
@@ -114,6 +115,22 @@ func (c *kubevirtMetricsAggregations) Update(kubevirtMetricsAggregation *v1.Kube
 		Namespace(c.ns).
 		Resource("kubevirtmetricsaggregations").
 		Name(kubevirtMetricsAggregation.Name).
+		Body(kubevirtMetricsAggregation).
+		Do().
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+
+func (c *kubevirtMetricsAggregations) UpdateStatus(kubevirtMetricsAggregation *v1.KubevirtMetricsAggregation) (result *v1.KubevirtMetricsAggregation, err error) {
+	result = &v1.KubevirtMetricsAggregation{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("kubevirtmetricsaggregations").
+		Name(kubevirtMetricsAggregation.Name).
+		SubResource("status").
 		Body(kubevirtMetricsAggregation).
 		Do().
 		Into(result)

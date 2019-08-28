@@ -100,6 +100,18 @@ func (c *FakeKubevirtTemplateValidators) Update(kubevirtTemplateValidator *kubev
 	return obj.(*kubevirtv1.KubevirtTemplateValidator), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeKubevirtTemplateValidators) UpdateStatus(kubevirtTemplateValidator *kubevirtv1.KubevirtTemplateValidator) (*kubevirtv1.KubevirtTemplateValidator, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceAction(kubevirttemplatevalidatorsResource, "status", c.ns, kubevirtTemplateValidator), &kubevirtv1.KubevirtTemplateValidator{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*kubevirtv1.KubevirtTemplateValidator), err
+}
+
 // Delete takes name of the kubevirtTemplateValidator and deletes it. Returns an error if one occurs.
 func (c *FakeKubevirtTemplateValidators) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.

@@ -19,7 +19,7 @@ limitations under the License.
 package versioned
 
 import (
-	kubevirtv1 "github.com/marsik/kubevirt-ssp-operator/pkg/client/clientset/versioned/typed/kubevirt/v1"
+	kubevirtv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/client/clientset/versioned/typed/kubevirt/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

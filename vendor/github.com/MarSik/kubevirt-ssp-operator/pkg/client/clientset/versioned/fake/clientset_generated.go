@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/MarSik/kubevirt-ssp-operator/pkg/client/clientset/versioned"
-	kubevirtv1 "github.com/marsik/kubevirt-ssp-operator/pkg/client/clientset/versioned/typed/kubevirt/v1"
-	fakekubevirtv1 "github.com/marsik/kubevirt-ssp-operator/pkg/client/clientset/versioned/typed/kubevirt/v1/fake"
+	kubevirtv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/client/clientset/versioned/typed/kubevirt/v1"
+	fakekubevirtv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/client/clientset/versioned/typed/kubevirt/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

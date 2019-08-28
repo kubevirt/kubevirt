@@ -37,6 +37,7 @@ type KubevirtTemplateValidatorsGetter interface {
 type KubevirtTemplateValidatorInterface interface {
 	Create(*v1.KubevirtTemplateValidator) (*v1.KubevirtTemplateValidator, error)
 	Update(*v1.KubevirtTemplateValidator) (*v1.KubevirtTemplateValidator, error)
+	UpdateStatus(*v1.KubevirtTemplateValidator) (*v1.KubevirtTemplateValidator, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error
 	Get(name string, options metav1.GetOptions) (*v1.KubevirtTemplateValidator, error)
@@ -114,6 +115,22 @@ func (c *kubevirtTemplateValidators) Update(kubevirtTemplateValidator *v1.Kubevi
 		Namespace(c.ns).
 		Resource("kubevirttemplatevalidators").
 		Name(kubevirtTemplateValidator.Name).
+		Body(kubevirtTemplateValidator).
+		Do().
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+
+func (c *kubevirtTemplateValidators) UpdateStatus(kubevirtTemplateValidator *v1.KubevirtTemplateValidator) (result *v1.KubevirtTemplateValidator, err error) {
+	result = &v1.KubevirtTemplateValidator{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("kubevirttemplatevalidators").
+		Name(kubevirtTemplateValidator.Name).
+		SubResource("status").
 		Body(kubevirtTemplateValidator).
 		Do().
 		Into(result)

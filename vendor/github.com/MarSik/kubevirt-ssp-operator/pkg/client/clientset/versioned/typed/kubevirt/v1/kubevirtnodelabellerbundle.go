@@ -37,6 +37,7 @@ type KubevirtNodeLabellerBundlesGetter interface {
 type KubevirtNodeLabellerBundleInterface interface {
 	Create(*v1.KubevirtNodeLabellerBundle) (*v1.KubevirtNodeLabellerBundle, error)
 	Update(*v1.KubevirtNodeLabellerBundle) (*v1.KubevirtNodeLabellerBundle, error)
+	UpdateStatus(*v1.KubevirtNodeLabellerBundle) (*v1.KubevirtNodeLabellerBundle, error)
 	Delete(name string, options *metav1.DeleteOptions) error
 	DeleteCollection(options *metav1.DeleteOptions, listOptions metav1.ListOptions) error
 	Get(name string, options metav1.GetOptions) (*v1.KubevirtNodeLabellerBundle, error)
@@ -114,6 +115,22 @@ func (c *kubevirtNodeLabellerBundles) Update(kubevirtNodeLabellerBundle *v1.Kube
 		Namespace(c.ns).
 		Resource("kubevirtnodelabellerbundles").
 		Name(kubevirtNodeLabellerBundle.Name).
+		Body(kubevirtNodeLabellerBundle).
+		Do().
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+
+func (c *kubevirtNodeLabellerBundles) UpdateStatus(kubevirtNodeLabellerBundle *v1.KubevirtNodeLabellerBundle) (result *v1.KubevirtNodeLabellerBundle, err error) {
+	result = &v1.KubevirtNodeLabellerBundle{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("kubevirtnodelabellerbundles").
+		Name(kubevirtNodeLabellerBundle.Name).
+		SubResource("status").
 		Body(kubevirtNodeLabellerBundle).
 		Do().
 		Into(result)

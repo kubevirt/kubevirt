@@ -100,6 +100,18 @@ func (c *FakeKubevirtMetricsAggregations) Update(kubevirtMetricsAggregation *kub
 	return obj.(*kubevirtv1.KubevirtMetricsAggregation), err
 }
 
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeKubevirtMetricsAggregations) UpdateStatus(kubevirtMetricsAggregation *kubevirtv1.KubevirtMetricsAggregation) (*kubevirtv1.KubevirtMetricsAggregation, error) {
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceAction(kubevirtmetricsaggregationsResource, "status", c.ns, kubevirtMetricsAggregation), &kubevirtv1.KubevirtMetricsAggregation{})
+
+	if obj == nil {
+		return nil, err
+	}
+	return obj.(*kubevirtv1.KubevirtMetricsAggregation), err
+}
+
 // Delete takes name of the kubevirtMetricsAggregation and deletes it. Returns an error if one occurs.
 func (c *FakeKubevirtMetricsAggregations) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.

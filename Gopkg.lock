@@ -10,15 +10,15 @@
   version = "v0.44.3"
 
 [[projects]]
-  digest = "1:3b9061c38805a6b52c71351b5c88f213ce67973d7dc48d6e80e64dcfa0ea15a8"
+  digest = "1:ed9bee091e4cf5ae00d0368134ac0d139a1d41ed0c5302e67d8b1c3e2fd46564"
   name = "github.com/MarSik/kubevirt-ssp-operator"
   packages = [
     "pkg/apis",
     "pkg/apis/kubevirt/v1",
   ]
   pruneopts = "NT"
-  revision = "5c6c0d655eacc1ee4b5badd5821078b30e8b9442"
-  version = "v1.0.9"
+  revision = "aa0acea59f91d807c5cf0ba0d66798ef4df83c7c"
+  version = "v1.0.10"
 
 [[projects]]
   digest = "1:0a111edd8693fd977f42a0c4f199a0efb13c20aec9da99ad8830c7bb6a87e8d6"
@@ -510,7 +510,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f360916b1175b29fb1c20527dd272fc0a2cdcb0e5a00ca6400da6184a251a26a"
+  digest = "1:a3be2aecebca055d3c9641bdfc299c4685e5160be17b4dd9acf1eecd0a6508c5"
   name = "github.com/operator-framework/operator-sdk"
   packages = [
     "pkg/k8sutil",
@@ -523,7 +523,7 @@
     "version",
   ]
   pruneopts = "NT"
-  revision = "abac23c897b898e6fecfb2c02fe318843ae9347f"
+  revision = "0923815997fd48b0bed6e5b5454be035db81ca1c"
 
 [[projects]]
   digest = "1:93b1d84c5fa6d1ea52f4114c37714cddd84d5b78f151b62bb101128dd51399bf"
@@ -590,15 +590,16 @@
   version = "v0.6.0"
 
 [[projects]]
-  digest = "1:85cecf7dcfeab7a2c5fd37e7e302f5bc81f00c9551e27769cb693c1a3fc2e740"
+  digest = "1:9fe6833a1717d8c4f78a977c5e39bebff3b204d98474075b5b279b62ce36e703"
   name = "github.com/prometheus/procfs"
   packages = [
     ".",
     "internal/fs",
+    "internal/util",
   ]
   pruneopts = "NT"
-  revision = "3f98efb27840a48a7a2898ec80be07674d19f9c8"
-  version = "v0.0.3"
+  revision = "00ec24a6a2d86e7074629c8384715dbb05adccd8"
+  version = "v0.0.4"
 
 [[projects]]
   digest = "1:a4644e85e1f29f9825a4e61dcdd8244fe7c4db02eead3f508d5a5bdf7924dbbd"
@@ -704,14 +705,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:bbc262db5540a2f0142cbddc6f2ba91c1ae25739bab635d1fa6a15d9cb25fbdd"
+  digest = "1:fd4e4a0fc28da93ab16716b9c8b7e6f28479620d234ae0b8df5fe70b890d2dd2"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "NT"
-  revision = "fb81701db80f1745f51259b1f286de3fe2ec80c8"
+  revision = "c7b8b68b14567162c6602a7c5659ee0f26417c18"
 
 [[projects]]
   digest = "1:348fa8283a7c60b5b71ce04d27b37f7c0fce552d4d0b463b5b3ebbd1840d3f1a"
@@ -761,7 +762,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:2d07ef6f0e99a05bdbd229c6d7fed6881e75950af6a9ea6d218b56abcd72e268"
+  digest = "1:d3c9dc841a78bcd6b8fe917574c3295320aeea1e0634e38c9e768520eb5c1338"
   name = "golang.org/x/tools"
   packages = [
     "go/ast/astutil",
@@ -778,7 +779,7 @@
     "internal/semver",
   ]
   pruneopts = "NT"
-  revision = "95c3470cfb70bba4d4d578afaf29e0b4b307e3b3"
+  revision = "71894ab67ee38e5f4b1d98f5edc384c5c872c94f"
 
 [[projects]]
   digest = "1:25a3797e84a65cc761261eb04134cc03bc64861ef37d1242d92b199bd955800f"
@@ -1122,7 +1123,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f1c659e74da3ca0fa6f654c212a4fa0907192b9165cf565024e943dc89285fae"
+  digest = "1:ade12fd1c0fb70cbd2c89b3bbcae2be7fc0d481079a020b79a7c5b259a19d516"
   name = "k8s.io/gengo"
   packages = [
     "args",
@@ -1135,7 +1136,7 @@
     "types",
   ]
   pruneopts = "T"
-  revision = "26a664648505d962332bda642b27306bc10d1082"
+  revision = "a874a240740c2ae854082ec73d46c5efcedd2149"
 
 [[projects]]
   digest = "1:f4ba96b662d53fd1d18907c661cc429108e3522b92cb678db5fc1e5e1d2af7a7"
