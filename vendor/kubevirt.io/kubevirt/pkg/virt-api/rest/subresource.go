@@ -40,6 +40,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	clientutil "kubevirt.io/client-go/util"
 )
 
 type SubresourceAPIApp struct {
@@ -62,7 +63,6 @@ type requestType struct {
 }
 
 const (
-	namespaceKubevirt         = "kubevirt"
 	clientCertBytesValue      = "client-cert-bytes"
 	clientKeyBytesValue       = "client-key-bytes"
 	signingCertBytesValue     = "signing-cert-bytes"
@@ -161,7 +161,11 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 }
 
 func (app *SubresourceAPIApp) getConsoleTLSConfig() (*tls.Config, error) {
-	secret, err := app.virtCli.CoreV1().Secrets(namespaceKubevirt).Get(virtHandlerCertSecretName, k8smetav1.GetOptions{})
+	ns, err := clientutil.GetNamespace()
+	if err != nil {
+		return nil, err
+	}
+	secret, err := app.virtCli.CoreV1().Secrets(ns).Get(virtHandlerCertSecretName, k8smetav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
