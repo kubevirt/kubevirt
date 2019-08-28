@@ -129,7 +129,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
-	It("should succeed to start a vmi", func() {
+	It("[test_id:223]should succeed to start a vmi", func() {
 		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVMI)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
