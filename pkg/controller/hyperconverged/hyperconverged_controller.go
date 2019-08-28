@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
@@ -602,10 +603,13 @@ func (r *ReconcileHyperConverged) ensureNetworkAddons(instance *hcov1alpha1.Hype
 	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("Creating Network Addons")
 		return r.client.Create(context.TODO(), networkAddons)
+	} else if err != nil {
+		return err
 	}
 
-	if err != nil {
-		return err
+	if !reflect.DeepEqual(found.Spec, networkAddons.Spec) {
+		logger.Info("Updating existing Network Addons")
+		return r.client.Update(context.TODO(), networkAddons)
 	}
 
 	logger.Info("NetworkAddonsConfig already exists", "NetworkAddonsConfig.Namespace", found.Namespace, "NetworkAddonsConfig.Name", found.Name)
