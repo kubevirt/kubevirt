@@ -53,6 +53,18 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when invalid, IsSlirpInterfaceEnabled should return the default", "invalid", false),
 	)
 
+	table.DescribeTable(" when permitBridgeInterfaceOnPodNetwork", func(value string, result bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{"permitBridgeInterfaceOnPodNetwork": value},
+		})
+		Expect(clusterConfig.IsBridgeInterfaceOnPodNetworkEnabled()).To(Equal(result))
+	},
+		table.Entry("is true, IsBridgeInterfaceOnPodNetworkEnabled should return true", "true", true),
+		table.Entry("is false, IsBridgeInterfaceOnPodNetworkEnabled should return false", "false", false),
+		table.Entry("when unset, IsBridgeInterfaceOnPodNetworkEnabled should return true", "", true),
+		table.Entry("when invalid, IsBridgeInterfaceOnPodNetworkEnabled should return the default", "invalid", true),
+	)
+
 	table.DescribeTable(" when imagePullPolicy", func(value string, result kubev1.PullPolicy) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.ImagePullPolicyKey: value},

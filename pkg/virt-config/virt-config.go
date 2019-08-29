@@ -51,6 +51,7 @@ const (
 	SmbiosConfigDefaultFamily                       = "KubeVirt"
 	SmbiosConfigDefaultManufacturer                 = "KubeVirt"
 	SmbiosConfigDefaultProduct                      = "None"
+	DefaultPermitBridgeInterfaceOnPodNetwork        = true
 )
 
 func (c *ClusterConfig) IsUseEmulation() bool {
@@ -103,4 +104,8 @@ func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
 
 func (c *ClusterConfig) GetSMBIOS() *cmdv1.SMBios {
 	return c.getConfig().SmbiosConfig
+}
+
+func (c *ClusterConfig) IsBridgeInterfaceOnPodNetworkEnabled() bool {
+	return c.getConfig().PermitBridgeInterfaceOnPodNetwork
 }
