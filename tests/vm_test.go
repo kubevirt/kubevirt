@@ -753,6 +753,28 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				})
 
+				It("should migrate a running VM", func() {
+					By("creating a VM with RunStrategyAlways")
+					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
+
+					By("Waiting for VM to be ready")
+					Eventually(func() bool {
+						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return virtualMachine.Status.Ready
+					}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+					By("Invoking virtctl migrate")
+					migrateCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_MIGRATE, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					Expect(migrateCommand()).To(Succeed())
+
+					By("Ensuring the VirtualMachineInstance is migrated")
+					Eventually(func() bool {
+						nextVMI, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return nextVMI.Status.MigrationState != nil && nextVMI.Status.MigrationState.Completed
+					}, 240*time.Second, 1*time.Second).Should(BeTrue())
+				})
 			})
 
 			Context("Using RunStrategyRerunOnFailure", func() {

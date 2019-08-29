@@ -103,6 +103,18 @@ var _ = Describe("VirtualMachine", func() {
 
 	})
 
+	Context("with migrate VM cmd", func() {
+		It("should migrate vm", func() {
+			vm := kubecli.NewMinimalVM(vmName)
+
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
+			vmInterface.EXPECT().Migrate(vm.Name).Return(nil).Times(1)
+
+			cmd := tests.NewVirtctlCommand("migrate", vmName)
+			Expect(cmd.Execute()).To(BeNil())
+		})
+	})
+
 	Context("with restart VM cmd", func() {
 		It("should restart vm", func() {
 			vm := kubecli.NewMinimalVM(vmName)
