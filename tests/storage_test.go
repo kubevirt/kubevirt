@@ -525,12 +525,7 @@ var _ = Describe("Storage", func() {
 
 				configureToleration := func(toleration int) {
 					By("By configuring toleration")
-					config, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-					ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-					config.Data[virtconfig.LessPVCSpaceTolerationKey] = strconv.Itoa(toleration)
-					_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(config)
-					ExpectWithOffset(1, err).ToNot(HaveOccurred())
+					tests.UpdateClusterConfigValueAndWait(virtconfig.LessPVCSpaceTolerationKey, strconv.Itoa(toleration), 2*time.Second)
 				}
 
 				It("Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", func() {
