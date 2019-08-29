@@ -129,6 +129,7 @@ type VirtControllerApp struct {
 	// the channel used to trigger re-initialization.
 	reInitChan chan string
 
+	// number of threads for each controller
 	nodeControllerThreads             int
 	vmiControllerThreads              int
 	rsControllerThreads               int
@@ -440,6 +441,7 @@ func (vca *VirtControllerApp) AddFlags() {
 	flag.StringVar(&vca.containerDiskDir, "container-disk-dir", containerDiskDir,
 		"Base directory for container disk data")
 
+	// allows user-defined threads based on the underlying hardware in use
 	flag.IntVar(&vca.nodeControllerThreads, "node-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for node controller")
 
