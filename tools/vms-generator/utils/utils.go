@@ -131,28 +131,24 @@ func addRNG(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec 
 }
 
 func addContainerDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus string) *v1.VirtualMachineInstanceSpec {
-	spec.Domain.Devices = v1.Devices{
-		Disks: []v1.Disk{
-			{
-				Name: "containerdisk",
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Bus: bus,
-					},
-				},
+	disk := &v1.Disk{
+		Name: "containerdisk",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: bus,
 			},
 		},
 	}
-	spec.Volumes = []v1.Volume{
-		{
-			Name: "containerdisk",
-			VolumeSource: v1.VolumeSource{
-				ContainerDisk: &v1.ContainerDiskSource{
-					Image: image,
-				},
+	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, *disk)
+	volume := &v1.Volume{
+		Name: "containerdisk",
+		VolumeSource: v1.VolumeSource{
+			ContainerDisk: &v1.ContainerDiskSource{
+				Image: image,
 			},
 		},
 	}
+	spec.Volumes = append(spec.Volumes, *volume)
 	return spec
 }
 
