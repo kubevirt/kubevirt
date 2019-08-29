@@ -125,7 +125,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
 				}
 
-				table.DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
+				table.DescribeTable("[test_id:2706] should return that we are running alpine", func(createVMI vmiBuilder) {
 					vmi, dv := createVMI()
 					defer deleteDataVolume(dv)
 					RunVMIAndWaitForStart(vmi)
