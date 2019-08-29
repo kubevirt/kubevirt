@@ -163,6 +163,7 @@ type VirtualMachineInterface interface {
 	Restart(name string) error
 	Start(name string) error
 	Stop(name string) error
+	Migrate(name string) error
 }
 
 type VirtualMachineInstanceMigrationInterface interface {
