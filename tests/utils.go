@@ -3870,17 +3870,17 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 }
 
 // UpdateClusterConfigValueAndWait updates the given configuration in the kubevirt config map and then waits
-// to allow the configuration events to be propagated to the consumers.
-func UpdateClusterConfigValueAndWait(key string, value string) {
+// for the given duration, to allow the configuration events to be propagated to the consumers.
+func UpdateClusterConfigValueAndWait(key string, value string, howLong time.Duration) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	cfgMap.Data[key] = value
 	_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Update(cfgMap)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(howLong)
 }
 
 func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
