@@ -49,6 +49,20 @@ pkg_tar(
     package_dir = "usr/share/nginx/html/images",
 )
 
+genrule(
+    name = "fedora-img",
+    srcs = ["@fedora_image//file"],
+    outs = ["usr/share/nginx/html/images/fedora.img"],
+    cmd = "mkdir disk && cat $(location @fedora_image//file) > $@",
+)
+
+pkg_tar(
+    name = "fedora-img-tar",
+    srcs = [":fedora-img"],
+    mode = "644",
+    package_dir = "usr/share/nginx/html/images",
+)
+
 pkg_tar(
     name = "nginx-config-tar",
     srcs = [
@@ -71,6 +85,7 @@ container_image(
     tars = [
         ":alpine-tar",
         ":cirros-img-tar",
+        ":fedora-img-tar",
         ":nginx-config-tar",
     ],
     visibility = ["//visibility:public"],

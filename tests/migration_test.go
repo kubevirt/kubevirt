@@ -30,6 +30,7 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -42,6 +43,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/tests"
@@ -327,9 +329,24 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 		return uid
 	}
 
+	runStressTest := func(expecter expect.Expecter) {
+		By("Run a stress test to dirty some pages and slow down the migration")
+		_, err = expecter.ExpectBatch([]expect.Batcher{
+			&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 1600s&\n"},
+		}, 15*time.Second)
+		Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+	}
+
+	deleteDataVolume := func(dv *cdiv1.DataVolume) {
+		if dv != nil {
+			By("Deleting the DataVolume")
+			ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+		}
+	}
+
 	Describe("Starting a VirtualMachineInstance ", func() {
 		Context("with a bridge network interface", func() {
-			It("should reject a migration of a vmi with a brdige interface", func() {
+			It("should reject a migration of a vmi with a bridge interface", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{
@@ -364,8 +381,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
@@ -398,8 +414,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				}
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
@@ -424,8 +439,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(5 * time.Second)
-
-			}, 60)
+			})
 
 			AfterEach(func() {
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
@@ -442,30 +456,15 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
-				getOptions := &metav1.GetOptions{}
-				var updatedVmi *v1.VirtualMachineInstance
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).To(BeNil())
 				defer expecter.Close()
 
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
-				Eventually(func() bool {
-					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, getOptions)
-					Expect(err).ToNot(HaveOccurred())
-					for _, condition := range updatedVmi.Status.Conditions {
-						if condition.Type == "AgentConnected" && condition.Status == "True" {
-							return true
-						}
-					}
-					return false
-				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+				tests.WaitAgentConnected(virtClient, vmi)
 
-				By("Run a stress test")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 1600s&\n"},
-				}, 15*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+				runStressTest(expecter)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -477,8 +476,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
@@ -507,8 +505,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(5 * time.Second)
-
-			}, 60)
+			})
 
 			AfterEach(func() {
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
@@ -538,8 +535,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).To(BeNil())
 
-				By("checking that the datavolume has succeeded")
-				tests.WaitForSuccessfulDataVolumeImport(vmi, 340)
+				tests.WaitForSuccessfulDataVolumeImportOfVMI(vmi, 340)
 
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
@@ -560,14 +556,12 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
-				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})).To(Succeed())
 			})
 		})
 		Context("with an Alpine DataVolume", func() {
@@ -576,7 +570,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				if !tests.HasCDI() {
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
-			}, 60)
+			})
 			It("should reject a migration of a vmi with a non-shared data volume", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -584,8 +578,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).To(BeNil())
 
-				By("checking that the datavolume has succeeded")
-				tests.WaitForSuccessfulDataVolumeImport(vmi, 240)
+				tests.WaitForSuccessfulDataVolumeImportOfVMI(vmi, 240)
 
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
@@ -612,14 +605,38 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
-				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				Expect(virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})).To(Succeed())
+			})
+			It("should migrate a vmi with a shared OCS disk", func() {
+				vmi, dv := tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
+				defer deleteDataVolume(dv)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 300)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).To(BeNil())
+				expecter.Close()
+
+				By("Starting a Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigration(vmi, migrationUID)
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
 		Context("with an Alpine shared ISCSI PVC", func() {
@@ -633,7 +650,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
 				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.PersistentVolumeBlock)
-			}, 60)
+			})
 
 			AfterEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
@@ -662,8 +679,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
@@ -687,8 +703,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
@@ -706,7 +721,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
 				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.PersistentVolumeBlock)
-			}, 60)
+			})
 
 			AfterEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
@@ -737,8 +752,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
@@ -756,13 +770,12 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
 				tests.CreateNFSPvAndPvc(pvName, "5Gi", nfsIP, os)
-			}, 60)
+			})
 
 			AfterEach(func() {
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
@@ -861,11 +874,8 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).To(BeNil())
 				defer expecter.Close()
-				By("Run a stress test")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 1600s&\n"},
-				}, 15*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+
+				runStressTest(expecter)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -983,11 +993,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				By("Run a stress test")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 1600s&\n"},
-				}, 15*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+				runStressTest(expecter)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -999,8 +1005,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
@@ -1017,7 +1022,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
 				tests.NewISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
-			}, 60)
+			})
 
 			AfterEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
@@ -1051,17 +1056,54 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
 		Context("live migration cancelation", func() {
-			It("[test_id:2226]should be able successfully cancel a migration", func() {
-				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+			type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
+
+			newVirtualMachineInstanceWithFedoraContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+				return tests.NewRandomFedoraVMIWitGuestAgent(), nil
+			}
+
+			newVirtualMachineInstanceWithFedoraOCSDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+				// It could have been cleaner to import tests.ContainerDiskFedora from cdi-http-server but that does
+				// not work so as a temporary workaround the following imports the image from an ISCSI target pod
+				if !tests.HasCDI() {
+					Skip("Skip DataVolume tests when CDI is not present")
+				}
+				sc, exists := tests.GetCephStorageClass()
+				if !exists {
+					Skip("Skip OCS tests when Ceph is not present")
+				}
+
+				By("Starting an iSCSI POD")
+				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskFedora)
+				volMode := k8sv1.PersistentVolumeBlock
+				// create a new PV and PVC (PVs can't be reused)
+				pvName := "test-iscsi-lun" + rand.String(48)
+				tests.CreateISCSIPvAndPvc(pvName, "5Gi", iscsiIP, volMode)
+				Expect(err).To(BeNil())
+				defer tests.DeletePvAndPvc(pvName)
+
+				dv := tests.NewRandomDataVolumeWithPVCSourceWithStorageClass(tests.NamespaceTestDefault, pvName, tests.NamespaceTestDefault, sc, "5Gi", k8sv1.ReadWriteMany)
+				dv.Spec.PVC.VolumeMode = &volMode
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulDataVolumeImport(dv, 600)
+				// workaround for: https://github.com/kubevirt/kubevirt/issues/2438
+				vmi := tests.NewRandomVMIWithPVC(dv.Name)
+				tests.AddUserData(vmi, "disk1", tests.GetGuestAgentUserData())
+				return vmi, dv
+			}
+
+			table.DescribeTable("[test_id:2226]should be able successfully cancel a migration", func(createVMI vmiBuilder) {
+				vmi, dv := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+				defer deleteDataVolume(dv)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -1074,11 +1116,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				By("Run a stress test")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 1600s&\n"},
-				}, 15*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+				runStressTest(expecter)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1094,13 +1132,14 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-
-			})
+			},
+				table.Entry("with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
+				table.Entry("with OCS Disk", newVirtualMachineInstanceWithFedoraOCSDisk),
+			)
 			It("should be able successfully cancel a migration right after posting it", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
@@ -1127,8 +1166,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// delete VMI
 				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
@@ -1175,8 +1213,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 			// delete VMI
 			By("Deleting the VMI")
-			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-			Expect(err).To(BeNil())
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
 			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
@@ -1217,8 +1254,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 						return pdbs.Items
 					}, 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
 					By("deleting the VMI")
-					err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					Expect(virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 					By("checking that the PDB disappeared")
 					Eventually(func() []v1beta1.PodDisruptionBudget {
 						pdbs, err := virtClient.PolicyV1beta1().PodDisruptionBudgets(tests.NamespaceTestDefault).List(metav1.ListOptions{})
@@ -1243,14 +1279,9 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				Expect(expecterErr).To(BeNil())
 				defer expecter.Close()
 
-				By("Waiting for user agent connection")
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				By("Run a stress test to dirty some pages and slow down the migration")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 10s\n"},
-				}, 15*time.Second)
-				Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+				runStressTest(expecter)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -1304,15 +1335,10 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 					Expect(expecterErr).To(BeNil())
 					defer expecter.Close()
 
-					By("Waiting for user agent connection")
 					tests.WaitAgentConnected(virtClient, vmi)
 
 					// Put VMI under load
-					By("Run a stress test to dirty some pages and slow down the migration")
-					_, err = expecter.ExpectBatch([]expect.Batcher{
-						&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 10s\n"},
-					}, 15*time.Second)
-					Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+					runStressTest(expecter)
 
 					// Taint Node.
 					By("Tainting node with kubevirt.io/drain=NoSchedule")
