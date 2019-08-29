@@ -436,19 +436,12 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
 				Expect(err).ToNot(HaveOccurred())
 				originalMigrationConfig = cfgMap.Data["migrations"]
-				cfgMap.Data["migrations"] = `{"allowAutoConverge": true}`
 
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
-				time.Sleep(5 * time.Second)
+				tests.UpdateClusterConfigValueAndWait("migrations", `{"allowAutoConverge": true}`, 5*time.Second)
 			})
 
 			AfterEach(func() {
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
-				Expect(err).ToNot(HaveOccurred())
-				cfgMap.Data["migrations"] = originalMigrationConfig
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
+				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig, 2*time.Second)
 			}, 60)
 
 			It("should complete a migration", func() {
@@ -502,19 +495,11 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
 				Expect(err).ToNot(HaveOccurred())
 				originalMigrationConfig = cfgMap.Data["migrations"]
-				cfgMap.Data["migrations"] = `{"unsafeMigrationOverride": true}`
-
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
-				time.Sleep(5 * time.Second)
+				tests.UpdateClusterConfigValueAndWait("migrations", `{"unsafeMigrationOverride": true}`, 5*time.Second)
 			})
 
 			AfterEach(func() {
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
-				Expect(err).ToNot(HaveOccurred())
-				cfgMap.Data["migrations"] = originalMigrationConfig
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
+				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig, 2*time.Second)
 			}, 60)
 
 			It("should migrate a vmi with UNSAFE_MIGRATION flag set", func() {
@@ -849,18 +834,10 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
 				Expect(err).ToNot(HaveOccurred())
 				originalMigrationConfig = cfgMap.Data["migrations"]
-				cfgMap.Data["migrations"] = `{"bandwidthPerMigration" : "1Mi"}`
-
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
-				time.Sleep(5 * time.Second)
+				tests.UpdateClusterConfigValueAndWait("migrations", `{"bandwidthPerMigration" : "1Mi"}`, 5*time.Second)
 			})
 			AfterEach(func() {
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
-				Expect(err).ToNot(HaveOccurred())
-				cfgMap.Data["migrations"] = originalMigrationConfig
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
+				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig, 2*time.Second)
 			})
 			It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
@@ -967,18 +944,10 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
 				Expect(err).ToNot(HaveOccurred())
 				originalMigrationConfig = cfgMap.Data["migrations"]
-				cfgMap.Data["migrations"] = `{"progressTimeout" : 5, "completionTimeoutPerGiB": 5}`
-
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
-				time.Sleep(5 * time.Second)
+				tests.UpdateClusterConfigValueAndWait("migrations", `{"progressTimeout" : 5, "completionTimeoutPerGiB": 5}`, 5*time.Second)
 			})
 			AfterEach(func() {
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
-				Expect(err).ToNot(HaveOccurred())
-				cfgMap.Data["migrations"] = originalMigrationConfig
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
+				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig, 5*time.Second)
 			})
 			It("[test_id:2227]should abort a vmi migration without progress", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()

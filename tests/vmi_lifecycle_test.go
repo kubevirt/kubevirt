@@ -780,14 +780,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("should set default cpu model when vmi doesn't have it set", func() {
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
-				Expect(err).ToNot(HaveOccurred(), "Expect config map to be loaded without error")
-
-				cfgMap.Data[defaultCPUModelKey] = defaultCPUModel
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred(), "Expect config map to be updated without error")
-
-				time.Sleep(5 * time.Second)
+				tests.UpdateClusterConfigValueAndWait(defaultCPUModelKey, defaultCPUModel, 5*time.Second)
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
@@ -802,15 +795,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("should not set default cpu model when vmi has it set", func() {
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
-				Expect(err).ToNot(HaveOccurred(), "Expect config map to be loaded without error")
-
-				cfgMap.Data[defaultCPUModelKey] = defaultCPUModel
-
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred(), "Expect config map to be updated without error")
-
-				time.Sleep(5 * time.Second)
+				tests.UpdateClusterConfigValueAndWait(defaultCPUModelKey, defaultCPUModel, 5*time.Second)
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
@@ -857,18 +842,12 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
 				Expect(err).ToNot(HaveOccurred())
 				originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
-				cfgMap.Data[virtconfig.FeatureGatesKey] = virtconfig.CPUNodeDiscoveryGate
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
-				time.Sleep(5 * time.Second)
+
+				tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, virtconfig.CPUNodeDiscoveryGate, 5*time.Second)
 			})
 
 			AfterEach(func() {
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
-				Expect(err).ToNot(HaveOccurred())
-				cfgMap.Data[virtconfig.FeatureGatesKey] = originalFeatureGates
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
+				tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, originalFeatureGates, 2*time.Second)
 
 				n, err := virtClient.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
