@@ -636,6 +636,12 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					Message: fmt.Sprintf("Masquerade interface only implemented with pod network"),
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
+			} else if iface.InterfaceBindingMethod.Bridge != nil && networkData.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "Bridge on pod network configuration is not enabled under kubevirt-config",
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+				})
 			}
 
 			// Check if the interface name is unique

@@ -142,6 +142,9 @@ func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineIns
 		iface := v1.NetworkInterfaceType(mutator.ClusterConfig.GetDefaultNetworkInterface())
 		switch iface {
 		case v1.BridgeInterface:
+			if !mutator.ClusterConfig.IsBridgeInterfaceOnPodNetworkEnabled() {
+				return fmt.Errorf("Bridge interface is not enabled in kubevirt-config")
+			}
 			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 		case v1.MasqueradeInterface:
 			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}

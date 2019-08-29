@@ -47,8 +47,9 @@ func main() {
 	config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{
 		Data: map[string]string{
 			// Required to validate DataVolume usage
-			virtconfig.FeatureGatesKey:      "DataVolumes,LiveMigration,SRIOV",
-			virtconfig.PermitSlirpInterface: "true",
+			virtconfig.FeatureGatesKey:                   "DataVolumes,LiveMigration,SRIOV",
+			virtconfig.PermitSlirpInterface:              "true",
+			virtconfig.PermitBridgeInterfaceOnPodNetwork: "true",
 		},
 	})
 

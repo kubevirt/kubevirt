@@ -43,22 +43,23 @@ import (
 )
 
 const (
-	configMapName             = "kubevirt-config"
-	FeatureGatesKey           = "feature-gates"
-	EmulatedMachinesKey       = "emulated-machines"
-	MachineTypeKey            = "machine-type"
-	useEmulationKey           = "debug.useEmulation"
-	ImagePullPolicyKey        = "dev.imagePullPolicy"
-	MigrationsConfigKey       = "migrations"
-	CpuModelKey               = "default-cpu-model"
-	CpuRequestKey             = "cpu-request"
-	MemoryOvercommitKey       = "memory-overcommit"
-	LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
-	NodeSelectorsKey          = "node-selectors"
-	NetworkInterfaceKey       = "default-network-interface"
-	PermitSlirpInterface      = "permitSlirpInterface"
-	NodeDrainTaintDefaultKey  = "kubevirt.io/drain"
-	SmbiosConfigKey           = "smbios"
+	configMapName                     = "kubevirt-config"
+	FeatureGatesKey                   = "feature-gates"
+	EmulatedMachinesKey               = "emulated-machines"
+	MachineTypeKey                    = "machine-type"
+	useEmulationKey                   = "debug.useEmulation"
+	ImagePullPolicyKey                = "dev.imagePullPolicy"
+	MigrationsConfigKey               = "migrations"
+	CpuModelKey                       = "default-cpu-model"
+	CpuRequestKey                     = "cpu-request"
+	MemoryOvercommitKey               = "memory-overcommit"
+	LessPVCSpaceTolerationKey         = "pvc-tolerate-less-space-up-to-percent"
+	NodeSelectorsKey                  = "node-selectors"
+	NetworkInterfaceKey               = "default-network-interface"
+	PermitSlirpInterface              = "permitSlirpInterface"
+	PermitBridgeInterfaceOnPodNetwork = "permitBridgeInterfaceOnPodNetwork"
+	NodeDrainTaintDefaultKey          = "kubevirt.io/drain"
+	SmbiosConfigKey                   = "smbios"
 )
 
 type ConfigModifiedFn func()
@@ -202,34 +203,36 @@ func defaultClusterConfig() *Config {
 			UnsafeMigrationOverride:           DefaultUnsafeMigrationOverride,
 			AllowAutoConverge:                 allowAutoConverge,
 		},
-		MachineType:            DefaultMachineType,
-		CPURequest:             cpuRequestDefault,
-		MemoryOvercommit:       DefaultMemoryOvercommit,
-		EmulatedMachines:       emulatedMachinesDefault,
-		LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
-		NodeSelectors:          nodeSelectorsDefault,
-		NetworkInterface:       defaultNetworkInterface,
-		PermitSlirpInterface:   DefaultPermitSlirpInterface,
-		SmbiosConfig:           SmbiosDefaultConfig,
+		MachineType:                       DefaultMachineType,
+		CPURequest:                        cpuRequestDefault,
+		MemoryOvercommit:                  DefaultMemoryOvercommit,
+		EmulatedMachines:                  emulatedMachinesDefault,
+		LessPVCSpaceToleration:            DefaultLessPVCSpaceToleration,
+		NodeSelectors:                     nodeSelectorsDefault,
+		NetworkInterface:                  defaultNetworkInterface,
+		PermitSlirpInterface:              DefaultPermitSlirpInterface,
+		PermitBridgeInterfaceOnPodNetwork: DefaultPermitBridgeInterfaceOnPodNetwork,
+		SmbiosConfig:                      SmbiosDefaultConfig,
 	}
 }
 
 type Config struct {
-	ResourceVersion        string
-	UseEmulation           bool
-	MigrationConfig        *MigrationConfig
-	ImagePullPolicy        k8sv1.PullPolicy
-	MachineType            string
-	CPUModel               string
-	CPURequest             resource.Quantity
-	MemoryOvercommit       int
-	EmulatedMachines       []string
-	FeatureGates           string
-	LessPVCSpaceToleration int
-	NodeSelectors          map[string]string
-	NetworkInterface       string
-	PermitSlirpInterface   bool
-	SmbiosConfig           *cmdv1.SMBios
+	ResourceVersion                   string
+	UseEmulation                      bool
+	MigrationConfig                   *MigrationConfig
+	ImagePullPolicy                   k8sv1.PullPolicy
+	MachineType                       string
+	CPUModel                          string
+	CPURequest                        resource.Quantity
+	MemoryOvercommit                  int
+	EmulatedMachines                  []string
+	FeatureGates                      string
+	LessPVCSpaceToleration            int
+	NodeSelectors                     map[string]string
+	NetworkInterface                  string
+	PermitSlirpInterface              bool
+	PermitBridgeInterfaceOnPodNetwork bool
+	SmbiosConfig                      *cmdv1.SMBios
 }
 
 type MigrationConfig struct {
@@ -376,6 +379,19 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		config.PermitSlirpInterface = false
 	default:
 		return fmt.Errorf("invalid value for permitSlirpInterfaces in config: %v", permitSlirp)
+	}
+
+	// disable bridge
+	permitBridge := strings.TrimSpace(configMap.Data[PermitBridgeInterfaceOnPodNetwork])
+	switch permitBridge {
+	case "":
+		// keep the default
+	case "false":
+		config.PermitBridgeInterfaceOnPodNetwork = false
+	case "true":
+		config.PermitBridgeInterfaceOnPodNetwork = true
+	default:
+		return fmt.Errorf("invalid value for permitBridgeInterfaceOnPodNetwork in config: %v", permitBridge)
 	}
 
 	// set default network interface

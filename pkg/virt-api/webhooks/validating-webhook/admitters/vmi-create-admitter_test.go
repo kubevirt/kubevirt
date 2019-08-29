@@ -62,6 +62,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Data: map[string]string{virtconfig.PermitSlirpInterface: "true"},
 		})
 	}
+	disableBridgeOnPodNetwork := func() {
+		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
+			Data: map[string]string{virtconfig.PermitBridgeInterfaceOnPodNetwork: "false"},
+		})
+	}
 
 	AfterEach(func() {
 		disableFeatureGates()
@@ -1373,6 +1378,22 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
+		})
+		It("should accept a bridge interface on a pod network when it is permitted", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject a bridge interface on a pod network when it is not permitted", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			disableBridgeOnPodNetwork()
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
