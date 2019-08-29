@@ -599,7 +599,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				Expect(virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})).To(Succeed())
 			})
-			It("should migrate a vmi with a shared OCS disk", func() {
+			It("[test_id:1479] should migrate a vmi with a shared OCS disk", func() {
 				vmi, dv := tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 				defer deleteDataVolume(dv)
 
@@ -1074,7 +1074,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				return vmi, dv
 			}
 
-			table.DescribeTable("[test_id:2226]should be able successfully cancel a migration", func(createVMI vmiBuilder) {
+			table.DescribeTable("should be able successfully cancel a migration", func(createVMI vmiBuilder) {
 				vmi, dv := createVMI()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				defer deleteDataVolume(dv)
@@ -1111,8 +1111,8 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			},
-				table.Entry("with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-				table.Entry("with OCS Disk", newVirtualMachineInstanceWithFedoraOCSDisk),
+				table.Entry("[test_id:2226]with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
+				table.Entry("[test_id:2731]with OCS Disk", newVirtualMachineInstanceWithFedoraOCSDisk),
 			)
 			It("should be able successfully cancel a migration right after posting it", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
