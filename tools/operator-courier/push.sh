@@ -9,15 +9,14 @@ SOURCE_DIR="${SOURCE_DIR:-/manifests}"
 REPO_DIR="${QUAY_REPOSITORY:-kubevirt-hyperconverged}"
 NAMESPACE="${PACKAGE_NAME:-kubevirt-hyperconverged}"
 
-latest_bundle_version=$(curl -X GET https://quay.io/cnr/api/v1/packages/${QUAY_REPOSITORY}/${PACKAGE_NAME} | jq '.[-1]["release"]' | tr -d '"')
-RELEASE="${RELEASE:-$latest_bundle_version}"
+RELEASE="${RELEASE:-}"
+BUNDLES=$(curl -s -X GET https://quay.io/cnr/api/v1/packages/${QUAY_REPOSITORY}/${PACKAGE_NAME} | jq '.[]["release"]' | tr -d '"')
 
-while [ "${latest_bundle_version}" = "${RELEASE}" ]; do
-    echo "Latest bundle version is ${latest_bundle_version}."
-    echo "Set RELEASE to a newer version."
-    echo "RELEASE"
-    read RELEASE
-done
+echo "List of published bundles:"
+echo -e "\e[1m${BUNDLES}\e[0m"
+echo "Set RELEASE to a newer version."
+echo "RELEASE:"
+read RELEASE
 
 if [ -z "${QUAY_USERNAME}" ]; then
     echo "QUAY_USERNAME"
