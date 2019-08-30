@@ -12,7 +12,7 @@ metadata:
             "namespace": "kubevirt-hyperconverged"
           },
           "spec": {
-            "BareMetalPlatform": "false",
+            "BareMetalPlatform": "false"
           }
         },
         {
