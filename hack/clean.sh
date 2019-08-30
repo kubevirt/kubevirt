@@ -20,18 +20,29 @@
 source hack/common.sh
 
 # Remove HCO
-"${CMD}" delete -f deploy/hco.cr.yaml --wait=false --ignore-not-found || true
+"${CMD}" delete -f _out/hco.cr.yaml --ignore-not-found || true
 "${CMD}" wait --for=delete hyperconverged.hco.kubevirt.io/hyperconverged-cluster || true
-"${CMD}" delete -f deploy/crds/hco.crd.yaml --wait=false --ignore-not-found || true
-"${CMD}" delete -f deploy/ --ignore-not-found || true
-"${CMD}" delete ns kubevirt-hyperconverged --ignore-not-found || true
+# TODO: delete hangs on machine.crd.yaml. Only delete the ones that don't hang
+# from _out/crds/.
+"${CMD}" delete -f _out/crds/hco.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/crds/cdi.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/crds/cna.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/crds/common-template-bundles.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/crds/kubevirt.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/crds/metrics-aggregation.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/crds/mro.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/crds/node-labeller-bundles.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/crds/nodemaintenance.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/crds/template-validator.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/crds/v2vvmware.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/operator.yaml --ignore-not-found || true
 
 # Delete kubevirt-operator
-"${CMD}" delete -n kubevirt apiservice v1alpha3.kubevirt.io --wait=false --ignore-not-found || true
+"${CMD}" delete -n kubevirt apiservice v1alpha3.kubevirt.io --ignore-not-found || true
 "${CMD}" delete -f "${KUBEVIRT_OPERATOR_URL}" --ignore-not-found || true
 
 # Delete cdi-operator
-"${CMD}" delete -n cdi apiservice v1alpha1.cdi.kubevirt.io --wait=false --ignore-not-found || true
+"${CMD}" delete -n cdi apiservice v1alpha1.cdi.kubevirt.io --ignore-not-found || true
 "${CMD}" delete -f "${CDI_OPERATOR_URL}" --ignore-not-found || true
 
 # Delete cna-operator
@@ -43,3 +54,10 @@ source hack/common.sh
 "${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-crd.yaml --ignore-not-found || true
 "${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator.yaml --ignore-not-found || true
 
+# Remove other settings
+"${CMD}" delete -f _out/cluster_role_binding.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/cluster_role.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/service_account.yaml --ignore-not-found || true
+
+# Delete namespace at the end
+# "${CMD}" delete ns kubevirt-hyperconverged --ignore-not-found || true

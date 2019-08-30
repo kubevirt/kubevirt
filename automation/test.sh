@@ -15,3 +15,9 @@ make cluster-down
 make cluster-up
 make cluster-sync
 CMD='cluster-up/kubectl.sh' make functest
+
+# Upgrade test requires OLM which is currently
+# only available with okd providers
+if [[ $TARGET =~ okd-.* ]]; then
+  make upgrade-test
+fi

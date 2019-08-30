@@ -38,7 +38,7 @@ fi
 sed -i "s#image: quay.io/kubevirt/hyperconverged-cluster-operator:latest#image: ${HCO_IMAGE}#g" _out/operator.yaml
 
 # create namespaces
-"${CMD}" create ns kubevirt-hyperconverged
+"${CMD}" create ns kubevirt-hyperconverged | true
 
 # Create additional namespaces needed for HCO components
 namespaces=("openshift" "openshift-machine-api")

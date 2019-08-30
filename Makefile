@@ -65,6 +65,9 @@ bundleRegistry:
 
 build-push-all: container-build-operator container-push-operator container-build-operator-courier bundle-push
 
+upgrade-test:
+	./hack/upgrade-test.sh
+ 
 help: ## Show this help screen
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'
 	@echo ''
