@@ -1183,10 +1183,6 @@ spec:
 			if !tests.ServiceMonitorEnabled() {
 				Skip("Test requires ServiceMonitor to be valid")
 			}
-
-			if !strings.HasPrefix(tests.KubeVirtInstallNamespace, "openshift-") {
-				Skip(fmt.Sprintf("Namespace '%s' must start with 'openshift-' for this test to be valid", tests.KubeVirtInstallNamespace))
-			}
 		})
 
 		It("Should allow Prometheus to scrape KubeVirt endpoints", func() {
