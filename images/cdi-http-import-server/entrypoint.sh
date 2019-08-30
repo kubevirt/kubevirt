@@ -60,5 +60,6 @@ else
     # Expose qemu-guest-agent via nginx server
     cp /usr/bin/qemu-ga /usr/share/nginx/html/
     cp /usr/bin/stress /usr/share/nginx/html/
+    cp /usr/bin/dmidecode /usr/share/nginx/html/
     /usr/sbin/nginx
 fi

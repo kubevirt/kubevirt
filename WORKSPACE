@@ -329,3 +329,11 @@ http_file(
         "https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/28/Everything/x86_64/Packages/e/e2fsprogs-1.44.2-0.fc28.x86_64.rpm",
     ],
 )
+
+http_file(
+    name = "dmidecode",
+    sha256 = "5694c041bcebc273cbf9a67f7210b2dd93c517aba55d93d20980b5bdf4be3751",
+    urls = [
+        "https://dl.fedoraproject.org/pub/archive/fedora/linux/releases/28/Everything/x86_64/os/Packages/d/dmidecode-3.1-5.fc28.x86_64.rpm",
+    ],
+)

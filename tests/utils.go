@@ -149,6 +149,7 @@ const (
 	FedoraHttpUrl     = "http://cdi-http-import-server.kubevirt/images/fedora.img"
 	GuestAgentHttpUrl = "http://cdi-http-import-server.kubevirt/qemu-ga"
 	StressHttpUrl     = "http://cdi-http-import-server.kubevirt/stress"
+	DmidecodeHttpUrl  = "http://cdi-http-import-server.kubevirt/dmidecode"
 )
 
 const (
@@ -1760,6 +1761,17 @@ func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
 	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), GetGuestAgentUserData())
 	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return agentVMI
+}
+
+func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
+	dmidecodeUserData := fmt.Sprintf(`#!/bin/bash
+	    echo "fedora" |passwd fedora --stdin
+	    mkdir -p /usr/local/bin
+	    curl %s > /usr/local/bin/dmidecode
+	    chmod +x /usr/local/bin/dmidecode
+	`, DmidecodeHttpUrl)
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(ContainerDiskFor(ContainerDiskFedora), dmidecodeUserData)
+	return vmi
 }
 
 func GetGuestAgentUserData() string {
