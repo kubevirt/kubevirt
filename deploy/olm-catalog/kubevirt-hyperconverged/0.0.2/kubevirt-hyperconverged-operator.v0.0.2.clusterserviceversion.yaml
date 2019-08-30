@@ -10,6 +10,9 @@ metadata:
           "metadata": {
             "name": "kubevirt-hyperconverged",
             "namespace": "kubevirt-hyperconverged"
+          },
+          "spec": {
+            "BareMetalPlatform": "false",
           }
         },
         {

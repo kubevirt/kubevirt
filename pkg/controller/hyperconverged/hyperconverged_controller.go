@@ -190,6 +190,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 
 	for _, f := range []func(*hcov1alpha1.HyperConverged, logr.Logger, reconcile.Request) error{
 		r.ensureKubeVirtConfig,
+		r.ensureKubeVirtStorageConfig,
 		r.ensureKubeVirt,
 		r.ensureCDI,
 		r.ensureNetworkAddons,
@@ -960,6 +961,70 @@ func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(instance *hcov
 
 	handleConditionsSSP(r, logger, "KubevirtTemplateValidator", &found.Status)
 	return r.client.Status().Update(context.TODO(), instance)
+}
+
+func newKubeVirtStorageConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
+	var volumeMode string
+	if *(&cr.Spec.BareMetalPlatform) {
+		volumeMode = "Block"
+	} else {
+		volumeMode = "Filesystem"
+	}
+
+	localSC := "local-sc"
+	if *(&cr.Spec.LocalStorageClassName) != "" {
+		localSC = *(&cr.Spec.LocalStorageClassName)
+	}
+
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt-config-storage-class-defaults",
+			Labels:    labels,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			"accessMode":            "ReadWriteMany",
+			"volumeMode":            volumeMode,
+			localSC + ".accessMode": "ReadWriteOnce",
+			localSC + ".volumeMode": "Filesystem",
+		},
+	}
+}
+
+func (r *ReconcileHyperConverged) ensureKubeVirtStorageConfig(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
+	kubevirtStorageConfig := newKubeVirtStorageConfigForCR(instance, request.Namespace)
+	if err := controllerutil.SetControllerReference(instance, kubevirtStorageConfig, r.scheme); err != nil {
+		return err
+	}
+
+	key, err := client.ObjectKeyFromObject(kubevirtStorageConfig)
+	if err != nil {
+		logger.Error(err, "Failed to get object key for kubevirt storage config")
+	}
+
+	found := &corev1.ConfigMap{}
+	err = r.client.Get(context.TODO(), key, found)
+	if err != nil && apierrors.IsNotFound(err) {
+		logger.Info("Creating kubevirt storage config")
+		return r.client.Create(context.TODO(), kubevirtStorageConfig)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	logger.Info("KubeVirt storage config already exists", "KubeVirtConfig.Namespace", found.Namespace, "KubeVirtConfig.Name", found.Name)
+	// Add it to the list of RelatedObjects if found
+	objectRef, err := reference.GetReference(r.scheme, found)
+	if err != nil {
+		return err
+	}
+	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+
+	return nil
 }
 
 func newKubeVirtMetricsAggregationForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtMetricsAggregation {

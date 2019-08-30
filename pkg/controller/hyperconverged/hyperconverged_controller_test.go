@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/reference"
+
 	// TODO: Move to envtest to get an actual api server
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -24,6 +25,7 @@ import (
 	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/openshift/custom-resource-status/testlib"
+
 	// networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -95,6 +97,102 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(err).To(BeNil())
 				// ObjectReference should have been added
 				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+			})
+		})
+
+		Context("KubeVirt Storage Config", func() {
+			It("should create if not present", func() {
+				hco := &hcov1alpha1.HyperConverged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: hcov1alpha1.HyperConvergedSpec{},
+				}
+
+				expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
+				cl := initClient([]runtime.Object{})
+				r := initReconciler(cl)
+				Expect(r.ensureKubeVirtStorageConfig(hco, log, request)).To(BeNil())
+
+				foundResource := &corev1.ConfigMap{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						foundResource),
+				).To(BeNil())
+				Expect(foundResource.Name).To(Equal(expectedResource.Name))
+				Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
+				Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
+			})
+
+			It("should find if present", func() {
+				hco := &hcov1alpha1.HyperConverged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: hcov1alpha1.HyperConvergedSpec{},
+				}
+
+				expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
+				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+				cl := initClient([]runtime.Object{hco, expectedResource})
+				r := initReconciler(cl)
+				Expect(r.ensureKubeVirtStorageConfig(hco, log, request)).To(BeNil())
+
+				// Check HCO's status
+				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+				objectRef, err := reference.GetReference(r.scheme, expectedResource)
+				Expect(err).To(BeNil())
+				// ObjectReference should have been added
+				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+			})
+
+			It("volumeMode should be block when platform is baremetal", func() {
+				hco := &hcov1alpha1.HyperConverged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: hcov1alpha1.HyperConvergedSpec{
+						BareMetalPlatform: true,
+					},
+				}
+
+				expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
+				Expect(expectedResource.Data["volumeMode"]).To(Equal("Block"))
+			})
+
+			It("volumeMode should be block when platform is not baremetal", func() {
+				hco := &hcov1alpha1.HyperConverged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: hcov1alpha1.HyperConvergedSpec{
+						BareMetalPlatform: false,
+					},
+				}
+
+				expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
+				Expect(expectedResource.Data["volumeMode"]).To(Equal("Filesystem"))
+			})
+
+			It("local storage class name should be available when specified", func() {
+				hco := &hcov1alpha1.HyperConverged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: hcov1alpha1.HyperConvergedSpec{
+						LocalStorageClassName: "local",
+					},
+				}
+
+				expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
+				Expect(expectedResource.Data["local.accessMode"]).To(Equal("ReadWriteOnce"))
+				Expect(expectedResource.Data["local.volumeMode"]).To(Equal("Filesystem"))
 			})
 		})
 
@@ -1031,6 +1129,8 @@ var _ = Describe("HyperconvergedController", func() {
 				// we already created them in a previous reconcile.
 				expectedKVConfig := newKubeVirtConfigForCR(hco, namespace)
 				expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
+				expectedKVStorageConfig := newKubeVirtStorageConfigForCR(hco, namespace)
+				expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 				expectedKV := newKubeVirtForCR(hco, namespace)
 				expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
 				expectedCDI := newCDIForCR(hco, UndefinedNamespace)
@@ -1044,7 +1144,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedKVTV := newKubeVirtTemplateValidatorForCR(hco, namespace)
 				expectedKVTV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/tv/%s", expectedKVTV.Namespace, expectedKVTV.Name)
 				// Add all of the objects to the client
-				cl := initClient([]runtime.Object{hco, expectedKVConfig, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
+				cl := initClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
 				r := initReconciler(cl)
 
 				// Do the reconcile
@@ -1111,6 +1211,8 @@ var _ = Describe("HyperconvergedController", func() {
 				// we already created them in a previous reconcile.
 				expectedKVConfig := newKubeVirtConfigForCR(hco, namespace)
 				expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
+				expectedKVStorageConfig := newKubeVirtStorageConfigForCR(hco, namespace)
+				expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 				expectedKV := newKubeVirtForCR(hco, namespace)
 				expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
 				expectedKV.Status.Conditions = []kubevirtv1.KubeVirtCondition{
@@ -1169,7 +1271,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedKVTV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/tv/%s", expectedKVTV.Namespace, expectedKVTV.Name)
 				expectedKVTV.Status.Conditions = getGenericCompletedConditions()
 				// Add all of the objects to the client
-				cl := initClient([]runtime.Object{hco, expectedKVConfig, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
+				cl := initClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
 				r := initReconciler(cl)
 
 				// Do the reconcile
