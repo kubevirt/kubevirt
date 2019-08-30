@@ -612,7 +612,8 @@ func (r *ReconcileHyperConverged) ensureNetworkAddons(instance *hcov1alpha1.Hype
 
 	if !reflect.DeepEqual(found.Spec, networkAddons.Spec) {
 		logger.Info("Updating existing Network Addons")
-		return r.client.Update(context.TODO(), networkAddons)
+		found.Spec = networkAddons.Spec
+		return r.client.Update(context.TODO(), found)
 	}
 
 	logger.Info("NetworkAddonsConfig already exists", "NetworkAddonsConfig.Namespace", found.Namespace, "NetworkAddonsConfig.Name", found.Name)
