@@ -18,7 +18,6 @@ package operator
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/blang/semver"
 
@@ -43,29 +42,6 @@ const (
 	privilegedAccountPrefix    = "system:serviceaccount"
 	prometheusLabel            = common.PrometheusLabel
 )
-
-func createOperatorResources(args *FactoryArgs) []runtime.Object {
-	return []runtime.Object{
-		createCDIListCRD(),
-		createOperatorServiceAccount(args.Namespace),
-		createOperatorClusterRole(operatorClusterRoleName),
-		createOperatorClusterRoleBinding(args.Namespace),
-		createOperatorLeaderElectionConfigMap(args.Namespace),
-		createOperatorDeployment(args.DockerRepo,
-			args.Namespace,
-			args.DeployClusterResources,
-			args.OperatorImage,
-			args.ControllerImage,
-			args.ImporterImage,
-			args.ClonerImage,
-			args.APIServerImage,
-			args.UploadProxyImage,
-			args.UploadServerImage,
-			args.DockerTag,
-			args.Verbosity,
-			args.PullPolicy),
-	}
-}
 
 func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 	rules := []rbacv1.PolicyRule{
@@ -94,20 +70,6 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 				"get",
 				"list",
 				"watch",
-			},
-		},
-		{
-			APIGroups: []string{
-				"security.openshift.io",
-			},
-			Resources: []string{
-				"securitycontextconstraints",
-			},
-			ResourceNames: []string{
-				"anyuid",
-			},
-			Verbs: []string{
-				"get",
 				"patch",
 				"update",
 			},
@@ -219,6 +181,7 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 			},
 			Resources: []string{
 				"deployments",
+				"deployments/finalizers",
 				"daemonstes",
 			},
 			Verbs: []string{
@@ -425,7 +388,7 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 }
 
 func createOperatorClusterRole(roleName string) *rbacv1.ClusterRole {
-	clusterRole := cluster.CreateClusterRole(roleName)
+	clusterRole := cluster.CreateOperatorClusterRole(roleName)
 	clusterRole.Rules = *getOperatorClusterRules()
 
 	return clusterRole
@@ -456,13 +419,6 @@ func createOperatorClusterDeployment(args *FactoryArgs) []runtime.Object {
 			args.PullPolicy)}
 }
 
-func createOperatorClusterResources(args *FactoryArgs) []runtime.Object {
-	return []runtime.Object{
-		createCDIListCRD(),
-		createOperatorLeaderElectionConfigMap(args.Namespace),
-	}
-}
-
 func createOperatorCDIClusterResource(args *FactoryArgs) []runtime.Object {
 	return []runtime.Object{
 		createCDIListCRD(),
@@ -476,13 +432,7 @@ func createOperatorConfigMapClusterResource(args *FactoryArgs) []runtime.Object 
 }
 
 func createOperatorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
-	return cluster.CreateClusterRoleBinding(operatorServiceAccountName, operatorClusterRoleName, operatorServiceAccountName, namespace)
-}
-
-func getOperatorPrivilegedAccounts(args *FactoryArgs) []string {
-	return []string{
-		fmt.Sprintf("%s:%s:%s", privilegedAccountPrefix, args.Namespace, operatorServiceAccountName),
-	}
+	return cluster.CreateOperatorClusterRoleBinding(operatorServiceAccountName, operatorClusterRoleName, operatorServiceAccountName, namespace)
 }
 
 func createOperatorServiceAccount(namespace string) *corev1.ServiceAccount {
@@ -549,10 +499,6 @@ func createCDIListCRD() *extv1beta1.CustomResourceDefinition {
 	}
 }
 
-const (
-	uploadProxyResourceName = "cdi-uploadproxy"
-)
-
 func createOperatorDeploymentSpec(repo, namespace, deployClusterResources, operatorImage, controllerImage, importerImage, clonerImage, apiServerImage, uploadProxyImage, uploadServerImage, tag, verbosity, pullPolicy string) *appsv1.DeploymentSpec {
 	deployment := createOperatorDeployment(repo,
 		namespace,
@@ -574,39 +520,39 @@ func createOperatorEnvVar(repo, deployClusterResources, operatorImage, controlle
 	return &[]corev1.EnvVar{
 		{
 			Name:  "DEPLOY_CLUSTER_RESOURCES",
-			Value: fmt.Sprintf("%s", deployClusterResources),
+			Value: deployClusterResources,
 		},
 		{
 			Name:  "DOCKER_REPO",
-			Value: fmt.Sprintf("%s", repo),
+			Value: repo,
 		},
 		{
 			Name:  "DOCKER_TAG",
-			Value: fmt.Sprintf("%s", tag),
+			Value: tag,
 		},
 		{
 			Name:  "CONTROLLER_IMAGE",
-			Value: fmt.Sprintf("%s", controllerImage),
+			Value: controllerImage,
 		},
 		{
 			Name:  "IMPORTER_IMAGE",
-			Value: fmt.Sprintf("%s", importerImage),
+			Value: importerImage,
 		},
 		{
 			Name:  "CLONER_IMAGE",
-			Value: fmt.Sprintf("%s", clonerImage),
+			Value: clonerImage,
 		},
 		{
 			Name:  "APISERVER_IMAGE",
-			Value: fmt.Sprintf("%s", apiServerImage),
+			Value: apiServerImage,
 		},
 		{
 			Name:  "UPLOAD_SERVER_IMAGE",
-			Value: fmt.Sprintf("%s", uploadServerImage),
+			Value: uploadServerImage,
 		},
 		{
 			Name:  "UPLOAD_PROXY_IMAGE",
-			Value: fmt.Sprintf("%s", uploadProxyImage),
+			Value: uploadProxyImage,
 		},
 		{
 			Name:  "VERBOSITY",
@@ -768,7 +714,7 @@ _The CDI Operator does not support updates yet._
 			DisplayName: "CDI",
 			Description: description,
 			Keywords:    []string{"CDI", "Virtualization", "Storage"},
-			Version:     version.OperatorVersion{*csvVersion},
+			Version:     version.OperatorVersion{Version: *csvVersion},
 			Maturity:    "alpha",
 			Replaces:    data.ReplacesCsvVersion,
 			Maintainers: []csvv1.Maintainer{{

@@ -17,7 +17,7 @@ limitations under the License.
 package operator
 
 import (
-	"fmt" // use klog her because all callers currently using that
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -44,7 +44,7 @@ func SetOwner(client kubernetes.Interface, object metav1.Object) error {
 	configMapOwner := getController(configMap.GetOwnerReferences())
 
 	if configMapOwner == nil {
-		return fmt.Errorf("Configmap has no owner")
+		return fmt.Errorf("configmap has no owner")
 	}
 
 	for _, o := range object.GetOwnerReferences() {
@@ -54,7 +54,7 @@ func SetOwner(client kubernetes.Interface, object metav1.Object) error {
 				return nil
 			}
 
-			return fmt.Errorf("Object %+v already owned by %+v", object, o)
+			return fmt.Errorf("object %+v already owned by %+v", object, o)
 		}
 	}
 

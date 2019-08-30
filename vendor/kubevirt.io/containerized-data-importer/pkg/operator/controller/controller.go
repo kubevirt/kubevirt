@@ -21,14 +21,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
+	"github.com/blang/semver"
 	"github.com/go-logr/logr"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -39,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/kelseyhightower/envconfig"
+	conditions "github.com/openshift/custom-resource-status/conditions/v1"
 
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/containerized-data-importer/pkg/operator"
@@ -49,6 +57,10 @@ import (
 
 const (
 	finalizerName = "operator.cdi.kubevirt.io"
+
+	createVersionLabel          = "operator.cdi.kubevirt.io/createVersion"
+	updateVersionLabel          = "operator.cdi.kubevirt.io/updateVersion"
+	lastAppliedConfigAnnotation = "operator.cdi.kubevirt.io/lastAppliedConfiguration"
 )
 
 var log = logf.Log.WithName("cdi-operator")
@@ -79,12 +91,17 @@ func newReconciler(mgr manager.Manager) (*ReconcileCDI, error) {
 	log.Info("", "VARS", fmt.Sprintf("%+v", namespacedArgs))
 
 	r := &ReconcileCDI{
-		client:         mgr.GetClient(),
-		scheme:         mgr.GetScheme(),
-		namespace:      namespace,
-		clusterArgs:    clusterArgs,
-		namespacedArgs: &namespacedArgs,
+		client:             mgr.GetClient(),
+		scheme:             mgr.GetScheme(),
+		namespace:          namespace,
+		clusterArgs:        clusterArgs,
+		namespacedArgs:     &namespacedArgs,
+		explicitWatchTypes: getExplicitWatchTypes(),
+		callbacks:          make(map[reflect.Type][]ReconcileCallback),
 	}
+
+	addReconcileCallbacks(r)
+
 	return r, nil
 }
 
@@ -100,6 +117,9 @@ type ReconcileCDI struct {
 	namespace      string
 	clusterArgs    *cdicluster.FactoryArgs
 	namespacedArgs *cdinamespaced.FactoryArgs
+
+	explicitWatchTypes []runtime.Object
+	callbacks          map[reflect.Type][]ReconcileCallback
 }
 
 // Reconcile reads that state of the cluster for a CDI object and makes changes based on the state read
@@ -140,11 +160,16 @@ func (r *ReconcileCDI) Reconcile(request reconcile.Request) (reconcile.Result, e
 		// let's try to create stuff
 		if cr.Status.Phase == "" {
 			reqLogger.Info("Doing reconcile create")
-			return r.reconcileCreate(reqLogger, cr)
+			res, createErr := r.reconcileCreate(reqLogger, cr)
+			// Always update conditions after a create.
+			err = r.client.Update(context.TODO(), cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			return res, createErr
 		}
 
 		reqLogger.Info("Reconciling to error state, no configmap")
-
 		// we are in a weird state
 		return r.reconcileError(reqLogger, cr)
 	}
@@ -152,25 +177,78 @@ func (r *ReconcileCDI) Reconcile(request reconcile.Request) (reconcile.Result, e
 	// do we even care about this CR?
 	if !metav1.IsControlledBy(configMap, cr) {
 		reqLogger.Info("Reconciling to error state, unwanted CDI object")
-
 		return r.reconcileError(reqLogger, cr)
 	}
 
+	currentConditionValues := GetConditionValues(cr.Status.Conditions)
 	reqLogger.Info("Doing reconcile update")
 
-	// should be the usual case
-	return r.reconcileUpdate(reqLogger, cr)
+	existingAvailableCondition := conditions.FindStatusCondition(cr.Status.Conditions, conditions.ConditionAvailable)
+	if existingAvailableCondition != nil {
+		// should be the usual case
+		MarkCrHealthyMessage(cr, existingAvailableCondition.Reason, existingAvailableCondition.Message)
+	} else {
+		MarkCrHealthyMessage(cr, "", "")
+	}
+
+	res, err := r.reconcileUpdate(reqLogger, cr)
+	if conditionsChanged(currentConditionValues, GetConditionValues(cr.Status.Conditions)) {
+		if err := r.crUpdate(cr.Status.Phase, cr); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+	return res, err
+}
+
+func shouldTakeUpdatePath(logger logr.Logger, targetVersion, currentVersion string) (bool, error) {
+
+	// if no current version, then this can't be an update
+	if currentVersion == "" {
+		return false, nil
+	}
+
+	if targetVersion == currentVersion {
+		return false, nil
+	}
+
+	// semver doesn't like the 'v' prefix
+	targetVersion = strings.TrimPrefix(targetVersion, "v")
+	currentVersion = strings.TrimPrefix(currentVersion, "v")
+
+	// our default position is that this is an update.
+	// So if the target and current version do not
+	// adhere to the semver spec, we assume by default the
+	// update path is the correct path.
+	shouldTakeUpdatePath := true
+	target, err := semver.Make(targetVersion)
+	if err == nil {
+		current, err := semver.Make(currentVersion)
+		if err == nil {
+			if target.Compare(current) < 0 {
+				err := fmt.Errorf("operator downgraded, will not reconcile")
+				logger.Error(err, "", "current", current, "target", target)
+				return false, err
+			} else if target.Compare(current) == 0 {
+				shouldTakeUpdatePath = false
+			}
+		}
+	}
+
+	return shouldTakeUpdatePath, nil
 }
 
 func (r *ReconcileCDI) reconcileCreate(logger logr.Logger, cr *cdiv1alpha1.CDI) (reconcile.Result, error) {
+	MarkCrDeploying(cr, "DeployStarted", "Started Deployment")
 	// claim the configmap
 	if err := r.createConfigMap(cr); err != nil {
+		MarkCrFailed(cr, "ConfigError", "Unable to claim ConfigMap")
 		return reconcile.Result{}, err
 	}
 
 	logger.Info("ConfigMap created successfully")
 
 	if err := r.crInit(cr); err != nil {
+		MarkCrFailed(cr, "CrInitError", "Unable to Initialize CR")
 		return reconcile.Result{}, err
 	}
 
@@ -179,8 +257,34 @@ func (r *ReconcileCDI) reconcileCreate(logger logr.Logger, cr *cdiv1alpha1.CDI) 
 	return r.reconcileUpdate(logger, cr)
 }
 
+func (r *ReconcileCDI) checkUpgrade(logger logr.Logger, cr *cdiv1alpha1.CDI) error {
+	// should maybe put this in separate function
+	if cr.Status.OperatorVersion != r.namespacedArgs.DockerTag {
+		cr.Status.OperatorVersion = r.namespacedArgs.DockerTag
+		if err := r.crUpdate(cr.Status.Phase, cr); err != nil {
+			return err
+		}
+	}
+
+	isUpgrade, err := shouldTakeUpdatePath(logger, r.namespacedArgs.DockerTag, cr.Status.ObservedVersion)
+	if err != nil {
+		return err
+	}
+
+	if isUpgrade && !r.isUpgrading(cr) {
+		logger.Info("Observed version is not target version. Begin upgrade", "Observed version ", cr.Status.ObservedVersion, "TargetVersion", r.namespacedArgs.DockerTag)
+		MarkCrUpgradeHealingDegraded(cr, "UpgradeStarted", fmt.Sprintf("Started upgrade to version %s", r.namespacedArgs.DockerTag))
+		cr.Status.TargetVersion = r.namespacedArgs.DockerTag
+		if err := r.crUpdate(cdiv1alpha1.CDIPhaseUpgrading, cr); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (r *ReconcileCDI) reconcileUpdate(logger logr.Logger, cr *cdiv1alpha1.CDI) (reconcile.Result, error) {
-	if err := r.syncPrivilegedAccounts(logger, cr, true); err != nil {
+	if err := r.checkUpgrade(logger, cr); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -191,10 +295,7 @@ func (r *ReconcileCDI) reconcileUpdate(logger logr.Logger, cr *cdiv1alpha1.CDI) 
 
 	for _, desiredRuntimeObj := range resources {
 		desiredMetaObj := desiredRuntimeObj.(metav1.Object)
-
-		// use reflection to create default instance of desiredRuntimeObj type
-		typ := reflect.ValueOf(desiredRuntimeObj).Elem().Type()
-		currentRuntimeObj := reflect.New(typ).Interface().(runtime.Object)
+		currentRuntimeObj := newDefaultInstance(desiredRuntimeObj)
 
 		key := client.ObjectKey{
 			Namespace: desiredMetaObj.GetNamespace(),
@@ -207,12 +308,26 @@ func (r *ReconcileCDI) reconcileUpdate(logger logr.Logger, cr *cdiv1alpha1.CDI) 
 				return reconcile.Result{}, err
 			}
 
+			setLastAppliedConfiguration(desiredMetaObj)
+			setLabel(createVersionLabel, r.namespacedArgs.DockerTag, desiredMetaObj)
+
 			if err = controllerutil.SetControllerReference(cr, desiredMetaObj, r.scheme); err != nil {
 				return reconcile.Result{}, err
 			}
 
-			if err = r.client.Create(context.TODO(), desiredRuntimeObj); err != nil {
+			// PRE_CREATE callback
+			if err = r.invokeCallbacks(logger, ReconcileStatePreCreate, desiredRuntimeObj, nil); err != nil {
+				return reconcile.Result{}, err
+			}
+
+			currentRuntimeObj = desiredRuntimeObj.DeepCopyObject()
+			if err = r.client.Create(context.TODO(), currentRuntimeObj); err != nil {
 				logger.Error(err, "")
+				return reconcile.Result{}, err
+			}
+
+			// POST_CREATE callback
+			if err = r.invokeCallbacks(logger, ReconcileStatePostCreate, desiredRuntimeObj, nil); err != nil {
 				return reconcile.Result{}, err
 			}
 
@@ -221,35 +336,64 @@ func (r *ReconcileCDI) reconcileUpdate(logger logr.Logger, cr *cdiv1alpha1.CDI) 
 				"name", desiredMetaObj.GetName(),
 				"type", fmt.Sprintf("%T", desiredMetaObj))
 		} else {
+			// POST_READ callback
+			if err = r.invokeCallbacks(logger, ReconcileStatePostRead, desiredRuntimeObj, currentRuntimeObj); err != nil {
+				return reconcile.Result{}, err
+			}
+
+			currentRuntimeObjCopy := currentRuntimeObj.DeepCopyObject()
 			currentMetaObj := currentRuntimeObj.(metav1.Object)
 
 			// allow users to add new annotations (but not change ours)
-			mergeLabelsAndAnnotations(currentMetaObj, desiredMetaObj)
+			mergeLabelsAndAnnotations(desiredMetaObj, currentMetaObj)
 
 			if !r.isMutable(currentRuntimeObj) {
-				desiredBytes, err := json.Marshal(desiredRuntimeObj)
+				setLastAppliedConfiguration(desiredMetaObj)
+
+				// overwrite currentRuntimeObj
+				currentRuntimeObj, err = mergeObject(desiredRuntimeObj, currentRuntimeObj)
 				if err != nil {
 					return reconcile.Result{}, err
 				}
+				currentMetaObj = currentRuntimeObj.(metav1.Object)
+			}
 
-				if err = json.Unmarshal(desiredBytes, currentRuntimeObj); err != nil {
+			if !reflect.DeepEqual(currentRuntimeObjCopy, currentRuntimeObj) {
+				logJSONDiff(logger, currentRuntimeObjCopy, currentRuntimeObj)
+
+				setLabel(updateVersionLabel, r.namespacedArgs.DockerTag, currentMetaObj)
+
+				// PRE_UPDATE callback
+				if err = r.invokeCallbacks(logger, ReconcileStatePreUpdate, desiredRuntimeObj, currentRuntimeObj); err != nil {
 					return reconcile.Result{}, err
 				}
 
 				if err = r.client.Update(context.TODO(), currentRuntimeObj); err != nil {
 					return reconcile.Result{}, err
 				}
-			}
 
-			logger.Info("Resource updated",
-				"namespace", desiredMetaObj.GetNamespace(),
-				"name", desiredMetaObj.GetName(),
-				"type", fmt.Sprintf("%T", desiredMetaObj))
+				// POST_UPDATE callback
+				if err = r.invokeCallbacks(logger, ReconcileStatePostUpdate, desiredRuntimeObj, nil); err != nil {
+					return reconcile.Result{}, err
+				}
+
+				logger.Info("Resource updated",
+					"namespace", desiredMetaObj.GetNamespace(),
+					"name", desiredMetaObj.GetName(),
+					"type", fmt.Sprintf("%T", desiredMetaObj))
+			} else {
+				logger.Info("Resource unchanged",
+					"namespace", desiredMetaObj.GetNamespace(),
+					"name", desiredMetaObj.GetName(),
+					"type", fmt.Sprintf("%T", desiredMetaObj))
+			}
 		}
 	}
 
-	if cr.Status.Phase != cdiv1alpha1.CDIPhaseDeployed {
+	if cr.Status.Phase != cdiv1alpha1.CDIPhaseDeployed && !r.isUpgrading(cr) {
+		//We are not moving to Deployed phase until new operator deployment is ready in case of Upgrade
 		cr.Status.ObservedVersion = r.namespacedArgs.DockerTag
+		MarkCrHealthyMessage(cr, "DeployCompleted", "Deployment Completed")
 		if err = r.crUpdate(cdiv1alpha1.CDIPhaseDeployed, cr); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -257,18 +401,109 @@ func (r *ReconcileCDI) reconcileUpdate(logger logr.Logger, cr *cdiv1alpha1.CDI) 
 		logger.Info("Successfully entered Deployed state")
 	}
 
-	ready, err := r.checkReady(logger, cr)
+	degraded, err := r.checkDegraded(logger, cr)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if ready {
-		if err = r.ensureUploadProxyRouteExists(logger, cr); err != nil {
+	if !degraded && r.isUpgrading(cr) {
+		logger.Info("Completing upgrade process...")
+
+		if err = r.completeUpgrade(logger, cr); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileCDI) completeUpgrade(logger logr.Logger, cr *cdiv1alpha1.CDI) error {
+	if err := r.cleanupUnusedResources(logger, cr); err != nil {
+		return err
+	}
+
+	previousVersion := cr.Status.ObservedVersion
+	cr.Status.ObservedVersion = r.namespacedArgs.DockerTag
+
+	MarkCrHealthyMessage(cr, "DeployCompleted", "Deployment Completed")
+	if err := r.crUpdate(cdiv1alpha1.CDIPhaseDeployed, cr); err != nil {
+		return err
+	}
+
+	logger.Info("Successfully finished Upgrade and entered Deployed state", "from version", previousVersion, "to version", cr.Status.ObservedVersion)
+
+	return nil
+}
+
+func (r *ReconcileCDI) cleanupUnusedResources(logger logr.Logger, cr *cdiv1alpha1.CDI) error {
+	//Iterate over installed resources of
+	//Deployment/CRDs/Services etc and delete all resources that
+	//do not exist in current version
+
+	desiredResources, err := r.getAllResources(cr)
+	if err != nil {
+		return err
+	}
+
+	listTypes := []runtime.Object{
+		&extv1beta1.CustomResourceDefinitionList{},
+		&rbacv1.ClusterRoleBindingList{},
+		&rbacv1.ClusterRoleList{},
+		&appsv1.DeploymentList{},
+		&corev1.ServiceList{},
+		&rbacv1.RoleBindingList{},
+		&rbacv1.RoleList{},
+		&corev1.ServiceAccountList{},
+	}
+
+	for _, lt := range listTypes {
+		lo := &client.ListOptions{}
+		lo.SetLabelSelector(createVersionLabel)
+
+		if err := r.client.List(context.TODO(), lo, lt); err != nil {
+			logger.Error(err, "Error listing resources")
+			return err
+		}
+
+		sv := reflect.ValueOf(lt).Elem()
+		iv := sv.FieldByName("Items")
+
+		for i := 0; i < iv.Len(); i++ {
+			found := false
+			observedObj := iv.Index(i).Addr().Interface().(runtime.Object)
+			observedMetaObj := observedObj.(metav1.Object)
+
+			for _, desiredObj := range desiredResources {
+				if sameResource(observedObj, desiredObj) {
+					found = true
+					break
+				}
+			}
+
+			if !found && metav1.IsControlledBy(observedMetaObj, cr) {
+				//Invoke pre delete callback
+				if err = r.invokeCallbacks(logger, ReconcileStatePreDelete, nil, observedObj); err != nil {
+					return err
+				}
+
+				logger.Info("Deleting  ", "type", reflect.TypeOf(observedObj), "Name", observedMetaObj.GetName())
+				err = r.client.Delete(context.TODO(), observedObj, func(opts *client.DeleteOptions) {
+					p := metav1.DeletePropagationForeground
+					opts.PropagationPolicy = &p
+				})
+				if err != nil && !errors.IsNotFound(err) {
+					return err
+				}
+
+				//invoke post delete callback
+				if err = r.invokeCallbacks(logger, ReconcileStatePostDelete, nil, observedObj); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (r *ReconcileCDI) isMutable(obj runtime.Object) bool {
@@ -289,8 +524,7 @@ func (r *ReconcileCDI) reconcileDelete(logger logr.Logger, cr *cdiv1alpha1.CDI) 
 		}
 	}
 
-	// already done whatever we wanted to do
-	if i == -1 {
+	if i < 0 {
 		return reconcile.Result{}, nil
 	}
 
@@ -300,61 +534,11 @@ func (r *ReconcileCDI) reconcileDelete(logger logr.Logger, cr *cdiv1alpha1.CDI) 
 		}
 	}
 
-	// delete all deployments
-	deployments, err := r.getAllDeployments(cr)
-	if err != nil {
+	if err := r.invokeDeleteCDICallbacks(logger, cr); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	for _, deployment := range deployments {
-		err = r.client.Delete(context.TODO(), deployment, func(opts *client.DeleteOptions) {
-			p := metav1.DeletePropagationForeground
-			opts.PropagationPolicy = &p
-		})
-		if err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-
-			return reconcile.Result{}, err
-		}
-	}
-
-	lo := &client.ListOptions{}
-	// maybe use different selectors?
-	lo.SetLabelSelector("cdi.kubevirt.io")
-
-	// delete pods
-	podList := &corev1.PodList{}
-	if err = r.client.List(context.TODO(), lo, podList); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	for _, pod := range podList.Items {
-		logger.Info("Deleting pod", "Name", pod.Name, "Namespace", pod.Namespace)
-		if err = r.client.Delete(context.TODO(), &pod); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
-	// delete services (from upload)
-	serviceList := &corev1.ServiceList{}
-	if err = r.client.List(context.TODO(), lo, serviceList); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	for _, service := range serviceList.Items {
-		logger.Info("Deleting service", "Name", service.Name, "Namespace", service.Namespace)
-		if err = r.client.Delete(context.TODO(), &service); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
-	if err = r.syncPrivilegedAccounts(logger, cr, false); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	cr.Finalizers = append(cr.Finalizers[:i], cr.Finalizers[i+1:]...)
+	cr.Finalizers = append(cr.Finalizers[0:i], cr.Finalizers[i+1:]...)
 
 	if err := r.crUpdate(cdiv1alpha1.CDIPhaseDeleted, cr); err != nil {
 		return reconcile.Result{}, err
@@ -366,6 +550,10 @@ func (r *ReconcileCDI) reconcileDelete(logger logr.Logger, cr *cdiv1alpha1.CDI) 
 }
 
 func (r *ReconcileCDI) reconcileError(logger logr.Logger, cr *cdiv1alpha1.CDI) (reconcile.Result, error) {
+	MarkCrFailed(cr, "ConfigError", "ConfigMap not owned by cr")
+	if err := r.crUpdate(cr.Status.Phase, cr); err != nil {
+		return reconcile.Result{}, err
+	}
 	if err := r.crError(cr); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -373,41 +561,43 @@ func (r *ReconcileCDI) reconcileError(logger logr.Logger, cr *cdiv1alpha1.CDI) (
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileCDI) checkReady(logger logr.Logger, cr *cdiv1alpha1.CDI) (bool, error) {
-	readyCond := conditionReady
+func (r *ReconcileCDI) checkDegraded(logger logr.Logger, cr *cdiv1alpha1.CDI) (bool, error) {
+	degraded := false
 
 	deployments, err := r.getAllDeployments(cr)
 	if err != nil {
-		return false, err
+		return true, err
 	}
 
 	for _, deployment := range deployments {
 		key := client.ObjectKey{Namespace: deployment.Namespace, Name: deployment.Name}
 
 		if err = r.client.Get(context.TODO(), key, deployment); err != nil {
-			return false, err
+			return true, err
 		}
 
-		desiredReplicas := deployment.Spec.Replicas
-		if desiredReplicas == nil {
-			one := int32(1)
-			desiredReplicas = &one
+		if !checkDeploymentReady(deployment) {
+			degraded = true
+			break
 		}
-
-		if *desiredReplicas != deployment.Status.Replicas ||
-			deployment.Status.Replicas != deployment.Status.ReadyReplicas {
-			readyCond = conditionNotReady
-		}
-
 	}
 
-	logger.Info("CDI Ready check", "Status", readyCond.Status)
+	logger.Info("CDI degraded check", "Degraded", degraded)
 
-	if err = r.conditionUpdate(readyCond, cr); err != nil {
-		return false, err
+	if degraded {
+		conditions.SetStatusCondition(&cr.Status.Conditions, conditions.Condition{
+			Type:   conditions.ConditionDegraded,
+			Status: corev1.ConditionTrue,
+		})
+	} else {
+		conditions.SetStatusCondition(&cr.Status.Conditions, conditions.Condition{
+			Type:   conditions.ConditionDegraded,
+			Status: corev1.ConditionFalse,
+		})
 	}
 
-	return readyCond == conditionReady, nil
+	logger.Info("Finished degraded check", "conditions", cr.Status.Conditions)
+	return degraded, nil
 }
 
 func (r *ReconcileCDI) add(mgr manager.Manager) error {
@@ -417,7 +607,11 @@ func (r *ReconcileCDI) add(mgr manager.Manager) error {
 		return err
 	}
 
-	return r.watch(c)
+	if err = r.watch(c); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *ReconcileCDI) watch(c controller.Controller) error {
@@ -431,15 +625,18 @@ func (r *ReconcileCDI) watch(c controller.Controller) error {
 		return err
 	}
 
+	resources = append(resources, r.explicitWatchTypes...)
+
 	if err = r.watchResourceTypes(c, resources); err != nil {
 		return err
 	}
 
+	// would like to get rid of this
 	if err = r.watchSecurityContextConstraints(c); err != nil {
 		return err
 	}
 
-	return r.watchRoutes(c)
+	return nil
 }
 
 func (r *ReconcileCDI) getConfigMap() (*corev1.ConfigMap, error) {
@@ -515,6 +712,7 @@ func (r *ReconcileCDI) getAllResources(cr *cdiv1alpha1.CDI) ([]runtime.Object, e
 	if deployClusterResources() {
 		crs, err := cdicluster.CreateAllResources(r.clusterArgs)
 		if err != nil {
+			MarkCrFailedHealing(cr, "CreateResources", "Unable to create all resources")
 			return nil, err
 		}
 
@@ -523,6 +721,7 @@ func (r *ReconcileCDI) getAllResources(cr *cdiv1alpha1.CDI) ([]runtime.Object, e
 
 	nsrs, err := cdinamespaced.CreateAllResources(r.getNamespacedArgs(cr))
 	if err != nil {
+		MarkCrFailedHealing(cr, "CreateNamespaceResources", "Unable to create all namespaced resources")
 		return nil, err
 	}
 
@@ -532,10 +731,10 @@ func (r *ReconcileCDI) getAllResources(cr *cdiv1alpha1.CDI) ([]runtime.Object, e
 }
 
 func (r *ReconcileCDI) watchResourceTypes(c controller.Controller, resources []runtime.Object) error {
-	types := map[string]bool{}
+	types := map[reflect.Type]bool{}
 
 	for _, resource := range resources {
-		t := fmt.Sprintf("%T", resource)
+		t := reflect.TypeOf(resource)
 		if types[t] {
 			continue
 		}
@@ -551,6 +750,10 @@ func (r *ReconcileCDI) watchResourceTypes(c controller.Controller, resources []r
 		}
 
 		if err := c.Watch(&source.Kind{Type: resource}, eventHandler); err != nil {
+			if meta.IsNoMatchError(err) {
+				log.Info("No match for type, NOT WATCHING", "type", t)
+				continue
+			}
 			return err
 		}
 
@@ -560,4 +763,108 @@ func (r *ReconcileCDI) watchResourceTypes(c controller.Controller, resources []r
 	}
 
 	return nil
+}
+
+func (r *ReconcileCDI) addCallback(obj runtime.Object, cb ReconcileCallback) {
+	t := reflect.TypeOf(obj)
+	cbs := r.callbacks[t]
+	r.callbacks[t] = append(cbs, cb)
+}
+
+func (r *ReconcileCDI) invokeDeleteCDICallbacks(logger logr.Logger, cr *cdiv1alpha1.CDI) error {
+	desiredResources, err := r.getAllResources(cr)
+	if err != nil {
+		return err
+	}
+
+	for _, desiredObj := range desiredResources {
+		if err = r.invokeCallbacks(logger, ReconcileStateCDIDelete, desiredObj, nil); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *ReconcileCDI) invokeCallbacks(l logr.Logger, s ReconcileState, desiredObj, currentObj runtime.Object) error {
+	var t reflect.Type
+
+	if desiredObj != nil {
+		t = reflect.TypeOf(desiredObj)
+	} else if currentObj != nil {
+		t = reflect.TypeOf(currentObj)
+	}
+
+	// callbacks with nil key always get invoked
+	cbs := append(r.callbacks[t], r.callbacks[nil]...)
+
+	for _, cb := range cbs {
+		if s != ReconcileStatePreCreate && currentObj == nil {
+			metaObj := desiredObj.(metav1.Object)
+			key := client.ObjectKey{
+				Namespace: metaObj.GetNamespace(),
+				Name:      metaObj.GetName(),
+			}
+
+			currentObj = newDefaultInstance(desiredObj)
+			if err := r.client.Get(context.TODO(), key, currentObj); err != nil {
+				if !errors.IsNotFound(err) {
+					return err
+				}
+				currentObj = nil
+			}
+		}
+
+		args := &ReconcileCallbackArgs{
+			Logger:        l,
+			Client:        r.client,
+			Scheme:        r.scheme,
+			State:         s,
+			DesiredObject: desiredObj,
+			CurrentObject: currentObj,
+		}
+
+		log.V(3).Info("Invoking callbacks for", "type", t)
+		if err := cb(args); err != nil {
+			log.Error(err, "error invoking callback for", "type", t)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func setLabel(key, value string, obj metav1.Object) {
+	if obj.GetLabels() == nil {
+		obj.SetLabels(make(map[string]string))
+	}
+	obj.GetLabels()[key] = value
+}
+
+func setLastAppliedConfiguration(obj metav1.Object) error {
+	bytes, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+
+	if obj.GetAnnotations() == nil {
+		obj.SetAnnotations(make(map[string]string))
+	}
+
+	obj.GetAnnotations()[lastAppliedConfigAnnotation] = string(bytes)
+
+	return nil
+}
+
+func sameResource(obj1, obj2 runtime.Object) bool {
+	metaObj1 := obj1.(metav1.Object)
+	metaObj2 := obj2.(metav1.Object)
+
+	if reflect.TypeOf(obj1) != reflect.TypeOf(obj2) ||
+		metaObj1.GetNamespace() != metaObj2.GetNamespace() ||
+		metaObj1.GetName() != metaObj2.GetName() {
+		return false
+	}
+
+	return true
 }

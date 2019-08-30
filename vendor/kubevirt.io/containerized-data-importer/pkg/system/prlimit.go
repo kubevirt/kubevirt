@@ -19,8 +19,10 @@ package system
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"os/exec"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/pkg/errors"
@@ -43,6 +45,7 @@ type ProcessLimitValues struct {
 type processLimiter struct{}
 
 var execCommand = exec.Command
+var execCommandContext = exec.CommandContext
 
 var limiter = NewProcessLimiter()
 
@@ -95,6 +98,7 @@ func processScanner(scanner *bufio.Scanner, buf *bytes.Buffer, done chan bool, c
 	for scanner.Scan() {
 		line := scanner.Text()
 		buf.WriteString(line)
+		buf.WriteString("\n")
 		if callback != nil {
 			callback(line)
 		}
@@ -106,10 +110,19 @@ func processScanner(scanner *bufio.Scanner, buf *bytes.Buffer, done chan bool, c
 func ExecWithLimits(limits *ProcessLimitValues, callback func(string), command string, args ...string) ([]byte, error) {
 	// Args can potentially contain sensitive information, make sure NOT to write args to the logs.
 	var buf bytes.Buffer
+	var cmd *exec.Cmd
+
 	stdoutDone := make(chan bool)
 	stderrDone := make(chan bool)
 
-	cmd := execCommand(command, args...)
+	if limits != nil && limits.CPUTimeLimit > 0 {
+		klog.V(3).Infof("Setting CPU limit to %d\n", limits.CPUTimeLimit)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(limits.CPUTimeLimit)*time.Second)
+		defer cancel()
+		cmd = execCommandContext(ctx, command, args...)
+	} else {
+		cmd = execCommand(command, args...)
+	}
 	stdoutIn, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Couldn't get stdout for %s", command)
@@ -133,25 +146,18 @@ func ExecWithLimits(limits *ProcessLimitValues, callback func(string), command s
 	go processScanner(scanner, &buf, stdoutDone, callback)
 	go processScanner(errScanner, &buf, stderrDone, callback)
 
-	if limits != nil {
-		if limits.AddressSpaceLimit > 0 {
-			err = SetAddressSpaceLimit(cmd.Process.Pid, limits.AddressSpaceLimit)
-			if err != nil {
-				return nil, errors.Wrap(err, "Couldn't set address space limit")
-			}
-		}
-
-		if limits.CPUTimeLimit > 0 {
-			err = SetCPUTimeLimit(cmd.Process.Pid, limits.CPUTimeLimit)
-			if err != nil {
-				return nil, errors.Wrap(err, "Couldn't set CPU time limit")
-			}
+	if limits != nil && limits.AddressSpaceLimit > 0 {
+		klog.V(3).Infof("Setting Address space limit to %d\n", limits.AddressSpaceLimit)
+		err = SetAddressSpaceLimit(cmd.Process.Pid, limits.AddressSpaceLimit)
+		if err != nil {
+			return nil, errors.Wrap(err, "Couldn't set address space limit")
 		}
 	}
-
-	err = cmd.Wait()
 	<-stdoutDone
 	<-stderrDone
+	// The wait has to be after the reading channels are finished otherwise there is a race where the wait completes and closes stdout/err before anything
+	// is read from it.
+	err = cmd.Wait()
 
 	output := buf.Bytes()
 	if err != nil {

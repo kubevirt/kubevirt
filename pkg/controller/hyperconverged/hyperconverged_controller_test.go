@@ -314,21 +314,21 @@ var _ = Describe("HyperconvergedController", func() {
 
 				expectedResource := newCDIForCR(hco, UndefinedNamespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-				expectedResource.Status.Conditions = []cdiv1alpha1.CDICondition{
-					cdiv1alpha1.CDICondition{
-						Type:    cdiv1alpha1.CDIConditionType("Available"),
+				expectedResource.Status.Conditions = []conditionsv1.Condition{
+					conditionsv1.Condition{
+						Type:    conditionsv1.ConditionAvailable,
 						Status:  corev1.ConditionFalse,
 						Reason:  "Foo",
 						Message: "Bar",
 					},
-					cdiv1alpha1.CDICondition{
-						Type:    cdiv1alpha1.CDIConditionType("Progressing"),
+					conditionsv1.Condition{
+						Type:    conditionsv1.ConditionProgressing,
 						Status:  corev1.ConditionTrue,
 						Reason:  "Foo",
 						Message: "Bar",
 					},
-					cdiv1alpha1.CDICondition{
-						Type:    cdiv1alpha1.CDIConditionType("Degraded"),
+					conditionsv1.Condition{
+						Type:    conditionsv1.ConditionDegraded,
 						Status:  corev1.ConditionTrue,
 						Reason:  "Foo",
 						Message: "Bar",
@@ -1129,17 +1129,17 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 				expectedCDI := newCDIForCR(hco, UndefinedNamespace)
 				expectedCDI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cdis/%s", expectedCDI.Namespace, expectedCDI.Name)
-				expectedCDI.Status.Conditions = []cdiv1alpha1.CDICondition{
-					cdiv1alpha1.CDICondition{
-						Type:   cdiv1alpha1.CDIConditionType("Available"),
+				expectedCDI.Status.Conditions = []conditionsv1.Condition{
+					conditionsv1.Condition{
+						Type:   conditionsv1.ConditionAvailable,
 						Status: corev1.ConditionTrue,
 					},
-					cdiv1alpha1.CDICondition{
-						Type:   cdiv1alpha1.CDIConditionType("Progressing"),
+					conditionsv1.Condition{
+						Type:   conditionsv1.ConditionProgressing,
 						Status: corev1.ConditionFalse,
 					},
-					cdiv1alpha1.CDICondition{
-						Type:   cdiv1alpha1.CDIConditionType("Degraded"),
+					conditionsv1.Condition{
+						Type:   conditionsv1.ConditionDegraded,
 						Status: corev1.ConditionFalse,
 					},
 				}

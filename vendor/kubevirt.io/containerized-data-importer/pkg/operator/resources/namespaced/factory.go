@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	utils "kubevirt.io/containerized-data-importer/pkg/operator/resources/utils"
 )
 
 // FactoryArgs contains the required parameters to generate all namespaced resources
@@ -61,12 +62,6 @@ func IsFactoryResource(codeGroup string) bool {
 	return false
 }
 
-// GetPrivilegedAccounts return special accounts for OpenShift
-// TODO should prob break this up into groups like the rest of this stuff
-func GetPrivilegedAccounts(args *FactoryArgs) map[string][]string {
-	return getControllerPrivilegedAccounts(args)
-}
-
 // CreateAllResources creates all namespaced resources
 func CreateAllResources(args *FactoryArgs) ([]runtime.Object, error) {
 	var resources []runtime.Object
@@ -84,9 +79,10 @@ func CreateAllResources(args *FactoryArgs) ([]runtime.Object, error) {
 func CreateResourceGroup(group string, args *FactoryArgs) ([]runtime.Object, error) {
 	f, ok := factoryFunctions[group]
 	if !ok {
-		return nil, fmt.Errorf("Group %s does not exist", group)
+		return nil, fmt.Errorf("group %s does not exist", group)
 	}
 	resources := f(args)
+	utils.ValidateGVKs(resources)
 	for _, resource := range resources {
 		assignNamspaceIfMissing(resource, args.Namespace)
 	}

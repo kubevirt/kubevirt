@@ -19,20 +19,29 @@ package cluster
 import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/containerized-data-importer/pkg/operator/resources/utils"
 )
 
-//CreateClusterRoleBinding create cluster role bunding
+//CreateClusterRoleBinding create cluster role binding
 func CreateClusterRoleBinding(name, roleRef, serviceAccount, serviceAccountNamespace string) *rbacv1.ClusterRoleBinding {
+	return createClusterRoleBinding(name, roleRef, serviceAccount, serviceAccountNamespace, utils.WithCommonLabels(nil))
+}
+
+//CreateOperatorClusterRoleBinding create cluster role binding for operator
+func CreateOperatorClusterRoleBinding(name, roleRef, serviceAccount, serviceAccountNamespace string) *rbacv1.ClusterRoleBinding {
+	return createClusterRoleBinding(name, roleRef, serviceAccount, serviceAccountNamespace, utils.WithOperatorLabels(nil))
+}
+
+func createClusterRoleBinding(name, roleRef, serviceAccount, serviceAccountNamespace string, labels map[string]string) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1",
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				"cdi.kubevirt.io": "",
-			},
+			Name:   name,
+			Labels: labels,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
@@ -51,16 +60,23 @@ func CreateClusterRoleBinding(name, roleRef, serviceAccount, serviceAccountNames
 
 //CreateClusterRole create cluster role
 func CreateClusterRole(name string) *rbacv1.ClusterRole {
+	return createClusterRole(name, utils.WithCommonLabels(nil))
+}
+
+//CreateOperatorClusterRole create cluster role
+func CreateOperatorClusterRole(name string) *rbacv1.ClusterRole {
+	return createClusterRole(name, utils.WithOperatorLabels(nil))
+}
+
+func createClusterRole(name string, labels map[string]string) *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1",
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				"cdi.kubevirt.io": "",
-			},
+			Name:   name,
+			Labels: labels,
 		},
 	}
 }

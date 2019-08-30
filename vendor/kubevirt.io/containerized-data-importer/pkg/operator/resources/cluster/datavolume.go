@@ -19,6 +19,7 @@ package cluster
 import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"kubevirt.io/containerized-data-importer/pkg/operator/resources/utils"
 )
 
 func createDataVolumeCRD() *extv1beta1.CustomResourceDefinition {
@@ -28,10 +29,8 @@ func createDataVolumeCRD() *extv1beta1.CustomResourceDefinition {
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "datavolumes.cdi.kubevirt.io",
-			Labels: map[string]string{
-				"cdi.kubevirt.io": "",
-			},
+			Name:   "datavolumes.cdi.kubevirt.io",
+			Labels: utils.WithCommonLabels(nil),
 		},
 		Spec: extv1beta1.CustomResourceDefinitionSpec{
 			Group: "cdi.kubevirt.io",

@@ -23,7 +23,6 @@ import (
 	"os"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -128,12 +127,12 @@ func (o *qemuOperations) ConvertToRawStream(url *url.URL, dest string) error {
 
 // convertQuantityToQemuSize translates a quantity string into a Qemu compatible string.
 func convertQuantityToQemuSize(size resource.Quantity) string {
-	// size from k8s contains an upper case K, so we need to lower case it before we can pass it to qemu.
-	// Below is the message from qemu that explains what it expects.
-	// qemu-img: Parameter 'size' expects a non-negative number below 2^64 Optional suffix k, M, G, T, P or E means kilo-, mega-, giga-, tera-, peta-and exabytes, respectively.
-	stringSize := strings.Replace(size.String(), "K", "k", -1)
-	stringSize = strings.Replace(stringSize, "i", "", -1)
-	return stringSize
+	int64Size, asInt := size.AsInt64()
+	if !asInt {
+		size.AsDec().SetScale(0)
+		return size.AsDec().String()
+	}
+	return strconv.FormatInt(int64Size, 10)
 }
 
 func (o *qemuOperations) Resize(image string, size resource.Quantity) error {

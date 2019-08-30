@@ -20,6 +20,8 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"kubevirt.io/containerized-data-importer/pkg/operator/resources/utils"
 )
 
 // FactoryArgs contains the required parameters to generate all cluster-scoped resources
@@ -101,7 +103,9 @@ func CreateAllResources(args *FactoryArgs) ([]runtime.Object, error) {
 func CreateResourceGroup(group string, args *FactoryArgs) ([]runtime.Object, error) {
 	f, ok := factoryFunctions[group]
 	if !ok {
-		return nil, fmt.Errorf("Group %s does not exist", group)
+		return nil, fmt.Errorf("group %s does not exist", group)
 	}
-	return f(args), nil
+	resources := f(args)
+	utils.ValidateGVKs(resources)
+	return resources, nil
 }

@@ -26,16 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	routev1 "github.com/openshift/api/route/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 )
 
 const (
@@ -44,29 +40,15 @@ const (
 	uploadProxyCASecret    = "cdi-upload-proxy-ca-key"
 )
 
-func (r *ReconcileCDI) watchRoutes(c controller.Controller) error {
-	eventHandler := &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &cdiv1alpha1.CDI{},
+func ensureUploadProxyRouteExists(logger logr.Logger, c client.Client, scheme *runtime.Scheme, owner metav1.Object) error {
+	namespace := owner.GetNamespace()
+	if namespace == "" {
+		return fmt.Errorf("cluster scoped owner not supported")
 	}
 
-	err := c.Watch(&source.Kind{Type: &routev1.Route{}}, eventHandler)
-	if err != nil {
-		if errors.IsNotFound(err) || meta.IsNoMatchError(err) {
-			log.Info("Not watching Routes")
-			return nil
-		}
+	key := client.ObjectKey{Namespace: namespace, Name: uploadProxyRouteName}
 
-		return err
-	}
-
-	return nil
-}
-
-func (r *ReconcileCDI) ensureUploadProxyRouteExists(logger logr.Logger, cr *cdiv1alpha1.CDI) error {
-	key := client.ObjectKey{Namespace: r.namespace, Name: uploadProxyRouteName}
-
-	err := r.client.Get(context.TODO(), key, &routev1.Route{})
+	err := c.Get(context.TODO(), key, &routev1.Route{})
 	if err == nil {
 		// route already exists, so do nothing (user can mutate this)
 		return nil
@@ -83,23 +65,24 @@ func (r *ReconcileCDI) ensureUploadProxyRouteExists(logger logr.Logger, cr *cdiv
 	}
 
 	secret := &corev1.Secret{}
-	key = client.ObjectKey{Namespace: r.namespace, Name: uploadProxyCASecret}
+	key = client.ObjectKey{Namespace: namespace, Name: uploadProxyCASecret}
 
-	if err = r.client.Get(context.TODO(), key, secret); err != nil {
+	if err = c.Get(context.TODO(), key, secret); err != nil {
 		return err
 	}
 
 	cert, exists := secret.Data["tls.crt"]
 	if !exists {
-		return fmt.Errorf("Unexpected secret format, 'tls.crt' key missing")
+		return fmt.Errorf("unexpected secret format, 'tls.crt' key missing")
 	}
 
 	route := &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      uploadProxyRouteName,
-			Namespace: r.namespace,
+			Namespace: namespace,
 			Annotations: map[string]string{
-				"haproxy.router.openshift.io/timeout": "3m",
+				// long timeout here to make sure client conection doesn't die during qcow->raw conversion
+				"haproxy.router.openshift.io/timeout": "60m",
 			},
 		},
 		Spec: routev1.RouteSpec{
@@ -114,9 +97,13 @@ func (r *ReconcileCDI) ensureUploadProxyRouteExists(logger logr.Logger, cr *cdiv
 		},
 	}
 
-	if err = controllerutil.SetControllerReference(cr, route, r.scheme); err != nil {
+	if err = controllerutil.SetControllerReference(owner, route, scheme); err != nil {
 		return err
 	}
 
-	return r.client.Create(context.TODO(), route)
+	if err = c.Create(context.TODO(), route); err != nil {
+		return err
+	}
+
+	return nil
 }

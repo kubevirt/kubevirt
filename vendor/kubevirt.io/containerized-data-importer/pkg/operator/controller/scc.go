@@ -19,10 +19,8 @@ package controller
 import (
 	"context"
 
-	"github.com/go-logr/logr"
 	secv1 "github.com/openshift/api/security/v1"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -33,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	cdinamespaced "kubevirt.io/containerized-data-importer/pkg/operator/resources/namespaced"
 )
 
 func (r *ReconcileCDI) watchSecurityContextConstraints(c controller.Controller) error {
@@ -60,56 +57,12 @@ func (r *ReconcileCDI) watchSecurityContextConstraints(c controller.Controller) 
 			}),
 		})
 	if err != nil {
-		if errors.IsNotFound(err) || meta.IsNoMatchError(err) {
+		if meta.IsNoMatchError(err) {
 			log.Info("Not watching SecurityContextConstraints")
 			return nil
 		}
 
 		return err
-	}
-
-	return nil
-}
-
-func (r *ReconcileCDI) syncPrivilegedAccounts(logger logr.Logger, cr *cdiv1alpha1.CDI, add bool) error {
-	accountMap := cdinamespaced.GetPrivilegedAccounts(r.getNamespacedArgs(cr))
-
-	for sccName, accounts := range accountMap {
-		update := false
-		sccObj := &secv1.SecurityContextConstraints{}
-		if err := r.client.Get(context.TODO(), client.ObjectKey{Name: sccName}, sccObj); err != nil {
-			if meta.IsNoMatchError(err) {
-				// not openshift
-				return nil
-			}
-			return err
-		}
-
-		for _, account := range accounts {
-			i := -1
-			for j, u := range sccObj.Users {
-				if u == account {
-					i = j
-					break
-				}
-			}
-
-			if i == -1 && add {
-				sccObj.Users = append(sccObj.Users, account)
-				update = true
-			} else if i >= 0 && !add {
-				sccObj.Users = append(sccObj.Users[:i], sccObj.Users[i+1:]...)
-				update = true
-			}
-		}
-
-		if update {
-			logger.Info("Updating SecurityContextConstraints")
-
-			if err := r.client.Update(context.TODO(), sccObj); err != nil {
-				return err
-			}
-		}
 	}
 
 	return nil

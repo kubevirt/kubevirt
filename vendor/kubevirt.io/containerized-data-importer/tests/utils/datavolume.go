@@ -75,8 +75,8 @@ func DeleteDataVolume(clientSet *cdiclientset.Clientset, namespace, name string)
 }
 
 // NewCloningDataVolume initializes a DataVolume struct with PVC annotations
-func NewCloningDataVolume(dataVolumeName string, size string, sourcePvc *k8sv1.PersistentVolumeClaim) *cdiv1.DataVolume {
-	return NewDataVolumeForImageCloning(dataVolumeName, size, sourcePvc.Namespace, sourcePvc.Name)
+func NewCloningDataVolume(dataVolumeName, size string, sourcePvc *k8sv1.PersistentVolumeClaim) *cdiv1.DataVolume {
+	return NewDataVolumeForImageCloning(dataVolumeName, size, sourcePvc.Namespace, sourcePvc.Name, sourcePvc.Spec.StorageClassName, sourcePvc.Spec.VolumeMode)
 }
 
 // NewDataVolumeWithHTTPImport initializes a DataVolume struct with HTTP annotations
@@ -205,8 +205,8 @@ func NewDataVolumeForBlankRawImage(dataVolumeName, size string) *cdiv1.DataVolum
 }
 
 // NewDataVolumeForImageCloning initializes a DataVolume struct for cloning disk image
-func NewDataVolumeForImageCloning(dataVolumeName, size string, namespace, pvcName string) *cdiv1.DataVolume {
-	return &cdiv1.DataVolume{
+func NewDataVolumeForImageCloning(dataVolumeName, size, namespace, pvcName string, storageClassName *string, volumeMode *k8sv1.PersistentVolumeMode) *cdiv1.DataVolume {
+	dv := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: dataVolumeName,
 		},
@@ -227,6 +227,13 @@ func NewDataVolumeForImageCloning(dataVolumeName, size string, namespace, pvcNam
 			},
 		},
 	}
+	if volumeMode != nil {
+		dv.Spec.PVC.VolumeMode = volumeMode
+	}
+	if storageClassName != nil {
+		dv.Spec.PVC.StorageClassName = storageClassName
+	}
+	return dv
 }
 
 // NewDataVolumeWithRegistryImport initializes a DataVolume struct with registry annotations

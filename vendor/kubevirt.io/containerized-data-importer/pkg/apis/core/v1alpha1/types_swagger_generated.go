@@ -99,12 +99,6 @@ func (CDIStatus) SwaggerDoc() map[string]string {
 	}
 }
 
-func (CDICondition) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "CDICondition represents a condition of a CDI deployment",
-	}
-}
-
 func (CDIList) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "CDIList provides the needed parameters to do request a list of CDIs from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",

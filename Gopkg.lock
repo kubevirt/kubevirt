@@ -1198,7 +1198,7 @@
   version = "v0.20.3"
 
 [[projects]]
-  digest = "1:539ffc2a0be5cd805fd36f614f72eb032f811dca65a4b07555f8ffd615acc183"
+  digest = "1:0bdf550113bbc32c2b77bb1c521c64116bd4553d976b9d4903135660ec440539"
   name = "kubevirt.io/containerized-data-importer"
   packages = [
     ".",
@@ -1224,8 +1224,8 @@
     "pkg/operator/resources/utils",
   ]
   pruneopts = "NT"
-  revision = "2fef55b80362c6c6144b01a3f4eab86a78ba03d9"
-  version = "v1.10.2"
+  revision = "4ccaada131843b4580f7faf28bf2adffc2eed3f4"
+  version = "v1.10.3"
 
 [[projects]]
   digest = "1:d6efcb18f075da92fa982237790e911e8f8862d8954009d32f783aaac633eadd"
