@@ -8,9 +8,13 @@ services:
 - docker
 
 script:
+# Verify we can actually build the operator
 - make build
+# Unit tests
 - make test
 - $GOPATH/bin/goveralls -service=travis-ci -coverprofile=pkg/controller/hyperconverged/hyperconverged.coverprofile
+# Verify the current manifests pass validation
+- make container-build-operator-courier
 
 # Keeping this around from kubevirt/kubevirt for updating in the future
 # deploy:
