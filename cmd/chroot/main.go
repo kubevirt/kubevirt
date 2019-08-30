@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"unsafe"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
@@ -61,10 +60,9 @@ func main() {
 					Cur: uint64(cpuTime),
 					Max: uint64(cpuTime),
 				}
-				// PID 0 means that we assign the limit to us, all commands will inherit it
-				_, _, e1 := syscall.RawSyscall6(syscall.SYS_PRLIMIT64, uintptr(0), uintptr(unix.RLIMIT_CPU), uintptr(unsafe.Pointer(value)), 0, 0, 0)
-				if e1 != 0 {
-					return fmt.Errorf("error setting prlimit on cpu time with value %d: %v", value, e1)
+				err := syscall.Setrlimit(unix.RLIMIT_CPU, value)
+				if err != nil {
+					return fmt.Errorf("error setting prlimit on cpu time with value %d: %v", value, err)
 				}
 			}
 
@@ -73,10 +71,9 @@ func main() {
 					Cur: uint64(megabyte) * 1000000,
 					Max: uint64(megabyte) * 1000000,
 				}
-				// PID 0 means that we assign the limit to us, all commands will inherit it
-				_, _, e1 := syscall.RawSyscall6(syscall.SYS_PRLIMIT64, uintptr(0), uintptr(unix.RLIMIT_AS), uintptr(unsafe.Pointer(value)), 0, 0, 0)
-				if e1 != 0 {
-					return fmt.Errorf("error setting prlimit on virtual memory with value %d: %v", value, e1)
+				err := syscall.Setrlimit(unix.RLIMIT_AS, value)
+				if err != nil {
+					return fmt.Errorf("error setting prlimit on virtual memory with value %d: %v", value, err)
 				}
 			}
 

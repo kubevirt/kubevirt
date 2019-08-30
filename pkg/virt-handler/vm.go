@@ -1409,6 +1409,11 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 		}
 
+		err = d.podIsolationDetector.AdjustResources(vmi)
+		if err != nil {
+			return fmt.Errorf("failed to adjust resources: %v", err)
+		}
+
 		options := &cmdv1.VirtualMachineOptions{
 			VirtualMachineSMBios: &cmdv1.SMBios{
 				Family:       d.clusterConfig.GetSMBIOS().Family,

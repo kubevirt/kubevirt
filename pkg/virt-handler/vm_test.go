@@ -73,6 +73,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var mockQueue *testutils.MockWorkQueue
 	var mockWatchdog *MockWatchdog
 	var mockGracefulShutdown *MockGracefulShutdown
+	var mockIsolationDetector *isolation.MockPodIsolationDetector
 
 	var vmiFeeder *testutils.VirtualMachineFeeder
 	var domainFeeder *testutils.DomainFeeder
@@ -127,6 +128,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
 		config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
+		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
+		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(&isolation.IsolationResult{}, nil).AnyTimes()
+		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any()).Return(nil).AnyTimes()
+
 		controller = NewController(recorder,
 			virtClient,
 			host,
@@ -140,7 +145,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			10,
 			config,
 			tlsConfig,
-			isolation.NewSocketBasedIsolationDetector(shareDir),
+			mockIsolationDetector,
 		)
 
 		testUUID = uuid.NewUUID()
