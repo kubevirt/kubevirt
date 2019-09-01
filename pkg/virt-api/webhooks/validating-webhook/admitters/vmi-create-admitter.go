@@ -554,19 +554,19 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			if cniTypesCount == 0 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("should have a network type"),
+					Message: "should have a network type",
 					Field:   field.Child("networks").Index(idx).String(),
 				})
 			} else if cniTypesCount > 1 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("should have only one network type"),
+					Message: "should have only one network type",
 					Field:   field.Child("networks").Index(idx).String(),
 				})
 			} else if genieExists && (podExists || multusExists) {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("cannot combine Genie with other CNIs across networks"),
+					Message: "cannot combine Genie with other CNIs across networks",
 					Field:   field.Child("networks").Index(idx).String(),
 				})
 			}
@@ -574,7 +574,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			if !networkNameExistsOrNotNeeded {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("CNI delegating plugin must have a networkName"),
+					Message: "CNI delegating plugin must have a networkName",
 					Field:   field.Child("networks").Index(idx).String(),
 				})
 			}
@@ -585,7 +585,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		if multusDefaultCount > 1 {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Multus CNI should only have one default network"),
+				Message: "Multus CNI should only have one default network",
 				Field:   field.Child("networks").String(),
 			})
 		}
@@ -593,7 +593,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		if podExists && multusDefaultCount > 0 {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Pod network cannot be defined when Multus default network is defined"),
+				Message: "Pod network cannot be defined when Multus default network is defined",
 				Field:   field.Child("networks").String(),
 			})
 		}
@@ -621,19 +621,19 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			} else if iface.Slirp != nil && networkData.Pod == nil {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("Slirp interface only implemented with pod network"),
+					Message: "Slirp interface only implemented with pod network",
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
 			} else if iface.Slirp != nil && networkData.Pod != nil && !config.IsSlirpInterfaceEnabled() {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("Slirp interface is not enabled in kubevirt-config"),
+					Message: "Slirp interface is not enabled in kubevirt-config",
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
 			} else if iface.Masquerade != nil && networkData.Pod == nil {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("Masquerade interface only implemented with pod network"),
+					Message: "Masquerade interface only implemented with pod network",
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
 			}
@@ -642,7 +642,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			if _, networkAlreadyUsed := networkInterfaceMap[iface.Name]; networkAlreadyUsed {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueDuplicate,
-					Message: fmt.Sprintf("Only one interface can be connected to one specific network"),
+					Message: "Only one interface can be connected to one specific network",
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
 			}
@@ -656,7 +656,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					if forwardPort.Port == 0 {
 						causes = append(causes, metav1.StatusCause{
 							Type:    metav1.CauseTypeFieldValueRequired,
-							Message: fmt.Sprintf("Port field is mandatory in every Port"),
+							Message: "Port field is mandatory.",
 							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
 						})
 					}
@@ -664,7 +664,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					if forwardPort.Port < 0 || forwardPort.Port > 65536 {
 						causes = append(causes, metav1.StatusCause{
 							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("Port field must be in range 0 < x < 65536."),
+							Message: "Port field must be in range 0 < x < 65536.",
 							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
 						})
 					}
@@ -673,7 +673,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 						if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
 							causes = append(causes, metav1.StatusCause{
 								Type:    metav1.CauseTypeFieldValueInvalid,
-								Message: fmt.Sprintf("Unknown protocol, only TCP or UDP allowed"),
+								Message: "Unknown protocol, only TCP or UDP allowed",
 								Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
 							})
 						}
@@ -805,7 +805,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					if net.ParseIP(ip).To4() == nil {
 						causes = append(causes, metav1.StatusCause{
 							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("NTP servers must be a valid IPv4 address."),
+							Message: "NTP servers must be a list of valid IPv4 addresses.",
 							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("dhcpOptions", "ntpServers").Index(index).String(),
 						})
 					}
@@ -817,7 +817,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("virtio-net multiqueue request, but there are no virtio interfaces defined"),
+				Message: "virtio-net multiqueue request, but there are no virtio interfaces defined",
 				Field:   field.Child("domain", "devices", "networkInterfaceMultiqueue").String(),
 			})
 
@@ -827,7 +827,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		if len(networkInterfaceMap) != len(networkNameMap) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
-				Message: fmt.Sprintf("every network must be mapped to an interface."),
+				Message: "every network must be mapped to an interface.",
 				Field:   field.Child("networks").String(),
 			})
 		}
@@ -837,7 +837,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Input device can have only virtio or usb bus."),
+				Message: "Input device can have only virtio or usb bus.",
 				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("bus").String(),
 			})
 		}
@@ -845,7 +845,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		if input.Type != "tablet" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Input device can have only tablet type."),
+				Message: "Input device can have only tablet type.",
 				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("type").String(),
 			})
 		}
@@ -856,14 +856,14 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	if !isCPUResourcesSet && (spec.Domain.Devices.BlockMultiQueue != nil) && (*spec.Domain.Devices.BlockMultiQueue == true) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("MultiQueue for block devices can't be used without specifying CPU requests or limits."),
+			Message: "MultiQueue for block devices can't be used without specifying CPU requests or limits.",
 			Field:   field.Child("domain", "devices", "blockMultiQueue").String(),
 		})
 	}
 	if !isCPUResourcesSet && (spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*spec.Domain.Devices.NetworkInterfaceMultiQueue == true) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("MultiQueue for network interfaces can't be used without specifying CPU requests or limits."),
+			Message: "MultiQueue for network interfaces can't be used without specifying CPU requests or limits.",
 			Field:   field.Child("domain", "devices", "networkInterfaceMultiqueue").String(),
 		})
 	}
@@ -1497,7 +1497,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		if disk.Floppy != nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: fmt.Sprintf("Floppy disks are deprecated and will be removed from the API soon."),
+				Message: "Floppy disks are deprecated and will be removed from the API soon.",
 				Field:   field.Index(idx).Child("name").String(),
 			})
 		}

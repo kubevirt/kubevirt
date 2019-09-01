@@ -35,10 +35,10 @@ var _ = Describe("ConfigMap", func() {
 		})
 		Expect(clusterConfig.IsUseEmulation()).To(Equal(result))
 	},
-		table.Entry("is true, it should return true", "true", true),
-		table.Entry("is false, it should return false", "false", false),
-		table.Entry("when unset, it should return false", "", false),
-		table.Entry("when invalid, it should return the default", "invalid", false),
+		table.Entry("is true, IsUseEmulation should return true", "true", true),
+		table.Entry("is false, IsUseEmulation should return false", "false", false),
+		table.Entry("when unset, IsUseEmulation should return false", "", false),
+		table.Entry("when invalid, IsUseEmulation should return the default", "invalid", false),
 	)
 
 	table.DescribeTable(" when permitSlirpInterface", func(value string, result bool) {
@@ -47,10 +47,10 @@ var _ = Describe("ConfigMap", func() {
 		})
 		Expect(clusterConfig.IsSlirpInterfaceEnabled()).To(Equal(result))
 	},
-		table.Entry("is true, it should return true", "true", true),
-		table.Entry("is false, it should return false", "false", false),
-		table.Entry("when unset, it should return false", "", false),
-		table.Entry("when invalid, it should return the default", "invalid", false),
+		table.Entry("is true, IsSlirpInterfaceEnabled should return true", "true", true),
+		table.Entry("is false, IsSlirpInterfaceEnabled should return false", "false", false),
+		table.Entry("when unset, IsSlirpInterfaceEnabled should return false", "", false),
+		table.Entry("when invalid, IsSlirpInterfaceEnabled should return the default", "invalid", false),
 	)
 
 	table.DescribeTable(" when imagePullPolicy", func(value string, result kubev1.PullPolicy) {
@@ -59,11 +59,11 @@ var _ = Describe("ConfigMap", func() {
 		})
 		Expect(clusterConfig.GetImagePullPolicy()).To(Equal(result))
 	},
-		table.Entry("is PullAlways, it should return PullAlways", "Always", kubev1.PullAlways),
-		table.Entry("is Never, it should return Never", "Never", kubev1.PullNever),
-		table.Entry("is IsNotPresent, it should return IsNotPresent", "IfNotPresent", kubev1.PullIfNotPresent),
-		table.Entry("when unset, it should return PullIfNotPresent", "", kubev1.PullIfNotPresent),
-		table.Entry("when invalid, it should return the default", "invalid", kubev1.PullIfNotPresent),
+		table.Entry("is PullAlways, GetImagePullPolicy should return PullAlways", "Always", kubev1.PullAlways),
+		table.Entry("is Never, GetImagePullPolicy should return Never", "Never", kubev1.PullNever),
+		table.Entry("is IsNotPresent, GetImagePullPolicy should return IsNotPresent", "IfNotPresent", kubev1.PullIfNotPresent),
+		table.Entry("when unset, GetImagePullPolicy should return PullIfNotPresent", "", kubev1.PullIfNotPresent),
+		table.Entry("when invalid, GetImagePullPolicy should return the default", "invalid", kubev1.PullIfNotPresent),
 	)
 
 	table.DescribeTable(" when lessPVCSpaceToleration", func(value string, result int) {
@@ -72,9 +72,9 @@ var _ = Describe("ConfigMap", func() {
 		})
 		Expect(clusterConfig.GetLessPVCSpaceToleration()).To(Equal(result))
 	},
-		table.Entry("is set, it should return correct value", "5", 5),
-		table.Entry("is unset, it should return the default", "", virtconfig.DefaultLessPVCSpaceToleration),
-		table.Entry("is invalid, it should return the default", "-1", virtconfig.DefaultLessPVCSpaceToleration),
+		table.Entry("is set, GetLessPVCSpaceToleration should return correct value", "5", 5),
+		table.Entry("is unset, GetLessPVCSpaceToleration should return the default", "", virtconfig.DefaultLessPVCSpaceToleration),
+		table.Entry("is invalid, GetLessPVCSpaceToleration should return the default", "-1", virtconfig.DefaultLessPVCSpaceToleration),
 	)
 
 	table.DescribeTable(" when defaultNetworkInterface", func(value string, result string) {
@@ -83,11 +83,11 @@ var _ = Describe("ConfigMap", func() {
 		})
 		Expect(clusterConfig.GetDefaultNetworkInterface()).To(Equal(result))
 	},
-		table.Entry("is bridge, it should return bridge", "bridge", "bridge"),
-		table.Entry("is slirp, it should return slirp", "slirp", "slirp"),
-		table.Entry("is masquerade, it should return masquerade", "masquerade", "masquerade"),
-		table.Entry("when unset, it should return the default", "", "bridge"),
-		table.Entry("when invalid, it should return the default", "invalid", "bridge"),
+		table.Entry("is bridge, GetDefaultNetworkInterface should return bridge", "bridge", "bridge"),
+		table.Entry("is slirp, GetDefaultNetworkInterface should return slirp", "slirp", "slirp"),
+		table.Entry("is masquerade, GetDefaultNetworkInterface should return masquerade", "masquerade", "masquerade"),
+		table.Entry("when unset, GetDefaultNetworkInterface should return the default", "", "bridge"),
+		table.Entry("when invalid, GetDefaultNetworkInterface should return the default", "invalid", "bridge"),
 	)
 
 	nodeSelectorsStr := "kubernetes.io/hostname=node02\nnode-role.kubernetes.io/compute=true\n"
@@ -101,9 +101,9 @@ var _ = Describe("ConfigMap", func() {
 		})
 		Expect(clusterConfig.GetNodeSelectors()).To(Equal(result))
 	},
-		table.Entry("is set, it should return correct value", nodeSelectorsStr, nodeSelectors),
-		table.Entry("is unset, it should return the default", "", nil),
-		table.Entry("is invalid, it should return the default", "-1", nil),
+		table.Entry("is set, GetNodeSelectors should return correct value", nodeSelectorsStr, nodeSelectors),
+		table.Entry("is unset, GetNodeSelectors should return the default", "", nil),
+		table.Entry("is invalid, GetNodeSelectors should return the default", "-1", nil),
 	)
 
 	table.DescribeTable(" when machineType", func(value string, result string) {
@@ -112,8 +112,8 @@ var _ = Describe("ConfigMap", func() {
 		})
 		Expect(clusterConfig.GetMachineType()).To(Equal(result))
 	},
-		table.Entry("when set, it should return the value", "pc-q35-3.0", "pc-q35-3.0"),
-		table.Entry("when unset, it should return the default", "", virtconfig.DefaultMachineType),
+		table.Entry("when set, GetMachineType should return the value", "pc-q35-3.0", "pc-q35-3.0"),
+		table.Entry("when unset, GetMachineType should return the default", "", virtconfig.DefaultMachineType),
 	)
 
 	table.DescribeTable(" when cpuModel", func(value string, result string) {
@@ -122,8 +122,8 @@ var _ = Describe("ConfigMap", func() {
 		})
 		Expect(clusterConfig.GetCPUModel()).To(Equal(result))
 	},
-		table.Entry("when set, it should return the value", "Haswell", "Haswell"),
-		table.Entry("when unset, it should return empty string", "", ""),
+		table.Entry("when set, GetCPUModel should return the value", "Haswell", "Haswell"),
+		table.Entry("when unset, GetCPUModel should return empty string", "", ""),
 	)
 
 	table.DescribeTable(" when cpuRequest", func(value string, result string) {
@@ -133,8 +133,8 @@ var _ = Describe("ConfigMap", func() {
 		cpuRequest := clusterConfig.GetCPURequest()
 		Expect(cpuRequest.String()).To(Equal(result))
 	},
-		table.Entry("when set, it should return the value", "400m", "400m"),
-		table.Entry("when unset, it should return the default", "", virtconfig.DefaultCPURequest),
+		table.Entry("when set, GetCPURequest should return the value", "400m", "400m"),
+		table.Entry("when unset, GetCPURequest should return the default", "", virtconfig.DefaultCPURequest),
 	)
 
 	table.DescribeTable(" when memoryOvercommit", func(value string, result int) {
@@ -143,8 +143,8 @@ var _ = Describe("ConfigMap", func() {
 		})
 		Expect(clusterConfig.GetMemoryOvercommit()).To(Equal(result))
 	},
-		table.Entry("when set, it should return the value", "150", 150),
-		table.Entry("when unset, it should return the default", "", virtconfig.DefaultMemoryOvercommit),
+		table.Entry("when set, GetMemoryOvercommit should return the value", "150", 150),
+		table.Entry("when unset, GetMemoryOvercommit should return the default", "", virtconfig.DefaultMemoryOvercommit),
 	)
 
 	table.DescribeTable(" when emulatedMachines", func(value string, result []string) {
@@ -154,8 +154,8 @@ var _ = Describe("ConfigMap", func() {
 		emulatedMachines := clusterConfig.GetEmulatedMachines()
 		Expect(emulatedMachines).To(ConsistOf(result))
 	},
-		table.Entry("when set, it should return the value", "q35, i440*", []string{"q35", "i440*"}),
-		table.Entry("when unset, it should return the defaults", "", strings.Split(virtconfig.DefaultEmulatedMachines, ",")),
+		table.Entry("when set, GetEmulatedMachines should return the value", "q35, i440*", []string{"q35", "i440*"}),
+		table.Entry("when unset, GetEmulatedMachines should return the defaults", "", strings.Split(virtconfig.DefaultEmulatedMachines, ",")),
 	)
 
 	It("Should return migration config values if specified as json", func() {
