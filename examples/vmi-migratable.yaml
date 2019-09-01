@@ -12,11 +12,17 @@ spec:
       - disk:
           bus: virtio
         name: containerdisk
+      interfaces:
+      - masquerade: {}
+        name: default
     machine:
       type: ""
     resources:
       requests:
         memory: 64M
+  networks:
+  - name: default
+    pod: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:

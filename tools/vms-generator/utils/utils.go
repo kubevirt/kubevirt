@@ -131,28 +131,24 @@ func addRNG(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec 
 }
 
 func addContainerDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus string) *v1.VirtualMachineInstanceSpec {
-	spec.Domain.Devices = v1.Devices{
-		Disks: []v1.Disk{
-			{
-				Name: "containerdisk",
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Bus: bus,
-					},
-				},
+	disk := &v1.Disk{
+		Name: "containerdisk",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: bus,
 			},
 		},
 	}
-	spec.Volumes = []v1.Volume{
-		{
-			Name: "containerdisk",
-			VolumeSource: v1.VolumeSource{
-				ContainerDisk: &v1.ContainerDiskSource{
-					Image: image,
-				},
+	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, *disk)
+	volume := &v1.Volume{
+		Name: "containerdisk",
+		VolumeSource: v1.VolumeSource{
+			ContainerDisk: &v1.ContainerDiskSource{
+				Image: image,
 			},
 		},
 	}
+	spec.Volumes = append(spec.Volumes, *volume)
 	return spec
 }
 
@@ -291,6 +287,10 @@ func addHostDisk(spec *v1.VirtualMachineInstanceSpec, path string, hostDiskType 
 
 func GetVMIMigratable() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiMigratable)
+	// having no network leads to adding a default interface that may be of type bridge on
+	// the pod network and that would make the VMI non-migratable. Therefore, adding a network.
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 
 	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageAlpine, DockerTag), busVirtio)
 	return vmi
