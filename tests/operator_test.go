@@ -706,9 +706,8 @@ spec:
 				// NOTE: we are using virtctl explicitly here because we want to start the VM
 				// using the subresource endpoint in the same way virtctl performs this.
 				By("Starting VM with virtctl")
-				startFn := tests.NewRepeatableVirtctlCommand("start", "--namespace", tests.NamespaceTestDefault, vmYaml.vmName)
-				err = startFn()
-				Expect(err).ToNot(HaveOccurred())
+				startCommand := tests.NewRepeatableVirtctlCommand("start", "--namespace", tests.NamespaceTestDefault, vmYaml.vmName)
+				Expect(startCommand()).To(Succeed())
 
 				By(fmt.Sprintf("Waiting for VM with %s api to become ready", vmYaml.apiVersion))
 

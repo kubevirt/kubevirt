@@ -559,16 +559,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		Context("Using virtctl interface", func() {
 			It("[test_id:1529]should start a VirtualMachineInstance once", func() {
-				var vmi *v1.VirtualMachineInstance
-				var err error
 				By("getting a VM")
 				newVM := newVirtualMachine(false)
 
 				By("Invoking virtctl start")
-				virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", newVM.Namespace, newVM.Name)
-
-				err = virtctl()
-				Expect(err).ToNot(HaveOccurred())
+				startCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", newVM.Namespace, newVM.Name)
+				Expect(startCommand()).To(Succeed())
 
 				By("Getting the status of the VM")
 				Eventually(func() bool {
@@ -579,23 +575,18 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				By("Getting the running VirtualMachineInstance")
 				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &v12.GetOptions{})
+					vmi, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return vmi.Status.Phase == v1.Running
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Ensuring a second invocation should fail")
-				err = virtctl()
-				Expect(err).To(HaveOccurred())
+				Expect(startCommand()).ToNot(Succeed())
 			})
 
 			It("[test_id:1530]should stop a VirtualMachineInstance once", func() {
-				var err error
 				By("getting a VM")
 				newVM := newVirtualMachine(true)
-
-				By("Invoking virtctl stop")
-				virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, "--namespace", newVM.Namespace, newVM.Name)
 
 				By("Ensuring VM is running")
 				Eventually(func() bool {
@@ -604,8 +595,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					return newVM.Status.Ready
 				}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
-				err = virtctl()
-				Expect(err).ToNot(HaveOccurred())
+				By("Invoking virtctl stop")
+				stopCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, "--namespace", newVM.Namespace, newVM.Name)
+				Expect(stopCommand()).To(Succeed())
 
 				By("Ensuring VM is not running")
 				Eventually(func() bool {
@@ -622,16 +614,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 240*time.Second, 1*time.Second).Should(HaveOccurred())
 
 				By("Ensuring a second invocation should fail")
-				err = virtctl()
-				Expect(err).To(HaveOccurred())
+				Expect(stopCommand()).ToNot(Succeed())
 			})
 
 			Context("Using RunStrategyAlways", func() {
 				It("should stop a running VM", func() {
 					By("creating a VM with RunStrategyAlways")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
-
-					virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
 
 					By("Waiting for VM to be ready")
 					Eventually(func() bool {
@@ -641,8 +630,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
 					By("Invoking virtctl stop")
-					err = virtctl()
-					Expect(err).ToNot(HaveOccurred())
+					stopCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					Expect(stopCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is removed")
 					Eventually(func() error {
@@ -662,8 +651,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					By("creating a VM with RunStrategyAlways")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
-					restartCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RESTART, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
-
 					By("Waiting for VM to be ready")
 					Eventually(func() bool {
 						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
@@ -677,8 +664,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					currentUUID := virtualMachine.UID
 
 					By("Invoking virtctl restart")
-					err = restartCommand()
-					Expect(err).ToNot(HaveOccurred())
+					restartCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RESTART, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					Expect(restartCommand()).To(Succeed())
 
 					By("Ensuring the VirtualMachineInstance is restarted")
 					Eventually(func() types.UID {
