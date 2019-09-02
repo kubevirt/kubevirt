@@ -65,6 +65,9 @@ var (
 	operatorImage       = flag.String("operator-image-name", "", "")
 	csvVersion          = flag.String("csv-version", "", "")
 	replacesCsvVersion  = flag.String("replaces-csv-version", "", "")
+	metadataDescription = flag.String("metadata-description", "", "")
+	specDescription     = flag.String("spec-description", "", "")
+	specDisplayName     = flag.String("spec-displayname", "", "")
 )
 
 func main() {
@@ -167,6 +170,16 @@ func main() {
 	templateStruct.Name = "kubevirt-hyperconverged-operator.v" + *csvVersion
 	templateStruct.Spec.Version = version.OperatorVersion{semver.MustParse(*csvVersion)}
 	templateStruct.Spec.Replaces = "kubevirt-hyperconverged-operator.v" + *replacesCsvVersion
+
+	if *metadataDescription != "" {
+		templateStruct.Annotations["description"] = *metadataDescription
+	}
+	if *specDescription != "" {
+		templateStruct.Spec.Description = *specDescription
+	}
+	if *specDisplayName != "" {
+		templateStruct.Spec.DisplayName = *specDisplayName
+	}
 
 	util.MarshallObject(templateStruct, os.Stdout)
 
