@@ -49,11 +49,11 @@ var _ = Describe("Slirp Networking", func() {
 	var deadbeafVmi *v1.VirtualMachineInstance
 	var container k8sv1.Container
 	setSlirpEnabled := func(enable bool) {
-		tests.UpdateClusterConfigValueAndWait("permitSlirpInterface", fmt.Sprintf("%t", enable), 2*time.Second)
+		tests.UpdateClusterConfigValueAndWait("permitSlirpInterface", fmt.Sprintf("%t", enable))
 	}
 
 	setDefaultNetworkInterface := func(iface string) {
-		tests.UpdateClusterConfigValueAndWait("default-network-interface", fmt.Sprintf("%s", iface), 2*time.Second)
+		tests.UpdateClusterConfigValueAndWait("default-network-interface", fmt.Sprintf("%s", iface))
 	}
 
 	tests.BeforeAll(func() {
