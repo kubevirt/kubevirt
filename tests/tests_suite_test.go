@@ -32,7 +32,11 @@ import (
 )
 
 func TestTests(t *testing.T) {
-	reporters := []Reporter{reporter.NewKubernetesReporter(os.Getenv("ARTIFACTS"))}
+	artifactsDir := os.Getenv("ARTIFACTS")
+	if artifactsDir == "" {
+		artifactsDir = "./_out/artifacts"
+	}
+	reporters := []Reporter{reporter.NewKubernetesReporter(artifactsDir)}
 	if ginkgo_reporters.Polarion.Run {
 		reporters = append(reporters, &ginkgo_reporters.Polarion)
 	}
