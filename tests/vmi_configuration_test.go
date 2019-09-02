@@ -381,11 +381,11 @@ var _ = Describe("Configurations", func() {
 
 		Context("with cluster memory overcommit being applied", func() {
 			BeforeEach(func() {
-				tests.UpdateClusterConfigValue("memory-overcommit", "200")
+				tests.UpdateClusterConfigValueAndWait("memory-overcommit", "200")
 			})
 
 			AfterEach(func() {
-				tests.UpdateClusterConfigValue("memory-overcommit", "")
+				tests.UpdateClusterConfigValueAndWait("memory-overcommit", "")
 			})
 
 			It("should set requested amount of memory according to the specified virtual memory", func() {
@@ -1281,7 +1281,7 @@ var _ = Describe("Configurations", func() {
 		defaultMachineTypeKey := "machine-type"
 
 		AfterEach(func() {
-			tests.UpdateClusterConfigValue(defaultMachineTypeKey, "")
+			tests.UpdateClusterConfigValueAndWait(defaultMachineTypeKey, "")
 		})
 
 		It("should set machine type from VMI spec", func() {
@@ -1305,7 +1305,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("should set machine type from kubevirt-config", func() {
-			tests.UpdateClusterConfigValue(defaultMachineTypeKey, "pc-q35-3.0")
+			tests.UpdateClusterConfigValueAndWait(defaultMachineTypeKey, "pc-q35-3.0")
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = ""
@@ -1321,7 +1321,7 @@ var _ = Describe("Configurations", func() {
 		defaultCPURequestKey := "cpu-request"
 
 		AfterEach(func() {
-			tests.UpdateClusterConfigValue(defaultCPURequestKey, "")
+			tests.UpdateClusterConfigValueAndWait(defaultCPURequestKey, "")
 		})
 
 		It("should set CPU request from VMI spec", func() {
@@ -1351,7 +1351,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("should set CPU request from kubevirt-config", func() {
-			tests.UpdateClusterConfigValue(defaultCPURequestKey, "800m")
+			tests.UpdateClusterConfigValueAndWait(defaultCPURequestKey, "800m")
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
@@ -1855,6 +1855,73 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter2.Close()
 			})
+		})
+	})
+
+	Context("Check Chassis value", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = tests.NewRandomVMI()
+		})
+
+		It("[test_id:2927]Test Chassis value in a newly created VM", func() {
+			vmi.Spec.Domain.Chassis = &v1.Chassis{
+				Asset: "Test-123",
+			}
+
+			By("Starting a VirtualMachineInstance")
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
+		})
+	})
+
+	Context("Check SMBios with default and custom values", func() {
+
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+		})
+
+		It("[test_id:2751]test default SMBios", func() {
+			By("Starting a VirtualMachineInstance")
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring("<entry name='family'>KubeVirt</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='product'>None</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>KubeVirt</entry>"))
+
+		})
+
+		It("[test_id:2752]test custom SMBios values", func() {
+			// Set a custom test SMBios
+			test_smbios := &cmdv1.SMBios{Family: "test", Product: "test", Manufacturer: "None", Sku: "1.0", Version: "1.0"}
+			smbiosJson, err := json.Marshal(test_smbios)
+			Expect(err).ToNot(HaveOccurred())
+			tests.UpdateClusterConfigValueAndWait("smbios", string(smbiosJson))
+
+			By("Starting a VirtualMachineInstance")
+			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring("<entry name='family'>test</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='product'>test</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>None</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='sku'>1.0</entry>"))
+			Expect(domXml).To(ContainSubstring("<entry name='version'>1.0</entry>"))
 		})
 	})
 })
