@@ -525,7 +525,7 @@ var _ = Describe("Storage", func() {
 
 				configureToleration := func(toleration int) {
 					By("By configuring toleration")
-					tests.UpdateClusterConfigValueAndWait(virtconfig.LessPVCSpaceTolerationKey, strconv.Itoa(toleration), 2*time.Second)
+					tests.UpdateClusterConfigValueAndWait(virtconfig.LessPVCSpaceTolerationKey, strconv.Itoa(toleration))
 				}
 
 				It("Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", func() {

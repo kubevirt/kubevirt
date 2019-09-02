@@ -780,7 +780,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("should set default cpu model when vmi doesn't have it set", func() {
-				tests.UpdateClusterConfigValueAndWait(defaultCPUModelKey, defaultCPUModel, 5*time.Second)
+				tests.UpdateClusterConfigValueAndWait(defaultCPUModelKey, defaultCPUModel)
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
@@ -795,7 +795,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("should not set default cpu model when vmi has it set", func() {
-				tests.UpdateClusterConfigValueAndWait(defaultCPUModelKey, defaultCPUModel, 5*time.Second)
+				tests.UpdateClusterConfigValueAndWait(defaultCPUModelKey, defaultCPUModel)
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
@@ -843,11 +843,11 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred())
 				originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
 
-				tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, virtconfig.CPUNodeDiscoveryGate, 5*time.Second)
+				tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, virtconfig.CPUNodeDiscoveryGate)
 			})
 
 			AfterEach(func() {
-				tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, originalFeatureGates, 2*time.Second)
+				tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, originalFeatureGates)
 
 				n, err := virtClient.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
