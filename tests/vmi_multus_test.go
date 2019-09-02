@@ -131,25 +131,26 @@ var _ = Describe("Multus", func() {
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 
-		// Create identical ptp crds in two different namespaces
+		// Create identical ptp crds
 		result = virtClient.RestClient().
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf")).
 			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
-		result = virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestAlternative, "ptp-conf-2")).
-			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-2", tests.NamespaceTestAlternative))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
 
-		// Create ptp crd with tuning plugin enabled
+		// Create ptp crd with tuning plugin enabled in two different namespaces
 		result = virtClient.RestClient().
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf-tuning")).
 			Body([]byte(fmt.Sprintf(ptpConfWithTuningCRD, "ptp-conf-tuning", tests.NamespaceTestDefault))).
+			Do()
+		Expect(result.Error()).NotTo(HaveOccurred())
+
+		result = virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestAlternative, "ptp-conf-tuning-2")).
+			Body([]byte(fmt.Sprintf(ptpConfWithTuningCRD, "ptp-conf-tuning-2", tests.NamespaceTestAlternative))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
@@ -160,10 +161,10 @@ var _ = Describe("Multus", func() {
 			It("[test_id:1751]should create a virtual machine with one interface", func() {
 				By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
 				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", MacAddress: "50:00:00:00:90:0d", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"},
+						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf-tuning"},
 					}},
 				}
 
@@ -177,10 +178,10 @@ var _ = Describe("Multus", func() {
 			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
 				By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
 				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", MacAddress: "50:00:00:00:90:0d", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, "ptp-conf-2")},
+						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, "ptp-conf-tuning-2")},
 					}},
 				}
 
@@ -197,11 +198,11 @@ var _ = Describe("Multus", func() {
 
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					defaultInterface,
-					{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+					{Name: "ptp", MacAddress: "50:00:00:00:90:0d", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					defaultNetwork,
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"},
+						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf-tuning"},
 					}},
 				}
 
