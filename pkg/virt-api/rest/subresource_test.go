@@ -646,6 +646,111 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		)
 	})
 
+	Context("Subresource api - MigrateVMRequestHandler", func() {
+		It("should fail if VirtualMachine not exists", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusNotFound, nil),
+				),
+			)
+
+			app.MigrateVMRequestHandler(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusNotFound))
+			close(done)
+		}, 5)
+
+		It("should fail if VirtualMachine is not running", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			vm := v1.VirtualMachine{}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			app.MigrateVMRequestHandler(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			Expect(response.Error().Error()).To(Equal("VM is not running"))
+			close(done)
+		})
+
+		It("should fail if migration is not posted", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			vm := v1.VirtualMachine{
+				Status: v1.VirtualMachineStatus{
+					Ready: true,
+				},
+			}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstancemigrations"),
+					ghttp.RespondWithJSONEncoded(http.StatusInternalServerError, nil),
+				),
+			)
+
+			app.MigrateVMRequestHandler(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+			close(done)
+		})
+
+		It("should migrate VirtualMachine", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			vm := v1.VirtualMachine{
+				Status: v1.VirtualMachineStatus{
+					Ready: true,
+				},
+			}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			migration := v1.VirtualMachineInstanceMigration{}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("POST", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstancemigrations"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, migration),
+				),
+			)
+
+			app.MigrateVMRequestHandler(request, response)
+
+			Expect(response.Error()).ToNot(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			close(done)
+		})
+	})
+
 	Context("StateChange JSON", func() {
 		It("should create a stop request if status exists", func() {
 			uid := uuid.NewUUID()

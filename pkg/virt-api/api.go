@@ -214,6 +214,15 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusNotFound, "Not Found", nil).
 			Returns(http.StatusBadRequest, "Bad Request", nil))
 
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("migrate")).
+			To(subresourceApp.MigrateVMRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("migrate").
+			Doc("Migrate a running VirtualMachine to another node.").
+			Returns(http.StatusOK, "OK", nil).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			Returns(http.StatusBadRequest, "Bad Request", nil))
+
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("start")).
 			To(subresourceApp.StartVMRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
@@ -294,6 +303,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachines/stop",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachines/migrate",
 						Namespaced: true,
 					},
 					{
