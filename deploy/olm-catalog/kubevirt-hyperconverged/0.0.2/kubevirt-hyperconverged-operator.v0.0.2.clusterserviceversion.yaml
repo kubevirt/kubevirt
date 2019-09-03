@@ -95,7 +95,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-08-29 11:40:56.06229592 -0400 EDT m=+0.026774689
+    createdAt: 2019-09-02 19:50:03.604263223 +0200 CEST m=+0.021864303
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -1345,12 +1345,12 @@ spec:
                   - "2"
                   env:
                   - name: OPERATOR_IMAGE
-                    value: kubevirt/virt-operator:v0.20.3
+                    value: kubevirt/virt-operator:v0.20.4
                   - name: WATCH_NAMESPACE
                     valueFrom:
                       fieldRef:
                         fieldPath: metadata.annotations['olm.targetNamespaces']
-                  image: kubevirt/virt-operator:v0.20.3
+                  image: kubevirt/virt-operator:v0.20.4
                   imagePullPolicy: IfNotPresent
                   name: virt-operator
                   ports:
@@ -1556,7 +1556,7 @@ spec:
                       - name: WATCH_NAMESPACE
                         value: ""
                       - name: VIRT_LAUNCHER_TAG
-                        value: v0.20.3
+                        value: v0.20.4
                       - name: OPERATOR_NAME
                         value: "kubevirt-ssp-operator"
 

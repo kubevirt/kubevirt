@@ -833,7 +833,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			Resources: k8sv1.ResourceRequirements{
 				Limits: map[k8sv1.ResourceName]resource.Quantity{
 					k8sv1.ResourceCPU:    resource.MustParse("1m"),
-					k8sv1.ResourceMemory: resource.MustParse("5Mi"),
+					k8sv1.ResourceMemory: resource.MustParse("12Mi"), // this is the minimum memory limit for cri-o!
 				},
 			},
 			Command:        []string{"/usr/bin/tail", "-f", "/dev/null"},
