@@ -319,6 +319,7 @@ func getCNA(data *templateData) {
 	// Get CNA Deployment
 	cnadeployment := cnacomponents.GetDeployment(
 		data.CNA.OperatorTag,
+		data.CNA.OperatorTag,
 		data.Namespace,
 		data.CnaContainerPrefix,
 		data.CNA.OperatorTag,

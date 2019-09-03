@@ -157,6 +157,9 @@ func (status *StatusManager) set(reachedAvailableLevel bool, conditions ...condi
 	config.Status.OperatorVersion = operatorVersion
 	config.Status.TargetVersion = operatorVersion
 
+	// Failing condition had been replaced by Degraded in 0.12.0, drop it from CR if needed
+	conditionsv1.RemoveStatusCondition(&config.Status.Conditions, conditionsv1.ConditionType("Failing"))
+
 	if reflect.DeepEqual(oldStatus, config.Status) {
 		return nil
 	}

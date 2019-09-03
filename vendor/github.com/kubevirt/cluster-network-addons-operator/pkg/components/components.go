@@ -22,7 +22,7 @@ const (
 	MultusImageDefault            = "quay.io/kubevirt/cluster-network-addon-multus:v3.2.0-1.gitbf61002"
 	LinuxBridgeCniImageDefault    = "quay.io/kubevirt/cni-default-plugins:v0.8.1"
 	LinuxBridgeMarkerImageDefault = "quay.io/kubevirt/bridge-marker:0.2.0"
-	KubeMacPoolImageDefault       = "quay.io/kubevirt/kubemacpool:v0.4.0"
+	KubeMacPoolImageDefault       = "quay.io/kubevirt/kubemacpool:v0.5.0"
 	NMStateHandlerImageDefault    = "quay.io/nmstate/kubernetes-nmstate-handler:v0.6.0"
 	OvsCniImageDefault            = "quay.io/kubevirt/ovs-cni-plugin:v0.7.0"
 	OvsMarkerImageDefault         = "quay.io/kubevirt/ovs-cni-marker:v0.7.0"
@@ -63,7 +63,7 @@ func (ai *AddonsImages) FillDefaults() *AddonsImages {
 	return ai
 }
 
-func GetDeployment(version string, namespace string, repository string, tag string, imagePullPolicy string, addonsImages *AddonsImages) *appsv1.Deployment {
+func GetDeployment(version string, operatorVersion string, namespace string, repository string, tag string, imagePullPolicy string, addonsImages *AddonsImages) *appsv1.Deployment {
 	image := fmt.Sprintf("%s/%s:%s", repository, Name, tag)
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -74,7 +74,7 @@ func GetDeployment(version string, namespace string, repository string, tag stri
 			Name:      Name,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				opv1alpha1.SchemeGroupVersion.Group + "/version": version,
+				opv1alpha1.SchemeGroupVersion.Group + "/version": operatorVersion,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -136,7 +136,7 @@ func GetDeployment(version string, namespace string, repository string, tag stri
 								},
 								{
 									Name:  "OPERATOR_VERSION",
-									Value: version,
+									Value: operatorVersion,
 								},
 								{
 									Name: "OPERATOR_NAMESPACE",

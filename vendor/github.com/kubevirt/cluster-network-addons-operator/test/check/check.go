@@ -66,13 +66,13 @@ func CheckConfigCondition(conditionType ConditionType, conditionStatus Condition
 	}
 
 	if timeout != CheckImmediately {
-		Eventually(getAndCheckCondition, timeout, time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("Timed out waiting for the condition, current config:\n%v", configToYaml(config)))
+		Eventually(getAndCheckCondition, timeout, 10*time.Millisecond).ShouldNot(HaveOccurred(), fmt.Sprintf("Timed out waiting for the condition, current config:\n%v", configToYaml(config)))
 	} else {
 		Expect(getAndCheckCondition()).NotTo(HaveOccurred(), fmt.Sprintf("Condition is not in the expected state, current config:\n%v", configToYaml(config)))
 	}
 
 	if duration != CheckDoNotRepeat {
-		Consistently(getAndCheckCondition, duration, time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("Condition prematurely changed its value, current config:\n%v", configToYaml(config)))
+		Consistently(getAndCheckCondition, duration, 10*time.Millisecond).ShouldNot(HaveOccurred(), fmt.Sprintf("Condition prematurely changed its value, current config:\n%v", configToYaml(config)))
 	}
 }
 

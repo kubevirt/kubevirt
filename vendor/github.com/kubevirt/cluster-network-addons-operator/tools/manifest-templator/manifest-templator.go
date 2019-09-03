@@ -52,6 +52,7 @@ type operatorData struct {
 type templateData struct {
 	Version         string
 	VersionReplaces string
+	OperatorVersion string
 	Namespace       string
 	ContainerPrefix string
 	ContainerTag    string
@@ -138,6 +139,7 @@ func getCNA(data *templateData) {
 	// Get CNA Deployment
 	cnadeployment := components.GetDeployment(
 		data.Version,
+		data.OperatorVersion,
 		data.Namespace,
 		data.ContainerPrefix,
 		data.ContainerTag,
@@ -213,6 +215,7 @@ func getCNA(data *templateData) {
 func main() {
 	version := flag.String("version", "", "The csv version")
 	versionReplaces := flag.String("version-replaces", "", "The csv version this replaces")
+	operatorVersion := flag.String("operator-version", "", "The operator version")
 	namespace := flag.String("namespace", components.Namespace, "Namespace used by csv")
 	containerPrefix := flag.String("container-prefix", "quay.io/kubevirt", "The container repository used for the operator image")
 	containerTag := flag.String("container-tag", "latest", "The operator image's container tag")
@@ -233,6 +236,7 @@ func main() {
 	data := templateData{
 		Version:         *version,
 		VersionReplaces: *versionReplaces,
+		OperatorVersion: *operatorVersion,
 		Namespace:       *namespace,
 		ContainerPrefix: *containerPrefix,
 		ContainerTag:    *containerTag,
