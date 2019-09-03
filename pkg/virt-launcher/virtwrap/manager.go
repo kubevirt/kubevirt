@@ -634,6 +634,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	}
 	// Check if PVC volumes are block volumes
 	isBlockPVCMap := make(map[string]bool)
+	isBlockDVMap := make(map[string]bool)
 	diskInfo := make(map[string]*containerdisk.DiskInfo)
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
@@ -654,7 +655,16 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 				return err
 			}
 			diskInfo[volume.Name] = info
+		} else if volume.VolumeSource.DataVolume != nil {
+			isBlockDV, err := isBlockDeviceVolume(volume.Name)
+			if err != nil {
+				logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and DataVolume %v.",
+					volume.Name, volume.VolumeSource.DataVolume.Name)
+				return err
+			}
+			isBlockDVMap[volume.Name] = isBlockDV
 		}
+
 	}
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
@@ -662,6 +672,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		UseEmulation:   useEmulation,
 		CPUSet:         podCPUSet,
 		IsBlockPVC:     isBlockPVCMap,
+		IsBlockDV:      isBlockDVMap,
 		DiskType:       diskInfo,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
@@ -875,6 +886,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 
 	// Check if PVC volumes are block volumes
 	isBlockPVCMap := make(map[string]bool)
+	isBlockDVMap := make(map[string]bool)
 	diskInfo := make(map[string]*containerdisk.DiskInfo)
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
@@ -895,6 +907,14 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 				return nil, err
 			}
 			diskInfo[volume.Name] = info
+		} else if volume.VolumeSource.DataVolume != nil {
+			isBlockDV, err := isBlockDeviceVolume(volume.Name)
+			if err != nil {
+				logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and DV %v.",
+					volume.Name, volume.VolumeSource.DataVolume.Name)
+				return nil, err
+			}
+			isBlockDVMap[volume.Name] = isBlockDV
 		}
 	}
 
@@ -904,6 +924,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		UseEmulation:   useEmulation,
 		CPUSet:         podCPUSet,
 		IsBlockPVC:     isBlockPVCMap,
+		IsBlockDV:      isBlockDVMap,
 		DiskType:       diskInfo,
 		SRIOVDevices:   getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
 	}

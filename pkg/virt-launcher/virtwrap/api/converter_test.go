@@ -237,6 +237,10 @@ var _ = Describe("Converter", func() {
 					Cache: "writethrough",
 				},
 				{
+					Name:  "dv_block_test",
+					Cache: "writethrough",
+				},
+				{
 					Name: "serviceaccount_test",
 				},
 			}
@@ -342,6 +346,14 @@ var _ = Describe("Converter", func() {
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testblock",
+						},
+					},
+				},
+				{
+					Name: "dv_block_test",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv_block_test",
 						},
 					},
 				},
@@ -481,9 +493,15 @@ var _ = Describe("Converter", func() {
       <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-pvc_block_test"></alias>
     </disk>
+    <disk device="disk" type="block">
+      <source dev="/dev/dv_block_test"></source>
+      <target bus="sata" dev="sdh"></target>
+      <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-dv_block_test"></alias>
+    </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/service-account-disk/service-account.iso"></source>
-      <target bus="sata" dev="sdh"></target>
+      <target bus="sata" dev="sdi"></target>
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
@@ -551,6 +569,8 @@ var _ = Describe("Converter", func() {
 
 		isBlockPVCMap := make(map[string]bool)
 		isBlockPVCMap["pvc_block_test"] = true
+		isBlockDVMap := make(map[string]bool)
+		isBlockDVMap["dv_block_test"] = true
 		BeforeEach(func() {
 			c = &ConverterContext{
 				VirtualMachine: vmi,
@@ -563,6 +583,7 @@ var _ = Describe("Converter", func() {
 				},
 				UseEmulation: true,
 				IsBlockPVC:   isBlockPVCMap,
+				IsBlockDV:    isBlockDVMap,
 				SRIOVDevices: map[string][]string{},
 				SMBios:       TestSmbios,
 			}

@@ -1096,8 +1096,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulDataVolumeImport(dv, 600)
-				// workaround for: https://github.com/kubevirt/kubevirt/issues/2438
-				vmi := tests.NewRandomVMIWithPVC(dv.Name)
+				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
 				tests.AddUserData(vmi, "disk1", tests.GetGuestAgentUserData())
 				return vmi, dv
 			}
