@@ -43,8 +43,17 @@ rules:
   resources:
   - virtualmachines
   - virtualmachineinstances
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+- apiGroups:
+  - kubevirt.io
+  resources:
   - virtualmachineinstancemigrations
   verbs:
+  - create
   - get
   - list
   - watch
