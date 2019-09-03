@@ -2236,14 +2236,14 @@ func waitForVMIPhase(phases []v1.VirtualMachineInstancePhase, obj runtime.Object
 		}()
 	}
 
-	timeoutMsg := fmt.Sprintf("Timed out waiting for VMI to enter %s phase(s)", phases)
+	timeoutMsg := fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, phases)
 	// FIXME the event order is wrong. First the document should be updated
 	EventuallyWithOffset(1, func() v1.VirtualMachineInstancePhase {
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		nodeName = vmi.Status.NodeName
-		Expect(vmi.IsFinal()).To(BeFalse(), "VMI unexpectedly stopped. State: %s", vmi.Status.Phase)
+		Expect(vmi.IsFinal()).To(BeFalse(), "VMI %s unexpectedly stopped. State: %s", vmi.Name, vmi.Status.Phase)
 		return vmi.Status.Phase
 	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(BeElementOf(phases), timeoutMsg)
 
