@@ -95,7 +95,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-09-02 19:50:03.604263223 +0200 CEST m=+0.021864303
+    createdAt: 2019-09-03 15:43:27.61039013 +0300 IDT m=+0.025400476
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -1068,6 +1068,14 @@ spec:
             - apiGroups:
               - ""
               resources:
+              - nodes
+              verbs:
+              - get
+              - list
+              - watch
+            - apiGroups:
+              - ""
+              resources:
               - serviceaccounts
               verbs:
               - '*'
@@ -1474,25 +1482,27 @@ spec:
             selector:
               matchLabels:
                 machineremediation.kubevirt.io: machine-remediation-operator
-                machineremediation.kubevirt.io/version: v0.3.7
+                machineremediation.kubevirt.io/version: v0.3.10
             strategy:
               type: RollingUpdate
             template:
               metadata:
                 labels:
                   machineremediation.kubevirt.io: machine-remediation-operator
-                  machineremediation.kubevirt.io/version: v0.3.7
+                  machineremediation.kubevirt.io/version: v0.3.10
               spec:
                 affinity:
                   podAntiAffinity:
-                    requiredDuringSchedulingIgnoredDuringExecution:
-                    - labelSelector:
-                        matchExpressions:
-                        - key: machineremediation.kubevirt.io
-                          operator: In
-                          values:
-                          - machine-remediation-operator
-                      topologyKey: kubernetes.io/hostname
+                    preferredDuringSchedulingIgnoredDuringExecution:
+                    - podAffinityTerm:
+                        labelSelector:
+                          matchExpressions:
+                          - key: machineremediation.kubevirt.io
+                            operator: In
+                            values:
+                            - machine-remediation-operator
+                        topologyKey: kubernetes.io/hostname
+                      weight: 50
                 containers:
                 - args:
                   - --logtostderr=true
@@ -1502,8 +1512,8 @@ spec:
                   - /usr/bin/machine-remediation-operator
                   env:
                   - name: OPERATOR_VERSION
-                    value: v0.3.7
-                  image: kubevirt/machine-remediation-operator:v0.3.7
+                    value: v0.3.10
+                  image: kubevirt/machine-remediation-operator:v0.3.10
                   imagePullPolicy: IfNotPresent
                   name: machine-remediation-operator
                   resources:

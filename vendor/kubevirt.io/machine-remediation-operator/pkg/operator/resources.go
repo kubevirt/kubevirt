@@ -18,7 +18,10 @@ import (
 	"k8s.io/utils/pointer"
 
 	mrv1 "kubevirt.io/machine-remediation-operator/pkg/apis/machineremediation/v1alpha1"
+	"kubevirt.io/machine-remediation-operator/pkg/consts"
 	"kubevirt.io/machine-remediation-operator/pkg/operator/components"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *ReconcileMachineRemediationOperator) getDeployment(name string, namespace string) (*appsv1.Deployment, error) {
@@ -48,7 +51,12 @@ func (r *ReconcileMachineRemediationOperator) createOrUpdateDeployment(data *com
 	}
 
 	newDeploy := components.NewDeployment(data)
-	newDeploy.Spec.Replicas = pointer.Int32Ptr(2)
+
+	replicas, err := r.getReplicasCount()
+	if err != nil {
+		return err
+	}
+	newDeploy.Spec.Replicas = pointer.Int32Ptr(replicas)
 
 	oldDeploy, err := r.getDeployment(data.Name, data.Namespace)
 	if errors.IsNotFound(err) {
@@ -70,6 +78,22 @@ func (r *ReconcileMachineRemediationOperator) createOrUpdateDeployment(data *com
 	// do not update the status, deployment controller one who responsible to update it
 	newDeploy.Status = oldDeploy.Status
 	return r.client.Update(context.TODO(), newDeploy)
+}
+
+func (r *ReconcileMachineRemediationOperator) getReplicasCount() (int32, error) {
+	masterNodes := &corev1.NodeList{}
+	if err := r.client.List(
+		context.TODO(),
+		masterNodes,
+		client.InNamespace(consts.NamespaceOpenshiftMachineAPI),
+		client.MatchingLabels(map[string]string{consts.MasterRoleLabel: ""}),
+	); err != nil {
+		return 0, err
+	}
+	if len(masterNodes.Items) < 2 {
+		return 1, nil
+	}
+	return 2, nil
 }
 
 func (r *ReconcileMachineRemediationOperator) getOperatorImageRepository() (string, error) {

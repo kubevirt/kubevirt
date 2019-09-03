@@ -94,7 +94,7 @@ func NewClusterServiceVersion(data *ClusterServiceVersionData) (*csvv1.ClusterSe
 		return nil, err
 	}
 
-	csvVersion, err := semver.Make(data.CSVVersion)
+	csvVersion, err := semver.New(data.CSVVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func NewClusterServiceVersion(data *ClusterServiceVersionData) (*csvv1.ClusterSe
 			DisplayName: "Machine Remediation Operator",
 			Description: description,
 			Keywords:    []string{"remediation", "fencing", "HA", "health", "cluster-api"},
-			Version:     version.OperatorVersion{Version: csvVersion},
+			Version:     version.OperatorVersion{Version: *csvVersion},
 			Maturity:    "alpha",
 			Maintainers: []csvv1.Maintainer{{
 				Name:  "KubeVirt project",

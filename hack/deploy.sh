@@ -104,11 +104,10 @@ for dep in cdi-apiserver cdi-deployment cdi-uploadproxy virt-api virt-controller
     "${CMD}" wait deployment/"${dep}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${dep} "
 done
 
-# TODO: When MRO conditions stabilize, uncomment.  Create a follow up PR after this merges to uncomment
 # Wait for machine-remediation controllers under the openshift-machine-api namespace
-# for dep in machine-health-check machine-disruption-budget machine-remediation; do
-#     "${CMD}" -n openshift-machine-api wait deployment/"${dep}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${dep} "
-# done
+for dep in machine-health-check machine-disruption-budget machine-remediation; do
+    "${CMD}" -n openshift-machine-api wait deployment/"${dep}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${dep} "
+done
 
 if [ -z "$CONTAINER_ERRORED" ]; then
     echo "SUCCESS"

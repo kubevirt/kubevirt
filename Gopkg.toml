@@ -60,7 +60,7 @@ required = [
 
 [[override]]
   name = "kubevirt.io/machine-remediation-operator"
-  version = "=v0.3.7"
+  version = "=v0.3.10"
 
 [[override]]
   name = "k8s.io/api"

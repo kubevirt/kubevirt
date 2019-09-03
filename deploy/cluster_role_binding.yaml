@@ -123,7 +123,7 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     machineremediation.kubevirt.io: ""
-    machineremediation.kubevirt.io/version: v0.3.7
+    machineremediation.kubevirt.io/version: v0.3.10
   name: machine-remediation-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io

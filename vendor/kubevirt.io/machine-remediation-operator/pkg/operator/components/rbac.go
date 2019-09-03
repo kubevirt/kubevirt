@@ -266,6 +266,19 @@ var (
 					"",
 				},
 				Resources: []string{
+					"nodes",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
 					"serviceaccounts",
 				},
 				Verbs: []string{
