@@ -88,8 +88,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1b
 	// are already in flight.
 	if vmi.Status.MigrationState != nil &&
 		string(vmi.Status.MigrationState.MigrationUID) != "" &&
-		!vmi.Status.MigrationState.Completed &&
-		!vmi.Status.MigrationState.Failed {
+		!vmi.Status.MigrationState.Completed {
 
 		return webhooks.ToAdmissionResponseError(fmt.Errorf("in-flight migration detected. Active migration job (%s) is currently already in progress for VMI %s.", string(vmi.Status.MigrationState.MigrationUID), vmi.Name))
 	}
