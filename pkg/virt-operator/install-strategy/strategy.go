@@ -264,9 +264,9 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		TypeMeta:  typeMeta,
 		TargetSCC: "privileged",
 		ServiceAccounts: []string{
-			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-handler"),
-			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-apiserver"),
-			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), "kubevirt-controller"),
+			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), rbac.HandlerServiceAccountName),
+			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), rbac.ApiServiceAccountName),
+			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), rbac.ControllerServiceAccountName),
 		},
 	})
 

@@ -27,6 +27,8 @@ import (
 	virtv1 "kubevirt.io/client-go/api/v1"
 )
 
+const HandlerServiceAccountName = "kubevirt-handler"
+
 func GetAllHandler(namespace string) []interface{} {
 	return []interface{}{
 		newHandlerServiceAccount(namespace),
@@ -45,7 +47,7 @@ func newHandlerServiceAccount(namespace string) *corev1.ServiceAccount {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "kubevirt-handler",
+			Name:      HandlerServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -60,7 +62,7 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-handler",
+			Name: HandlerServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -134,7 +136,7 @@ func newHandlerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-handler",
+			Name: HandlerServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -142,13 +144,13 @@ func newHandlerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     "kubevirt-handler",
+			Name:     HandlerServiceAccountName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
-				Name:      "kubevirt-handler",
+				Name:      HandlerServiceAccountName,
 			},
 		},
 	}
@@ -162,7 +164,7 @@ func newHandlerRole(namespace string) *rbacv1.Role {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "kubevirt-handler",
+			Name:      HandlerServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -202,7 +204,7 @@ func newHandlerRoleBinding(namespace string) *rbacv1.RoleBinding {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "kubevirt-handler",
+			Name:      HandlerServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -210,13 +212,13 @@ func newHandlerRoleBinding(namespace string) *rbacv1.RoleBinding {
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
-			Name:     "kubevirt-handler",
+			Name:     HandlerServiceAccountName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
-				Name:      "kubevirt-handler",
+				Name:      HandlerServiceAccountName,
 			},
 		},
 	}
