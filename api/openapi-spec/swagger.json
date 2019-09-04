@@ -4463,6 +4463,13 @@
        "$ref": "#/definitions/v1.Disk"
       }
      },
+     "gpus": {
+      "description": "Whether to attach a GPU device to the vmi.\n+optional",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Gpu"
+      }
+     },
      "inputs": {
       "description": "Inputs describe input devices",
       "type": "array",
@@ -4784,6 +4791,17 @@
     "properties": {
      "networkName": {
       "description": "References the CNI plugin name.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.Gpu": {
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name of the GPU device as exposed by a device plugin",
       "type": "string"
      }
     }
