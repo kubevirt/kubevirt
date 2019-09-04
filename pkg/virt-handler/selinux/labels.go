@@ -103,20 +103,21 @@ func copyPolicy(policyName string, dir string) (err error) {
 	return nil
 }
 
-func (se *SELinuxImpl) Label(label string, dir string) (err error) {
+// Label sets selinux label on the directory
+func (se *SELinuxImpl) Label(label string, dir string) error {
 	dir = strings.TrimRight(dir, "/") + "(/.*)?"
-	out, err := se.execute("semanage", se.Paths, "fcontext", "-a", "-t", label, dir)
-	if err != nil {
-		return fmt.Errorf("failed to set label for directory %v: %v ", dir, string(out))
+	if out, err := se.execute("semanage", se.Paths, "fcontext", "-a", "-t", label, dir); err != nil {
+		return fmt.Errorf("failed to set label for directory %v: out: %q, error: %v", dir, string(out), err)
 	}
 	return nil
 }
 
-func (se *SELinuxImpl) IsLabeled(dir string) (labeled bool, err error) {
+// IsLabeled verifies if the directory already labeled
+func (se *SELinuxImpl) IsLabeled(dir string) (bool, error) {
 	dir = strings.TrimRight(dir, "/") + "(/.*)?"
 	out, err := se.execute("semanage", se.Paths, "fcontext", "-l")
 	if err != nil {
-		return false, fmt.Errorf("failed to list labels: %v ", string(out))
+		return false, fmt.Errorf("failed to list labels: out: %q, error: %v", string(out), err)
 	}
 	if strings.Contains(string(out), dir) {
 		return true, nil
@@ -124,11 +125,11 @@ func (se *SELinuxImpl) IsLabeled(dir string) (labeled bool, err error) {
 	return false, nil
 }
 
-func (se *SELinuxImpl) Restore(dir string) (err error) {
+// Restore restores selinux labels on the directory
+func (se *SELinuxImpl) Restore(dir string) error {
 	dir = strings.TrimRight(dir, "/") + "/"
-	out, err := se.execute("restorecon", se.Paths, "-r", "-v", dir)
-	if err != nil {
-		return fmt.Errorf("failed to set selinux permissions: %v ", string(out))
+	if out, err := se.execute("restorecon", se.Paths, "-r", "-v", dir); err != nil {
+		return fmt.Errorf("failed to set selinux permissions: out: %q, error: %v", string(out), err)
 	}
 	return nil
 }
