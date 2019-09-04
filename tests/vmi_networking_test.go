@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -102,6 +103,10 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string) {
 		output := tests.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0/brport/learning"})
 		ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal(expectedValue))
+	}
+
+	setBridgeEnabled := func(enable bool) {
+		tests.UpdateClusterConfigValue("permitBridgeInterfaceOnPodNetwork", fmt.Sprintf("%t", enable))
 	}
 
 	Describe("Multiple virtual machines connectivity using bridge binding interface", func() {
@@ -805,6 +810,26 @@ sock = None
 sockfd = None`})
 
 			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("0"))
+		})
+	})
+
+	Context("vmi with default bridge interface on pod network", func() {
+		BeforeEach(func() {
+			setBridgeEnabled(false)
+		})
+		AfterEach(func() {
+			setBridgeEnabled(true)
+		})
+		It("[test_id:2964]should reject VMIs with bridge interface when it's not permitted on pod network", func() {
+			var t int64 = 0
+			vmi := v1.NewMinimalVMIWithNS(tests.NamespaceTestDefault, "testvmi"+rand.String(48))
+			vmi.Spec.TerminationGracePeriodSeconds = &t
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+			tests.AddEphemeralDisk(vmi, "disk0", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
+
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Bridge interface is not enabled in kubevirt-config"))
 		})
 	})
 })
