@@ -277,6 +277,18 @@ spec:
           - create
           - delete
         - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - update
+          - patch
+        - apiGroups:
           - subresources.kubevirt.io
           resources:
           - virtualmachines/start

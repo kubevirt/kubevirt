@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"strings"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -44,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -435,6 +437,10 @@ func createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
 	clientset kubecli.KubevirtClient,
 	expectations *util.Expectations) error {
 
+	if !stores.ServiceMonitorEnabled && (rb.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
+		return nil
+	}
+
 	var err error
 	rbac := clientset.RbacV1()
 
@@ -486,6 +492,10 @@ func createOrUpdateRole(r *rbacv1.Role,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
 	expectations *util.Expectations) error {
+
+	if !stores.ServiceMonitorEnabled && (r.Name == rbac.MONITOR_SERVICEACCOUNT_NAME) {
+		return nil
+	}
 
 	var err error
 	rbac := clientset.RbacV1()
@@ -1339,6 +1349,79 @@ func createOrUpdateService(kv *v1.KubeVirt,
 	return false, nil
 }
 
+func createOrUpdateServiceMonitors(kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	if !stores.ServiceMonitorEnabled {
+		return nil
+	}
+
+	prometheusClient := clientset.PrometheusClient()
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	version := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+
+	for _, serviceMonitor := range targetStrategy.serviceMonitors {
+		var cachedServiceMonitor *promv1.ServiceMonitor
+
+		serviceMonitor := serviceMonitor.DeepCopy()
+		obj, exists, _ := stores.ServiceMonitorCache.Get(serviceMonitor)
+		if exists {
+			cachedServiceMonitor = obj.(*promv1.ServiceMonitor)
+		}
+
+		injectOperatorMetadata(kv, &serviceMonitor.ObjectMeta, version, imageRegistry, id)
+		if !exists {
+			// Create non existent
+			expectations.ServiceMonitor.RaiseExpectations(kvkey, 1, 0)
+			_, err := prometheusClient.Monitoring().ServiceMonitors(serviceMonitor.Namespace).Create(serviceMonitor)
+			if err != nil {
+				expectations.ServiceMonitor.LowerExpectations(kvkey, 1, 0)
+				return fmt.Errorf("unable to create serviceMonitor %+v: %v", serviceMonitor, err)
+			}
+			log.Log.V(2).Infof("serviceMonitor %v created", serviceMonitor.GetName())
+
+		} else if !objectMatchesVersion(&cachedServiceMonitor.ObjectMeta, version, imageRegistry, id) {
+			// Patch if old version
+			var ops []string
+
+			// Add Labels and Annotations Patches
+			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&serviceMonitor.ObjectMeta)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, labelAnnotationPatch...)
+
+			// Add Spec Patch
+			newSpec, err := json.Marshal(serviceMonitor.Spec)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+
+			_, err = prometheusClient.Monitoring().ServiceMonitors(serviceMonitor.Namespace).Patch(serviceMonitor.Name, types.JSONPatchType, generatePatchBytes(ops))
+			if err != nil {
+				return fmt.Errorf("unable to patch serviceMonitor %+v: %v", serviceMonitor, err)
+			}
+			log.Log.V(2).Infof("serviceMonitor %v updated", serviceMonitor.GetName())
+
+		} else {
+			log.Log.V(4).Infof("serviceMonitor %v is up-to-date", serviceMonitor.GetName())
+		}
+	}
+
+	return nil
+}
+
 // deprecated, keep it for backwards compatibility
 func addOrRemoveSSC(targetStrategy *InstallStrategy,
 	prevStrategy *InstallStrategy,
@@ -1600,6 +1683,12 @@ func SyncAll(kv *v1.KubeVirt,
 
 	// create/update CRDs
 	err = createOrUpdateCrds(kv, targetStrategy, stores, clientset, expectations)
+	if err != nil {
+		return false, err
+	}
+
+	// create/update serviceMonitor
+	err = createOrUpdateServiceMonitors(kv, targetStrategy, stores, clientset, expectations)
 	if err != nil {
 		return false, err
 	}

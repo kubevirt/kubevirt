@@ -174,6 +174,22 @@ func Execute() {
 		app.stores.SCCCache = app.informerFactory.DummyOperatorSCC().GetStore()
 	}
 
+	serviceMonitorEnabled, err := util.IsServiceMonitorEnabled(app.clientSet)
+	if err != nil {
+		golog.Fatalf("Error checking for ServiceMonitor: %v", err)
+	}
+	if serviceMonitorEnabled {
+		log.Log.Info("servicemonitor is defined")
+		app.informers.ServiceMonitor = app.informerFactory.OperatorServiceMonitor()
+		app.stores.ServiceMonitorCache = app.informerFactory.OperatorServiceMonitor().GetStore()
+
+		app.stores.ServiceMonitorEnabled = true
+	} else {
+		log.Log.Info("servicemonitor is not defined")
+		app.informers.ServiceMonitor = app.informerFactory.DummyOperatorServiceMonitor()
+		app.stores.ServiceMonitorCache = app.informerFactory.DummyOperatorServiceMonitor().GetStore()
+	}
+
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virt-operator")
 	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace)
 

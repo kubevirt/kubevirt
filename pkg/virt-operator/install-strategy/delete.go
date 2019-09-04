@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -188,6 +189,27 @@ func DeleteAll(kv *v1.KubeVirt,
 					log.Log.Errorf("Failed to delete service %+v: %v", svc, err)
 					return err
 				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	// delete serviceMonitor
+	prometheusClient := clientset.PrometheusClient()
+	objects = stores.ServiceMonitorCache.List()
+	for _, obj := range objects {
+		if serviceMonitor, ok := obj.(*promv1.ServiceMonitor); ok && serviceMonitor.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(serviceMonitor); err == nil {
+				expectations.ServiceMonitor.AddExpectedDeletion(kvkey, key)
+				err := prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Delete(serviceMonitor.Name, deleteOptions)
+				if false && err != nil {
+					expectations.ServiceMonitor.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete serviceMonitor %+v: %v", serviceMonitor, err)
+					return err
+				}
+				expectations.ServiceMonitor.DeletionObserved(kvkey, key)
 			}
 		} else if !ok {
 			log.Log.Errorf("Cast failed! obj: %+v", obj)

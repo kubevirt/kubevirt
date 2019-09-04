@@ -19,6 +19,8 @@
 package components
 
 import (
+	"github.com/coreos/prometheus-operator/pkg/apis/monitoring"
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -229,6 +231,43 @@ func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 	}
 
 	return crd
+}
+
+func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkipVerify bool) *promv1.ServiceMonitor {
+	return &promv1.ServiceMonitor{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: monitoring.GroupName,
+			Kind:       "ServiceMonitor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: monitorNamespace,
+			Name:      "kubevirt",
+			Labels: map[string]string{
+				"openshift.io/cluster-monitoring": "",
+				"prometheus.kubevirt.io":          "",
+				"k8s-app":                         "kubevirt",
+			},
+		},
+		Spec: promv1.ServiceMonitorSpec{
+			Selector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"prometheus.kubevirt.io": "",
+				},
+			},
+			NamespaceSelector: promv1.NamespaceSelector{
+				MatchNames: []string{namespace},
+			},
+			Endpoints: []promv1.Endpoint{
+				promv1.Endpoint{
+					Port:   "metrics",
+					Scheme: "https",
+					TLSConfig: &promv1.TLSConfig{
+						InsecureSkipVerify: insecureSkipVerify,
+					},
+				},
+			},
+		},
+	}
 }
 
 // Used by manifest generation
