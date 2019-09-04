@@ -237,6 +237,17 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				},
 			},
 			{
+				APIGroups: []string{
+					"monitoring.coreos.com",
+				},
+				Resources: []string{
+					"servicemonitors",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "create", "delete", "update", "patch",
+				},
+			},
+			{
 				// this is needed for being able to update from older versions (<= v0.18), which included the removed
 				// "put" verb on subresources for admin and edit cluster roles.
 				// Remove this when upgrade path from v0.18 and earlier is not supported anymore

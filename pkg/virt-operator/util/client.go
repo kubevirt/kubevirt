@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	"k8s.io/client-go/discovery"
 
@@ -212,6 +213,25 @@ func IsOnOpenshift(clientset kubecli.KubevirtClient) (bool, error) {
 		if api.GroupVersion == secv1.GroupVersion.String() {
 			for _, resource := range api.APIResources {
 				if resource.Name == "securitycontextconstraints" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
+}
+
+func IsServiceMonitorEnabled(clientset kubecli.KubevirtClient) (bool, error) {
+	apis, err := clientset.DiscoveryClient().ServerResources()
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+		return false, err
+	}
+
+	for _, api := range apis {
+		if api.GroupVersion == promv1.SchemeGroupVersion.String() {
+			for _, resource := range api.APIResources {
+				if resource.Name == "servicemonitors" {
 					return true, nil
 				}
 			}

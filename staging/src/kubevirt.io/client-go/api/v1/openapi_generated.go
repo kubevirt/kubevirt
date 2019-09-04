@@ -1792,6 +1792,20 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"monitorNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The namespace Prometheus is deployed in Defaults to openshift-monitor",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"monitorAccount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the Prometheus service account that needs read-access to KubeVirt endpoints Defaults to prometheus-k8s",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

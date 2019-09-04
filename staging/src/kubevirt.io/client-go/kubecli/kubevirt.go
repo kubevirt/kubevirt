@@ -40,6 +40,8 @@ import (
 
 	networkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 
+	promclient "github.com/coreos/prometheus-operator/pkg/client/versioned"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	cdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
@@ -58,6 +60,7 @@ type KubevirtClient interface {
 	ExtensionsClient() extclient.Interface
 	SecClient() secv1.SecurityV1Interface
 	DiscoveryClient() discovery.DiscoveryInterface
+	PrometheusClient() promclient.Interface
 	kubernetes.Interface
 	Config() *rest.Config
 }
@@ -72,6 +75,7 @@ type kubevirt struct {
 	extensionsClient *extclient.Clientset
 	secClient        *secv1.SecurityV1Client
 	discoveryClient  *discovery.DiscoveryClient
+	prometheusClient *promclient.Clientset
 	*kubernetes.Clientset
 }
 
@@ -97,6 +101,10 @@ func (k kubevirt) SecClient() secv1.SecurityV1Interface {
 
 func (k kubevirt) DiscoveryClient() discovery.DiscoveryInterface {
 	return k.discoveryClient
+}
+
+func (k kubevirt) PrometheusClient() promclient.Interface {
+	return k.prometheusClient
 }
 
 func (k kubevirt) RestClient() *rest.RESTClient {
