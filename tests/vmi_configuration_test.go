@@ -383,11 +383,11 @@ var _ = Describe("Configurations", func() {
 
 		Context("with cluster memory overcommit being applied", func() {
 			BeforeEach(func() {
-				tests.UpdateClusterConfigValue("memory-overcommit", "200")
+				tests.UpdateClusterConfigValueAndWait("memory-overcommit", "200")
 			})
 
 			AfterEach(func() {
-				tests.UpdateClusterConfigValue("memory-overcommit", "")
+				tests.UpdateClusterConfigValueAndWait("memory-overcommit", "")
 			})
 
 			It("should set requested amount of memory according to the specified virtual memory", func() {
@@ -1283,7 +1283,7 @@ var _ = Describe("Configurations", func() {
 		defaultMachineTypeKey := "machine-type"
 
 		AfterEach(func() {
-			tests.UpdateClusterConfigValue(defaultMachineTypeKey, "")
+			tests.UpdateClusterConfigValueAndWait(defaultMachineTypeKey, "")
 		})
 
 		It("should set machine type from VMI spec", func() {
@@ -1307,7 +1307,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("should set machine type from kubevirt-config", func() {
-			tests.UpdateClusterConfigValue(defaultMachineTypeKey, "pc-q35-3.0")
+			tests.UpdateClusterConfigValueAndWait(defaultMachineTypeKey, "pc-q35-3.0")
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = ""
@@ -1323,7 +1323,7 @@ var _ = Describe("Configurations", func() {
 		defaultCPURequestKey := "cpu-request"
 
 		AfterEach(func() {
-			tests.UpdateClusterConfigValue(defaultCPURequestKey, "")
+			tests.UpdateClusterConfigValueAndWait(defaultCPURequestKey, "")
 		})
 
 		It("should set CPU request from VMI spec", func() {
@@ -1353,7 +1353,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("should set CPU request from kubevirt-config", func() {
-			tests.UpdateClusterConfigValue(defaultCPURequestKey, "800m")
+			tests.UpdateClusterConfigValueAndWait(defaultCPURequestKey, "800m")
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
@@ -1910,7 +1910,7 @@ var _ = Describe("Configurations", func() {
 			test_smbios := &cmdv1.SMBios{Family: "test", Product: "test", Manufacturer: "None", Sku: "1.0", Version: "1.0"}
 			smbiosJson, err := json.Marshal(test_smbios)
 			Expect(err).ToNot(HaveOccurred())
-			tests.UpdateClusterConfigValue("smbios", string(smbiosJson))
+			tests.UpdateClusterConfigValueAndWait("smbios", string(smbiosJson))
 
 			By("Starting a VirtualMachineInstance")
 			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
