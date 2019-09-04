@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"kubevirt.io/client-go/log"
 )
 
 const procOnePrefix = "/proc/1/root"
@@ -54,6 +56,17 @@ func (se *SELinuxImpl) IsPresent() (present bool, err error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func (se *SELinuxImpl) IsPermissive() (present bool, err error) {
+	out, err := se.execute("getenforce", se.Paths)
+	if err != nil {
+		return false, err
+	}
+	if strings.Contains(string(out), "Permissive") {
+		return true, nil
+	}
+	return false, nil
 }
 
 func lookupPath(binary string, prefix string, paths []string) (string, bool, error) {
@@ -107,6 +120,10 @@ func copyPolicy(policyName string, dir string) (err error) {
 func (se *SELinuxImpl) Label(label string, dir string) error {
 	dir = strings.TrimRight(dir, "/") + "(/.*)?"
 	if out, err := se.execute("semanage", se.Paths, "fcontext", "-a", "-t", label, dir); err != nil {
+		if perm, _ := se.IsPermissive(); perm {
+			log.Log.Warningf("Permissive mode, ignoring 'semanage' failure: out: %q, error: %v", string(out), err)
+			return nil
+		}
 		return fmt.Errorf("failed to set label for directory %v: out: %q, error: %v", dir, string(out), err)
 	}
 	return nil
@@ -117,6 +134,10 @@ func (se *SELinuxImpl) IsLabeled(dir string) (bool, error) {
 	dir = strings.TrimRight(dir, "/") + "(/.*)?"
 	out, err := se.execute("semanage", se.Paths, "fcontext", "-l")
 	if err != nil {
+		if perm, _ := se.IsPermissive(); perm {
+			log.Log.Warningf("Permissive mode, ignoring 'semanage' failure: out: %q, error: %v", string(out), err)
+			return false, nil
+		}
 		return false, fmt.Errorf("failed to list labels: out: %q, error: %v", string(out), err)
 	}
 	if strings.Contains(string(out), dir) {
@@ -129,20 +150,28 @@ func (se *SELinuxImpl) IsLabeled(dir string) (bool, error) {
 func (se *SELinuxImpl) Restore(dir string) error {
 	dir = strings.TrimRight(dir, "/") + "/"
 	if out, err := se.execute("restorecon", se.Paths, "-r", "-v", dir); err != nil {
+		if perm, _ := se.IsPermissive(); perm {
+			log.Log.Warningf("Permissive mode, ignoring 'restorecon' failure: out: %q, error: %v", string(out), err)
+			return nil
+		}
 		return fmt.Errorf("failed to set selinux permissions: out: %q, error: %v", string(out), err)
 	}
 	return nil
 }
 
-func (*SELinuxImpl) InstallPolicy(dir string) (err error) {
+func (se *SELinuxImpl) InstallPolicy(dir string) (err error) {
 	for _, policyName := range POLICY_FILES {
 		fileDest := dir + "/" + policyName + ".cil"
 		err := copyPolicy(policyName, dir)
 		if err != nil {
 			return fmt.Errorf("failed to copy policy %v - err: % v", fileDest, err)
 		}
-		_, err = exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/semodule", "-i", fileDest).CombinedOutput()
+		out, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/semodule", "-i", fileDest).CombinedOutput()
 		if err != nil {
+			if perm, _ := se.IsPermissive(); perm {
+				log.Log.Warningf("Permissive mode, ignoring 'semodule' failure: out: %q, error: %v", string(out), err)
+				return nil
+			}
 			return fmt.Errorf("failed to install policy %v - err: % v", fileDest, err)
 		}
 	}
