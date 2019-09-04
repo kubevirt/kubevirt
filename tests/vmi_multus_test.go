@@ -131,7 +131,7 @@ var _ = Describe("Multus", func() {
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 
-		// Create identical ptp crds
+		// Create a ptp crd
 		result = virtClient.RestClient().
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf")).
@@ -139,11 +139,11 @@ var _ = Describe("Multus", func() {
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 
-		// Create ptp crd with tuning plugin enabled in two different namespaces
+		// Create ptp crds with tuning plugin enabled in two different namespaces
 		result = virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf-tuning")).
-			Body([]byte(fmt.Sprintf(ptpConfWithTuningCRD, "ptp-conf-tuning", tests.NamespaceTestDefault))).
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf-tuning-1")).
+			Body([]byte(fmt.Sprintf(ptpConfWithTuningCRD, "ptp-conf-tuning-1", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 
@@ -164,7 +164,7 @@ var _ = Describe("Multus", func() {
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", MacAddress: "50:00:00:00:90:0d", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf-tuning"},
+						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf-tuning-1"},
 					}},
 				}
 
@@ -202,7 +202,7 @@ var _ = Describe("Multus", func() {
 				detachedVMI.Spec.Networks = []v1.Network{
 					defaultNetwork,
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf-tuning"},
+						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf-tuning-1"},
 					}},
 				}
 
@@ -316,7 +316,7 @@ var _ = Describe("Multus", func() {
 				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
 			},
 				table.Entry("when not using tuning plugin", "ptp-conf"),
-				table.Entry("when using tuning plugin", "ptp-conf-tuning"),
+				table.Entry("when using tuning plugin", "ptp-conf-tuning-1"),
 			)
 		})
 
