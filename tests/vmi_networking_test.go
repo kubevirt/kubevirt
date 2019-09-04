@@ -106,7 +106,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	}
 
 	setBridgeEnabled := func(enable bool) {
-		tests.UpdateClusterConfigValue("permitBridgeInterfaceOnPodNetwork", fmt.Sprintf("%t", enable))
+		tests.UpdateClusterConfigValueAndWait("permitBridgeInterfaceOnPodNetwork", fmt.Sprintf("%t", enable))
 	}
 
 	Describe("Multiple virtual machines connectivity using bridge binding interface", func() {
