@@ -270,7 +270,7 @@ http_file(
     name = "qemu-img",
     sha256 = "eadbd81fe25827a9d7712d0d96b134ab834bfab9e7332a8e9cf54dedd3c02581",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-img-2.11.2-5.fc28.x86_64.rpm",
+        "https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-img-2.11.2-5.fc28.x86_64.rpm",
     ],
 )
 
@@ -278,7 +278,7 @@ http_file(
     name = "bzip2",
     sha256 = "5248b7b85e58319c6c16e9b545dc04f1b25ba236e0507a7c923d74b00fe8741c",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/releases/28/Everything/x86_64/os/Packages/b/bzip2-1.0.6-26.fc28.x86_64.rpm",
+        "https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/28/Everything/x86_64/os/Packages/b/bzip2-1.0.6-26.fc28.x86_64.rpm",
     ],
 )
 
@@ -286,7 +286,7 @@ http_file(
     name = "capstone",
     sha256 = "847ebb3a852f82cfe932230d1700cb8b90f602acbe9f9dcf5de7129a1d222c6b",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/c/capstone-3.0.5-1.fc28.x86_64.rpm",
+        "https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/28/Everything/x86_64/Packages/c/capstone-3.0.5-1.fc28.x86_64.rpm",
     ],
 )
 
@@ -294,7 +294,7 @@ http_file(
     name = "libaio",
     sha256 = "da731218ec1a8e8f690c880d7a45d09722ea01090caba0ae25d9202e0d521404",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/releases/28/Everything/x86_64/os/Packages/l/libaio-0.3.110-11.fc28.x86_64.rpm",
+        "https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/28/Everything/x86_64/os/Packages/l/libaio-0.3.110-11.fc28.x86_64.rpm",
     ],
 )
 
@@ -302,7 +302,7 @@ http_file(
     name = "libstdc",
     sha256 = "61743bc70033f02604fc18991f2a06efebd3b0f55abcbf5b1f7bd3e3cdca6293",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/l/libstdc++-8.3.1-2.fc28.x86_64.rpm",
+        "https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/28/Everything/x86_64/Packages/l/libstdc++-8.3.1-2.fc28.x86_64.rpm",
     ],
 )
 
@@ -310,7 +310,7 @@ http_file(
     name = "qemu-guest-agent",
     sha256 = "d9c5072ab2476fbf9e50dd374b2bc680d3accadd2e70d52cae4eb515b6a893f4",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-guest-agent-2.11.2-5.fc28.x86_64.rpm",
+        "https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-guest-agent-2.11.2-5.fc28.x86_64.rpm",
     ],
 )
 
@@ -318,7 +318,7 @@ http_file(
     name = "stress",
     sha256 = "bd93021d826c98cbec15b4bf7e0800f723f986e7ed89357c56284a7efa6394b5",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/releases/28/Everything/x86_64/os/Packages/s/stress-1.0.4-20.fc28.x86_64.rpm",
+        "https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/28/Everything/x86_64/os/Packages/s/stress-1.0.4-20.fc28.x86_64.rpm",
     ],
 )
 
@@ -326,6 +326,6 @@ http_file(
     name = "e2fsprogs",
     sha256 = "d6db37d587a2a0f7cd19e42aea8bd3e5e7c3a9c39c324d40be7514624f9f8f5f",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/e/e2fsprogs-1.44.2-0.fc28.x86_64.rpm",
+        "https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/28/Everything/x86_64/Packages/e/e2fsprogs-1.44.2-0.fc28.x86_64.rpm",
     ],
 )
