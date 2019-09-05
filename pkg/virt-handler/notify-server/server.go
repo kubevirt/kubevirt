@@ -74,7 +74,7 @@ func (n *Notify) HandleDomainEvent(ctx context.Context, request *notifyv1.Domain
 		}
 	}
 
-	log.Log.Infof("Received Domain Event of type %s", request.EventType)
+	log.Log.Object(domain).Infof("Received Domain Event of type %s", request.EventType)
 	switch request.EventType {
 	case string(watch.Added):
 		n.EventChan <- watch.Event{Type: watch.Added, Object: domain}
