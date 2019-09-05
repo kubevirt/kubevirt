@@ -204,7 +204,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			Expect(output).Should(ContainSubstring(strings.ToUpper(windowsFirmware)))
 		}, 360)
 
-		It("should have pod IP", func() {
+		It("should have default masquerade IP", func() {
 			command := append(cli, "ipconfig /all")
 			By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 			Eventually(func() error {
@@ -218,7 +218,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
 
 			By("Checking that the Windows VirtualMachineInstance has expected IP address")
-			Expect(output).Should(ContainSubstring(vmiIp))
+			Expect(output).Should(ContainSubstring("10.0.2.2"))
 		}, 360)
 		It("should have the domain set properly", func() {
 			command := append(cli, "wmic nicconfig get dnsdomain")
