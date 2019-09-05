@@ -63,6 +63,8 @@ var (
 	cdiCsv              = flag.String("cdi-csv", "", "")
 	nmoCsv              = flag.String("nmo-csv", "", "")
 	operatorImage       = flag.String("operator-image-name", "", "")
+	imsConversionImage  = flag.String("ims-conversion-image-name", "", "")
+	imsVMWareImage      = flag.String("ims-vmware-image-name", "", "")
 	csvVersion          = flag.String("csv-version", "", "")
 	replacesCsvVersion  = flag.String("replaces-csv-version", "", "")
 	metadataDescription = flag.String("metadata-description", "", "")
@@ -146,6 +148,14 @@ func main() {
 				if env.Name == "OPERATOR_IMAGE" {
 					efound = true
 					deployment.Spec.Template.Spec.Containers[0].Env[i].Value = *operatorImage
+				}
+				if env.Name == "CONVERSION_CONTAINER" {
+					efound = true
+					deployment.Spec.Template.Spec.Containers[0].Env[i].Value = *imsConversionImage
+				}
+				if env.Name == "VMWARE_CONTAINER" {
+					efound = true
+					deployment.Spec.Template.Spec.Containers[0].Env[i].Value = *imsVMWareImage
 				}
 			}
 		}
