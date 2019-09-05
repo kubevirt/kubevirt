@@ -142,11 +142,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
 		go podInformer.Run(stop)
+		go pvcInformer.Run(stop)
 
 		go dataVolumeInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop,
 			vmiInformer.HasSynced,
 			podInformer.HasSynced,
+			pvcInformer.HasSynced,
 			dataVolumeInformer.HasSynced)).To(BeTrue())
 	}
 
@@ -216,6 +218,18 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				},
 			})
+
+			dvPVC := &k8sv1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
+					APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: vmi.Namespace,
+					Name:      "test1"},
+			}
+			// we are mocking a successful DataVolume. we expect the PVC to
+			// be available in the store if DV is successful.
+			pvcInformer.GetIndexer().Add(dvPVC)
 
 			dataVolume := &cdiv1.DataVolume{
 				ObjectMeta: metav1.ObjectMeta{

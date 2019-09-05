@@ -14,12 +14,12 @@ function _wait_kind_up {
         sleep 10
     done
     echo "Waiting for dns to be ready ..."        
-    kubectl wait -n kube-system --timeout=12m --for=condition=Ready -l k8s-app=kube-dns pods
+    _kubectl wait -n kube-system --timeout=12m --for=condition=Ready -l k8s-app=kube-dns pods
 }
 
 function _wait_containers_ready {
     echo "Waiting for all containers to become ready ..."
-    kubectl wait --for=condition=Ready pod --all -n kube-system --timeout 12m
+    _kubectl wait --for=condition=Ready pod --all -n kube-system --timeout 12m
 }
 
 function _fetch_kind() {

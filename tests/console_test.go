@@ -24,11 +24,14 @@ import (
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -75,6 +78,13 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 		return expecter, errChan
 	}
 
+	deleteDataVolume := func(dv *cdiv1.DataVolume) {
+		if dv != nil {
+			By("Deleting the DataVolume")
+			ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+		}
+	}
+
 	Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		Context("with a serial console", func() {
 			Context("with a cirros image", func() {
@@ -98,6 +108,33 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 						"Welcome to",
 					)
 				})
+			})
+
+			Context("with an alpine image", func() {
+				type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
+
+				newVirtualMachineInstanceWithAlpineContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+					return tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine)), nil
+				}
+
+				newVirtualMachineInstanceWithAlpineOCSFileDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeFilesystem)
+				}
+
+				newVirtualMachineInstanceWithAlpineOCSBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+					return tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
+				}
+
+				table.DescribeTable("should return that we are running alpine", func(createVMI vmiBuilder) {
+					vmi, dv := createVMI()
+					defer deleteDataVolume(dv)
+					RunVMIAndWaitForStart(vmi)
+					ExpectConsoleOutput(vmi, "login")
+				},
+					table.Entry("with ContainerDisk", newVirtualMachineInstanceWithAlpineContainerDisk),
+					table.Entry("with OCS Filesystem Disk", newVirtualMachineInstanceWithAlpineOCSFileDisk),
+					table.Entry("with OCS Block Disk", newVirtualMachineInstanceWithAlpineOCSBlockDisk),
+				)
 			})
 
 			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
