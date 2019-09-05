@@ -710,14 +710,14 @@ var _ = Describe("getGpuAddresses", func() {
 	})
 
 	It("returns single PCI address ", func() {
-		os.Setenv("GPU_PASSTHROUGH_DEVICES", "2609:19:90.0,")
+		os.Setenv("GPU_PASSTHROUGH_DEVICES_SOME_VENDOR", "2609:19:90.0,")
 		addrs := getGpuAddresses()
 		Expect(len(addrs)).To(Equal(1))
 		Expect(addrs[0]).To(Equal("2609:19:90.0"))
 	})
 
 	It("returns multiple PCI addresses", func() {
-		os.Setenv("GPU_PASSTHROUGH_DEVICES", "2609:19:90.0,2609:19:90.1")
+		os.Setenv("GPU_PASSTHROUGH_DEVICES_SOME_VENDOR", "2609:19:90.0,2609:19:90.1")
 		addrs := getGpuAddresses()
 		Expect(len(addrs)).To(Equal(2))
 		Expect(addrs[0]).To(Equal("2609:19:90.0"))
@@ -731,14 +731,14 @@ var _ = Describe("getVgpuAddresses", func() {
 	})
 
 	It("returns single  Mdev Uuid ", func() {
-		os.Setenv("VGPU_PASSTHROUGH_DEVICES", "aa618089-8b16-4d01-a136-25a0f3c73123,")
+		os.Setenv("VGPU_PASSTHROUGH_DEVICES_SOME_VENDOR", "aa618089-8b16-4d01-a136-25a0f3c73123,")
 		addrs := getVgpuAddresses()
 		Expect(len(addrs)).To(Equal(1))
 		Expect(addrs[0]).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73123"))
 	})
 
 	It("returns multiple  Mdev Uuid", func() {
-		os.Setenv("VGPU_PASSTHROUGH_DEVICES", "aa618089-8b16-4d01-a136-25a0f3c73123,aa618089-8b16-4d01-a136-25a0f3c73124")
+		os.Setenv("VGPU_PASSTHROUGH_DEVICES_SOME_VENDOR", "aa618089-8b16-4d01-a136-25a0f3c73123,aa618089-8b16-4d01-a136-25a0f3c73124")
 		addrs := getVgpuAddresses()
 		Expect(len(addrs)).To(Equal(2))
 		Expect(addrs[0]).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73123"))

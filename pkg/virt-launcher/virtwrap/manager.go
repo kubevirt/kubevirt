@@ -66,6 +66,8 @@ import (
 )
 
 const LibvirtLocalConnectionPort = 22222
+const gpuEnvPrefix = "GPU_PASSTHROUGH_DEVICES"
+const vgpuEnvPrefix = "VGPU_PASSTHROUGH_DEVICES"
 
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
@@ -871,32 +873,38 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 	return networkToAddressesMap
 }
 
-// This function parses the GPU_PASSTHROUGH_DEVICES variable that is set by
-// device plugin. It lists PCI IDs for devices allocated to the pod. The format
+// This function parses all environment variables with prefix GPU_PASSTHROUGH_DEVICES that are set by
+// device plugins. It lists PCI IDs for devices allocated to the pod. The format
 // is as follows:
 // "": for no allocated devices
 // "0000:81:11.1,": for a single device
 // "0000:81:11.1,0000:81:11.2[,...]": for multiple devices
 func getGpuAddresses() []string {
-	addrString, isSet := os.LookupEnv("GPU_PASSTHROUGH_DEVICES")
-	if isSet {
-		return parseDeviceAddress(addrString)
+	var returnAddr []string
+	for _, env := range os.Environ() {
+		split := strings.Split(env, "=")
+		if strings.HasPrefix(split[0], gpuEnvPrefix) {
+			returnAddr = append(returnAddr, parseDeviceAddress(split[1])...)
+		}
 	}
-	return []string{}
+	return returnAddr
 }
 
-// This function parses the VGPU_PASSTHROUGH_DEVICES variable that is set by
-// device plugin. It lists Mdev Uuids for devices allocated to the pod. The format
+// This function parses all environment variables with prefix VGPU_PASSTHROUGH_DEVICES that are set by
+// device plugins. It lists Mdev Uuids for devices allocated to the pod. The format
 // is as follows:
 // "":for no allocated devices
 // "aa618089-8b16-4d01-a136-25a0f3c73123,": for a single device
 // "aa618089-8b16-4d01-a136-25a0f3c73123,1a527489-7cde-4a50-b8d6-3d5b0dc01e3b[,...]": for multiple devices
 func getVgpuAddresses() []string {
-	addrString, isSet := os.LookupEnv("VGPU_PASSTHROUGH_DEVICES")
-	if isSet {
-		return parseDeviceAddress(addrString)
+	var returnAddr []string
+	for _, env := range os.Environ() {
+		split := strings.Split(env, "=")
+		if strings.HasPrefix(split[0], vgpuEnvPrefix) {
+			returnAddr = append(returnAddr, parseDeviceAddress(split[1])...)
+		}
 	}
-	return []string{}
+	return returnAddr
 }
 
 func parseDeviceAddress(addrString string) []string {
