@@ -3097,7 +3097,7 @@ func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessM
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newISCSIPV(name, size, iscsiTargetIP, accessMode, volumeMode))
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(NewISCSIPV(name, size, iscsiTargetIP, accessMode, volumeMode))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
@@ -3108,11 +3108,7 @@ func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessM
 	}
 }
 
-func CreateISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolume {
-	return newISCSIPV(name, size, iscsiTargetIP, accessMode, volumeMode)
-}
-
-func newISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolume {
+func NewISCSIPV(name, size, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolume {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
