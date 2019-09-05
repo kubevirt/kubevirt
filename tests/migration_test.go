@@ -640,7 +640,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskAlpine)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.PersistentVolumeBlock)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 			})
 
 			AfterEach(func() {
@@ -711,7 +711,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskCirros)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.PersistentVolumeBlock)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 			})
 
 			AfterEach(func() {
@@ -996,7 +996,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskCirros)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.NewISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
 			})
 
 			AfterEach(func() {
@@ -1060,7 +1060,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				volMode := k8sv1.PersistentVolumeBlock
 				// create a new PV and PVC (PVs can't be reused)
 				pvName := "test-iscsi-lun" + rand.String(48)
-				tests.CreateISCSIPvAndPvc(pvName, "5Gi", iscsiIP, volMode)
+				tests.CreateISCSIPvAndPvc(pvName, "5Gi", iscsiIP, k8sv1.ReadWriteMany, volMode)
 				Expect(err).To(BeNil())
 				defer tests.DeletePvAndPvc(pvName)
 
