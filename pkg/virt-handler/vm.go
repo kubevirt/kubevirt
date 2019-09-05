@@ -756,14 +756,16 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	// set true to ensure that no updates to the current VirtualMachineInstance state will occur
 	forceIgnoreSync := false
 
-	log.Log.V(3).Infof("Processing vmi %v, existing: %v\n", vmi.Name, vmiExists)
+	log.Log.Infof("Processing event %v", key)
 	if vmiExists {
-		log.Log.V(3).Infof("vmi is in phase: %v\n", vmi.Status.Phase)
+		log.Log.Infof("Vmi %s in phase %v", vmi.Name, vmi.Status.Phase)
+	} else {
+		log.Log.Info("Vmi does not exist")
 	}
-
-	log.Log.V(3).Infof("Domain: existing: %v\n", domainExists)
 	if domainExists {
-		log.Log.V(3).Infof("Domain status: %v, reason: %v\n", domain.Status.Status, domain.Status.Reason)
+		log.Log.Infof("Domain %s in status %v, reason: %v", domain.ObjectMeta.Name, domain.Status.Status, domain.Status.Reason)
+	} else {
+		log.Log.Info("Vmi does not exist")
 	}
 
 	domainAlive := domainExists &&
