@@ -1194,8 +1194,8 @@
     "version",
   ]
   pruneopts = "NT"
-  revision = "8f185668ed83a830ced59c71e7275d035776fe8d"
-  version = "v0.20.4"
+  revision = "bd7201b1d42b023858f53c6b5935cabe93cd7095"
+  version = "v0.20.5"
 
 [[projects]]
   digest = "1:0bdf550113bbc32c2b77bb1c521c64116bd4553d976b9d4903135660ec440539"
@@ -1228,7 +1228,7 @@
   version = "v1.10.3"
 
 [[projects]]
-  digest = "1:0df4d377e7311405810d122a588ed77c3a948a4b308be5398c989a0246539b01"
+  digest = "1:39f4c51a901dd95f794ddd927297cbb906c32bc60a97f37e0c6cbe98b3b5afbc"
   name = "kubevirt.io/kubevirt"
   packages = [
     ".",
@@ -1253,8 +1253,8 @@
     "pkg/virt-operator/util",
   ]
   pruneopts = "NT"
-  revision = "3cab21de7247da0fd8420c202ced8c8048dc9836"
-  version = "v0.20.4"
+  revision = "5b0ba3b29247fd584a491b89381fcffc057446c1"
+  version = "v0.20.5"
 
 [[projects]]
   digest = "1:b6b1d9e3e98a790af2d30428c80127cc9f41a19188e39aad29935756c608606d"

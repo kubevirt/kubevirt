@@ -442,12 +442,31 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			})
 		}
 		if volume.DataVolume != nil {
-			volumeMounts = append(volumeMounts, volumeMount)
+			logger := log.DefaultLogger()
+			claimName := volume.DataVolume.Name
+			_, exists, isBlock, err := types.IsPVCBlockFromStore(t.persistentVolumeClaimStore, namespace, claimName)
+			if err != nil {
+				logger.Errorf("error getting PVC associated with DataVolume: %v", claimName)
+				return nil, err
+			} else if !exists {
+				logger.Errorf("didn't find PVC associated with DataVolume: %v", claimName)
+				return nil, PvcNotFoundError(fmt.Errorf("didn't find PVC associated with DataVolume: %v", claimName))
+			} else if isBlock {
+				devicePath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
+				device := k8sv1.VolumeDevice{
+					Name:       volume.Name,
+					DevicePath: devicePath,
+				}
+				volumeDevices = append(volumeDevices, device)
+			} else {
+				volumeMounts = append(volumeMounts, volumeMount)
+			}
+
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
 					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: volume.DataVolume.Name,
+						ClaimName: claimName,
 					},
 				},
 			})

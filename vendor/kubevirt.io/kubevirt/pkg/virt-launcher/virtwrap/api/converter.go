@@ -62,6 +62,7 @@ type ConverterContext struct {
 	VirtualMachine *v1.VirtualMachineInstance
 	CPUSet         []int
 	IsBlockPVC     map[string]bool
+	IsBlockDV      map[string]bool
 	DiskType       map[string]*containerdisk.DiskInfo
 	SRIOVDevices   map[string][]string
 }
@@ -241,7 +242,7 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	}
 
 	if source.DataVolume != nil {
-		return Convert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
+		return Convert_v1_DataVolume_To_api_Disk(source.Name, disk, c)
 	}
 
 	if source.Ephemeral != nil {
@@ -293,6 +294,13 @@ func GetBlockDeviceVolumePath(volumeName string) string {
 
 func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *Disk, c *ConverterContext) error {
 	if c.IsBlockPVC[name] {
+		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c)
+	}
+	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c)
+}
+
+func Convert_v1_DataVolume_To_api_Disk(name string, disk *Disk, c *ConverterContext) error {
+	if c.IsBlockDV[name] {
 		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c)
 	}
 	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c)

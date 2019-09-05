@@ -81,12 +81,12 @@ spec:
         - "2"
         env:
         - name: OPERATOR_IMAGE
-          value: kubevirt/virt-operator:v0.20.4
+          value: kubevirt/virt-operator:v0.20.5
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.targetNamespaces']
-        image: kubevirt/virt-operator:v0.20.4
+        image: kubevirt/virt-operator:v0.20.5
         imagePullPolicy: IfNotPresent
         name: virt-operator
         ports:
@@ -320,7 +320,7 @@ spec:
             - name: WATCH_NAMESPACE
               value: ""
             - name: VIRT_LAUNCHER_TAG
-              value: v0.20.4
+              value: v0.20.5
             - name: OPERATOR_NAME
               value: "kubevirt-ssp-operator"
 
