@@ -602,7 +602,7 @@ var _ = Describe("Storage", func() {
 				// Start a ISCSI POD and service
 				By("Creating a ISCSI POD")
 				iscsiTargetIP := tests.CreateISCSITargetPOD(tests.ContainerDiskAlpine)
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIP, k8sv1.PersistentVolumeBlock)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 			}, 60)
 
 			AfterEach(func() {

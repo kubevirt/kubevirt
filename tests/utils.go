@@ -3093,11 +3093,7 @@ func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string
 	return
 }
 
-func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string, volumeMode k8sv1.PersistentVolumeMode) {
-	accessMode := k8sv1.ReadWriteMany
-	NewISCSIPvAndPvc(name, size, iscsiTargetIP, accessMode, volumeMode)
-}
-func NewISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) {
+func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
