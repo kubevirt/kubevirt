@@ -512,7 +512,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
 				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskEmpty)
-				_, err = virtClient.CoreV1().PersistentVolumes().Create(tests.CreateISCSIPV(pvName, "2Gi", iscsiIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem))
+				_, err = virtClient.CoreV1().PersistentVolumes().Create(tests.NewISCSIPV(pvName, "2Gi", iscsiIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem))
 				Expect(err).To(BeNil())
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteMany)
 				volMode := k8sv1.PersistentVolumeFilesystem
