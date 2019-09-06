@@ -508,7 +508,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Ensuring a second invocation should fail")
-				Expect(startCommand()).ToNot(Succeed())
+				err = startCommand()
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("Error starting VirtualMachine VM is already running"))
 			})
 
 			It("[test_id:1530]should stop a VirtualMachineInstance once", func() {
@@ -541,7 +543,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}, 240*time.Second, 1*time.Second).Should(HaveOccurred())
 
 				By("Ensuring a second invocation should fail")
-				Expect(stopCommand()).ToNot(Succeed())
+				err = stopCommand()
+				Expect(err).ToNot(Succeed())
+				Expect(err.Error()).To(Equal("Error stopping VirtualMachine VM is not running"))
 			})
 
 			Context("Using RunStrategyAlways", func() {
