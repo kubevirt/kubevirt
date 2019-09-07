@@ -70,6 +70,7 @@ func NewVirtctlCommand() *cobra.Command {
 		vm.NewStartCommand(clientConfig),
 		vm.NewStopCommand(clientConfig),
 		vm.NewRestartCommand(clientConfig),
+		vm.NewMigrateCommand(clientConfig),
 		expose.NewExposeCommand(clientConfig),
 		version.VersionCommand(clientConfig),
 		imageupload.NewImageUploadCommand(clientConfig),

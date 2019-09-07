@@ -332,6 +332,41 @@ func getRunningJson(vm *v1.VirtualMachine, running bool) string {
 	}
 }
 
+func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, response *restful.Response) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	vm, code, err := app.fetchVirtualMachine(name, namespace)
+	if err != nil {
+		response.WriteError(code, err)
+		return
+	}
+
+	if !vm.Status.Ready {
+		response.WriteError(http.StatusForbidden, fmt.Errorf("VM is not running"))
+		return
+	}
+
+	createMigrationJob := func() error {
+		_, err := app.virtCli.VirtualMachineInstanceMigration(namespace).Create(&v1.VirtualMachineInstanceMigration{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				GenerateName: "kubevirt-migrate-vm-",
+			},
+			Spec: v1.VirtualMachineInstanceMigrationSpec{
+				VMIName: name,
+			},
+		})
+		return err
+	}
+
+	if err = createMigrationJob(); err != nil {
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
 func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, response *restful.Response) {
 	// RunStrategyHalted         -> doesn't make sense
 	// RunStrategyManual         -> send restart request

@@ -34,6 +34,7 @@ const (
 	COMMAND_START   = "start"
 	COMMAND_STOP    = "stop"
 	COMMAND_RESTART = "restart"
+	COMMAND_MIGRATE = "migrate"
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -74,6 +75,21 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_RESTART, clientConfig: clientConfig}
+			return c.Run(cmd, args)
+		},
+	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
+}
+
+func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "migrate (VM)",
+		Short:   "Migrate a virtual machine.",
+		Example: usage(COMMAND_MIGRATE),
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_MIGRATE, clientConfig: clientConfig}
 			return c.Run(cmd, args)
 		},
 	}
@@ -125,6 +141,11 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		err = virtClient.VirtualMachine(namespace).Restart(vmiName)
 		if err != nil {
 			return fmt.Errorf("Error restarting VirtualMachine %v", err)
+		}
+	case COMMAND_MIGRATE:
+		err = virtClient.VirtualMachine(namespace).Migrate(vmiName)
+		if err != nil {
+			return fmt.Errorf("Error migrating VirtualMachine %v", err)
 		}
 	}
 
