@@ -1176,7 +1176,7 @@ spec:
 		})
 	})
 
-	Context("With ServiceMonitor Enabled", func() {
+	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled", func() {
 
 		BeforeEach(func() {
 			if !tests.ServiceMonitorEnabled() {
@@ -1184,7 +1184,7 @@ spec:
 			}
 		})
 
-		It("Should allow Prometheus to scrape KubeVirt endpoints", func() {
+		It("[test_id:2936]Should allow Prometheus to scrape KubeVirt endpoints", func() {
 			coreClient := virtClient.CoreV1()
 
 			By("Obtaining Prometheus' configuration data")
