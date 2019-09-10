@@ -39,6 +39,8 @@ import (
 
 	networkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 
+	promclient "github.com/coreos/prometheus-operator/pkg/client/versioned"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	cdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
@@ -108,6 +110,11 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
+	prometheusClient, err := promclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirt{
 		master,
 		kubeconfig,
@@ -118,6 +125,7 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		extensionsClient,
 		secClient,
 		discoveryClient,
+		prometheusClient,
 		coreClient,
 	}, nil
 }
@@ -236,6 +244,11 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		return nil, err
 	}
 
+	prometheusClient, err := promclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirt{
 		master,
 		kubeconfig,
@@ -246,6 +259,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		extensionsClient,
 		secClient,
 		discoveryClient,
+		prometheusClient,
 		coreClient,
 	}, nil
 }

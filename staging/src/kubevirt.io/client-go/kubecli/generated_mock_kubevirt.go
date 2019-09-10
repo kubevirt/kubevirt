@@ -6,8 +6,9 @@ package kubecli
 import (
 	time "time"
 
+	versioned "github.com/coreos/prometheus-operator/pkg/client/versioned"
 	gomock "github.com/golang/mock/gomock"
-	versioned "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
+	versioned0 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 	v1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	v10 "k8s.io/api/autoscaling/v1"
 	clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -49,7 +50,7 @@ import (
 	rest "k8s.io/client-go/rest"
 
 	v111 "kubevirt.io/client-go/api/v1"
-	versioned0 "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
+	versioned1 "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
 
 // Mock of KubevirtClient interface
@@ -153,9 +154,9 @@ func (_mr *_MockKubevirtClientRecorder) RestClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RestClient")
 }
 
-func (_m *MockKubevirtClient) CdiClient() versioned0.Interface {
+func (_m *MockKubevirtClient) CdiClient() versioned1.Interface {
 	ret := _m.ctrl.Call(_m, "CdiClient")
-	ret0, _ := ret[0].(versioned0.Interface)
+	ret0, _ := ret[0].(versioned1.Interface)
 	return ret0
 }
 
@@ -163,9 +164,9 @@ func (_mr *_MockKubevirtClientRecorder) CdiClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CdiClient")
 }
 
-func (_m *MockKubevirtClient) NetworkClient() versioned.Interface {
+func (_m *MockKubevirtClient) NetworkClient() versioned0.Interface {
 	ret := _m.ctrl.Call(_m, "NetworkClient")
-	ret0, _ := ret[0].(versioned.Interface)
+	ret0, _ := ret[0].(versioned0.Interface)
 	return ret0
 }
 
@@ -201,6 +202,16 @@ func (_m *MockKubevirtClient) DiscoveryClient() discovery.DiscoveryInterface {
 
 func (_mr *_MockKubevirtClientRecorder) DiscoveryClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DiscoveryClient")
+}
+
+func (_m *MockKubevirtClient) PrometheusClient() versioned.Interface {
+	ret := _m.ctrl.Call(_m, "PrometheusClient")
+	ret0, _ := ret[0].(versioned.Interface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) PrometheusClient() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrometheusClient")
 }
 
 func (_m *MockKubevirtClient) Discovery() discovery.DiscoveryInterface {

@@ -1220,6 +1220,14 @@ type KubeVirtSpec struct {
 
 	// The ImagePullPolicy to use.
 	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
+
+	// The namespace Prometheus is deployed in
+	// Defaults to openshift-monitor
+	MonitorNamespace string `json:"monitorNamespace,omitempty"`
+
+	// The name of the Prometheus service account that needs read-access to KubeVirt endpoints
+	// Defaults to prometheus-k8s
+	MonitorAccount string `json:"monitorAccount,omitempty"`
 }
 
 // KubeVirtStatus represents information pertaining to a KubeVirt deployment.

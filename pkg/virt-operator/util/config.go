@@ -27,6 +27,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -52,6 +53,18 @@ const (
 
 	// these names need to match field names from KubeVirt Spec if they are set from there
 	AdditionalPropertiesNamePullPolicy = "ImagePullPolicy"
+
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesMonitorNamespace = "monitorNamespace"
+
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesMonitorServiceAccount = "monitorAccount"
+
+	// account to use if one is not explicitly named
+	DefaultMonitorNamespace = "openshift-monitoring"
+
+	// account to use if one is not explicitly named
+	DefaultMonitorAccount = "prometheus-k8s"
 
 	// the regex used to parse the operator image
 	operatorImageRegex = "^(.*)/virt-operator([@:].*)?$"
@@ -317,6 +330,22 @@ func (c *KubeVirtDeploymentConfig) GetImagePullPolicy() k8sv1.PullPolicy {
 	return k8sv1.PullIfNotPresent
 }
 
+func (c *KubeVirtDeploymentConfig) GetMonitorNamespace() string {
+	p, ok := c.AdditionalProperties[AdditionalPropertiesMonitorNamespace]
+	if !ok {
+		return DefaultMonitorNamespace
+	}
+	return p
+}
+
+func (c *KubeVirtDeploymentConfig) GetMonitorServiceAccount() string {
+	p, ok := c.AdditionalProperties[AdditionalPropertiesMonitorServiceAccount]
+	if !ok {
+		return DefaultMonitorAccount
+	}
+	return p
+}
+
 func (c *KubeVirtDeploymentConfig) GetNamespace() string {
 	return c.Namespace
 }
@@ -331,13 +360,45 @@ func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {
 	// changeable properties from the KubeVirt CR. This will be used for identifying the correct install strategy job
 	// and configmap
 	// Calculate a sha over all those properties
-
 	hasher := sha1.New()
-
-	version := fmt.Sprintf("%+v", c)
-	hasher.Write([]byte(version))
+	values := c.getStringFromFields()
+	hasher.Write([]byte(values))
 
 	c.ID = hex.EncodeToString(hasher.Sum(nil))
+}
+
+func (c *KubeVirtDeploymentConfig) getStringFromFields() string {
+	result := ""
+	v := reflect.ValueOf(*c)
+	for i := 0; i < v.NumField(); i++ {
+		fieldName := v.Type().Field(i).Name
+		result += fieldName
+		field := v.Field(i)
+		if field.Type().Kind() == reflect.Map {
+			keys := field.MapKeys()
+			nameKeys := make(map[string]reflect.Value, len(keys))
+			names := make([]string, 0, len(keys))
+			for _, key := range keys {
+				name := key.String()
+				if name == "" {
+					continue
+				}
+				nameKeys[name] = key
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			for _, name := range names {
+				key := nameKeys[name]
+				val := field.MapIndex(key).String()
+				result += name
+				result += val
+			}
+		} else {
+			value := v.Field(i).String()
+			result += value
+		}
+	}
+	return result
 }
 
 func (c *KubeVirtDeploymentConfig) GetDeploymentID() string {
