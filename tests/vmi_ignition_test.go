@@ -76,7 +76,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(tests.ContainerDiskFor(tests.ContainerDiskFedora), "#!/bin/sh\n\necho fedora| passwd --stdin fedora\n")
 
 					ignitionData := "ignition injected"
-					vmi.Annotations = map[string]string{"kubevirt.io/ignitiondata": ignitionData}
+					vmi.Annotations = map[string]string{v1.IgnitionAnnotation: ignitionData}
 
 					LaunchVMI(vmi)
 
