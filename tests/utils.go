@@ -1657,22 +1657,19 @@ func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
 }
 
 func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
-	migration := &v1.VirtualMachineInstanceMigration{
-
+	return &v1.VirtualMachineInstanceMigration{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1.GroupVersion.String(),
+			Kind:       "VirtualMachineInstanceMigration",
+		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-migration-" + rand.String(30),
-			Namespace: namespace,
+			GenerateName: "test-migration-",
+			Namespace:    namespace,
 		},
 		Spec: v1.VirtualMachineInstanceMigrationSpec{
 			VMIName: vmiName,
 		},
 	}
-	migration.TypeMeta = metav1.TypeMeta{
-		APIVersion: v1.GroupVersion.String(),
-		Kind:       "VirtualMachineInstanceMigration",
-	}
-
-	return migration
 }
 
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
