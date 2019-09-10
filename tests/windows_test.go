@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -155,7 +154,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
 			winrmcliPod = &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{Name: winrmCli + rand.String(5)},
+				ObjectMeta: metav1.ObjectMeta{GenerateName: winrmCli},
 				Spec: k8sv1.PodSpec{
 					Containers: []k8sv1.Container{
 						{
