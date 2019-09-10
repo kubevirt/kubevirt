@@ -873,34 +873,18 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 	return networkToAddressesMap
 }
 
-// This function parses all environment variables with prefix GPU_PASSTHROUGH_DEVICES that are set by
-// device plugins. It lists PCI IDs for devices allocated to the pod. The format
-// is as follows:
-// "": for no allocated devices
-// "0000:81:11.1,": for a single device
-// "0000:81:11.1,0000:81:11.2[,...]": for multiple devices
-func getGpuAddresses() []string {
+// This function parses all environment variables with prefix string that is set by a Device Plugin.
+// Device plugin that passes GPU devices by setting these env variables is https://github.com/NVIDIA/kubevirt-gpu-device-plugin
+// It returns address list for devices set in the env variable.
+// The format is as follows:
+// "":for no address set
+// "<address_1>,": for a single address
+// "<address_1>,<address_2>[,...]": for multiple addresses
+func getEnvAddressListByPrefix(evnPrefix string) []string {
 	var returnAddr []string
 	for _, env := range os.Environ() {
 		split := strings.Split(env, "=")
-		if strings.HasPrefix(split[0], gpuEnvPrefix) {
-			returnAddr = append(returnAddr, parseDeviceAddress(split[1])...)
-		}
-	}
-	return returnAddr
-}
-
-// This function parses all environment variables with prefix VGPU_PASSTHROUGH_DEVICES that are set by
-// device plugins. It lists Mdev Uuids for devices allocated to the pod. The format
-// is as follows:
-// "":for no allocated devices
-// "aa618089-8b16-4d01-a136-25a0f3c73123,": for a single device
-// "aa618089-8b16-4d01-a136-25a0f3c73123,1a527489-7cde-4a50-b8d6-3d5b0dc01e3b[,...]": for multiple devices
-func getVgpuAddresses() []string {
-	var returnAddr []string
-	for _, env := range os.Environ() {
-		split := strings.Split(env, "=")
-		if strings.HasPrefix(split[0], vgpuEnvPrefix) {
+		if strings.HasPrefix(split[0], evnPrefix) {
 			returnAddr = append(returnAddr, parseDeviceAddress(split[1])...)
 		}
 	}
@@ -977,8 +961,8 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		IsBlockDV:      isBlockDVMap,
 		DiskType:       diskInfo,
 		SRIOVDevices:   getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
-		GpuDevices:     getGpuAddresses(),
-                VgpuDevices:    getVgpuAddresses(),
+		GpuDevices:     getEnvAddressListByPrefix(gpuEnvPrefix),
+		VgpuDevices:    getEnvAddressListByPrefix(vgpuEnvPrefix),
 	}
 	if options != nil && options.VirtualMachineSMBios != nil {
 		c.SMBios = options.VirtualMachineSMBios

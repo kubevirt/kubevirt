@@ -65,6 +65,6 @@ func (config *ClusterConfig) SidecarEnabled() bool {
 	return config.isFeatureGateEnabled(SidecarGate)
 }
 
-func (config *ClusterConfig) GPUEnabled() bool {
+func (config *ClusterConfig) GPUPassthroughEnabled() bool {
 	return config.isFeatureGateEnabled(GPUGate)
 }
