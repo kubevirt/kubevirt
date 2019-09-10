@@ -1214,7 +1214,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
 		}
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: "-fw_cfg"})
-		ignitionpath := fmt.Sprintf("%s/data.ign", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace))
+		ignitionpath := fmt.Sprintf("%s/%s", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), ignition.IgnitionFile)
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionpath)})
 	}
 	return nil

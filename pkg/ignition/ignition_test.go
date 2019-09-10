@@ -57,7 +57,7 @@ var _ = Describe("Ignition", func() {
 				vmi.Annotations = map[string]string{v1.IgnitionAnnotation: data}
 				err := GenerateIgnitionLocalData(vmi, namespace)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = os.Stat(fmt.Sprintf("%s/%s/%s/data.ign", tmpDir, namespace, vmName))
+				_, err = os.Stat(fmt.Sprintf("%s/%s/%s/%s", tmpDir, namespace, vmName, IgnitionFile))
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
