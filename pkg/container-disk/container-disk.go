@@ -126,14 +126,14 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, bi
 			if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
 				resources.Limits = make(kubev1.ResourceList)
 				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("10m")
-				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("20M")
+				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("40M")
 				resources.Requests = make(kubev1.ResourceList)
 				resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
-				resources.Requests[kubev1.ResourceMemory] = resource.MustParse("20M")
+				resources.Requests[kubev1.ResourceMemory] = resource.MustParse("40M")
 			} else {
 				resources.Limits = make(kubev1.ResourceList)
 				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("100m")
-				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("20M")
+				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("40M")
 				resources.Requests = make(kubev1.ResourceList)
 				resources.Requests[kubev1.ResourceCPU] = resource.MustParse("10m")
 				resources.Requests[kubev1.ResourceMemory] = resource.MustParse("1M")
