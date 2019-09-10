@@ -283,9 +283,9 @@ elif [[ $TARGET =~ genie.* ]]; then
 elif [[ $TARGET =~ sriov.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=SRIOV"
 elif [[ $TARGET =~ gpu.* ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=GPU" 
+  ginko_params="$ginko_params --ginkgo.focus=GPU"
 elif [[ $TARGET =~ okd.* ]]; then
-  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|pinning|GPU"
+  ginko_params="$ginko_params --ginkgo.skip=Genie|SRIOV|pinning|GPU"
 else
   ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|GPU"
 fi
