@@ -735,6 +735,26 @@ var _ = Describe("SRIOV", func() {
 			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
 			// it's hard to match them.
 		})
+
+		// Note: test case assumes interconnectivity between SR-IOV
+		// interfaces. It can be achieved either by configuring the external switch
+		//properly, or via in-PF switching for VFs (works for some NIC models)
+		It("should connect to another machine with sriov interface", func() {
+			// start peer machines with sriov interfaces from the same resource pool
+			vmi1 := getSriovVmi([]string{"sriov"})
+			vmi2 := getSriovVmi([]string{"sriov"})
+			startVmi(vmi1)
+			startVmi(vmi2)
+
+			// manually configure IP/link on sriov interfaces because there is
+			// no DHCP server to serve the address to the guest
+			configureSRIOV(vmi1, "eth1", "192.168.1.1", "#")
+			configureSRIOV(vmi2, "eth1", "192.168.1.2", "#")
+
+			// now check ICMP goes both ways
+			pingVirtualMachine(vmi1, "192.168.1.2", "#")
+			pingVirtualMachine(vmi2, "192.168.1.1", "#")
+		})
 	})
 })
 
@@ -764,6 +784,19 @@ func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAdd
 
 func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName, prompt string) {
 	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
+	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: cmdCheck},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
+	}, 15)
+	Expect(err).ToNot(HaveOccurred(), "Interface %q was not found in the VMI %s within the given timeout", interfaceName, vmi.Name)
+}
+
+func configureSRIOV(vmi *v1.VirtualMachineInstance, interfaceName, addr, prompt string) {
+	cmdCheck := fmt.Sprintf("ifconfig %s %s/24 up\n", interfaceName, addr)
 	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
