@@ -1783,8 +1783,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			//disableFeatureGates()
-
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.gpus"))
