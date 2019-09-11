@@ -758,14 +758,14 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	log.Log.Infof("Processing event %v", key)
 	if vmiExists {
-		log.Log.Infof("Vmi %s in phase %v", vmi.Name, vmi.Status.Phase)
+		log.Log.Object(vmi).Infof("VMI is in phase: %v\n", vmi.Status.Phase)
 	} else {
-		log.Log.Info("Vmi does not exist")
+		log.Log.Info("VMI does not exist")
 	}
 	if domainExists {
-		log.Log.Infof("Domain %s in status %v, reason: %v", domain.ObjectMeta.Name, domain.Status.Status, domain.Status.Reason)
+		log.Log.Object(domain).Infof("Domain status: %v, reason: %v\n", domain.Status.Status, domain.Status.Reason)
 	} else {
-		log.Log.Info("Vmi does not exist")
+		log.Log.Info("Domain does not exist")
 	}
 
 	domainAlive := domainExists &&
