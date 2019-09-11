@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"strings"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -33,18 +34,27 @@ func parseDeviceAddress(addrString string) []string {
 	return addrs
 }
 
-var _ = Describe("GPU VirtualMachineInstance", func() {
+func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName, prompt string) {
+	cmdCheck := "lspci"
+	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: cmdCheck},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
+	}, 15)
+	Expect(err).ToNot(HaveOccurred(), "Interface %q was not found in the VMI %s within the given timeout", gpuName, vmi.Name)
+}
+
+var _ = Describe("GPU", func() {
 	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	tests.BeforeAll(func() {
-		tests.SkipIfNoGpuDevicePlugin(virtClient)
-	})
-
 	Context("with ephemeral disk", func() {
-		It("Should create a valid VMI but pod should not got to running state", func() {
+		It("Should create a valid VMI but pod should not go to running state", func() {
 			gpuName := "random.com/gpu"
 			randomVMI := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 			gpus := []v1.Gpu{
@@ -117,6 +127,8 @@ var _ = Describe("GPU VirtualMachineInstance", func() {
 				Expect(domSpec.Devices.HostDevices[n].Source.Address.Slot).To(Equal("0x" + dbsfFields[2]))
 				Expect(domSpec.Devices.HostDevices[n].Source.Address.Function).To(Equal("0x" + dbsfFields[3]))
 			}
+
+			checkGPUDevice(randomVMI, "*10de*", "$")
 		})
 	})
 })
