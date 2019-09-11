@@ -635,10 +635,10 @@ var _ = Describe("SRIOV", func() {
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
 
 			// Need to wait for cloud init to finish and start the agent inside the vmi.
 			tests.WaitAgentConnected(virtClient, vmi)
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
 
 			return
 		}
