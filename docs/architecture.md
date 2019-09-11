@@ -69,6 +69,9 @@ communicate with Kubernetes and where the additional types are stored:
 
 ![Architecture diagram](architecture.png "Architecture")
 
+And a simplified version:
+
+![Simplified architecture diagram](architecture-simple.png "Simplified architecture")
 
 ## Application Layout
 
