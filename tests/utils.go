@@ -622,6 +622,14 @@ func BeforeTestSuitSetup() {
 		DeployTestingInfrastructure()
 	}
 
+	// Wait for schedulable nodes
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	Eventually(func() int {
+		nodes := GetAllSchedulableNodes(virtClient)
+		return len(nodes.Items)
+	}, 5*time.Minute, 10*time.Second).ShouldNot(BeZero(), "no schedulable nodes found")
+
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 
