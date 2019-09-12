@@ -8,8 +8,6 @@ metadata:
 spec:
   domain:
     devices:
-      gpus:
-      - name: nvidia.com/GP102GL_Tesla_P40
       disks:
       - disk:
           bus: virtio
@@ -17,6 +15,8 @@ spec:
       - disk:
           bus: virtio
         name: cloudinitdisk
+      gpus:
+      - name: nvidia.com/GP102GL_Tesla_P40
       rng: {}
     machine:
       type: ""
