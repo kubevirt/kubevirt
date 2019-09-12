@@ -1,11 +1,6 @@
 package util
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-	"strings"
-
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
