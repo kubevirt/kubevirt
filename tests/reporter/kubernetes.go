@@ -76,6 +76,7 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 	}
 
 	r.logEvents(virtCli, specSummary)
+	r.logNodes(virtCli, specSummary)
 	r.logPods(virtCli, specSummary)
 	r.logVMIs(virtCli, specSummary)
 	r.logDomainXMLs(virtCli, specSummary)
@@ -152,6 +153,30 @@ func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, specSummary
 	j, err := json.MarshalIndent(pods, "", "    ")
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to marshal pods")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) logNodes(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_nodes.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		return
+	}
+	defer f.Close()
+
+	nodes, err := virtCli.CoreV1().Nodes().List(v12.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch nodes: %v", err)
+		return
+	}
+
+	j, err := json.MarshalIndent(nodes, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal nodes")
 		return
 	}
 	fmt.Fprintln(f, string(j))
