@@ -346,7 +346,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		MountPath: "/var/run/libvirt",
 	})
 
-	if isSRIOVVmi(vmi) || util.IsGpuVmi(vmi) {
+	if util.IsSRIOVVmi(vmi) || util.IsGpuVmi(vmi) {
 		// libvirt needs this volume to access PCI device config;
 		// note that the volume should not be read-only because libvirt
 		// opens the config for writing
@@ -960,15 +960,6 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	res = append(res, CAP_SYS_NICE)
-<<<<<<< HEAD
-=======
-
-	if isSRIOVVmi(vmi) || util.IsGpuVmi(vmi) {
-		// this capability is needed for libvirt to be able to change ulimits for device passthrough:
-		// "error : cannot limit locked memory to 2098200576: Operation not permitted"
-		res = append(res, CAP_SYS_RESOURCE)
-	}
->>>>>>> 733031e... GPU support for Kubevirt VMs
 	return res
 }
 
