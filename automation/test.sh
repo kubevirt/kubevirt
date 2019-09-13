@@ -225,6 +225,8 @@ for i in ${namespaces[@]}; do
 
     current_time=$((current_time + sample))
     if [ $current_time -gt $timeout ]; then
+      echo "Dump kubevirt state:"
+      make dump
       exit 1
     fi
   done
@@ -238,6 +240,8 @@ for i in ${namespaces[@]}; do
 
     current_time=$((current_time + sample))
     if [ $current_time -gt $timeout ]; then
+      echo "Dump kubevirt state:"
+      make dump
       exit 1
     fi
   done
