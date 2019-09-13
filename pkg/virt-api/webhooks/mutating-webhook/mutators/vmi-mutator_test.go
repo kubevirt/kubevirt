@@ -389,6 +389,27 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		table.Entry("as masquerade", "masquerade"),
 		table.Entry("as slirp", "slirp"),
 	)
+
+	table.DescribeTable("should not default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {
+		vmi.Spec.Domain.Devices.Interfaces = append([]v1.Interface{}, interfaces...)
+		vmi.Spec.Networks = append([]v1.Network{}, networks...)
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		if len(interfaces) == 0 {
+			Expect(vmiSpec.Domain.Devices.Interfaces).To(BeNil())
+		} else {
+			Expect(vmiSpec.Domain.Devices.Interfaces).To(Equal(interfaces))
+		}
+		if len(networks) == 0 {
+			Expect(vmiSpec.Networks).To(BeNil())
+		} else {
+			Expect(vmiSpec.Networks).To(Equal(networks))
+		}
+	},
+		table.Entry("interfaces and networks are non-empty", []v1.Interface{{Name: "a"}}, []v1.Network{{Name: "b"}}),
+		table.Entry("interfaces is non-empty", []v1.Interface{{Name: "a"}}, []v1.Network{}),
+		table.Entry("networks is non-empty", []v1.Interface{}, []v1.Network{{Name: "b"}}),
+	)
+
 	It("should not override specified properties with defaults on VMI create", func() {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 			Data: map[string]string{
