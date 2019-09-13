@@ -138,7 +138,7 @@ func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineIns
 	}
 
 	// Override only when nothing is specified
-	if len(obj.Spec.Networks) == 0 {
+	if len(obj.Spec.Networks) == 0 && len(obj.Spec.Domain.Devices.Interfaces) == 0 {
 		iface := v1.NetworkInterfaceType(mutator.ClusterConfig.GetDefaultNetworkInterface())
 		switch iface {
 		case v1.BridgeInterface:
