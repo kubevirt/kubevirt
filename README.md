@@ -5,6 +5,7 @@
 [![Licensed under Apache License version 2.0](https://img.shields.io/github/license/kubevirt/kubevirt.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Coverage Status](https://img.shields.io/coveralls/kubevirt/kubevirt/master.svg)](https://coveralls.io/github/kubevirt/kubevirt?branch=master)
 [![Visit our IRC channel](https://kiwiirc.com/buttons/irc.freenode.net/kubevirt.png)](https://kiwiirc.com/client/irc.freenode.net/#kubevirt)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkubevirt%2Fkubevirt.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkubevirt%2Fkubevirt?ref=badge_shield)
 
 **KubeVirt** is a virtual machine management add-on for Kubernetes.
 The aim is to provide a common ground for virtualization solutions on top of
@@ -121,3 +122,6 @@ KubeVirt is distributed under the
    [cockpit]: https://cockpit-project.org/
    [libvirt]: https://www.libvirt.org
    [kubevirt-ansible]: https://github.com/kubevirt/kubevirt-ansible
+
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkubevirt%2Fkubevirt.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkubevirt%2Fkubevirt?ref=badge_large)
