@@ -1384,7 +1384,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					By("Creating VM using k8s client binary")
 					stdOut, stdErr, err := tests.RunCommand(k8sClient, "--token", token, "create", "-f", vmJson)
 					Expect(err).To(HaveOccurred(), "The call for VM creation should fail")
-					Expect(stdOut+stdErr).To(ContainSubstring("no RBAC policy matched"), "should be rejected due to not access rights")
+
+					expectedError := "User \"system:serviceaccount:default:testuser\" cannot create virtualmachines.kubevirt.io"
+					Expect(stdOut+stdErr).To(ContainSubstring(expectedError), "should be rejected due to not access rights")
 				})
 			})
 		})

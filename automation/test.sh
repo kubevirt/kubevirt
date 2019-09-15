@@ -277,7 +277,9 @@ elif [[ $TARGET =~ multus.* ]]; then
 elif [[ $TARGET =~ genie.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=Genie|Networking|VMIlifecycle|Expose"
 elif [[ $TARGET =~ sriov.* ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=SRIOV" 
+  ginko_params="$ginko_params --ginkgo.focus=SRIOV"
+elif [[ $TARGET =~ okd.* ]]; then
+  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|pinning"
 else
   ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV"
 fi
