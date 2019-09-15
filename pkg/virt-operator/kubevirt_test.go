@@ -291,7 +291,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			Expect(action).To(BeNil())
+			if action.GetVerb() != "get" || action.GetResource().Resource != "namespaces" {
+				Expect(action).To(BeNil())
+			}
 			return true, nil, nil
 		})
 		secClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -505,7 +507,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	addInstallStrategy := func(config *util.KubeVirtDeploymentConfig) {
 		// install strategy config
-		resource, _ := installstrategy.NewInstallStrategyConfigMap(config)
+		resource, _ := installstrategy.NewInstallStrategyConfigMap(config, true)
 
 		resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
 		addResource(resource, config)
@@ -1584,10 +1586,48 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.ValidationWebhookCache.List())).To(Equal(1))
 			Expect(len(controller.stores.PodDisruptionBudgetCache.List())).To(Equal(1))
 			Expect(len(controller.stores.SCCCache.List())).To(Equal(3))
+			Expect(len(controller.stores.ServiceMonitorCache.List())).To(Equal(1))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
 
 		}, 15)
+
+		Context("when the monitor namespace does not exist", func() {
+			It("should not create ServiceMonitor resources", func() {
+				kv := &v1.KubeVirt{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-install",
+						Namespace: NAMESPACE,
+					},
+				}
+				kubecontroller.SetLatestApiVersionAnnotation(kv)
+				addKubeVirt(kv)
+
+				// install strategy config
+				resource, _ := installstrategy.NewInstallStrategyConfigMap(defaultConfig, false)
+				resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
+				addResource(resource, defaultConfig)
+
+				job, err := controller.generateInstallStrategyJob(util.GetTargetConfigFromKV(kv))
+				Expect(err).ToNot(HaveOccurred())
+
+				job.Status.CompletionTime = now()
+				addInstallStrategyJob(job)
+
+				// ensure completed jobs are garbage collected once install strategy
+				// is loaded
+				deleteFromCache = false
+				shouldExpectJobDeletion()
+				shouldExpectKubeVirtUpdate(1)
+				shouldExpectCreations()
+
+				controller.Execute()
+
+				Expect(len(controller.stores.RoleCache.List())).To(Equal(2))
+				Expect(len(controller.stores.RoleBindingCache.List())).To(Equal(2))
+				Expect(len(controller.stores.ServiceMonitorCache.List())).To(Equal(0))
+			}, 15)
+		})
 
 		It("should pause rollback until api server is rolled over.", func(done Done) {
 			defer close(done)
