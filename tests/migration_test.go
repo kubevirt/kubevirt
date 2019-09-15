@@ -390,8 +390,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			})
 		})
 		Context("with a Cirros disk", func() {
-			FIt("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", func() {
-
+			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 				vmi.Labels = map[string]string{

@@ -102,6 +102,7 @@ func (p *AgentPoller) Start() {
 					log.Log.Reason(err).Error("Qemu agent poller error")
 					continue
 				}
+				log.Log.Infof("Qemu agent poller result %v", cmdResult)
 				interfaceStatuses := p.GetInterfaceStatuses(cmdResult)
 				if !reflect.DeepEqual(p.domainData.interfaces, interfaceStatuses) {
 					p.domainData.interfaces = interfaceStatuses
