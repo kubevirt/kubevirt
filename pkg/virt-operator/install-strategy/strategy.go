@@ -27,7 +27,9 @@ import (
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/ghodss/yaml"
+	"github.com/golang/glog"
 	secv1 "github.com/openshift/api/security/v1"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -82,9 +84,9 @@ type InstallStrategy struct {
 	serviceMonitors []*promv1.ServiceMonitor
 }
 
-func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig) (*corev1.ConfigMap, error) {
+func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool) (*corev1.ConfigMap, error) {
 
-	strategy, err := GenerateCurrentInstallStrategy(config)
+	strategy, err := GenerateCurrentInstallStrategy(config, addMonitorServiceResources)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +119,13 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 		return err
 	}
 
-	configMap, err := NewInstallStrategyConfigMap(config)
+	monitorNamespace := config.GetMonitorNamespace()
+	addMonitorServiceResources, err := isNamespaceExist(clientset, monitorNamespace)
+	if err != nil {
+		return err
+	}
+
+	configMap, err := NewInstallStrategyConfigMap(config, addMonitorServiceResources)
 	if err != nil {
 		return err
 	}
@@ -184,7 +192,7 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	return b.Bytes()
 }
 
-func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfig) (*InstallStrategy, error) {
+func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool) (*InstallStrategy, error) {
 
 	strategy := &InstallStrategy{}
 
@@ -201,8 +209,14 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	rbaclist = append(rbaclist, rbac.GetAllHandler(config.GetNamespace())...)
 
 	monitorNamespace := config.GetMonitorNamespace()
-	monitorServiceAccount := config.GetMonitorServiceAccount()
-	rbaclist = append(rbaclist, rbac.GetAllServiceMonitor(config.GetNamespace(), monitorNamespace, monitorServiceAccount)...)
+	if addMonitorServiceResources {
+		// TODO: we should check that monitor SA exists in the monitor namespace
+		monitorServiceAccount := config.GetMonitorServiceAccount()
+		rbaclist = append(rbaclist, rbac.GetAllServiceMonitor(config.GetNamespace(), monitorNamespace, monitorServiceAccount)...)
+		strategy.serviceMonitors = append(strategy.serviceMonitors, components.NewServiceMonitorCR(config.GetNamespace(), monitorNamespace, true))
+	} else {
+		glog.Warningf("failed to create service monitor resources because namespace %s does not exist", monitorNamespace)
+	}
 
 	for _, entry := range rbaclist {
 		cr, ok := entry.(*rbacv1.ClusterRole)
@@ -231,8 +245,6 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	}
 
 	strategy.services = append(strategy.services, components.NewPrometheusService(config.GetNamespace()))
-	strategy.serviceMonitors = append(strategy.serviceMonitors, components.NewServiceMonitorCR(config.GetNamespace(), monitorNamespace, true))
-
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
 	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 	if err != nil {
@@ -452,4 +464,17 @@ func contains(users []string, user string) bool {
 		}
 	}
 	return false
+}
+
+func isNamespaceExist(clientset kubecli.KubevirtClient, ns string) (bool, error) {
+	_, err := clientset.CoreV1().Namespaces().Get(ns, metav1.GetOptions{})
+	if err == nil {
+		return true, nil
+	}
+
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+
+	return false, err
 }

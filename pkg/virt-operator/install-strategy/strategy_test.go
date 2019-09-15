@@ -43,13 +43,6 @@ import (
 var _ = Describe("Install Strategy", func() {
 	log.Log.SetIOWriter(GinkgoWriter)
 
-	BeforeEach(func() {
-
-	})
-
-	AfterEach(func() {
-	})
-
 	namespace := "fake-namespace"
 
 	getConfig := func(registry, version string) *util.KubeVirtDeploymentConfig {
@@ -68,8 +61,7 @@ var _ = Describe("Install Strategy", func() {
 
 	Context("should generate", func() {
 		It("latest install strategy with lossless byte conversion.", func() {
-
-			strategy, err := GenerateCurrentInstallStrategy(config)
+			strategy, err := GenerateCurrentInstallStrategy(config, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			strategyStr := string(dumpInstallStrategyToBytes(strategy))
