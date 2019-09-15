@@ -869,7 +869,6 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		if vmiExists &&
 			!vmi.IsFinal() &&
 			vmi.DeletionTimestamp == nil &&
-			vmi.Status.NodeName != "" &&
 			vmi.Status.NodeName == d.host {
 
 			// If the domain migrated but the VMI still thinks this node
@@ -1219,17 +1218,10 @@ func (d *VirtualMachineController) isOrphanedMigrationSource(vmi *v1.VirtualMach
 }
 
 func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineInstance) bool {
-
 	migrationTargetNodeName, ok := vmi.Labels[v1.MigrationTargetNodeNameLabel]
-
-	if ok &&
-		migrationTargetNodeName != "" &&
+	return ok &&
 		migrationTargetNodeName != vmi.Status.NodeName &&
-		migrationTargetNodeName == d.host {
-		return true
-	}
-
-	return false
+		migrationTargetNodeName == d.host
 }
 
 func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
@@ -1282,15 +1274,10 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 }
 
 func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
-
-	if vmi.Status.MigrationState != nil &&
+	return vmi.Status.MigrationState != nil &&
 		vmi.Status.MigrationState.SourceNode == d.host &&
 		vmi.Status.MigrationState.TargetNodeAddress != "" &&
-		!vmi.Status.MigrationState.Completed {
-
-		return true
-	}
-	return false
+		!vmi.Status.MigrationState.Completed
 
 }
 

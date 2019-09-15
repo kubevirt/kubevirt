@@ -586,9 +586,8 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 }
 
 func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
-
 	if vmi.Status.MigrationState == nil {
-		return fmt.Errorf("cannot migration VMI until migrationState is ready")
+		return fmt.Errorf("cannot migrate VMI until migrationState is ready")
 	}
 
 	inProgress, err := l.initializeMigrationMetadata(vmi)
@@ -596,6 +595,7 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, option
 		return err
 	}
 	if inProgress {
+		log.Log.Object(vmi).Info("migration already in progress")
 		return nil
 	}
 
