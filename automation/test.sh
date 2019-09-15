@@ -279,7 +279,7 @@ elif [[ $TARGET =~ genie.* ]]; then
 elif [[ $TARGET =~ sriov.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=SRIOV"
 elif [[ $TARGET =~ okd.* ]]; then
-  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|pinning"
+  ginko_params="$ginko_params --ginkgo.skip=Genie|SRIOV|pinning"
 else
   ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV"
 fi

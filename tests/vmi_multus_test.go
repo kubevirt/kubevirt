@@ -174,7 +174,9 @@ var _ = Describe("Multus", func() {
 				pingVirtualMachine(detachedVMI, "10.1.1.1", "\\$ ")
 			})
 
-			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
+			FIt("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
+				tests.SkipIfOpenShiftAndAboveVersion("using network attachment definition from another namespace is not allow in okd", "1.14.0")
+
 				By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
 				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
