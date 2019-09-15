@@ -1368,15 +1368,17 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Context("should fail without right rights", func() {
 				BeforeEach(func() {
 					By("Ensuring the cluster has new test serviceaccount")
-					stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "create", "serviceaccount", testUser)
+					stdOut, stdErr, err := tests.RunCommandWithNS(tests.NamespaceTestDefault, k8sClient, "create", "serviceaccount", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 
-					token, stdErr, err = tests.RunCommandWithNS("", k8sClient, "serviceaccounts", "get-token", testUser)
-					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
+					Eventually(func() error {
+						token, stdErr, err = tests.RunCommandWithNS(tests.NamespaceTestDefault, k8sClient, "serviceaccounts", "get-token", testUser)
+						return err
+					}, 30*time.Second, time.Second).Should(BeNil())
 				})
 
 				AfterEach(func() {
-					stdOut, stdErr, err := tests.RunCommandWithNS("", k8sClient, "delete", "serviceaccount", testUser)
+					stdOut, stdErr, err := tests.RunCommandWithNS(tests.NamespaceTestDefault, k8sClient, "delete", "serviceaccount", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
@@ -1390,7 +1392,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					By("Creating VM using k8s client binary")
 					stdOut, stdErr, err := tests.RunCommand(k8sClient, "--token", token, "create", "-f", vmJson)
 					Expect(err).To(HaveOccurred(), "The call for VM creation should fail")
-					Expect(stdOut+stdErr).To(ContainSubstring("no RBAC policy matched"), "should be rejected due to not access rights")
+
+					expectedError := fmt.Sprintf("User \"system:serviceaccount:%s:testuser\" cannot create", tests.NamespaceTestDefault)
+					Expect(stdOut+stdErr).To(ContainSubstring(expectedError), "should be rejected due to not access rights")
 				})
 			})
 		})
