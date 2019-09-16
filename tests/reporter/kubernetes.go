@@ -81,6 +81,8 @@ func (r *KubernetesReporter) Dump(since time.Duration) {
 
 	r.logEvents(virtCli, since)
 	r.logNodes(virtCli)
+	r.logPVCs(virtCli, specSummary)
+	r.logPVs(virtCli, specSummary)
 	r.logPods(virtCli)
 	r.logVMIs(virtCli)
 	r.logDomainXMLs(virtCli)
@@ -189,6 +191,54 @@ func (r *KubernetesReporter) logNodes(virtCli kubecli.KubevirtClient) {
 	j, err := json.MarshalIndent(nodes, "", "    ")
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to marshal nodes")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) logPVs(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_pvs.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	pvs, err := virtCli.CoreV1().PersistentVolumes().List(v12.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch pvs: %v\n", err)
+		return
+	}
+
+	j, err := json.MarshalIndent(pvs, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal pvs")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) logPVCs(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_pvcs.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	pvcs, err := virtCli.CoreV1().PersistentVolumeClaims(v1.NamespaceAll).List(v12.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch pvcs: %v\n", err)
+		return
+	}
+
+	j, err := json.MarshalIndent(pvcs, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal pvcs")
 		return
 	}
 	fmt.Fprintln(f, string(j))
