@@ -1,0 +1,29 @@
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: hyperconvergeds.hco.kubevirt.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.phase
+    name: Phase
+    type: string
+  group: hco.kubevirt.io
+  names:
+    kind: HyperConverged
+    plural: hyperconvergeds
+    shortNames:
+    - hco
+    - hcos
+    singular: hyperconverged
+  scope: Namespaced
+  subresources:
+    status: {}
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true

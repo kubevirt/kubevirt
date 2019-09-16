@@ -102,7 +102,7 @@ metadata:
   name: hco-subscription
   namespace: kubevirt-hyperconverged
 spec:
-  channel: "0.0.2"
+  channel: "0.0.3"
   name: kubevirt-hyperconverged
   source: hco-catalogsource
   sourceNamespace: openshift-marketplace
