@@ -1779,7 +1779,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 				v1.GPU{
-					Name: "vendor.com/gpu_name",
+					Name:       "gpu1",
+					DeviceName: "vendor.com/gpu_name",
 				},
 			}
 

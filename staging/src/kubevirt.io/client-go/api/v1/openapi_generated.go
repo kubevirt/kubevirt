@@ -1337,8 +1337,14 @@ func schema_kubevirtio_client_go_api_v1_GPU(ref common.ReferenceCallback) common
 							Format:      "",
 						},
 					},
+					"deviceName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
-				Required: []string{"name"},
+				Required: []string{"name", "deviceName"},
 			},
 		},
 		Dependencies: []string{},

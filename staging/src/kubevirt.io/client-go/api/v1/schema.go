@@ -363,7 +363,8 @@ type Input struct {
 // +k8s:openapi-gen=true
 type GPU struct {
 	// Name of the GPU device as exposed by a device plugin
-	Name string `json:"name"`
+	Name       string `json:"name"`
+	DeviceName string `json:"deviceName"`
 }
 
 // ---

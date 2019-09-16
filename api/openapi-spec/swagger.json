@@ -4785,9 +4785,13 @@
    },
    "v1.GPU": {
     "required": [
-     "name"
+     "name",
+     "deviceName"
     ],
     "properties": {
+     "deviceName": {
+      "type": "string"
+     },
      "name": {
       "description": "Name of the GPU device as exposed by a device plugin",
       "type": "string"
