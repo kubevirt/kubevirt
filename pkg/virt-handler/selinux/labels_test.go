@@ -47,6 +47,15 @@ var _ = Describe("selinux", func() {
 			Expect(err).To(BeNil())
 			Expect(present).To(BeFalse())
 		})
+		It("should detect that it is enabled if getenforce returns Permissive", func() {
+			touch(filepath.Join(tempDir, "/usr/bin", "getenforce"))
+			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
+				return []byte("Permissive"), nil
+			}
+			present, err := selinux.IsPresent()
+			Expect(err).To(BeNil())
+			Expect(present).To(BeTrue())
+		})
 		It("should detect that it is enabled if getenforce does not return Disabled", func() {
 			touch(filepath.Join(tempDir, "/usr/bin", "getenforce"))
 			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
@@ -91,6 +100,18 @@ var _ = Describe("selinux", func() {
 		It("should fail if semanage exists but the command fails", func() {
 			touch(filepath.Join(tempDir, "/usr/bin", "semanage"))
 			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
+				return nil, fmt.Errorf("I failed")
+			}
+			_, err := selinux.IsLabeled("whatever")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should succeed if semanage exists and the command fails, but we are in Permissive mode", func() {
+			touch(filepath.Join(tempDir, "/usr/bin", "semanage"))
+			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
+				if binary == "/usr/sbin/getenforce" {
+					return []byte("Permissive"), nil
+				}
 				return nil, fmt.Errorf("I failed")
 			}
 			_, err := selinux.IsLabeled("whatever")
