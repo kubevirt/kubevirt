@@ -39,12 +39,18 @@ objects:
             - disk:
                 bus: virtio
               name: cloudinitdisk
+            interfaces:
+            - masquerade: {}
+              name: default
             rng: {}
           machine:
             type: ""
           resources:
             requests:
               memory: ${MEMORY}
+        networks:
+        - name: default
+          pod: {}
         terminationGracePeriodSeconds: 0
         volumes:
         - containerDisk:

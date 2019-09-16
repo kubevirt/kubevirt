@@ -84,6 +84,7 @@ const (
 )
 
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
+const defaultInterfaceName = "default"
 
 var DockerPrefix = "registry:5000/kubevirt"
 var DockerTag = "devel"
@@ -122,6 +123,22 @@ func getBaseVMI(name string) *v1.VirtualMachineInstance {
 func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
 	addContainerDisk(spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
+
+	return spec
+}
+
+func setDefaultNetworkAndInterface(spec *v1.VirtualMachineInstanceSpec, bindingMethod v1.InterfaceBindingMethod, networkSource v1.NetworkSource) *v1.VirtualMachineInstanceSpec {
+	spec.Domain.Devices.Interfaces = []v1.Interface{
+		v1.Interface{
+			Name:                   defaultInterfaceName,
+			InterfaceBindingMethod: bindingMethod},
+	}
+	spec.Networks = []v1.Network{
+		v1.Network{
+			Name:          defaultInterfaceName,
+			NetworkSource: networkSource},
+	}
+
 	return spec
 }
 
@@ -351,7 +368,6 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vm := getBaseVMI(VmiMasquerade)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-
 	initFedora(&vm.Spec)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
 
@@ -559,8 +575,16 @@ func GetVMCirros() *v1.VirtualMachine {
 
 func GetTemplateFedora() *Template {
 	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "fedora27"})
-	initFedora(&vm.Spec.Template.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec.Template.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	spec := &vm.Spec.Template.Spec
+	initFedora(spec)
+	addNoCloudDiskWitUserData(spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+
+	setDefaultNetworkAndInterface(spec, v1.InterfaceBindingMethod{
+		Masquerade: &v1.InterfaceMasquerade{},
+	},
+		v1.NetworkSource{
+			Pod: &v1.PodNetwork{},
+		})
 
 	template := getBaseTemplate(vm, "4096Mi", "4")
 	template.ObjectMeta = metav1.ObjectMeta{
@@ -580,18 +604,31 @@ func GetTemplateFedora() *Template {
 
 func GetTemplateRHEL7() *Template {
 	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "rhel-7.4"})
-	addPVCDisk(&vm.Spec.Template.Spec, "linux-vm-pvc-${NAME}", busVirtio, "disk0")
+	spec := &vm.Spec.Template.Spec
+	setDefaultNetworkAndInterface(spec, v1.InterfaceBindingMethod{
+		Masquerade: &v1.InterfaceMasquerade{},
+	},
+		v1.NetworkSource{
+			Pod: &v1.PodNetwork{},
+		})
 
+	addPVCDisk(spec, "linux-vm-pvc-${NAME}", busVirtio, "disk0")
 	pvc := getPVCForTemplate("linux-vm-pvc-${NAME}")
 	template := newTemplateForRHEL7VM(vm)
 	template.Objects = append(template.Objects, pvc)
-
 	return template
 }
 
 func GetTestTemplateRHEL7() *Template {
 	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "rhel-7.4"})
-	addEphemeralPVCDisk(&vm.Spec.Template.Spec, "disk-rhel", busSata, "pvcdisk")
+	spec := &vm.Spec.Template.Spec
+	addEphemeralPVCDisk(spec, "disk-rhel", busSata, "pvcdisk")
+	setDefaultNetworkAndInterface(spec, v1.InterfaceBindingMethod{
+		Masquerade: &v1.InterfaceMasquerade{},
+	},
+		v1.NetworkSource{
+			Pod: &v1.PodNetwork{},
+		})
 
 	return newTemplateForRHEL7VM(vm)
 }

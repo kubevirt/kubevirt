@@ -36,11 +36,17 @@ objects:
             - disk:
                 bus: virtio
               name: disk0
+            interfaces:
+            - masquerade: {}
+              name: default
           machine:
             type: ""
           resources:
             requests:
               memory: ${MEMORY}
+        networks:
+        - name: default
+          pod: {}
         terminationGracePeriodSeconds: 0
         volumes:
         - name: disk0
