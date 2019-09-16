@@ -179,7 +179,7 @@ func (Input) SwaggerDoc() map[string]string {
 	}
 }
 
-func (Gpu) SwaggerDoc() map[string]string {
+func (GPU) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name": "Name of the GPU device as exposed by a device plugin",
 	}

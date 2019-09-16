@@ -4467,7 +4467,7 @@
       "description": "Whether to attach a GPU device to the vmi.\n+optional",
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1.Gpu"
+       "$ref": "#/definitions/v1.GPU"
       }
      },
      "inputs": {
@@ -4783,6 +4783,17 @@
      }
     }
    },
+   "v1.GPU": {
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name of the GPU device as exposed by a device plugin",
+      "type": "string"
+     }
+    }
+   },
    "v1.GenieNetwork": {
     "description": "Represents the genie cni network.",
     "required": [
@@ -4791,17 +4802,6 @@
     "properties": {
      "networkName": {
       "description": "References the CNI plugin name.",
-      "type": "string"
-     }
-    }
-   },
-   "v1.Gpu": {
-    "required": [
-     "name"
-    ],
-    "properties": {
-     "name": {
-      "description": "Name of the GPU device as exposed by a device plugin",
       "type": "string"
      }
     }

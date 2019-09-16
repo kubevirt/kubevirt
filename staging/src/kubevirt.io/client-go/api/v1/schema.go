@@ -343,7 +343,7 @@ type Devices struct {
 	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
 	//Whether to attach a GPU device to the vmi.
 	// +optional
-	Gpus []Gpu `json:"gpus,omitempty"`
+	GPUs []GPU `json:"gpus,omitempty"`
 }
 
 // ---
@@ -361,7 +361,7 @@ type Input struct {
 
 // ---
 // +k8s:openapi-gen=true
-type Gpu struct {
+type GPU struct {
 	// Name of the GPU device as exposed by a device plugin
 	Name string `json:"name"`
 }

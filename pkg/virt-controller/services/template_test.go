@@ -1478,7 +1478,7 @@ var _ = Describe("Template", func() {
 			})
 		})
 
-		Context("with gpu device interface", func() {
+		Context("with GPU device interface", func() {
 			It("should not run privileged", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1489,9 +1489,9 @@ var _ = Describe("Template", func() {
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
-								Gpus: []v1.Gpu{
-									v1.Gpu{
-										Name: "nvidia.com/gpu_name",
+								GPUs: []v1.GPU{
+									v1.GPU{
+										Name: "vendor.com/gpu_name",
 									},
 								},
 							},
@@ -1514,9 +1514,9 @@ var _ = Describe("Template", func() {
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
-								Gpus: []v1.Gpu{
-									v1.Gpu{
-										Name: "nvidia.com/gpu_name",
+								GPUs: []v1.GPU{
+									v1.GPU{
+										Name: "vendor.com/gpu_name",
 									},
 								},
 							},

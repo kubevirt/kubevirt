@@ -60,8 +60,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Features":                                  schema_kubevirtio_client_go_api_v1_Features(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Firmware":                                  schema_kubevirtio_client_go_api_v1_Firmware(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.FloppyTarget":                              schema_kubevirtio_client_go_api_v1_FloppyTarget(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GPU":                                       schema_kubevirtio_client_go_api_v1_GPU(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GenieNetwork":                              schema_kubevirtio_client_go_api_v1_GenieNetwork(ref),
-		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Gpu":                                       schema_kubevirtio_client_go_api_v1_Gpu(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.HPETTimer":                                 schema_kubevirtio_client_go_api_v1_HPETTimer(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.HostDisk":                                  schema_kubevirtio_client_go_api_v1_HostDisk(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Hugepages":                                 schema_kubevirtio_client_go_api_v1_Hugepages(ref),
@@ -748,7 +748,7 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Gpu"),
+										Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GPU"),
 									},
 								},
 							},
@@ -758,7 +758,7 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Disk", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Gpu", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Input", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Interface", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Rng", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Watchdog"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Disk", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GPU", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Input", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Interface", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Rng", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Watchdog"},
 	}
 }
 
@@ -1325,6 +1325,26 @@ func schema_kubevirtio_client_go_api_v1_FloppyTarget(ref common.ReferenceCallbac
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_GPU(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the GPU device as exposed by a device plugin",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_GenieNetwork(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1340,26 +1360,6 @@ func schema_kubevirtio_client_go_api_v1_GenieNetwork(ref common.ReferenceCallbac
 					},
 				},
 				Required: []string{"networkName"},
-			},
-		},
-		Dependencies: []string{},
-	}
-}
-
-func schema_kubevirtio_client_go_api_v1_Gpu(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name of the GPU device as exposed by a device plugin",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{},

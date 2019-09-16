@@ -1777,15 +1777,15 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should reject GPU devices when feature gate is disabled", func() {
 			vmi := v1.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.Gpus = []v1.Gpu{
-				v1.Gpu{
-					Name: "nvidia.com/gpu_name",
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				v1.GPU{
+					Name: "vendor.com/gpu_name",
 				},
 			}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.gpus"))
+			Expect(causes[0].Field).To(Equal("fake.GPUs"))
 		})
 
 		table.DescribeTable("Should accept valid DNSPolicy and DNSConfig",
