@@ -39,9 +39,11 @@ import (
 // ManifestPath is the path to the manifest templates
 const ManifestPath = "./data"
 
+var operatorNamespace string
 var operatorVersion string
 
 func init() {
+	operatorNamespace = os.Getenv("OPERATOR_NAMESPACE")
 	operatorVersion = os.Getenv("OPERATOR_VERSION")
 }
 
@@ -310,11 +312,13 @@ func (r *ReconcileNetworkAddonsConfig) renderObjects(networkAddonsConfig *opv1al
 // are removed when NetworkAddonsConfig config is
 func (r *ReconcileNetworkAddonsConfig) applyObjects(networkAddonsConfig *opv1alpha1.NetworkAddonsConfig, objs []*unstructured.Unstructured) error {
 	for _, obj := range objs {
-		// Mark the object to be GC'd if the owner is deleted
-		if err := controllerutil.SetControllerReference(networkAddonsConfig, obj, r.scheme); err != nil {
-			log.Printf("could not set reference for (%s) %s/%s: %v", obj.GroupVersionKind(), obj.GetNamespace(), obj.GetName(), err)
-			err = errors.Wrapf(err, "could not set reference for (%s) %s/%s", obj.GroupVersionKind(), obj.GetNamespace(), obj.GetName())
-			return err
+		// Mark the object to be GC'd if the owner is deleted. Don't set owner reference on namespaces if they are used by the operator itself
+		if !(obj.GetKind() == "Namespace" && obj.GetName() == operatorNamespace) {
+			if err := controllerutil.SetControllerReference(networkAddonsConfig, obj, r.scheme); err != nil {
+				log.Printf("could not set reference for (%s) %s/%s: %v", obj.GroupVersionKind(), obj.GetNamespace(), obj.GetName(), err)
+				err = errors.Wrapf(err, "could not set reference for (%s) %s/%s", obj.GroupVersionKind(), obj.GetNamespace(), obj.GetName())
+				return err
+			}
 		}
 
 		// Apply all objects on apiserver
@@ -348,7 +352,6 @@ func (r *ReconcileNetworkAddonsConfig) trackDeployedObjects(objs []*unstructured
 
 			for _, container := range daemonSet.Spec.Template.Spec.Containers {
 				containers = append(containers, opv1alpha1.Container{
-					Namespace:  daemonSet.GetNamespace(),
 					ParentKind: obj.GetKind(),
 					ParentName: daemonSet.GetName(),
 					Image:      container.Image,
@@ -366,7 +369,6 @@ func (r *ReconcileNetworkAddonsConfig) trackDeployedObjects(objs []*unstructured
 
 			for _, container := range deployment.Spec.Template.Spec.Containers {
 				containers = append(containers, opv1alpha1.Container{
-					Namespace:  deployment.GetNamespace(),
 					ParentKind: obj.GetKind(),
 					ParentName: deployment.GetName(),
 					Image:      container.Image,

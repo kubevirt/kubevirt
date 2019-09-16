@@ -89,8 +89,7 @@ func CheckReleaseUsesExpectedContainerImages(release Release) {
 
 func sortContainers(containers []opv1alpha1.Container) []opv1alpha1.Container {
 	sort.Slice(containers, func(a, b int) bool {
-		return (sort.StringsAreSorted([]string{containers[a].Namespace, containers[b].Namespace}) &&
-			sort.StringsAreSorted([]string{containers[a].ParentKind, containers[b].ParentKind}) &&
+		return (sort.StringsAreSorted([]string{containers[a].ParentKind, containers[b].ParentKind}) &&
 			sort.StringsAreSorted([]string{containers[a].ParentName, containers[b].ParentName}) &&
 			sort.StringsAreSorted([]string{containers[a].Name, containers[b].Name}))
 	})

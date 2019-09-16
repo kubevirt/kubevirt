@@ -28,6 +28,7 @@ func renderOvs(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir string, clu
 
 	// render the manifests on disk
 	data := render.MakeRenderData()
+	data.Data["Namespace"] = os.Getenv("OPERAND_NAMESPACE")
 	data.Data["OvsCNIImage"] = os.Getenv("OVS_CNI_IMAGE")
 	data.Data["OvsMarkerImage"] = os.Getenv("OVS_MARKER_IMAGE")
 	data.Data["OvsImage"] = os.Getenv("OVS_IMAGE")

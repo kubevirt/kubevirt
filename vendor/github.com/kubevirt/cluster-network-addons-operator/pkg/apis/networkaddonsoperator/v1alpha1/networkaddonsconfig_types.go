@@ -46,7 +46,6 @@ type NetworkAddonsConfigStatus struct {
 }
 
 type Container struct {
-	Namespace  string `json:"namespace"`
 	ParentKind string `json:"parentKind"`
 	ParentName string `json:"parentName"`
 	Name       string `json:"name"`

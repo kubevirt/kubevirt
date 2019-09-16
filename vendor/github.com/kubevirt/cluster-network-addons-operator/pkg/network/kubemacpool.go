@@ -101,6 +101,7 @@ func renderKubeMacPool(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir str
 
 	// render the manifests on disk
 	data := render.MakeRenderData()
+	data.Data["Namespace"] = os.Getenv("OPERAND_NAMESPACE")
 	data.Data["KubeMacPoolImage"] = os.Getenv("KUBEMACPOOL_IMAGE")
 	data.Data["ImagePullPolicy"] = conf.ImagePullPolicy
 	data.Data["RangeStart"] = conf.KubeMacPool.RangeStart

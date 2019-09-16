@@ -28,6 +28,7 @@ func renderLinuxBridge(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir str
 
 	// render the manifests on disk
 	data := render.MakeRenderData()
+	data.Data["Namespace"] = os.Getenv("OPERAND_NAMESPACE")
 	data.Data["LinuxBridgeMarkerImage"] = os.Getenv("LINUX_BRIDGE_MARKER_IMAGE")
 	data.Data["LinuxBridgeImage"] = os.Getenv("LINUX_BRIDGE_IMAGE")
 	data.Data["ImagePullPolicy"] = conf.ImagePullPolicy

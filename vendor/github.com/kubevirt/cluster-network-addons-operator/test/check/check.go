@@ -123,10 +123,10 @@ func CheckOperatorIsReady(timeout time.Duration) {
 	By("Checking that the operator is up and running")
 	if timeout != CheckImmediately {
 		Eventually(func() error {
-			return checkForDeployment(components.Name, components.Namespace)
+			return checkForDeployment(components.Name)
 		}, timeout, time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("Timed out waiting for the operator to become ready"))
 	} else {
-		Expect(checkForDeployment(components.Name, components.Namespace)).ShouldNot(HaveOccurred(), "Operator is not ready")
+		Expect(checkForDeployment(components.Name)).ShouldNot(HaveOccurred(), "Operator is not ready")
 	}
 }
 
@@ -156,16 +156,9 @@ func CheckForLeftoverObjects(currentVersion string) {
 	Expect(namespaces.Items).To(BeEmpty(), "Found leftover objects from the previous operator version")
 
 	secrets := corev1.SecretList{}
-	copyList := []corev1.Secret{}
 	err = framework.Global.Client.List(context.Background(), &listOptions, &secrets)
 	Expect(err).NotTo(HaveOccurred())
-	// TODO: remove this after fixing https://github.com/kubevirt/cluster-network-addons-operator/issues/190
-	for _, secret := range secrets.Items {
-		if secret.Name != "kubemacpool-webhook-secret" {
-			copyList = append(copyList, secret)
-		}
-	}
-	Expect(copyList).To(BeEmpty(), "Found leftover objects from the previous operator version")
+	Expect(secrets.Items).To(BeEmpty(), "Found leftover objects from the previous operator version")
 
 	clusterRoles := rbacv1.ClusterRoleList{}
 	err = framework.Global.Client.List(context.Background(), &listOptions, &clusterRoles)
@@ -225,10 +218,6 @@ func checkForComponent(component *Component) error {
 		}
 	}
 
-	if component.Namespace != "" {
-		errsAppend(checkForNamespace(component.Namespace))
-	}
-
 	if component.ClusterRole != "" {
 		errsAppend(checkForClusterRole(component.ClusterRole))
 	}
@@ -242,11 +231,11 @@ func checkForComponent(component *Component) error {
 	}
 
 	for _, daemonSet := range component.DaemonSets {
-		errsAppend(checkForDaemonSet(daemonSet, component.Namespace))
+		errsAppend(checkForDaemonSet(daemonSet))
 	}
 
 	for _, deployment := range component.Deployments {
-		errsAppend(checkForDeployment(deployment, component.Namespace))
+		errsAppend(checkForDeployment(deployment))
 	}
 
 	return errsToErr(errs)
@@ -258,10 +247,6 @@ func checkForComponentRemoval(component *Component) error {
 		if err != nil {
 			errs = append(errs, err)
 		}
-	}
-
-	if component.Namespace != "" {
-		errsAppend(checkForNamespaceRemoval(component.Namespace))
 	}
 
 	if component.ClusterRole != "" {
@@ -290,10 +275,6 @@ func errsToErr(errs []error) error {
 	return errors.New(strings.Join(errsStrings, "\n"))
 }
 
-func checkForNamespace(name string) error {
-	return framework.Global.Client.Get(context.Background(), types.NamespacedName{Name: name}, &corev1.Namespace{})
-}
-
 func checkForClusterRole(name string) error {
 	return framework.Global.Client.Get(context.Background(), types.NamespacedName{Name: name}, &rbacv1.ClusterRole{})
 }
@@ -310,10 +291,10 @@ func checkForSecurityContextConstraints(name string) error {
 	return err
 }
 
-func checkForDeployment(name string, namespace string) error {
+func checkForDeployment(name string) error {
 	deployment := appsv1.Deployment{}
 
-	err := framework.Global.Client.Get(context.Background(), types.NamespacedName{Name: name, Namespace: namespace}, &deployment)
+	err := framework.Global.Client.Get(context.Background(), types.NamespacedName{Name: name, Namespace: components.Namespace}, &deployment)
 	if err != nil {
 		return err
 	}
@@ -321,7 +302,7 @@ func checkForDeployment(name string, namespace string) error {
 	labels := deployment.GetLabels()
 	if labels != nil {
 		if _, operatorLabelSet := labels[opv1alpha1.SchemeGroupVersion.Group+"/version"]; !operatorLabelSet {
-			return fmt.Errorf("Deployment %s/%s is missing operator label", namespace, name)
+			return fmt.Errorf("Deployment %s/%s is missing operator label", components.Namespace, name)
 		}
 	}
 
@@ -330,16 +311,16 @@ func checkForDeployment(name string, namespace string) error {
 		if err != nil {
 			panic(err)
 		}
-		return fmt.Errorf("Deployment %s/%s is not ready, current state:\n%v", namespace, name, string(manifest))
+		return fmt.Errorf("Deployment %s/%s is not ready, current state:\n%v", components.Namespace, name, string(manifest))
 	}
 
 	return nil
 }
 
-func checkForDaemonSet(name string, namespace string) error {
+func checkForDaemonSet(name string) error {
 	daemonSet := appsv1.DaemonSet{}
 
-	err := framework.Global.Client.Get(context.Background(), types.NamespacedName{Name: name, Namespace: namespace}, &daemonSet)
+	err := framework.Global.Client.Get(context.Background(), types.NamespacedName{Name: name, Namespace: components.Namespace}, &daemonSet)
 	if err != nil {
 		return err
 	}
@@ -347,7 +328,7 @@ func checkForDaemonSet(name string, namespace string) error {
 	labels := daemonSet.GetLabels()
 	if labels != nil {
 		if _, operatorLabelSet := labels[opv1alpha1.SchemeGroupVersion.Group+"/version"]; !operatorLabelSet {
-			return fmt.Errorf("DaemonSet %s/%s is missing operator label", namespace, name)
+			return fmt.Errorf("DaemonSet %s/%s is missing operator label", components.Namespace, name)
 		}
 	}
 
@@ -356,15 +337,10 @@ func checkForDaemonSet(name string, namespace string) error {
 		if err != nil {
 			panic(err)
 		}
-		return fmt.Errorf("DaemonSet %s/%s is not ready, current state:\n%v", namespace, name, string(manifest))
+		return fmt.Errorf("DaemonSet %s/%s is not ready, current state:\n%v", components.Namespace, name, string(manifest))
 	}
 
 	return nil
-}
-
-func checkForNamespaceRemoval(name string) error {
-	err := framework.Global.Client.Get(context.Background(), types.NamespacedName{Name: name}, &corev1.Namespace{})
-	return isNotFound("Namespace", name, err)
 }
 
 func checkForClusterRoleRemoval(name string) error {

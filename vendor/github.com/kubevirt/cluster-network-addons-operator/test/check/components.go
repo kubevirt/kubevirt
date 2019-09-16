@@ -2,7 +2,6 @@ package check
 
 type Component struct {
 	ComponentName              string
-	Namespace                  string
 	ClusterRole                string
 	ClusterRoleBinding         string
 	SecurityContextConstraints string
@@ -13,14 +12,12 @@ type Component struct {
 var (
 	KubeMacPoolComponent = Component{
 		ComponentName:      "KubeMacPool",
-		Namespace:          "kubemacpool-system",
 		ClusterRole:        "kubemacpool-manager-role",
 		ClusterRoleBinding: "kubemacpool-manager-rolebinding",
 		Deployments:        []string{"kubemacpool-mac-controller-manager"},
 	}
 	LinuxBridgeComponent = Component{
 		ComponentName:              "Linux Bridge",
-		Namespace:                  "linux-bridge",
 		ClusterRole:                "bridge-marker-cr",
 		ClusterRoleBinding:         "bridge-marker-crb",
 		SecurityContextConstraints: "linux-bridge",
@@ -31,7 +28,6 @@ var (
 	}
 	MultusComponent = Component{
 		ComponentName:              "Multus",
-		Namespace:                  "multus",
 		ClusterRole:                "multus",
 		ClusterRoleBinding:         "multus",
 		SecurityContextConstraints: "multus",
@@ -39,7 +35,6 @@ var (
 	}
 	NMStateComponent = Component{
 		ComponentName:              "NMState",
-		Namespace:                  "nmstate",
 		ClusterRoleBinding:         "nmstate-handler",
 		ClusterRole:                "nmstate-handler",
 		SecurityContextConstraints: "nmstate",
@@ -48,7 +43,6 @@ var (
 
 	OvsComponent = Component{
 		ComponentName:              "Ovs",
-		Namespace:                  "ovs",
 		ClusterRole:                "ovs-cni-marker-cr",
 		ClusterRoleBinding:         "ovs-cni-marker-crb",
 		SecurityContextConstraints: "ovs-cni-marker",
