@@ -1491,7 +1491,8 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								GPUs: []v1.GPU{
 									v1.GPU{
-										Name: "vendor.com/gpu_name",
+										Name:       "gpu1",
+										DeviceName: "vendor.com/gpu_name",
 									},
 								},
 							},
@@ -1516,7 +1517,8 @@ var _ = Describe("Template", func() {
 							Devices: v1.Devices{
 								GPUs: []v1.GPU{
 									v1.GPU{
-										Name: "vendor.com/gpu_name",
+										Name:       "gpu1",
+										DeviceName: "vendor.com/gpu_name",
 									},
 								},
 							},
@@ -1530,6 +1532,11 @@ var _ = Describe("Template", func() {
 				// Skip first three mounts that are generic for all launcher pods
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
 				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/sys/devices/"))
+
+				resources := pod.Spec.Containers[0].Resources
+				val, ok := resources.Requests["vendor.com/gpu_name"]
+				Expect(ok).To(Equal(true))
+				Expect(val).To(Equal(*resource.NewQuantity(1, resource.DecimalSI)))
 			})
 		})
 

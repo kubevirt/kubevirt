@@ -695,7 +695,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	if util.IsGPUVMI(vmi) {
 		for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
-			requestResource(&resources, gpu.Name)
+			requestResource(&resources, gpu.DeviceName)
 		}
 	}
 

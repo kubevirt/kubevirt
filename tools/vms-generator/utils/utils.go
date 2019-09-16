@@ -862,7 +862,8 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	GPUs := []v1.GPU{
 		v1.GPU{
-			Name: "nvidia.com/GP102GL_Tesla_P40",
+			Name:       "gpu1",
+			DeviceName: "nvidia.com/GP102GL_Tesla_P40",
 		},
 	}
 	vmi.Spec.Domain.Devices.GPUs = GPUs
