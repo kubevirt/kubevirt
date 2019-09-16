@@ -988,18 +988,18 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	// Append HostDevices to DomXML if GPU is requested
-	if util.IsGpuVmi(vmi) {
+	if util.IsGPUVMI(vmi) {
 		vgpuMdevUUID := append([]string{}, c.VgpuDevices...)
-		hostDevices, err := createHostDevicesFromMdevUuidList(vgpuMdevUUID)
+		hostDevices, err := createHostDevicesFromMdevUUIDList(vgpuMdevUUID)
 		if err != nil {
-			log.Log.Reason(err).Error("Unable to parse Mdev Uuid addresses")
+			log.Log.Reason(err).Error("Unable to parse Mdev UUID addresses")
 		} else {
 			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevices...)
 		}
-		gpuPciAddresses := append([]string{}, c.GpuDevices...)
-		hostDevices, err = createHostDevicesFromPCIAddresses(gpuPciAddresses)
+		gpuPCIAddresses := append([]string{}, c.GpuDevices...)
+		hostDevices, err = createHostDevicesFromPCIAddresses(gpuPCIAddresses)
 		if err != nil {
-			log.Log.Reason(err).Error("Unable to parse pci addresses")
+			log.Log.Reason(err).Error("Unable to parse PCI addresses")
 		} else {
 			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevices...)
 		}
@@ -1539,11 +1539,11 @@ func createHostDevicesFromPCIAddresses(pcis []string) ([]HostDevice, error) {
 	return hds, nil
 }
 
-func createHostDevicesFromMdevUuidList(mdevUuidList []string) ([]HostDevice, error) {
+func createHostDevicesFromMdevUUIDList(mdevUuidList []string) ([]HostDevice, error) {
 	var hds []HostDevice
 	for _, mdevUuid := range mdevUuidList {
 		decoratedAddrField := &Address{
-			Uuid: mdevUuid,
+			UUID: mdevUuid,
 		}
 
 		hostDev := HostDevice{

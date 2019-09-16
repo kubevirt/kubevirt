@@ -973,11 +973,11 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	}
 
-	if spec.Domain.Devices.Gpus != nil && !config.GPUPassthroughEnabled() {
+	if spec.Domain.Devices.GPUs != nil && !config.GPUPassthroughEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("GPU feature gate is not enabled in kubevirt-config"),
-			Field:   field.Child("gpus").String(),
+			Field:   field.Child("GPUs").String(),
 		})
 	}
 

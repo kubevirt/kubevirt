@@ -860,12 +860,12 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 func GetVMIGPU() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiGPU)
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	gpus := []v1.Gpu{
-		v1.Gpu{
+	GPUs := []v1.GPU{
+		v1.GPU{
 			Name: "nvidia.com/GP102GL_Tesla_P40",
 		},
 	}
-	vmi.Spec.Domain.Devices.Gpus = gpus
+	vmi.Spec.Domain.Devices.GPUs = GPUs
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 	return vmi

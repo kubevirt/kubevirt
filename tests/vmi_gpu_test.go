@@ -2,6 +2,7 @@ package tests_test
 
 import (
 	"encoding/xml"
+	"fmt"
 	"strings"
 
 	expect "github.com/google/goexpect"
@@ -34,8 +35,8 @@ func parseDeviceAddress(addrString string) []string {
 	return addrs
 }
 
-func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName, prompt string) {
-	cmdCheck := "lspci"
+func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string, prompt string) {
+	cmdCheck := fmt.Sprintf("lspci -m %s\n", gpuName)
 	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
@@ -44,7 +45,7 @@ func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName, prompt string) {
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 	}, 15)
-	Expect(err).ToNot(HaveOccurred(), "Interface %q was not found in the VMI %s within the given timeout", gpuName, vmi.Name)
+	Expect(err).ToNot(HaveOccurred(), "GPU device %q was not found in the VMI %s within the given timeout", gpuName, vmi.Name)
 }
 
 var _ = Describe("GPU", func() {
@@ -57,12 +58,12 @@ var _ = Describe("GPU", func() {
 		It("Should create a valid VMI but pod should not go to running state", func() {
 			gpuName := "random.com/gpu"
 			randomVMI := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
-			gpus := []v1.Gpu{
-				v1.Gpu{
+			gpus := []v1.GPU{
+				v1.GPU{
 					Name: gpuName,
 				},
 			}
-			randomVMI.Spec.Domain.Devices.Gpus = gpus
+			randomVMI.Spec.Domain.Devices.GPUs = gpus
 			vmi, apiErr := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 
@@ -89,12 +90,12 @@ var _ = Describe("GPU", func() {
 			}
 			Expect(gpuName).ToNot(Equal(""))
 			randomVMI := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
-			gpus := []v1.Gpu{
-				v1.Gpu{
+			gpus := []v1.GPU{
+				v1.GPU{
 					Name: gpuName,
 				},
 			}
-			randomVMI.Spec.Domain.Devices.Gpus = gpus
+			randomVMI.Spec.Domain.Devices.GPUs = gpus
 			vmi, apiErr := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(randomVMI)
 			Expect(apiErr).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
@@ -109,7 +110,7 @@ var _ = Describe("GPU", func() {
 				virtClient,
 				readyPod,
 				"compute",
-				[]string{"printenv", "GPU_PASSTHROUGH_DEVICES"},
+				[]string{"printenv", "GPU_PASSTHROUGH_DEVICES_NVIDIA"},
 			)
 			log.Log.Infof("%v", gpuOutput)
 			Expect(err).ToNot(HaveOccurred())
@@ -128,7 +129,7 @@ var _ = Describe("GPU", func() {
 				Expect(domSpec.Devices.HostDevices[n].Source.Address.Function).To(Equal("0x" + dbsfFields[3]))
 			}
 
-			checkGPUDevice(randomVMI, "*10de*", "$")
+			checkGPUDevice(randomVMI, "10de", "$")
 		})
 	})
 })

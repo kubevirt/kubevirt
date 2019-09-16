@@ -1764,9 +1764,9 @@ var _ = Describe("Converter", func() {
 			Spec: v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
-						Gpus: []v1.Gpu{
-							v1.Gpu{
-								Name: "nvidia.com/gpu_name",
+						GPUs: []v1.GPU{
+							v1.GPU{
+								Name: "vendor.com/gpu_name",
 							},
 						},
 					},
@@ -1810,11 +1810,11 @@ var _ = Describe("Converter", func() {
 
 			Expect(len(domain.Spec.Devices.HostDevices)).To(Equal(2))
 			Expect(domain.Spec.Devices.HostDevices[0].Type).To(Equal("mdev"))
-			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Uuid).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73123"))
+			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.UUID).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73123"))
 			Expect(domain.Spec.Devices.HostDevices[0].Mode).To(Equal("subsystem"))
 			Expect(domain.Spec.Devices.HostDevices[0].Model).To(Equal("vfio-pci"))
 			Expect(domain.Spec.Devices.HostDevices[1].Type).To(Equal("mdev"))
-			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Uuid).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73124"))
+			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.UUID).To(Equal("aa618089-8b16-4d01-a136-25a0f3c73124"))
 			Expect(domain.Spec.Devices.HostDevices[1].Mode).To(Equal("subsystem"))
 			Expect(domain.Spec.Devices.HostDevices[1].Model).To(Equal("vfio-pci"))
 

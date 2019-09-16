@@ -702,7 +702,7 @@ type Address struct {
 	Controller string `xml:"controller,attr,omitempty"`
 	Target     string `xml:"target,attr,omitempty"`
 	Unit       string `xml:"unit,attr,omitempty"`
-	Uuid       string `xml:"uuid,attr,omitempty"`
+	UUID       string `xml:"uuid,attr,omitempty"`
 }
 
 //END Video -------------------

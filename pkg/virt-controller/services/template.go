@@ -346,7 +346,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		MountPath: "/var/run/libvirt",
 	})
 
-	if util.IsSRIOVVmi(vmi) || util.IsGpuVmi(vmi) {
+	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) {
 		// libvirt needs this volume to access PCI device config;
 		// note that the volume should not be read-only because libvirt
 		// opens the config for writing
@@ -693,8 +693,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
-	if util.IsGpuVmi(vmi) {
-		for _, gpu := range vmi.Spec.Domain.Devices.Gpus {
+	if util.IsGPUVMI(vmi) {
+		for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
 			requestResource(&resources, gpu.Name)
 		}
 	}

@@ -19,8 +19,8 @@ func IsSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 }
 
 // Check if a VMI spec requests GPU
-func IsGpuVmi(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.Gpus != nil {
+func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.GPUs != nil {
 		return true
 	}
 	return false
