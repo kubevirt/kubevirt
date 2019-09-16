@@ -20,6 +20,7 @@
 package kubecli
 
 import (
+	"encoding/json"
 	"fmt"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -139,6 +140,16 @@ func (v *vm) Patch(name string, pt types.PatchType, data []byte, subresources ..
 func (v *vm) Restart(name string) error {
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restart")
 	return v.restClient.Put().RequestURI(uri).Do().Error()
+}
+
+func (v *vm) ForceRestart(name string, graceperiod int) error {
+	data := map[string]int{"gracePeriodSeconds": graceperiod}
+	body, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
+	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restart")
+	return v.restClient.Put().RequestURI(uri).Body(body).Do().Error()
 }
 
 func (v *vm) Start(name string) error {

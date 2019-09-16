@@ -91,6 +91,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Port":                                      schema_kubevirtio_client_go_api_v1_Port(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.RTCTimer":                                  schema_kubevirtio_client_go_api_v1_RTCTimer(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.ResourceRequirements":                      schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.RestartOptions":                            schema_kubevirtio_client_go_api_v1_RestartOptions(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Rng":                                       schema_kubevirtio_client_go_api_v1_Rng(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.SecretVolumeSource":                        schema_kubevirtio_client_go_api_v1_SecretVolumeSource(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource":                schema_kubevirtio_client_go_api_v1_ServiceAccountVolumeSource(ref),
@@ -2308,6 +2309,40 @@ func schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref common.Referenc
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_RestartOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RestartOptions may be provided when deleting an API object.",
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"gracePeriodSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The duration in seconds before the object should be force-restared. Value must be non-negative integer. The value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the specified type will be used to determine on how much time to give the VMI to restart. Defaults to a per object value if not specified. zero means restart immediately. Allowed Values: nil and 0",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{},
 	}
 }
 

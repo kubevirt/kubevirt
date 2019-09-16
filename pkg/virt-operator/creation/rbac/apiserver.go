@@ -99,7 +99,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					"pods",
 				},
 				Verbs: []string{
-					"get", "list",
+					"get", "list", "watch", "delete", "patch",
 				},
 			},
 			{

@@ -698,6 +698,34 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err.Error()).To(Equal("Error stopping VirtualMachine VM is not running"))
 			})
 
+			It("[test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", func() {
+
+				By("getting a VM with high TerminationGracePeriod")
+				newVMI := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				gracePeriod := int64(1800)
+				newVMI.Spec.TerminationGracePeriodSeconds = &gracePeriod
+				newVM := tests.NewRandomVirtualMachine(newVMI, true)
+				_, err := virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
+				Expect(err).ToNot(HaveOccurred())
+				waitForVMIStart(virtClient, newVMI)
+
+				oldCreationTime := newVMI.ObjectMeta.CreationTimestamp
+				oldVMIUuid := newVM.ObjectMeta.UID
+
+				By("Invoking virtctl --force restart")
+				forceRestart := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RESTART, "--namespace", newVM.Namespace, "--force", newVM.Name, "--gracePeriod=0")
+				err = forceRestart()
+				Expect(err).ToNot(HaveOccurred())
+
+				waitForVMIScheduling(virtClient, newVMI)
+
+				By("Comparing the new CreationTimeStamp with the old one")
+				newVMI, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(oldCreationTime).ToNot(Equal(newVMI.ObjectMeta.CreationTimestamp))
+				Expect(oldVMIUuid).ToNot(Equal(newVMI.ObjectMeta.UID))
+			})
+
 			Context("Using RunStrategyAlways", func() {
 				It("[test_id:3163]should stop a running VM", func() {
 					By("creating a VM with RunStrategyAlways")
@@ -1509,6 +1537,19 @@ func waitForVMIStart(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 		}
 		return newVMI.Status.Phase
 	}, 120*time.Second, 1*time.Second).Should(Equal(v1.Running), "New VMI was not created")
+}
+
+func waitForVMIScheduling(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
+	Eventually(func() v1.VirtualMachineInstancePhase {
+		newVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.GetName(), &v12.GetOptions{})
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			return v1.Unknown
+		}
+		return newVMI.Status.Phase
+	}, 120*time.Second, 1*time.Second).Should(Equal(v1.Scheduling), "New VMI was not created")
 }
 
 func waitForResourceDeletion(k8sClient string, resourceType string, resourceName string) {

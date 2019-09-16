@@ -1125,3 +1125,18 @@ const (
 const (
 	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
 )
+
+// RestartOptions may be provided when deleting an API object.
+// ---
+// +k8s:openapi-gen=true
+type RestartOptions struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// The duration in seconds before the object should be force-restared. Value must be non-negative integer.
+	// The value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the
+	// specified type will be used to determine on how much time to give the VMI to restart.
+	// Defaults to a per object value if not specified. zero means restart immediately.
+	// Allowed Values: nil and 0
+	// +optional
+	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty" protobuf:"varint,1,opt,name=gracePeriodSeconds"`
+}

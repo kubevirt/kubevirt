@@ -206,14 +206,17 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort)
 
-		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("restart")).
+		restartRouteBuilder := subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).
+			Reads(v1.RestartOptions{}).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation("restart").
 			Doc("Restart a VirtualMachine object.").
 			Returns(http.StatusOK, "OK", nil).
 			Returns(http.StatusNotFound, "Not Found", nil).
-			Returns(http.StatusBadRequest, "Bad Request", nil))
+			Returns(http.StatusBadRequest, "Bad Request", nil)
+		restartRouteBuilder.ParameterNamed("body").Required(false)
+		subws.Route(restartRouteBuilder)
 
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("migrate")).
 			To(subresourceApp.MigrateVMRequestHandler).
@@ -1098,7 +1101,6 @@ func (app *virtAPIApp) Run() {
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
 	go configMapInformer.Run(stopChan)
 	go crdInformer.Run(stopChan)
-
 	cache.WaitForCacheSync(stopChan,
 		webhookInformers.VMIInformer.HasSynced,
 		webhookInformers.VMIPresetInformer.HasSynced,

@@ -20,9 +20,11 @@
 package rest
 
 import (
+	"bytes"
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -35,6 +37,7 @@ import (
 	"github.com/onsi/gomega/ghttp"
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -294,6 +297,79 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
 			// check the msg string that would be presented to virtctl output
 			Expect(response.Error().Error()).To(Equal("Halted does not support manual restart requests"))
+			close(done)
+		})
+
+		It("should ForceRestart VirtualMachine", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			body := map[string]int64{
+				"gracePeriodSeconds": 0,
+			}
+			bytesRepresentation, _ := json.Marshal(body)
+			request.Request.Body = ioutil.NopCloser(bytes.NewReader(bytesRepresentation))
+
+			vm := v1.VirtualMachine{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: "testvm",
+				},
+				Spec: v1.VirtualMachineSpec{
+					Running: &running,
+				},
+			}
+			vmi := v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{},
+			}
+			vmi.ObjectMeta.SetUID(uuid.NewUUID())
+
+			pod := &k8sv1.Pod{}
+			pod.Labels = map[string]string{}
+			pod.Annotations = map[string]string{}
+			pod.Labels[v1.AppLabel] = "virt-launcher"
+			pod.ObjectMeta.Name = "virt-launcher-testvm"
+			pod.Spec.NodeName = "mynode"
+			pod.Status.Phase = k8sv1.PodRunning
+			pod.Status.PodIP = "10.35.1.1"
+			pod.Labels[v1.CreatedByLabel] = string(vmi.UID)
+			pod.Annotations[v1.DomainAnnotation] = vm.Name
+
+			podList := k8sv1.PodList{}
+			podList.Items = []k8sv1.Pod{}
+			podList.Items = append(podList.Items, *pod)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, podList),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("DELETE", "/api/v1/namespaces/default/pods/virt-launcher-testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			app.RestartVMRequestHandler(request, response)
+
+			Expect(response.Error()).ToNot(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			close(done)
 		})
 

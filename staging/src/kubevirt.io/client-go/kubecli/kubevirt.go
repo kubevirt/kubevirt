@@ -163,6 +163,7 @@ type VirtualMachineInterface interface {
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error)
 	Restart(name string) error
+	ForceRestart(name string, graceperiod int) error
 	Start(name string) error
 	Stop(name string) error
 	Migrate(name string) error

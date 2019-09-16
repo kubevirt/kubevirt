@@ -1203,6 +1203,16 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Restart(arg0 interface{}) *gomo
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Restart", arg0)
 }
 
+func (_m *MockVirtualMachineInterface) ForceRestart(name string, graceperiod int) error {
+	ret := _m.ctrl.Call(_m, "ForceRestart", name, graceperiod)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) ForceRestart(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ForceRestart", arg0, arg1)
+}
+
 func (_m *MockVirtualMachineInterface) Start(name string) error {
 	ret := _m.ctrl.Call(_m, "Start", name)
 	ret0, _ := ret[0].(error)

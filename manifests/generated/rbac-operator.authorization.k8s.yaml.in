@@ -181,6 +181,9 @@ rules:
   verbs:
   - get
   - list
+  - watch
+  - delete
+  - patch
 - apiGroups:
   - kubevirt.io
   resources:
