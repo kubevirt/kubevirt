@@ -95,7 +95,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-09-04 18:34:06.04653724 -0400 EDT m=+0.029635750
+    createdAt: 2019-09-16 15:34:30.770265601 +0200 CEST m=+0.039626581
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -1353,12 +1353,12 @@ spec:
                   - "2"
                   env:
                   - name: OPERATOR_IMAGE
-                    value: kubevirt/virt-operator:v0.20.4
+                    value: kubevirt/virt-operator:v0.20.5
                   - name: WATCH_NAMESPACE
                     valueFrom:
                       fieldRef:
                         fieldPath: metadata.annotations['olm.targetNamespaces']
-                  image: kubevirt/virt-operator:v0.20.4
+                  image: kubevirt/virt-operator:v0.20.5
                   imagePullPolicy: IfNotPresent
                   name: virt-operator
                   ports:
@@ -1448,20 +1448,24 @@ spec:
                   - name: LINUX_BRIDGE_MARKER_IMAGE
                     value: quay.io/kubevirt/bridge-marker:0.2.0
                   - name: NMSTATE_HANDLER_IMAGE
-                    value: quay.io/nmstate/kubernetes-nmstate-handler:v0.6.0
+                    value: quay.io/nmstate/kubernetes-nmstate-handler:v0.8.0
                   - name: OVS_CNI_IMAGE
                     value: quay.io/kubevirt/ovs-cni-plugin:v0.7.0
                   - name: OVS_MARKER_IMAGE
                     value: quay.io/kubevirt/ovs-cni-marker:v0.7.0
                   - name: KUBEMACPOOL_IMAGE
-                    value: quay.io/kubevirt/kubemacpool:v0.5.0
+                    value: quay.io/kubevirt/kubemacpool:v0.6.0
                   - name: OPERATOR_IMAGE
-                    value: quay.io/kubevirt/cluster-network-addons-operator:0.15.0
+                    value: quay.io/kubevirt/cluster-network-addons-operator:0.16.0
                   - name: OPERATOR_NAME
                     value: cluster-network-addons-operator
                   - name: OPERATOR_VERSION
-                    value: 0.15.0
+                    value: 0.16.0
                   - name: OPERATOR_NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
+                  - name: OPERAND_NAMESPACE
                     valueFrom:
                       fieldRef:
                         fieldPath: metadata.namespace
@@ -1470,7 +1474,7 @@ spec:
                       fieldRef:
                         fieldPath: metadata.name
                   - name: WATCH_NAMESPACE
-                  image: quay.io/kubevirt/cluster-network-addons-operator:0.15.0
+                  image: quay.io/kubevirt/cluster-network-addons-operator:0.16.0
                   imagePullPolicy: IfNotPresent
                   name: cluster-network-addons-operator
                   resources: {}
@@ -1566,7 +1570,7 @@ spec:
                       - name: WATCH_NAMESPACE
                         value: ""
                       - name: VIRT_LAUNCHER_TAG
-                        value: v0.20.4
+                        value: v0.20.5
                       - name: OPERATOR_NAME
                         value: "kubevirt-ssp-operator"
 
