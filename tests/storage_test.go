@@ -571,12 +571,12 @@ var _ = Describe("Storage", func() {
 			BeforeEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
 				tests.CreateBlockVolumePvAndPvc(pvName, "1Gi")
-			}, 60)
+			})
 
 			AfterEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
 				tests.DeletePvAndPvc(pvName)
-			}, 60)
+			})
 
 			It("[test_id:1015] should be successfully started", func() {
 				// Start the VirtualMachineInstance with the PVC attached
@@ -602,13 +602,13 @@ var _ = Describe("Storage", func() {
 				// Start a ISCSI POD and service
 				By("Creating a ISCSI POD")
 				iscsiTargetIP := tests.CreateISCSITargetPOD(tests.ContainerDiskAlpine)
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIP, k8sv1.PersistentVolumeBlock)
-			}, 60)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
+			})
 
 			AfterEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
 				tests.DeletePvAndPvc(pvName)
-			}, 60)
+			})
 
 			It("should be successfully started", func() {
 				By("Create a VMIWithPVC")
