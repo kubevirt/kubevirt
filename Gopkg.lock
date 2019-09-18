@@ -1257,16 +1257,17 @@
   version = "v0.20.5"
 
 [[projects]]
-  digest = "1:b6b1d9e3e98a790af2d30428c80127cc9f41a19188e39aad29935756c608606d"
+  digest = "1:c1f14502d6d6a188e4f64e184abf19f1cee5c08fd4a71b72f8d1a3d37a503faf"
   name = "kubevirt.io/machine-remediation-operator"
   packages = [
     "pkg/apis/machineremediation",
     "pkg/apis/machineremediation/v1alpha1",
+    "pkg/consts",
     "pkg/operator/components",
   ]
   pruneopts = "NT"
-  revision = "e023ed6cb4038ded6651f8a457aab37af1dba4ab"
-  version = "v0.3.10"
+  revision = "1ccdf20edddfdef900eafc3df308cc844791eea9"
+  version = "v0.3.12"
 
 [[projects]]
   digest = "1:06035489efbd51ccface65fc878ceeb849aba05b2f9443c8993f363fc96e80ac"

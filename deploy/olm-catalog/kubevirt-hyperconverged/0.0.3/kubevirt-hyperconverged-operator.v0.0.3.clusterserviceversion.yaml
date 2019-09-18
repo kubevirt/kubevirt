@@ -95,7 +95,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-09-16 15:34:30.770265601 +0200 CEST m=+0.039626581
+    createdAt: 2019-09-18 11:59:52.250189667 +0300 IDT m=+0.025805317
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -1098,6 +1098,22 @@ spec:
               - clusterrolebindings
               verbs:
               - '*'
+            - apiGroups:
+              - config.openshift.io
+              resources:
+              - infrastructures
+              - infrastructures/status
+              verbs:
+              - get
+              - list
+              - watch
+            - apiGroups:
+              - machineremediation.kubevirt.io
+              resources:
+              - machinedisruptionbudgets
+              - machinehealthchecks
+              verbs:
+              - '*'
 
         - serviceAccountName: kubevirt-ssp-operator
           rules:
@@ -1486,14 +1502,14 @@ spec:
             selector:
               matchLabels:
                 machineremediation.kubevirt.io: machine-remediation-operator
-                machineremediation.kubevirt.io/version: v0.3.10
+                machineremediation.kubevirt.io/version: v0.3.12
             strategy:
               type: RollingUpdate
             template:
               metadata:
                 labels:
                   machineremediation.kubevirt.io: machine-remediation-operator
-                  machineremediation.kubevirt.io/version: v0.3.10
+                  machineremediation.kubevirt.io/version: v0.3.12
               spec:
                 affinity:
                   podAntiAffinity:
@@ -1516,8 +1532,8 @@ spec:
                   - /usr/bin/machine-remediation-operator
                   env:
                   - name: OPERATOR_VERSION
-                    value: v0.3.10
-                  image: kubevirt/machine-remediation-operator:v0.3.10
+                    value: v0.3.12
+                  image: kubevirt/machine-remediation-operator:v0.3.12
                   imagePullPolicy: IfNotPresent
                   name: machine-remediation-operator
                   resources:

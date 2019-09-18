@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	bmov1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
 	mrv1 "kubevirt.io/machine-remediation-operator/pkg/apis/machineremediation/v1alpha1"
 	"kubevirt.io/machine-remediation-operator/pkg/consts"
+
+	bmov1 "github.com/metal3-io/baremetal-operator/pkg/apis/metal3/v1alpha1"
+	osconfigv1 "github.com/openshift/api/config/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -185,6 +187,20 @@ func NewNode(name string, ready bool, machineName string) *corev1.Node {
 					LastTransitionTime: KnownDate,
 				},
 			},
+		},
+	}
+}
+
+// NewInfrastructure returns a new Infrastructure object that can be used for testing
+func NewInfrastructure(name string, platform osconfigv1.PlatformType) *osconfigv1.Infrastructure {
+	return &osconfigv1.Infrastructure{
+		TypeMeta: metav1.TypeMeta{Kind: "Infrastructure"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: metav1.NamespaceNone,
+		},
+		Status: osconfigv1.InfrastructureStatus{
+			Platform: platform,
 		},
 	}
 }

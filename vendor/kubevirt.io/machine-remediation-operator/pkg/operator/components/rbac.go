@@ -319,6 +319,32 @@ var (
 					rbacv1.VerbAll,
 				},
 			},
+			{
+				APIGroups: []string{
+					"config.openshift.io",
+				},
+				Resources: []string{
+					"infrastructures",
+					"infrastructures/status",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"machineremediation.kubevirt.io",
+				},
+				Resources: []string{
+					"machinedisruptionbudgets",
+					"machinehealthchecks",
+				},
+				Verbs: []string{
+					rbacv1.VerbAll,
+				},
+			},
 		},
 	}
 )

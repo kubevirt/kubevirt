@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	osconfigv1 "github.com/openshift/api/config/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -147,6 +148,7 @@ func (r *ReconcileMachineRemediationOperator) Reconcile(request reconcile.Reques
 }
 
 func (r *ReconcileMachineRemediationOperator) createOrUpdateComponents(mro *mrv1.MachineRemediationOperator) error {
+	// create CRD's
 	for _, crd := range components.CRDS {
 		glog.Infof("Creating or updating CRD %q", crd)
 		if err := r.createOrUpdateCustomResourceDefinition(crd); err != nil {
@@ -154,6 +156,7 @@ func (r *ReconcileMachineRemediationOperator) createOrUpdateComponents(mro *mrv1
 		}
 	}
 
+	// create RBAC and deployment
 	for _, component := range components.Components {
 		glog.Infof("Creating objects for component %q", component)
 		if err := r.createOrUpdateServiceAccount(component, consts.NamespaceOpenshiftMachineAPI); err != nil {
@@ -181,10 +184,43 @@ func (r *ReconcileMachineRemediationOperator) createOrUpdateComponents(mro *mrv1
 			return err
 		}
 	}
+
+	baremetal, err := r.isBareMetal()
+	if err != nil {
+		return err
+	}
+
+	// deploy masters MachineHealthCheck and MachineDisruptionBudget only for BareMetal environment
+	if baremetal {
+		if err := r.createOrUpdateMachineHealthCheck(consts.MasterMachineHealthCheck, consts.NamespaceOpenshiftMachineAPI); err != nil {
+			return err
+		}
+
+		if err := r.createOrUpdateMachineDisruptionBudget(consts.MasterMachineDisruptionBudget, consts.NamespaceOpenshiftMachineAPI); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 func (r *ReconcileMachineRemediationOperator) deleteComponents() error {
+	baremetal, err := r.isBareMetal()
+	if err != nil {
+		return err
+	}
+
+	// delete masters MachineHealthCheck and MachineDisruptionBudget only for BareMetal environment
+	if baremetal {
+		if err := r.deleteMachineHealthCheck(consts.MasterMachineHealthCheck, consts.NamespaceOpenshiftMachineAPI); err != nil {
+			return err
+		}
+
+		if err := r.deleteMachineDisruptionBudget(consts.MasterMachineDisruptionBudget, consts.NamespaceOpenshiftMachineAPI); err != nil {
+			return err
+		}
+	}
+
 	for _, component := range components.Components {
 		glog.Infof("Deleting objets for component %q", component)
 		if err := r.deleteDeployment(component, consts.NamespaceOpenshiftMachineAPI); err != nil {
@@ -282,6 +318,18 @@ func (r *ReconcileMachineRemediationOperator) statusProgressing(mro *mrv1.Machin
 		},
 	}
 	return r.client.Status().Update(context.TODO(), mro)
+}
+
+func (r *ReconcileMachineRemediationOperator) isBareMetal() (bool, error) {
+	infrastructure, err := r.getInfrastructure("cluster")
+	if err != nil {
+		return false, err
+	}
+
+	if infrastructure.Status.Platform == osconfigv1.BareMetalPlatformType {
+		return true, nil
+	}
+	return false, nil
 }
 
 func addFinalizer(mro *mrv1.MachineRemediationOperator) {

@@ -507,7 +507,7 @@ func decrementMachineDisruptionsAllowed(c client.Client, machineName string, mdb
 	// If the machine is not remediated within a reasonable time limit MDB controller will assume that it won't
 	// be remediated at all and remove it from DisruptedMachines map.
 	mdb.Status.DisruptedMachines[machineName] = metav1.Time{Time: time.Now()}
-	return c.Update(context.TODO(), mdb)
+	return c.Status().Update(context.TODO(), mdb)
 }
 
 // RetryDecrementMachineDisruptionsAllowed validates if the disruption is allowed, when it allowed it will decrement

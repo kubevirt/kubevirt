@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
+	osconfigv1 "github.com/openshift/api/config/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -322,4 +323,100 @@ func (r *ReconcileMachineRemediationOperator) deleteCustomResourceDefinition(kin
 		return err
 	}
 	return r.client.Delete(context.TODO(), crd)
+}
+
+func (r *ReconcileMachineRemediationOperator) getMachineHealthCheck(name string, namespace string) (*mrv1.MachineHealthCheck, error) {
+	mhc := &mrv1.MachineHealthCheck{}
+	key := types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+	if err := r.client.Get(context.TODO(), key, mhc); err != nil {
+		return nil, err
+	}
+	return mhc, nil
+}
+
+func (r *ReconcileMachineRemediationOperator) createOrUpdateMachineHealthCheck(name string, namespace string) error {
+	newMachineHealthCheck := components.NewMastersMachineHealthCheck(name, namespace, r.operatorVersion)
+
+	oldMachineHealthCheck, err := r.getMachineHealthCheck(name, namespace)
+	if errors.IsNotFound(err) {
+		if err := r.client.Create(context.TODO(), newMachineHealthCheck); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	newMachineHealthCheck.ResourceVersion = oldMachineHealthCheck.ResourceVersion
+	return r.client.Update(context.TODO(), newMachineHealthCheck)
+}
+
+func (r *ReconcileMachineRemediationOperator) deleteMachineHealthCheck(name string, namespace string) error {
+	mhc, err := r.getMachineHealthCheck(name, namespace)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return r.client.Delete(context.TODO(), mhc)
+}
+
+func (r *ReconcileMachineRemediationOperator) getMachineDisruptionBudget(name string, namespace string) (*mrv1.MachineDisruptionBudget, error) {
+	mdb := &mrv1.MachineDisruptionBudget{}
+	key := types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+	if err := r.client.Get(context.TODO(), key, mdb); err != nil {
+		return nil, err
+	}
+	return mdb, nil
+}
+
+func (r *ReconcileMachineRemediationOperator) createOrUpdateMachineDisruptionBudget(name string, namespace string) error {
+	newMachineDisruptionBudget := components.NewMastersMachineDisruptionBudget(name, namespace, r.operatorVersion)
+
+	oldMachineDisruptionBudget, err := r.getMachineDisruptionBudget(name, namespace)
+	if errors.IsNotFound(err) {
+		if err := r.client.Create(context.TODO(), newMachineDisruptionBudget); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	newMachineDisruptionBudget.ResourceVersion = oldMachineDisruptionBudget.ResourceVersion
+	return r.client.Update(context.TODO(), newMachineDisruptionBudget)
+}
+
+func (r *ReconcileMachineRemediationOperator) deleteMachineDisruptionBudget(name string, namespace string) error {
+	mdb, err := r.getMachineDisruptionBudget(name, namespace)
+	if errors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return r.client.Delete(context.TODO(), mdb)
+}
+
+func (r *ReconcileMachineRemediationOperator) getInfrastructure(name string) (*osconfigv1.Infrastructure, error) {
+	infrastructure := &osconfigv1.Infrastructure{}
+	key := types.NamespacedName{
+		Name:      name,
+		Namespace: metav1.NamespaceNone,
+	}
+	if err := r.client.Get(context.TODO(), key, infrastructure); err != nil {
+		return nil, err
+	}
+	return infrastructure, nil
 }

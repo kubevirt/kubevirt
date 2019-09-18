@@ -5,6 +5,7 @@ import (
 	"runtime"
 
 	"github.com/golang/glog"
+	osconfigv1 "github.com/openshift/api/config/v1"
 
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,6 +14,7 @@ import (
 	"kubevirt.io/machine-remediation-operator/pkg/consts"
 	"kubevirt.io/machine-remediation-operator/pkg/controllers"
 	"kubevirt.io/machine-remediation-operator/pkg/operator"
+	"kubevirt.io/machine-remediation-operator/pkg/utils/mapper"
 	"kubevirt.io/machine-remediation-operator/pkg/version"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -44,7 +46,8 @@ func main() {
 		namespaces = append(namespaces, *namespace)
 	}
 	opts := manager.Options{
-		NewCache: cache.MultiNamespacedCacheBuilder(namespaces),
+		NewCache:       cache.MultiNamespacedCacheBuilder(namespaces),
+		MapperProvider: mapper.NewDynamicRESTMapper,
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
@@ -61,6 +64,10 @@ func main() {
 	}
 
 	if err := mrv1.AddToScheme(mgr.GetScheme()); err != nil {
+		glog.Fatal(err)
+	}
+
+	if err := osconfigv1.AddToScheme(mgr.GetScheme()); err != nil {
 		glog.Fatal(err)
 	}
 
