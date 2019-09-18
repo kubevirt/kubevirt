@@ -276,11 +276,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			vm := newVirtualMachine(false)
 
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			vm.Annotations = annotations
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+			err = tests.RetryIfModified(func() error {
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vm.Annotations = annotations
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+				return err
+			})
 			Expect(err).ToNot(HaveOccurred())
 
 			startVMIDontWait(vm)
