@@ -39,6 +39,8 @@ func main() {
 	launcherVersion := flag.String("launcherVersion", "latest", "Version to use for virt-launcher. Only relevant for controller manifest.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
 	verbosity := flag.String("verbosity", "2", "Verbosity level to use.")
+	monitoringNamespace := flag.String("monitoringNamespace", "openshift-monitoring", "Namespace that Prometheus is deployed in.")
+	monitoringAccount := flag.String("monitoringAccount", "prometheus-k8s", "Service Account to grant permissions to.")
 
 	flag.Parse()
 
@@ -64,6 +66,7 @@ func main() {
 		all = append(all, rbac.GetAllApiServer(*namespace)...)
 		all = append(all, rbac.GetAllController(*namespace)...)
 		all = append(all, rbac.GetAllHandler(*namespace)...)
+		all = append(all, rbac.GetAllServiceMonitor(*namespace, *monitoringNamespace, *monitoringAccount)...)
 		for _, r := range all {
 			util.MarshallObject(r, os.Stdout)
 		}

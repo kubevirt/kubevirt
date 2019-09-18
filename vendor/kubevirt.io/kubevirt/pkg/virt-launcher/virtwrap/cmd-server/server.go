@@ -266,7 +266,7 @@ func (l *Launcher) GetDomainStats(ctx context.Context, request *cmdv1.EmptyReque
 		return response, nil
 	}
 
-	if len(list) >= 0 {
+	if len(list) > 0 {
 		if domainStats, err := json.Marshal(list[0]); err != nil {
 			log.Log.Reason(err).Errorf("Failed to marshal domain stats")
 			response.Response.Success = false

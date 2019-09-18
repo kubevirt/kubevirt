@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
-
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -152,6 +152,12 @@ type KubeInformerFactory interface {
 
 	// PodDisruptionBudgets created/managed by virt operator
 	OperatorPodDisruptionBudget() cache.SharedIndexInformer
+
+	// ServiceMonitors created/managed by virt operator
+	OperatorServiceMonitor() cache.SharedIndexInformer
+
+	// Fake ServiceMonitor informer used when Prometheus is not installed
+	DummyOperatorServiceMonitor() cache.SharedIndexInformer
 
 	K8SInformerFactory() informers.SharedInformerFactory
 }
@@ -523,6 +529,25 @@ func (f *kubeInformerFactory) OperatorPodDisruptionBudget() cache.SharedIndexInf
 
 		lw := NewListWatchFromClient(f.clientSet.PolicyV1beta1().RESTClient(), "poddisruptionbudgets", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &v1beta1.PodDisruptionBudget{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorServiceMonitor() cache.SharedIndexInformer {
+	return f.getInformer("operatorServiceMonitorInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.PrometheusClient().MonitoringV1().RESTClient(), "servicemonitors", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &promv1.ServiceMonitor{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) DummyOperatorServiceMonitor() cache.SharedIndexInformer {
+	return f.getInformer("FakeOperatorServiceMonitor", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&promv1.ServiceMonitor{})
+		return informer
 	})
 }
 

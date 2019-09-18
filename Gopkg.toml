@@ -23,11 +23,11 @@ required = [
 
 [[override]]
   name = "kubevirt.io/kubevirt"
-  version = "=v0.20.5"
+  version = "=v0.20.6"
 
 [[constraint]]
   name = "kubevirt.io/client-go"
-  version = "=v0.20.5"
+  version = "=v0.20.6"
 
 [[override]]
   name = "github.com/go-kit/kit"

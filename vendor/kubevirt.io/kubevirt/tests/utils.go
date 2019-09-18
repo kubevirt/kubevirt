@@ -871,6 +871,19 @@ func IsOpenShift() bool {
 	return isOpenShift
 }
 
+func ServiceMonitorEnabled() bool {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	serviceMonitorEnabled, err := util.IsServiceMonitorEnabled(virtClient)
+	if err != nil {
+		fmt.Printf("ERROR: Can't verify ServiceMonitor CRD %v\n", err)
+		panic(err)
+	}
+
+	return serviceMonitorEnabled
+}
+
 func composeResourceURI(object unstructured.Unstructured) string {
 	uri := "/api"
 	if object.GetAPIVersion() != "v1" {

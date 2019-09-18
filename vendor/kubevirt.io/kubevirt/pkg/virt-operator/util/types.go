@@ -42,7 +42,9 @@ type Stores struct {
 	InstallStrategyJobCache       cache.Store
 	InfrastructurePodCache        cache.Store
 	PodDisruptionBudgetCache      cache.Store
+	ServiceMonitorCache           cache.Store
 	IsOnOpenshift                 bool
+	ServiceMonitorEnabled         bool
 }
 
 func (s *Stores) AllEmpty() bool {
@@ -57,7 +59,9 @@ func (s *Stores) AllEmpty() bool {
 		IsStoreEmpty(s.DaemonSetCache) &&
 		IsStoreEmpty(s.ValidationWebhookCache) &&
 		IsStoreEmpty(s.PodDisruptionBudgetCache) &&
-		IsSCCStoreEmpty(s.SCCCache)
+		IsSCCStoreEmpty(s.SCCCache) &&
+		IsStoreEmpty(s.ServiceMonitorCache)
+
 	// Don't add InstallStrategyConfigMapCache to this list. The install
 	// strategies persist even after deletion and updates.
 }
@@ -98,6 +102,7 @@ type Expectations struct {
 	InstallStrategyConfigMap *controller.UIDTrackingControllerExpectations
 	InstallStrategyJob       *controller.UIDTrackingControllerExpectations
 	PodDisruptionBudget      *controller.UIDTrackingControllerExpectations
+	ServiceMonitor           *controller.UIDTrackingControllerExpectations
 }
 
 type Informers struct {
@@ -116,6 +121,7 @@ type Informers struct {
 	InstallStrategyJob       cache.SharedIndexInformer
 	InfrastructurePod        cache.SharedIndexInformer
 	PodDisruptionBudget      cache.SharedIndexInformer
+	ServiceMonitor           cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {
@@ -133,6 +139,7 @@ func (e *Expectations) DeleteExpectations(key string) {
 	e.InstallStrategyConfigMap.DeleteExpectations(key)
 	e.InstallStrategyJob.DeleteExpectations(key)
 	e.PodDisruptionBudget.DeleteExpectations(key)
+	e.ServiceMonitor.DeleteExpectations(key)
 }
 
 func (e *Expectations) ResetExpectations(key string) {
@@ -150,6 +157,7 @@ func (e *Expectations) ResetExpectations(key string) {
 	e.InstallStrategyConfigMap.SetExpectations(key, 0, 0)
 	e.InstallStrategyJob.SetExpectations(key, 0, 0)
 	e.PodDisruptionBudget.SetExpectations(key, 0, 0)
+	e.ServiceMonitor.SetExpectations(key, 0, 0)
 }
 
 func (e *Expectations) SatisfiedExpectations(key string) bool {
@@ -166,5 +174,6 @@ func (e *Expectations) SatisfiedExpectations(key string) bool {
 		e.SCC.SatisfiedExpectations(key) &&
 		e.InstallStrategyConfigMap.SatisfiedExpectations(key) &&
 		e.InstallStrategyJob.SatisfiedExpectations(key) &&
-		e.PodDisruptionBudget.SatisfiedExpectations(key)
+		e.PodDisruptionBudget.SatisfiedExpectations(key) &&
+		e.ServiceMonitor.SatisfiedExpectations(key)
 }
