@@ -67,6 +67,8 @@ type ConverterContext struct {
 	DiskType       map[string]*containerdisk.DiskInfo
 	SRIOVDevices   map[string][]string
 	SMBios         *cmdv1.SMBios
+	GpuDevices     []string
+	VgpuDevices    []string
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -985,6 +987,24 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
+	// Append HostDevices to DomXML if GPU is requested
+	if util.IsGPUVMI(vmi) {
+		vgpuMdevUUID := append([]string{}, c.VgpuDevices...)
+		hostDevices, err := createHostDevicesFromMdevUUIDList(vgpuMdevUUID)
+		if err != nil {
+			log.Log.Reason(err).Error("Unable to parse Mdev UUID addresses")
+		} else {
+			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevices...)
+		}
+		gpuPCIAddresses := append([]string{}, c.GpuDevices...)
+		hostDevices, err = createHostDevicesFromPCIAddresses(gpuPCIAddresses)
+		if err != nil {
+			log.Log.Reason(err).Error("Unable to parse PCI addresses")
+		} else {
+			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevices...)
+		}
+	}
+
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel
 	}
@@ -1495,4 +1515,47 @@ func decoratePciAddressField(addressField string) (*Address, error) {
 		Function: "0x" + dbsfFields[3],
 	}
 	return decoratedAddrField, nil
+}
+
+func createHostDevicesFromPCIAddresses(pcis []string) ([]HostDevice, error) {
+	var hds []HostDevice
+	for _, pciAddr := range pcis {
+		address, err := decoratePciAddressField(pciAddr)
+		if err != nil {
+			return nil, err
+		}
+
+		hostDev := HostDevice{
+			Source: HostDeviceSource{
+				Address: address,
+			},
+			Type:    "pci",
+			Managed: "yes",
+		}
+
+		hds = append(hds, hostDev)
+	}
+
+	return hds, nil
+}
+
+func createHostDevicesFromMdevUUIDList(mdevUuidList []string) ([]HostDevice, error) {
+	var hds []HostDevice
+	for _, mdevUuid := range mdevUuidList {
+		decoratedAddrField := &Address{
+			UUID: mdevUuid,
+		}
+
+		hostDev := HostDevice{
+			Source: HostDeviceSource{
+				Address: decoratedAddrField,
+			},
+			Type:  "mdev",
+			Mode:  "subsystem",
+			Model: "vfio-pci",
+		}
+		hds = append(hds, hostDev)
+	}
+
+	return hds, nil
 }

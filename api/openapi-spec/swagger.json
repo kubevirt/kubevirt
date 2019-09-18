@@ -4463,6 +4463,13 @@
        "$ref": "#/definitions/v1.Disk"
       }
      },
+     "gpus": {
+      "description": "Whether to attach a GPU device to the vmi.\n+optional",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.GPU"
+      }
+     },
      "inputs": {
       "description": "Inputs describe input devices",
       "type": "array",
@@ -4772,6 +4779,21 @@
      },
      "tray": {
       "description": "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\".\nDefaults to closed.\n+optional",
+      "type": "string"
+     }
+    }
+   },
+   "v1.GPU": {
+    "required": [
+     "name",
+     "deviceName"
+    ],
+    "properties": {
+     "deviceName": {
+      "type": "string"
+     },
+     "name": {
+      "description": "Name of the GPU device as exposed by a device plugin",
       "type": "string"
      }
     }

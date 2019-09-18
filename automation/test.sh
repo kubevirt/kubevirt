@@ -277,9 +277,11 @@ elif [[ $TARGET =~ multus.* ]]; then
 elif [[ $TARGET =~ genie.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=Genie|Networking|VMIlifecycle|Expose"
 elif [[ $TARGET =~ sriov.* ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=SRIOV" 
+  ginko_params="$ginko_params --ginkgo.focus=SRIOV"
+elif [[ $TARGET =~ gpu.* ]]; then
+  ginko_params="$ginko_params --ginkgo.focus=GPU" 
 else
-  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV"
+  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|GPU"
 fi
 
 # Prepare RHEL PV for Template testing

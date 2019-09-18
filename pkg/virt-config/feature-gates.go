@@ -34,6 +34,7 @@ const (
 	CPUNodeDiscoveryGate  = "CPUNodeDiscovery"
 	HypervStrictCheckGate = "HypervStrictCheck"
 	SidecarGate           = "Sidecar"
+	GPUGate               = "GPU"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -62,4 +63,8 @@ func (config *ClusterConfig) CPUNodeDiscoveryEnabled() bool {
 
 func (config *ClusterConfig) SidecarEnabled() bool {
 	return config.isFeatureGateEnabled(SidecarGate)
+}
+
+func (config *ClusterConfig) GPUPassthroughEnabled() bool {
+	return config.isFeatureGateEnabled(GPUGate)
 }

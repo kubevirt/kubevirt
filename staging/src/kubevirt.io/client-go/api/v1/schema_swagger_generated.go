@@ -167,6 +167,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"rng":                        "Whether to have random number generator from host\n+optional",
 		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices\n+optional",
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature\n+optional",
+		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional",
 	}
 }
 
@@ -175,6 +176,12 @@ func (Input) SwaggerDoc() map[string]string {
 		"bus":  "Bus indicates the bus of input device to emulate.\nSupported values: virtio, usb.",
 		"type": "Type indicated the type of input device.\nSupported values: tablet.",
 		"name": "Name is the device name",
+	}
+}
+
+func (GPU) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name": "Name of the GPU device as exposed by a device plugin",
 	}
 }
 

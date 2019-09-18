@@ -323,6 +323,8 @@ type HostDevice struct {
 	Type      string           `xml:"type,attr"`
 	BootOrder *BootOrder       `xml:"boot,omitempty"`
 	Managed   string           `xml:"managed,attr"`
+	Mode      string           `xml:"mode,attr,omitempty"`
+	Model     string           `xml:"model,attr,omitempty"`
 }
 
 type HostDeviceSource struct {
@@ -700,6 +702,7 @@ type Address struct {
 	Controller string `xml:"controller,attr,omitempty"`
 	Target     string `xml:"target,attr,omitempty"`
 	Unit       string `xml:"unit,attr,omitempty"`
+	UUID       string `xml:"uuid,attr,omitempty"`
 }
 
 //END Video -------------------

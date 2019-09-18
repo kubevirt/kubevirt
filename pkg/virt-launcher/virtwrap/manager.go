@@ -66,6 +66,8 @@ import (
 )
 
 const LibvirtLocalConnectionPort = 22222
+const gpuEnvPrefix = "GPU_PASSTHROUGH_DEVICES"
+const vgpuEnvPrefix = "VGPU_PASSTHROUGH_DEVICES"
 
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
@@ -871,6 +873,38 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 	return networkToAddressesMap
 }
 
+// This function parses all environment variables with prefix string that is set by a Device Plugin.
+// Device plugin that passes GPU devices by setting these env variables is https://github.com/NVIDIA/kubevirt-gpu-device-plugin
+// It returns address list for devices set in the env variable.
+// The format is as follows:
+// "":for no address set
+// "<address_1>,": for a single address
+// "<address_1>,<address_2>[,...]": for multiple addresses
+func getEnvAddressListByPrefix(evnPrefix string) []string {
+	var returnAddr []string
+	for _, env := range os.Environ() {
+		split := strings.Split(env, "=")
+		if strings.HasPrefix(split[0], evnPrefix) {
+			returnAddr = append(returnAddr, parseDeviceAddress(split[1])...)
+		}
+	}
+	return returnAddr
+}
+
+func parseDeviceAddress(addrString string) []string {
+	addrs := strings.Split(addrString, ",")
+	naddrs := len(addrs)
+	if naddrs > 0 {
+		if addrs[naddrs-1] == "" {
+			addrs = addrs[:naddrs-1]
+		}
+	}
+
+	for index, element := range addrs {
+		addrs[index] = strings.TrimSpace(element)
+	}
+	return addrs
+}
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
@@ -927,6 +961,8 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		IsBlockDV:      isBlockDVMap,
 		DiskType:       diskInfo,
 		SRIOVDevices:   getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
+		GpuDevices:     getEnvAddressListByPrefix(gpuEnvPrefix),
+		VgpuDevices:    getEnvAddressListByPrefix(vgpuEnvPrefix),
 	}
 	if options != nil && options.VirtualMachineSMBios != nil {
 		c.SMBios = options.VirtualMachineSMBios

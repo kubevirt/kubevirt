@@ -55,6 +55,7 @@ const (
 	VmiGeniePtp          = "vmi-genie-ptp"
 	VmiGenieMultipleNet  = "vmi-genie-multiple-net"
 	VmiHostDisk          = "vmi-host-disk"
+	VmiGPU               = "vmi-gpu"
 	VmTemplateFedora     = "vm-template-fedora"
 	VmTemplateRHEL7      = "vm-template-rhel7"
 	VmTemplateWindows    = "vm-template-windows2012r2"
@@ -853,5 +854,20 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf("[{\"image\": \"%s/example-hook-sidecar:%s\"}]", DockerPrefix, DockerTag),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
+	return vmi
+}
+
+func GetVMIGPU() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiGPU)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	GPUs := []v1.GPU{
+		v1.GPU{
+			Name:       "gpu1",
+			DeviceName: "nvidia.com/GP102GL_Tesla_P40",
+		},
+	}
+	vmi.Spec.Domain.Devices.GPUs = GPUs
+	initFedora(&vmi.Spec)
+	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 	return vmi
 }
