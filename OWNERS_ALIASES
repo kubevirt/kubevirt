@@ -25,6 +25,7 @@ aliases:
       - pkotas
       - vatsalparekh
       - ahadas
+      - alonSadan
   ux-reviewers:
       - matthewcarleton
   test-reviewers:
