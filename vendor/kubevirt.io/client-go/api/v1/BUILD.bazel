@@ -1,0 +1,59 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "deepcopy_generated.go",
+        "defaults.go",
+        "doc.go",
+        "openapi_generated.go",
+        "schema.go",
+        "schema_swagger_generated.go",
+        "types.go",
+        "types_swagger_generated.go",
+        "utils.go",
+        "zz_generated.defaults.go",
+    ],
+    importpath = "kubevirt.io/client-go/api/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/precond:go_default_library",
+        "//vendor/github.com/go-openapi/spec:go_default_library",
+        "//vendor/github.com/pborman/uuid:go_default_library",
+        "//vendor/k8s.io/api/autoscaling/v1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/meta:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/serializer:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/scheme:go_default_library",
+        "//vendor/k8s.io/kube-openapi/pkg/common:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "deepcopy_test.go",
+        "defaults_test.go",
+        "schema_test.go",
+        "types_test.go",
+        "v1_suite_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/google/gofuzz:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+    ],
+)
