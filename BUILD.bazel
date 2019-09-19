@@ -242,3 +242,13 @@ genrule(
     cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
     executable = 1,
 )
+
+genrule(
+    name = "build-dump",
+    srcs = [
+        "//cmd/dump",
+    ],
+    outs = ["dump-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)

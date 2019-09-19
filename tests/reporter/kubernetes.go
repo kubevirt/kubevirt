@@ -66,16 +66,17 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to get client: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to get client: %v\n", err)
 		return
 	}
 
 	if err := os.MkdirAll(r.artifactsDir, 0777); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create directory: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to create directory: %v\n", err)
 		return
 	}
 
 	r.logEvents(virtCli, specSummary)
+	r.logNodes(virtCli, specSummary)
 	r.logPods(virtCli, specSummary)
 	r.logVMIs(virtCli, specSummary)
 	r.logDomainXMLs(virtCli, specSummary)
@@ -87,14 +88,14 @@ func (r *KubernetesReporter) logDomainXMLs(virtCli kubecli.KubevirtClient, specS
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_domains.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 		return
 	}
 	defer f.Close()
 
 	vmis, err := virtCli.VirtualMachineInstance(v1.NamespaceAll).List(&v12.ListOptions{})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to fetch vmis: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to fetch vmis, can't collect domain XMLs: %v\n", err)
 		return
 	}
 
@@ -114,14 +115,14 @@ func (r *KubernetesReporter) logVMIs(virtCli kubecli.KubevirtClient, specSummary
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_vmis.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 		return
 	}
 	defer f.Close()
 
 	vmis, err := virtCli.VirtualMachineInstance(v1.NamespaceAll).List(&v12.ListOptions{})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to fetch vmis: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to fetch vmis: %v\n", err)
 		return
 	}
 
@@ -145,7 +146,7 @@ func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, specSummary
 
 	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(v12.ListOptions{})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\n", err)
 		return
 	}
 
@@ -157,12 +158,36 @@ func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, specSummary
 	fmt.Fprintln(f, string(j))
 }
 
+func (r *KubernetesReporter) logNodes(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_nodes.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	nodes, err := virtCli.CoreV1().Nodes().List(v12.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch nodes: %v\n", err)
+		return
+	}
+
+	j, err := json.MarshalIndent(nodes, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal nodes")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+}
+
 func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
 
 	logsdir := filepath.Join(r.artifactsDir, "pods")
 
 	if err := os.MkdirAll(logsdir, 0777); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to create directory: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to create directory: %v\n", err)
 		return
 	}
 
@@ -170,7 +195,7 @@ func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, specSummary
 
 	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(v12.ListOptions{})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to fetch pods: %v\n", err)
 		return
 	}
 
@@ -178,14 +203,14 @@ func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, specSummary
 		for _, container := range pod.Spec.Containers {
 			current, err := os.OpenFile(filepath.Join(logsdir, fmt.Sprintf("%d_%s_%s-%s.log", r.failureCount, pod.Namespace, pod.Name, container.Name)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+				fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 				return
 			}
 			defer current.Close()
 
 			previous, err := os.OpenFile(filepath.Join(logsdir, fmt.Sprintf("%d_%s_%s-%s_previous.log", r.failureCount, pod.Namespace, pod.Name, container.Name)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+				fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 				return
 			}
 			defer previous.Close()
@@ -209,7 +234,7 @@ func (r *KubernetesReporter) logEvents(virtCli kubecli.KubevirtClient, specSumma
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_events.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 		return
 	}
 	defer f.Close()

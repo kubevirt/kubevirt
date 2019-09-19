@@ -27,11 +27,7 @@ source hack/config.sh
 
 function dump_kubevirt() {
     echo "Dump kubevirt state:"
-    _kubectl get all -n kubevirt
-    for operator in $(_kubectl -n kubevirt get pods | grep operator | awk '{print $1}'); do
-        echo "Logs for operator $operator"
-        _kubectl logs -n kubevirt $operator
-    done
+    hack/dump.sh
 }
 
 echo "Deploying ..."

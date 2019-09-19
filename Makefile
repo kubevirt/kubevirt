@@ -55,6 +55,8 @@ test: go-test
 functest:
 	hack/dockerized "hack/build-func-tests.sh"
 	hack/functests.sh
+dump: bazel-build
+	hack/dump.sh
 
 functest-image-build:
 	hack/func-tests-image.sh build
