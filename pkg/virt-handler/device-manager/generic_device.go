@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc"
 
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/util"
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
@@ -69,7 +70,7 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 		health:     make(chan string),
 		deviceName: deviceName,
 		devicePath: devicePath,
-		deviceRoot: "/proc/1/root/",
+		deviceRoot: util.HostRootMount,
 	}
 	for i := 0; i < maxDevices; i++ {
 		dpi.addNewGenericDevice()

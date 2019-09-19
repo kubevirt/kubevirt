@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -50,6 +49,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	virtutil "kubevirt.io/kubevirt/pkg/util"
+	clusterutils "kubevirt.io/kubevirt/pkg/util/cluster"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -1555,6 +1556,15 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 }
 
 func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan struct{}) {
+	// This is a temporary workaround until k8s bug #66525 is resolved
+	cpuManagerPath := virtutil.CPUManagerPath
+	if t, err := clusterutils.IsOnOpenShift3(); err != nil {
+		// in that case leave the default cpuManagerPath
+		log.DefaultLogger().Reason(err).Errorf("Unable to detect cluster provider on %s, setting a default cpuManager file path %s", d.host, cpuManagerPath)
+	} else if t {
+		cpuManagerPath = virtutil.CPUManagerOS3Path
+	}
+
 	for {
 		wait.JitterUntil(func() {
 			now, err := json.Marshal(v12.Now())
@@ -1572,33 +1582,22 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 			// Label the node if cpu manager is running on it
 			// This is a temporary workaround until k8s bug #66525 is resolved
 			if d.clusterConfig.CPUManagerEnabled() {
-				d.updateNodeCpuManagerLabel()
+				d.updateNodeCpuManagerLabel(cpuManagerPath)
 			}
 		}, interval, 1.2, true, stopCh)
 	}
 }
 
-func (d *VirtualMachineController) updateNodeCpuManagerLabel() {
-	entries, err := filepath.Glob("/proc/*/cmdline")
+func (d *VirtualMachineController) updateNodeCpuManagerLabel(cpuManagerPath string) {
+	content, err := ioutil.ReadFile(cpuManagerPath)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
 		return
 	}
 
 	isEnabled := false
-	for _, entry := range entries {
-		content, err := ioutil.ReadFile(entry)
-		if os.IsNotExist(err) {
-			// processes can disappear anytime, it is ok if they don't exist anymore
-			continue
-		} else if err != nil {
-			log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
-			return
-		}
-		if strings.Contains(string(content), "kubelet") && strings.Contains(string(content), "cpu-manager-policy=static") {
-			isEnabled = true
-			break
-		}
+	if strings.Contains(string(content), "\"policyName\":\"static\"") {
+		isEnabled = true
 	}
 
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%t"}}}`, v1.CPUManager, isEnabled))
