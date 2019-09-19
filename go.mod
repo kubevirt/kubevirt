@@ -78,7 +78,7 @@ require (
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )
 
-replace github.com/k8snetworkplumbingwg/network-attachment-definition-client => github.com/booxter/network-attachment-definition-client codegen-with-tracker
+replace github.com/k8snetworkplumbingwg/network-attachment-definition-client => github.com/booxter/network-attachment-definition-client v0.0.0-20190918155803-ca7e41c618a3
 
 replace k8s.io/client-go => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
 

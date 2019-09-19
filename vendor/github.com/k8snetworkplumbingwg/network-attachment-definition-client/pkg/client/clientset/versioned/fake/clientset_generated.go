@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors
+Copyright 2019 The Kubernetes Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -78,10 +78,5 @@ var _ clientset.Interface = &Clientset{}
 
 // K8sCniCncfIoV1 retrieves the K8sCniCncfIoV1Client
 func (c *Clientset) K8sCniCncfIoV1() k8scnicncfiov1.K8sCniCncfIoV1Interface {
-	return &fakek8scnicncfiov1.FakeK8sCniCncfIoV1{Fake: &c.Fake}
-}
-
-// K8sCniCncfIo retrieves the K8sCniCncfIoV1Client
-func (c *Clientset) K8sCniCncfIo() k8scnicncfiov1.K8sCniCncfIoV1Interface {
 	return &fakek8scnicncfiov1.FakeK8sCniCncfIoV1{Fake: &c.Fake}
 }

@@ -35,8 +35,8 @@ github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+Ce
 github.com/blang/semver v3.5.1+incompatible h1:cQNTCjp13qL8KC3Nbxr/y2Bqb63oX6wdnnjpJbkM4JQ=
 github.com/blang/semver v3.5.1+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
 github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
-github.com/booxter/network-attachment-definition-client v0.0.0-20181121221720-d76adb95b0b7 h1:xfsu4ZLQdp6ffaXq0W3WKCzOXqMMonIfgOrXMoGYav8=
-github.com/booxter/network-attachment-definition-client v0.0.0-20181121221720-d76adb95b0b7/go.mod h1:VFbINesXCy8AdonWaLlQorvNwUJuDCgN2obOd5yjfEM=
+github.com/booxter/network-attachment-definition-client v0.0.0-20190918155803-ca7e41c618a3 h1:/0ix7SLjs072aspp5/sAi3/Hvj9HWr/eUx2BvKXthO0=
+github.com/booxter/network-attachment-definition-client v0.0.0-20190918155803-ca7e41c618a3/go.mod h1:VFbINesXCy8AdonWaLlQorvNwUJuDCgN2obOd5yjfEM=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/coreos/bbolt v1.3.0/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
