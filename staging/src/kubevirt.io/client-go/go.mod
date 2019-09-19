@@ -3,7 +3,7 @@ module kubevirt.io/client-go
 go 1.12
 
 require (
-	github.com/coreos/prometheus-operator v0.31.1 // indirect
+	github.com/coreos/prometheus-operator v0.31.1
 	github.com/go-kit/kit v0.8.0
 	github.com/go-openapi/spec v0.17.2
 	github.com/go-openapi/swag v0.19.0 // indirect
