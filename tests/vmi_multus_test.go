@@ -781,6 +781,7 @@ func pingVirtualMachine(vmi *v1.VirtualMachineInstance, ipAddr, prompt string) {
 // TODO: Once kubernetes-nmstate is ready, we should use it instead
 func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 
+	// Fetching the kubevirt-operator image from the pod makes this independent from the installation method / image used
 	pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-operator"})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pods.Items).ToNot(BeEmpty())
