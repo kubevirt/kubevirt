@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors
+Copyright 2019 The Kubernetes Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,8 +28,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	K8sCniCncfIoV1() k8scnicncfiov1.K8sCniCncfIoV1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	K8sCniCncfIo() k8scnicncfiov1.K8sCniCncfIoV1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -41,12 +39,6 @@ type Clientset struct {
 
 // K8sCniCncfIoV1 retrieves the K8sCniCncfIoV1Client
 func (c *Clientset) K8sCniCncfIoV1() k8scnicncfiov1.K8sCniCncfIoV1Interface {
-	return c.k8sCniCncfIoV1
-}
-
-// Deprecated: K8sCniCncfIo retrieves the default version of K8sCniCncfIoClient.
-// Please explicitly pick a version.
-func (c *Clientset) K8sCniCncfIo() k8scnicncfiov1.K8sCniCncfIoV1Interface {
 	return c.k8sCniCncfIoV1
 }
 
