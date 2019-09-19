@@ -74,16 +74,13 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		// Status updates can conflict with our desire to change the spec
 		By(fmt.Sprintf("Scaling to %d", scale))
 		var s *autov1.Scale
-		for {
+		err = tests.RetryIfModified(func() error {
 			s, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).GetScale(name, v12.GetOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			s.Spec.Replicas = scale
 			s, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).UpdateScale(name, s)
-			if errors.IsConflict(err) {
-				continue
-			}
-			break
-		}
+			return err
+		})
 
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
