@@ -780,6 +780,13 @@ func pingVirtualMachine(vmi *v1.VirtualMachineInstance, ipAddr, prompt string) {
 // both iptables and newer nftables.
 // TODO: Once kubernetes-nmstate is ready, we should use it instead
 func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
+
+	pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-operator"})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pods.Items).ToNot(BeEmpty())
+
+	virtOperatorImage := pods.Items[0].Spec.Containers[0].Image
+
 	// Privileged DaemonSet configuring host networking as needed
 	networkConfigDaemonSet := appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
@@ -804,7 +811,7 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 							Name: "network-config",
 							// Reuse image which is already installed in the cluster. All we need is chroot.
 							// Local OKD cluster doesn't allow us to pull from the outside.
-							Image: "registry:5000/kubevirt/virt-operator:devel",
+							Image: virtOperatorImage,
 							Command: []string{
 								"sh",
 								"-c",
