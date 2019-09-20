@@ -11,6 +11,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
+        "//pkg/util/cluster:go_default_library",
         "//pkg/util/net/dns:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
@@ -43,7 +44,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/strategicpatch:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/version:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/scheme:go_default_library",
         "//vendor/k8s.io/client-go/tools/portforward:go_default_library",
         "//vendor/k8s.io/client-go/tools/remotecommand:go_default_library",

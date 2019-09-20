@@ -1558,10 +1558,10 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan struct{}) {
 	// This is a temporary workaround until k8s bug #66525 is resolved
 	cpuManagerPath := virtutil.CPUManagerPath
-	if t, err := clusterutils.IsOnOpenShift3(); err != nil {
+	if t, err := clusterutils.IsOnOpenShift(d.clientset); err != nil {
 		// in that case leave the default cpuManagerPath
 		log.DefaultLogger().Reason(err).Errorf("Unable to detect cluster provider on %s, setting a default cpuManager file path %s", d.host, cpuManagerPath)
-	} else if t {
+	} else if t && clusterutils.GetOpenShiftMajorVersion(d.clientset) == clusterutils.OpenShift3Major {
 		cpuManagerPath = virtutil.CPUManagerOS3Path
 	}
 

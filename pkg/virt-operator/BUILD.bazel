@@ -12,6 +12,7 @@ go_library(
         "//pkg/certificates:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/service:go_default_library",
+        "//pkg/util/cluster:go_default_library",
         "//pkg/virt-controller/leaderelectionconfig:go_default_library",
         "//pkg/virt-operator/creation/components:go_default_library",
         "//pkg/virt-operator/install-strategy:go_default_library",
