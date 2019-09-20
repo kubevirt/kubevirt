@@ -36,7 +36,7 @@ require (
 	github.com/gophercloud/gophercloud v0.4.0 // indirect
 	github.com/gorilla/websocket v1.4.0
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20181121151021-386d141f4c94
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20190920090233-ccc72ee9eb57
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 	github.com/libvirt/libvirt-go v5.0.0+incompatible
 	github.com/mattn/go-colorable v0.1.1 // indirect
@@ -77,8 +77,6 @@ require (
 	sigs.k8s.io/controller-runtime v0.1.9 // indirect
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )
-
-replace github.com/k8snetworkplumbingwg/network-attachment-definition-client => github.com/booxter/network-attachment-definition-client v0.0.0-20190918155803-ca7e41c618a3
 
 replace k8s.io/client-go => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
 
