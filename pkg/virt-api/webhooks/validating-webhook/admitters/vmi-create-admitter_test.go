@@ -988,7 +988,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
-			for _, model := range validInterfaceModels {
+			for model, _ := range validInterfaceModels {
 				vmi.Spec.Domain.Devices.Interfaces[0].Model = model
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				// if this is processed correctly, it should not result in any error
@@ -1759,10 +1759,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject nic multi queue without CPU settings", func() {
 			_true := true
 			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &_true
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(2))
+			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.networkInterfaceMultiqueue"))
 		})
 
@@ -1968,7 +1971,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 
-			for _, policy := range validCPUFeaturePolicies {
+			for policy, _ := range validCPUFeaturePolicies {
 				vmi.Spec.Domain.CPU.Features[0].Policy = policy
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(len(causes)).To(Equal(0))

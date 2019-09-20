@@ -59,9 +59,9 @@ const (
 	maxDNSSearchListChars = 256
 )
 
-var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
+var validInterfaceModels = map[string]*struct{}{"e1000": nil, "e1000e": nil, "ne2k_pci": nil, "pcnet": nil, "rtl8139": nil, "virtio": nil}
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
-var validCPUFeaturePolicies = []string{"", "force", "require", "optional", "disable", "forbid"}
+var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
 
 type VMICreateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
@@ -428,16 +428,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	// Validate CPU Feature Policies
 	if spec.Domain.CPU != nil && spec.Domain.CPU.Features != nil {
-		isValidPolicy := func(policy string) bool {
-			for _, p := range validCPUFeaturePolicies {
-				if p == policy {
-					return true
-				}
-			}
-			return false
-		}
 		for idx, feature := range spec.Domain.CPU.Features {
-			if !isValidPolicy(feature.Policy) {
+			if _, exists := validCPUFeaturePolicies[feature.Policy]; !exists {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueNotSupported,
 					Message: fmt.Sprintf("CPU feature %s uses policy %s that is not supported.", feature.Name, feature.Policy),
@@ -710,15 +702,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 		// verify that selected model is supported
 		if iface.Model != "" {
-			isModelSupported := func(model string) bool {
-				for _, m := range validInterfaceModels {
-					if m == model {
-						return true
-					}
-				}
-				return false
-			}
-			if !isModelSupported(iface.Model) {
+			if _, exists := validInterfaceModels[iface.Model]; !exists {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueNotSupported,
 					Message: fmt.Sprintf("interface %s uses model %s that is not supported.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Model),

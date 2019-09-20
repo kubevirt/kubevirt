@@ -358,7 +358,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		),
 	)
 
-	table.DescribeTable("should set default network interface",
+	table.DescribeTable("should add the default network interface",
 		func(iface string) {
 			expectedIface := "bridge"
 			switch iface {
@@ -390,7 +390,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		table.Entry("as slirp", "slirp"),
 	)
 
-	table.DescribeTable("should not default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {
+	table.DescribeTable("should not add the default interfaces if", func(interfaces []v1.Interface, networks []v1.Network) {
 		vmi.Spec.Domain.Devices.Interfaces = append([]v1.Interface{}, interfaces...)
 		vmi.Spec.Networks = append([]v1.Network{}, networks...)
 		vmiSpec, _ := getVMISpecMetaFromResponse()
@@ -664,5 +664,4 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		}
 		Expect(ok).To(BeTrue())
 	})
-
 })
