@@ -1090,7 +1090,7 @@ func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	for _, network := range vmi.Spec.Networks {
 		if network.Multus != nil {
 			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
-			crd, err := virtClient.NetworkClient().K8sCniCncfIo().NetworkAttachmentDefinitions(namespace).Get(networkName, metav1.GetOptions{})
+			crd, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Get(networkName, metav1.GetOptions{})
 			if err != nil {
 				return map[string]string{}, fmt.Errorf("Failed to locate network attachment definition %s/%s", namespace, networkName)
 			}
