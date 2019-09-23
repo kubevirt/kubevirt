@@ -48,10 +48,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-const (
-	dmidecodePackageUrl = "http://download-ib01.fedoraproject.org/pub/fedora/linux/releases/29/Everything/x86_64/os/Packages/d/dmidecode-3.2-1.fc29.x86_64.rpm"
-)
-
 var _ = Describe("Configurations", func() {
 
 	tests.FlagParse()
