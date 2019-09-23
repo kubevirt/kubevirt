@@ -6,7 +6,7 @@ import (
 
 func init() {
 	release := Release{
-		Version: "0.17.0",
+		Version: "0.18.0",
 		Containers: []opv1alpha1.Container{
 			opv1alpha1.Container{
 				ParentName: "kube-multus-ds-amd64",
