@@ -982,7 +982,7 @@ func newKubeVirtStorageConfigForCR(cr *hcov1alpha1.HyperConverged, namespace str
 	}
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt-config-storage-class-defaults",
+			Name:      "kubevirt-storage-class-defaults",
 			Labels:    labels,
 			Namespace: namespace,
 		},
