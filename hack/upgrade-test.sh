@@ -186,8 +186,9 @@ echo "-- and wait for hco-catalogsource pod to be in Ready state"
 
 # Patch the HCO catalogsource image to the upgrade version
 ./cluster-up/kubectl.sh patch catalogsource hco-catalogsource-example -n openshift-operator-lifecycle-manager -p '{"spec":{"image": "registry:5000/kubevirt/hco-registry:upgrade"}}' --type merge
-./hack/retry.sh 20 30 "./cluster-up/kubectl.sh get pods -n openshift-operator-lifecycle-manager | grep hco-catalogsource"
-HCO_CATALOGSOURCE_POD=`./cluster-up/kubectl.sh get pods -n openshift-operator-lifecycle-manager | grep hco-catalogsource | head -1 | awk '{ print $1 }'`
+sleep 5
+./hack/retry.sh 20 30 "./cluster-up/kubectl.sh get pods -n openshift-operator-lifecycle-manager | grep hco-catalogsource | grep -v Terminating"
+HCO_CATALOGSOURCE_POD=`./cluster-up/kubectl.sh get pods -n openshift-operator-lifecycle-manager | grep hco-catalogsource | grep -v Terminating | head -1 | awk '{ print $1 }'`
 ./cluster-up/kubectl.sh wait pod $HCO_CATALOGSOURCE_POD --for condition=Ready -n openshift-operator-lifecycle-manager --timeout="120s"
 
 sleep 15
