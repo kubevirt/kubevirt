@@ -1589,14 +1589,22 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 }
 
 func (d *VirtualMachineController) updateNodeCpuManagerLabel(cpuManagerPath string) {
+	var cpuManagerOptions map[string]interface{}
+
 	content, err := ioutil.ReadFile(cpuManagerPath)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
 		return
 	}
 
+	err = json.Unmarshal(content, &cpuManagerOptions)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
+		return
+	}
+
 	isEnabled := false
-	if strings.Contains(string(content), "\"policyName\":\"static\"") {
+	if v, ok := cpuManagerOptions["policyName"]; ok && v == "static" {
 		isEnabled = true
 	}
 
