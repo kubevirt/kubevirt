@@ -132,15 +132,15 @@ var _ = Describe("Multus", func() {
 		// Create ptp crds with tuning plugin enabled in two different namespaces
 		result = virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf-tuning-1")).
-			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-tuning-1", tests.NamespaceTestDefault))).
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf-1")).
+			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-1", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 
 		result = virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestAlternative, "ptp-conf-tuning-2")).
-			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-tuning-2", tests.NamespaceTestAlternative))).
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestAlternative, "ptp-conf-2")).
+			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-2", tests.NamespaceTestAlternative))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 
@@ -168,7 +168,7 @@ var _ = Describe("Multus", func() {
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf-tuning-1"},
+						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf-1"},
 					}},
 				}
 
@@ -185,7 +185,7 @@ var _ = Describe("Multus", func() {
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, "ptp-conf-tuning-2")},
+						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, "ptp-conf-2")},
 					}},
 				}
 
@@ -206,7 +206,7 @@ var _ = Describe("Multus", func() {
 				detachedVMI.Spec.Networks = []v1.Network{
 					defaultNetwork,
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf-tuning-1"},
+						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf-1"},
 					}},
 				}
 
@@ -241,7 +241,7 @@ var _ = Describe("Multus", func() {
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{
-							NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestDefault, "ptp-conf-tuning-1"),
+							NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestDefault, "ptp-conf-1"),
 							Default:     true,
 						}}},
 				}
@@ -284,7 +284,7 @@ var _ = Describe("Multus", func() {
 					Name: "ptp",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{
-							NetworkName: "ptp-conf-tuning-1",
+							NetworkName: "ptp-conf-1",
 						},
 					},
 				}
