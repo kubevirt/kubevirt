@@ -31,34 +31,44 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - machineremediation.kubevirt.io
+  resources:
+  - machineremediationoperators
+  - machineremediationoperators/status
+  verbs:
+  - '*'
+- apiGroups:
   - ""
   resources:
-  - configmaps
   - pods
-  - serviceaccounts
   - services
+  - services/finalizers
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
+  - serviceaccounts
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - delete
-- apiGroups:
-  - batch
-  resources:
-  - jobs
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - delete
+  - '*'
 - apiGroups:
   - apps
   resources:
   - deployments
+  - deployments/finalizers
   - daemonsets
+  - replicasets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - update
+- apiGroups:
+  - batch
+  resources:
+  - jobs
   verbs:
   - get
   - list
@@ -109,12 +119,12 @@ rules:
   - patch
   - update
 - apiGroups:
-  - machineremediation.kubevirt.io
+  - monitoring.coreos.com
   resources:
-  - machineremediationoperators
-  - machineremediationoperators/status
+  - servicemonitors
   verbs:
-  - '*'
+  - get
+  - create
 
 
 ---

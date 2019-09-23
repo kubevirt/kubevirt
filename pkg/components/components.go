@@ -157,36 +157,33 @@ func GetClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"",
+					"machineremediation.kubevirt.io",
 				},
 				Resources: []string{
-					"configmaps",
-					"pods",
-					"serviceaccounts",
-					"services",
+					"machineremediationoperators",
+					"machineremediationoperators/status",
 				},
 				Verbs: []string{
-					"get",
-					"list",
-					"watch",
-					"create",
-					"update",
-					"delete",
+					rbacv1.VerbAll,
 				},
 			},
 			{
 				APIGroups: []string{
-					"batch",
+					"",
 				},
 				Resources: []string{
-					"jobs",
+					"pods",
+					"services",
+					"services/finalizers",
+					"endpoints",
+					"persistentvolumeclaims",
+					"events",
+					"configmaps",
+					"secrets",
+					"serviceaccounts",
 				},
 				Verbs: []string{
-					"get",
-					"list",
-					"watch",
-					"create",
-					"delete",
+					"*",
 				},
 			},
 			{
@@ -195,7 +192,25 @@ func GetClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"deployments",
+					"deployments/finalizers",
 					"daemonsets",
+					"replicasets",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"create",
+					"delete",
+					"update",
+				},
+			},
+			{
+				APIGroups: []string{
+					"batch",
+				},
+				Resources: []string{
+					"jobs",
 				},
 				Verbs: []string{
 					"get",
@@ -271,14 +286,14 @@ func GetClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"machineremediation.kubevirt.io",
+					"monitoring.coreos.com",
 				},
 				Resources: []string{
-					"machineremediationoperators",
-					"machineremediationoperators/status",
+					"servicemonitors",
 				},
 				Verbs: []string{
-					rbacv1.VerbAll,
+					"get",
+					"create",
 				},
 			},
 		},
