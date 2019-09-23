@@ -94,6 +94,17 @@ export KUBEVIRT_MEMORY_SIZE=8192M # node has 8GB memory size
 make cluster-up
 ```
 
+*NOTE* if you see following error, can check the MTU of the container and the host
+if they are different, try to make it same. See [issue 2667](https://github.com/kubevirt/kubevirt/issues/2667)
+for more detailed info.
+```
+# ./cluster-up/kubectl.sh get pods --all-namespaces
+NAMESPACE     NAME                                      READY   STATUS             RESTARTS   AGE
+cdi           cdi-operator-5db567b486-grtk9             0/1     ImagePullBackOff   0          42m
+
+Back-off pulling image "kubevirt/cdi-operator:v1.10.1"
+```
+
 To destroy the created cluster, type
 
 ```
