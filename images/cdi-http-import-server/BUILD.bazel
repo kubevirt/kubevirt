@@ -16,6 +16,7 @@ rpm_image(
         "@capstone//file",
         "@libaio//file",
         "@e2fsprogs//file",
+        "@dmidecode//file",
     ],
 )
 

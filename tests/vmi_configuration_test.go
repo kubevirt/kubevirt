@@ -1861,13 +1861,9 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Context("Check Chassis value", func() {
-		var vmi *v1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			vmi = tests.NewRandomVMI()
-		})
 
 		It("[test_id:2927]Test Chassis value in a newly created VM", func() {
+			vmi := tests.NewRandomFedoraVMIWithDmidecode()
 			vmi.Spec.Domain.Chassis = &v1.Chassis{
 				Asset: "Test-123",
 			}
@@ -1877,9 +1873,24 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
+			By("Check values on domain XML")
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
+
+			By("Expecting console")
+			expecter, err := tests.LoggedInFedoraExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			By("Check value in VM with dmidecode")
+			// Check on the VM, if expected values are there with dmidecode
+			res, err := expecter.ExpectBatch([]expect.Batcher{
+				&expect.BSnd{S: "[ $(sudo dmidecode -s chassis-asset-tag | tr -s ' ') -eq Test-123 ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BExp{R: "pass"},
+			}, 1*time.Second)
+			log.DefaultLogger().Object(vmi).Infof("%v", res)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
@@ -1888,24 +1899,44 @@ var _ = Describe("Configurations", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi = tests.NewRandomFedoraVMIWithDmidecode()
 		})
 
 		It("[test_id:2751]test default SMBios", func() {
+
 			By("Starting a VirtualMachineInstance")
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
+			By("Check values in domain XML")
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domXml).To(ContainSubstring("<entry name='family'>KubeVirt</entry>"))
 			Expect(domXml).To(ContainSubstring("<entry name='product'>None</entry>"))
 			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>KubeVirt</entry>"))
 
+			By("Expecting console")
+			expecter, err := tests.LoggedInFedoraExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			By("Check values in dmidecode")
+			// Check on the VM, if expected values are there with dmidecode
+			res, err := expecter.ExpectBatch([]expect.Batcher{
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') -eq KubeVirt ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BExp{R: "pass"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') -eq None ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BExp{R: "pass"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') -eq KubeVirt ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BExp{R: "pass"},
+			}, 1*time.Second)
+			log.DefaultLogger().Object(vmi).Infof("%v", res)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("[test_id:2752]test custom SMBios values", func() {
+
 			// Set a custom test SMBios
 			test_smbios := &cmdv1.SMBios{Family: "test", Product: "test", Manufacturer: "None", Sku: "1.0", Version: "1.0"}
 			smbiosJson, err := json.Marshal(test_smbios)
@@ -1924,6 +1955,25 @@ var _ = Describe("Configurations", func() {
 			Expect(domXml).To(ContainSubstring("<entry name='manufacturer'>None</entry>"))
 			Expect(domXml).To(ContainSubstring("<entry name='sku'>1.0</entry>"))
 			Expect(domXml).To(ContainSubstring("<entry name='version'>1.0</entry>"))
+
+			By("Expecting console")
+			expecter, err := tests.LoggedInFedoraExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			By("Check values in dmidecode")
+
+			// Check on the VM, if expected values are there with dmidecode
+			res, err := expecter.ExpectBatch([]expect.Batcher{
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') -eq test ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BExp{R: "pass"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') -eq test ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BExp{R: "pass"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') -eq None ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BExp{R: "pass"},
+			}, 1*time.Second)
+			log.DefaultLogger().Object(vmi).Infof("%v", res)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })
