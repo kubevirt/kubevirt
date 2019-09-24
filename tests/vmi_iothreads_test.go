@@ -133,9 +133,10 @@ var _ = Describe("IOThreads", func() {
 		})
 
 		table.DescribeTable("[ref_id:2065] should honor auto ioThreadPolicy", func(numCpus int, expectedIOThreads int) {
-			if numCpus > availableCPUs {
-				Skip(fmt.Sprintf("Testing environment does not contain a node with required %d CPUs number, the highest detected number is %d", numCpus, availableCPUs))
-			}
+			Expect(
+				numCpus <= availableCPUs).To(BeTrue(),
+				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
+			)
 
 			policy := v1.IOThreadsPolicyAuto
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
