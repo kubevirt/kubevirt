@@ -240,7 +240,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job := tests.NewHelloWorldJobUDP(serviceIP, servicePort)
 				job, err = virtClient.CoreV1().Pods(udpVM.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
-				waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 120)
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 
 				By("Getting the node IP from all nodes")
 				nodes, err := virtClient.CoreV1().Nodes().List(k8smetav1.ListOptions{})
