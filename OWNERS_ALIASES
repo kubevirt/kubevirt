@@ -11,6 +11,7 @@ aliases:
       - SchSeba
       - mfranczy
       - fabiand
+      - pkotas
   code-reviewers:
       - davidvossel
       - rmohr
