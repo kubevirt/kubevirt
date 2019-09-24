@@ -135,7 +135,7 @@ func (p *AgentPoller) UpdateDomain(domain *api.Domain) {
 		select {
 		case p.domainUpdate <- domain:
 		default:
-			log.Log.Error("Failed to upate agent poller domain info")
+			log.Log.Error("Failed to update agent poller domain info")
 		}
 	}
 }
