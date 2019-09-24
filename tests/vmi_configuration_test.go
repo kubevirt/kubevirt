@@ -1648,7 +1648,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:995]should configure correct number of vcpus with requests.cpus", func() {
+			It("[test_id:802]should configure correct number of vcpus with requests.cpus", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
@@ -1728,7 +1728,7 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).To(HaveOccurred())
 			})
-			It("[test_id:994]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
+			It("[test_id:830]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
 				Vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -1802,7 +1802,7 @@ var _ = Describe("Configurations", func() {
 				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
 			})
 
-			It("[test_id:992]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
+			It("[test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
 
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuvmi)
