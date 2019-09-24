@@ -1281,6 +1281,11 @@ var _ = Describe("Configurations", func() {
 
 	Context("with machine type settings", func() {
 		defaultMachineTypeKey := "machine-type"
+		defaultEmulatedMachineType := "emulated-machines"
+
+		BeforeEach(func() {
+			tests.UpdateClusterConfigValueAndWait(defaultEmulatedMachineType, "q35*,pc-q35*,pc*")
+		})
 
 		AfterEach(func() {
 			tests.UpdateClusterConfigValueAndWait(defaultMachineTypeKey, "")
@@ -1288,12 +1293,12 @@ var _ = Describe("Configurations", func() {
 
 		It("should set machine type from VMI spec", func() {
 			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine.Type = "pc-q35-3.0"
+			vmi.Spec.Domain.Machine.Type = "pc"
 			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(Equal("pc-q35-3.0"))
+			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
 		})
 
 		It("should set default machine type when it is not provided", func() {
@@ -1307,7 +1312,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("should set machine type from kubevirt-config", func() {
-			tests.UpdateClusterConfigValueAndWait(defaultMachineTypeKey, "pc-q35-3.0")
+			tests.UpdateClusterConfigValueAndWait(defaultMachineTypeKey, "pc")
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = ""
@@ -1315,7 +1320,7 @@ var _ = Describe("Configurations", func() {
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(Equal("pc-q35-3.0"))
+			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
 		})
 	})
 
