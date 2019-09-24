@@ -2722,6 +2722,21 @@ func SkipIfNotUseNetworkPolicy(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
+	var cpus int64
+
+	nodes, err := virtClient.Core().Nodes().List(metav1.ListOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	for _, node := range nodes.Items {
+		if v, ok := node.Status.Capacity[k8sv1.ResourceCPU]; ok && v.Value() > cpus {
+			cpus = v.Value()
+		}
+	}
+
+	return int(cpus)
+}
+
 func GetK8sCmdClient() string {
 	// use oc if it exists, otherwise use kubectl
 	if KubeVirtOcPath != "" {
