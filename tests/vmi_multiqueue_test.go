@@ -52,8 +52,13 @@ var _ = Describe("MultiQueue", func() {
 
 	Context("MultiQueue Behavior", func() {
 
+		availableCPUs := tests.GetHighestCPUNumberAmongNodes(virtClient)
+
 		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {
 			numCpus := 3
+			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
+				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
+			)
 
 			multiQueue := true
 			vmi.Spec.Domain.Devices.BlockMultiQueue = &multiQueue
