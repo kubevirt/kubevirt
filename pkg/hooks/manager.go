@@ -41,9 +41,9 @@ import (
 )
 
 type callBackClient struct {
-	SocketPath          string
-	Version             string
-	subsribedHookPoints []*hooksInfo.HookPoint
+	SocketPath           string
+	Version              string
+	subscribedHookPoints []*hooksInfo.HookPoint
 }
 
 var manager *Manager
@@ -106,8 +106,8 @@ func collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Dura
 					return nil, err
 				}
 
-				for _, subsribedHookPoint := range callBackClient.subsribedHookPoints {
-					callbacksPerHookPoint[subsribedHookPoint.GetName()] = append(callbacksPerHookPoint[subsribedHookPoint.GetName()], callBackClient)
+				for _, subscribedHookPoint := range callBackClient.subscribedHookPoints {
+					callbacksPerHookPoint[subscribedHookPoint.GetName()] = append(callbacksPerHookPoint[subscribedHookPoint.GetName()], callBackClient)
 				}
 
 				processedSockets[socket.Name()] = true
@@ -143,15 +143,15 @@ func processSideCarSocket(socketPath string) (*callBackClient, bool, error) {
 
 	if _, found := versionsSet[hooksV1alpha2.Version]; found {
 		return &callBackClient{
-			SocketPath:          socketPath,
-			Version:             hooksV1alpha2.Version,
-			subsribedHookPoints: info.GetHookPoints(),
+			SocketPath:           socketPath,
+			Version:              hooksV1alpha2.Version,
+			subscribedHookPoints: info.GetHookPoints(),
 		}, false, nil
 	} else if _, found := versionsSet[hooksV1alpha1.Version]; found {
 		return &callBackClient{
-			SocketPath:          socketPath,
-			Version:             hooksV1alpha1.Version,
-			subsribedHookPoints: info.GetHookPoints(),
+			SocketPath:           socketPath,
+			Version:              hooksV1alpha1.Version,
+			subscribedHookPoints: info.GetHookPoints(),
 		}, false, nil
 	} else {
 		return nil, false,
@@ -163,11 +163,11 @@ func processSideCarSocket(socketPath string) (*callBackClient, bool, error) {
 func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*callBackClient) {
 	for _, callbacks := range callbacksPerHookPoint {
 		for _, callback := range callbacks {
-			sort.Slice(callback.subsribedHookPoints, func(i, j int) bool {
-				if callback.subsribedHookPoints[i].Priority == callback.subsribedHookPoints[j].Priority {
-					return strings.Compare(callback.subsribedHookPoints[i].Name, callback.subsribedHookPoints[j].Name) < 0
+			sort.Slice(callback.subscribedHookPoints, func(i, j int) bool {
+				if callback.subscribedHookPoints[i].Priority == callback.subscribedHookPoints[j].Priority {
+					return strings.Compare(callback.subscribedHookPoints[i].Name, callback.subscribedHookPoints[j].Name) < 0
 				} else {
-					return callback.subsribedHookPoints[i].Priority > callback.subsribedHookPoints[j].Priority
+					return callback.subscribedHookPoints[i].Priority > callback.subscribedHookPoints[j].Priority
 				}
 			})
 		}
