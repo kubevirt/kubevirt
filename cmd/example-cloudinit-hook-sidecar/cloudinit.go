@@ -90,7 +90,6 @@ func (s v1alpha2Server) PreCloudInitIso(ctx context.Context, params *hooksV1alph
 		return &hooksV1alpha2.PreCloudInitIsoResult{
 			CloudInitData: params.GetCloudInitData(),
 		}, fmt.Errorf("Failed to marshal CloudInitData: %v", cloudInitData)
-
 	}
 
 	return &hooksV1alpha2.PreCloudInitIsoResult{
