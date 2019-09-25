@@ -44,8 +44,10 @@ type Stores struct {
 	PodDisruptionBudgetCache      cache.Store
 	ServiceMonitorCache           cache.Store
 	NamespaceCache                cache.Store
+	PrometheusRuleCache           cache.Store
 	IsOnOpenshift                 bool
 	ServiceMonitorEnabled         bool
+	PrometheusRulesEnabled        bool
 }
 
 func (s *Stores) AllEmpty() bool {
@@ -61,7 +63,8 @@ func (s *Stores) AllEmpty() bool {
 		IsStoreEmpty(s.ValidationWebhookCache) &&
 		IsStoreEmpty(s.PodDisruptionBudgetCache) &&
 		IsSCCStoreEmpty(s.SCCCache) &&
-		IsStoreEmpty(s.ServiceMonitorCache)
+		IsStoreEmpty(s.ServiceMonitorCache) &&
+		IsStoreEmpty(s.PrometheusRuleCache)
 
 	// Don't add InstallStrategyConfigMapCache to this list. The install
 	// strategies persist even after deletion and updates.
@@ -104,6 +107,7 @@ type Expectations struct {
 	InstallStrategyJob       *controller.UIDTrackingControllerExpectations
 	PodDisruptionBudget      *controller.UIDTrackingControllerExpectations
 	ServiceMonitor           *controller.UIDTrackingControllerExpectations
+	PrometheusRule           *controller.UIDTrackingControllerExpectations
 }
 
 type Informers struct {
@@ -124,6 +128,7 @@ type Informers struct {
 	PodDisruptionBudget      cache.SharedIndexInformer
 	ServiceMonitor           cache.SharedIndexInformer
 	Namespace                cache.SharedIndexInformer
+	PrometheusRule           cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {
@@ -142,6 +147,7 @@ func (e *Expectations) DeleteExpectations(key string) {
 	e.InstallStrategyJob.DeleteExpectations(key)
 	e.PodDisruptionBudget.DeleteExpectations(key)
 	e.ServiceMonitor.DeleteExpectations(key)
+	e.PrometheusRule.DeleteExpectations(key)
 }
 
 func (e *Expectations) ResetExpectations(key string) {
@@ -160,6 +166,7 @@ func (e *Expectations) ResetExpectations(key string) {
 	e.InstallStrategyJob.SetExpectations(key, 0, 0)
 	e.PodDisruptionBudget.SetExpectations(key, 0, 0)
 	e.ServiceMonitor.SetExpectations(key, 0, 0)
+	e.PrometheusRule.SetExpectations(key, 0, 0)
 }
 
 func (e *Expectations) SatisfiedExpectations(key string) bool {
@@ -177,5 +184,6 @@ func (e *Expectations) SatisfiedExpectations(key string) bool {
 		e.InstallStrategyConfigMap.SatisfiedExpectations(key) &&
 		e.InstallStrategyJob.SatisfiedExpectations(key) &&
 		e.PodDisruptionBudget.SatisfiedExpectations(key) &&
-		e.ServiceMonitor.SatisfiedExpectations(key)
+		e.ServiceMonitor.SatisfiedExpectations(key) &&
+		e.PrometheusRule.SatisfiedExpectations(key)
 }

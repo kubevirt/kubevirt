@@ -220,6 +220,7 @@ func DeleteAll(kv *v1.KubeVirt,
 
 	// delete serviceMonitor
 	prometheusClient := clientset.PrometheusClient()
+
 	objects = stores.ServiceMonitorCache.List()
 	for _, obj := range objects {
 		if serviceMonitor, ok := obj.(*promv1.ServiceMonitor); ok && serviceMonitor.DeletionTimestamp == nil {
@@ -232,6 +233,25 @@ func DeleteAll(kv *v1.KubeVirt,
 					return err
 				}
 				expectations.ServiceMonitor.DeletionObserved(kvkey, key)
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	// delete PrometheusRules
+	objects = stores.PrometheusRuleCache.List()
+	for _, obj := range objects {
+		if prometheusRule, ok := obj.(*promv1.PrometheusRule); ok && prometheusRule.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(prometheusRule); err == nil {
+				expectations.PrometheusRule.AddExpectedDeletion(kvkey, key)
+				err := prometheusClient.MonitoringV1().PrometheusRules(prometheusRule.Namespace).Delete(prometheusRule.Name, deleteOptions)
+				if err != nil {
+					log.Log.Errorf("Failed to delete prometheusRule %+v: %v", prometheusRule, err)
+					expectations.PrometheusRule.DeletionObserved(kvkey, key)
+					return err
+				}
 			}
 		} else if !ok {
 			log.Log.Errorf("Cast failed! obj: %+v", obj)
