@@ -133,8 +133,7 @@ var _ = Describe("IOThreads", func() {
 		})
 
 		table.DescribeTable("[ref_id:2065] should honor auto ioThreadPolicy", func(numCpus int, expectedIOThreads int) {
-			Expect(
-				numCpus <= availableCPUs).To(BeTrue(),
+			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
 
