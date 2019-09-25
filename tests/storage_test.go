@@ -326,10 +326,12 @@ var _ = Describe("Storage", func() {
 					diskName := "disk-" + uuid.NewRandom().String() + ".img"
 					diskPath := filepath.Join(hostDiskDir, diskName)
 
-					It("[test_id:851]Should create a disk image and start", func() {
+					table.DescribeTable("Should create a disk image and start", func(driver string) {
 						By("Starting VirtualMachineInstance")
 						// do not choose a specific node to run the test
 						vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
+						vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = driver
+
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img has been created")
@@ -343,7 +345,10 @@ var _ = Describe("Storage", func() {
 						)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("host-disk", diskPath)))
-					})
+					},
+						table.Entry("[test_id:851]with virtio driver", "virtio"),
+						table.Entry("[test_id:3057]with sata driver", "sata"),
+					)
 
 					It("should start with multiple hostdisks in the same directory", func() {
 						By("Starting VirtualMachineInstance")
