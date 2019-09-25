@@ -26,6 +26,7 @@ go_test(
     srcs = [
         "hooks_suite_test.go",
         "hooks_test.go",
+        "manager_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

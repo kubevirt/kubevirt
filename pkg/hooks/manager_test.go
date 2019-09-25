@@ -22,11 +22,12 @@ package hooks_test
 import (
 	"context"
 	"fmt"
-	"google.golang.org/grpc"
 	"net"
 	"os"
 	"path/filepath"
 	"time"
+
+	"google.golang.org/grpc"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -71,8 +72,7 @@ func hookListenAndServe(socketPath string, hookName string, hookPointName string
 		hookPointName:     hookPointName,
 		hookPointPriority: hookPointPriority,
 	})
-	// hooksV1alpha1.RegisterCallbacksServer(server, v1alpha1Server{})
-	fmt.Fprintf(GinkgoWriter, "Starting hook server exposing 'info' and 'v1alpha1' services on socket %s", socketPath)
+	fmt.Fprintf(GinkgoWriter, "Starting hook server exposing 'info' services on socket %s", socketPath)
 	go func() {
 		server.Serve(socket)
 	}()
