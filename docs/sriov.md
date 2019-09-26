@@ -20,10 +20,10 @@ pci=realloc
 pci=assign-busses
 ```
 
-If all goes well, after reboot your SR-IOV capable NICs should be ready to be used.
+If all goes well, after reboot your SR-IOV capable NICs should be ready to use.
 
 
-Check for sr-iov devices by doing the following:
+Check for SR-IOV devices by doing the following:
 ```
 $ find /sys -name *vfs*
 /sys/devices/pci0000:00/0000:00:09.0/0000:05:00.0/sriov_numvfs
