@@ -5,7 +5,7 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.6.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/coreos/go-iptables v0.4.1
+	github.com/coreos/go-iptables v0.4.3
 	github.com/coreos/go-semver v0.2.0
 	github.com/coreos/prometheus-operator v0.31.1
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
@@ -59,7 +59,6 @@ require (
 	github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc // indirect
 	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f
 	golang.org/x/net v0.0.0-20190522155817-f3200d17e092
-	golang.org/x/oauth2 v0.0.0-20181105165119-ca4130e427c7 // indirect
 	golang.org/x/sys v0.0.0-20190425145619-16072639606e
 	google.golang.org/grpc v1.19.1
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
