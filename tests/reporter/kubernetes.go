@@ -23,13 +23,15 @@ import (
 type KubernetesReporter struct {
 	failureCount int
 	artifactsDir string
+	maxFails     int
 	mux          sync.Mutex
 }
 
-func NewKubernetesReporter(artifactsDir string) *KubernetesReporter {
+func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesReporter {
 	return &KubernetesReporter{
 		failureCount: 0,
 		artifactsDir: artifactsDir,
+		maxFails:     maxFailures,
 	}
 }
 
@@ -50,7 +52,7 @@ func (r *KubernetesReporter) SpecWillRun(specSummary *types.SpecSummary) {
 func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
-	if r.failureCount > 10 {
+	if r.failureCount > r.maxFails {
 		return
 	}
 	if specSummary.HasFailureState() {
