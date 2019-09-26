@@ -126,7 +126,7 @@ var _ = Describe("HooksManager", func() {
 			Expect(callbackMaps[hookPointName]).Should(HaveLen(len(hookNames)))
 		})
 
-		It("Should find multiple sidecars on differrnt hook points", func() {
+		It("Should find multiple sidecars on different hook points", func() {
 			hookNameMap := map[string]string{
 				"hook1": hooksInfo.OnDefineDomainHookPointName,
 				"hook2": hooksInfo.PreCloudInitIsoHookPointName,
