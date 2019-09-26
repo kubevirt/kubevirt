@@ -1,8 +1,11 @@
 #!/bin/bash -e
 set -x
 
-CONTROL_PLANE_CMD="docker exec -it -d ${CLUSTER_NAME}-control-plane"
 MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/manifests"
+
+MASTER_NODE="${CLUSTER_NAME}-control-plane"
+FIRST_WORKER_NODE="${CLUSTER_NAME}-worker"
+
 OPERATOR_GIT_HASH=b3ab84a316e16df392fbe9e07dbe0667ad075855
 
 # not using kubectl wait since with the sriov operator the pods get restarted a couple of times and this is
@@ -32,10 +35,16 @@ function deploy_sriov_operator {
   popd
 }
 
+if [[ -z "$(kubectl get nodes | grep $FIRST_WORKER_NODE)" ]]; then
+  SRIOV_NODE=$MASTER_NODE
+else
+  SRIOV_NODE=$FIRST_WORKER_NODE
+fi
+
 #move the pf to the node
 mkdir -p /var/run/netns/
-export pid="$(docker inspect -f '{{.State.Pid}}' ${CLUSTER_NAME}-control-plane)"
-ln -sf /proc/$pid/ns/net "/var/run/netns/${CLUSTER_NAME}-control-plane"
+export pid="$(docker inspect -f '{{.State.Pid}}' $SRIOV_NODE)"
+ln -sf /proc/$pid/ns/net "/var/run/netns/$SRIOV_NODE"
 
 sriov_pfs=( /sys/class/net/*/device/sriov_numvfs )
 
@@ -51,7 +60,7 @@ for ifs in "${sriov_pfs[@]}"; do
     export FIRST_PF="$ifs_name"
     export FIRST_PF_NUM_VFS=$(cat /sys/class/net/"$FIRST_PF"/device/sriov_totalvfs)
   fi
-  ip link set "$ifs_name" netns "${CLUSTER_NAME}-control-plane"
+  ip link set "$ifs_name" netns "$SRIOV_NODE"
   counter=$((counter+1))
 done
 
@@ -64,15 +73,17 @@ sleep 10
 # make sure all containers are ready
 wait_pods_ready
 
-${CONTROL_PLANE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when it starts, we need it to be writeable
+SRIOV_NODE_CMD="docker exec -it -d ${SRIOV_NODE}"
+
+${SRIOV_NODE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when it starts, we need it to be writeable
 
 deploy_sriov_operator
 
-kubectl label node sriov-control-plane node-role.kubernetes.io/worker=
-kubectl label node sriov-control-plane sriov=true 
+kubectl label node $SRIOV_NODE node-role.kubernetes.io/worker=
+kubectl label node $SRIOV_NODE sriov=true 
 envsubst < $MANIFESTS_DIR/network_config_policy.yaml | kubectl create -f -
 
 
 wait_pods_ready
 
-${CONTROL_PLANE_CMD} chmod 666 /dev/vfio/vfio
+${SRIOV_NODE_CMD} chmod 666 /dev/vfio/vfio
