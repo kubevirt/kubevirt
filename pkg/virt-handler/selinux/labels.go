@@ -6,9 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-)
 
-const procOnePrefix = "/proc/1/root"
+	"kubevirt.io/kubevirt/pkg/util"
+)
 
 type execFunc = func(binary string, args ...string) ([]byte, error)
 
@@ -32,7 +32,7 @@ func NewSELinux() (SELinux, bool, error) {
 	selinux := &SELinuxImpl{
 		Paths:         paths,
 		execFunc:      defaultExecFunc,
-		procOnePrefix: procOnePrefix,
+		procOnePrefix: util.HostRootMount,
 	}
 	present, err := selinux.IsPresent()
 	return selinux, present, err
