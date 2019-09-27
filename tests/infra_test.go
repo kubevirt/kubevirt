@@ -116,8 +116,7 @@ var _ = Describe("Infrastructure", func() {
 			return metrics
 		}
 
-		tests.BeforeAll(func() {
-			tests.BeforeTestCleanup()
+		prepareVMIForTests := func(preferredNodeName string) string {
 			By("Creating the VirtualMachineInstance")
 
 			// WARNING: we assume the VM will have a VirtIO disk (vda)
@@ -127,8 +126,12 @@ var _ = Describe("Infrastructure", func() {
 			// block device?
 			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			tests.AppendEmptyDisk(vmi, "testdisk", "virtio", "1Gi")
+			pinVMIOnNode(vmi, preferredNodeName)
 
 			nodeName := startVMI(vmi)
+			if preferredNodeName != "" {
+				Expect(nodeName).To(Equal(preferredNodeName), "Should run VMIs on the same node")
+			}
 
 			By("Expecting the VirtualMachineInstance console")
 			// This also serves as a sync point to make sure the VM completed the boot
@@ -145,6 +148,14 @@ var _ = Describe("Infrastructure", func() {
 				&expect.BExp{R: "localhost:~#"},
 			}, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
+
+			return nodeName
+		}
+
+		tests.BeforeAll(func() {
+			tests.BeforeTestCleanup()
+
+			nodeName := prepareVMIForTests("")
 
 			By("Finding the prometheus endpoint")
 			pod, err = kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
