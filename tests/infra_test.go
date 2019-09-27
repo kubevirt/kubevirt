@@ -58,6 +58,17 @@ var _ = Describe("Infrastructure", func() {
 		var pod *k8sv1.Pod
 		var metricsURL string
 
+		pinVMIOnNode := func(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
+			if vmi == nil {
+				return nil
+			}
+			if vmi.Spec.NodeSelector == nil {
+				vmi.Spec.NodeSelector = make(map[string]string)
+			}
+			vmi.Spec.NodeSelector["kubernetes.io/hostname"] = nodeName
+			return vmi
+		}
+
 		// start a VMI, wait for it to run and return the node it runs on
 		startVMI := func(vmi *v1.VirtualMachineInstance) string {
 			By("Starting a new VirtualMachineInstance")
@@ -293,9 +304,8 @@ var _ = Describe("Infrastructure", func() {
 		It("should include VMI phase metrics for few running VMs", func() {
 			// run another VM, we intentionally check with only 2 VMS as CI is resource-constrained
 			By("Creating the VirtualMachineInstance")
-			vmi := tests.NewRandomVMI()
 			preferredNodeName := pod.Spec.NodeName
-			vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": preferredNodeName}
+			vmi := pinVMIOnNode(tests.NewRandomVMI(), preferredNodeName)
 			nodeName := startVMI(vmi)
 			Expect(nodeName).To(Equal(preferredNodeName), "Should run VMIs on the same node")
 
