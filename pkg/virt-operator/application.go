@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
+	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -159,7 +160,7 @@ func Execute() {
 		PodDisruptionBudgetCache:      app.informerFactory.OperatorPodDisruptionBudget().GetStore(),
 	}
 
-	onOpenShift, err := util.IsOnOpenshift(app.clientSet)
+	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)
 	if err != nil {
 		golog.Fatalf("Error determining cluster type: %v", err)
 	}

@@ -24,7 +24,6 @@ import (
 	"time"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	secv1 "github.com/openshift/api/security/v1"
 	"k8s.io/client-go/discovery"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -190,36 +189,6 @@ func hasFinalizer(kv *virtv1.KubeVirt) bool {
 
 func SetOperatorVersion(kv *virtv1.KubeVirt) {
 	kv.Status.OperatorVersion = version.Get().String()
-}
-
-func IsOnOpenshift(clientset kubecli.KubevirtClient) (bool, error) {
-
-	apis, err := clientset.DiscoveryClient().ServerResources()
-	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
-		return false, err
-	}
-
-	// In case of an error, check if security.openshift.io is the reason (unlikely).
-	// If it is, we are obviously on an openshift cluster.
-	// Otherwise we can do a positive check.
-	if discovery.IsGroupDiscoveryFailedError(err) {
-		e := err.(*discovery.ErrGroupDiscoveryFailed)
-		if _, exists := e.Groups[secv1.GroupVersion]; exists {
-			return true, nil
-		}
-	}
-
-	for _, api := range apis {
-		if api.GroupVersion == secv1.GroupVersion.String() {
-			for _, resource := range api.APIResources {
-				if resource.Name == "securitycontextconstraints" {
-					return true, nil
-				}
-			}
-		}
-	}
-
-	return false, nil
 }
 
 func IsServiceMonitorEnabled(clientset kubecli.KubevirtClient) (bool, error) {

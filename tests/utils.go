@@ -65,7 +65,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/tools/remotecommand"
@@ -76,6 +75,7 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -863,7 +863,7 @@ func IsOpenShift() bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	isOpenShift, err := util.IsOnOpenshift(virtClient)
+	isOpenShift, err := cluster.IsOnOpenShift(virtClient)
 	if err != nil {
 		fmt.Printf("ERROR: Can not determine cluster type %v\n", err)
 		panic(err)
@@ -3418,16 +3418,8 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw()
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	var info k8sversion.Info
-
-	err = json.Unmarshal(response, &info)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	curVersion := strings.Split(info.GitVersion, "+")[0]
-	curVersion = strings.Trim(curVersion, "v")
+	curVersion, err := cluster.GetKubernetesVersion(virtClient)
+	Expect(err).NotTo(HaveOccurred())
 
 	if curVersion < expectedVersion {
 		Skip(message)
@@ -3438,16 +3430,8 @@ func SkipIfVersionAboveOrEqual(message string, expectedVersion string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw()
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	var info k8sversion.Info
-
-	err = json.Unmarshal(response, &info)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	curVersion := strings.Split(info.GitVersion, "+")[0]
-	curVersion = strings.Trim(curVersion, "v")
+	curVersion, err := cluster.GetKubernetesVersion(virtClient)
+	Expect(err).NotTo(HaveOccurred())
 
 	if curVersion >= expectedVersion {
 		Skip(message)
@@ -3464,16 +3448,8 @@ func SkipIfOpenShiftAndBelowOrEqualVersion(message string, version string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw()
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	var info k8sversion.Info
-
-	err = json.Unmarshal(response, &info)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	curVersion := strings.Split(info.GitVersion, "+")[0]
-	curVersion = strings.Trim(curVersion, "v")
+	curVersion, err := cluster.GetKubernetesVersion(virtClient)
+	Expect(err).NotTo(HaveOccurred())
 
 	// version is above
 	if curVersion > version {
