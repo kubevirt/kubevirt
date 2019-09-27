@@ -1175,14 +1175,6 @@
   version = "v1.6.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:8ce127d755418ce5f27f1e9178656b7484c5f8794a874c3f9345011dc881852b"
-  name = "k8s.io/utils"
-  packages = ["pointer"]
-  pruneopts = "NT"
-  revision = "6c36bc71fc4aeb1f49801054e71aebdaef1fbeb4"
-
-[[projects]]
   digest = "1:f480ee9162158c0c71e0fc7fe42d4a99c73676f46c0606a8ac1839cfce8a05f7"
   name = "kubevirt.io/client-go"
   packages = [
@@ -1256,19 +1248,6 @@
   pruneopts = "NT"
   revision = "0ca091bb179c87f605111494f2e7e7d54fcd2c41"
   version = "v0.20.6"
-
-[[projects]]
-  digest = "1:c1f14502d6d6a188e4f64e184abf19f1cee5c08fd4a71b72f8d1a3d37a503faf"
-  name = "kubevirt.io/machine-remediation-operator"
-  packages = [
-    "pkg/apis/machineremediation",
-    "pkg/apis/machineremediation/v1alpha1",
-    "pkg/consts",
-    "pkg/operator/components",
-  ]
-  pruneopts = "NT"
-  revision = "1ccdf20edddfdef900eafc3df308cc844791eea9"
-  version = "v0.3.12"
 
 [[projects]]
   digest = "1:06035489efbd51ccface65fc878ceeb849aba05b2f9443c8993f363fc96e80ac"
@@ -1393,8 +1372,6 @@
     "kubevirt.io/kubevirt",
     "kubevirt.io/kubevirt/pkg/virt-operator/creation/components",
     "kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac",
-    "kubevirt.io/machine-remediation-operator/pkg/apis/machineremediation/v1alpha1",
-    "kubevirt.io/machine-remediation-operator/pkg/operator/components",
     "sigs.k8s.io/controller-runtime/pkg/client",
     "sigs.k8s.io/controller-runtime/pkg/client/config",
     "sigs.k8s.io/controller-runtime/pkg/client/fake",

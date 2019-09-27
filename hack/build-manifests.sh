@@ -40,9 +40,6 @@ function versions {
 	NETWORK_ADDONS_TAG="$(dep status -f='{{if eq .ProjectRoot "github.com/kubevirt/cluster-network-addons-operator"}}{{.Version}} {{end}}')"
 	echo "Network Addons: ${NETWORK_ADDONS_TAG}"
 
-	MRO_TAG="$(dep status -f='{{if eq .ProjectRoot "kubevirt.io/machine-remediation-operator"}}{{.Version}} {{end}}')"
-	echo "MRO: ${MRO_TAG}"
-
 	if [ -z "${GITHUB_TOKEN}" ]; then
 		NMO_TAG=$(curl --silent "https://api.github.com/repos/kubevirt/node-maintenance-operator/releases/latest" | grep -Po '"tag_name": "\K.*?(?=")')
 	else
@@ -74,8 +71,7 @@ function buildFlags {
 		--cdi-tag=${CDI_TAG} \
 		--ssp-tag=${SSP_TAG} \
 		--nmo-tag=${NMO_TAG} \
-		--network-addons-tag=${NETWORK_ADDONS_TAG} \
-		--mro-tag=${MRO_TAG}"
+		--network-addons-tag=${NETWORK_ADDONS_TAG}"
 	else
 		BUILD_FLAGS="${BUILD_FLAGS} \
 		--container-tag=${CONTAINER_TAG}"

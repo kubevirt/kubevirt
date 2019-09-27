@@ -30,7 +30,6 @@ source hack/common.sh
 "${CMD}" delete -f _out/crds/common-template-bundles.crd.yaml --ignore-not-found || true
 "${CMD}" delete -f _out/crds/kubevirt.crd.yaml --ignore-not-found || true
 "${CMD}" delete -f _out/crds/metrics-aggregation.crd.yaml --ignore-not-found || true
-"${CMD}" delete -f _out/crds/mro.crd.yaml --ignore-not-found || true
 "${CMD}" delete -f _out/crds/node-labeller-bundles.crd.yaml --ignore-not-found || true
 "${CMD}" delete -f _out/crds/nodemaintenance.crd.yaml --ignore-not-found || true
 "${CMD}" delete -f _out/crds/template-validator.crd.yaml --ignore-not-found || true

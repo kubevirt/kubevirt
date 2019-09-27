@@ -30,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	mrv1alpha1 "kubevirt.io/machine-remediation-operator/pkg/apis/machineremediation/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
@@ -92,7 +91,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&sspv1.KubevirtNodeLabellerBundle{},
 		&sspv1.KubevirtTemplateValidator{},
 		&sspv1.KubevirtMetricsAggregation{},
-		&mrv1alpha1.MachineRemediationOperator{},
 	} {
 		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestForOwner{
 			IsController: true,
@@ -198,7 +196,6 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		r.ensureKubeVirtNodeLabellerBundle,
 		r.ensureKubeVirtTemplateValidator,
 		r.ensureKubeVirtMetricsAggregation,
-		r.ensureMachineRemediationOperator,
 		r.ensureIMSConfig,
 	} {
 		err = f(instance, reqLogger, request)
@@ -1073,54 +1070,5 @@ func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(instance *hco
 	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
 
 	handleConditionsSSP(r, logger, "KubevirtMetricsAggregation", &found.Status)
-	return r.client.Status().Update(context.TODO(), instance)
-}
-
-// newMROForCR returns a MachineRemediationOperator CR
-func newMachineRemediationOperatorForCR(cr *hcov1alpha1.HyperConverged, namespace string) *mrv1alpha1.MachineRemediationOperator {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &mrv1alpha1.MachineRemediationOperator{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "mro-" + cr.Name,
-			Labels:    labels,
-			Namespace: namespace,
-		},
-	}
-}
-
-func (r *ReconcileHyperConverged) ensureMachineRemediationOperator(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
-	mro := newMachineRemediationOperatorForCR(instance, request.Namespace)
-	if err := controllerutil.SetControllerReference(instance, mro, r.scheme); err != nil {
-		return err
-	}
-
-	key, err := client.ObjectKeyFromObject(mro)
-	if err != nil {
-		logger.Error(err, "Failed to get object key for MachineRemediationOperator")
-	}
-
-	found := &mrv1alpha1.MachineRemediationOperator{}
-	err = r.client.Get(context.TODO(), key, found)
-	if err != nil && apierrors.IsNotFound(err) {
-		logger.Info("Creating MachineRemediationOperator")
-		return r.client.Create(context.TODO(), mro)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	logger.Info("MachineRemediationOperator already exists", "MachineRemediationOperator.Namespace", found.Namespace, "MachineRemediationOperator.Name", found.Name)
-
-	// Add it to the list of RelatedObjects if found
-	objectRef, err := reference.GetReference(r.scheme, found)
-	if err != nil {
-		return err
-	}
-	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
-
-	// TODO: Handle conditions
 	return r.client.Status().Update(context.TODO(), instance)
 }

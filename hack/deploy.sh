@@ -44,7 +44,7 @@ sed -i "s#image: quay.io/kubevirt/hyperconverged-cluster-operator:latest#image: 
 "${CMD}" create ns "${HCO_NAMESPACE}" | true
 
 # Create additional namespaces needed for HCO components
-namespaces=("openshift" "openshift-machine-api")
+namespaces=("openshift")
 for namespace in ${namespaces[@]}; do
     if [[ $(${CMD} get ns ${namespace}) == "" ]]; then
         ${CMD} create ns ${namespace}
@@ -95,7 +95,7 @@ sleep 20
 
 "${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=Available --timeout="720s" || CONTAINER_ERRORED+="${op}"
 
-for op in cdi-operator cluster-network-addons-operator kubevirt-ssp-operator node-maintenance-operator virt-operator machine-remediation-operator; do
+for op in cdi-operator cluster-network-addons-operator kubevirt-ssp-operator node-maintenance-operator virt-operator; do
     "${CMD}" wait deployment/"${op}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${op} "
 done
 
@@ -113,11 +113,6 @@ fi
 
 for dep in cdi-apiserver cdi-deployment cdi-uploadproxy virt-api virt-controller; do
     "${CMD}" wait deployment/"${dep}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${dep} "
-done
-
-# Wait for machine-remediation controllers under the openshift-machine-api namespace
-for dep in machine-health-check machine-disruption-budget machine-remediation; do
-    "${CMD}" -n openshift-machine-api wait deployment/"${dep}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${dep} "
 done
 
 if [ -z "$CONTAINER_ERRORED" ]; then

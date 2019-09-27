@@ -117,19 +117,3 @@ subjects:
 - kind: ServiceAccount
   name: node-maintenance-operator
   namespace: kubevirt-hyperconverged
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  labels:
-    machineremediation.kubevirt.io: ""
-    machineremediation.kubevirt.io/version: v0.3.12
-  name: machine-remediation-operator
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: machine-remediation-operator
-subjects:
-- kind: ServiceAccount
-  name: machine-remediation-operator
-  namespace: kubevirt-hyperconverged

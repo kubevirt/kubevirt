@@ -66,13 +66,6 @@ metadata:
           }
         },
         {
-          "apiVersion": "machineremediation.kubevirt.io/v1alpha1",
-          "kind": "MachineRemediationOperator",
-          "metadata": {
-            "name": "mro"
-          }
-        },
-        {
           "apiVersion": "kubevirt.io/v1alpha1",
           "kind": "NodeMaintenance",
           "metadata": {
@@ -227,9 +220,6 @@ spec:
         - serviceAccountName: cluster-network-addons-operator
           rules:
 {{.CNA.ClusterRules}}
-        - serviceAccountName: machine-remediation-operator
-          rules:
-{{.MRO.Rules}}
         - serviceAccountName: kubevirt-ssp-operator
           rules:
           - apiGroups:
@@ -426,9 +416,6 @@ spec:
         - name: cluster-network-addons-operator-0-0-2
           spec:
 {{.CNA.DeploymentSpec}}
-        - name: machine-remediation-operator-0-0-2
-          spec:
-{{.MRO.DeploymentSpec}}
         - name: kubevirt-ssp-operator-0-0-2
           spec:
             replicas: 1

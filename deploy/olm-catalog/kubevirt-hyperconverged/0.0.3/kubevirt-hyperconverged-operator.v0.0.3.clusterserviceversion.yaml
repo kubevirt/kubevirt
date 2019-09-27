@@ -66,13 +66,6 @@ metadata:
           }
         },
         {
-          "apiVersion": "machineremediation.kubevirt.io/v1alpha1",
-          "kind": "MachineRemediationOperator",
-          "metadata": {
-            "name": "mro"
-          }
-        },
-        {
           "apiVersion": "kubevirt.io/v1alpha1",
           "kind": "NodeMaintenance",
           "metadata": {
@@ -95,7 +88,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-09-23 15:49:33.270025095 -0400 EDT m=+0.029431858
+    createdAt: 2019-09-26 14:06:48.97314023 +0300 IDT m=+0.022994824
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -1075,68 +1068,6 @@ spec:
               verbs:
               - '*'
 
-        - serviceAccountName: machine-remediation-operator
-          rules:
-            - apiGroups:
-              - machineremediation.kubevirt.io
-              resources:
-              - machineremediationoperators
-              - machineremediationoperators/status
-              verbs:
-              - get
-              - list
-              - update
-              - watch
-            - apiGroups:
-              - ""
-              resources:
-              - nodes
-              verbs:
-              - get
-              - list
-              - watch
-            - apiGroups:
-              - ""
-              resources:
-              - serviceaccounts
-              verbs:
-              - '*'
-            - apiGroups:
-              - apps
-              resources:
-              - deployments
-              verbs:
-              - '*'
-            - apiGroups:
-              - apiextensions.k8s.io
-              resources:
-              - customresourcedefinitions
-              verbs:
-              - '*'
-            - apiGroups:
-              - rbac.authorization.k8s.io
-              resources:
-              - clusterroles
-              - clusterrolebindings
-              verbs:
-              - '*'
-            - apiGroups:
-              - config.openshift.io
-              resources:
-              - infrastructures
-              - infrastructures/status
-              verbs:
-              - get
-              - list
-              - watch
-            - apiGroups:
-              - machineremediation.kubevirt.io
-              resources:
-              - machinedisruptionbudgets
-              - machinehealthchecks
-              verbs:
-              - '*'
-
         - serviceAccountName: kubevirt-ssp-operator
           rules:
           - apiGroups:
@@ -1471,7 +1402,8 @@ spec:
             selector:
               matchLabels:
                 name: cluster-network-addons-operator
-            strategy: {}
+            strategy:
+              type: Recreate
             template:
               metadata:
                 labels:
@@ -1492,13 +1424,13 @@ spec:
                   - name: OVS_MARKER_IMAGE
                     value: quay.io/kubevirt/ovs-cni-marker:v0.7.0
                   - name: KUBEMACPOOL_IMAGE
-                    value: quay.io/kubevirt/kubemacpool:v0.6.0
+                    value: quay.io/kubevirt/kubemacpool:v0.7.0
                   - name: OPERATOR_IMAGE
-                    value: quay.io/kubevirt/cluster-network-addons-operator:0.16.0
+                    value: quay.io/kubevirt/cluster-network-addons-operator:0.17.0
                   - name: OPERATOR_NAME
                     value: cluster-network-addons-operator
                   - name: OPERATOR_VERSION
-                    value: 0.16.0
+                    value: 0.17.0
                   - name: OPERATOR_NAMESPACE
                     valueFrom:
                       fieldRef:
@@ -1512,74 +1444,11 @@ spec:
                       fieldRef:
                         fieldPath: metadata.name
                   - name: WATCH_NAMESPACE
-                  image: quay.io/kubevirt/cluster-network-addons-operator:0.16.0
+                  image: quay.io/kubevirt/cluster-network-addons-operator:0.17.0
                   imagePullPolicy: IfNotPresent
                   name: cluster-network-addons-operator
                   resources: {}
                 serviceAccountName: cluster-network-addons-operator
-
-        - name: machine-remediation-operator-0-0-2
-          spec:
-            replicas: 1
-            selector:
-              matchLabels:
-                machineremediation.kubevirt.io: machine-remediation-operator
-                machineremediation.kubevirt.io/version: v0.3.12
-            strategy:
-              type: RollingUpdate
-            template:
-              metadata:
-                labels:
-                  machineremediation.kubevirt.io: machine-remediation-operator
-                  machineremediation.kubevirt.io/version: v0.3.12
-              spec:
-                affinity:
-                  podAntiAffinity:
-                    preferredDuringSchedulingIgnoredDuringExecution:
-                    - podAffinityTerm:
-                        labelSelector:
-                          matchExpressions:
-                          - key: machineremediation.kubevirt.io
-                            operator: In
-                            values:
-                            - machine-remediation-operator
-                        topologyKey: kubernetes.io/hostname
-                      weight: 50
-                containers:
-                - args:
-                  - --logtostderr=true
-                  - --v=2
-                  - --namespace=kubevirt-hyperconverged
-                  command:
-                  - /usr/bin/machine-remediation-operator
-                  env:
-                  - name: OPERATOR_VERSION
-                    value: v0.3.12
-                  image: kubevirt/machine-remediation-operator:v0.3.12
-                  imagePullPolicy: IfNotPresent
-                  name: machine-remediation-operator
-                  resources:
-                    requests:
-                      cpu: 10m
-                      memory: 20Mi
-                nodeSelector:
-                  node-role.kubernetes.io/master: ""
-                securityContext:
-                  runAsNonRoot: true
-                serviceAccountName: machine-remediation-operator
-                tolerations:
-                - effect: NoSchedule
-                  key: node-role.kubernetes.io/master
-                - key: CriticalAddonsOnly
-                  operator: Exists
-                - effect: NoExecute
-                  key: node.kubernetes.io/not-ready
-                  operator: Exists
-                  tolerationSeconds: 120
-                - effect: NoExecute
-                  key: node.kubernetes.io/unreachable
-                  operator: Exists
-                  tolerationSeconds: 120
 
         - name: kubevirt-ssp-operator-0-0-2
           spec:

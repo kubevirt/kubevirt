@@ -40,7 +40,6 @@ import (
 	cdicomponents "kubevirt.io/containerized-data-importer/pkg/operator/resources/operator"
 	kvcomponents "kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	kvrbac "kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
-	mrocomponents "kubevirt.io/machine-remediation-operator/pkg/operator/components"
 )
 
 type operatorData struct {
@@ -75,7 +74,6 @@ type templateData struct {
 	CNA                 *operatorData
 	SSP                 *operatorData
 	NMO                 *operatorData
-	MRO                 *operatorData
 }
 
 func check(err error) {
@@ -382,54 +380,6 @@ func getCNA(data *templateData) {
 	data.CNA.CRDString = crdString
 }
 
-func getMRO(data *templateData) {
-	// create MRO operator deployment
-	deployWriter := strings.Builder{}
-	deployData := &mrocomponents.DeploymentData{
-		Name:            "machine-remediation-operator",
-		Namespace:       data.Namespace,
-		ImageRepository: data.ContainerPrefix,
-		PullPolicy:      v1.PullIfNotPresent,
-		Verbosity:       "2",
-		OperatorVersion: data.MRO.OperatorTag,
-	}
-	deploy := mrocomponents.NewDeployment(deployData)
-
-	err := marshallObject(deploy, &deployWriter)
-	check(err)
-	deployString := deployWriter.String()
-
-	// Get MRO DeploymentSpec for CSV
-	deploySpecWriter := strings.Builder{}
-	err = marshallObject(deploy.Spec, &deploySpecWriter)
-	check(err)
-	deploySpecString := fixResourceString(deploySpecWriter.String(), 12)
-
-	// Get MRO ClusterRole
-	clusterRoleWriter := strings.Builder{}
-	clusterRole := mrocomponents.NewClusterRole(
-		"machine-remediation-operator",
-		mrocomponents.Rules["machine-remediation-operator"],
-		data.MRO.OperatorTag,
-	)
-	err = marshallObject(clusterRole, &clusterRoleWriter)
-	check(err)
-	clusterRoleString := clusterRoleWriter.String()
-
-	// Get the Rules out of MRO ClusterRole
-	rulesWriter := strings.Builder{}
-	for _, rule := range mrocomponents.Rules["machine-remediation-operator"] {
-		err := marshallObject(rule, &rulesWriter)
-		check(err)
-	}
-	rulesString := fixResourceString(rulesWriter.String(), 14)
-
-	data.MRO.Deployment = deployString
-	data.MRO.DeploymentSpec = deploySpecString
-	data.MRO.ClusterRoleString = clusterRoleString
-	data.MRO.Rules = rulesString
-}
-
 func main() {
 	converged := flag.Bool("converged", false, "")
 	namespace := flag.String("namespace", "kubevirt-hyperconverged", "")
@@ -449,7 +399,6 @@ func main() {
 	sspTag := flag.String("ssp-tag", *containerTag, "")
 	nmoTag := flag.String("nmo-tag", *containerTag, "")
 	networkAddonsTag := flag.String("network-addons-tag", *containerTag, "")
-	mroTag := flag.String("mro-tag", *containerTag, "")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -478,7 +427,6 @@ func main() {
 		CNA:      &operatorData{OperatorTag: *networkAddonsTag, ComponentTag: *networkAddonsTag},
 		SSP:      &operatorData{OperatorTag: *sspTag, ComponentTag: *sspTag},
 		NMO:      &operatorData{OperatorTag: *nmoTag, ComponentTag: *nmoTag},
-		MRO:      &operatorData{OperatorTag: *mroTag, ComponentTag: *mroTag},
 	}
 	data.CreatedAt = time.Now().String()
 
@@ -490,8 +438,6 @@ func main() {
 	getCDI(data)
 	// Load in all CNA Resources
 	getCNA(data)
-	// Load in all MRO resources
-	getMRO(data)
 
 	if *inputFile == "" {
 		panic("Must specify input file")

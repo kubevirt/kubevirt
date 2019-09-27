@@ -32,7 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	mrv1alpha1 "kubevirt.io/machine-remediation-operator/pkg/apis/machineremediation/v1alpha1"
 )
 
 // name and namespace of our primary resource
@@ -964,56 +963,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 		})
 
-		Context("Manage MachineRemediationOperator", func() {
-			It("should create if not present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
-				expectedResource := newMachineRemediationOperatorForCR(hco, namespace)
-				cl := initClient([]runtime.Object{})
-				r := initReconciler(cl)
-				Expect(r.ensureMachineRemediationOperator(hco, log, request)).To(BeNil())
-
-				foundResource := &mrv1alpha1.MachineRemediationOperator{}
-				Expect(
-					cl.Get(context.TODO(),
-						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
-						foundResource),
-				).To(BeNil())
-				Expect(foundResource.Name).To(Equal(expectedResource.Name))
-				Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
-				Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
-			})
-
-			It("should find if present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
-				expectedResource := newMachineRemediationOperatorForCR(hco, namespace)
-				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-				cl := initClient([]runtime.Object{hco, expectedResource})
-				r := initReconciler(cl)
-				Expect(r.ensureMachineRemediationOperator(hco, log, request)).To(BeNil())
-
-				// Check HCO's status
-				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
-				objectRef, err := reference.GetReference(r.scheme, expectedResource)
-				Expect(err).To(BeNil())
-				// ObjectReference should have been added
-				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
-			})
-		})
-
 		Context("Manage IMS Config", func() {
 			It("should error if environment vars not specified", func() {
 				os.Unsetenv("CONVERSION_CONTAINER")
@@ -1352,7 +1301,6 @@ func initReconciler(client client.Client) *ReconcileHyperConverged {
 		cdiv1alpha1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspopv1.AddToScheme,
-		mrv1alpha1.AddToScheme,
 	} {
 		Expect(f(s)).To(BeNil())
 	}
