@@ -138,11 +138,17 @@ var _ = Describe("Configurations", func() {
 
 	Describe("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance definition", func() {
 		Context("with 3 CPU cores", func() {
+			availableNumberOfCPUs := tests.GetHighestCPUNumberAmongNodes(virtClient)
+
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
+				requiredNumberOfCpus := 3
+				Expect(availableNumberOfCPUs).ToNot(BeNumerically("<", requiredNumberOfCpus),
+					fmt.Sprintf("Test requires %d cpus, but only %d available!", requiredNumberOfCpus, availableNumberOfCPUs))
 				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			})
+
 			It("[test_id:1659]should report 3 cpu cores under guest OS", func() {
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 3,
