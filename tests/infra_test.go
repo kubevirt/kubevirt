@@ -126,8 +126,10 @@ var _ = Describe("Infrastructure", func() {
 			// block device?
 			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			tests.AppendEmptyDisk(vmi, "testdisk", "virtio", "1Gi")
-			pinVMIOnNode(vmi, preferredNodeName)
 
+			if preferredNodeName != "" {
+				pinVMIOnNode(vmi, preferredNodeName)
+			}
 			nodeName := startVMI(vmi)
 			if preferredNodeName != "" {
 				Expect(nodeName).To(Equal(preferredNodeName), "Should run VMIs on the same node")
@@ -155,7 +157,9 @@ var _ = Describe("Infrastructure", func() {
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
 
+			// to avoid testing a corner case, we use 2+ VMIs
 			nodeName := prepareVMIForTests("")
+			prepareVMIForTests(nodeName)
 
 			By("Finding the prometheus endpoint")
 			pod, err = kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
