@@ -46,7 +46,7 @@ import (
 type SubresourceAPIApp struct {
 	virtCli                 kubecli.KubevirtClient
 	consoleServerPort       int
-	consoleTLSConfiguration *tls.Config
+	handlerTLSConfiguration *tls.Config
 	credentialsLock         *sync.Mutex
 }
 
@@ -72,26 +72,27 @@ const (
 type validation func(*v1.VirtualMachineInstance) error
 type URLResolver func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (string, error)
 
-func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, response *restful.Response, validate validation, getConsoleURL URLResolver) {
+func (app *SubresourceAPIApp) prepareConnection(request *restful.Request, response *restful.Response, validate validation, getVirtHandlerURL URLResolver) (vmi *v1.VirtualMachineInstance, url string, conn kubecli.VirtHandlerConn, err error) {
+
 	vmiName := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
-	vmi, code, err := app.fetchVirtualMachineInstance(vmiName, namespace)
+	var code int
+	vmi, code, err = app.fetchVirtualMachineInstance(vmiName, namespace)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Failed to gather vmi %s in namespace %s.", vmiName, namespace)
 		response.WriteError(code, err)
 		return
 	}
 
-	if err := validate(vmi); err != nil {
+	if err = validate(vmi); err != nil {
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
 
-	var url string
-	if conn, err := app.getVirtHandlerConnForVMI(vmi); err == nil {
-		if url, err = getConsoleURL(vmi, conn); err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Unable to retrieve target console URL")
+	if conn, err = app.getVirtHandlerConnForVMI(vmi); err == nil {
+		if url, err = getVirtHandlerURL(vmi, conn); err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Unable to retrieve target handler URL")
 			response.WriteError(http.StatusBadRequest, err)
 			return
 		}
@@ -101,24 +102,34 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 		return
 	}
 
-	if app.consoleTLSConfiguration == nil {
+	if app.handlerTLSConfiguration == nil {
 		setTLSConfiguration := func() error {
 			app.credentialsLock.Lock()
 			defer app.credentialsLock.Unlock()
-			if app.consoleTLSConfiguration == nil {
-				tlsConfig, err := app.getConsoleTLSConfig()
+			if app.handlerTLSConfiguration == nil {
+				tlsConfig, err := app.getHandlerTLSConfig()
 				if err != nil {
 					return err
 				}
-				app.consoleTLSConfiguration = tlsConfig
+				app.handlerTLSConfiguration = tlsConfig
 			}
 			return nil
 		}
-		if err := setTLSConfiguration(); err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Failed to set TLS configuration for console/vnc connection")
+		if err = setTLSConfiguration(); err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Failed to set TLS configuration for virt-handler connection")
 			response.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+	}
+
+	return
+}
+
+func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, response *restful.Response, validate validation, getVirtHandlerURL URLResolver) {
+
+	vmi, url, _, err := app.prepareConnection(request, response, validate, getVirtHandlerURL)
+	if err != nil {
+		return
 	}
 
 	upgrader := kubecli.NewUpgrader()
@@ -130,7 +141,7 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 	}
 	defer clientSocket.Close()
 
-	conn, _, err := kubecli.Dial(url, app.consoleTLSConfiguration)
+	conn, _, err := kubecli.Dial(url, app.handlerTLSConfiguration)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("failed to dial virt-handler for a console connection")
 		response.WriteError(http.StatusInternalServerError, err)
@@ -160,7 +171,22 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 	}
 }
 
-func (app *SubresourceAPIApp) getConsoleTLSConfig() (*tls.Config, error) {
+func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, response *restful.Response, validate validation, getVirtHandlerURL URLResolver) error {
+
+	_, url, conn, err := app.prepareConnection(request, response, validate, getVirtHandlerURL)
+	if err != nil {
+		return err
+	}
+
+	err = conn.Put(url, app.handlerTLSConfiguration)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (app *SubresourceAPIApp) getHandlerTLSConfig() (*tls.Config, error) {
 	ns, err := clientutil.GetNamespace()
 	if err != nil {
 		return nil, err
@@ -197,7 +223,7 @@ func (app *SubresourceAPIApp) getConsoleTLSConfig() (*tls.Config, error) {
 	}
 
 	// we use the same TLS configuration that is used for live migrations
-	consoleTLSConfig := &tls.Config{
+	handlerTLSConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		ClientCAs:  certPool,
 		GetClientCertificate: func(info *tls.CertificateRequestInfo) (certificate *tls.Certificate, e error) {
@@ -232,7 +258,7 @@ func (app *SubresourceAPIApp) getConsoleTLSConfig() (*tls.Config, error) {
 		},
 		ClientAuth: tls.RequireAndVerifyClientCert,
 	}
-	return consoleTLSConfig, nil
+	return handlerTLSConfig, nil
 }
 
 func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, response *restful.Response) {
@@ -246,7 +272,7 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 		return nil
 	}
 	getConsoleURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.SetPort(app.consoleServerPort).VNCURI(vmi)
+		return conn.VNCURI(vmi)
 	}
 	app.streamRequestHandler(request, response, validate, getConsoleURL)
 }
@@ -255,7 +281,7 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 	if !vmi.IsRunning() {
 		return nil, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s", vmi.Status.Phase, v1.Running))
 	}
-	return kubecli.NewVirtHandlerClient(app.virtCli).ForNode(vmi.Status.NodeName), nil
+	return kubecli.NewVirtHandlerClient(app.virtCli).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
 }
 
 func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, response *restful.Response) {
@@ -264,7 +290,7 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 		return nil
 	}
 	getConsoleURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.SetPort(app.consoleServerPort).ConsoleURI(vmi)
+		return conn.ConsoleURI(vmi)
 	}
 	app.streamRequestHandler(request, response, validate, getConsoleURL)
 }
@@ -570,6 +596,37 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	}
 
 	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) SuspendVMIRequestHandler(request *restful.Request, response *restful.Response) {
+
+	validate := func(vmi *v1.VirtualMachineInstance) error {
+		if vmi == nil || vmi.IsFinal() || vmi.Status.Phase == v1.Unknown || vmi.Status.Phase == v1.VmPhaseUnset {
+			return fmt.Errorf("VM is not running")
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.SuspendURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL)
+}
+
+func (app *SubresourceAPIApp) ResumeVMIRequestHandler(request *restful.Request, response *restful.Response) {
+
+	validate := func(vmi *v1.VirtualMachineInstance) error {
+		if vmi == nil || vmi.IsFinal() || vmi.Status.Phase == v1.Unknown || vmi.Status.Phase == v1.VmPhaseUnset {
+			return fmt.Errorf("VM is not running")
+		}
+		return nil
+	}
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.ResumeURI(vmi)
+	}
+	app.putRequestHandler(request, response, validate, getURL)
+
 }
 
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, int, error) {

@@ -123,6 +123,8 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
+					"virtualmachineinstances/suspend",
+					"virtualmachineinstances/resume",
 				},
 				Verbs: []string{
 					"get",
@@ -181,6 +183,8 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
+					"virtualmachineinstances/suspend",
+					"virtualmachineinstances/resume",
 				},
 				Verbs: []string{
 					"get",

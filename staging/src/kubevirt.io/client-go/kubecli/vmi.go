@@ -37,6 +37,8 @@ import (
 	"kubevirt.io/client-go/subresources"
 )
 
+const vmiSubresourceURL = "/apis/subresources.kubevirt.io/%s/namespaces/%s/virtualmachineinstances/%s/%s"
+
 func (k *kubevirt) VirtualMachineInstance(namespace string) VirtualMachineInstanceInterface {
 	return &vmis{
 		restClient: k.restClient,
@@ -293,6 +295,16 @@ func (v *vmis) asyncSubresourceHelper(name string, resource string) (StreamInter
 			done: done,
 		}, nil
 	}
+}
+
+func (v *vmis) Suspend(name string) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "suspend")
+	return v.restClient.Put().RequestURI(uri).Do().Error()
+}
+
+func (v *vmis) Resume(name string) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "resume")
+	return v.restClient.Put().RequestURI(uri).Do().Error()
 }
 
 func (v *vmis) Get(name string, options *k8smetav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {

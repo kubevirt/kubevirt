@@ -241,6 +241,24 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusNotFound, "Not Found", nil).
 			Returns(http.StatusBadRequest, "Bad Request", nil))
 
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("suspend")).
+			To(subresourceApp.SuspendVMIRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("suspend").
+			Doc("Suspend a VirtualMachineInstance object.").
+			Returns(http.StatusOK, "OK", nil).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			Returns(http.StatusBadRequest, "Bad Request", nil))
+
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("resume")).
+			To(subresourceApp.ResumeVMIRequestHandler). // handles VMIs as well
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("resume").
+			Doc("Resume a VirtualMachineInstance object.").
+			Returns(http.StatusOK, "OK", nil).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			Returns(http.StatusBadRequest, "Bad Request", nil))
+
 		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("console")).
 			To(subresourceApp.ConsoleRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
@@ -294,7 +312,15 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
-						Name:       "virtualmachines/restart",
+						Name:       "virtualmachineinstances/console",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/suspend",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/resume",
 						Namespaced: true,
 					},
 					{
@@ -306,11 +332,19 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
-						Name:       "virtualmachines/migrate",
+						Name:       "virtualmachines/restart",
 						Namespaced: true,
 					},
 					{
-						Name:       "virtualmachineinstances/console",
+						Name:       "virtualmachines/suspend",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachines/resume",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachines/migrate",
 						Namespaced: true,
 					},
 				}

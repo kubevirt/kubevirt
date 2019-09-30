@@ -50,6 +50,8 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/suspend
+  - virtualmachineinstances/resume
   verbs:
   - get
 - apiGroups:
@@ -91,6 +93,8 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/suspend
+  - virtualmachineinstances/resume
   verbs:
   - get
 - apiGroups:

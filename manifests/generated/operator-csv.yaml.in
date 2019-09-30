@@ -546,6 +546,8 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          - virtualmachineinstances/suspend
+          - virtualmachineinstances/resume
           verbs:
           - get
         - apiGroups:
@@ -578,6 +580,8 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          - virtualmachineinstances/suspend
+          - virtualmachineinstances/resume
           verbs:
           - get
         - apiGroups:

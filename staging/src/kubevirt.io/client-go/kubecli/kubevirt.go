@@ -129,6 +129,8 @@ type VirtualMachineInstanceInterface interface {
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error)
 	SerialConsole(name string, timeout time.Duration) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
+	Suspend(name string) error
+	Resume(name string) error
 }
 
 type ReplicaSetInterface interface {
@@ -164,6 +166,8 @@ type VirtualMachineInterface interface {
 	Start(name string) error
 	Stop(name string) error
 	Migrate(name string) error
+	Suspend(name string) error
+	Resume(name string) error
 }
 
 type VirtualMachineInstanceMigrationInterface interface {
