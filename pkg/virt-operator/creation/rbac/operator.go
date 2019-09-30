@@ -264,6 +264,20 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				},
 			},
 			{
+				// this is needed for being able to update from older versions (<= v0.21), which included some removed
+				// permissions for virtualmachineinstancemigrations for admin and edit cluster roles.
+				// Remove this when upgrade path from v0.20 and earlier is not supported anymore
+				APIGroups: []string{
+					"kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachineinstancemigrations",
+				},
+				Verbs: []string{
+					"update", "delete", "deletecollection",
+				},
+			},
+			{
 				APIGroups: []string{
 					"",
 				},

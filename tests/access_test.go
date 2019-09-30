@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+
 	authv1 "k8s.io/api/authorization/v1"
 	authClientV1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 
@@ -41,6 +42,13 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	edit := tests.EditServiceAccountName
 	admin := tests.AdminServiceAccountName
 
+	const VIEW_VERBS = "view"
+	const EDIT_VERBS = "edit"
+	const ADMIN_VERBS = "admin"
+
+	const namespace = tests.NamespaceTestDefault
+	var verbs = []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
+
 	var k8sClient string
 
 	BeforeEach(func() {
@@ -51,199 +59,200 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 
 	Describe("With default kubevirt service accounts", func() {
-		table.DescribeTable("should verify permissions on resources are correct for view, edit, and admin", func(resource string) {
 
-			viewVerbs := make(map[string]string)
-			editVerbs := make(map[string]string)
-			adminVerbs := make(map[string]string)
+		Describe("should verify permissions on resources", func() {
 
-			// GET
-			viewVerbs["get"] = "yes"
-			editVerbs["get"] = "yes"
-			adminVerbs["get"] = "yes"
-
-			// List
-			viewVerbs["list"] = "yes"
-			editVerbs["list"] = "yes"
-			adminVerbs["list"] = "yes"
-
-			// WATCH
-			viewVerbs["watch"] = "yes"
-			editVerbs["watch"] = "yes"
-			adminVerbs["watch"] = "yes"
-
-			// DELETE
-			viewVerbs["delete"] = "no"
-			editVerbs["delete"] = "yes"
-			adminVerbs["delete"] = "yes"
-
-			// CREATE
-			viewVerbs["create"] = "no"
-			editVerbs["create"] = "yes"
-			adminVerbs["create"] = "yes"
-
-			// UPDATE
-			viewVerbs["update"] = "no"
-			editVerbs["update"] = "yes"
-			adminVerbs["update"] = "yes"
-
-			// PATCH
-			viewVerbs["patch"] = "no"
-			editVerbs["patch"] = "yes"
-			adminVerbs["patch"] = "yes"
-
-			// DELETE COllECTION
-			viewVerbs["deleteCollection"] = "no"
-			editVerbs["deleteCollection"] = "no"
-			adminVerbs["deleteCollection"] = "yes"
-
-			namespace := tests.NamespaceTestDefault
-			verbs := []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
-
-			for _, verb := range verbs {
-				// VIEW
-				By(fmt.Sprintf("verifying VIEW sa for verb %s", verb))
-				expectedRes, _ := viewVerbs[verb]
-				as := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, view)
-				result, _, _ := tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
-				Expect(result).To(ContainSubstring(expectedRes))
-
-				// EDIT
-				By(fmt.Sprintf("verifying EDIT sa for verb %s", verb))
-				expectedRes, _ = editVerbs[verb]
-				as = fmt.Sprintf("system:serviceaccount:%s:%s", namespace, edit)
-				result, _, _ = tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
-				Expect(result).To(ContainSubstring(expectedRes))
-
-				// ADMIN
-				By(fmt.Sprintf("verifying ADMIN sa for verb %s", verb))
-				expectedRes, _ = adminVerbs[verb]
-				as = fmt.Sprintf("system:serviceaccount:%s:%s", namespace, admin)
-				result, _, _ = tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
-				Expect(result).To(ContainSubstring(expectedRes))
-
-				// DEFAULT - the default should always return 'no' for ever verb.
-				// This is primarily a sanity check.
-				By(fmt.Sprintf("verifying DEFAULT sa for verb %s", verb))
-				expectedRes = "no"
-				as = fmt.Sprintf("system:serviceaccount:%s:default", namespace)
-				result, _, _ = tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
-				Expect(result).To(ContainSubstring(expectedRes))
+			getEmptyPermissions := func() (viewRole map[string]bool, editRole map[string]bool, adminRole map[string]bool) {
+				viewRole = make(map[string]bool)
+				editRole = make(map[string]bool)
+				adminRole = make(map[string]bool)
+				return
 			}
-		},
-			table.Entry("[test_id:526]given a vmi", "virtualmachineinstances"),
-			table.Entry("[test_id:527]given a vm", "virtualmachines"),
-			table.Entry("[test_id:528]given a vmi preset", "virtualmachineinstancepresets"),
-			table.Entry("[test_id:529][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
-			table.Entry("given a vmi migration", "virtualmachineinstancemigrations"),
-		)
 
-		var authClient *authClientV1.AuthorizationV1Client
-		It("Prepare auth client", func() {
-			virtClient, err := kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
-			authClient, err = authClientV1.NewForConfig(virtClient.Config())
-			Expect(err).ToNot(HaveOccurred())
+			getResourcePermissions := func() []map[string]bool {
+				viewRole, editRole, adminRole := getEmptyPermissions()
+
+				// get, list, watch
+				viewRole[VIEW_VERBS] = true
+				editRole[VIEW_VERBS] = true
+				adminRole[VIEW_VERBS] = true
+
+				// delete, create, update, watch
+				editRole[EDIT_VERBS] = true
+				adminRole[EDIT_VERBS] = true
+
+				// deletecollection
+				adminRole[ADMIN_VERBS] = true
+
+				// everything else is false and forbidden
+
+				return []map[string]bool{viewRole, editRole, adminRole}
+			}
+
+			getMigrationResourcePermissions := func() []map[string]bool {
+				viewRole, editRole, adminRole := getEmptyPermissions()
+
+				// get, list, watch
+				viewRole[VIEW_VERBS] = true
+				editRole[VIEW_VERBS] = true
+				adminRole[VIEW_VERBS] = true
+
+				// everything else is false and forbidden
+
+				return []map[string]bool{viewRole, editRole, adminRole}
+			}
+
+			table.DescribeTable("are correct for view, edit, and admin", func(resource string, permissions []map[string]bool) {
+
+				viewRole := permissions[0]
+				editRole := permissions[1]
+				adminRole := permissions[2]
+
+				toYesOrNo := func(in bool) string {
+					if in {
+						return "yes"
+					}
+					return "no"
+				}
+
+				for _, verb := range verbs {
+
+					var verbGroup string
+					switch verb {
+					case "get", "list", "watch":
+						verbGroup = VIEW_VERBS
+					case "delete", "create", "update", "patch":
+						verbGroup = EDIT_VERBS
+					case "deletecollection":
+						verbGroup = ADMIN_VERBS
+					}
+
+					// VIEW
+					By(fmt.Sprintf("verifying VIEW sa for verb %s", verb))
+					expectedRes, _ := viewRole[verbGroup]
+					as := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, view)
+					result, _, _ := tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
+					Expect(result).To(ContainSubstring(toYesOrNo(expectedRes)))
+
+					// EDIT
+					By(fmt.Sprintf("verifying EDIT sa for verb %s", verb))
+					expectedRes, _ = editRole[verbGroup]
+					as = fmt.Sprintf("system:serviceaccount:%s:%s", namespace, edit)
+					result, _, _ = tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
+					Expect(result).To(ContainSubstring(toYesOrNo(expectedRes)))
+
+					// ADMIN
+					By(fmt.Sprintf("verifying ADMIN sa for verb %s", verb))
+					expectedRes, _ = adminRole[verbGroup]
+					as = fmt.Sprintf("system:serviceaccount:%s:%s", namespace, admin)
+					result, _, _ = tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
+					Expect(result).To(ContainSubstring(toYesOrNo(expectedRes)))
+
+					// DEFAULT - the default should always return 'no' for ever verb.
+					// This is primarily a sanity check.
+					By(fmt.Sprintf("verifying DEFAULT sa for verb %s", verb))
+					expectedRes = false
+					as = fmt.Sprintf("system:serviceaccount:%s:default", namespace)
+					result, _, _ = tests.RunCommand(k8sClient, "auth", "can-i", "--as", as, verb, resource)
+					Expect(result).To(ContainSubstring(toYesOrNo(expectedRes)))
+
+				}
+
+			},
+				table.Entry("[test_id:526]given a vmi", "virtualmachineinstances", getResourcePermissions()),
+				table.Entry("[test_id:527]given a vm", "virtualmachines", getResourcePermissions()),
+				table.Entry("[test_id:528]given a vmi preset", "virtualmachineinstancepresets", getResourcePermissions()),
+				table.Entry("[test_id:529][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets", getResourcePermissions()),
+				table.Entry("given a vmi migration", "virtualmachineinstancemigrations", getMigrationResourcePermissions()),
+			)
+
 		})
 
-		table.DescribeTable("should verify permissions on subresources are correct for view, edit, and admin", func(resource string, subresource string) {
+		Describe("should verify permissions on subresources", func() {
 
-			viewVerbs := make(map[string]bool)
-			editVerbs := make(map[string]bool)
-			adminVerbs := make(map[string]bool)
-
-			// GET
-			viewVerbs["get"] = false
-			editVerbs["get"] = false
-			adminVerbs["get"] = false
-
-			// List
-			viewVerbs["list"] = false
-			editVerbs["list"] = false
-			adminVerbs["list"] = false
-
-			// WATCH
-			viewVerbs["watch"] = false
-			editVerbs["watch"] = false
-			adminVerbs["watch"] = false
-
-			// DELETE
-			viewVerbs["delete"] = false
-			editVerbs["delete"] = false
-			adminVerbs["delete"] = false
-
-			// CREATE
-			viewVerbs["create"] = false
-			editVerbs["create"] = false
-			adminVerbs["create"] = false
-
-			// UPDATE
-			viewVerbs["update"] = false
-			editVerbs["update"] = true
-			adminVerbs["update"] = true
-
-			// PATCH
-			viewVerbs["patch"] = false
-			editVerbs["patch"] = false
-			adminVerbs["patch"] = false
-
-			// DELETE COllECTION
-			viewVerbs["deleteCollection"] = false
-			editVerbs["deleteCollection"] = false
-			adminVerbs["deleteCollection"] = false
-
-			namespace := tests.NamespaceTestDefault
-			verbs := []string{"get", "list", "watch", "delete", "create", "update", "patch", "deletecollection"}
-
-			doSarRequest := func(resource string, subresource string, user string, verb string, expected bool) {
-				sar := &authv1.SubjectAccessReview{}
-				sar.Spec = authv1.SubjectAccessReviewSpec{
-					User: user,
-					ResourceAttributes: &authv1.ResourceAttributes{
-						Namespace:   namespace,
-						Verb:        verb,
-						Group:       v1.SubresourceGroupName,
-						Version:     v1.GroupVersion.Version,
-						Resource:    resource,
-						Subresource: subresource,
-					},
-				}
-				result, err := authClient.SubjectAccessReviews().Create(sar)
+			var authClient *authClientV1.AuthorizationV1Client
+			It("Prepare auth client", func() {
+				virtClient, err := kubecli.GetKubevirtClient()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(result.Status.Allowed).To(Equal(expected))
+				authClient, err = authClientV1.NewForConfig(virtClient.Config())
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			getEmptyAllowed := func() map[string]map[string]bool {
+				// map from role to verb to isAllowed
+				allowed := make(map[string]map[string]bool)
+				allowed["view"] = make(map[string]bool)
+				allowed["edit"] = make(map[string]bool)
+				allowed["admin"] = make(map[string]bool)
+				return allowed
 			}
 
-			for _, verb := range verbs {
-				// VIEW
-				By(fmt.Sprintf("verifying VIEW sa for verb %s", verb))
-				expectedRes, _ := viewVerbs[verb]
-				user := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, view)
-				doSarRequest(resource, subresource, user, verb, expectedRes)
-
-				// EDIT
-				By(fmt.Sprintf("verifying EDIT sa for verb %s", verb))
-				expectedRes, _ = editVerbs[verb]
-				user = fmt.Sprintf("system:serviceaccount:%s:%s", namespace, edit)
-				doSarRequest(resource, subresource, user, verb, expectedRes)
-
-				// ADMIN
-				By(fmt.Sprintf("verifying ADMIN sa for verb %s", verb))
-				expectedRes, _ = adminVerbs[verb]
-				user = fmt.Sprintf("system:serviceaccount:%s:%s", namespace, admin)
-				doSarRequest(resource, subresource, user, verb, expectedRes)
-
-				// DEFAULT - the default should always return 'no' for ever verb.
-				// This is primarily a sanity check.
-				By(fmt.Sprintf("verifying DEFAULT sa for verb %s", verb))
-				expectedRes = false
-				user = fmt.Sprintf("system:serviceaccount:%s:default", namespace)
-				doSarRequest(resource, subresource, user, verb, expectedRes)
+			getAllowed := func() map[string]map[string]bool {
+				allowed := getEmptyAllowed()
+				allowed["edit"]["update"] = true
+				allowed["admin"]["update"] = true
+				// everything else is false and forbidden
+				return allowed
 			}
-		},
-			table.Entry("on vm start", "virtualmachines", "start"),
-			table.Entry("on vm stop", "virtualmachines", "stop"),
-			table.Entry("on vm restart", "virtualmachines", "restart"),
-		)
+
+			table.DescribeTable("are correct for view, edit, and admin", func(resource string, subresource string, allowed map[string]map[string]bool) {
+
+				// kubectl / oc auth can-i does not seem to work for subresources defined by aggregated apiservers
+				// so we use a SubjectAccessReview request
+				doSarRequest := func(resource string, subresource string, user string, verb string, expected bool) {
+					sar := &authv1.SubjectAccessReview{}
+					sar.Spec = authv1.SubjectAccessReviewSpec{
+						User: user,
+						ResourceAttributes: &authv1.ResourceAttributes{
+							Namespace:   namespace,
+							Verb:        verb,
+							Group:       v1.SubresourceGroupName,
+							Version:     v1.GroupVersion.Version,
+							Resource:    resource,
+							Subresource: subresource,
+						},
+					}
+					result, err := authClient.SubjectAccessReviews().Create(sar)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result.Status.Allowed).To(Equal(expected))
+				}
+
+				for _, verb := range verbs {
+					// VIEW
+					By(fmt.Sprintf("verifying VIEW sa for verb %s", verb))
+					expectedRes := allowed["view"][verb]
+					user := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, view)
+					doSarRequest(resource, subresource, user, verb, expectedRes)
+
+					// EDIT
+					By(fmt.Sprintf("verifying EDIT sa for verb %s", verb))
+					expectedRes = allowed["edit"][verb]
+					user = fmt.Sprintf("system:serviceaccount:%s:%s", namespace, edit)
+					doSarRequest(resource, subresource, user, verb, expectedRes)
+
+					// ADMIN
+					By(fmt.Sprintf("verifying ADMIN sa for verb %s", verb))
+					expectedRes = allowed["admin"][verb]
+					user = fmt.Sprintf("system:serviceaccount:%s:%s", namespace, admin)
+					doSarRequest(resource, subresource, user, verb, expectedRes)
+
+					// DEFAULT - the default should always return 'no' for ever verb.
+					// This is primarily a sanity check.
+					By(fmt.Sprintf("verifying DEFAULT sa for verb %s", verb))
+					expectedRes = false
+					user = fmt.Sprintf("system:serviceaccount:%s:default", namespace)
+					doSarRequest(resource, subresource, user, verb, expectedRes)
+				}
+
+			},
+				table.Entry("on vm start", "virtualmachines", "start", getAllowed()),
+				table.Entry("on vm stop", "virtualmachines", "stop", getAllowed()),
+				table.Entry("on vm restart", "virtualmachines", "restart", getAllowed()),
+				table.Entry("on vm migrate", "virtualmachines", "migrate", getEmptyAllowed()),
+			)
+
+		})
+
 	})
 
 	Describe("With regular OpenShift user", func() {
@@ -286,7 +295,6 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				table.Entry("[test_id:2915]given a vm", "virtualmachines"),
 				table.Entry("[test_id:2917]given a vmi preset", "virtualmachineinstancepresets"),
 				table.Entry("[test_id:2919]given a vmi replica set", "virtualmachineinstancereplicasets"),
-				table.Entry("given a vmi migration", "virtualmachineinstancemigrations"),
 			)
 		})
 
@@ -317,7 +325,6 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				table.Entry("[test_id:2831]given a vm", "virtualmachines"),
 				table.Entry("[test_id:2916]given a vmi preset", "virtualmachineinstancepresets"),
 				table.Entry("[test_id:2918][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
-				table.Entry("[test_id:2837]given a vmi migration", "virtualmachineinstancemigrations"),
 			)
 		})
 	})

@@ -150,10 +150,20 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances",
 					"virtualmachineinstancepresets",
 					"virtualmachineinstancereplicasets",
-					"virtualmachineinstancemigrations",
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
+				},
+			},
+			{
+				APIGroups: []string{
+					"kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachineinstancemigrations",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
 				},
 			},
 		},
@@ -208,10 +218,20 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances",
 					"virtualmachineinstancepresets",
 					"virtualmachineinstancereplicasets",
-					"virtualmachineinstancemigrations",
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachineinstancemigrations",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
 				},
 			},
 		},

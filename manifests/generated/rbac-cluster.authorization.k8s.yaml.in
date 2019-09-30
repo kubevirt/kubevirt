@@ -67,7 +67,6 @@ rules:
   - virtualmachineinstances
   - virtualmachineinstancepresets
   - virtualmachineinstancereplicasets
-  - virtualmachineinstancemigrations
   verbs:
   - get
   - delete
@@ -77,6 +76,14 @@ rules:
   - list
   - watch
   - deletecollection
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachineinstancemigrations
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -108,13 +115,20 @@ rules:
   - virtualmachineinstances
   - virtualmachineinstancepresets
   - virtualmachineinstancereplicasets
-  - virtualmachineinstancemigrations
   verbs:
   - get
   - delete
   - create
   - update
   - patch
+  - list
+  - watch
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachineinstancemigrations
+  verbs:
+  - get
   - list
   - watch
 ---
