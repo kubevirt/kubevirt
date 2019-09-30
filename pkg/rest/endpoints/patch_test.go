@@ -38,7 +38,9 @@ import (
 
 func newValidPatchRequest() *http.Request {
 	request, _ := http.NewRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/test", nil)
-	request.Body = toReader("[{\"op\": \"replace\", \"path\": \"/email\", \"value\":\"newmail\"}]")
+	length := 0
+	request.Body, length = toReader("[{\"op\": \"replace\", \"path\": \"/email\", \"value\":\"newmail\"}]")
+	request.ContentLength = int64(length)
 	request.Header.Set("Content-Type", rest.MIME_JSON_PATCH)
 	return request
 }
@@ -99,14 +101,14 @@ var _ = Describe("Patch", func() {
 		})
 		Context("with invalid patch operation", func() {
 			It("should return 422", func() {
-				request.Body = toReader("[{\"op\": \"nonexistent\", \"path\": \"/unknown\", \"value\":\"newmail\"}]")
+				request.Body, _ = toReader("[{\"op\": \"nonexistent\", \"path\": \"/unknown\", \"value\":\"newmail\"}]")
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(422))
 			})
 		})
 		Context("with invalid field", func() {
 			It("should return 200 and not update the object", func() {
-				request.Body = toReader("[{\"op\": \"add\", \"path\": \"/unknown\", \"value\":\"newmail\"}]")
+				request.Body, _ = toReader("[{\"op\": \"add\", \"path\": \"/unknown\", \"value\":\"newmail\"}]")
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusOK))
 				responseBody := payload{}

@@ -3,6 +3,7 @@ module kubevirt.io/kubevirt
 require (
 	github.com/Azure/go-autorest/autorest v0.9.1 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.6.0 // indirect
+	github.com/NYTimes/gziphandler v1.0.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/coreos/go-iptables v0.4.1
@@ -11,7 +12,7 @@ require (
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/elazarl/goproxy v0.0.0-20190421051319-9d40249d3c2f // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190421051319-9d40249d3c2f // indirect
-	github.com/emicklei/go-restful v2.8.1+incompatible
+	github.com/emicklei/go-restful v2.9.5+incompatible
 	github.com/emicklei/go-restful-openapi v0.10.0
 	github.com/evanphx/json-patch v4.2.0+incompatible
 	github.com/fatih/color v1.7.0 // indirect
@@ -23,7 +24,7 @@ require (
 	github.com/go-openapi/errors v0.17.2
 	github.com/go-openapi/loads v0.17.2 // indirect
 	github.com/go-openapi/runtime v0.17.2 // indirect
-	github.com/go-openapi/spec v0.17.2
+	github.com/go-openapi/spec v0.19.2
 	github.com/go-openapi/strfmt v0.18.0
 	github.com/go-openapi/validate v0.18.0
 	github.com/gogo/protobuf v1.2.1
@@ -57,17 +58,17 @@ require (
 	github.com/subgraph/libmacouflage v0.0.1
 	github.com/vishvananda/netlink v0.0.0-20180206203732-d35d6b58e1cb
 	github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc // indirect
-	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f
-	golang.org/x/net v0.0.0-20190522155817-f3200d17e092
+	golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8
+	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980
 	golang.org/x/oauth2 v0.0.0-20181105165119-ca4130e427c7 // indirect
-	golang.org/x/sys v0.0.0-20190425145619-16072639606e
+	golang.org/x/sys v0.0.0-20190616124812-15dcb6c0061f
 	google.golang.org/grpc v1.19.1
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	gopkg.in/ini.v1 v1.42.0
 	gopkg.in/yaml.v2 v2.2.2
-	k8s.io/api v0.0.0-20190313235455-40a48860b5ab
+	k8s.io/api v0.0.0-20190725062911-6607c48751ae
 	k8s.io/apiextensions-apiserver v0.0.0-20190315093550-53c4693659ed
-	k8s.io/apimachinery v0.0.0-20190313205120-d7deff9243b1
+	k8s.io/apimachinery v0.0.0-20190719140911-bfcf53abc9f8
 	k8s.io/client-go v11.0.0+incompatible
 	k8s.io/kube-aggregator v0.0.0-20190228175259-3e0149950b0e
 	k8s.io/utils v0.0.0-20190607212802-c55fbcfc754a
@@ -78,20 +79,14 @@ require (
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )
 
-replace k8s.io/client-go => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
-
-replace k8s.io/api => k8s.io/api v0.0.0-20190222213804-5cb15d344471
-
-replace k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20190228180357-d002e88f6236
-
-replace k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
-
-replace github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
-
-replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v11.0.0+incompatible
-
-replace github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20190401163519-84c2b942258a
-
-replace kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
-
-replace github.com/coreos/prometheus-operator => github.com/coreos/prometheus-operator v0.0.0-20181206002233-dd6f23e7207c
+replace (
+	github.com/Azure/go-autorest => github.com/Azure/go-autorest v11.0.0+incompatible
+	github.com/coreos/prometheus-operator => github.com/coreos/prometheus-operator v0.0.0-20181206002233-dd6f23e7207c
+	github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
+	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20190401163519-84c2b942258a
+	k8s.io/api => k8s.io/api v0.0.0-20190222213804-5cb15d344471
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20190228180357-d002e88f6236
+	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
+	k8s.io/client-go => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
+	kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
+)
