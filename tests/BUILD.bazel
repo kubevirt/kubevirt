@@ -68,6 +68,7 @@ go_test(
         "operator_test.go",
         "probes_test.go",
         "replicaset_test.go",
+        "security_features_test.go",
         "stability_test.go",
         "storage_test.go",
         "subresource_api_test.go",
