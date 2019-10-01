@@ -157,8 +157,14 @@ var _ = Describe("Infrastructure", func() {
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
 
-			// to avoid testing a corner case, we use 2+ VMIs
+			// The initial testd for the metrics subsystem used only a single VM for the sake of the simplicity.
+			// However, testing a single entity is a corner case (do we test handling sequences? potential clashes
+			// in maps? and so on).
+			// Thus, we run now two VMIs per testcase. A more realistic test would use a random number of VMIs >= 3,
+			// but we don't do now to make test run quickly and (more important) because lack of resources on CI.
+
 			nodeName := prepareVMIForTests("")
+			// any node is fine, we don't really care, as long as we run all VMIs on it.
 			prepareVMIForTests(nodeName)
 
 			By("Finding the prometheus endpoint")
