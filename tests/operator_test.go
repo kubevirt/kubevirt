@@ -40,6 +40,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
@@ -395,6 +396,11 @@ var _ = Describe("Operator", func() {
 	}
 
 	ensureShasums := func() {
+		if tests.SkipShasumCheck {
+			log.Log.Warning("Cannot use shasums, skipping")
+			return
+		}
+
 		for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
 			deployment, err := virtClient.AppsV1().Deployments(tests.KubeVirtInstallNamespace).Get(name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -613,6 +619,10 @@ spec:
 
 	Describe("should start a VM", func() {
 		It("using virt-launcher with a shasum", func() {
+
+			if tests.SkipShasumCheck {
+				Skip("Cannot currently test shasums, skipping")
+			}
 
 			By("starting a VM")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
