@@ -157,7 +157,7 @@ var _ = Describe("Infrastructure", func() {
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
 
-			// The initial testd for the metrics subsystem used only a single VM for the sake of the simplicity.
+			// The initial test for the metrics subsystem used only a single VM for the sake of simplicity.
 			// However, testing a single entity is a corner case (do we test handling sequences? potential clashes
 			// in maps? and so on).
 			// Thus, we run now two VMIs per testcase. A more realistic test would use a random number of VMIs >= 3,
