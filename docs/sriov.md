@@ -20,35 +20,16 @@ pci=realloc
 pci=assign-busses
 ```
 
-If all goes well, after reboot you should be able to enable SR-IOV VFs for
-capable NICs.
+If all goes well, after reboot your SR-IOV capable NICs should be ready to use.
 
-To enable VFs, you should do the following:
+
+Check for SR-IOV devices by doing the following:
 ```
 $ find /sys -name *vfs*
 /sys/devices/pci0000:00/0000:00:09.0/0000:05:00.0/sriov_numvfs
 /sys/devices/pci0000:00/0000:00:09.0/0000:05:00.0/sriov_totalvfs
 /sys/devices/pci0000:00/0000:00:09.0/0000:05:00.1/sriov_numvfs
 /sys/devices/pci0000:00/0000:00:09.0/0000:05:00.1/sriov_totalvfs
-$ cat /sys/devices/pci0000:00/0000:00:09.0/0000:05:00.0/sriov_totalvfs
-7
-$ echo 7 > /sys/devices/pci0000:00/0000:00:09.0/0000:05:00.0/sriov_numvfs
-```
-
-If all goes well you should see VFs in lspci output:
-
-```
-$ lspci
-...
-05:10.0 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-05:10.1 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-05:10.2 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-05:10.3 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-05:10.4 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-05:10.5 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-05:10.6 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-05:10.7 Ethernet controller: Intel Corporation 82576 Virtual Function (rev 01)
-...
 ```
 
 Kubevirt will use `vfio` userspace driver to pass through PCI devices into
@@ -65,10 +46,6 @@ you may need to configure the host as follows:
 ```
 $ echo "options vfio_iommu_type1 allow_unsafe_interrupts=1" > /etc/modprobe.d/iommu_unsafe_interrupts.conf
 ```
-
-Finally, we need to unbind each device from its respective network driver and
-register it with vfio subsystem. You can find an example on how to do it under:
-`tools/util/vfio.sh`
 
 Now you are ready to set up your cluster.
 
@@ -162,40 +139,13 @@ $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/
 $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/flannel-daemonset.yml
 ```
 
-Now, deploy SR-IOV device plugin. Adjust config.json file for your particular
-setup. More information about configuration file format:
-https://github.com/intel/sriov-network-device-plugin/blob/master/README.md#configurations
+The best way to configure your SR-IOV devices is by using the [OpenShift SR-IOV operator](https://github.com/openshift/sriov-network-operator).
 
-```
-$ go get -u -d github.com/intel/sriov-network-device-plugin/
-$ cat <<EOF > /etc/pcidp/config.json
-{
-    "resourceList":
-    [
-        {
-            "resourceName": "sriov",
-            "rootDevices": ["05:00.0", "05:00.1"],
-            "sriovMode": true,
-            "deviceType": "vfio"
-        }
-    ]
-}
-EOF
-$ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/images/sriovdp-daemonset.yaml
-```
+It will setup the devices according to the configuration provided and it will deploy the components needed to make SR-IOV work in your cluster (in particular, the [SR-IOV CNI plugin](https://github.com/intel/sriov-cni) and the [SR-IOV device plugin](https://github.com/intel/sriov-network-device-plugin)).
 
-Deploy SR-IOV CNI plugin.
+The OpenShift SR-IOV quickstart guide can be found [here](https://github.com/openshift/sriov-network-operator/blob/master/doc/quickstart.md). They provide instructions to run the operator both on Kubernetes and OpenShift.
 
-```
-$ go get -u -d github.com/intel/sriov-cni/
-$ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-cni/images/sriov-cni-daemonset.yaml
-```
-
-Finally, create a new SR-IOV network CRD that will use SR-IOV device plugin to allocate devices.
-
-```
-./cluster/kubectl.sh  create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/deployments/sriov-crd.yaml
-```
+Just remember to set the `SriovNetworkNodePolicy` to use `deviceType: vfio-pci`.
 
 # Install kubevirt services
 
