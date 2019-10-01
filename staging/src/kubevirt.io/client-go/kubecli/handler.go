@@ -19,11 +19,12 @@ const (
 )
 
 func NewVirtHandlerClient(client KubevirtClient) VirtHandlerClient {
-	return &virtHandler{client}
+	return &virtHandler{client, ""}
 }
 
 type VirtHandlerClient interface {
 	ForNode(nodeName string) VirtHandlerConn
+	Namespace(namespace string) VirtHandlerClient
 }
 
 type VirtHandlerConn interface {
@@ -35,7 +36,8 @@ type VirtHandlerConn interface {
 }
 
 type virtHandler struct {
-	client KubevirtClient
+	client    KubevirtClient
+	namespace string
 }
 
 type virtHandlerConn struct {
@@ -45,9 +47,23 @@ type virtHandlerConn struct {
 	port   string
 }
 
+func (v *virtHandler) Namespace(namespace string) VirtHandlerClient {
+	v.namespace = namespace
+	return v
+}
+
 func (v *virtHandler) ForNode(nodeName string) VirtHandlerConn {
-	pod, found, err := v.getVirtHandler(nodeName)
 	conn := &virtHandlerConn{}
+	var err error
+	namespace := v.namespace
+	if namespace == "" {
+		namespace, err = util.GetNamespace()
+		if err != nil {
+			conn.err = err
+			return conn
+		}
+	}
+	pod, found, err := v.getVirtHandler(nodeName, namespace)
 	if !found {
 		conn.err = fmt.Errorf("No virt-handler on node %s found", nodeName)
 	}
@@ -59,18 +75,15 @@ func (v *virtHandler) ForNode(nodeName string) VirtHandlerConn {
 	return conn
 }
 
-func (v *virtHandler) getVirtHandler(nodeName string) (*v1.Pod, bool, error) {
+func (v *virtHandler) getVirtHandler(nodeName string, namespace string) (*v1.Pod, bool, error) {
 
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
 	labelSelector, err := labels.Parse(virtv1.AppLabel + " in (virt-handler)")
 	if err != nil {
 		return nil, false, err
 	}
-	ns, err := util.GetNamespace()
-	if err != nil {
-		return nil, false, err
-	}
-	pods, err := v.client.CoreV1().Pods(ns).List(
+
+	pods, err := v.client.CoreV1().Pods(namespace).List(
 		k8smetav1.ListOptions{
 			FieldSelector: handlerNodeSelector.String(),
 			LabelSelector: labelSelector.String()})
