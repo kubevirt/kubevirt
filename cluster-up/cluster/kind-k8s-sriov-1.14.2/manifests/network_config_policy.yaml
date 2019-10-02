@@ -8,9 +8,9 @@ spec:
   mtu: 1500
   nodeSelector:
     sriov: "true"
-  numVfs: $NODE_PF_NUM_VFS
+  numVfs: $FIRST_PF_NUM_VFS
   nicSelector:
     pfNames:
-      - $NODE_PF
+    - $FIRST_PF
   priority: 90
   resourceName: sriov_net
