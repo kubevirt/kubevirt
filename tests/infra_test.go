@@ -32,6 +32,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 
 	expect "github.com/google/goexpect"
 
@@ -54,8 +55,7 @@ var _ = Describe("Infrastructure", func() {
 	tests.PanicOnError(err)
 
 	Describe("Prometheus Endpoints", func() {
-		var vmi *v1.VirtualMachineInstance
-		var preparedVMIs int
+		var preparedVMIs []*v1.VirtualMachineInstance
 		var pod *k8sv1.Pod
 		var metricsURL string
 
@@ -125,7 +125,7 @@ var _ = Describe("Infrastructure", func() {
 			// but if the default disk is not vda, the test will break
 			// TODO: introspect the VMI and get the device name of this
 			// block device?
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			tests.AppendEmptyDisk(vmi, "testdisk", "virtio", "1Gi")
 
 			if preferredNodeName != "" {
@@ -152,7 +152,7 @@ var _ = Describe("Infrastructure", func() {
 			}, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
-			preparedVMIs += 1
+			preparedVMIs = append(preparedVMIs, vmi)
 			return nodeName
 		}
 
@@ -308,19 +308,28 @@ var _ = Describe("Infrastructure", func() {
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			nodeName := pod.Spec.NodeName
+
+			nameMatchers := []gomegatypes.GomegaMatcher{}
+			for _, vmi := range preparedVMIs {
+				nameMatchers = append(nameMatchers, ContainSubstring(`name="%s"`, vmi.Name))
+			}
+
 			for _, key := range keys {
 				// we don't care about the ordering of the labels
-				// TODO: vmi.Status.NodeName is "" sometimes. Are we faster than the update?
 				if strings.HasPrefix(key, "kubevirt_vmi_phase_count") {
 					// special case: namespace and name don't make sense for this metric
 					Expect(key).To(ContainSubstring(`node="%s"`, nodeName))
-				} else {
-					Expect(key).To(SatisfyAll(
-						ContainSubstring(`node="%s"`, nodeName),
-						ContainSubstring(`namespace="%s"`, vmi.Namespace),
-						ContainSubstring(`name="%s"`, vmi.Name),
-					))
+					continue
 				}
+
+				Expect(key).To(SatisfyAll(
+					ContainSubstring(`node="%s"`, nodeName),
+					// all testing VMIs are on the same node and namespace,
+					// so checking the namespace of any random VMI is fine
+					ContainSubstring(`namespace="%s"`, preparedVMIs[0].Namespace),
+					// otherwise, each key must refer to exactly one the prepared VMIs.
+					SatisfyAny(nameMatchers...),
+				))
 			}
 		})
 
@@ -328,6 +337,10 @@ var _ = Describe("Infrastructure", func() {
 			// this tests requires at least two running VMis. To ensure this condition,
 			// the simplest way is just always run an additional VMI.
 			By("Creating another VirtualMachineInstance")
+
+			// `pod` is the pod of the virt-handler of the node on which we run all the VMIs
+			// when setting up the tests. So we implicitely run all the VMIs on the same node,
+			// so the test works. TODO: make this explicit.
 			preferredNodeName := pod.Spec.NodeName
 			vmi := pinVMIOnNode(tests.NewRandomVMI(), preferredNodeName)
 			nodeName := startVMI(vmi)
@@ -339,7 +352,7 @@ var _ = Describe("Infrastructure", func() {
 			for _, key := range keys {
 				if strings.Contains(key, `phase="running"`) {
 					value := metrics[key]
-					Expect(value).To(Equal(float64(preparedVMIs + 1)))
+					Expect(value).To(Equal(float64(len(preparedVMIs) + 1)))
 				}
 			}
 		})
