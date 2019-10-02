@@ -136,7 +136,7 @@ var _ = Describe("Infrastructure", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Finding the prometheus endpoint")
-			pod, err = kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+			pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(tests.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 			metricsURL = fmt.Sprintf("https://%s:%d/metrics", pod.Status.PodIP, 8443)
 		})
