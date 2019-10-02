@@ -517,19 +517,6 @@ func convertFeatureState(source *v1.FeatureState) *FeatureState {
 	return nil
 }
 
-//isUSBDevicePresent checks if exists device with usb bus in vmi
-func isUSBDevicePresent(vmi *v1.VirtualMachineInstance) bool {
-	usbDeviceExists := false
-	for _, input := range vmi.Spec.Domain.Devices.Inputs {
-		if input.Bus == "usb" {
-			usbDeviceExists = true
-			return usbDeviceExists
-		}
-	}
-
-	return usbDeviceExists
-}
-
 func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features, c *ConverterContext) error {
 	if source.ACPI.Enabled == nil || *source.ACPI.Enabled {
 		features.ACPI = &FeatureEnabled{}
@@ -893,28 +880,32 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.Devices.Rng = newRng
 	}
 
+	isUSBDevicePresent := false
+	if vmi.Spec.Domain.Devices.Inputs != nil {
+		inputDevices := make([]Input, 0)
+		for _, input := range vmi.Spec.Domain.Devices.Inputs {
+			inputDevice := Input{}
+			err := Convert_v1_Input_To_api_InputDevice(&input, &inputDevice, c)
+			if err != nil {
+				return err
+			}
+			inputDevices = append(inputDevices, inputDevice)
+			if inputDevice.Bus == "usb" {
+				isUSBDevicePresent = true
+			}
+		}
+		domain.Spec.Devices.Inputs = inputDevices
+	}
+
 	//usb controller is turned on, only when user specify input device with usb bus,
 	//otherwise it is turned off
-	if usbDeviceExists := isUSBDevicePresent(vmi); !usbDeviceExists {
+	if !isUSBDevicePresent {
 		// disable usb controller
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
 			Type:  "usb",
 			Index: "0",
 			Model: "none",
 		})
-	}
-
-	if vmi.Spec.Domain.Devices.Inputs != nil {
-		inputDevices := make([]Input, 0)
-		for _, input := range vmi.Spec.Domain.Devices.Inputs {
-			inputDevice := Input{}
-			err := Convert_v1_Input_To_api_InputDevice(&input, &inputDevice, c)
-			inputDevices = append(inputDevices, inputDevice)
-			if err != nil {
-				return err
-			}
-		}
-		domain.Spec.Devices.Inputs = inputDevices
 	}
 
 	if vmi.Spec.Domain.Clock != nil {

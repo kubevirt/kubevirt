@@ -585,6 +585,32 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
 			})
 
+			It("should start the VMI with usb controller when input device doesn't have bus", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
+					{
+						Name: "tablet0",
+						Type: "tablet",
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should get console")
+				defer expecter.Close()
+
+				By("Checking the number of usb under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* | wc -l\n"},
+					&expect.BExp{R: "2"},
+				}, 60*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
+			})
+
 			It("should start the VMI without usb controller", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				By("Starting a VirtualMachineInstance")

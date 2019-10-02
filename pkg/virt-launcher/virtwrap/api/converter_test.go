@@ -790,7 +790,21 @@ var _ = Describe("Converter", func() {
 			disabled := false
 			for _, controller := range domain.Spec.Devices.Controllers {
 				if controller.Type == "usb" && controller.Model == "none" {
-					disabled = !disabled
+					disabled = true
+				}
+			}
+
+			Expect(disabled).To(BeFalse(), "Expect controller not to be disabled")
+		})
+
+		It("should not disable usb controller when device with no bus is present", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Bus = ""
+			domain := vmiToDomain(vmi, c)
+			disabled := false
+			for _, controller := range domain.Spec.Devices.Controllers {
+				if controller.Type == "usb" && controller.Model == "none" {
+					disabled = true
 				}
 			}
 
