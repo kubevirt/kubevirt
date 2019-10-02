@@ -31,6 +31,7 @@ import (
 func main() {
 	namespace := flag.String("namespace", "placeholder", "Namespace to use.")
 	operatorImageVersion := flag.String("operatorImageVersion", "latest", "Image sha256 hash or image tag used to uniquely identify the operator container image to use in the CSV")
+	imagePrefix := flag.String("imagePrefix", "", "Optional prefix for virt-* image names.")
 	dockerPrefix := flag.String("dockerPrefix", "kubevirt", "Image Repository to use.")
 	kubeVirtVersion := flag.String("kubeVirtVersion", "", "represents the KubeVirt releaseassociated with this CSV. Required when image SHAs are used.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
@@ -52,6 +53,7 @@ func main() {
 		KubeVirtVersion:      *kubeVirtVersion,
 		OperatorImageVersion: *operatorImageVersion,
 		DockerPrefix:         *dockerPrefix,
+		ImagePrefix:          *imagePrefix,
 		ImagePullPolicy:      *pullPolicy,
 		Verbosity:            *verbosity,
 		CsvVersion:           *csvVersion,

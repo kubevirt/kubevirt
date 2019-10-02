@@ -37,6 +37,7 @@ type NewClusterServiceVersionData struct {
 	KubeVirtVersion      string
 	OperatorImageVersion string
 	DockerPrefix         string
+	ImagePrefix          string
 	ImagePullPolicy      string
 	Verbosity            string
 	CsvVersion           string
@@ -132,6 +133,7 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 	deployment, err := components.NewOperatorDeployment(
 		data.Namespace,
 		data.DockerPrefix,
+		data.ImagePrefix,
 		data.OperatorImageVersion,
 		v1.PullPolicy(data.ImagePullPolicy),
 		data.Verbosity,
