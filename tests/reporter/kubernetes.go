@@ -23,13 +23,15 @@ import (
 type KubernetesReporter struct {
 	failureCount int
 	artifactsDir string
+	maxFails     int
 	mux          sync.Mutex
 }
 
-func NewKubernetesReporter(artifactsDir string) *KubernetesReporter {
+func NewKubernetesReporter(artifactsDir string, maxFailures int) *KubernetesReporter {
 	return &KubernetesReporter{
 		failureCount: 0,
 		artifactsDir: artifactsDir,
+		maxFails:     maxFailures,
 	}
 }
 
@@ -38,10 +40,7 @@ func (r *KubernetesReporter) SpecSuiteWillBegin(config config.GinkgoConfigType, 
 }
 
 func (r *KubernetesReporter) BeforeSuiteDidRun(setupSummary *types.SetupSummary) {
-	// clean up artifacts from previous run
-	if r.artifactsDir != "" {
-		os.RemoveAll(r.artifactsDir)
-	}
+	r.Cleanup()
 }
 
 func (r *KubernetesReporter) SpecWillRun(specSummary *types.SpecSummary) {
@@ -50,7 +49,7 @@ func (r *KubernetesReporter) SpecWillRun(specSummary *types.SpecSummary) {
 func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 	r.mux.Lock()
 	defer r.mux.Unlock()
-	if r.failureCount > 10 {
+	if r.failureCount > r.maxFails {
 		return
 	}
 	if specSummary.HasFailureState() {
@@ -63,7 +62,12 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 	if r.artifactsDir == "" {
 		return
 	}
+	r.Dump(specSummary.RunTime)
+}
 
+// Dump dumps the current state of the cluster. The relevant logs are collected starting
+// from the since parameter.
+func (r *KubernetesReporter) Dump(since time.Duration) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to get client: %v\n", err)
@@ -75,15 +79,23 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 		return
 	}
 
-	r.logEvents(virtCli, specSummary)
-	r.logNodes(virtCli, specSummary)
-	r.logPods(virtCli, specSummary)
-	r.logVMIs(virtCli, specSummary)
-	r.logDomainXMLs(virtCli, specSummary)
-	r.logLogs(virtCli, specSummary)
+	r.logEvents(virtCli, since)
+	r.logNodes(virtCli)
+	r.logPods(virtCli)
+	r.logVMIs(virtCli)
+	r.logDomainXMLs(virtCli)
+	r.logLogs(virtCli, since)
 }
 
-func (r *KubernetesReporter) logDomainXMLs(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+// Cleanup cleans up the current content of the artifactsDir
+func (r *KubernetesReporter) Cleanup() {
+	// clean up artifacts from previous run
+	if r.artifactsDir != "" {
+		os.RemoveAll(r.artifactsDir)
+	}
+}
+
+func (r *KubernetesReporter) logDomainXMLs(virtCli kubecli.KubevirtClient) {
 
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_domains.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -110,7 +122,7 @@ func (r *KubernetesReporter) logDomainXMLs(virtCli kubecli.KubevirtClient, specS
 	}
 }
 
-func (r *KubernetesReporter) logVMIs(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+func (r *KubernetesReporter) logVMIs(virtCli kubecli.KubevirtClient) {
 
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_vmis.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -134,7 +146,7 @@ func (r *KubernetesReporter) logVMIs(virtCli kubecli.KubevirtClient, specSummary
 	fmt.Fprintln(f, string(j))
 }
 
-func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient) {
 
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_pods.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -158,7 +170,7 @@ func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient, specSummary
 	fmt.Fprintln(f, string(j))
 }
 
-func (r *KubernetesReporter) logNodes(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+func (r *KubernetesReporter) logNodes(virtCli kubecli.KubevirtClient) {
 
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_nodes.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -182,7 +194,7 @@ func (r *KubernetesReporter) logNodes(virtCli kubecli.KubevirtClient, specSummar
 	fmt.Fprintln(f, string(j))
 }
 
-func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, since time.Duration) {
 
 	logsdir := filepath.Join(r.artifactsDir, "pods")
 
@@ -191,7 +203,7 @@ func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, specSummary
 		return
 	}
 
-	startTime := time.Now().Add(-specSummary.RunTime).Add(-5 * time.Second)
+	startTime := time.Now().Add(-since).Add(-5 * time.Second)
 
 	pods, err := virtCli.CoreV1().Pods(v1.NamespaceAll).List(v12.ListOptions{})
 	if err != nil {
@@ -229,7 +241,7 @@ func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, specSummary
 	}
 }
 
-func (r *KubernetesReporter) logEvents(virtCli kubecli.KubevirtClient, specSummary *types.SpecSummary) {
+func (r *KubernetesReporter) logEvents(virtCli kubecli.KubevirtClient, since time.Duration) {
 
 	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_events.log", r.failureCount)),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -239,7 +251,7 @@ func (r *KubernetesReporter) logEvents(virtCli kubecli.KubevirtClient, specSumma
 	}
 	defer f.Close()
 
-	startTime := time.Now().Add(-specSummary.RunTime).Add(-5 * time.Second)
+	startTime := time.Now().Add(-since).Add(-5 * time.Second)
 
 	events, err := virtCli.CoreV1().Events(v1.NamespaceAll).List(v12.ListOptions{})
 	if err != nil {

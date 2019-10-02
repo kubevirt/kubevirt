@@ -4,7 +4,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/onsi/ginkgo/types"
 	"github.com/spf13/pflag"
 
 	"kubevirt.io/client-go/kubecli"
@@ -18,10 +17,8 @@ func main() {
 	pflag.DurationVarP(&duration, "since", "s", 10*time.Minute, "collection window, defaults to 10 minutes")
 	pflag.Parse()
 
-	reporter := reporter.NewKubernetesReporter(os.Getenv("ARTIFACTS"))
-	reporter.BeforeSuiteDidRun(nil)
-	reporter.SpecDidComplete(&types.SpecSummary{
-		State:   types.SpecStateFailed,
-		RunTime: duration,
-	})
+	// Hardcoding maxFails to 1 since the purpouse here is just to dump the state once
+	reporter := reporter.NewKubernetesReporter(os.Getenv("ARTIFACTS"), 1)
+	reporter.Cleanup()
+	reporter.Dump(duration)
 }
