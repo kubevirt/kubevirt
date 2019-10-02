@@ -5,6 +5,8 @@ metadata:
   labels:
     kubevirt.io: ""
   name: {{.Namespace}}
+spec:
+  permitBridgeInterfaceOnPodNetwork: true
 {{index .GeneratedManifests "prometheus.yaml.in"}}
 {{index .GeneratedManifests "rbac-cluster.authorization.k8s.yaml.in"}}
 {{index .GeneratedManifests "rbac-kubevirt.authorization.k8s.yaml.in"}}

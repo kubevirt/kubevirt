@@ -1228,6 +1228,9 @@ type KubeVirtSpec struct {
 	// The name of the Prometheus service account that needs read-access to KubeVirt endpoints
 	// Defaults to prometheus-k8s
 	MonitorAccount string `json:"monitorAccount,omitempty"`
+
+	//Whether bridge is allowed on pod network
+	PermitBridgeInterfaceOnPodNetwork bool `json:"permitBridgeInterfaceOnPodNetwork,omitempty"`
 }
 
 // KubeVirtStatus represents information pertaining to a KubeVirt deployment.

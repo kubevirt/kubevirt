@@ -1896,6 +1896,13 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"permitBridgeInterfaceOnPodNetwork": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether bridge is allowed on pod network",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
