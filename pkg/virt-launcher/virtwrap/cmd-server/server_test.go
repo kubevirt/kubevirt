@@ -119,6 +119,17 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(domain.ObjectMeta.Name).To(Equal("testvmi1"))
 		})
 
+		It("should list no domain if no domain is there yet", func() {
+			var list []*api.Domain
+
+			domainManager.EXPECT().ListAllDomains().Return(list, nil)
+			domain, exists, err := client.GetDomain()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(exists).To(BeFalse())
+			Expect(domain).ToNot(Equal(nil))
+		})
+
 		It("client should return disconnected after server stops", func() {
 			err := client.Ping()
 			Expect(err).ToNot(HaveOccurred())

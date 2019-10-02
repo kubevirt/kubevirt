@@ -237,7 +237,7 @@ func (l *Launcher) GetDomain(ctx context.Context, request *cmdv1.EmptyRequest) (
 		return response, nil
 	}
 
-	if len(list) >= 0 {
+	if len(list) > 0 {
 		if domain, err := json.Marshal(list[0]); err != nil {
 			log.Log.Reason(err).Errorf("Failed to marshal domain")
 			response.Response.Success = false
