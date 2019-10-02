@@ -1183,11 +1183,6 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 	})
 
 	Context("with a live-migrate eviction strategy set", func() {
-
-		AfterEach(func() {
-			tests.CleanNodes()
-		})
-
 		Context("[ref_id:2293] with a VMI running with an eviction strategy set", func() {
 
 			var vmi *v1.VirtualMachineInstance
