@@ -54,6 +54,10 @@ fi
 
 export KUBEVIRT_NUM_NODES=2 
 
+if [[ "$TARGET" =~ okd-.* ]]; then
+  export KUBEVIRT_NUM_NODES=3
+fi
+
 export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
 export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_image.lock}
 export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2016}
