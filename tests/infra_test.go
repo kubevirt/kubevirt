@@ -55,6 +55,7 @@ var _ = Describe("Infrastructure", func() {
 
 	Describe("Prometheus Endpoints", func() {
 		var vmi *v1.VirtualMachineInstance
+		var preparedVMIs int
 		var pod *k8sv1.Pod
 		var metricsURL string
 
@@ -151,6 +152,7 @@ var _ = Describe("Infrastructure", func() {
 			}, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
+			preparedVMIs += 1
 			return nodeName
 		}
 
@@ -323,8 +325,9 @@ var _ = Describe("Infrastructure", func() {
 		})
 
 		It("should include VMI phase metrics for few running VMs", func() {
-			// run another VM, we intentionally check with only 2 VMS as CI is resource-constrained
-			By("Creating the VirtualMachineInstance")
+			// this tests requires at least two running VMis. To ensure this condition,
+			// the simplest way is just always run an additional VMI.
+			By("Creating another VirtualMachineInstance")
 			preferredNodeName := pod.Spec.NodeName
 			vmi := pinVMIOnNode(tests.NewRandomVMI(), preferredNodeName)
 			nodeName := startVMI(vmi)
@@ -336,7 +339,7 @@ var _ = Describe("Infrastructure", func() {
 			for _, key := range keys {
 				if strings.Contains(key, `phase="running"`) {
 					value := metrics[key]
-					Expect(value).To(Equal(float64(2)))
+					Expect(value).To(Equal(float64(preparedVMIs + 1)))
 				}
 			}
 		})
