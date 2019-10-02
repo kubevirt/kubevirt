@@ -893,7 +893,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 						return &cert, nil
 					},
 				}
-				handler, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
+				handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(tests.KubeVirtInstallNamespace).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
 				Expect(err).ToNot(HaveOccurred())
 
 				var wg sync.WaitGroup
