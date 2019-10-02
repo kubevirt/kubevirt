@@ -51,6 +51,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	k8sextv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -475,6 +476,9 @@ func AfterTestSuitCleanup() {
 	DeletePVC(osAlpineHostPath)
 	DeletePV(osAlpineHostPath)
 
+	deleteStorageClass(Config.StorageClassHostPath)
+	deleteStorageClass(Config.StorageClassBlockVolume)
+
 	if DeployTestingInfrastructureFlag {
 		WipeTestingInfrastructure()
 	}
@@ -633,6 +637,9 @@ func BeforeTestSuitSetup() {
 		return len(nodes.Items)
 	}, 5*time.Minute, 10*time.Second).ShouldNot(BeZero(), "no schedulable nodes found")
 
+	createStorageClass(Config.StorageClassHostPath)
+	createStorageClass(Config.StorageClassBlockVolume)
+
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 
@@ -643,6 +650,37 @@ func BeforeTestSuitSetup() {
 
 	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
+}
+
+func createStorageClass(name string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	sc := &storagev1.StorageClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				"kubevirt.io/test": name,
+			},
+		},
+		Provisioner: name,
+	}
+	_, err = virtClient.StorageV1().StorageClasses().Create(sc)
+	PanicOnError(err)
+}
+
+func deleteStorageClass(name string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	_, err = virtClient.StorageV1().StorageClasses().Get(name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return
+	}
+	PanicOnError(err)
+
+	err = virtClient.StorageV1().StorageClasses().Delete(name, &metav1.DeleteOptions{})
+	PanicOnError(err)
 }
 
 func EnsureKVMPresent() {
