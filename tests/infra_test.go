@@ -119,7 +119,7 @@ var _ = Describe("Infrastructure", func() {
 			nodeName := tests.WaitForSuccessfulVMIStart(obj)
 
 			By("Finding the prometheus endpoint")
-			pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+			pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(tests.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 
 			By("Scraping the Prometheus endpoint")
@@ -177,7 +177,7 @@ var _ = Describe("Infrastructure", func() {
 			nodeName := tests.WaitForSuccessfulVMIStart(obj)
 
 			By("Finding the prometheus endpoint")
-			pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+			pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(tests.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 
 			By("Scraping the Prometheus endpoint")
@@ -223,7 +223,7 @@ var _ = Describe("Infrastructure", func() {
 			// we wrote data to the disk, so from now on the VM *is* running
 
 			By("Finding the prometheus endpoint")
-			pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+			pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(tests.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 
 			By("Scraping the Prometheus endpoint")
@@ -262,7 +262,7 @@ var _ = Describe("Infrastructure", func() {
 			defer expecter.Close()
 
 			By("Finding the prometheus endpoint")
-			pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+			pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(tests.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 
 			By("Scraping the Prometheus endpoint")
@@ -484,7 +484,7 @@ func newRandomVMIsWithMetrics(count int, preferredNodeName string, virtClient ku
 	}
 
 	By("Finding the prometheus endpoint")
-	pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(preferredNodeName).Pod()
+	pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(tests.KubeVirtInstallNamespace).ForNode(preferredNodeName).Pod()
 	Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 
 	By("Scraping the Prometheus endpoint")
