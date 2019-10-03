@@ -261,11 +261,6 @@ var _ = Describe("Storage", func() {
 				tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
 			}, 120)
 
-			AfterEach(func() {
-				tests.DeletePVC(tests.CustomHostPath)
-				tests.DeletePV(tests.CustomHostPath)
-			}, 120)
-
 			It("should start vmi multiple times", func() {
 				vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
 				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
@@ -565,22 +560,14 @@ var _ = Describe("Storage", func() {
 		})
 
 		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component] With Cirros BlockMode PVC", func() {
-
-			pvName := "block-pv-" + rand.String(48)
-
 			BeforeEach(func() {
 				// create a new PV and PVC (PVs can't be reused)
-				tests.CreateBlockVolumePvAndPvc(pvName, "1Gi")
-			})
-
-			AfterEach(func() {
-				// create a new PV and PVC (PVs can't be reused)
-				tests.DeletePvAndPvc(pvName)
+				tests.CreateBlockVolumePvAndPvc("1Gi")
 			})
 
 			It("[test_id:1015] should be successfully started", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := tests.NewRandomVMIWithPVC(pvName)
+				vmi := tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
 				// Without userdata the hostname isn't set correctly and the login expecter fails...
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 

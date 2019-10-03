@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -1408,15 +1407,9 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache settings", func() {
-		blockPVName := "block-pv-" + rand.String(48)
-
 		BeforeEach(func() {
 			// create a new PV and PVC (PVs can't be reused)
-			tests.CreateBlockVolumePvAndPvc(blockPVName, "1Gi")
-		}, 60)
-
-		AfterEach(func() {
-			tests.DeletePvAndPvc(blockPVName)
+			tests.CreateBlockVolumePvAndPvc("1Gi")
 		}, 60)
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
@@ -1433,7 +1426,7 @@ var _ = Describe("Configurations", func() {
 			tests.AddEphemeralDisk(vmi, "ephemeral-disk3", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
-			tests.AddPVCDisk(vmi, "block-pvc", "virtio", blockPVName)
+			tests.AddPVCDisk(vmi, "block-pvc", "virtio", tests.BlockDiskForTest)
 			tests.AddHostDisk(vmi, "/run/kubevirt-private/vm-disks/test-disk.img", v1.HostDiskExistsOrCreate, "hostdisk")
 			tests.RunVMIAndExpectLaunch(vmi, 60)
 

@@ -228,6 +228,11 @@ const (
 	SecretLabel = "kubevirt.io/secret"
 )
 
+const (
+	// BlockDiskForTest contains name of the block PV and PVC
+	BlockDiskForTest = "block-disk-for-tests"
+)
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
@@ -488,6 +493,9 @@ func AfterTestSuitCleanup() {
 }
 
 func BeforeTestCleanup() {
+	deleteBlockPVAndPVC()
+	DeletePVC(CustomHostPath)
+	DeletePV(CustomHostPath)
 	cleanNamespaces()
 	CleanNodes()
 }
@@ -1917,19 +1925,19 @@ func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func CreateBlockVolumePvAndPvc(name string, size string) {
+func CreateBlockVolumePvAndPvc(size string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
 	labelSelector := make(map[string]string)
-	labelSelector["kubevirt-test"] = name
+	labelSelector["kubevirt-test"] = BlockDiskForTest
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newBlockVolumePV(name, labelSelector, size))
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newBlockVolumePV(BlockDiskForTest, labelSelector, size))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newBlockVolumePVC(name, labelSelector, size))
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newBlockVolumePVC(BlockDiskForTest, labelSelector, size))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
@@ -2017,10 +2025,18 @@ func DeletePvAndPvc(name string) {
 	PanicOnError(err)
 
 	err = virtCli.CoreV1().PersistentVolumes().Delete(name, &metav1.DeleteOptions{})
-	PanicOnError(err)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
 
 	err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Delete(name, &metav1.DeleteOptions{})
-	PanicOnError(err)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+}
+
+func deleteBlockPVAndPVC() {
+	DeletePvAndPvc(BlockDiskForTest)
 }
 
 func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
@@ -3505,6 +3521,17 @@ func SkipIfOpenShiftAndBelowOrEqualVersion(message string, version string) {
 	}
 
 	if IsOpenShift() {
+		Skip(message)
+	}
+}
+
+func SkipIfOpenShift4(message string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	if t, err := cluster.IsOnOpenShift(virtClient); err != nil {
+		PanicOnError(err)
+	} else if t && cluster.GetOpenShiftMajorVersion(virtClient) == cluster.OpenShift4Major {
 		Skip(message)
 	}
 }
