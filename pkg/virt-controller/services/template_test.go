@@ -1141,6 +1141,14 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.ImagePullSecrets[0].Name).To(Equal("pull-secret-2"))
 				Expect(pod.Spec.ImagePullSecrets[1].Name).To(Equal("pull-secret-1"))
 			})
+
+			It("should have compute as first container in the pod", func() {
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
+				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				Expect(pod.Spec.Containers[1].Name).To(Equal("volumecontainerdisk1"))
+			})
 		})
 
 		Context("with sriov interface", func() {
