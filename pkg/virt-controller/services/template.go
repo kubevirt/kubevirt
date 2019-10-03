@@ -678,8 +678,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	volumes = append(volumes, k8sv1.Volume{Name: "infra-ready-mount", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}})
 
-	containersDisks := containerdisk.GenerateContainers(vmi, "container-disks", "virt-bin-share-dir")
-
 	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
 	if err != nil {
 		return nil, err
@@ -741,6 +739,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	// Make sure the compute container is always the first since the cni mutating webhook will add the
 	// requested resources to the first container of the pod
 	containers := []k8sv1.Container{compute}
+	containersDisks := containerdisk.GenerateContainers(vmi, "container-disks", "virt-bin-share-dir")
 	containers = append(containers, containersDisks...)
 
 	volumes = append(volumes,
