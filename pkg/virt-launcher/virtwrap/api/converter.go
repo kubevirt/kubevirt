@@ -619,6 +619,16 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	domain.ObjectMeta.Name = vmi.ObjectMeta.Name
 	domain.ObjectMeta.Namespace = vmi.ObjectMeta.Namespace
 
+	// Set VM CPU cores
+	// CPU topology will be created everytime, because user can specify
+	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
+	// in vmi.Spec.Domain.CPU
+	domain.Spec.CPU.Topology = getCPUTopology(vmi)
+	domain.Spec.VCPU = &VCPU{
+		Placement: "static",
+		CPUs:      calculateRequestedVCPUs(domain.Spec.CPU.Topology),
+	}
+
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
 		if c.UseEmulation {
 			logger := log.DefaultLogger()
@@ -813,14 +823,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
 	virtioNetMQRequested := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
 	if virtioBlkMQRequested || virtioNetMQRequested {
-		// Requested CPU's is guaranteed to be no greater than the limit
-		if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
-			numCPUs := uint(cpuRequests.Value())
-			numQueues = &numCPUs
-		} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
-			numCPUs := uint(cpuLimit.Value())
-			numQueues = &numCPUs
+		vcpus := uint(calculateRequestedVCPUs(domain.Spec.CPU.Topology))
+		if vcpus == 0 {
+			vcpus = uint(1)
 		}
+		numQueues = &vcpus
 	}
 
 	devicePerBus := make(map[string]int)
@@ -929,16 +936,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	err = Convert_v1_Machine_To_api_OSType(apiOst, &domain.Spec.OS.Type, c)
 	if err != nil {
 		return err
-	}
-
-	// Set VM CPU cores
-	// CPU topology will be created everytime, because user can specify
-	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
-	// in vmi.Spec.Domain.CPU
-	domain.Spec.CPU.Topology = getCPUTopology(vmi)
-	domain.Spec.VCPU = &VCPU{
-		Placement: "static",
-		CPUs:      calculateRequestedVCPUs(domain.Spec.CPU.Topology),
 	}
 
 	if vmi.Spec.Domain.CPU != nil {
