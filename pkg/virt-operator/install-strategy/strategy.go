@@ -234,19 +234,19 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.serviceMonitors = append(strategy.serviceMonitors, components.NewServiceMonitorCR(config.GetNamespace(), monitorNamespace, true))
 
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
-	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
 	}
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller, err := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+	controller, err := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-controller deployment %v", err)
 	}
 	strategy.deployments = append(strategy.deployments, controller)
 
-	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}

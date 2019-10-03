@@ -90,6 +90,7 @@ var KubeVirtVersionTag = "latest"
 var KubeVirtVersionTagAlt = ""
 var KubeVirtUtilityRepoPrefix = ""
 var KubeVirtRepoPrefix = "kubevirt"
+var ImagePrefixAlt = ""
 var ContainerizedDataImporterNamespace = "cdi"
 var KubeVirtKubectlPath = ""
 var KubeVirtOcPath = ""
@@ -110,6 +111,7 @@ func init() {
 	flag.StringVar(&KubeVirtVersionTagAlt, "container-tag-alt", "", "An alternate tag that can be used to test operator deployments")
 	flag.StringVar(&KubeVirtUtilityRepoPrefix, "utility-container-prefix", "", "Set the repository prefix for all images")
 	flag.StringVar(&KubeVirtRepoPrefix, "container-prefix", "kubevirt", "Set the repository prefix for all images")
+	flag.StringVar(&ImagePrefixAlt, "image-prefix-alt", "", "Optional prefix for virt-* image names for additional imagePrefix operator test")
 	flag.StringVar(&ContainerizedDataImporterNamespace, "cdi-namespace", "cdi", "Set the repository prefix for CDI components")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
 	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
