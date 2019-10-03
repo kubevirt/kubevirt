@@ -15,10 +15,10 @@ bazel-build:
 	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-build.sh"
 
 bazel-build-images:
-	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} ./hack/bazel-build-images.sh"
+	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/bazel-build-images.sh"
 
 bazel-push-images:
-	hack/dockerized "hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} PUSH_LOG_FILE=${PUSH_LOG_FILE} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-push-images.sh"
+	hack/dockerized "hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} PUSH_LOG_FILE=${PUSH_LOG_FILE} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-push-images.sh"
 
 push: bazel-push-images
 
@@ -101,7 +101,7 @@ cluster-down:
 	./cluster-up/down.sh
 
 cluster-build:
-	PUSH_LOG_FILE=${PUSH_LOG_FILE} ./hack/cluster-build.sh
+	./hack/cluster-build.sh
 
 cluster-clean:
 	./hack/cluster-clean.sh

@@ -34,17 +34,25 @@ echo "Building ..."
 
 # Build everyting and publish it
 ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-build.sh"
-${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PUSH_LOG_FILE=${PUSH_LOG_FILE} ./hack/bazel-push-images.sh"
-${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} PUSH_LOG_FILE=${PUSH_LOG_FILE} ./hack/build-manifests.sh"
+${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PUSH_LOG_FILE=${PUSH_LOG_FILE} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/bazel-push-images.sh"
+${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} PUSH_LOG_FILE=${PUSH_LOG_FILE} IMAGE_PREFIX=${IMAGE_PREFIX}  IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/build-manifests.sh"
 
 # Make sure that all nodes use the newest images
 container=""
 container_alias=""
 for arg in ${docker_images}; do
-    name=$(basename $arg)
+    name=${image_prefix}$(basename $arg)
     container="${container} ${manifest_docker_prefix}/${name}:${docker_tag} ${manifest_docker_prefix}/${name}:${docker_tag_alt}"
     container_alias="${container_alias} ${manifest_docker_prefix}/${name}:${docker_tag} kubevirt/${name}:${docker_tag}"
 done
+
+if [[ $image_prefix_alt ]]; then
+    for arg in ${docker_images}; do
+        name=${image_prefix_alt}$(basename $arg)
+        container="${container} ${manifest_docker_prefix}/${name}:${docker_tag}"
+        container_alias="${container_alias} ${manifest_docker_prefix}/${name}:${docker_tag} kubevirt/${name}:${docker_tag}"
+    done
+fi
 
 # OKD provider has different node names and does not have docker
 if [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then

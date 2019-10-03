@@ -76,6 +76,7 @@ for arg in $args; do
         --cdi-namespace=${cdi_namespace} \
         --csv-namespace=${csv_namespace} \
         --container-prefix=${manifest_docker_prefix} \
+        --image-prefix=${image_prefix} \
         --container-tag=${docker_tag} \
         --image-pull-policy=${image_pull_policy} \
         --verbosity=${verbosity} \
