@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	v12 "k8s.io/api/apps/v1"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -43,6 +45,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -322,19 +325,64 @@ var _ = Describe("Operator", func() {
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	patchOperatorVersion := func(version string) bool {
+	parseDaemonset := func(name string) (daemonSet *v12.DaemonSet, image, registry, imagePrefix, version string) {
+		var err error
+		daemonSet, err = virtClient.AppsV1().DaemonSets(tests.KubeVirtInstallNamespace).Get(name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		image = daemonSet.Spec.Template.Spec.Containers[0].Image
+		imageRegEx := regexp.MustCompile(fmt.Sprintf("%s%s%s", `^(.*)/(.*)`, name, `([@:].*)?$`))
+		matches := imageRegEx.FindAllStringSubmatch(image, 1)
+		Expect(len(matches)).To(Equal(1))
+		Expect(len(matches[0])).To(Equal(4))
+		registry = matches[0][1]
+		imagePrefix = matches[0][2]
+		version = matches[0][3]
+		return
+	}
+
+	parseImage := func(name, image string) (registry, imagePrefix, version string) {
+		imageRegEx := regexp.MustCompile(fmt.Sprintf("%s%s%s", `^(.*)/(.*)`, name, `([@:].*)?$`))
+		matches := imageRegEx.FindAllStringSubmatch(image, 1)
+		Expect(len(matches)).To(Equal(1))
+		Expect(len(matches[0])).To(Equal(4))
+		registry = matches[0][1]
+		imagePrefix = matches[0][2]
+		version = matches[0][3]
+		return
+	}
+
+	parseDeployment := func(name string) (deployment *v12.Deployment, image, registry, imagePrefix, version string) {
+		var err error
+		deployment, err = virtClient.AppsV1().Deployments(tests.KubeVirtInstallNamespace).Get(name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		image = deployment.Spec.Template.Spec.Containers[0].Image
+		registry, imagePrefix, version = parseImage(name, image)
+		return
+	}
+
+	parseOperatorImage := func() (operator *v12.Deployment, image, registry, imagePrefix, version string) {
+		return parseDeployment("virt-operator")
+	}
+
+	patchOperator := func(imagePrefix, version *string) bool {
 
 		modified := true
 
 		Eventually(func() error {
 
-			operator, err := virtClient.AppsV1().Deployments(tests.KubeVirtInstallNamespace).Get("virt-operator", metav1.GetOptions{})
-
-			imageRegEx := regexp.MustCompile(`^(.*)/virt-operator([@:].*)?$`)
-			oldImage := operator.Spec.Template.Spec.Containers[0].Image
-			matches := imageRegEx.FindAllStringSubmatch(oldImage, 1)
-			registry := matches[0][1]
-			newImage := fmt.Sprintf("%s/virt-operator%s", registry, components.AddVersionSeparatorPrefix(version))
+			operator, oldImage, registry, oldPrefix, oldVersion := parseOperatorImage()
+			if imagePrefix == nil {
+				// keep old prefix
+				imagePrefix = &oldPrefix
+			}
+			if version == nil {
+				// keep old version
+				version = &oldVersion
+			} else {
+				newVersion := components.AddVersionSeparatorPrefix(*version)
+				version = &newVersion
+			}
+			newImage := fmt.Sprintf("%s/%svirt-operator%s", registry, *imagePrefix, *version)
 
 			if oldImage == newImage {
 				modified = false
@@ -343,7 +391,7 @@ var _ = Describe("Operator", func() {
 
 			operator.Spec.Template.Spec.Containers[0].Image = newImage
 			for idx, env := range operator.Spec.Template.Spec.Containers[0].Env {
-				if env.Name == "OPERATOR_IMAGE" {
+				if env.Name == util.OperatorImageEnvName {
 					env.Value = newImage
 					operator.Spec.Template.Spec.Containers[0].Env[idx] = env
 					break
@@ -433,13 +481,7 @@ var _ = Describe("Operator", func() {
 		}
 
 		// save the operator sha
-		operator, err := virtClient.AppsV1().Deployments(tests.KubeVirtInstallNamespace).Get("virt-operator", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		imageRegEx := regexp.MustCompile(`^(.*)/virt-operator([@:].*)?$`)
-		matches := imageRegEx.FindAllStringSubmatch(operator.Spec.Template.Spec.Containers[0].Image, 1)
-		Expect(len(matches)).To(Equal(1))
-		Expect(len(matches[0])).To(Equal(3))
-		version := matches[0][2]
+		_, _, _, _, version := parseOperatorImage()
 		Expect(strings.HasPrefix(version, "@")).To(BeTrue())
 		originalOperatorVersion = strings.TrimPrefix(version, "@")
 
@@ -562,7 +604,7 @@ spec:
 			createKv(copyOriginalKv())
 		}
 
-		modified := patchOperatorVersion(originalOperatorVersion)
+		modified := patchOperator(nil, &originalOperatorVersion)
 		if modified {
 			// make sure we wait until redeploymemt started
 			waitForUpdateCondition(originalKv)
@@ -897,6 +939,73 @@ spec:
 			deleteAllKvAndWait(false)
 		})
 
+		// this test ensures that we can deal with image prefixes in case they are not used for tests already
+		It("should be able to create kubevirt install with image prefix", func() {
+
+			if tests.ImagePrefixAlt == "" {
+				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
+			}
+
+			kv := copyOriginalKv()
+
+			allPodsAreReady(originalKv)
+			sanityCheckDeploymentsExist()
+
+			_, _, _, oldPrefix, _ := parseOperatorImage()
+
+			By("Update Operator using imagePrefixAlt")
+			patchOperator(&tests.ImagePrefixAlt, nil)
+
+			// should result in kubevirt cr entering updating state
+			By("Wait for Updating Condition")
+			waitForUpdateCondition(kv)
+
+			By("Waiting for KV to stabilize")
+			waitForKv(kv)
+
+			By("Verifying infrastructure Is Updated")
+			allPodsAreReady(kv)
+
+			By("Verifying deployments have prefix")
+			for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
+				_, _, _, prefix, _ := parseDeployment(name)
+				Expect(prefix).To(Equal(tests.ImagePrefixAlt), fmt.Sprintf("%s should have correct image prefix", name))
+			}
+			_, _, _, prefix, _ := parseDaemonset("virt-handler")
+			Expect(prefix).To(Equal(tests.ImagePrefixAlt), "virt-handler should have correct image prefix")
+
+			By("Verifying VMs are working")
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ShouldNot(HaveOccurred(), "Create VMI successfully")
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Verifying virt-launcher image is also prefixed")
+			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			for _, container := range pod.Spec.Containers {
+				if container.Name == "compute" {
+					_, prefix, _ := parseImage("virt-launcher", container.Image)
+					Expect(prefix).To(Equal(tests.ImagePrefixAlt), "launcher image should have prefix")
+				}
+			}
+
+			By("Deleting VM")
+			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+			Expect(err).ShouldNot(HaveOccurred(), "Delete VMI successfully")
+
+			By("Restore Operator using original imagePrefix ")
+			patchOperator(&oldPrefix, nil)
+
+			By("Wait for Updating Condition")
+			waitForUpdateCondition(kv)
+
+			By("Waiting for KV to stabilize")
+			waitForKv(kv)
+
+			By("Verifying infrastructure Is Restored to original version")
+			allPodsAreReady(kv)
+		})
+
 		It("should be able to update kubevirt install with custom image tag", func() {
 
 			if tests.KubeVirtVersionTagAlt == "" {
@@ -959,7 +1068,7 @@ spec:
 			sanityCheckDeploymentsExist()
 
 			By("Update Virt-Operator using  Alt Tag")
-			patchOperatorVersion(tests.KubeVirtVersionTagAlt)
+			patchOperator(nil, &tests.KubeVirtVersionTagAlt)
 
 			// should result in kubevirt cr entering updating state
 			By("Wait for Updating Condition")
@@ -973,7 +1082,7 @@ spec:
 
 			// by using the tag, we also test if resetting (in AfterEach) from tag to sha for the same "version" works
 			By("Restore Operator Version using original tag. ")
-			patchOperatorVersion(tests.KubeVirtVersionTag)
+			patchOperator(nil, &tests.KubeVirtVersionTag)
 
 			By("Wait for Updating Condition")
 			waitForUpdateCondition(kv)

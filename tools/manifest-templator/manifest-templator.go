@@ -47,6 +47,7 @@ type templateData struct {
 	CSVNamespace           string
 	DockerTag              string
 	DockerPrefix           string
+	ImagePrefix            string
 	ImagePullPolicy        string
 	Verbosity              string
 	CsvVersion             string
@@ -71,6 +72,7 @@ func main() {
 	csvNamespace := flag.String("csv-namespace", "placeholder", "")
 	cdiNamespace := flag.String("cdi-namespace", "", "")
 	dockerPrefix := flag.String("container-prefix", "", "")
+	imagePrefix := flag.String("image-prefix", "", "")
 	dockerTag := flag.String("container-tag", "", "")
 	csvVersion := flag.String("csv-version", "", "")
 	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
@@ -107,6 +109,7 @@ func main() {
 		data.CDINamespace = *cdiNamespace
 		data.DockerTag = *dockerTag
 		data.DockerPrefix = *dockerPrefix
+		data.ImagePrefix = *imagePrefix
 		data.ImagePullPolicy = *imagePullPolicy
 		data.Verbosity = fmt.Sprintf("\"%s\"", *verbosity)
 		data.CsvVersion = *csvVersion
@@ -150,6 +153,7 @@ func main() {
 		data.CDINamespace = "{{.CDINamespace}}"
 		data.DockerTag = "{{.DockerTag}}"
 		data.DockerPrefix = "{{.DockerPrefix}}"
+		data.ImagePrefix = "{{.ImagePrefix}}"
 		data.ImagePullPolicy = "{{.ImagePullPolicy}}"
 		data.Verbosity = "{{.Verbosity}}"
 		data.CsvVersion = "{{.CsvVersion}}"
@@ -211,8 +215,10 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		version = data.VirtOperatorSha
 	}
 
-	deployment, err := components.NewOperatorDeployment(data.Namespace,
+	deployment, err := components.NewOperatorDeployment(
+		data.Namespace,
 		data.DockerPrefix,
+		data.ImagePrefix,
 		version,
 		v1.PullPolicy(data.ImagePullPolicy),
 		data.Verbosity,
