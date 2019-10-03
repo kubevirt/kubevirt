@@ -35,6 +35,7 @@ func main() {
 	resourceType := flag.String("type", "", "Type of resource to generate. vmi | vmipreset | vmirs | vm | vmim | kv | rbac")
 	namespace := flag.String("namespace", "kube-system", "Namespace to use.")
 	repository := flag.String("repository", "kubevirt", "Image Repository to use.")
+	imagePrefix := flag.String("imagePrefix", "", "Optional prefix for virt-* image names.")
 	version := flag.String("version", "latest", "Version to use.")
 	launcherVersion := flag.String("launcherVersion", "latest", "Version to use for virt-launcher. Only relevant for controller manifest.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
@@ -83,25 +84,25 @@ func main() {
 	case "prometheus":
 		util.MarshallObject(components.NewPrometheusService(*namespace), os.Stdout)
 	case "virt-api":
-		apisService := components.NewApiServerService(*namespace)
-		apiDeployment, err := components.NewApiServerDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		apiService := components.NewApiServerService(*namespace)
+		apiDeployment, err := components.NewApiServerDeployment(*namespace, *repository, *imagePrefix, *version, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-apiserver deployment %v", err))
 
 		}
-		all := []interface{}{apisService, apiDeployment}
+		all := []interface{}{apiService, apiDeployment}
 		for _, r := range all {
 			util.MarshallObject(r, os.Stdout)
 		}
 	case "virt-controller":
-		controller, err := components.NewControllerDeployment(*namespace, *repository, *version, *launcherVersion, imagePullPolicy, *verbosity)
+		controller, err := components.NewControllerDeployment(*namespace, *repository, *imagePrefix, *version, *launcherVersion, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-controller deployment %v", err))
 
 		}
 		util.MarshallObject(controller, os.Stdout)
 	case "virt-handler":
-		handler, err := components.NewHandlerDaemonSet(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		handler, err := components.NewHandlerDaemonSet(*namespace, *repository, *imagePrefix, *version, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-handler deployment %v", err))
 		}

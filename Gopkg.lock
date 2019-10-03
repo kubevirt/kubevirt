@@ -1175,7 +1175,7 @@
   version = "v1.6.0"
 
 [[projects]]
-  digest = "1:f480ee9162158c0c71e0fc7fe42d4a99c73676f46c0606a8ac1839cfce8a05f7"
+  digest = "1:76a310dcff15d3085ad45c80c47e9ba31057f2fa2d047ce407068e4242876af0"
   name = "kubevirt.io/client-go"
   packages = [
     "api/v1",
@@ -1187,8 +1187,8 @@
     "version",
   ]
   pruneopts = "NT"
-  revision = "71f52dc0e86915a09eccce25ae0b12095cbb74a5"
-  version = "v0.20.6"
+  revision = "c5d55802a4c27a4d1008c8e1ed7bf99999eb48f5"
+  version = "v0.20.8"
 
 [[projects]]
   digest = "1:0bdf550113bbc32c2b77bb1c521c64116bd4553d976b9d4903135660ec440539"
@@ -1221,7 +1221,7 @@
   version = "v1.10.3"
 
 [[projects]]
-  digest = "1:2ab6f903abfdae5567f18f1d7a5b07a541a7e36f278b6c3b4adb7a8efcfeb2a0"
+  digest = "1:f2e2cf0773aac7f46fb8f80278d1a303ee6a313f43370a747564044f5560dc3b"
   name = "kubevirt.io/kubevirt"
   packages = [
     ".",
@@ -1246,8 +1246,8 @@
     "pkg/virt-operator/util",
   ]
   pruneopts = "NT"
-  revision = "0ca091bb179c87f605111494f2e7e7d54fcd2c41"
-  version = "v0.20.6"
+  revision = "d5430eaea926b9367e19079dedfe0df5d518ef67"
+  version = "v0.20.8"
 
 [[projects]]
   digest = "1:06035489efbd51ccface65fc878ceeb849aba05b2f9443c8993f363fc96e80ac"

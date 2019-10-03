@@ -90,6 +90,7 @@ var KubeVirtVersionTag = "latest"
 var KubeVirtVersionTagAlt = ""
 var KubeVirtUtilityRepoPrefix = ""
 var KubeVirtRepoPrefix = "kubevirt"
+var ImagePrefixAlt = ""
 var ContainerizedDataImporterNamespace = "cdi"
 var KubeVirtKubectlPath = ""
 var KubeVirtOcPath = ""
@@ -110,6 +111,7 @@ func init() {
 	flag.StringVar(&KubeVirtVersionTagAlt, "container-tag-alt", "", "An alternate tag that can be used to test operator deployments")
 	flag.StringVar(&KubeVirtUtilityRepoPrefix, "utility-container-prefix", "", "Set the repository prefix for all images")
 	flag.StringVar(&KubeVirtRepoPrefix, "container-prefix", "kubevirt", "Set the repository prefix for all images")
+	flag.StringVar(&ImagePrefixAlt, "image-prefix-alt", "", "Optional prefix for virt-* image names for additional imagePrefix operator test")
 	flag.StringVar(&ContainerizedDataImporterNamespace, "cdi-namespace", "cdi", "Set the repository prefix for CDI components")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
 	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
@@ -2725,6 +2727,21 @@ func SkipIfNotUseNetworkPolicy(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
+	var cpus int64
+
+	nodes, err := virtClient.Core().Nodes().List(metav1.ListOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	for _, node := range nodes.Items {
+		if v, ok := node.Status.Capacity[k8sv1.ResourceCPU]; ok && v.Value() > cpus {
+			cpus = v.Value()
+		}
+	}
+
+	return int(cpus)
+}
+
 func GetK8sCmdClient() string {
 	// use oc if it exists, otherwise use kubectl
 	if KubeVirtOcPath != "" {
@@ -3869,14 +3886,18 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func UpdateClusterConfigValue(key string, value string) {
+// UpdateClusterConfigValueAndWait updates the given configuration in the kubevirt config map and then waits
+// to allow the configuration events to be propagated to the consumers.
+func UpdateClusterConfigValueAndWait(key string, value string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	cfgMap.Data[key] = value
 	_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Update(cfgMap)
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	time.Sleep(2 * time.Second)
 }
 
 func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {

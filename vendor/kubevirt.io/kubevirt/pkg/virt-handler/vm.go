@@ -641,6 +641,25 @@ func (d *VirtualMachineController) migrationOrphanedSourceNodeExecute(key string
 	return nil
 }
 
+func isMigrating(vmi *v1.VirtualMachineInstance) bool {
+
+	now := v12.Now()
+
+	running := false
+	if vmi.Status.MigrationState != nil {
+		start := vmi.Status.MigrationState.StartTimestamp
+		stop := vmi.Status.MigrationState.EndTimestamp
+		if start != nil && (now.After(start.Time) || now.Equal(start)) {
+			running = true
+		}
+
+		if stop != nil && (now.After(stop.Time) || now.Equal(stop)) {
+			running = false
+		}
+	}
+	return running
+}
+
 func (d *VirtualMachineController) migrationTargetExecute(key string,
 	vmi *v1.VirtualMachineInstance,
 	vmiExists bool,
@@ -1361,21 +1380,23 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	}
 
 	if d.isPreMigrationTarget(vmi) {
+		if !isMigrating(vmi) {
 
-		// Mount container disks
-		if err := d.containerDiskMounter.Mount(vmi, false); err != nil {
-			return err
-		}
+			// Mount container disks
+			if err := d.containerDiskMounter.Mount(vmi, false); err != nil {
+				return err
+			}
 
-		if err := client.SyncMigrationTarget(vmi); err != nil {
-			return fmt.Errorf("syncing migration target failed: %v", err)
+			if err := client.SyncMigrationTarget(vmi); err != nil {
+				return fmt.Errorf("syncing migration target failed: %v", err)
 
-		}
-		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
+			}
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 
-		err := d.handlePostSyncMigrationProxy(vmi)
-		if err != nil {
-			return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
+			err := d.handlePostSyncMigrationProxy(vmi)
+			if err != nil {
+				return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
+			}
 		}
 	} else if d.isMigrationSource(vmi) {
 		if vmi.Status.MigrationState.AbortRequested {

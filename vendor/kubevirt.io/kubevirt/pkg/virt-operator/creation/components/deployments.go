@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"strings"
 
-	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -100,11 +99,7 @@ func NewApiServerService(namespace string) *corev1.Service {
 	}
 }
 
-func something() *csvv1.ClusterServiceVersion {
-	return &csvv1.ClusterServiceVersion{}
-}
-
-func newPodTemplateSpec(name string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*corev1.PodTemplateSpec, error) {
+func newPodTemplateSpec(podName string, imageName string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*corev1.PodTemplateSpec, error) {
 
 	version = AddVersionSeparatorPrefix(version)
 
@@ -116,21 +111,21 @@ func newPodTemplateSpec(name string, repository string, version string, pullPoli
 	return &corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				virtv1.AppLabel:          name,
+				virtv1.AppLabel:          podName,
 				"prometheus.kubevirt.io": "",
 			},
 			Annotations: map[string]string{
 				"scheduler.alpha.kubernetes.io/critical-pod": "",
 				"scheduler.alpha.kubernetes.io/tolerations":  string(tolerations),
 			},
-			Name: name,
+			Name: podName,
 		},
 		Spec: corev1.PodSpec{
 			Affinity: podAffinity,
 			Containers: []corev1.Container{
 				{
-					Name:            name,
-					Image:           fmt.Sprintf("%s/%s%s", repository, name, version),
+					Name:            podName,
+					Image:           fmt.Sprintf("%s/%s%s", repository, imageName, version),
 					ImagePullPolicy: pullPolicy,
 				},
 			},
@@ -138,9 +133,9 @@ func newPodTemplateSpec(name string, repository string, version string, pullPoli
 	}, nil
 }
 
-func newBaseDeployment(name string, namespace string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*appsv1.Deployment, error) {
+func newBaseDeployment(deploymentName string, imageName string, namespace string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*appsv1.Deployment, error) {
 
-	podTemplateSpec, err := newPodTemplateSpec(name, repository, version, pullPolicy, podAffinity)
+	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, pullPolicy, podAffinity)
 	if err != nil {
 		return nil, err
 	}
@@ -152,16 +147,16 @@ func newBaseDeployment(name string, namespace string, repository string, version
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      name,
+			Name:      deploymentName,
 			Labels: map[string]string{
-				virtv1.AppLabel: name,
+				virtv1.AppLabel: deploymentName,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: int32Ptr(2),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"kubevirt.io": name,
+					"kubevirt.io": deploymentName,
 				},
 			},
 			Template: *podTemplateSpec,
@@ -193,9 +188,11 @@ func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOp
 	}
 }
 
-func NewApiServerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+func NewApiServerDeployment(namespace string, repository string, imagePrefix string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-api"})
-	deployment, err := newBaseDeployment("virt-api", namespace, repository, version, pullPolicy, podAntiAffinity)
+	deploymentName := "virt-api"
+	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
+	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, pullPolicy, podAntiAffinity)
 	if err != nil {
 		return nil, err
 	}
@@ -246,9 +243,11 @@ func NewApiServerDeployment(namespace string, repository string, version string,
 	return deployment, nil
 }
 
-func NewControllerDeployment(namespace string, repository string, controllerVersion string, launcherVersion string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+func NewControllerDeployment(namespace string, repository string, imagePrefix string, controllerVersion string, launcherVersion string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-controller"})
-	deployment, err := newBaseDeployment("virt-controller", namespace, repository, controllerVersion, pullPolicy, podAntiAffinity)
+	deploymentName := "virt-controller"
+	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
+	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, controllerVersion, pullPolicy, podAntiAffinity)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +264,7 @@ func NewControllerDeployment(namespace string, repository string, controllerVers
 	container.Command = []string{
 		"virt-controller",
 		"--launcher-image",
-		fmt.Sprintf("%s/%s%s", repository, "virt-launcher", launcherVersion),
+		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
 		"--port",
 		"8443",
 		"-v",
@@ -310,8 +309,11 @@ func NewControllerDeployment(namespace string, repository string, controllerVers
 	return deployment, nil
 }
 
-func NewHandlerDaemonSet(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.DaemonSet, error) {
-	podTemplateSpec, err := newPodTemplateSpec("virt-handler", repository, version, pullPolicy, nil)
+func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.DaemonSet, error) {
+
+	deploymentName := "virt-handler"
+	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
+	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, pullPolicy, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -429,14 +431,14 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 }
 
 // Used for manifest generation only
-func NewOperatorDeployment(namespace string, repository string, version string,
+func NewOperatorDeployment(namespace string, repository string, imagePrefix string, version string,
 	pullPolicy corev1.PullPolicy, verbosity string,
 	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
 	virtHandlerShaEnv string, virtLauncherShaEnv string) (*appsv1.Deployment, error) {
 
 	name := "virt-operator"
 	version = AddVersionSeparatorPrefix(version)
-	image := fmt.Sprintf("%s/%s%s", repository, name, version)
+	image := fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, name, version)
 
 	tolerations, err := criticalAddonsToleration()
 	if err != nil {
@@ -514,7 +516,7 @@ func NewOperatorDeployment(namespace string, repository string, version string,
 							},
 							Env: []corev1.EnvVar{
 								{
-									Name:  "OPERATOR_IMAGE",
+									Name:  operatorutil.OperatorImageEnvName,
 									Value: image,
 								},
 								{

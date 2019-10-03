@@ -63,6 +63,7 @@ type templateData struct {
 	ReplacesVersion     string
 	Replaces            bool
 	ContainerPrefix     string
+	ImagePrefix         string
 	CnaContainerPrefix  string
 	ImagePullPolicy     string
 	CreatedAt           string
@@ -211,6 +212,7 @@ func getKubeVirt(data *templateData) {
 	kvdeployment, err := kvcomponents.NewOperatorDeployment(
 		"kubevirt",
 		data.ContainerPrefix,
+		data.ImagePrefix,
 		data.KubeVirt.OperatorTag,
 		v1.PullPolicy(data.ImagePullPolicy),
 		"2",
@@ -386,6 +388,7 @@ func main() {
 	csvVersion := flag.String("csv-version", "0.0.2", "")
 	replacesVersion := flag.String("replaces-version", "0.0.1", "")
 	containerPrefix := flag.String("container-prefix", "kubevirt", "")
+	imagePrefix := flag.String("image-prefix", "", "")
 	cnaContainerPrefix := flag.String("cna-container-prefix", *containerPrefix, "")
 	imsConversionContainer := flag.String("ims-conversion-container", "", "")
 	imsVMWareContainer := flag.String("ims-vmware-container", "", "")
@@ -416,6 +419,7 @@ func main() {
 		ReplacesVersion:     *replacesVersion,
 		Replaces:            Replaces,
 		ContainerPrefix:     *containerPrefix,
+		ImagePrefix:         *imagePrefix,
 		CnaContainerPrefix:  *cnaContainerPrefix,
 		ImagePullPolicy:     *imagePullPolicy,
 		ConversionContainer: *imsConversionContainer,

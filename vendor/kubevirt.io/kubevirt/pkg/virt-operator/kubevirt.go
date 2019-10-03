@@ -568,7 +568,7 @@ func (c *KubeVirtController) execute(key string) error {
 
 func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.KubeVirtDeploymentConfig) (*batchv1.Job, error) {
 
-	operatorImage := fmt.Sprintf("%s/%s%s", config.GetImageRegistry(), "virt-operator", components.AddVersionSeparatorPrefix(config.GetOperatorVersion()))
+	operatorImage := fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), "virt-operator", components.AddVersionSeparatorPrefix(config.GetOperatorVersion()))
 	deploymentConfigJson, err := config.GetJson()
 	if err != nil {
 		return nil, err
