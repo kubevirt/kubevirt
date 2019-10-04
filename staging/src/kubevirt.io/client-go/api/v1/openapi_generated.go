@@ -252,6 +252,13 @@ func schema_kubevirtio_client_go_api_v1_CPU(ref common.ReferenceCallback) common
 							Format:      "",
 						},
 					},
+					"requireFullCores": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RequireFullCores flag requests the scheduler to calculate pCPUs based on full cores",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

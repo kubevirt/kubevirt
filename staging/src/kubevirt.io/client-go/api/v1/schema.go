@@ -255,6 +255,9 @@ type CPU struct {
 	// with enough dedicated pCPUs and pin the vCPUs to it.
 	// +optional
 	DedicatedCPUPlacement bool `json:"dedicatedCpuPlacement,omitempty"`
+	// RequireFullCores flag requests the scheduler to calculate pCPUs based on full cores
+	// +optional
+	RequireFullCores bool `json:"requireFullCores,omitempty"`
 }
 
 // CPUFeature allows specifying a CPU feature.

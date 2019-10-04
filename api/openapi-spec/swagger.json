@@ -4176,6 +4176,10 @@
       "description": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
       "type": "string"
      },
+     "requireFullCores": {
+      "description": "RequireFullCores flag requests the scheduler to calculate pCPUs based on full cores\n+optional",
+      "type": "boolean"
+     },
      "sockets": {
       "description": "Sockets specifies the number of sockets inside the vmi.\nMust be a value greater or equal 1.",
       "type": "integer"
