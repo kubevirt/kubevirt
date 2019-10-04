@@ -668,7 +668,7 @@ spec:
 			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(metav1.ListOptions{LabelSelector: labelSelector})
 			Expect(err).ToNot(HaveOccurred(), "Should list pods")
 			Expect(len(pods.Items)).To(Equal(1))
-			Expect(usesSha(pods.Items[0].Spec.Containers[1].Image)).To(BeTrue(), "launcher pod should use shasum")
+			Expect(usesSha(pods.Items[0].Spec.Containers[0].Image)).To(BeTrue(), "launcher pod should use shasum")
 
 		})
 	})

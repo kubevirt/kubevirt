@@ -94,7 +94,7 @@ var _ = Describe("Slirp Networking", func() {
 		output, err := tests.ExecuteCommandOnPod(
 			virtClient,
 			vmiPod,
-			vmiPod.Spec.Containers[1].Name,
+			vmiPod.Spec.Containers[0].Name,
 			[]string{"cat", "/proc/net/tcp"},
 		)
 		log.Log.Infof("%v", output)
@@ -106,7 +106,7 @@ var _ = Describe("Slirp Networking", func() {
 		output, err = tests.ExecuteCommandOnPod(
 			virtClient,
 			vmiPod,
-			vmiPod.Spec.Containers[1].Name,
+			vmiPod.Spec.Containers[0].Name,
 			[]string{"curl", "-s", "--retry", "30", "--retry-delay", "30", "127.0.0.1"},
 		)
 		log.Log.Infof("%v", output)
