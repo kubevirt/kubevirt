@@ -736,8 +736,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: "1"})
 	}
 
-	// Make sure the compute container is always the first since the cni mutating webhook will add the
-	// requested resources to the first container of the pod
+	// Make sure the compute container is always the first since the mutating webhook shipped with the sriov operator
+	// for adding the requested resources to the pod will add them to the first container of the list
 	containers := []k8sv1.Container{compute}
 	containersDisks := containerdisk.GenerateContainers(vmi, "container-disks", "virt-bin-share-dir")
 	containers = append(containers, containersDisks...)
