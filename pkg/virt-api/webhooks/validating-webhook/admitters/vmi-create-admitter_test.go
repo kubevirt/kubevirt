@@ -1752,31 +1752,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &_true
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(2))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.networkInterfaceMultiqueue"))
-		})
-
-		It("should reject nic multi queue without CPU settings", func() {
-			_true := true
-			vmi := v1.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-
-			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &_true
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.networkInterfaceMultiqueue"))
-		})
-
-		It("should reject BlockMultiQueue without CPU settings", func() {
-			_true := true
-			vmi := v1.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.BlockMultiQueue = &_true
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.blockMultiQueue"))
 		})
 
 		It("should allow BlockMultiQueue with CPU settings", func() {
