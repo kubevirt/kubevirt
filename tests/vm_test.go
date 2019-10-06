@@ -978,18 +978,23 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Ensuring the VirtualMachineInstance is removed")
-					Eventually(func() error {
+					Eventually(func() bool {
 						_, err = virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
-						// Expect a 404 error
-						return err
-					}, 240*time.Second, 1*time.Second).Should(HaveOccurred())
+						return errors.IsNotFound(err)
+					}, 240*time.Second, 1*time.Second).Should(BeTrue())
 
-					newVM, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
-					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyManual))
 					By("Ensuring stateChangeRequests list is cleared")
-					Expect(len(newVM.Status.StateChangeRequests)).To(Equal(0))
+					Eventually(func() bool {
+						newVM, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
+						if err != nil {
+							return false
+						}
+
+						if newVM.Spec.RunStrategy == nil || *newVM.Spec.RunStrategy != v1.RunStrategyManual {
+							return false
+						}
+						return len(newVM.Status.StateChangeRequests) == 0
+					}, 30*time.Second, time.Second).Should(BeTrue())
 				})
 
 				It("[test_id:2035] should restart", func() {
