@@ -5,7 +5,7 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.6.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/coreos/go-iptables v0.4.1
+	github.com/coreos/go-iptables v0.4.3
 	github.com/coreos/go-semver v0.2.0
 	github.com/coreos/prometheus-operator v0.31.1
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect

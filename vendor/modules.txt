@@ -21,7 +21,7 @@ github.com/asaskevich/govalidator
 github.com/beorn7/perks/quantile
 # github.com/blang/semver v3.5.1+incompatible
 github.com/blang/semver
-# github.com/coreos/go-iptables v0.4.1
+# github.com/coreos/go-iptables v0.4.3
 github.com/coreos/go-iptables/iptables
 # github.com/coreos/go-semver v0.2.0
 github.com/coreos/go-semver/semver
@@ -181,9 +181,9 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
 # github.com/onsi/ginkgo v1.8.0
+github.com/onsi/ginkgo/types
 github.com/onsi/ginkgo
 github.com/onsi/ginkgo/config
-github.com/onsi/ginkgo/types
 github.com/onsi/ginkgo/extensions/table
 github.com/onsi/ginkgo/internal/codelocation
 github.com/onsi/ginkgo/internal/failer
@@ -493,12 +493,6 @@ k8s.io/client-go/kubernetes
 k8s.io/client-go/tools/portforward
 k8s.io/client-go/tools/remotecommand
 k8s.io/client-go/transport/spdy
-k8s.io/client-go/pkg/version
-k8s.io/client-go/plugin/pkg/client/auth/exec
-k8s.io/client-go/rest/watch
-k8s.io/client-go/tools/clientcmd/api
-k8s.io/client-go/transport
-k8s.io/client-go/util/flowcontrol
 k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1
 k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1
 k8s.io/client-go/kubernetes/typed/apps/v1
@@ -529,6 +523,12 @@ k8s.io/client-go/kubernetes/typed/settings/v1alpha1
 k8s.io/client-go/kubernetes/typed/storage/v1
 k8s.io/client-go/kubernetes/typed/storage/v1alpha1
 k8s.io/client-go/kubernetes/typed/storage/v1beta1
+k8s.io/client-go/pkg/version
+k8s.io/client-go/plugin/pkg/client/auth/exec
+k8s.io/client-go/rest/watch
+k8s.io/client-go/tools/clientcmd/api
+k8s.io/client-go/transport
+k8s.io/client-go/util/flowcontrol
 k8s.io/client-go/tools/pager
 k8s.io/client-go/util/buffer
 k8s.io/client-go/util/retry
@@ -675,8 +675,8 @@ k8s.io/kube-openapi/pkg/util/proto
 k8s.io/utils/pointer
 # kubevirt.io/client-go v0.0.0-00010101000000-000000000000 => ./staging/src/kubevirt.io/client-go
 kubevirt.io/client-go/log
-kubevirt.io/client-go/api/v1
 kubevirt.io/client-go/kubecli
+kubevirt.io/client-go/api/v1
 kubevirt.io/client-go/util
 kubevirt.io/client-go/precond
 kubevirt.io/client-go/version
