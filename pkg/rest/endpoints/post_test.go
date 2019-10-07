@@ -38,7 +38,9 @@ import (
 
 func newValidJSONPostRequest() *http.Request {
 	request, _ := http.NewRequest("POST", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances", nil)
-	request.Body = marshalToJSON(payload{Name: "test", Email: "test@test.com"})
+	length := 0
+	request.Body, length = marshalToJSON(payload{Name: "test", Email: "test@test.com"})
+	request.ContentLength = int64(length)
 	request.Header.Set("Content-Type", rest.MIME_JSON)
 	return request
 }
@@ -90,14 +92,14 @@ var _ = Describe("Post", func() {
 		})
 		Context("with missing name field", func() {
 			It("should return 400", func() {
-				request.Body = marshalToJSON(payload{Email: "test@test.com"})
+				request.Body, _ = marshalToJSON(payload{Email: "test@test.com"})
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusBadRequest))
 			})
 		})
 		Context("with invalid email", func() {
 			It("should return 400", func() {
-				request.Body = marshalToJSON(payload{Name: "test", Email: "wrong"})
+				request.Body, _ = marshalToJSON(payload{Name: "test", Email: "wrong"})
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusBadRequest))
 			})

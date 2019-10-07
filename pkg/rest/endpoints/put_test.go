@@ -38,18 +38,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/rest"
 )
 
-func marshalToJSON(payload interface{}) io.ReadCloser {
+func marshalToJSON(payload interface{}) (io.ReadCloser, int) {
 	var b []byte
 	buffer := bytes.NewBuffer(b)
 	Expect(json.NewEncoder(buffer).Encode(payload)).To(Succeed())
-	return ioutil.NopCloser(buffer)
+	return ioutil.NopCloser(buffer), buffer.Len()
 }
 
-func toReader(json string) io.ReadCloser {
+func toReader(json string) (io.ReadCloser, int) {
 	var b []byte
 	buffer := bytes.NewBuffer(b)
 	buffer.WriteString(json)
-	return ioutil.NopCloser(buffer)
+	return ioutil.NopCloser(buffer), buffer.Len()
 }
 
 func marshalToYAML(payload interface{}) io.ReadCloser {
@@ -69,7 +69,9 @@ type payload struct {
 
 func newValidPutRequest() *http.Request {
 	request, _ := http.NewRequest("PUT", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/test", nil)
-	request.Body = marshalToJSON(payload{Name: "test", Email: "test@test.com"})
+	length := 0
+	request.Body, length = marshalToJSON(payload{Name: "test", Email: "test@test.com"})
+	request.ContentLength = int64(length)
 	request.Header.Set("Content-Type", rest.MIME_JSON)
 	return request
 }
@@ -122,14 +124,14 @@ var _ = Describe("Put", func() {
 		})
 		Context("with missing name field", func() {
 			It("should return 400", func() {
-				request.Body = marshalToJSON(payload{Email: "test@test.com"})
+				request.Body, _ = marshalToJSON(payload{Email: "test@test.com"})
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusBadRequest))
 			})
 		})
 		Context("with invalid email", func() {
 			It("should return 400", func() {
-				request.Body = marshalToJSON(payload{Name: "test", Email: "wrong"})
+				request.Body, _ = marshalToJSON(payload{Name: "test", Email: "wrong"})
 				handler.ServeHTTP(recorder, request)
 				Expect(recorder.Code).To(Equal(http.StatusBadRequest))
 			})
