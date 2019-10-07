@@ -1558,6 +1558,12 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 	t := defaultTestGracePeriod
 	vmi.Spec.TerminationGracePeriodSeconds = &t
 
+	// Enable by default debug logs
+	// TODO: part of tests can override it
+	vmi.Labels = map[string]string{
+		"debugLogs": "true",
+	}
+
 	// To avoid mac address issue in the tests change the pod interface binding to masquerade
 	// https://github.com/kubevirt/kubevirt/issues/1494
 	vmi.Spec.Domain.Devices = v1.Devices{Interfaces: []v1.Interface{{Name: "default",
