@@ -798,6 +798,9 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
 
+				// Is agent connected after migration
+				tests.WaitAgentConnected(virtClient, vmi)
+
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
 				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 60)
 				defer expecter.Close()
