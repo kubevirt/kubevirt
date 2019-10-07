@@ -5,6 +5,7 @@ require (
 	github.com/Azure/go-autorest/autorest/adal v0.6.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/cloudfoundry/gosigar v1.1.0 // indirect
 	github.com/coreos/etcd v3.3.10+incompatible // indirect
 	github.com/coreos/go-iptables v0.4.1
 	github.com/coreos/go-semver v0.2.0
@@ -46,6 +47,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20190920090233-ccc72ee9eb57
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
+	github.com/libopenstorage/systemutils v0.0.0-20180202003325-dc0e35340804 // indirect
 	github.com/libvirt/libvirt-go v5.0.0+incompatible
 	github.com/mattn/go-colorable v0.1.1 // indirect
 	github.com/mattn/go-runewidth v0.0.0-20181218000649-703b5e6b11ae // indirect
