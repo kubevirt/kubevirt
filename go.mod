@@ -69,6 +69,7 @@ require (
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.3
 	github.com/subgraph/libmacouflage v0.0.1
+	github.com/tj/assert v0.0.0-20190920132354-ee03d75cd160 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
 	github.com/ugorji/go/codec v0.0.0-20181022190402-e5e69e061d4f // indirect
 	github.com/vishvananda/netlink v0.0.0-20180206203732-d35d6b58e1cb
