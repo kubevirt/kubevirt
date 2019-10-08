@@ -86,6 +86,6 @@ until _kubectl -n kubevirt get kv kubevirt; do
 done
 
 # wait until KubeVirt is ready
-_kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 6m || (echo "KubeVirt not ready in time" && dump_kubevirt && exit 1)
+_kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 12m || (echo "KubeVirt not ready in time" && dump_kubevirt && exit 1)
 
 echo "Done"
