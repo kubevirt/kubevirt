@@ -43,6 +43,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -71,6 +72,8 @@ const vgpuEnvPrefix = "VGPU_PASSTHROUGH_DEVICES"
 
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
+	SuspendVMI(*v1.VirtualMachineInstance) (*api.DomainSpec, error)
+	ResumeVMI(*v1.VirtualMachineInstance) (*api.DomainSpec, error)
 	KillVMI(*v1.VirtualMachineInstance) error
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
@@ -90,11 +93,35 @@ type LibvirtDomainManager struct {
 	virtShareDir           string
 	notifier               *eventsclient.Notifier
 	lessPVCSpaceToleration int
+	suspended              suspendedVMIs
 }
 
 type migrationDisks struct {
 	shared    map[string]bool
 	generated map[string]bool
+}
+
+type suspendedVMIs struct {
+	suspended map[types.UID]bool
+}
+
+func (s suspendedVMIs) add(uid types.UID) {
+	// implicitly locked by domainModifyLock
+	if _, ok := s.suspended[uid]; !ok {
+		s.suspended[uid] = true
+	}
+}
+
+func (s suspendedVMIs) remove(uid types.UID) {
+	// implicitly locked by domainModifyLock
+	if _, ok := s.suspended[uid]; ok {
+		delete(s.suspended, uid)
+	}
+}
+
+func (s suspendedVMIs) contains(uid types.UID) bool {
+	_, ok := s.suspended[uid]
+	return ok
 }
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int) (DomainManager, error) {
@@ -103,6 +130,9 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		virtShareDir:           virtShareDir,
 		notifier:               notifier,
 		lessPVCSpaceToleration: lessPVCSpaceToleration,
+		suspended: suspendedVMIs{
+			suspended: make(map[types.UID]bool, 0),
+		},
 	}
 
 	return &manager, nil
@@ -1022,7 +1052,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			return nil, err
 		}
 		logger.Info("Domain started.")
-	} else if cli.IsPaused(domState) {
+	} else if cli.IsPaused(domState) && !l.suspended.contains(vmi.UID) {
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
 		if err != nil {
@@ -1083,6 +1113,107 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 		return nil, err
 	}
 	return util.GetDomainSpec(state, dom)
+}
+
+func (l *LibvirtDomainManager) SuspendVMI(vmi *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	logger := log.Log.Object(vmi)
+
+	domName := util.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		// If the VirtualMachineInstance does not exist, we are done
+		if domainerrors.IsNotFound(err) {
+			return nil, fmt.Errorf("Domain not found.")
+		} else {
+			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed during suspend.")
+			return nil, err
+		}
+	}
+	defer dom.Free()
+
+	domState, _, err := dom.GetState()
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Getting the domain state failed.")
+		return nil, err
+	}
+
+	if domState == libvirt.DOMAIN_RUNNING {
+		err = dom.Suspend()
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Signalling suspension failed.")
+			return nil, err
+		}
+		log.Log.Object(vmi).Infof("Signaled suspend for %s", vmi.GetObjectMeta().GetName())
+		l.suspended.add(vmi.UID)
+	} else {
+		log.Log.Object(vmi).Infof("Domain is not running for %s", vmi.GetObjectMeta().GetName())
+	}
+
+	xmlstr, err := dom.GetXMLDesc(0)
+	if err != nil {
+		return nil, err
+	}
+	var newSpec api.DomainSpec
+	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
+	if err != nil {
+		logger.Reason(err).Error("Parsing domain XML failed.")
+		return nil, err
+	}
+	return &newSpec, nil
+}
+
+func (l *LibvirtDomainManager) ResumeVMI(vmi *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	logger := log.Log.Object(vmi)
+
+	domName := util.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		// If the VirtualMachineInstance does not exist, we are done
+		if domainerrors.IsNotFound(err) {
+			return nil, fmt.Errorf("Domain not found.")
+		} else {
+			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed during resume.")
+			return nil, err
+		}
+	}
+	defer dom.Free()
+
+	domState, _, err := dom.GetState()
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Getting the domain state failed.")
+		return nil, err
+	}
+
+	if domState == libvirt.DOMAIN_PAUSED {
+		err = dom.Resume()
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Signalling resume failed.")
+			return nil, err
+		}
+		log.Log.Object(vmi).Infof("Signaled resume for %s", vmi.GetObjectMeta().GetName())
+		l.suspended.remove(vmi.UID)
+
+	} else {
+		log.Log.Object(vmi).Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())
+	}
+
+	xmlstr, err := dom.GetXMLDesc(0)
+	if err != nil {
+		return nil, err
+	}
+	var newSpec api.DomainSpec
+	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
+	if err != nil {
+		logger.Reason(err).Error("Parsing domain XML failed.")
+		return nil, err
+	}
+	return &newSpec, nil
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {

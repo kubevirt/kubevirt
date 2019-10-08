@@ -333,6 +333,9 @@ const (
 	// this is reported as false.
 	VirtualMachineInstanceSynchronized VirtualMachineInstanceConditionType = "Synchronized"
 
+	// If the VMI was suspended by the user, this is reported as true.
+	VirtualMachineInstancePaused VirtualMachineInstanceConditionType = "Paused"
+
 	// Reflects whether the QEMU guest agent is connected through the channel
 	VirtualMachineInstanceAgentConnected VirtualMachineInstanceConditionType = "AgentConnected"
 
@@ -1088,6 +1091,10 @@ const (
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	VirtualMachineFailure VirtualMachineConditionType = "Failure"
+
+	// VirtualMachinePaused is added in a virtual machine when its vmi
+	// signals with its own condition that it is paused.
+	VirtualMachinePaused VirtualMachineConditionType = "Paused"
 )
 
 // ---
