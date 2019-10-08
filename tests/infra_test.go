@@ -32,6 +32,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 
 	expect "github.com/google/goexpect"
 
@@ -54,9 +55,20 @@ var _ = Describe("Infrastructure", func() {
 	tests.PanicOnError(err)
 
 	Describe("Prometheus Endpoints", func() {
-		var vmi *v1.VirtualMachineInstance
+		var preparedVMIs []*v1.VirtualMachineInstance
 		var pod *k8sv1.Pod
 		var metricsURL string
+
+		pinVMIOnNode := func(vmi *v1.VirtualMachineInstance, nodeName string) *v1.VirtualMachineInstance {
+			if vmi == nil {
+				return nil
+			}
+			if vmi.Spec.NodeSelector == nil {
+				vmi.Spec.NodeSelector = make(map[string]string)
+			}
+			vmi.Spec.NodeSelector["kubernetes.io/hostname"] = nodeName
+			return vmi
+		}
 
 		// start a VMI, wait for it to run and return the node it runs on
 		startVMI := func(vmi *v1.VirtualMachineInstance) string {
@@ -105,8 +117,7 @@ var _ = Describe("Infrastructure", func() {
 			return metrics
 		}
 
-		tests.BeforeAll(func() {
-			tests.BeforeTestCleanup()
+		prepareVMIForTests := func(preferredNodeName string) string {
 			By("Creating the VirtualMachineInstance")
 
 			// WARNING: we assume the VM will have a VirtIO disk (vda)
@@ -114,10 +125,16 @@ var _ = Describe("Infrastructure", func() {
 			// but if the default disk is not vda, the test will break
 			// TODO: introspect the VMI and get the device name of this
 			// block device?
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			tests.AppendEmptyDisk(vmi, "testdisk", "virtio", "1Gi")
 
+			if preferredNodeName != "" {
+				pinVMIOnNode(vmi, preferredNodeName)
+			}
 			nodeName := startVMI(vmi)
+			if preferredNodeName != "" {
+				Expect(nodeName).To(Equal(preferredNodeName), "Should run VMIs on the same node")
+			}
 
 			By("Expecting the VirtualMachineInstance console")
 			// This also serves as a sync point to make sure the VM completed the boot
@@ -134,6 +151,23 @@ var _ = Describe("Infrastructure", func() {
 				&expect.BExp{R: "localhost:~#"},
 			}, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
+
+			preparedVMIs = append(preparedVMIs, vmi)
+			return nodeName
+		}
+
+		tests.BeforeAll(func() {
+			tests.BeforeTestCleanup()
+
+			// The initial test for the metrics subsystem used only a single VM for the sake of simplicity.
+			// However, testing a single entity is a corner case (do we test handling sequences? potential clashes
+			// in maps? and so on).
+			// Thus, we run now two VMIs per testcase. A more realistic test would use a random number of VMIs >= 3,
+			// but we don't do now to make test run quickly and (more important) because lack of resources on CI.
+
+			nodeName := prepareVMIForTests("")
+			// any node is fine, we don't really care, as long as we run all VMIs on it.
+			prepareVMIForTests(nodeName)
 
 			By("Finding the prometheus endpoint")
 			pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(tests.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
@@ -274,28 +308,41 @@ var _ = Describe("Infrastructure", func() {
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			nodeName := pod.Spec.NodeName
+
+			nameMatchers := []gomegatypes.GomegaMatcher{}
+			for _, vmi := range preparedVMIs {
+				nameMatchers = append(nameMatchers, ContainSubstring(`name="%s"`, vmi.Name))
+			}
+
 			for _, key := range keys {
 				// we don't care about the ordering of the labels
-				// TODO: vmi.Status.NodeName is "" sometimes. Are we faster than the update?
 				if strings.HasPrefix(key, "kubevirt_vmi_phase_count") {
 					// special case: namespace and name don't make sense for this metric
 					Expect(key).To(ContainSubstring(`node="%s"`, nodeName))
-				} else {
-					Expect(key).To(SatisfyAll(
-						ContainSubstring(`node="%s"`, nodeName),
-						ContainSubstring(`namespace="%s"`, vmi.Namespace),
-						ContainSubstring(`name="%s"`, vmi.Name),
-					))
+					continue
 				}
+
+				Expect(key).To(SatisfyAll(
+					ContainSubstring(`node="%s"`, nodeName),
+					// all testing VMIs are on the same node and namespace,
+					// so checking the namespace of any random VMI is fine
+					ContainSubstring(`namespace="%s"`, preparedVMIs[0].Namespace),
+					// otherwise, each key must refer to exactly one the prepared VMIs.
+					SatisfyAny(nameMatchers...),
+				))
 			}
 		})
 
 		It("should include VMI phase metrics for few running VMs", func() {
-			// run another VM, we intentionally check with only 2 VMS as CI is resource-constrained
-			By("Creating the VirtualMachineInstance")
-			vmi := tests.NewRandomVMI()
+			// this tests requires at least two running VMis. To ensure this condition,
+			// the simplest way is just always run an additional VMI.
+			By("Creating another VirtualMachineInstance")
+
+			// `pod` is the pod of the virt-handler of the node on which we run all the VMIs
+			// when setting up the tests. So we implicitely run all the VMIs on the same node,
+			// so the test works. TODO: make this explicit.
 			preferredNodeName := pod.Spec.NodeName
-			vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": preferredNodeName}
+			vmi := pinVMIOnNode(tests.NewRandomVMI(), preferredNodeName)
 			nodeName := startVMI(vmi)
 			Expect(nodeName).To(Equal(preferredNodeName), "Should run VMIs on the same node")
 
@@ -305,7 +352,7 @@ var _ = Describe("Infrastructure", func() {
 			for _, key := range keys {
 				if strings.Contains(key, `phase="running"`) {
 					value := metrics[key]
-					Expect(value).To(Equal(float64(2)))
+					Expect(value).To(Equal(float64(len(preparedVMIs) + 1)))
 				}
 			}
 		})
