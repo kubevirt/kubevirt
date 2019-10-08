@@ -43,6 +43,18 @@
 # to verify that it is updated to the new operator image from 
 # the local registry.
 
+function cleanup() {
+    rv=$?
+    if [ "x$rv" != "x0" ]; then
+        echo "Error during upgrade: exit status: $rv"
+        make dump-state
+        echo "*** Upgrade test failed ***"
+    fi
+    exit $rv
+}
+
+trap "cleanup" INT TERM EXIT
+
 echo "-- Upgrade Step 1/8: clean cluster"
 make cluster-clean
 

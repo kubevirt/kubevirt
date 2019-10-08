@@ -67,6 +67,11 @@ build-push-all: container-build-operator container-push-operator container-build
 
 upgrade-test:
 	./hack/upgrade-test.sh
+
+dump-state:
+	CMD="./cluster-up/kubectl.sh" ./hack/dump-state.sh 
+
+
  
 help: ## Show this help screen
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'
