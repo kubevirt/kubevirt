@@ -17,7 +17,7 @@ github.com/PuerkitoBio/purell
 github.com/PuerkitoBio/urlesc
 # github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf
 github.com/asaskevich/govalidator
-# github.com/beorn7/perks v1.0.0
+# github.com/beorn7/perks v1.0.1
 github.com/beorn7/perks/quantile
 # github.com/blang/semver v3.5.1+incompatible
 github.com/blang/semver
@@ -40,7 +40,7 @@ github.com/dgrijalva/jwt-go
 # github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c
 github.com/docker/spdystream
 github.com/docker/spdystream/spdy
-# github.com/emicklei/go-restful v2.9.5+incompatible
+# github.com/emicklei/go-restful v2.9.6+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
 # github.com/emicklei/go-restful-openapi v0.10.0
@@ -65,9 +65,9 @@ github.com/go-openapi/analysis
 github.com/go-openapi/analysis/internal
 # github.com/go-openapi/errors v0.17.2
 github.com/go-openapi/errors
-# github.com/go-openapi/jsonpointer v0.19.2
+# github.com/go-openapi/jsonpointer v0.19.3
 github.com/go-openapi/jsonpointer
-# github.com/go-openapi/jsonreference v0.19.2
+# github.com/go-openapi/jsonreference v0.19.3
 github.com/go-openapi/jsonreference
 # github.com/go-openapi/loads v0.17.2
 github.com/go-openapi/loads
@@ -80,11 +80,11 @@ github.com/go-openapi/runtime/middleware/denco
 github.com/go-openapi/runtime/middleware/header
 github.com/go-openapi/runtime/middleware/untyped
 github.com/go-openapi/runtime/security
-# github.com/go-openapi/spec v0.19.2
+# github.com/go-openapi/spec v0.19.3
 github.com/go-openapi/spec
 # github.com/go-openapi/strfmt v0.18.0
 github.com/go-openapi/strfmt
-# github.com/go-openapi/swag v0.19.2
+# github.com/go-openapi/swag v0.19.5
 github.com/go-openapi/swag
 # github.com/go-openapi/validate v0.18.0
 github.com/go-openapi/validate
@@ -101,7 +101,7 @@ github.com/golang/glog
 github.com/golang/groupcache/lru
 # github.com/golang/mock v1.1.1
 github.com/golang/mock/gomock
-# github.com/golang/protobuf v1.3.1
+# github.com/golang/protobuf v1.3.2
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
@@ -111,13 +111,13 @@ github.com/golang/protobuf/ptypes/timestamp
 github.com/google/btree
 # github.com/google/goexpect v0.0.0-20190425035906-112704a48083
 github.com/google/goexpect
-# github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf
+# github.com/google/gofuzz v1.0.0
 github.com/google/gofuzz
 # github.com/google/goterm v0.0.0-20190311235235-ce302be1d114
 github.com/google/goterm/term
 # github.com/google/uuid v1.0.0
 github.com/google/uuid
-# github.com/googleapis/gnostic v0.2.0
+# github.com/googleapis/gnostic v0.2.2
 github.com/googleapis/gnostic/OpenAPIv2
 github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
@@ -129,9 +129,9 @@ github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/openstack/utils
 github.com/gophercloud/gophercloud/openstack/identity/v2/tenants
 github.com/gophercloud/gophercloud/pagination
-# github.com/gorilla/websocket v1.4.0
+# github.com/gorilla/websocket v1.4.1
 github.com/gorilla/websocket
-# github.com/gregjones/httpcache v0.0.0-20181110185634-c63ab54fda8f
+# github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 github.com/gregjones/httpcache
 github.com/gregjones/httpcache/diskcache
 # github.com/hashicorp/golang-lru v0.5.3
@@ -143,11 +143,11 @@ github.com/hpcloud/tail/ratelimiter
 github.com/hpcloud/tail/util
 github.com/hpcloud/tail/watch
 github.com/hpcloud/tail/winfile
-# github.com/imdario/mergo v0.3.6
+# github.com/imdario/mergo v0.3.8
 github.com/imdario/mergo
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
-# github.com/json-iterator/go v1.1.6
+# github.com/json-iterator/go v1.1.7
 github.com/json-iterator/go
 # github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20190920090233-ccc72ee9eb57
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1
@@ -164,7 +164,7 @@ github.com/krolaw/dhcp4
 github.com/krolaw/dhcp4/conn
 # github.com/libvirt/libvirt-go v5.0.0+incompatible
 github.com/libvirt/libvirt-go
-# github.com/mailru/easyjson v0.0.0-20190614124828-94de47d64c63
+# github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
 github.com/mailru/easyjson/buffer
@@ -181,9 +181,9 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
 # github.com/onsi/ginkgo v1.8.0
-github.com/onsi/ginkgo/types
 github.com/onsi/ginkgo
 github.com/onsi/ginkgo/config
+github.com/onsi/ginkgo/types
 github.com/onsi/ginkgo/extensions/table
 github.com/onsi/ginkgo/internal/codelocation
 github.com/onsi/ginkgo/internal/failer
@@ -243,22 +243,23 @@ github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1
 github.com/pborman/uuid
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 github.com/peterbourgon/diskv
-# github.com/prometheus/client_golang v0.9.3
+# github.com/prometheus/client_golang v0.9.4
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/internal
 # github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.4.0
+# github.com/prometheus/common v0.4.1
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
-# github.com/prometheus/procfs v0.0.0-20190507164030-5867b95ac084
+# github.com/prometheus/procfs v0.0.5
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
-# github.com/spf13/cobra v0.0.3
+github.com/prometheus/procfs/internal/util
+# github.com/spf13/cobra v0.0.5
 github.com/spf13/cobra
-# github.com/spf13/pflag v1.0.3
+# github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
 # github.com/subgraph/libmacouflage v0.0.1
 github.com/subgraph/libmacouflage
@@ -276,7 +277,7 @@ golang.org/x/crypto/internal/chacha20
 golang.org/x/crypto/poly1305
 golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/subtle
-# golang.org/x/net v0.0.0-20190613194153-d28f0bde5980
+# golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
 golang.org/x/net/context
 golang.org/x/net/trace
 golang.org/x/net/http2
@@ -298,7 +299,7 @@ golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sys v0.0.0-20190616124812-15dcb6c0061f
+# golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/cpu
@@ -324,7 +325,7 @@ golang.org/x/text/runes
 golang.org/x/text/internal/language
 golang.org/x/text/internal/language/compact
 golang.org/x/text/internal/tag
-# golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
+# golang.org/x/time v0.0.0-20190921001708-c4c64cad1fd0
 golang.org/x/time/rate
 # google.golang.org/appengine v1.5.0
 google.golang.org/appengine
@@ -381,7 +382,7 @@ gopkg.in/inf.v0
 gopkg.in/ini.v1
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 gopkg.in/tomb.v1
-# gopkg.in/yaml.v2 v2.2.2
+# gopkg.in/yaml.v2 v2.2.4
 gopkg.in/yaml.v2
 # k8s.io/api v0.0.0-20190725062911-6607c48751ae => k8s.io/api v0.0.0-20190222213804-5cb15d344471
 k8s.io/api/core/v1
@@ -662,7 +663,7 @@ k8s.io/client-go/listers/settings/v1alpha1
 k8s.io/client-go/listers/storage/v1
 k8s.io/client-go/listers/storage/v1alpha1
 k8s.io/client-go/listers/storage/v1beta1
-# k8s.io/klog v0.3.1
+# k8s.io/klog v0.3.3
 k8s.io/klog
 # k8s.io/kube-aggregator v0.0.0-20190228175259-3e0149950b0e
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1
@@ -685,7 +686,7 @@ kubevirt.io/client-go/util
 kubevirt.io/client-go/precond
 kubevirt.io/client-go/version
 kubevirt.io/client-go/subresources
-# kubevirt.io/containerized-data-importer v1.10.6
+# kubevirt.io/containerized-data-importer v1.10.9
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions
 kubevirt.io/containerized-data-importer/pkg/clone
@@ -706,10 +707,10 @@ kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/upl
 kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/scheme
 kubevirt.io/containerized-data-importer/pkg/client/listers/core/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/client/listers/upload/v1alpha1
-# kubevirt.io/qe-tools v0.1.3-0.20190512140058-934db0579e0c
+# kubevirt.io/qe-tools v0.1.3
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
-# sigs.k8s.io/controller-runtime v0.1.9
+# sigs.k8s.io/controller-runtime v0.1.12
 sigs.k8s.io/controller-runtime/pkg/runtime/scheme
 # sigs.k8s.io/yaml v1.1.0
 sigs.k8s.io/yaml
