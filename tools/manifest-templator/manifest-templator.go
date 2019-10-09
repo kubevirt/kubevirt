@@ -54,6 +54,7 @@ type operatorData struct {
 	CRString          string
 	OperatorTag       string
 	ComponentTag      string
+	ImageName         string
 }
 
 type templateData struct {
@@ -322,6 +323,7 @@ func getCNA(data *templateData) {
 		data.CNA.OperatorTag,
 		data.Namespace,
 		data.CnaContainerPrefix,
+		data.CNA.ImageName,
 		data.CNA.OperatorTag,
 		data.ImagePullPolicy,
 		(&cnacomponents.AddonsImages{}).FillDefaults(),
@@ -401,7 +403,8 @@ func main() {
 	cdiTag := flag.String("cdi-tag", *containerTag, "")
 	sspTag := flag.String("ssp-tag", *containerTag, "")
 	nmoTag := flag.String("nmo-tag", *containerTag, "")
-	networkAddonsTag := flag.String("network-addons-tag", *containerTag, "")
+	cnaTag := flag.String("network-addons-tag", *containerTag, "")
+	cnaImageName := flag.String("cna-image-name", cnacomponents.Name, "")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -428,7 +431,7 @@ func main() {
 		HCO:      &operatorData{OperatorTag: *hcoTag, ComponentTag: *hcoTag},
 		KubeVirt: &operatorData{OperatorTag: *kubevirtTag, ComponentTag: *kubevirtTag},
 		CDI:      &operatorData{OperatorTag: *cdiTag, ComponentTag: *cdiTag},
-		CNA:      &operatorData{OperatorTag: *networkAddonsTag, ComponentTag: *networkAddonsTag},
+		CNA:      &operatorData{OperatorTag: *cnaTag, ComponentTag: *cnaTag, ImageName: *cnaImageName},
 		SSP:      &operatorData{OperatorTag: *sspTag, ComponentTag: *sspTag},
 		NMO:      &operatorData{OperatorTag: *nmoTag, ComponentTag: *nmoTag},
 	}

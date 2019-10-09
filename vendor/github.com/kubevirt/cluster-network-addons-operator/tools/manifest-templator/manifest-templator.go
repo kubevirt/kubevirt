@@ -55,6 +55,7 @@ type templateData struct {
 	OperatorVersion string
 	Namespace       string
 	ContainerPrefix string
+	ImageName	string
 	ContainerTag    string
 	ImagePullPolicy string
 	CNA             *operatorData
@@ -142,6 +143,7 @@ func getCNA(data *templateData) {
 		data.OperatorVersion,
 		data.Namespace,
 		data.ContainerPrefix,
+		data.ImageName,
 		data.ContainerTag,
 		data.ImagePullPolicy,
 		data.AddonsImages,
@@ -218,6 +220,7 @@ func main() {
 	operatorVersion := flag.String("operator-version", "", "The operator version")
 	namespace := flag.String("namespace", components.Namespace, "Namespace used by csv")
 	containerPrefix := flag.String("container-prefix", "quay.io/kubevirt", "The container repository used for the operator image")
+	imageName := flag.String("image-name", components.Name, "The operator image's name")
 	containerTag := flag.String("container-tag", "latest", "The operator image's container tag")
 	imagePullPolicy := flag.String("image-pull-policy", "Always", "The pull policy to use on the operator image")
 	multusImage := flag.String("multus-image", components.MultusImageDefault, "The multus image managed by CNA")
@@ -239,6 +242,7 @@ func main() {
 		OperatorVersion: *operatorVersion,
 		Namespace:       *namespace,
 		ContainerPrefix: *containerPrefix,
+		ImageName:	 *imageName,
 		ContainerTag:    *containerTag,
 		ImagePullPolicy: *imagePullPolicy,
 		AddonsImages: (&components.AddonsImages{
