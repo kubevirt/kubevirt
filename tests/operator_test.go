@@ -760,7 +760,7 @@ spec:
 						return true
 					}
 					return false
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 			}
 
 			// Update KubeVirt from the previous release to the testing target release.
@@ -794,7 +794,7 @@ spec:
 					}
 
 					return true
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 
 				By(fmt.Sprintf("Connecting to %s's console", vmYaml.vmName))
 				// This is in an eventually loop because it's possible for the

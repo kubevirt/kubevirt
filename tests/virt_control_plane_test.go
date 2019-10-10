@@ -178,11 +178,17 @@ var _ = Describe("[ref_id:2717]KubeVirt control plane resilience", func() {
 		}
 
 		setSelectedNodeUnschedulable := func() {
-			selectedNode, err := getSelectedNode()
-			Expect(err).ToNot(HaveOccurred())
-			selectedNode.Spec.Unschedulable = true
-			_, err = virtCli.CoreV1().Nodes().Update(selectedNode)
-			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() error {
+				selectedNode, err := getSelectedNode()
+				if err != nil {
+					return err
+				}
+				selectedNode.Spec.Unschedulable = true
+				if _, err = virtCli.CoreV1().Nodes().Update(selectedNode); err != nil {
+					return err
+				}
+				return nil
+			}, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
 		}
 
 		BeforeEach(func() {
