@@ -115,7 +115,7 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 		Name:  "qemu",
 		Cache: string(diskDevice.Cache),
 	}
-	if numQueues != nil {
+	if numQueues != nil && disk.Target.Bus == "virtio" {
 		disk.Driver.Queues = numQueues
 	}
 	disk.Alias = &Alias{Name: diskDevice.Name}
@@ -820,21 +820,25 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	currentDedicatedThread := uint(autoThreads + 1)
 
 	var numQueues *uint
+	var numBlkQueues *uint
 	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
 	virtioNetMQRequested := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-	if virtioBlkMQRequested || virtioNetMQRequested {
-		vcpus := uint(calculateRequestedVCPUs(domain.Spec.CPU.Topology))
-		if vcpus == 0 {
-			vcpus = uint(1)
-		}
+	vcpus := uint(calculateRequestedVCPUs(domain.Spec.CPU.Topology))
+	if vcpus == 0 {
+		vcpus = uint(1)
+	}
+	if virtioNetMQRequested {
 		numQueues = &vcpus
+	}
+	if virtioBlkMQRequested {
+		numBlkQueues = &vcpus
 	}
 
 	devicePerBus := make(map[string]int)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
 
-		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus, numQueues)
+		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus, numBlkQueues)
 		if err != nil {
 			return err
 		}
