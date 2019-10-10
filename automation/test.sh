@@ -168,6 +168,9 @@ build --remote_http_cache=${BAZEL_CACHE}
 build --jobs=4
 EOF
 
+# Build and test images with a custom image name prefix
+export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
+
 # build all images with the basic repeat logic
 # probably because load on the node, possible situation when the bazel
 # fails to download artifacts, to avoid job fails because of it,
