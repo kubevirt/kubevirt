@@ -8,7 +8,7 @@ import (
 
 	versioned "github.com/coreos/prometheus-operator/pkg/client/versioned"
 	gomock "github.com/golang/mock/gomock"
-	versioned0 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
+	versioned0 "github.com/K8sNetworkPlumbingWG/network-attachment-definition-client/pkg/client/clientset/versioned"
 	v1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	v10 "k8s.io/api/autoscaling/v1"
 	clientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"

@@ -38,7 +38,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	networkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
+	networkclient "github.com/K8sNetworkPlumbingWG/network-attachment-definition-client/pkg/client/clientset/versioned"
 
 	promclient "github.com/coreos/prometheus-operator/pkg/client/versioned"
 

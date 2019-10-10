@@ -37,7 +37,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	networkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
+	networkclient "github.com/K8sNetworkPlumbingWG/network-attachment-definition-client/pkg/client/clientset/versioned"
 
 	promclient "github.com/coreos/prometheus-operator/pkg/client/versioned"
 

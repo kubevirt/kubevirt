@@ -3,24 +3,21 @@ module kubevirt.io/client-go
 go 1.12
 
 require (
+	github.com/K8sNetworkPlumbingWG/network-attachment-definition-client v0.0.0-20191002070930-3de720f9c99b
 	github.com/coreos/prometheus-operator v0.31.1
 	github.com/go-kit/kit v0.8.0
-	github.com/go-openapi/spec v0.19.2
+	github.com/go-openapi/spec v0.19.3
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
 	github.com/golang/mock v1.1.1
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf
-	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/gorilla/websocket v0.0.0-20180228210902-0647012449a1
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20181121151021-386d141f4c94
-	github.com/onsi/ginkgo v1.8.0
-	github.com/onsi/gomega v1.5.1-0.20190515112211-6a48b4839f85
+	github.com/onsi/ginkgo v1.10.1
+	github.com/onsi/gomega v1.7.0
 	github.com/openshift/api v3.9.1-0.20190401220125-3a6077f1f910+incompatible // indirect
 	github.com/openshift/client-go v0.0.0-20190401163519-84c2b942258a
 	github.com/openshift/custom-resource-status v0.0.0-20190822192428-e62f2f3b79f3 // indirect
 	github.com/pborman/uuid v1.2.0
-	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/spf13/pflag v1.0.3
+	github.com/spf13/pflag v1.0.5
 	google.golang.org/appengine v1.5.0 // indirect
 	k8s.io/api v0.0.0-20190725062911-6607c48751ae
 	k8s.io/apiextensions-apiserver v0.0.0-20190315093550-53c4693659ed

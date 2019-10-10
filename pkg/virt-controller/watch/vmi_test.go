@@ -39,7 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 
-	fakenetworkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
+	fakenetworkclient "github.com/K8sNetworkPlumbingWG/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"

@@ -33,7 +33,7 @@ import (
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	networkv1 "github.com/K8sNetworkPlumbingWG/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"

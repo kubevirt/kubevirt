@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/golang/mock/gomock"
-	fakenetworkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
+	fakenetworkclient "github.com/K8sNetworkPlumbingWG/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"

@@ -11,6 +11,13 @@ github.com/Azure/go-autorest/autorest/date
 github.com/Azure/go-autorest/logger
 # github.com/Azure/go-autorest/tracing v0.5.0
 github.com/Azure/go-autorest/tracing
+# github.com/K8sNetworkPlumbingWG/network-attachment-definition-client v0.0.0-20191002070930-3de720f9c99b
+github.com/K8sNetworkPlumbingWG/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1
+github.com/K8sNetworkPlumbingWG/network-attachment-definition-client/pkg/client/clientset/versioned
+github.com/K8sNetworkPlumbingWG/network-attachment-definition-client/pkg/client/clientset/versioned/fake
+github.com/K8sNetworkPlumbingWG/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1
+github.com/K8sNetworkPlumbingWG/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake
+github.com/K8sNetworkPlumbingWG/network-attachment-definition-client/pkg/client/clientset/versioned/scheme
 # github.com/PuerkitoBio/purell v1.1.1
 github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
@@ -40,7 +47,7 @@ github.com/dgrijalva/jwt-go
 # github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c
 github.com/docker/spdystream
 github.com/docker/spdystream/spdy
-# github.com/emicklei/go-restful v2.9.5+incompatible
+# github.com/emicklei/go-restful v2.10.0+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
 # github.com/emicklei/go-restful-openapi v0.10.0
@@ -65,7 +72,7 @@ github.com/go-openapi/analysis
 github.com/go-openapi/analysis/internal
 # github.com/go-openapi/errors v0.17.2
 github.com/go-openapi/errors
-# github.com/go-openapi/jsonpointer v0.19.2
+# github.com/go-openapi/jsonpointer v0.19.3
 github.com/go-openapi/jsonpointer
 # github.com/go-openapi/jsonreference v0.19.2
 github.com/go-openapi/jsonreference
@@ -80,24 +87,24 @@ github.com/go-openapi/runtime/middleware/denco
 github.com/go-openapi/runtime/middleware/header
 github.com/go-openapi/runtime/middleware/untyped
 github.com/go-openapi/runtime/security
-# github.com/go-openapi/spec v0.19.2
+# github.com/go-openapi/spec v0.19.3
 github.com/go-openapi/spec
 # github.com/go-openapi/strfmt v0.18.0
 github.com/go-openapi/strfmt
-# github.com/go-openapi/swag v0.19.2
+# github.com/go-openapi/swag v0.19.5
 github.com/go-openapi/swag
 # github.com/go-openapi/validate v0.18.0
 github.com/go-openapi/validate
 # github.com/go-stack/stack v1.8.0
 github.com/go-stack/stack
-# github.com/gogo/protobuf v1.2.1
+# github.com/gogo/protobuf v1.3.0
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 github.com/golang/glog
-# github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef
+# github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
 github.com/golang/groupcache/lru
 # github.com/golang/mock v1.1.1
 github.com/golang/mock/gomock
@@ -107,7 +114,7 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c
+# github.com/google/btree v1.0.0
 github.com/google/btree
 # github.com/google/goexpect v0.0.0-20190425035906-112704a48083
 github.com/google/goexpect
@@ -149,14 +156,8 @@ github.com/imdario/mergo
 github.com/inconshreveable/mousetrap
 # github.com/json-iterator/go v1.1.6
 github.com/json-iterator/go
-# github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20190920090233-ccc72ee9eb57
-github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1
-github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned
+# github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20190930093859-eaeabbaba5be
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io
-github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/fake
-github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1
-github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake
-github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/scheme
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
 github.com/kr/logfmt
 # github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
@@ -164,7 +165,7 @@ github.com/krolaw/dhcp4
 github.com/krolaw/dhcp4/conn
 # github.com/libvirt/libvirt-go v5.0.0+incompatible
 github.com/libvirt/libvirt-go
-# github.com/mailru/easyjson v0.0.0-20190614124828-94de47d64c63
+# github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
 github.com/mailru/easyjson/buffer
@@ -180,10 +181,10 @@ github.com/mitchellh/mapstructure
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
-# github.com/onsi/ginkgo v1.8.0
-github.com/onsi/ginkgo/types
+# github.com/onsi/ginkgo v1.10.1
 github.com/onsi/ginkgo
 github.com/onsi/ginkgo/config
+github.com/onsi/ginkgo/types
 github.com/onsi/ginkgo/extensions/table
 github.com/onsi/ginkgo/internal/codelocation
 github.com/onsi/ginkgo/internal/failer
@@ -200,7 +201,7 @@ github.com/onsi/ginkgo/internal/leafnodes
 github.com/onsi/ginkgo/internal/spec
 github.com/onsi/ginkgo/internal/specrunner
 github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
-# github.com/onsi/gomega v1.5.1-0.20190515112211-6a48b4839f85
+# github.com/onsi/gomega v1.7.0
 github.com/onsi/gomega
 github.com/onsi/gomega/types
 github.com/onsi/gomega/internal/assertion
@@ -258,7 +259,7 @@ github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 # github.com/spf13/cobra v0.0.3
 github.com/spf13/cobra
-# github.com/spf13/pflag v1.0.3
+# github.com/spf13/pflag v1.0.5
 github.com/spf13/pflag
 # github.com/subgraph/libmacouflage v0.0.1
 github.com/subgraph/libmacouflage
@@ -267,7 +268,7 @@ github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc
 github.com/vishvananda/netns
-# golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8
+# golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
 golang.org/x/crypto/ssh/terminal
 golang.org/x/crypto/ssh
 golang.org/x/crypto/curve25519
@@ -276,7 +277,7 @@ golang.org/x/crypto/internal/chacha20
 golang.org/x/crypto/poly1305
 golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/subtle
-# golang.org/x/net v0.0.0-20190613194153-d28f0bde5980
+# golang.org/x/net v0.0.0-20190930134127-c5a3c61f89f3
 golang.org/x/net/context
 golang.org/x/net/trace
 golang.org/x/net/http2
@@ -292,13 +293,13 @@ golang.org/x/net/internal/iana
 golang.org/x/net/internal/socket
 golang.org/x/net/html
 golang.org/x/net/html/atom
-# golang.org/x/oauth2 v0.0.0-20181105165119-ca4130e427c7
+# golang.org/x/oauth2 v0.0.0-20181106182150-f42d05182288
 golang.org/x/oauth2
 golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sys v0.0.0-20190616124812-15dcb6c0061f
+# golang.org/x/sys v0.0.0-20190927073244-c990c680b611
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/cpu
@@ -381,7 +382,7 @@ gopkg.in/inf.v0
 gopkg.in/ini.v1
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 gopkg.in/tomb.v1
-# gopkg.in/yaml.v2 v2.2.2
+# gopkg.in/yaml.v2 v2.2.3
 gopkg.in/yaml.v2
 # k8s.io/api v0.0.0-20190725062911-6607c48751ae => k8s.io/api v0.0.0-20190222213804-5cb15d344471
 k8s.io/api/core/v1
@@ -662,7 +663,7 @@ k8s.io/client-go/listers/settings/v1alpha1
 k8s.io/client-go/listers/storage/v1
 k8s.io/client-go/listers/storage/v1alpha1
 k8s.io/client-go/listers/storage/v1beta1
-# k8s.io/klog v0.3.1
+# k8s.io/klog v1.0.0
 k8s.io/klog
 # k8s.io/kube-aggregator v0.0.0-20190228175259-3e0149950b0e
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1
