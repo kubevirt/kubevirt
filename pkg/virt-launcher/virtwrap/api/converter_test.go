@@ -1494,7 +1494,7 @@ var _ = Describe("Converter", func() {
 
 			v1Disk := v1.Disk{
 				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{},
+					Disk: &v1.DiskTarget{Bus: "virtio"},
 				},
 			}
 			apiDisk := Disk{}
