@@ -129,7 +129,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
-		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(&isolation.IsolationResult{}, nil).AnyTimes()
+		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(&isolation.RealIsolationResult{}, nil).AnyTimes()
 		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any()).Return(nil).AnyTimes()
 
 		controller = NewController(recorder,

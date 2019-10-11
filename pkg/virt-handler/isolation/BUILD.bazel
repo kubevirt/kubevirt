@@ -19,6 +19,7 @@ go_library(
         "//vendor/github.com/mitchellh/go-ps:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "@com_github_containernetworking_plugins//pkg/ns:go_default_library",
     ],
 )
 
