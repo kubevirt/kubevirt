@@ -78,7 +78,7 @@ func (cc *concurrentCollector) Collect(socketToVMIs vmiSocketMap, scraper metric
 		completed = false
 	}
 
-	log.Log.V(2).Infof("Collection completed")
+	log.Log.V(4).Infof("Collection completed")
 
 	return skipped, completed
 }

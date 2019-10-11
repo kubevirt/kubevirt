@@ -443,7 +443,7 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	if len(vmis) == 0 {
-		log.Log.V(2).Infof("No VMIs detected")
+		log.Log.V(4).Infof("No VMIs detected")
 		return
 	}
 
