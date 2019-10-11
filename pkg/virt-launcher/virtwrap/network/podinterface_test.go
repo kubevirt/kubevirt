@@ -63,7 +63,8 @@ var _ = Describe("Pod Network", func() {
 
 	BeforeEach(func() {
 		tmpDir, _ := ioutil.TempDir("", "networktest")
-		setInterfaceCacheFile(tmpDir + "/cache-%s.json")
+		setInterfaceCacheFile(tmpDir + "/cache-iface-%s.json")
+		setVifCacheFile(tmpDir + "/cache-vif-%s.json")
 
 		ctrl = gomock.NewController(GinkgoT())
 		mockNetwork = NewMockNetworkHandler(ctrl)
@@ -177,16 +178,16 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().NftablesAppendRule("nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
 		mockNetwork.EXPECT().NftablesAppendRule("nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
 
-		err := SetupPodNetwork(vm, domain)
+		err := SetupPodNetworkPhase1(vm, domain)
 		Expect(err).To(BeNil())
 		Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
 		xmlStr, err := xml.Marshal(domain.Spec.Devices.Interfaces)
 		Expect(string(xmlStr)).To(Equal(string(interfaceXml)))
 		Expect(err).To(BeNil())
 
-		// Calling SetupPodNetwork a second time should result in no
+		// Calling SetupPodNetworkPhase1 a second time should result in no
 		// mockNetwork function calls and interface should be identical
-		err = SetupPodNetwork(vm, domain)
+		err = SetupPodNetworkPhase1(vm, domain)
 
 		Expect(err).To(BeNil())
 		Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
@@ -215,7 +216,7 @@ var _ = Describe("Pod Network", func() {
 			api.SetObjectDefaults_Domain(domain)
 			TestPodInterfaceIPBinding(vm, domain)
 		})
-		It("should panic if pod networking fails to setup", func() {
+		It("phase1 should panic if pod networking fails to setup", func() {
 			testNetworkPanic := func() {
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIBridgeInterface("testnamespace", "testVmName")
@@ -237,7 +238,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
 				mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
 
-				SetupPodNetwork(vm, domain)
+				SetupPodNetworkPhase1(vm, domain)
 			}
 			Expect(testNetworkPanic).To(Panic())
 		})
@@ -253,7 +254,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
 			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
 
-			err := SetupPodNetwork(vm, domain)
+			err := SetupPodNetworkPhase1(vm, domain)
 			Expect(err).To(HaveOccurred())
 		})
 		Context("func filterPodNetworkRoutes()", func() {
@@ -356,6 +357,16 @@ var _ = Describe("Pod Network", func() {
 				Expect(idx).To(Equal(2))
 			})
 		})
+		It("phase2 should panic if DHCP startup fails", func() {
+			testDhcpPanic := func() {
+				domain := NewDomainWithBridgeInterface()
+				vm := newVMIBridgeInterface("testnamespace", "testVmName")
+				api.SetObjectDefaults_Domain(domain)
+				mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("failed to open file"))
+				SetupPodNetworkPhase2(vm, domain)
+			}
+			Expect(testDhcpPanic).To(Panic())
+		})
 		Context("getBinding", func() {
 			Context("for Bridge", func() {
 				It("should populate MAC address", func() {
@@ -386,7 +397,10 @@ var _ = Describe("Pod Network", func() {
 				}
 				vmi := newVMI("testnamespace", "testVmName")
 				podiface := PodInterface{}
-				err := podiface.Plug(vmi, iface, net, domain, "fakeiface")
+				err := podiface.PlugPhase1(vmi, iface, net, domain, "fakeiface")
+				Expect(err).ToNot(HaveOccurred())
+
+				err = podiface.PlugPhase2(vmi, iface, net, domain, "fakeiface")
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})

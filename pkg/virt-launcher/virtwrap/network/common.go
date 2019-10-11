@@ -36,6 +36,8 @@ import (
 	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -45,23 +47,25 @@ import (
 const randomMacGenerationAttempts = 10
 
 type VIF struct {
-	Name    string
-	IP      netlink.Addr
-	MAC     net.HardwareAddr
-	Gateway net.IP
-	Routes  *[]netlink.Route
-	Mtu     uint16
+	Name     string
+	IP       netlink.Addr
+	MAC      net.HardwareAddr
+	Gateway  net.IP
+	Routes   *[]netlink.Route
+	Mtu      uint16
+	IsLayer2 bool
 }
 
 func (vif VIF) String() string {
 	return fmt.Sprintf(
-		"VIF: { Name: %s, IP: %s, Mask: %s, MAC: %s, Gateway: %s, MTU: %d}",
+		"VIF: { Name: %s, IP: %s, Mask: %s, MAC: %s, Gateway: %s, MTU: %d, IsLayer2: %t}",
 		vif.Name,
 		vif.IP.IP,
 		vif.IP.Mask,
 		vif.MAC,
 		vif.Gateway,
 		vif.Mtu,
+		vif.IsLayer2,
 	)
 }
 
@@ -81,7 +85,7 @@ type NetworkHandler interface {
 	GenerateRandomMac() (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
-	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions)
+	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
 	UseIptables() bool
 	IptablesNewChain(table, chain string) error
 	IptablesAppendRule(table, chain string, rulespec ...string) error
@@ -264,12 +268,11 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 	return currentMac, nil
 }
 
-func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) {
+func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
 	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
 	nameservers, searchDomains, err := api.GetResolvConfDetailsFromPod()
 	if err != nil {
-		log.Log.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
-		panic(err)
+		return fmt.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
 	}
 
 	// panic in case the DHCP server failed during the vm creation
@@ -292,6 +295,8 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, brid
 			panic(err)
 		}
 	}()
+
+	return nil
 }
 
 // Generate a random mac for interface
@@ -307,7 +312,8 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 }
 
 // Allow mocking for tests
-var SetupPodNetwork = SetupNetworkInterfaces
+var SetupPodNetworkPhase1 = SetupNetworkInterfacesPhase1
+var SetupPodNetworkPhase2 = SetupNetworkInterfacesPhase2
 var DHCPServer = dhcp.SingleClientDHCPServer
 
 func initHandler() {
@@ -316,20 +322,20 @@ func initHandler() {
 	}
 }
 
-func writeToCachedFile(inter interface{}, fileName, name string) error {
+func writeToCachedFile(inter interface{}, fileName string, uid types.UID, name string) error {
 	buf, err := json.MarshalIndent(&inter, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling cached object: %v", err)
 	}
-	err = ioutil.WriteFile(getInterfaceCacheFile(fileName, name), buf, 0644)
+	err = ioutil.WriteFile(getInterfaceCacheFile(fileName, uid, name), buf, 0644)
 	if err != nil {
 		return fmt.Errorf("error writing cached object: %v", err)
 	}
 	return nil
 }
 
-func readFromCachedFile(name, fileName string, inter interface{}) (bool, error) {
-	buf, err := ioutil.ReadFile(getInterfaceCacheFile(fileName, name))
+func readFromCachedFile(uid types.UID, name, fileName string, inter interface{}) (bool, error) {
+	buf, err := ioutil.ReadFile(getInterfaceCacheFile(fileName, uid, name))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
@@ -344,8 +350,8 @@ func readFromCachedFile(name, fileName string, inter interface{}) (bool, error) 
 	return true, nil
 }
 
-func getInterfaceCacheFile(filePath, name string) string {
-	return fmt.Sprintf(filePath, name)
+func getInterfaceCacheFile(filePath string, uid types.UID, name string) string {
+	return fmt.Sprintf(filePath, uid, name)
 }
 
 // filter out irrelevant routes
@@ -369,4 +375,8 @@ func filterPodNetworkRoutes(routes []netlink.Route, nic *VIF) (filteredRoutes []
 // only used by unit test suite
 func setInterfaceCacheFile(path string) {
 	interfaceCacheFile = path
+}
+
+func setVifCacheFile(path string) {
+	vifCacheFile = path
 }

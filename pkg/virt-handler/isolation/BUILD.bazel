@@ -15,11 +15,11 @@ go_library(
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/containernetworking/plugins/pkg/ns:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/mitchellh/go-ps:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
-        "@com_github_containernetworking_plugins//pkg/ns:go_default_library",
     ],
 )
 

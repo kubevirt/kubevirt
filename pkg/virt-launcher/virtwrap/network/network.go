@@ -34,18 +34,30 @@ import (
 
 const podInterface = "eth0"
 
-var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache-%s.json"
-var qemuArgCacheFile = "/var/run/kubevirt-private/qemu-arg-%s.json"
+var interfaceCacheFile = "/var/run/kubevirt/interface-cache-%s-%s.json"
+var qemuArgCacheFile = "/var/run/kubevirt/qemu-arg-%s-%s.json"
+var vifCacheFile = "/var/run/kubevirt/vif-cache-%s-%s.json"
 var NetworkInterfaceFactory = getNetworkClass
 
 var podInterfaceName = podInterface
 
+type plugFunction func(vif NetworkInterface, vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
+
 type NetworkInterface interface {
-	Plug(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
+	PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
+	PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 	Unplug()
 }
 
-func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	return _setupNetworkInterfaces(vmi, domain, NetworkInterface.PlugPhase1)
+}
+
+func SetupNetworkInterfacesPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	return _setupNetworkInterfaces(vmi, domain, NetworkInterface.PlugPhase2)
+}
+
+func _setupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, plug plugFunction) error {
 	// prepare networks map
 	networks := map[string]*v1.Network{}
 	cniNetworks := map[string]int{}
@@ -80,7 +92,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			podInterfaceName = podInterface
 		}
 
-		err = vif.Plug(vmi, &iface, network, domain, podInterfaceName)
+		err = plug(vif, vmi, &iface, network, domain, podInterfaceName)
 		if err != nil {
 			return err
 		}

@@ -22,6 +22,7 @@ go_library(
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/subgraph/libmacouflage:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
 )
 
@@ -42,5 +43,6 @@ go_test(
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
 )

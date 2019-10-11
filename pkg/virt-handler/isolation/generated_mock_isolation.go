@@ -4,6 +4,7 @@
 package isolation
 
 import (
+	ns "github.com/containernetworking/plugins/pkg/ns"
 	gomock "github.com/golang/mock/gomock"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -162,4 +163,14 @@ func (_m *MockIsolationResult) NetNamespace() string {
 
 func (_mr *_MockIsolationResultRecorder) NetNamespace() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "NetNamespace")
+}
+
+func (_m *MockIsolationResult) DoNetNS(_param0 func(ns.NetNS) error) error {
+	ret := _m.ctrl.Call(_m, "DoNetNS", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockIsolationResultRecorder) DoNetNS(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DoNetNS", arg0)
 }

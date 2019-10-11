@@ -22,12 +22,16 @@
 package network
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"strconv"
 	"strings"
 
 	"github.com/vishvananda/netlink"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -40,9 +44,17 @@ var bridgeFakeIP = "169.254.75.1%d/32"
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
 	preparePodNetworkInterfaces() error
+
 	decorateConfig() error
-	loadCachedInterface(name string) (bool, error)
-	setCachedInterface(name string) error
+
+	loadCachedInterface(uid types.UID, name string) (bool, error)
+	setCachedInterface(uid types.UID, name string) error
+
+	// different phases may need to pass state through cached VIF file
+	loadCachedVIF(uid types.UID, name string) (bool, error)
+	setCachedVIF(uid types.UID, name string) error
+
+	startDHCP(vmi *v1.VirtualMachineInstance) error
 }
 
 type PodInterface struct{}
@@ -58,8 +70,19 @@ func findInterfaceByName(ifaces []api.Interface, name string) (int, error) {
 	return 0, fmt.Errorf("failed to find interface with alias set to %s", name)
 }
 
-// Plug connect a Pod network device to the virtual machine
-func (l *PodInterface) Plug(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
+func getVifFile(uid types.UID, name string) string {
+	return fmt.Sprintf(vifCacheFile, uid, name)
+}
+
+func writeVifFile(buf []byte, uid types.UID, name string) error {
+	err := ioutil.WriteFile(getVifFile(uid, name), buf, 0644)
+	if err != nil {
+		return fmt.Errorf("error writing vif object: %v", err)
+	}
+	return nil
+}
+
+func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
 	precond.MustNotBeNil(domain)
 	initHandler()
 
@@ -73,7 +96,7 @@ func (l *PodInterface) Plug(vmi *v1.VirtualMachineInstance, iface *v1.Interface,
 		return err
 	}
 
-	isExist, err := driver.loadCachedInterface(iface.Name)
+	isExist, err := driver.loadCachedInterface(vmi.UID, iface.Name)
 	if err != nil {
 		return err
 	}
@@ -97,11 +120,59 @@ func (l *PodInterface) Plug(vmi *v1.VirtualMachineInstance, iface *v1.Interface,
 			panic(err)
 		}
 
-		err = driver.setCachedInterface(iface.Name)
+		err = driver.setCachedInterface(vmi.UID, iface.Name)
 		if err != nil {
 			log.Log.Reason(err).Critical("failed to save interface configuration")
 			panic(err)
 		}
+
+		err = driver.setCachedVIF(vmi.UID, iface.Name)
+		if err != nil {
+			log.Log.Reason(err).Critical("failed to save vif configuration")
+			panic(err)
+		}
+	}
+
+	return nil
+}
+
+func (l *PodInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
+	precond.MustNotBeNil(domain)
+	initHandler()
+
+	// There is nothing to plug for SR-IOV devices
+	if iface.SRIOV != nil {
+		return nil
+	}
+
+	driver, err := getBinding(vmi, iface, network, domain, podInterfaceName)
+	if err != nil {
+		return err
+	}
+
+	isExist, err := driver.loadCachedInterface(vmi.UID, iface.Name)
+	if err != nil {
+		log.Log.Reason(err).Critical("failed to load cached interface configuration")
+		panic(err)
+	}
+	if !isExist {
+		log.Log.Reason(err).Critical("cached interface configuration doesn't exist")
+		panic(errors.New("cached interface configuration doesn't exist"))
+	}
+
+	isExist, err = driver.loadCachedVIF(vmi.UID, iface.Name)
+	if err != nil {
+		log.Log.Reason(err).Critical("failed to load cached vif configuration")
+		panic(err)
+	}
+	if !isExist {
+		log.Log.Reason(err).Critical("cached vif configuration doesn't exist")
+		panic(errors.New("cached vif configuration doesn't exist"))
+	}
+
+	if err := driver.startDHCP(vmi); err != nil {
+		log.Log.Reason(err).Critical("failed to start DHCP server")
+		panic(err)
 	}
 
 	return nil
@@ -159,7 +230,6 @@ type BridgePodInterface struct {
 	iface               *v1.Interface
 	podNicLink          netlink.Link
 	domain              *api.Domain
-	isLayer2            bool
 	podInterfaceNum     int
 	podInterfaceName    string
 	bridgeInterfaceName string
@@ -180,10 +250,10 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 		return err
 	}
 	if len(addrList) == 0 {
-		b.isLayer2 = true
+		b.vif.IsLayer2 = true
 	} else {
 		b.vif.IP = addrList[0]
-		b.isLayer2 = false
+		b.vif.IsLayer2 = false
 	}
 
 	if len(b.vif.MAC) == 0 {
@@ -203,11 +273,24 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 	// Get interface MTU
 	b.vif.Mtu = uint16(b.podNicLink.Attrs().MTU)
 
-	if !b.isLayer2 {
+	if !b.vif.IsLayer2 {
 		// Handle interface routes
 		if err := b.setInterfaceRoutes(); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (b *BridgePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
+	if !b.vif.IsLayer2 {
+		addr := fmt.Sprintf(bridgeFakeIP, b.podInterfaceNum)
+		fakeServerAddr, err := netlink.ParseAddr(addr)
+		if err != nil {
+			return fmt.Errorf("failed to parse address while starting DHCP server: %s", addr)
+		}
+		log.Log.Object(b.vmi).Infof("bridge pod interface: %+v %+v", b.vif, b)
+		return Handler.StartDHCP(b.vif, fakeServerAddr, b.bridgeInterfaceName, b.iface.DHCPOptions)
 	}
 	return nil
 }
@@ -232,7 +315,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	if !b.isLayer2 {
+	if !b.vif.IsLayer2 {
 		// Remove IP from POD interface
 		err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
 
@@ -240,8 +323,6 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 			log.Log.Reason(err).Errorf("failed to delete address for interface: %s", b.podInterfaceName)
 			return err
 		}
-
-		b.startDHCPServer()
 	}
 
 	if err := Handler.LinkSetLearningOff(b.podNicLink); err != nil {
@@ -252,13 +333,6 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 	return nil
 }
 
-func (b *BridgePodInterface) startDHCPServer() {
-	// Start DHCP Server
-	fakeServerAddr, _ := netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, b.podInterfaceNum))
-	log.Log.Object(b.vmi).Infof("bridge pod interface: %s", b.vif)
-	Handler.StartDHCP(b.vif, fakeServerAddr, b.bridgeInterfaceName, b.iface.DHCPOptions)
-}
-
 func (b *BridgePodInterface) decorateConfig() error {
 	b.domain.Spec.Devices.Interfaces[b.podInterfaceNum].MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
 	b.domain.Spec.Devices.Interfaces[b.podInterfaceNum].MAC = &api.MAC{MAC: b.vif.MAC.String()}
@@ -266,10 +340,10 @@ func (b *BridgePodInterface) decorateConfig() error {
 	return nil
 }
 
-func (b *BridgePodInterface) loadCachedInterface(name string) (bool, error) {
+func (b *BridgePodInterface) loadCachedInterface(uid types.UID, name string) (bool, error) {
 	var ifaceConfig api.Interface
 
-	isExist, err := readFromCachedFile(name, interfaceCacheFile, &ifaceConfig)
+	isExist, err := readFromCachedFile(uid, name, interfaceCacheFile, &ifaceConfig)
 	if err != nil {
 		return false, err
 	}
@@ -282,9 +356,30 @@ func (b *BridgePodInterface) loadCachedInterface(name string) (bool, error) {
 	return false, nil
 }
 
-func (b *BridgePodInterface) setCachedInterface(name string) error {
-	err := writeToCachedFile(&b.domain.Spec.Devices.Interfaces[b.podInterfaceNum], interfaceCacheFile, name)
+func (b *BridgePodInterface) setCachedInterface(uid types.UID, name string) error {
+	err := writeToCachedFile(&b.domain.Spec.Devices.Interfaces[b.podInterfaceNum], interfaceCacheFile, uid, name)
 	return err
+}
+
+func (b *BridgePodInterface) loadCachedVIF(uid types.UID, name string) (bool, error) {
+	buf, err := ioutil.ReadFile(getVifFile(uid, name))
+	if err != nil {
+		return false, err
+	}
+	err = json.Unmarshal(buf, &b.vif)
+	if err != nil {
+		return false, err
+	}
+	b.vif.Gateway = b.vif.Gateway.To4()
+	return true, nil
+}
+
+func (b *BridgePodInterface) setCachedVIF(uid types.UID, name string) error {
+	buf, err := json.MarshalIndent(&b.vif, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshaling vif object: %v", err)
+	}
+	return writeVifFile(buf, uid, name)
 }
 
 func (b *BridgePodInterface) setInterfaceRoutes() error {
@@ -398,6 +493,15 @@ func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 	return nil
 }
 
+func (p *MasqueradePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
+	addr := fmt.Sprintf("%s/24", p.vif.Gateway.String())
+	fakeServerAddr, err := netlink.ParseAddr(addr)
+	if err != nil {
+		return fmt.Errorf("failed to parse address while starting DHCP server: %s", addr)
+	}
+	return Handler.StartDHCP(p.vif, fakeServerAddr, p.bridgeInterfaceName, p.iface.DHCPOptions)
+}
+
 func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 	// Create an master bridge interface
 	bridgeNicName := fmt.Sprintf("%s-nic", p.bridgeInterfaceName)
@@ -436,15 +540,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	p.startDHCPServer()
-
 	return nil
-}
-
-func (p *MasqueradePodInterface) startDHCPServer() {
-	// Start DHCP Server
-	log.Log.Object(p.vmi).Infof("masquerade pod interface: %s", p.vif)
-	Handler.StartDHCP(p.vif, p.gatewayAddr, p.bridgeInterfaceName, p.iface.DHCPOptions)
 }
 
 func (p *MasqueradePodInterface) decorateConfig() error {
@@ -454,10 +550,10 @@ func (p *MasqueradePodInterface) decorateConfig() error {
 	return nil
 }
 
-func (p *MasqueradePodInterface) loadCachedInterface(name string) (bool, error) {
+func (p *MasqueradePodInterface) loadCachedInterface(uid types.UID, name string) (bool, error) {
 	var ifaceConfig api.Interface
 
-	isExist, err := readFromCachedFile(name, interfaceCacheFile, &ifaceConfig)
+	isExist, err := readFromCachedFile(uid, name, interfaceCacheFile, &ifaceConfig)
 	if err != nil {
 		return false, err
 	}
@@ -470,9 +566,30 @@ func (p *MasqueradePodInterface) loadCachedInterface(name string) (bool, error) 
 	return false, nil
 }
 
-func (p *MasqueradePodInterface) setCachedInterface(name string) error {
-	err := writeToCachedFile(&p.domain.Spec.Devices.Interfaces[p.podInterfaceNum], interfaceCacheFile, name)
+func (p *MasqueradePodInterface) setCachedInterface(uid types.UID, name string) error {
+	err := writeToCachedFile(&p.domain.Spec.Devices.Interfaces[p.podInterfaceNum], interfaceCacheFile, uid, name)
 	return err
+}
+
+func (p *MasqueradePodInterface) loadCachedVIF(uid types.UID, name string) (bool, error) {
+	buf, err := ioutil.ReadFile(getVifFile(uid, name))
+	if err != nil {
+		return false, err
+	}
+	err = json.Unmarshal(buf, &p.vif)
+	if err != nil {
+		return false, err
+	}
+	p.vif.Gateway = p.vif.Gateway.To4()
+	return true, nil
+}
+
+func (b *MasqueradePodInterface) setCachedVIF(uid types.UID, name string) error {
+	buf, err := json.MarshalIndent(&b.vif, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshaling vif object: %v", err)
+	}
+	return writeVifFile(buf, uid, name)
 }
 
 func (p *MasqueradePodInterface) createBridge() error {
@@ -481,6 +598,7 @@ func (p *MasqueradePodInterface) createBridge() error {
 	bridgeNicLink, err := Handler.LinkByName(bridgeNicName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to find dummy interface for bridge")
+		return err
 	}
 
 	// Create a bridge
@@ -686,18 +804,22 @@ type SlirpPodInterface struct {
 }
 
 func (s *SlirpPodInterface) discoverPodNetworkInterface() error {
-	s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-device"})
 	return nil
 }
 
 func (s *SlirpPodInterface) preparePodNetworkInterfaces() error {
 	interfaces := s.domain.Spec.Devices.Interfaces
 	domainInterface := interfaces[s.podInterfaceNum]
+	s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-device"})
 	s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: fmt.Sprintf("%s,netdev=%s", domainInterface.Model.Type, s.iface.Name)})
 
 	s.domain.Spec.Devices.Interfaces = append(interfaces[:s.podInterfaceNum], interfaces[s.podInterfaceNum+1:]...)
 	s.podInterfaceNum = len(s.domain.Spec.QEMUCmd.QEMUArg) - 1
 
+	return nil
+}
+
+func (s *SlirpPodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
@@ -710,20 +832,20 @@ func (s *SlirpPodInterface) decorateConfig() error {
 	return nil
 }
 
-func (s *SlirpPodInterface) loadCachedInterface(name string) (bool, error) {
+func (s *SlirpPodInterface) loadCachedInterface(uid types.UID, name string) (bool, error) {
 	var qemuArg api.Arg
-	interfaces := s.domain.Spec.Devices.Interfaces
 
-	isExist, err := readFromCachedFile(name, qemuArgCacheFile, &qemuArg)
+	isExist, err := readFromCachedFile(uid, name, qemuArgCacheFile, &qemuArg)
 	if err != nil {
 		return false, err
 	}
 
 	if isExist {
 		// remove slirp interface from domain spec devices interfaces
-		interfaces = append(interfaces[:s.podInterfaceNum], interfaces[s.podInterfaceNum+1:]...)
+		s.domain.Spec.Devices.Interfaces = append(s.domain.Spec.Devices.Interfaces[:s.podInterfaceNum], s.domain.Spec.Devices.Interfaces[s.podInterfaceNum+1:]...)
 
 		// Add interface configuration to qemuArgs
+		s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, api.Arg{Value: "-device"})
 		s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, qemuArg)
 		return true, nil
 	}
@@ -731,7 +853,14 @@ func (s *SlirpPodInterface) loadCachedInterface(name string) (bool, error) {
 	return false, nil
 }
 
-func (s *SlirpPodInterface) setCachedInterface(name string) error {
-	err := writeToCachedFile(&s.domain.Spec.QEMUCmd.QEMUArg[s.podInterfaceNum], qemuArgCacheFile, name)
-	return err
+func (s *SlirpPodInterface) loadCachedVIF(uid types.UID, name string) (bool, error) {
+	return true, nil
+}
+
+func (b *SlirpPodInterface) setCachedVIF(uid types.UID, name string) error {
+	return nil
+}
+
+func (s *SlirpPodInterface) setCachedInterface(uid types.UID, name string) error {
+	return writeToCachedFile(&s.domain.Spec.QEMUCmd.QEMUArg[s.podInterfaceNum], qemuArgCacheFile, uid, name)
 }

@@ -21,6 +21,8 @@ github.com/asaskevich/govalidator
 github.com/beorn7/perks/quantile
 # github.com/blang/semver v3.5.1+incompatible
 github.com/blang/semver
+# github.com/containernetworking/plugins v0.8.2
+github.com/containernetworking/plugins/pkg/ns
 # github.com/coreos/go-iptables v0.4.3
 github.com/coreos/go-iptables/iptables
 # github.com/coreos/go-semver v0.3.0
@@ -255,7 +257,7 @@ github.com/spf13/cobra
 github.com/spf13/pflag
 # github.com/subgraph/libmacouflage v0.0.1
 github.com/subgraph/libmacouflage
-# github.com/vishvananda/netlink v0.0.0-20180206203732-d35d6b58e1cb
+# github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc

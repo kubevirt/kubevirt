@@ -31,6 +31,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/containernetworking/plugins/pkg/ns"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +48,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
@@ -59,6 +62,7 @@ import (
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -1379,6 +1383,34 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 	return nil
 }
 
+func getDomain(vmi *v1.VirtualMachineInstance) (*api.Domain, error) {
+	// todo: fill in domain with correct values for all keys
+	isBlockPVCMap := make(map[string]bool)
+	isBlockDVMap := make(map[string]bool)
+	diskInfo := make(map[string]*containerdisk.DiskInfo)
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.PersistentVolumeClaim != nil {
+			isBlockPVCMap[volume.Name] = true
+		} else if volume.VolumeSource.ContainerDisk != nil {
+			diskInfo[volume.Name] = &containerdisk.DiskInfo{}
+		} else if volume.VolumeSource.DataVolume != nil {
+			isBlockDVMap[volume.Name] = true
+		}
+	}
+
+	c := &api.ConverterContext{
+		VirtualMachine: vmi,
+		DiskType:       diskInfo,
+		IsBlockPVC:     isBlockPVCMap,
+		IsBlockDV:      isBlockDVMap,
+	}
+	domain := &api.Domain{}
+	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
+		return nil, err
+	}
+	return domain, nil
+}
+
 func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
 	vmi := origVMI.DeepCopy()
 
@@ -1454,6 +1486,25 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
 				return err
 			}
+		}
+
+		res, err := d.podIsolationDetector.Detect(vmi)
+		if err != nil {
+			return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+		}
+
+		if err := res.DoNetNS(func(_ ns.NetNS) error {
+			domain, err := getDomain(vmi)
+			if err != nil {
+				return err
+			}
+			// todo: consider getting rid of domain argument completely
+			if err = network.SetupPodNetworkPhase1(vmi, domain); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to configure vmi network: %v", err)
 		}
 
 		err = d.podIsolationDetector.AdjustResources(vmi)

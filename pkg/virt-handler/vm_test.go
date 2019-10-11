@@ -54,8 +54,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
+
+func StubOutNetworkForTest() {
+	network.SetupPodNetworkPhase1 = func(vm *v1.VirtualMachineInstance, domain *api.Domain) error { return nil }
+	network.SetupPodNetworkPhase2 = func(vm *v1.VirtualMachineInstance, domain *api.Domain) error { return nil }
+}
 
 var _ = Describe("VirtualMachineInstance", func() {
 	var client *cmdclient.MockLauncherClient
@@ -74,6 +80,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var mockWatchdog *MockWatchdog
 	var mockGracefulShutdown *MockGracefulShutdown
 	var mockIsolationDetector *isolation.MockPodIsolationDetector
+	var mockIsolationResult *isolation.MockIsolationResult
 
 	var vmiFeeder *testutils.VirtualMachineFeeder
 	var domainFeeder *testutils.DomainFeeder
@@ -128,8 +135,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
 		config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
+		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
+		mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).AnyTimes()
+		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
+
 		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
-		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(&isolation.RealIsolationResult{}, nil).AnyTimes()
+		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
 		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any()).Return(nil).AnyTimes()
 
 		controller = NewController(recorder,
@@ -164,6 +175,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 		go domainInformer.Run(stop)
 		go gracefulShutdownInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
+
+		StubOutNetworkForTest()
 	})
 
 	AfterEach(func() {

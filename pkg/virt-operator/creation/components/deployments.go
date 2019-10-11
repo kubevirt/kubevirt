@@ -347,6 +347,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	pod := &daemonset.Spec.Template.Spec
 	pod.ServiceAccountName = rbac.HandlerServiceAccountName
 	pod.HostPID = true
+	pod.HostNetwork = true // handler needs to manipulate launcher namespaces
 
 	container := &pod.Containers[0]
 	container.Command = []string{
