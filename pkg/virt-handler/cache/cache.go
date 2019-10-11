@@ -111,6 +111,7 @@ func (d *DomainWatcher) handleStaleWatchdogFiles() error {
 	}
 
 	for _, domain := range domains {
+		log.Log.Object(domain).Warning("detected expired watchdog for domain")
 		d.eventChan <- watch.Event{Type: watch.Deleted, Object: domain}
 	}
 	return nil
