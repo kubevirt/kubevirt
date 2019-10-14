@@ -722,6 +722,7 @@ func (s *SlirpPodInterface) loadCachedInterface(name string) (bool, error) {
 	if isExist {
 		// remove slirp interface from domain spec devices interfaces
 		interfaces = append(interfaces[:s.podInterfaceNum], interfaces[s.podInterfaceNum+1:]...)
+		s.domain.Spec.Devices.Interfaces = interfaces
 
 		// Add interface configuration to qemuArgs
 		s.domain.Spec.QEMUCmd.QEMUArg = append(s.domain.Spec.QEMUCmd.QEMUArg, qemuArg)
