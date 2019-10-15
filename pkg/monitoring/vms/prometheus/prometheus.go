@@ -419,8 +419,6 @@ func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
 
 func newvmiSocketMapFromVMIs(baseDir string, vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
 	if len(vmis) == 0 {
-		// should never be triggered, but at debug level we want to know
-		log.Log.V(4).Warningf("No VMIs detected")
 		return nil
 	}
 
@@ -443,7 +441,7 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	if len(vmis) == 0 {
-		log.Log.V(2).Infof("No VMIs detected")
+		log.Log.V(4).Infof("No VMIs detected")
 		return
 	}
 
