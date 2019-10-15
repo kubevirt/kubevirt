@@ -659,6 +659,13 @@ spec:
 		ensureShasums()
 	})
 
+	It("[testid:1746]should have created and available condition", func() {
+		kv := getCurrentKv()
+
+		By("vyrifying that created and available condition is present")
+		waitForKv(kv)
+	})
+
 	Describe("should start a VM", func() {
 		It("using virt-launcher with a shasum", func() {
 
