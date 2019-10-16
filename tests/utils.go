@@ -4012,6 +4012,12 @@ func PodReady(pod *k8sv1.Pod) k8sv1.ConditionStatus {
 	return k8sv1.ConditionFalse
 }
 
+func RetryWithMetadataIfModified(objectMeta metav1.ObjectMeta, do func(objectMeta metav1.ObjectMeta) error) (err error) {
+	return RetryIfModified(func() error {
+		return do(objectMeta)
+	})
+}
+
 func RetryIfModified(do func() error) (err error) {
 	retries := 0
 	for err = do(); errors.IsConflict(err); err = do() {

@@ -193,14 +193,15 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		stopVM := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
 			By("Stopping the VirtualMachine")
 
-			Eventually(func() error {
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+			err = tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta v12.ObjectMeta) error {
+				updatedVM, err := virtClient.VirtualMachine(meta.Namespace).Get(meta.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				updatedVM.Spec.Running = nil
 				updatedVM.Spec.RunStrategy = &runStrategyHalted
-				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				_, err = virtClient.VirtualMachine(meta.Namespace).Update(updatedVM)
 				return err
-			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			})
+			Expect(err).ToNot(HaveOccurred())
 
 			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -227,14 +228,15 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		startVMIDontWait := func(vm *v1.VirtualMachine) *v1.VirtualMachine {
 			By("Starting the VirtualMachineInstance")
 
-			Eventually(func() error {
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+			err := tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta v12.ObjectMeta) error {
+				updatedVM, err := virtClient.VirtualMachine(meta.Namespace).Get(meta.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				updatedVM.Spec.Running = nil
 				updatedVM.Spec.RunStrategy = &runStrategyAlways
-				_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				_, err = virtClient.VirtualMachine(meta.Namespace).Update(updatedVM)
 				return err
-			}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			})
+			Expect(err).ToNot(HaveOccurred())
 
 			updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -249,11 +251,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			vm := newVirtualMachine(false)
 
-			vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			vm.Annotations = annotations
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+			err = tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta v12.ObjectMeta) error {
+				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(meta.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vm.Annotations = annotations
+				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(vm)
+				return err
+			})
 			Expect(err).ToNot(HaveOccurred())
 
 			startVMIDontWait(vm)
@@ -276,11 +280,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			vm := newVirtualMachine(false)
 
-			err = tests.RetryIfModified(func() error {
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+			err = tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta v12.ObjectMeta) error {
+				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(meta.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vm.Annotations = annotations
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
+				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(vm)
 				return err
 			})
 			Expect(err).ToNot(HaveOccurred())
