@@ -337,6 +337,7 @@ var _ = Describe("Configurations", func() {
 				}
 
 				_true := true
+				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceMemory: resource.MustParse("64M"),
@@ -345,6 +346,7 @@ var _ = Describe("Configurations", func() {
 				}
 
 				vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &_true
+				vmi.Spec.Domain.Devices.BlockMultiQueue = &_false
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -354,6 +356,8 @@ var _ = Describe("Configurations", func() {
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring("driver name='vhost' queues='3'"))
+				// make sure that there are not block queues configured
+				Expect(domXml).ToNot(ContainSubstring("cache='none' queues='3'"))
 			})
 
 			It("[test_id:1667]should not enforce explicitly rejected virtio block queues without cores", func() {
