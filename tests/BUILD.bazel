@@ -71,6 +71,7 @@ go_test(
         "stability_test.go",
         "storage_test.go",
         "subresource_api_test.go",
+        "suspend_test.go",
         "template_test.go",
         "tests_suite_test.go",
         "version_test.go",

@@ -3879,16 +3879,63 @@ func UpdateClusterConfigValueAndWait(key string, value string) {
 
 func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
 	By("Waiting for guest agent connection")
+	WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceAgentConnected, 12*60)
+}
+
+func WaitForVMICondition(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType, timeoutSec int) {
+	By(fmt.Sprintf("Waiting for %s condition", conditionType))
 	EventuallyWithOffset(1, func() bool {
 		updatedVmi, err := virtClient.VirtualMachineInstance(NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		for _, condition := range updatedVmi.Status.Conditions {
-			if condition.Type == v1.VirtualMachineInstanceAgentConnected && condition.Status == k8sv1.ConditionTrue {
+			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
 				return true
 			}
 		}
 		return false
-	}, 12*time.Minute, 2).Should(BeTrue(), "Should have agent connected condition")
+	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeTrue(), fmt.Sprintf("Should have %s condition", conditionType))
+}
+
+func WaitForVMIConditionRemovedOrFalse(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType, timeoutSec int) {
+	By(fmt.Sprintf("Waiting for %s condition removed or false", conditionType))
+	EventuallyWithOffset(1, func() bool {
+		updatedVmi, err := virtClient.VirtualMachineInstance(NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, condition := range updatedVmi.Status.Conditions {
+			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
+				return true
+			}
+		}
+		return false
+	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeFalse(), fmt.Sprintf("Should have no or false %s condition", conditionType))
+}
+
+func WaitForVMCondition(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, conditionType v1.VirtualMachineConditionType, timeoutSec int) {
+	By(fmt.Sprintf("Waiting for %s condition", conditionType))
+	EventuallyWithOffset(1, func() bool {
+		updatedVm, err := virtClient.VirtualMachine(NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, condition := range updatedVm.Status.Conditions {
+			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
+				return true
+			}
+		}
+		return false
+	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeTrue(), fmt.Sprintf("Should have %s condition", conditionType))
+}
+
+func WaitForVMConditionRemovedOrFalse(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, conditionType v1.VirtualMachineConditionType, timeoutSec int) {
+	By(fmt.Sprintf("Waiting for %s condition removed or false", conditionType))
+	EventuallyWithOffset(1, func() bool {
+		updatedVm, err := virtClient.VirtualMachine(NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, condition := range updatedVm.Status.Conditions {
+			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
+				return true
+			}
+		}
+		return false
+	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeFalse(), fmt.Sprintf("Should have no or false %s condition", conditionType))
 }
 
 // GeneratePrivateKey creates a RSA Private Key of specified byte size
