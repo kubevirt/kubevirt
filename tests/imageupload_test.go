@@ -92,6 +92,10 @@ var _ = Describe("ImageUpload", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
+			By("Get DataVolume")
+			_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(pvcName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			By("Start VM")
 			vmi := tests.NewRandomVMIWithPVC(pvcName)
 			vmi, err = virtClient.VirtualMachineInstance(namespace).Create(vmi)
