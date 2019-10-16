@@ -678,8 +678,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	volumes = append(volumes, k8sv1.Volume{Name: "infra-ready-mount", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}})
 
-	containers := containerdisk.GenerateContainers(vmi, "container-disks", "virt-bin-share-dir")
-
 	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
 	if err != nil {
 		return nil, err
@@ -700,7 +698,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	// VirtualMachineInstance target container
-	container := k8sv1.Container{
+	compute := k8sv1.Container{
 		Name:            "compute",
 		Image:           t.launcherImage,
 		ImagePullPolicy: imagePullPolicy,
@@ -720,25 +718,29 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	if vmi.Spec.ReadinessProbe != nil {
-		container.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
-		container.ReadinessProbe.InitialDelaySeconds = container.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay
+		compute.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
+		compute.ReadinessProbe.InitialDelaySeconds = compute.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay
 	}
 
 	if vmi.Spec.LivenessProbe != nil {
-		container.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
-		container.LivenessProbe.InitialDelaySeconds = container.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay
+		compute.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
+		compute.LivenessProbe.InitialDelaySeconds = compute.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay
 	}
 
 	for networkName, resourceName := range networkToResourceMap {
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
-		container.Env = append(container.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
+		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
 	}
 
 	if _, ok := vmi.Labels[debugLogs]; ok {
-		container.Env = append(container.Env, k8sv1.EnvVar{Name: ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: "1"})
+		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: "1"})
 	}
 
-	containers = append(containers, container)
+	// Make sure the compute container is always the first since the mutating webhook shipped with the sriov operator
+	// for adding the requested resources to the pod will add them to the first container of the list
+	containers := []k8sv1.Container{compute}
+	containersDisks := containerdisk.GenerateContainers(vmi, "container-disks", "virt-bin-share-dir")
+	containers = append(containers, containersDisks...)
 
 	volumes = append(volumes,
 		k8sv1.Volume{

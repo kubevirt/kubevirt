@@ -339,7 +339,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				podOutputCfgMap, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
-					vmiPod.Spec.Containers[1].Name,
+					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
 						configMapPath + "/config1",
 						configMapPath + "/config2",
@@ -371,7 +371,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				podOutputSecret, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
-					vmiPod.Spec.Containers[1].Name,
+					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
 						secretPath + "/user",
 						secretPath + "/password",
@@ -440,7 +440,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				podOutput1, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
-					vmiPod.Spec.Containers[1].Name,
+					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
 						secretPath + "/ssh-privatekey",
 					},
@@ -451,7 +451,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				podOutput2, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,
-					vmiPod.Spec.Containers[1].Name,
+					vmiPod.Spec.Containers[0].Name,
 					[]string{"cat",
 						secretPath + "/ssh-publickey",
 					},
