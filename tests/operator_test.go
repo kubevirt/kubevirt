@@ -1297,15 +1297,19 @@ spec:
 		It("Should allow Prometheus to scrape KubeVirt endpoints", func() {
 			coreClient := virtClient.CoreV1()
 
-			By("Obtaining Prometheus' configuration data")
-			secret, err := coreClient.Secrets("openshift-monitoring").Get("prometheus-k8s", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			data := secret.Data["prometheus.yaml"]
-			Expect(data).ToNot(BeNil())
+			// we don't know when the prometheus toolchain will pick up our config, so we retry plenty of times
+			// before to give up. TODO: there is a smarter way to wait?
+			Eventually(func() string {
+				By("Obtaining Prometheus' configuration data")
+				secret, err := coreClient.Secrets("openshift-monitoring").Get("prometheus-k8s", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-			By("Verifying that Prometheus is watching KubeVirt")
-			Expect(string(data)).To(ContainSubstring(tests.KubeVirtInstallNamespace), "Prometheus should be monitoring KubeVirt")
+				data := secret.Data["prometheus.yaml"]
+				Expect(data).ToNot(BeNil())
 
+				By("Verifying that Prometheus is watching KubeVirt")
+				return string(data)
+			}, 90*time.Second, 3*time.Second).Should(ContainSubstring(tests.KubeVirtInstallNamespace), "Prometheus should be monitoring KubeVirt")
 		})
 	})
 })
