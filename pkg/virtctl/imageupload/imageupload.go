@@ -67,15 +67,16 @@ const (
 var (
 	insecure       bool
 	uploadProxyURL string
-	pvcName        string
+	name           string
+	size           string
 	pvcSize        string
 	storageClass   string
 	imagePath      string
+	accessMode     string
 
-	uploadPodWaitSecs uint = 60
-	accessMode             = "ReadWriteOnce"
-	blockVolume            = false
-	noCreate               = false
+	uploadPodWaitSecs uint
+	blockVolume       bool
+	noCreate          bool
 )
 
 // HTTPClientCreator is a function that creates http clients
@@ -104,31 +105,37 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "image-upload",
 		Short:   "Upload a VM image to a PersistentVolumeClaim.",
 		Example: usage(),
-		Args:    cobra.ExactArgs(0),
+		Args:    cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v := command{clientConfig: clientConfig}
 			return v.run(cmd, args)
 		},
 	}
-	cmd.Flags().BoolVar(&insecure, "insecure", insecure, "Allow insecure server connections when using HTTPS.")
+	cmd.Flags().BoolVar(&insecure, "insecure", false, "Allow insecure server connections when using HTTPS.")
 	cmd.Flags().StringVar(&uploadProxyURL, "uploadproxy-url", "", "The URL of the cdi-upload proxy service.")
-	cmd.Flags().StringVar(&pvcName, "pvc-name", "", "The destination DataVolume/PVC name.")
-	cmd.MarkFlagRequired("pvc-name")
-	cmd.Flags().StringVar(&pvcSize, "pvc-size", "", "The size of the PVC to create (ex. 10Gi, 500Mi).")
+	cmd.Flags().StringVar(&name, "pvc-name", "", "DEPRECATED - The destination DataVolume/PVC name.")
+	cmd.Flags().StringVar(&pvcSize, "pvc-size", "", "DEPRECATED - The size of the PVC to create (ex. 10Gi, 500Mi).")
+	cmd.Flags().StringVar(&size, "size", "", "The size of the DataVolume to create (ex. 10Gi, 500Mi).")
 	cmd.Flags().StringVar(&storageClass, "storage-class", "", "The storage class for the PVC.")
-	cmd.Flags().StringVar(&accessMode, "access-mode", accessMode, "The access mode for the PVC.")
-	cmd.Flags().BoolVar(&blockVolume, "block-volume", blockVolume, "Create a PVC with VolumeMode=Block (default Filesystem).")
+	cmd.Flags().StringVar(&accessMode, "access-mode", "ReadWriteOnce", "The access mode for the PVC.")
+	cmd.Flags().BoolVar(&blockVolume, "block-volume", false, "Create a PVC with VolumeMode=Block (default Filesystem).")
 	cmd.Flags().StringVar(&imagePath, "image-path", "", "Path to the local VM image.")
 	cmd.MarkFlagRequired("image-path")
-	cmd.Flags().BoolVar(&noCreate, "no-create", noCreate, "Don't attempt to create a new DataVolume/PVC.")
-	cmd.Flags().UintVar(&uploadPodWaitSecs, "wait-secs", uploadPodWaitSecs, "Seconds to wait for upload pod to start.")
+	cmd.Flags().BoolVar(&noCreate, "no-create", false, "Don't attempt to create a new DataVolume/PVC.")
+	cmd.Flags().UintVar(&uploadPodWaitSecs, "wait-secs", 60, "Seconds to wait for upload pod to start.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
 func usage() string {
-	usage := `  # Upload a local disk image to a newly created PersistentVolumeClaim:
-  {{ProgramName}} image-upload --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --pvc-name=upload-pvc --pvc-size=10Gi --image-path=/images/fedora28.qcow2`
+	usage := `  # Upload a local disk image to a newly created DataVolume:
+  {{ProgramName}} image-upload dv upload-dv --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --size=10Gi --image-path=/images/fedora30.qcow2
+
+  # Upload a local disk image to an exististing DataVolume
+  {{ProgramName}} image-upload dv upload-dv --no-create --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --image-path=/images/fedora30.qcow2
+
+  # Upload a local disk image to an exististing PersistentVolumeClaim
+  {{ProgramName}} image-upload pvc upload-pvc --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --image-path=/images/fedora30.qcow2`
 	return usage
 }
 
@@ -136,7 +143,46 @@ type command struct {
 	clientConfig clientcmd.ClientConfig
 }
 
+func parseArgs(args []string) error {
+	if len(size) > 0 && len(pvcSize) > 0 && size != pvcSize {
+		return fmt.Errorf("--pvc-size deprecated, use --size")
+	}
+
+	if len(pvcSize) > 0 {
+		size = pvcSize
+	}
+
+	// check deprecated invocation
+	if name != "" {
+		if len(args) != 0 {
+			return fmt.Errorf("cannot use --pvc-name and args")
+		}
+
+		return nil
+	}
+
+	if len(args) != 2 {
+		return fmt.Errorf("expecting two args")
+	}
+
+	switch strings.ToLower(args[0]) {
+	case "dv":
+	case "pvc":
+		noCreate = true
+	default:
+		return fmt.Errorf("invalid resource type %s", args[0])
+	}
+
+	name = args[1]
+
+	return nil
+}
+
 func (c *command) run(cmd *cobra.Command, args []string) error {
+	if err := parseArgs(args); err != nil {
+		return err
+	}
+
 	file, err := os.Open(imagePath)
 	if err != nil {
 		return err
@@ -150,20 +196,20 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 
 	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(c.clientConfig)
 	if err != nil {
-		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
+		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}
 
-	pvc, err := getAndValidateUploadPVC(virtClient, namespace, pvcName, noCreate)
+	pvc, err := getAndValidateUploadPVC(virtClient, namespace, name, noCreate)
 	if err != nil {
 		if !(k8serrors.IsNotFound(err) && !noCreate) {
 			return err
 		}
 
-		if !noCreate && len(pvcSize) == 0 {
-			return fmt.Errorf("When creating PVC, the size must be specified")
+		if !noCreate && len(size) == 0 {
+			return fmt.Errorf("when creating DataVolume, the size must be specified")
 		}
 
-		dv, err := createUploadDataVolume(virtClient, namespace, pvcName, pvcSize, storageClass, accessMode, blockVolume)
+		dv, err := createUploadDataVolume(virtClient, namespace, name, size, storageClass, accessMode, blockVolume)
 		if err != nil {
 			return err
 		}
@@ -178,7 +224,7 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Using existing PVC %s/%s\n", namespace, pvc.Name)
 	}
 
-	err = waitUploadServerReady(virtClient, namespace, pvcName, uploadReadyWaitInterval, time.Duration(uploadPodWaitSecs)*time.Second)
+	err = waitUploadServerReady(virtClient, namespace, name, uploadReadyWaitInterval, time.Duration(uploadPodWaitSecs)*time.Second)
 	if err != nil {
 		return err
 	}
@@ -189,7 +235,7 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		if uploadProxyURL == "" {
-			return fmt.Errorf("Upload Proxy URL not found")
+			return fmt.Errorf("uploadproxy URL not found")
 		}
 	}
 
@@ -204,7 +250,7 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Uploading data to %s\n", uploadProxyURL)
 
-	token, err := getUploadToken(virtClient.CdiClient(), namespace, pvcName)
+	token, err := getUploadToken(virtClient.CdiClient(), namespace, name)
 	if err != nil {
 		return err
 	}
@@ -280,7 +326,7 @@ func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) erro
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Unexpected return value %d", resp.StatusCode)
+		return fmt.Errorf("unexpected return value %d", resp.StatusCode)
 	}
 
 	return nil
@@ -319,7 +365,7 @@ func waitUploadServerReady(client kubernetes.Interface, namespace, name string, 
 		}
 
 		// upload controler sets this to true when uploadserver pod is ready to receive data
-		podReady, _ := pvc.Annotations[PodReadyAnnotation]
+		podReady := pvc.Annotations[PodReadyAnnotation]
 		done, _ := strconv.ParseBool(podReady)
 
 		if !done && !loggedStatus {
@@ -340,7 +386,7 @@ func waitUploadServerReady(client kubernetes.Interface, namespace, name string, 
 func createUploadDataVolume(client kubecli.KubevirtClient, namespace, name, size, storageClass, accessMode string, blockVolume bool) (*cdiv1.DataVolume, error) {
 	quantity, err := resource.ParseQuantity(size)
 	if err != nil {
-		return nil, fmt.Errorf("Validation failed for size=%s: %s", size, err)
+		return nil, fmt.Errorf("validation failed for size=%s: %s", size, err)
 	}
 
 	dv := &cdiv1.DataVolume{
@@ -399,7 +445,7 @@ func ensurePVCSupportsUpload(client kubernetes.Interface, pvc *v1.PersistentVolu
 }
 
 func getAndValidateUploadPVC(client kubernetes.Interface, namespace, name string, shouldExist bool) (*v1.PersistentVolumeClaim, error) {
-	pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(pvcName, metav1.GetOptions{})
+	pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +456,7 @@ func getAndValidateUploadPVC(client kubernetes.Interface, namespace, name string
 	//   b. shouldExist is false AND the upload annotation exists
 
 	_, isUploadPVC := pvc.Annotations[uploadRequestAnnotation]
-	podPhase, _ := pvc.Annotations[PodPhaseAnnotation]
+	podPhase := pvc.Annotations[PodPhaseAnnotation]
 
 	if podPhase == string(v1.PodSucceeded) {
 		return nil, fmt.Errorf("PVC %s already successfully imported/cloned/updated", name)
