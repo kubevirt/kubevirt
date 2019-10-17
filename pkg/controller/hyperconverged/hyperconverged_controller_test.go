@@ -843,6 +843,56 @@ var _ = Describe("HyperconvergedController", func() {
 					Message: "KubevirtNodeLabellerBundle is degraded: Bar",
 				})))
 			})
+
+			It("should request KVM without any extra setting", func() {
+				hco := &hcov1alpha1.HyperConverged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: hcov1alpha1.HyperConvergedSpec{},
+				}
+
+				os.Unsetenv("KVM_EMULATION")
+
+				expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+				Expect(expectedResource.Spec.UseKVM).To(BeTrue())
+			})
+
+			It("should not request KVM if emulation requested", func() {
+				hco := &hcov1alpha1.HyperConverged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: hcov1alpha1.HyperConvergedSpec{},
+				}
+
+				err := os.Setenv("KVM_EMULATION", "true")
+				Expect(err).NotTo(HaveOccurred())
+				defer os.Unsetenv("KVM_EMULATION")
+
+				expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+				Expect(expectedResource.Spec.UseKVM).To(BeFalse())
+			})
+
+			It("should request KVM if emulation value not set", func() {
+				hco := &hcov1alpha1.HyperConverged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: hcov1alpha1.HyperConvergedSpec{},
+				}
+
+				err := os.Setenv("KVM_EMULATION", "")
+				Expect(err).NotTo(HaveOccurred())
+				defer os.Unsetenv("KVM_EMULATION")
+
+				expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+				Expect(expectedResource.Spec.UseKVM).To(BeTrue())
+			})
+
 		})
 
 		Context("KubeVirtTemplateValidator", func() {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/predicate"
@@ -815,6 +816,9 @@ func newKubeVirtNodeLabellerBundleForCR(cr *hcov1alpha1.HyperConverged, namespac
 			Labels:    labels,
 			Namespace: namespace,
 		},
+		Spec: sspv1.ComponentSpec{
+			UseKVM: isKVMAvailable(),
+		},
 	}
 }
 
@@ -1072,4 +1076,13 @@ func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(instance *hco
 
 	handleConditionsSSP(r, logger, "KubevirtMetricsAggregation", &found.Status)
 	return r.client.Status().Update(context.TODO(), instance)
+}
+
+func isKVMAvailable() bool {
+	if val, ok := os.LookupEnv("KVM_EMULATION"); ok && (strings.ToLower(val) == "true") {
+		log.Info("Running with KVM emulation")
+		return false
+	}
+	log.Info("Running with KVM available")
+	return true
 }

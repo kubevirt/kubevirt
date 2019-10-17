@@ -30,9 +30,7 @@ num_nodes=${KUBEVIRT_NUM_NODES:-1}
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.15.1}
 BASE_PATH=${KUBEVIRTCI_CONFIG_PATH:-$PWD}
 
-# Change 'master' to '${SSP_MANIFEST_VERSION}' when ssp will release a new version (newer than v1.0.0)
-# ( SSP v1.0.0 has problems that were fixed on master )
-SSP_URL_PREFIX="https://raw.githubusercontent.com/MarSik/kubevirt-ssp-operator/master/cluster/${SSP_MANIFEST_VERSION:1}"
+SSP_URL_PREFIX="https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_MANIFEST_VERSION}"
 
 KUBECTL=$(which kubectl 2> /dev/null) || true
 

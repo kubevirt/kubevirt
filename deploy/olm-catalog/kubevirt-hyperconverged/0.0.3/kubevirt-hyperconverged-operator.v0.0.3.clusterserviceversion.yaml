@@ -1464,7 +1464,7 @@ spec:
                 serviceAccountName: kubevirt-ssp-operator
                 containers:
                   - name: kubevirt-ssp-operator
-                    image: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.10
+                    image: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.16
                     ports:
                     - containerPort: 60000
                       name: metrics

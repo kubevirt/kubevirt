@@ -10,15 +10,15 @@
   version = "v0.44.3"
 
 [[projects]]
-  digest = "1:ed9bee091e4cf5ae00d0368134ac0d139a1d41ed0c5302e67d8b1c3e2fd46564"
+  digest = "1:e09695566fba3c5d9855e78efc93f3d74a9f814418e1da5077116ee00e522048"
   name = "github.com/MarSik/kubevirt-ssp-operator"
   packages = [
     "pkg/apis",
     "pkg/apis/kubevirt/v1",
   ]
   pruneopts = "NT"
-  revision = "aa0acea59f91d807c5cf0ba0d66798ef4df83c7c"
-  version = "v1.0.10"
+  revision = "092eb8f8d738505ce3c830f3f52a8301142632ea"
+  version = "v1.0.16"
 
 [[projects]]
   digest = "1:0a111edd8693fd977f42a0c4f199a0efb13c20aec9da99ad8830c7bb6a87e8d6"
@@ -519,6 +519,7 @@
     "pkg/leader",
     "pkg/log/zap",
     "pkg/metrics",
+    "pkg/predicate",
     "pkg/ready",
     "pkg/restmapper",
     "version",
@@ -1337,6 +1338,7 @@
     "github.com/operator-framework/operator-sdk/pkg/leader",
     "github.com/operator-framework/operator-sdk/pkg/log/zap",
     "github.com/operator-framework/operator-sdk/pkg/metrics",
+    "github.com/operator-framework/operator-sdk/pkg/predicate",
     "github.com/operator-framework/operator-sdk/pkg/ready",
     "github.com/operator-framework/operator-sdk/pkg/restmapper",
     "github.com/operator-framework/operator-sdk/version",

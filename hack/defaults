@@ -7,7 +7,7 @@ WAIT_TIMEOUT="${WAIT_TIMEOUT:-300s}"
 KUBEVIRT_MANIFEST_VERSION="v0.17.0"
 CDI_MANIFEST_VERSION="v1.6.0"
 NETWORK_ADDONS_MANIFEST_VERSION="0.18.0"
-SSP_MANIFEST_VERSION="v1.0.8"
+SSP_MANIFEST_VERSION="v1.0.16"
 
 CDI_CONTAINER_REGISTRY="${CDI_CONTAINER_REGISTRY:-docker.io/kubevirt}"
 KUBEVIRT_CONTAINER_REGISTRY="${KUBEVIRT_CONTAINER_REGISTRY:-docker.io/kubevirt}"
@@ -102,10 +102,10 @@ https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_
 https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/network-addons-config.crd.yaml
 https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/namespace.yaml
 https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/operator.yaml
-https://raw.githubusercontent.com/MarSik/kubevirt-ssp-operator/${SSP_MANIFEST_VERSION}/cluster/${SSP_MANIFEST_VERSION:1}/kubevirt-ssp-operator-crd.yaml
-https://raw.githubusercontent.com/MarSik/kubevirt-ssp-operator/${SSP_MANIFEST_VERSION}/cluster/${SSP_MANIFEST_VERSION:1}/kubevirt-ssp-operator.yaml"
+https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_MANIFEST_VERSION}/kubevirt-ssp-operator-crd.yaml
+https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_MANIFEST_VERSION}/kubevirt-ssp-operator.yaml"
 
 OPERATOR_CRS="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-cr.yaml
 https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator-cr.yaml
 https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/network-addons-config-example.cr.yaml
-https://raw.githubusercontent.com/MarSik/kubevirt-ssp-operator/${SSP_MANIFEST_VERSION}/cluster/${SSP_MANIFEST_VERSION:1}/kubevirt-ssp-operator-cr.yaml"
+https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_MANIFEST_VERSION}/kubevirt-ssp-operator-cr.yaml"
