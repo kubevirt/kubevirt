@@ -851,11 +851,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			AfterEach(func() {
 				tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, originalFeatureGates)
 
-				n, err := virtClient.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				n.SetLabels(originalLabels)
-				_, err = virtClient.CoreV1().Nodes().Update(n)
+				labelBytes, err := json.Marshal(originalLabels)
 				Expect(err).ToNot(HaveOccurred())
+
+				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType,
+					[]byte(fmt.Sprintf(`{"metadata": { "labels": %s}}`, labelBytes)))
+				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 
 				time.Sleep(5 * time.Second)
 			})
