@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/subresources"
 )
 
@@ -413,4 +414,38 @@ func enrichError(httpErr error, resp *http.Response) error {
 		}
 	}
 	return httpErr
+}
+
+func (v *vmis) GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error) {
+	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "guestosinfo")
+
+	// WORKAROUND:
+	// When doing v.restClient.Get().RequestURI(uri).Do().Into(guestInfo)
+	// k8s client-go requires the object to have metav1.ObjectMeta inlined and deepcopy generated
+	// without deepcopy the Into does not work.
+	// With metav1.ObjectMeta added the openapi validation fails on pkg/virt-api/api.go:310
+	// When returning object the openapi schema validation fails on invalid type field for
+	// metav1.ObjectMeta.CreationTimestamp of type time (the schema validation fails, not the object validation).
+	// In our schema we implemented workaround to have multiple types for this field (null, string), which is causing issues
+	// with deserialization.
+	// The issue popped up for this code since this is the first time anything is returned.
+	//
+	// The issue is present because KubeVirt have to support multiple k8s version. In newer k8s version (1.17+)
+	// this issue should be solved.
+	// This workaround can go away once the least supported k8s version is the working one.
+	// The issue has been described in: https://github.com/kubevirt/kubevirt/issues/3059
+	res := v.restClient.Get().RequestURI(uri).Do()
+	rawInfo, err := res.Raw()
+	if err != nil {
+		log.Log.Errorf("Cannot retrieve GuestOSInfo: %s", err.Error())
+		return guestInfo, err
+	}
+
+	err = json.Unmarshal(rawInfo, &guestInfo)
+	if err != nil {
+		log.Log.Errorf("Cannot unmarshal GuestOSInfo response: %s", err.Error())
+	}
+
+	return guestInfo, err
 }

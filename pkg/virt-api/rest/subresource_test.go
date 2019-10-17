@@ -883,6 +883,73 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 	})
 
+	Context("Subresource api - Guest OS Info", func() {
+		It("should fail when the VMI does not exist", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusNotFound, nil),
+				),
+			)
+
+			app.GuestOSInfo(request, response)
+
+			Expect(response.Error()).To(HaveOccurred(), "Response should indicate VM not found")
+			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+			close(done)
+		})
+
+		It("should fail when the VMI is not running", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			vmi := v1.VirtualMachineInstance{}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+				),
+			)
+
+			app.GuestOSInfo(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+			Expect(response.Error().Error()).To(ContainSubstring("VMI is not running"))
+			close(done)
+		})
+
+		It("should fail when VMI does not have agent connected", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			vmi := v1.VirtualMachineInstance{
+				Status: v1.VirtualMachineInstanceStatus{
+					Phase:      v1.Running,
+					Conditions: []v1.VirtualMachineInstanceCondition{},
+				},
+			}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+				),
+			)
+
+			app.GuestOSInfo(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+			Expect(response.Error().Error()).To(ContainSubstring("VMI does not have guest agent connected"))
+			close(done)
+		})
+	})
+
 	Context("StateChange JSON", func() {
 		It("should create a stop request if status exists", func() {
 			uid := uuid.NewUUID()

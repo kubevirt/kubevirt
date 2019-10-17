@@ -1157,6 +1157,7 @@ type RestartOptions struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceGuestAgentInfo struct {
+	metav1.TypeMeta `json:",inline"`
 	// GAVersion is a version of currently installed guest agent
 	GAVersion string `json:"guestAgentVersion,omitempty"`
 	// Hostname represents FQDN of a guest

@@ -3726,6 +3726,24 @@
      ],
      "summary": "Get guest agent os information",
      "operationId": "guestosinfo",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
      "responses": {
       "200": {
        "description": "OK",
@@ -6227,6 +6245,10 @@
    "v1.VirtualMachineInstanceGuestAgentInfo": {
     "description": "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent",
     "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
      "fsInfo": {
       "description": "FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage",
       "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystemInfo"
@@ -6237,6 +6259,10 @@
      },
      "hostname": {
       "description": "Hostname represents FQDN of a guest",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
       "type": "string"
      },
      "os": {

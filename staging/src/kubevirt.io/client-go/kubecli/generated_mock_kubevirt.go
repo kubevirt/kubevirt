@@ -784,6 +784,17 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Unpause(arg0 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unpause", arg0)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) GuestOsInfo(name string) (v114.VirtualMachineInstanceGuestAgentInfo, error) {
+	ret := _m.ctrl.Call(_m, "GuestOsInfo", name)
+	ret0, _ := ret[0].(v114.VirtualMachineInstanceGuestAgentInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) GuestOsInfo(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GuestOsInfo", arg0)
+}
+
 // Mock of ReplicaSetInterface interface
 type MockReplicaSetInterface struct {
 	ctrl     *gomock.Controller

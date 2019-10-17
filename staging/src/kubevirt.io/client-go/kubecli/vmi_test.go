@@ -241,6 +241,21 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	It("should fetch GuestOSInfo from VirtualMachineInstance via subresource", func() {
+		osInfo := v1.VirtualMachineInstanceGuestAgentInfo{
+			GAVersion: "4.1.1",
+		}
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", subVMPath+"/guestosinfo"),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, osInfo),
+		))
+		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).GuestOsInfo("testvm")
+
+		Expect(err).ToNot(HaveOccurred(), "should fetch info normally")
+		Expect(fetchedInfo).To(Equal(osInfo), "fetched info should be the same as passed in")
+	})
+
 	AfterEach(func() {
 		server.Close()
 	})

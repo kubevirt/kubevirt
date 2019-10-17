@@ -301,6 +301,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("guestosinfo")).
 			To(subresourceApp.GuestOSInfo).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
 			Operation("guestosinfo").
@@ -352,6 +353,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachines/migrate",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/guestosinfo",
 						Namespaced: true,
 					},
 				}
