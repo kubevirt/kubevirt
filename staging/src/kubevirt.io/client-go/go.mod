@@ -1,7 +1,5 @@
 module kubevirt.io/client-go
 
-go 1.12
-
 require (
 	github.com/coreos/prometheus-operator v0.31.1
 	github.com/go-kit/kit v0.8.0

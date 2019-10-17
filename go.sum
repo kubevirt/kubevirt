@@ -55,8 +55,6 @@ github.com/coreos/go-systemd v0.0.0-20181031085051-9002847aa142/go.mod h1:F5haX7
 github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f/go.mod h1:E3G3o1h8I7cfcXa63jLwjI0eiQQMgzzUDFVpN/nH/eA=
 github.com/coreos/prometheus-operator v0.0.0-20181206002233-dd6f23e7207c h1:AUZCalMUTDZyPXPreDiI5kP7xN/YRmQyprrTJ0oLNKk=
 github.com/coreos/prometheus-operator v0.0.0-20181206002233-dd6f23e7207c/go.mod h1:SO+r5yZUacDFPKHfPoUjI3hMsH+ZUdiuNNhuSq3WoSg=
-github.com/coreos/prometheus-operator v0.31.1 h1:+pS6+Ha01vuoGBh5glhfngk2sB1ELwe6tbXhMkMmp/U=
-github.com/coreos/prometheus-operator v0.31.1/go.mod h1:vHwtP2e+VmEeS6m6lgp87aH+npGVRQsCi5jhcuQA1sA=
 github.com/davecgh/go-spew v0.0.0-20151105211317-5215b55f46b2/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=

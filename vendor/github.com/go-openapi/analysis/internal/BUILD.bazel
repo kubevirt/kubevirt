@@ -8,5 +8,5 @@ go_library(
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/go-openapi/analysis/internal",
     importpath = "github.com/go-openapi/analysis/internal",
-    visibility = ["//visibility:public"],
+    visibility = ["//vendor/github.com/go-openapi/analysis:__subpackages__"],
 )

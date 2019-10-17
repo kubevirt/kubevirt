@@ -18,3 +18,5 @@ default_csv_version="${docker_tag/latest/0.0.0}"
 default_csv_version="${default_csv_version/devel/0.0.0}"
 [[ $default_csv_version == v* ]] && default_csv_version="${default_csv_version/v/}"
 csv_version=${CSV_VERSION:-$default_csv_version}
+
+bazel_py="PY3"

@@ -24,7 +24,7 @@ push: bazel-push-images
 
 bazel-tests:
 	hack/dockerized "hack/bazel-fmt.sh && bazel test \
-		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo \
 		--workspace_status_command=./hack/print-workspace-status.sh \
         --test_output=errors -- //pkg/..."
 
