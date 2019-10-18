@@ -88,7 +88,7 @@ var _ = Describe("Multus", func() {
 		},
 	}
 
-	AfterEach(func() {
+	BeforeEach(func() {
 		// Multus tests need to ensure that old VMIs are gone
 		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
 		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
@@ -589,7 +589,7 @@ var _ = Describe("SRIOV", func() {
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
 
-	AfterEach(func() {
+	BeforeEach(func() {
 		// Multus tests need to ensure that old VMIs are gone
 		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
 		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
