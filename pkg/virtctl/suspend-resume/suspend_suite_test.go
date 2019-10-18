@@ -1,4 +1,4 @@
-package suspend
+package suspend_test
 
 import (
 	"testing"
@@ -9,8 +9,8 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-func TestVm(t *testing.T) {
+func TestSuspendResume(t *testing.T) {
 	log.Log.SetIOWriter(GinkgoWriter)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "vm Suite")
+	RunSpecs(t, "SuspendResume Suite")
 }

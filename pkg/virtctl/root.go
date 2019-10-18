@@ -8,13 +8,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"kubevirt.io/kubevirt/pkg/virtctl/suspend-resume"
-
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
+	"kubevirt.io/kubevirt/pkg/virtctl/suspend-resume"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/version"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"

@@ -166,8 +166,6 @@ type VirtualMachineInterface interface {
 	Start(name string) error
 	Stop(name string) error
 	Migrate(name string) error
-	Suspend(name string) error
-	Resume(name string) error
 }
 
 type VirtualMachineInstanceMigrationInterface interface {

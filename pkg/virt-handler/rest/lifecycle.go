@@ -23,11 +23,10 @@ import (
 
 	"github.com/emicklei/go-restful"
 
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
 type LifecycleHandler struct {
@@ -64,6 +63,8 @@ func (lh *LifecycleHandler) SuspendHandler(request *restful.Request, response *r
 		log.Log.Object(vmi).Reason(err).Error("Failed to suspend VMI")
 		response.WriteError(http.StatusInternalServerError, err)
 	}
+
+	response.WriteHeader(http.StatusAccepted)
 }
 
 func (lh *LifecycleHandler) ResumeHandler(request *restful.Request, response *restful.Response) {
@@ -88,4 +89,6 @@ func (lh *LifecycleHandler) ResumeHandler(request *restful.Request, response *re
 		log.Log.Object(vmi).Reason(err).Error("Failed to suspend VMI")
 		response.WriteError(http.StatusInternalServerError, err)
 	}
+
+	response.WriteHeader(http.StatusAccepted)
 }

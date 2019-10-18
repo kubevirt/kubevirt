@@ -106,6 +106,20 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("should suspend a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().SuspendVMI(vmi)
+			err := client.SuspendVirtualMachine(vmi)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should resume a vmi", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			domainManager.EXPECT().ResumeVMI(vmi)
+			err := client.ResumeVirtualMachine(vmi)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("should list domains", func() {
 			var list []*api.Domain
 			list = append(list, api.NewMinimalDomain("testvmi1"))

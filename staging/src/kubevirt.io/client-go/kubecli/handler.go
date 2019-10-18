@@ -190,8 +190,8 @@ func (v *virtHandlerConn) Put(url string, tlsConfig *tls.Config) error {
 		return err
 	}
 
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("Unexpedted return code %s", resp.Status)
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return fmt.Errorf("unexpected return code %s", resp.Status)
 	}
 
 	return nil

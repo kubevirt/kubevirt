@@ -130,15 +130,15 @@ func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return fmt.Errorf("Error getting VirtualMachine %s: %v", resourceName, err)
 			}
-			vmiName := vm.Spec.Template.ObjectMeta.Name
-			if vmiName == "" {
-				vmiName = vm.Name
+			vmiName := vm.Name
+			if vm.Spec.Template != nil && vm.Spec.Template.ObjectMeta.Name != "" {
+				vmiName = vm.Spec.Template.ObjectMeta.Name
 			}
 			err = virtClient.VirtualMachineInstance(namespace).Suspend(vmiName)
 			if err != nil {
-				return fmt.Errorf("Error suspending VirtualMachineInstance %s: %v", resourceName, err)
+				return fmt.Errorf("Error suspending VirtualMachineInstance %s: %v", vmiName, err)
 			}
-			fmt.Printf("VMI %s was scheduled to %s\n", resourceName, vc.parentCommand)
+			fmt.Printf("VMI %s was scheduled to %s\n", vmiName, vc.parentCommand)
 		case COMMAND_VMI_LONG, COMMAND_VMI_SHORT:
 			err = virtClient.VirtualMachineInstance(namespace).Suspend(resourceName)
 			if err != nil {
@@ -153,15 +153,15 @@ func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return fmt.Errorf("Error getting VirtualMachine %s: %v", resourceName, err)
 			}
-			vmiName := vm.Spec.Template.ObjectMeta.Name
-			if vmiName == "" {
-				vmiName = vm.Name
+			vmiName := vm.Name
+			if vm.Spec.Template != nil && vm.Spec.Template.ObjectMeta.Name != "" {
+				vmiName = vm.Spec.Template.ObjectMeta.Name
 			}
-			err = virtClient.VirtualMachineInstance(namespace).Resume(resourceName)
+			err = virtClient.VirtualMachineInstance(namespace).Resume(vmiName)
 			if err != nil {
-				return fmt.Errorf("Error resuming VirtualMachineInstance %s: %v", resourceName, err)
+				return fmt.Errorf("Error resuming VirtualMachineInstance %s: %v", vmiName, err)
 			}
-			fmt.Printf("VMI %s was scheduled to %s\n", resourceName, vc.parentCommand)
+			fmt.Printf("VMI %s was scheduled to %s\n", vmiName, vc.parentCommand)
 		case COMMAND_VMI_LONG, COMMAND_VMI_SHORT:
 			err = virtClient.VirtualMachineInstance(namespace).Resume(resourceName)
 			if err != nil {

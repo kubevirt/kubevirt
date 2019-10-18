@@ -512,6 +512,61 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
+		It("should add and remove paused condition", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+
+			mockWatchdog.CreateFile(vmi)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+
+			By("suspending domain")
+			domain.Status.Status = api.Paused
+			domain.Status.Reason = api.ReasonPausedUser
+
+			updatedVMI := vmi.DeepCopy()
+			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstancePaused,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+
+			controller.Execute()
+
+			By("resuming domain")
+			domain.Status.Status = api.Running
+			domain.Status.Reason = ""
+
+			updatedVMI = vmi.DeepCopy()
+			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+
+			controller.Execute()
+		})
+
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is missing", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.ObjectMeta.ResourceVersion = "1"

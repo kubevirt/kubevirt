@@ -30,6 +30,8 @@ import (
 	"strings"
 	"sync"
 
+	"kubevirt.io/kubevirt/pkg/controller"
+
 	"github.com/emicklei/go-restful"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -604,6 +606,10 @@ func (app *SubresourceAPIApp) SuspendVMIRequestHandler(request *restful.Request,
 		if vmi == nil || vmi.IsFinal() || vmi.Status.Phase == v1.Unknown || vmi.Status.Phase == v1.VmPhaseUnset {
 			return fmt.Errorf("VM is not running")
 		}
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
+			return fmt.Errorf("VM is already paused")
+		}
 		return nil
 	}
 
@@ -619,6 +625,10 @@ func (app *SubresourceAPIApp) ResumeVMIRequestHandler(request *restful.Request, 
 	validate := func(vmi *v1.VirtualMachineInstance) error {
 		if vmi == nil || vmi.IsFinal() || vmi.Status.Phase == v1.Unknown || vmi.Status.Phase == v1.VmPhaseUnset {
 			return fmt.Errorf("VM is not running")
+		}
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
+			return fmt.Errorf("VM is not paused")
 		}
 		return nil
 	}
