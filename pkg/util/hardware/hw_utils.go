@@ -20,6 +20,9 @@
 package hardware
 
 import (
+	"bufio"
+	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -27,6 +30,34 @@ import (
 )
 
 const CPUSET_PATH = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+const ONLINE_CPUS_LIST = "/sys/devices/system/cpu/online"
+const CPU_NODE_PATH = "/sys/devices/system/cpu/cpu%d/topology/physical_package_id"
+const CPU_COREID_PATH = "/sys/devices/system/cpu/cpu%d/topology/core_id"
+const CPU_SIBLINGS_PATH = "/sys/devices/system/cpu/cpu%d/topology/thread_siblings_list"
+
+type Processor struct {
+	SocketID   int
+	CoreID     int
+	Siblings   []int
+	ThreadsNum int
+}
+
+func readPath(filepath string) (string, error) {
+	var readText string
+	file, err := os.Open(filepath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	if scanner.Scan() {
+		readText = scanner.Text()
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return readText, nil
+}
 
 // Parse linux cpuset into an array of ints
 // See: http://man7.org/linux/man-pages/man7/cpuset.7.html#FORMATS
@@ -78,4 +109,61 @@ func GetNumberOfVCPUs(cpuSpec *v1.CPU) int64 {
 		}
 	}
 	return int64(vCPUs)
+}
+
+func GetCPUThreadsMap() (map[int]*Processor, error) {
+
+	cpuRangeStr, err := readPath(ONLINE_CPUS_LIST)
+	if err != nil {
+		return nil, err
+	}
+	cpusList, err := ParseCPUSetLine(cpuRangeStr)
+	if err != nil {
+		return nil, err
+	}
+
+	procs := make(map[int]*Processor)
+	for _, p := range cpusList {
+		val, err := readPath(fmt.Sprintf(CPU_NODE_PATH, p))
+		if err != nil {
+			return nil, err
+		}
+		socketID, err := strconv.Atoi(val)
+		if err != nil {
+			return nil, err
+		}
+		val, err = readPath(fmt.Sprintf(CPU_COREID_PATH, p))
+		if err != nil {
+			return nil, err
+		}
+		coreID, err := strconv.Atoi(val)
+		if err != nil {
+			return nil, err
+		}
+		val, err = readPath(fmt.Sprintf(CPU_SIBLINGS_PATH, p))
+		if err != nil {
+			return nil, err
+		}
+		elements := strings.Split(val, ",")
+		siblingsList := make([]int, 0)
+		for _, item := range elements {
+			threadsNum, err := strconv.Atoi(item)
+			if err != nil {
+				return nil, err
+			}
+			siblingsList = append(siblingsList, threadsNum)
+		}
+
+		proc, exist := procs[p]
+		if !exist {
+			proc = &Processor{
+				SocketID:   socketID,
+				CoreID:     coreID,
+				Siblings:   siblingsList,
+				ThreadsNum: len(siblingsList),
+			}
+		}
+		procs[p] = proc
+	}
+	return procs, nil
 }
