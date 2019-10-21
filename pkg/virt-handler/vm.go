@@ -1444,6 +1444,11 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			return fmt.Errorf("failed to adjust resources: %v", err)
 		}
 
+		processorsMap, err := json.Marshal(d.processorsMap)
+		if err != nil {
+			return fmt.Errorf("failed to prepare host processors map: %v", err)
+		}
+
 		options := &cmdv1.VirtualMachineOptions{
 			VirtualMachineSMBios: &cmdv1.SMBios{
 				Family:       d.clusterConfig.GetSMBIOS().Family,
@@ -1451,6 +1456,9 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				Manufacturer: d.clusterConfig.GetSMBIOS().Manufacturer,
 				Sku:          d.clusterConfig.GetSMBIOS().Sku,
 				Version:      d.clusterConfig.GetSMBIOS().Version,
+			},
+			ProcessorsMap: &cmdv1.HostProcessorsMap{
+				ProcMapJson: processorsMap,
 			},
 		}
 
