@@ -41,15 +41,13 @@ func NewLifecycleHandler(vmiInformer cache.SharedIndexInformer, virtShareDir str
 	}
 }
 
-func (lh *LifecycleHandler) SuspendHandler(request *restful.Request, response *restful.Response) {
+func (lh *LifecycleHandler) PauseHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, lh.vmiInformer)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
 		response.WriteError(code, err)
 		return
 	}
-
-	// TODO do some checks if we can supend?
 
 	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()))
 	client, err := cmdclient.NewClient(sockFile)
@@ -58,24 +56,22 @@ func (lh *LifecycleHandler) SuspendHandler(request *restful.Request, response *r
 		response.WriteError(http.StatusInternalServerError, err)
 	}
 
-	err = client.SuspendVirtualMachine(vmi)
+	err = client.PauseVirtualMachine(vmi)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to suspend VMI")
+		log.Log.Object(vmi).Reason(err).Error("Failed to pause VMI")
 		response.WriteError(http.StatusInternalServerError, err)
 	}
 
 	response.WriteHeader(http.StatusAccepted)
 }
 
-func (lh *LifecycleHandler) ResumeHandler(request *restful.Request, response *restful.Response) {
+func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *restful.Response) {
 	vmi, code, err := getVMI(request, lh.vmiInformer)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
 		response.WriteError(code, err)
 		return
 	}
-
-	// TODO do some checks if we can resume?
 
 	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()))
 	client, err := cmdclient.NewClient(sockFile)
@@ -84,9 +80,9 @@ func (lh *LifecycleHandler) ResumeHandler(request *restful.Request, response *re
 		response.WriteError(http.StatusInternalServerError, err)
 	}
 
-	err = client.ResumeVirtualMachine(vmi)
+	err = client.UnpauseVirtualMachine(vmi)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to suspend VMI")
+		log.Log.Object(vmi).Reason(err).Error("Failed to unpause VMI")
 		response.WriteError(http.StatusInternalServerError, err)
 	}
 

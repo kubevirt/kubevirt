@@ -13,7 +13,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
-	"kubevirt.io/kubevirt/pkg/virtctl/suspend-resume"
+	"kubevirt.io/kubevirt/pkg/virtctl/pause"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/version"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
@@ -82,8 +82,8 @@ func NewVirtctlCommand() *cobra.Command {
 		vm.NewStopCommand(clientConfig),
 		vm.NewRestartCommand(clientConfig),
 		vm.NewMigrateCommand(clientConfig),
-		suspend.NewSuspendCommand(clientConfig),
-		suspend.NewResumeCommand(clientConfig),
+		pause.NewPauseCommand(clientConfig),
+		pause.NewUnpauseCommand(clientConfig),
 		expose.NewExposeCommand(clientConfig),
 		version.VersionCommand(clientConfig),
 		imageupload.NewImageUploadCommand(clientConfig),

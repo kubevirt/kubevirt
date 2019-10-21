@@ -944,67 +944,67 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	}
 
-	Context("SuspendResume", func() {
-		It("Should suspend a running, not paused VMI", func() {
+	Context("Pausing", func() {
+		It("Should pause a running, not paused VMI", func() {
 
 			expectVMI(true, false)
 
-			app.SuspendVMIRequestHandler(request, response)
+			app.PauseVMIRequestHandler(request, response)
 
 			Expect(response.Error()).ToNot(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
 
 		})
 
-		It("Should fail suspending a not running VMI", func() {
+		It("Should fail pausing a not running VMI", func() {
 
 			expectVMI(false, false)
 
-			app.SuspendVMIRequestHandler(request, response)
+			app.PauseVMIRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 
 		})
 
-		It("Should fail suspending a  running but paused VMI", func() {
+		It("Should fail pausing a running but paused VMI", func() {
 
 			expectVMI(true, true)
 
-			app.SuspendVMIRequestHandler(request, response)
+			app.PauseVMIRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 
 		})
 
-		It("Should fail resuming a running, not paused VMI", func() {
+		It("Should fail unpausing a running, not paused VMI", func() {
 
 			expectVMI(true, false)
 
-			app.ResumeVMIRequestHandler(request, response)
+			app.UnpauseVMIRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 
 		})
 
-		It("Should fail resuming a not running VMI", func() {
+		It("Should fail unpausing a not running VMI", func() {
 
 			expectVMI(false, false)
 
-			app.ResumeVMIRequestHandler(request, response)
+			app.UnpauseVMIRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 
 		})
 
-		It("Should resume a running, paused VMI", func() {
+		It("Should unpause a running, paused VMI", func() {
 
 			expectVMI(true, true)
 
-			app.ResumeVMIRequestHandler(request, response)
+			app.UnpauseVMIRequestHandler(request, response)
 
 			Expect(response.Error()).ToNot(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))

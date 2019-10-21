@@ -2,8 +2,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["suspend.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/virtctl/suspend-resume",
+    srcs = ["pause.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virtctl/pause",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virtctl/templates:go_default_library",
@@ -17,8 +17,8 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "suspend_suite_test.go",
-        "suspend_test.go",
+        "pause_suite_test.go",
+        "pause_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

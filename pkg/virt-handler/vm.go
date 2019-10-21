@@ -491,7 +491,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceAgentConnected)
 	}
 
-	// Update paused condition in case VMI was suspended / resumed
+	// Update paused condition in case VMI was paused / unpaused
 	if domain != nil && domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedUser {
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 			log.Log.Object(vmi).V(3).Info("Adding paused condition")
@@ -501,8 +501,8 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				Status:             k8sv1.ConditionTrue,
 				LastProbeTime:      now,
 				LastTransitionTime: now,
-				Reason:             "SuspendedByUser",
-				Message:            "VMI was suspended by user",
+				Reason:             "PausedByUser",
+				Message:            "VMI was paused by user",
 			})
 		}
 	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {

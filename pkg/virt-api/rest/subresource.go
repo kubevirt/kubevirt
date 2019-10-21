@@ -600,7 +600,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	response.WriteHeader(http.StatusAccepted)
 }
 
-func (app *SubresourceAPIApp) SuspendVMIRequestHandler(request *restful.Request, response *restful.Response) {
+func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, response *restful.Response) {
 
 	validate := func(vmi *v1.VirtualMachineInstance) error {
 		if vmi == nil || vmi.IsFinal() || vmi.Status.Phase == v1.Unknown || vmi.Status.Phase == v1.VmPhaseUnset {
@@ -614,13 +614,13 @@ func (app *SubresourceAPIApp) SuspendVMIRequestHandler(request *restful.Request,
 	}
 
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.SuspendURI(vmi)
+		return conn.PauseURI(vmi)
 	}
 
 	app.putRequestHandler(request, response, validate, getURL)
 }
 
-func (app *SubresourceAPIApp) ResumeVMIRequestHandler(request *restful.Request, response *restful.Response) {
+func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request, response *restful.Response) {
 
 	validate := func(vmi *v1.VirtualMachineInstance) error {
 		if vmi == nil || vmi.IsFinal() || vmi.Status.Phase == v1.Unknown || vmi.Status.Phase == v1.VmPhaseUnset {
@@ -633,7 +633,7 @@ func (app *SubresourceAPIApp) ResumeVMIRequestHandler(request *restful.Request, 
 		return nil
 	}
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.ResumeURI(vmi)
+		return conn.UnpauseURI(vmi)
 	}
 	app.putRequestHandler(request, response, validate, getURL)
 

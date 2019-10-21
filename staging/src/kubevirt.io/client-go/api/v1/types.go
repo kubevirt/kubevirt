@@ -333,7 +333,7 @@ const (
 	// this is reported as false.
 	VirtualMachineInstanceSynchronized VirtualMachineInstanceConditionType = "Synchronized"
 
-	// If the VMI was suspended by the user, this is reported as true.
+	// If the VMI was paused by the user, this is reported as true.
 	VirtualMachineInstancePaused VirtualMachineInstanceConditionType = "Paused"
 
 	// Reflects whether the QEMU guest agent is connected through the channel

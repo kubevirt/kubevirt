@@ -878,24 +878,24 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) VNC(arg0 interface{}) *
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VNC", arg0)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) Suspend(name string) error {
-	ret := _m.ctrl.Call(_m, "Suspend", name)
+func (_m *MockVirtualMachineInstanceInterface) Pause(name string) error {
+	ret := _m.ctrl.Call(_m, "Pause", name)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Suspend(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Suspend", arg0)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Pause(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Pause", arg0)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) Resume(name string) error {
-	ret := _m.ctrl.Call(_m, "Resume", name)
+func (_m *MockVirtualMachineInstanceInterface) Unpause(name string) error {
+	ret := _m.ctrl.Call(_m, "Unpause", name)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Resume(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Resume", arg0)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Unpause(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unpause", arg0)
 }
 
 // Mock of ReplicaSetInterface interface

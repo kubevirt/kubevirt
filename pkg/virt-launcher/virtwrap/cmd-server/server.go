@@ -168,37 +168,37 @@ func (l *Launcher) SyncVirtualMachine(ctx context.Context, request *cmdv1.VMIReq
 	return response, nil
 }
 
-func (l *Launcher) SuspendVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+func (l *Launcher) PauseVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
 
-	if _, err := l.domainManager.SuspendVMI(vmi); err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("Failed to suspend vmi")
+	if _, err := l.domainManager.PauseVMI(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to pause vmi")
 		response.Success = false
 		response.Message = getErrorMessage(err)
 		return response, nil
 	}
 
-	log.Log.Object(vmi).Info("Suspended vmi")
+	log.Log.Object(vmi).Info("Paused vmi")
 	return response, nil
 }
 
-func (l *Launcher) ResumeVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+func (l *Launcher) UnpauseVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
 
-	if _, err := l.domainManager.ResumeVMI(vmi); err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("Failed to resume vmi")
+	if _, err := l.domainManager.UnpauseVMI(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to unpause vmi")
 		response.Success = false
 		response.Message = getErrorMessage(err)
 		return response, nil
 	}
 
-	log.Log.Object(vmi).Info("Resumed vmi")
+	log.Log.Object(vmi).Info("Unpaused vmi")
 	return response, nil
 }
 

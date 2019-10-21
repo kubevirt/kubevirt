@@ -17,7 +17,7 @@
  *
  */
 
-package suspend
+package pause
 
 import (
 	"fmt"
@@ -33,33 +33,33 @@ import (
 )
 
 const (
-	COMMAND_SUSPEND   = "suspend"
-	COMMAND_RESUME    = "resume"
+	COMMAND_PAUSE     = "pause"
+	COMMAND_UNPAUSE   = "unpause"
 	COMMAND_VM_SHORT  = "vm"
 	COMMAND_VM_LONG   = "virtualmachine"
 	COMMAND_VMI_SHORT = "vmi"
 	COMMAND_VMI_LONG  = "virtualmachineinstance"
 )
 
-func NewSuspendCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewPauseCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "suspend vm|vmi (VM)|(VMI)",
-		Short:   "Suspend a virtual machine",
-		Example: usageParent(COMMAND_SUSPEND),
+		Use:     "pause vm|vmi (VM)|(VMI)",
+		Short:   "Pause a virtual machine",
+		Example: usageParent(COMMAND_PAUSE),
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.AddCommand(NewChildCommands(COMMAND_SUSPEND, clientConfig)...)
+	cmd.AddCommand(NewChildCommands(COMMAND_PAUSE, clientConfig)...)
 	return cmd
 }
 
-func NewResumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewUnpauseCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "resume vm|vmi (VM)|(VMI)",
-		Short:   "Resume a virtual machine",
-		Example: usageParent(COMMAND_RESUME),
+		Use:     "unpause vm|vmi (VM)|(VMI)",
+		Short:   "Unpause a virtual machine",
+		Example: usageParent(COMMAND_UNPAUSE),
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.AddCommand(NewChildCommands(COMMAND_RESUME, clientConfig)...)
+	cmd.AddCommand(NewChildCommands(COMMAND_UNPAUSE, clientConfig)...)
 	return cmd
 }
 
@@ -123,7 +123,7 @@ func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	switch vc.parentCommand {
-	case COMMAND_SUSPEND:
+	case COMMAND_PAUSE:
 		switch vc.childCommand {
 		case COMMAND_VM_LONG, COMMAND_VM_SHORT:
 			vm, err := virtClient.VirtualMachine(namespace).Get(resourceName, &v1.GetOptions{})
@@ -134,19 +134,19 @@ func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
 			if vm.Spec.Template != nil && vm.Spec.Template.ObjectMeta.Name != "" {
 				vmiName = vm.Spec.Template.ObjectMeta.Name
 			}
-			err = virtClient.VirtualMachineInstance(namespace).Suspend(vmiName)
+			err = virtClient.VirtualMachineInstance(namespace).Pause(vmiName)
 			if err != nil {
-				return fmt.Errorf("Error suspending VirtualMachineInstance %s: %v", vmiName, err)
+				return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", vmiName, err)
 			}
 			fmt.Printf("VMI %s was scheduled to %s\n", vmiName, vc.parentCommand)
 		case COMMAND_VMI_LONG, COMMAND_VMI_SHORT:
-			err = virtClient.VirtualMachineInstance(namespace).Suspend(resourceName)
+			err = virtClient.VirtualMachineInstance(namespace).Pause(resourceName)
 			if err != nil {
-				return fmt.Errorf("Error suspending VirtualMachineInstance %s: %v", resourceName, err)
+				return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", resourceName, err)
 			}
 			fmt.Printf("VMI %s was scheduled to %s\n", resourceName, vc.parentCommand)
 		}
-	case COMMAND_RESUME:
+	case COMMAND_UNPAUSE:
 		switch vc.childCommand {
 		case COMMAND_VM_LONG, COMMAND_VM_SHORT:
 			vm, err := virtClient.VirtualMachine(namespace).Get(resourceName, &v1.GetOptions{})
@@ -157,15 +157,15 @@ func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
 			if vm.Spec.Template != nil && vm.Spec.Template.ObjectMeta.Name != "" {
 				vmiName = vm.Spec.Template.ObjectMeta.Name
 			}
-			err = virtClient.VirtualMachineInstance(namespace).Resume(vmiName)
+			err = virtClient.VirtualMachineInstance(namespace).Unpause(vmiName)
 			if err != nil {
-				return fmt.Errorf("Error resuming VirtualMachineInstance %s: %v", vmiName, err)
+				return fmt.Errorf("Error unpausing VirtualMachineInstance %s: %v", vmiName, err)
 			}
 			fmt.Printf("VMI %s was scheduled to %s\n", vmiName, vc.parentCommand)
 		case COMMAND_VMI_LONG, COMMAND_VMI_SHORT:
-			err = virtClient.VirtualMachineInstance(namespace).Resume(resourceName)
+			err = virtClient.VirtualMachineInstance(namespace).Unpause(resourceName)
 			if err != nil {
-				return fmt.Errorf("Error resuming VirtualMachineInstance %s: %v", resourceName, err)
+				return fmt.Errorf("Error unpausing VirtualMachineInstance %s: %v", resourceName, err)
 			}
 			fmt.Printf("VMI %s was scheduled to %s\n", resourceName, vc.parentCommand)
 		}

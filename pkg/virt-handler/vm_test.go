@@ -522,7 +522,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
 
-			By("suspending domain")
+			By("pausing domain")
 			domain.Status.Status = api.Paused
 			domain.Status.Reason = api.ReasonPausedUser
 
@@ -546,7 +546,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 
-			By("resuming domain")
+			By("unpausing domain")
 			domain.Status.Status = api.Running
 			domain.Status.Reason = ""
 

@@ -1163,7 +1163,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 		c.processFailure(vm, vmi, createErr)
 	}
 
-	// Add/Remove Paused condition (VMI suspended by user)
+	// Add/Remove Paused condition (VMI paused by user)
 	vmiCondManager := controller.NewVirtualMachineInstanceConditionManager()
 	if vmiCondManager.HasCondition(vmi, virtv1.VirtualMachineInstancePaused) {
 		if !c.hasCondition(vm, virtv1.VirtualMachinePaused) {
@@ -1174,8 +1174,8 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 				Status:             k8score.ConditionTrue,
 				LastProbeTime:      now,
 				LastTransitionTime: now,
-				Reason:             "SuspendedByUser",
-				Message:            "VMI was suspended by user",
+				Reason:             "PausedByUser",
+				Message:            "VMI was paused by user",
 			})
 		}
 	} else if c.hasCondition(vm, virtv1.VirtualMachinePaused) {

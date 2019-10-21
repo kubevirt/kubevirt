@@ -1,4 +1,4 @@
-package suspend_test
+package pause_test
 
 import (
 	"github.com/golang/mock/gomock"
@@ -12,7 +12,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("SuspendResume", func() {
+var _ = Describe("Pausing", func() {
 
 	const vmName = "testvm"
 	var vmInterface *kubecli.MockVirtualMachineInterface
@@ -27,27 +27,27 @@ var _ = Describe("SuspendResume", func() {
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 	})
 
-	It("should suspend VMI", func() {
+	It("should pause VMI", func() {
 		vmi := v1.NewMinimalVMI(vmName)
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
-		vmiInterface.EXPECT().Suspend(vmi.Name).Return(nil).Times(1)
+		vmiInterface.EXPECT().Pause(vmi.Name).Return(nil).Times(1)
 
-		cmd := tests.NewVirtctlCommand("suspend", "vmi", vmName)
+		cmd := tests.NewVirtctlCommand("pause", "vmi", vmName)
 		Expect(cmd.Execute()).To(BeNil())
 	})
 
-	It("should resume VMI", func() {
+	It("should unpause VMI", func() {
 		vmi := v1.NewMinimalVMI(vmName)
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
-		vmiInterface.EXPECT().Resume(vmi.Name).Return(nil).Times(1)
+		vmiInterface.EXPECT().Unpause(vmi.Name).Return(nil).Times(1)
 
-		cmd := tests.NewVirtctlCommand("resume", "vmi", vmName)
+		cmd := tests.NewVirtctlCommand("unpause", "vmi", vmName)
 		Expect(cmd.Execute()).To(BeNil())
 	})
 
-	It("should suspend VM", func() {
+	It("should pause VM", func() {
 		vmi := v1.NewMinimalVMI(vmName)
 		vm := kubecli.NewMinimalVM(vmName)
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
@@ -58,13 +58,13 @@ var _ = Describe("SuspendResume", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 
 		vmInterface.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil).Times(1)
-		vmiInterface.EXPECT().Suspend(vm.Name).Return(nil).Times(1)
+		vmiInterface.EXPECT().Pause(vm.Name).Return(nil).Times(1)
 
-		cmd := tests.NewVirtctlCommand("suspend", "vm", vmName)
+		cmd := tests.NewVirtctlCommand("pause", "vm", vmName)
 		Expect(cmd.Execute()).To(BeNil())
 	})
 
-	It("should resume VM", func() {
+	It("should unpause VM", func() {
 		vmi := v1.NewMinimalVMI(vmName)
 		vm := kubecli.NewMinimalVM(vmName)
 		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
@@ -75,9 +75,9 @@ var _ = Describe("SuspendResume", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 
 		vmInterface.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil).Times(1)
-		vmiInterface.EXPECT().Resume(vm.Name).Return(nil).Times(1)
+		vmiInterface.EXPECT().Unpause(vm.Name).Return(nil).Times(1)
 
-		cmd := tests.NewVirtctlCommand("resume", "vm", vmName)
+		cmd := tests.NewVirtctlCommand("unpause", "vm", vmName)
 		Expect(cmd.Execute()).To(BeNil())
 	})
 

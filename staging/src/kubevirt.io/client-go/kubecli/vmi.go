@@ -297,13 +297,13 @@ func (v *vmis) asyncSubresourceHelper(name string, resource string) (StreamInter
 	}
 }
 
-func (v *vmis) Suspend(name string) error {
-	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "suspend")
+func (v *vmis) Pause(name string) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "pause")
 	return v.restClient.Put().RequestURI(uri).Do().Error()
 }
 
-func (v *vmis) Resume(name string) error {
-	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "resume")
+func (v *vmis) Unpause(name string) error {
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "unpause")
 	return v.restClient.Put().RequestURI(uri).Do().Error()
 }
 

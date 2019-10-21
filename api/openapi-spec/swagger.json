@@ -3716,48 +3716,10 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/resume": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/pause": {
     "put": {
-     "summary": "Resume a VirtualMachineInstance object.",
-     "operationId": "resume",
-     "parameters": [
-      {
-       "pattern": "[a-z0-9][a-z0-9\\-]*",
-       "type": "string",
-       "description": "Object name and auth scope, such as for teams and projects",
-       "name": "namespace",
-       "in": "path",
-       "required": true
-      },
-      {
-       "pattern": "[a-z0-9][a-z0-9\\-]*",
-       "type": "string",
-       "description": "Name of the resource",
-       "name": "name",
-       "in": "path",
-       "required": true
-      }
-     ],
-     "responses": {
-      "200": {
-       "description": "OK"
-      },
-      "400": {
-       "description": "Bad Request"
-      },
-      "404": {
-       "description": "Not Found"
-      },
-      "default": {
-       "description": "OK"
-      }
-     }
-    }
-   },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/suspend": {
-    "put": {
-     "summary": "Suspend a VirtualMachineInstance object.",
-     "operationId": "suspend",
+     "summary": "Pause a VirtualMachineInstance object.",
+     "operationId": "pause",
      "parameters": [
       {
        "pattern": "[a-z0-9][a-z0-9\\-]*",
@@ -3816,6 +3778,44 @@
      ],
      "responses": {
       "200": {
+       "description": "OK"
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/unpause": {
+    "put": {
+     "summary": "Unpause a VirtualMachineInstance object.",
+     "operationId": "unpause",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK"
+      },
+      "400": {
+       "description": "Bad Request"
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
        "description": "OK"
       }
      }

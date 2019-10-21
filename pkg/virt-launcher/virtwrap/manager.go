@@ -72,8 +72,8 @@ const vgpuEnvPrefix = "VGPU_PASSTHROUGH_DEVICES"
 
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
-	SuspendVMI(*v1.VirtualMachineInstance) (*api.DomainSpec, error)
-	ResumeVMI(*v1.VirtualMachineInstance) (*api.DomainSpec, error)
+	PauseVMI(*v1.VirtualMachineInstance) (*api.DomainSpec, error)
+	UnpauseVMI(*v1.VirtualMachineInstance) (*api.DomainSpec, error)
 	KillVMI(*v1.VirtualMachineInstance) error
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
@@ -93,7 +93,7 @@ type LibvirtDomainManager struct {
 	virtShareDir           string
 	notifier               *eventsclient.Notifier
 	lessPVCSpaceToleration int
-	suspended              suspendedVMIs
+	paused                 pausedVMIs
 }
 
 type migrationDisks struct {
@@ -101,26 +101,26 @@ type migrationDisks struct {
 	generated map[string]bool
 }
 
-type suspendedVMIs struct {
-	suspended map[types.UID]bool
+type pausedVMIs struct {
+	paused map[types.UID]bool
 }
 
-func (s suspendedVMIs) add(uid types.UID) {
+func (s pausedVMIs) add(uid types.UID) {
 	// implicitly locked by domainModifyLock
-	if _, ok := s.suspended[uid]; !ok {
-		s.suspended[uid] = true
+	if _, ok := s.paused[uid]; !ok {
+		s.paused[uid] = true
 	}
 }
 
-func (s suspendedVMIs) remove(uid types.UID) {
+func (s pausedVMIs) remove(uid types.UID) {
 	// implicitly locked by domainModifyLock
-	if _, ok := s.suspended[uid]; ok {
-		delete(s.suspended, uid)
+	if _, ok := s.paused[uid]; ok {
+		delete(s.paused, uid)
 	}
 }
 
-func (s suspendedVMIs) contains(uid types.UID) bool {
-	_, ok := s.suspended[uid]
+func (s pausedVMIs) contains(uid types.UID) bool {
+	_, ok := s.paused[uid]
 	return ok
 }
 
@@ -130,8 +130,8 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		virtShareDir:           virtShareDir,
 		notifier:               notifier,
 		lessPVCSpaceToleration: lessPVCSpaceToleration,
-		suspended: suspendedVMIs{
-			suspended: make(map[types.UID]bool, 0),
+		paused: pausedVMIs{
+			paused: make(map[types.UID]bool, 0),
 		},
 	}
 
@@ -1052,14 +1052,14 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			return nil, err
 		}
 		logger.Info("Domain started.")
-	} else if cli.IsPaused(domState) && !l.suspended.contains(vmi.UID) {
+	} else if cli.IsPaused(domState) && !l.paused.contains(vmi.UID) {
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
 		if err != nil {
-			logger.Reason(err).Error("Resuming the VirtualMachineInstance failed.")
+			logger.Reason(err).Error("unpausing the VirtualMachineInstance failed.")
 			return nil, err
 		}
-		logger.Info("Domain resumed.")
+		logger.Info("Domain unpaused.")
 	} else {
 		// Nothing to do
 	}
@@ -1115,7 +1115,7 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 	return util.GetDomainSpec(state, dom)
 }
 
-func (l *LibvirtDomainManager) SuspendVMI(vmi *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
@@ -1128,7 +1128,7 @@ func (l *LibvirtDomainManager) SuspendVMI(vmi *v1.VirtualMachineInstance) (*api.
 		if domainerrors.IsNotFound(err) {
 			return nil, fmt.Errorf("Domain not found.")
 		} else {
-			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed during suspend.")
+			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed during pause.")
 			return nil, err
 		}
 	}
@@ -1146,8 +1146,8 @@ func (l *LibvirtDomainManager) SuspendVMI(vmi *v1.VirtualMachineInstance) (*api.
 			log.Log.Object(vmi).Reason(err).Error("Signalling suspension failed.")
 			return nil, err
 		}
-		log.Log.Object(vmi).Infof("Signaled suspend for %s", vmi.GetObjectMeta().GetName())
-		l.suspended.add(vmi.UID)
+		log.Log.Object(vmi).Infof("Signaled pause for %s", vmi.GetObjectMeta().GetName())
+		l.paused.add(vmi.UID)
 	} else {
 		log.Log.Object(vmi).Infof("Domain is not running for %s", vmi.GetObjectMeta().GetName())
 	}
@@ -1165,7 +1165,7 @@ func (l *LibvirtDomainManager) SuspendVMI(vmi *v1.VirtualMachineInstance) (*api.
 	return &newSpec, nil
 }
 
-func (l *LibvirtDomainManager) ResumeVMI(vmi *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
@@ -1178,7 +1178,7 @@ func (l *LibvirtDomainManager) ResumeVMI(vmi *v1.VirtualMachineInstance) (*api.D
 		if domainerrors.IsNotFound(err) {
 			return nil, fmt.Errorf("Domain not found.")
 		} else {
-			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed during resume.")
+			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed during unpause.")
 			return nil, err
 		}
 	}
@@ -1193,11 +1193,11 @@ func (l *LibvirtDomainManager) ResumeVMI(vmi *v1.VirtualMachineInstance) (*api.D
 	if domState == libvirt.DOMAIN_PAUSED {
 		err = dom.Resume()
 		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Signalling resume failed.")
+			log.Log.Object(vmi).Reason(err).Error("Signalling unpause failed.")
 			return nil, err
 		}
-		log.Log.Object(vmi).Infof("Signaled resume for %s", vmi.GetObjectMeta().GetName())
-		l.suspended.remove(vmi.UID)
+		log.Log.Object(vmi).Infof("Signaled unpause for %s", vmi.GetObjectMeta().GetName())
+		l.paused.remove(vmi.UID)
 
 	} else {
 		log.Log.Object(vmi).Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())

@@ -129,8 +129,8 @@ type VirtualMachineInstanceInterface interface {
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error)
 	SerialConsole(name string, timeout time.Duration) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
-	Suspend(name string) error
-	Resume(name string) error
+	Pause(name string) error
+	Unpause(name string) error
 }
 
 type ReplicaSetInterface interface {

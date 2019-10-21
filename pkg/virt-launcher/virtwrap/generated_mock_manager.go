@@ -45,26 +45,26 @@ func (_mr *_MockDomainManagerRecorder) SyncVMI(arg0, arg1, arg2 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVMI", arg0, arg1, arg2)
 }
 
-func (_m *MockDomainManager) SuspendVMI(_param0 *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
-	ret := _m.ctrl.Call(_m, "SuspendVMI", _param0)
+func (_m *MockDomainManager) PauseVMI(_param0 *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
+	ret := _m.ctrl.Call(_m, "PauseVMI", _param0)
 	ret0, _ := ret[0].(*api.DomainSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockDomainManagerRecorder) SuspendVMI(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SuspendVMI", arg0)
+func (_mr *_MockDomainManagerRecorder) PauseVMI(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PauseVMI", arg0)
 }
 
-func (_m *MockDomainManager) ResumeVMI(_param0 *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
-	ret := _m.ctrl.Call(_m, "ResumeVMI", _param0)
+func (_m *MockDomainManager) UnpauseVMI(_param0 *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
+	ret := _m.ctrl.Call(_m, "UnpauseVMI", _param0)
 	ret0, _ := ret[0].(*api.DomainSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockDomainManagerRecorder) ResumeVMI(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResumeVMI", arg0)
+func (_mr *_MockDomainManagerRecorder) UnpauseVMI(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnpauseVMI", arg0)
 }
 
 func (_m *MockDomainManager) KillVMI(_param0 *v1.VirtualMachineInstance) error {

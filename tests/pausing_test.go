@@ -28,7 +28,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[rfe_id:xxx][crit:medium][vendor:cnv-qe@redhat.com][level:component]SuspendResume", func() {
+var _ = Describe("[rfe_id:xxx][crit:medium][vendor:cnv-qe@redhat.com][level:component]Pausing", func() {
 
 	tests.FlagParse()
 
@@ -53,12 +53,12 @@ var _ = Describe("[rfe_id:xxx][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		It("Should report paused status on VMI", func() {
-			By("Suspending VMI")
-			virtClient.VirtualMachineInstance(vmi.Namespace).Suspend(vmi.Name)
+			By("Pausing VMI")
+			virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name)
 			tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 
-			By("Resuming VMI")
-			virtClient.VirtualMachineInstance(vmi.Namespace).Resume(vmi.Name)
+			By("unpausing VMI")
+			virtClient.VirtualMachineInstance(vmi.Namespace).Unpause(vmi.Name)
 			tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
 		})
 
@@ -80,12 +80,12 @@ var _ = Describe("[rfe_id:xxx][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		It("Should report paused status on VM", func() {
-			By("Suspending VMI")
-			virtClient.VirtualMachineInstance(vm.Namespace).Suspend(vm.Name)
+			By("Pausing VMI")
+			virtClient.VirtualMachineInstance(vm.Namespace).Pause(vm.Name)
 			tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
 
-			By("Resuming VMI")
-			virtClient.VirtualMachineInstance(vm.Namespace).Resume(vm.Name)
+			By("unpausing VMI")
+			virtClient.VirtualMachineInstance(vm.Namespace).Unpause(vm.Name)
 			tests.WaitForVMConditionRemovedOrFalse(virtClient, vm, v1.VirtualMachinePaused, 30)
 		})
 

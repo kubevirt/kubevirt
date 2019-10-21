@@ -219,23 +219,23 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		Expect(bufOut).To(Equal(bufIn))
 	})
 
-	It("should suspend a VirtualMachineInstance", func() {
+	It("should pause a VirtualMachineInstance", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", subVMPath+"/suspend"),
+			ghttp.VerifyRequest("PUT", subVMPath+"/pause"),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Suspend("testvm")
+		err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Pause("testvm")
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should resume a VirtualMachineInstance", func() {
+	It("should unpause a VirtualMachineInstance", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("PUT", subVMPath+"/resume"),
+			ghttp.VerifyRequest("PUT", subVMPath+"/unpause"),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
-		err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Resume("testvm")
+		err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Unpause("testvm")
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

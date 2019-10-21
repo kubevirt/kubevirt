@@ -43,24 +43,24 @@ func (_mr *_MockLauncherClientRecorder) SyncVirtualMachine(arg0, arg1 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachine", arg0, arg1)
 }
 
-func (_m *MockLauncherClient) SuspendVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "SuspendVirtualMachine", vmi)
+func (_m *MockLauncherClient) PauseVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "PauseVirtualMachine", vmi)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockLauncherClientRecorder) SuspendVirtualMachine(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SuspendVirtualMachine", arg0)
+func (_mr *_MockLauncherClientRecorder) PauseVirtualMachine(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PauseVirtualMachine", arg0)
 }
 
-func (_m *MockLauncherClient) ResumeVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "ResumeVirtualMachine", vmi)
+func (_m *MockLauncherClient) UnpauseVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "UnpauseVirtualMachine", vmi)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockLauncherClientRecorder) ResumeVirtualMachine(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResumeVirtualMachine", arg0)
+func (_mr *_MockLauncherClientRecorder) UnpauseVirtualMachine(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnpauseVirtualMachine", arg0)
 }
 
 func (_m *MockLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error {
