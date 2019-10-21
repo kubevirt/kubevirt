@@ -45,6 +45,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
@@ -62,6 +63,7 @@ type ConverterContext struct {
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachineInstance
 	CPUSet         []int
+	HostCPUsMap    map[int]*hardware.Processor
 	IsBlockPVC     map[string]bool
 	IsBlockDV      map[string]bool
 	DiskType       map[string]*containerdisk.DiskInfo
@@ -1289,16 +1291,62 @@ func calculateRequestedVCPUs(cpuTopology *CPUTopology) uint32 {
 	return cpuTopology.Cores * cpuTopology.Sockets * cpuTopology.Threads
 }
 
+func arangeThreadsToFullCores(c *ConverterContext) (cores [][]int) {
+	hostcpus := c.HostCPUsMap
+	podcpumap := make(map[int]bool)
+	for _, cpu := range c.CPUSet {
+		podcpumap[cpu] = true
+	}
+
+	var sib int
+
+	orphands := []int{}
+	for key := range podcpumap {
+		siblings := hostcpus[key].Siblings
+		for _, val := range siblings {
+			if key != val {
+				sib = val
+			}
+		}
+		if _, exist := podcpumap[sib]; exist {
+			cores = append(cores, []int{key, sib})
+			delete(podcpumap, sib)
+		} else {
+			orphands = append(orphands, key)
+			if len(orphands) > 1 {
+				cores = append(cores, orphands)
+				orphands = []int{}
+			}
+		}
+		delete(podcpumap, key)
+	}
+	return
+
+}
+
 func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {
+	var assignableCoresList [][]int
 	if len(c.CPUSet) == 0 {
 		return fmt.Errorf("failed for get pods pinned cpus")
 	}
 	vcpus := calculateRequestedVCPUs(domain.Spec.CPU.Topology)
+
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.RequireFullCores {
+		assignableCoresList = arangeThreadsToFullCores(c)
+	}
 	cpuTune := CPUTune{}
 	for idx := 0; idx < int(vcpus); idx++ {
 		vcpupin := CPUTuneVCPUPin{}
 		vcpupin.VCPU = uint(idx)
+
 		vcpupin.CPUSet = strconv.Itoa(c.CPUSet[idx])
+		if assignableCoresList != nil {
+			vcpupin.CPUSet = fmt.Sprintf(
+				"%d-%d",
+				assignableCoresList[idx][0],
+				assignableCoresList[idx][1],
+			)
+		}
 		cpuTune.VCPUPin = append(cpuTune.VCPUPin, vcpupin)
 	}
 	domain.Spec.CPUTune = &cpuTune
