@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -634,6 +635,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		logger.Reason(err).Error("failed to read pod cpuset.")
 		return fmt.Errorf("failed to read pod cpuset: %v", err)
 	}
+
 	// Check if PVC volumes are block volumes
 	isBlockPVCMap := make(map[string]bool)
 	isBlockDVMap := make(map[string]bool)
@@ -917,7 +919,14 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		logger.Reason(err).Error("failed to read pod cpuset.")
 		return nil, err
 	}
-
+	hostCPUMap := make(map[int]*hardware.Processor)
+	if options != nil && options.ProcessorsMap != nil {
+		err = json.Unmarshal(options.ProcessorsMap.ProcMapJson, &hostCPUMap)
+		if err != nil {
+			logger.Reason(err).Error("failed to get host processors cpus map.")
+			return nil, err
+		}
+	}
 	// Check if PVC volumes are block volumes
 	isBlockPVCMap := make(map[string]bool)
 	isBlockDVMap := make(map[string]bool)
@@ -957,6 +966,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		VirtualMachine: vmi,
 		UseEmulation:   useEmulation,
 		CPUSet:         podCPUSet,
+		HostCPUsMap:    hostCPUMap,
 		IsBlockPVC:     isBlockPVCMap,
 		IsBlockDV:      isBlockDVMap,
 		DiskType:       diskInfo,
