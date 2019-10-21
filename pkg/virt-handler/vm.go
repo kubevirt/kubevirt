@@ -51,6 +51,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	clusterutils "kubevirt.io/kubevirt/pkg/util/cluster"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -128,6 +129,7 @@ func NewController(
 
 	c.kvmController = device_manager.NewDeviceController(c.host, maxDevices)
 
+	c.processorsMap = make(map[int]*hardware.Processor)
 	return c
 }
 
@@ -151,6 +153,7 @@ type VirtualMachineController struct {
 	podIsolationDetector     isolation.PodIsolationDetector
 	containerDiskMounter     *container_disk.Mounter
 	clusterConfig            *virtconfig.ClusterConfig
+	processorsMap            map[int]*hardware.Processor
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -541,6 +544,9 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiSourceInformer.HasSynced, c.vmiTargetInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
 
 	go c.heartBeat(c.heartBeatInterval, stopCh)
+
+	c.processorsMap, _ = hardware.GetCPUThreadsMap()
+	c.updateHostHyperthreadsLabel(c.processorsMap)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -1575,6 +1581,18 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		d.Queue.Add(key)
+	}
+}
+func (d *VirtualMachineController) updateHostHyperthreadsLabel(processorsMap map[int]*hardware.Processor) {
+	isHTEnabled := false
+	for _, proc := range processorsMap {
+		isHTEnabled = proc.ThreadsNum > 1
+		break
+	}
+	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%t"}}}`, v1.CPUHyperthreading, isHTEnabled))
+	_, err := d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("failed to set a hyperthreading label on host %s", d.host)
 	}
 }
 

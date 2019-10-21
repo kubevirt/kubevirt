@@ -550,6 +550,7 @@ const (
 	VirtualMachineInstanceFinalizer          string = "foregroundDeleteVirtualMachine"
 	VirtualMachineInstanceMigrationFinalizer string = "kubevirt.io/migrationJobFinalize"
 	CPUManager                               string = "cpumanager"
+	CPUHyperthreading                        string = "kubevirt.io/beta-hypethreading"
 	// This annotation is used to inject ignition data
 	// Used on VirtualMachineInstance.
 	IgnitionAnnotation string = "kubevirt.io/ignitiondata"
