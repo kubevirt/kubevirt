@@ -1151,3 +1151,43 @@ type RestartOptions struct {
 	// +optional
 	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty" protobuf:"varint,1,opt,name=gracePeriodSeconds"`
 }
+
+// VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceGuestAgentInfo struct {
+	// GAVersion is a version of currently installed guest agent
+	GAVersion string `json:"guestAgentVersion,omitempty"`
+	// Hostname represents FQDN of a guest
+	Hostname string `json:"hostname,omitempty"`
+	// OS contains the guest operating system information
+	OS VirtualMachineInstanceGuestOSInfo `json:"os,omitempty"`
+	// Timezone is guest os current timezone
+	Timezone string `json:"timezone,omitempty"`
+	// UserList is a list of active guest OS users
+	UserList []VirtualMachineInstanceGuestOSUser `json:"userList,omitempty"`
+	// FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage
+	FSInfo VirtualMachineInstanceFileSystemInfo `json:"fsInfo,omitempty"`
+}
+
+// VirtualMachineInstanceGuestOSUser is the single user of the guest os
+type VirtualMachineInstanceGuestOSUser struct {
+	UserName  string `json:"userName"`
+	Domain    string `json:"domain,omitempty"`
+	LoginTime int    `json:"loginTime,omitempty"`
+}
+
+// VirtualMachineInstanceFileSystemInfo represents information regarding single guest os filesystem
+type VirtualMachineInstanceFileSystemInfo struct {
+	Filesystems []VirtualMachineInstanceFileSystem `json:"disks"`
+}
+
+// VirtualMachineInstanceFileSystem represents guest os disk
+type VirtualMachineInstanceFileSystem struct {
+	DiskName       string `json:"diskName"`
+	MountPoint     string `json:"mountPoint"`
+	FileSystemType string `json:"fileSystemType"`
+	UsedBytes      int    `json:"usedBytes"`
+	TotalBytes     int    `json:"totalBytes"`
+}

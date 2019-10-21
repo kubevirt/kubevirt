@@ -299,6 +299,15 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", nil).
 			Returns(http.StatusInternalServerError, "Unhealthy", nil))
 
+		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("guestosinfo")).
+			To(subresourceApp.GuestOSInfo).
+			Consumes(restful.MIME_JSON).
+			Produces(restful.MIME_JSON).
+			Operation("guestosinfo").
+			Doc("Get guest agent os information").
+			Writes(v1.VirtualMachineInstanceGuestAgentInfo{}).
+			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestAgentInfo{}))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
