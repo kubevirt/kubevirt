@@ -30,9 +30,9 @@ import (
 	"strings"
 	"sync"
 
-	"kubevirt.io/kubevirt/pkg/controller"
-
 	"github.com/emicklei/go-restful"
+
+	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 type SubresourceAPIApp struct {
@@ -272,6 +273,10 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 			log.Log.Object(vmi).Reason(err).Error("Can't establish VNC connection.")
 			return err, http.StatusBadRequest
 		}
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
+			return fmt.Errorf("VMI is paused"), http.StatusForbidden
+		}
 		return nil, 0
 	}
 	getConsoleURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
@@ -289,7 +294,10 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 
 func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, response *restful.Response) {
 	validate := func(vmi *v1.VirtualMachineInstance) (error, int) {
-		// always valid
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
+			return fmt.Errorf("VMI is paused"), http.StatusForbidden
+		}
 		return nil, 0
 	}
 	getConsoleURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
@@ -374,6 +382,13 @@ func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, 
 	if !vm.Status.Ready {
 		response.WriteError(http.StatusForbidden, fmt.Errorf("VM is not running"))
 		return
+	}
+
+	for _, c := range vm.Status.Conditions {
+		if c.Type == v1.VirtualMachinePaused && c.Status == v12.ConditionTrue {
+			response.WriteError(http.StatusForbidden, fmt.Errorf("VM is paused"))
+			return
+		}
 	}
 
 	createMigrationJob := func() error {

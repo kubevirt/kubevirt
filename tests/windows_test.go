@@ -53,19 +53,12 @@ const (
 	winrmCliCmd = "winrm-cli"
 )
 
-var _ = Describe("Windows VirtualMachineInstance", func() {
-	tests.FlagParse()
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
-
-	var windowsVMI *v1.VirtualMachineInstance
-
+var getWindowsVMISpec = func() v1.VirtualMachineInstanceSpec {
 	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
 	firmware := types.UID(windowsFirmware)
 	_false := false
-	windowsVMISpec := v1.VirtualMachineInstanceSpec{
+	return v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,
 		Domain: v1.DomainSpec{
 			CPU: &v1.CPU{Cores: 2},
@@ -116,6 +109,16 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 		},
 	}
 
+}
+
+var _ = Describe("Windows VirtualMachineInstance", func() {
+	tests.FlagParse()
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	tests.PanicOnError(err)
+
+	var windowsVMI *v1.VirtualMachineInstance
+
 	tests.BeforeAll(func() {
 		tests.SkipIfNoWindowsImage(virtClient)
 	})
@@ -123,7 +126,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 		windowsVMI = tests.NewRandomVMI()
-		windowsVMI.Spec = windowsVMISpec
+		windowsVMI.Spec = getWindowsVMISpec()
 		tests.AddExplicitPodNetworkInterface(windowsVMI)
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
