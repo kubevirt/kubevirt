@@ -257,9 +257,9 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			vmi.Status.GuestOSInfo.Version = domain.Status.OSInfo.VersionId
 			vmi.Status.GuestOSInfo.KernelRelease = domain.Status.OSInfo.KernelRelease
 			vmi.Status.GuestOSInfo.PrettyName = domain.Status.OSInfo.PrettyName
-			vmi.Status.GuestOSInfo.VersionId = domain.Status.OSInfo.VersionId
+			vmi.Status.GuestOSInfo.VersionID = domain.Status.OSInfo.VersionId
 			vmi.Status.GuestOSInfo.KernelVersion = domain.Status.OSInfo.KernelVersion
-			vmi.Status.GuestOSInfo.Id = domain.Status.OSInfo.Id
+			vmi.Status.GuestOSInfo.ID = domain.Status.OSInfo.Id
 		}
 		// This is needed to be backwards compatible with vmi's which have status interfaces
 		// with the name not being set

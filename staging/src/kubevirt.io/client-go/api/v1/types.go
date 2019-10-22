@@ -430,13 +430,13 @@ type VirtualMachineInstanceGuestOSInfo struct {
 	// Guest OS Pretty Name
 	PrettyName string `json:"prettyName,omitempty"`
 	// Version ID of the Guest OS
-	VersionId string `json:"versionId,omitempty"`
+	VersionID string `json:"versionId,omitempty"`
 	// Kernel version of the Guest OS
 	KernelVersion string `json:"kernelVersion,omitempty"`
 	// Machine type of the Guest OS
 	Machine string `json:"machine,omitempty"`
 	// Guest OS Id
-	Id string `json:"id,omitempty"`
+	ID string `json:"id,omitempty"`
 }
 
 type VirtualMachineInstanceMigrationState struct {

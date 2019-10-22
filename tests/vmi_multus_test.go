@@ -481,7 +481,7 @@ var _ = Describe("Multus", func() {
 	Describe("[rfe_id:1758][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance definition", func() {
 		Context("with quemu guest agent", func() {
 
-			It("[test_id:1757] should report guest interfaces and guest os info in VMI status", func() {
+			It("[test_id:1757] should report guest interfaces in VMI status", func() {
 				interfaces := []v1.Interface{
 					defaultInterface,
 					linuxBridgeInterface,
@@ -528,8 +528,8 @@ var _ = Describe("Multus", func() {
 					if err != nil {
 						return false
 					}
-					return len(updatedVmi.Status.Interfaces) == 4 && updatedVmi.Status.GuestOSInfo.Name != ""
-				}, 420*time.Second, 4).Should(BeTrue(), "Should have interfaces ang guest OS Info in vmi status")
+					return len(updatedVmi.Status.Interfaces) == 4
+				}, 420*time.Second, 4).Should(BeTrue(), "Should have interfaces in vmi status")
 
 				updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred())
@@ -554,8 +554,6 @@ var _ = Describe("Multus", func() {
 				Expect(interfaceByIfcName["ep2"].InterfaceName).To(Equal("ep2"))
 				Expect(interfaceByIfcName["ep2"].IP).To(Equal(ep2Ip))
 				Expect(interfaceByIfcName["ep2"].IPs).To(Equal([]string{ep2Ip, ep2IpV6}))
-
-				Expect(updatedVmi.Status.GuestOSInfo.Name).To(Equal("Fedora"))
 			})
 		})
 	})

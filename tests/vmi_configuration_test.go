@@ -1070,6 +1070,19 @@ var _ = Describe("Configurations", func() {
 							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
 					"Should have agent connected condition")
 
+				By("Expecting the Guest VM information")
+				Eventually(func() bool {
+					updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+					if err != nil {
+						return false
+					}
+					return updatedVmi.Status.GuestOSInfo.Name != ""
+				}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in vmi status")
+
+				updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedVmi.Status.GuestOSInfo.Name).To(Equal("Fedora"))
+
 				By("Expecting the VirtualMachineInstance console")
 				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
 				Expect(err).ToNot(HaveOccurred())
