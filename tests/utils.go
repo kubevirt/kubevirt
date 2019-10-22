@@ -3702,14 +3702,7 @@ func DisableFeatureGate(feature string) {
 	newVal := strings.Replace(val, feature+",", "", 1)
 	newVal = strings.Replace(newVal, feature, "", 1)
 
-	cfg.Data["feature-gates"] = newVal
-
-	newData, err := json.Marshal(cfg.Data)
-	Expect(err).ToNot(HaveOccurred())
-
-	data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
-	_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
-	Expect(err).ToNot(HaveOccurred())
+	UpdateClusterConfigValueAndWait("feature-gates", newVal)
 }
 
 func EnableFeatureGate(feature string) {
@@ -3724,15 +3717,7 @@ func EnableFeatureGate(feature string) {
 	val, _ := cfg.Data["feature-gates"]
 	newVal := fmt.Sprintf("%s,%s", val, feature)
 
-	cfg.Data["feature-gates"] = newVal
-
-	newData, err := json.Marshal(cfg.Data)
-	Expect(err).ToNot(HaveOccurred())
-
-	data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
-
-	_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
-	Expect(err).ToNot(HaveOccurred())
+	UpdateClusterConfigValueAndWait("feature-gates", newVal)
 }
 
 func HasDataVolumeCRD() bool {
