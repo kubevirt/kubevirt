@@ -963,7 +963,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.PauseVMIRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
 
 		})
 
@@ -974,7 +974,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.PauseVMIRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
 
 		})
 
@@ -985,7 +985,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.UnpauseVMIRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
 
 		})
 
@@ -996,7 +996,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.UnpauseVMIRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
 
 		})
 

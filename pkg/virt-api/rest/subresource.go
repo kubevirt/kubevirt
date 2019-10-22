@@ -71,7 +71,7 @@ const (
 	virtHandlerCertSecretName = "kubevirt-virt-handler-certs"
 )
 
-type validation func(*v1.VirtualMachineInstance) error
+type validation func(*v1.VirtualMachineInstance) (err error, statusCode int)
 type URLResolver func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (string, error)
 
 func (app *SubresourceAPIApp) prepareConnection(request *restful.Request, response *restful.Response, validate validation, getVirtHandlerURL URLResolver) (vmi *v1.VirtualMachineInstance, url string, conn kubecli.VirtHandlerConn, err error) {
@@ -87,8 +87,9 @@ func (app *SubresourceAPIApp) prepareConnection(request *restful.Request, respon
 		return
 	}
 
-	if err = validate(vmi); err != nil {
-		response.WriteError(http.StatusBadRequest, err)
+	statusCode := 0
+	if err, statusCode = validate(vmi); err != nil {
+		response.WriteError(statusCode, err)
 		return
 	}
 
@@ -264,14 +265,14 @@ func (app *SubresourceAPIApp) getHandlerTLSConfig() (*tls.Config, error) {
 }
 
 func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, response *restful.Response) {
-	validate := func(vmi *v1.VirtualMachineInstance) error {
+	validate := func(vmi *v1.VirtualMachineInstance) (error, int) {
 		// If there are no graphics devices present, we can't proceed
 		if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == false {
 			err := fmt.Errorf("No graphics devices are present.")
 			log.Log.Object(vmi).Reason(err).Error("Can't establish VNC connection.")
-			return err
+			return err, http.StatusBadRequest
 		}
-		return nil
+		return nil, 0
 	}
 	getConsoleURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 		return conn.VNCURI(vmi)
@@ -287,9 +288,9 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 }
 
 func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, response *restful.Response) {
-	validate := func(vmi *v1.VirtualMachineInstance) error {
+	validate := func(vmi *v1.VirtualMachineInstance) (error, int) {
 		// always valid
-		return nil
+		return nil, 0
 	}
 	getConsoleURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 		return conn.ConsoleURI(vmi)
@@ -602,15 +603,15 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 
 func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, response *restful.Response) {
 
-	validate := func(vmi *v1.VirtualMachineInstance) error {
-		if vmi == nil || vmi.IsFinal() || vmi.Status.Phase == v1.Unknown || vmi.Status.Phase == v1.VmPhaseUnset {
-			return fmt.Errorf("VM is not running")
+	validate := func(vmi *v1.VirtualMachineInstance) (error, int) {
+		if vmi == nil || vmi.Status.Phase != v1.Running {
+			return fmt.Errorf("VMI is not running"), http.StatusForbidden
 		}
 		condManager := controller.NewVirtualMachineInstanceConditionManager()
 		if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			return fmt.Errorf("VM is already paused")
+			return fmt.Errorf("VMI is already paused"), http.StatusForbidden
 		}
-		return nil
+		return nil, 0
 	}
 
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
@@ -622,15 +623,15 @@ func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, r
 
 func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request, response *restful.Response) {
 
-	validate := func(vmi *v1.VirtualMachineInstance) error {
-		if vmi == nil || vmi.IsFinal() || vmi.Status.Phase == v1.Unknown || vmi.Status.Phase == v1.VmPhaseUnset {
-			return fmt.Errorf("VM is not running")
+	validate := func(vmi *v1.VirtualMachineInstance) (error, int) {
+		if vmi == nil || vmi.Status.Phase != v1.Running {
+			return fmt.Errorf("VMI is not running"), http.StatusForbidden
 		}
 		condManager := controller.NewVirtualMachineInstanceConditionManager()
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			return fmt.Errorf("VM is not paused")
+			return fmt.Errorf("VMI is not paused"), http.StatusForbidden
 		}
-		return nil
+		return nil, 0
 	}
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 		return conn.UnpauseURI(vmi)
