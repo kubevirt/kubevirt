@@ -69,5 +69,23 @@ var _ = Describe("Qemu agent poller", func() {
 				})
 			Expect(interfaceStatuses).To(Equal(expectedStatuses))
 		})
+
+		It("should parse Guest OS Info", func() {
+			agentPoller := AgentPoller{}
+			agentPoller.domainData = &DomainData{}
+
+			jsonInput := "{\"return\":{\"name\":\"TestGuestOSName\",\"kernel-release\":\"1.1.0-Generic\",\"version\":\"1.0.0\",\"pretty-name\":\"TestGuestOSName 1.0.0\",\"version-id\":\"1.0.0\",\"kernel-version\":\"1.1.0\",\"machine\":\"x86_64\",\"id\":\"testguestos\"}}"
+
+			guestOSInfoStatus := agentPoller.GetGuestOsInfo(jsonInput)
+			expectedGuestOSInfo := api.GuestOSInfo{Name: "TestGuestOSName",
+				KernelRelease: "1.1.0-Generic",
+				Version:       "1.0.0",
+				PrettyName:    "TestGuestOSName 1.0.0",
+				VersionId:     "1.0.0",
+				KernelVersion: "1.1.0",
+				Machine:       "x86_64",
+				Id:            "testguestos"}
+			Expect(guestOSInfoStatus).To(Equal(expectedGuestOSInfo))
+		})
 	})
 })

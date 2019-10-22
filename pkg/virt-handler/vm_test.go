@@ -1191,6 +1191,33 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
+		It("should update Guest OS Information in VMI status", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			guestOSName := "TestGuestOS"
+
+			vmi.Status.GuestOSInfo = v1.VirtualMachineInstanceGuestOSInfo{
+				Name: guestOSName,
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Running
+
+			domain.Status.OSInfo = api.GuestOSInfo{Name: guestOSName}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.GuestOSInfo.Name).To(Equal(guestOSName))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
+
 		It("should add new vmi interfaces for new domain interfaces", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = testUUID
