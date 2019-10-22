@@ -251,6 +251,8 @@ type VirtualMachineInstanceStatus struct {
 	Phase VirtualMachineInstancePhase `json:"phase,omitempty"`
 	// Interfaces represent the details of available network interfaces.
 	Interfaces []VirtualMachineInstanceNetworkInterface `json:"interfaces,omitempty"`
+	// Guest OS Information
+	GuestOSInfo VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo,omitempty"`
 	// Represents the status of a live migration
 	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
 	// Represents the method using which the vmi can be migrated: live migration or block migration
@@ -416,6 +418,25 @@ type VirtualMachineInstanceNetworkInterface struct {
 	IPs []string `json:"ipAddresses,omitempty"`
 	// The interface name inside the Virtual Machine
 	InterfaceName string `json:"interfaceName,omitempty"`
+}
+
+type VirtualMachineInstanceGuestOSInfo struct {
+	// Name of the Guest OS
+	Name string `json:"name,omitempty"`
+	// Guest OS Kernel Release
+	KernelRelease string `json:"kernelRelease,omitempty"`
+	// Guest OS Version
+	Version string `json:"version,omitempty"`
+	// Guest OS Pretty Name
+	PrettyName string `json:"prettyName,omitempty"`
+	// Version ID of the Guest OS
+	VersionId string `json:"versionId,omitempty"`
+	// Kernel version of the Guest OS
+	KernelVersion string `json:"kernelVersion,omitempty"`
+	// Machine type of the Guest OS
+	Machine string `json:"machine,omitempty"`
+	// Guest OS Id
+	Id string `json:"id,omitempty"`
 }
 
 type VirtualMachineInstanceMigrationState struct {

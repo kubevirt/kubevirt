@@ -3414,6 +3414,12 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							},
 						},
 					},
+					"guestOSInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Guest OS Information",
+							Ref:         ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSInfo"),
+						},
+					},
 					"migrationState": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Represents the status of a live migration",
@@ -3438,7 +3444,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceCondition", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceNetworkInterface"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceCondition", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceNetworkInterface"},
 	}
 }
 

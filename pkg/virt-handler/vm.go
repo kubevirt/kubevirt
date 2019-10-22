@@ -252,6 +252,15 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	oldStatus := vmi.DeepCopy().Status
 
 	if domain != nil {
+		if vmi.Status.GuestOSInfo.Name != domain.Status.OSInfo.Name {
+			vmi.Status.GuestOSInfo.Name = domain.Status.OSInfo.Name
+			vmi.Status.GuestOSInfo.Version = domain.Status.OSInfo.VersionId
+			vmi.Status.GuestOSInfo.KernelRelease = domain.Status.OSInfo.KernelRelease
+			vmi.Status.GuestOSInfo.PrettyName = domain.Status.OSInfo.PrettyName
+			vmi.Status.GuestOSInfo.VersionId = domain.Status.OSInfo.VersionId
+			vmi.Status.GuestOSInfo.KernelVersion = domain.Status.OSInfo.KernelVersion
+			vmi.Status.GuestOSInfo.Id = domain.Status.OSInfo.Id
+		}
 		// This is needed to be backwards compatible with vmi's which have status interfaces
 		// with the name not being set
 		if len(domain.Spec.Devices.Interfaces) == 0 && len(vmi.Status.Interfaces) == 1 && vmi.Status.Interfaces[0].Name == "" {
