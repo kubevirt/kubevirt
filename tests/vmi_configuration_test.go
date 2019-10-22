@@ -1602,7 +1602,7 @@ var _ = Describe("Configurations", func() {
 					n, err := virtClient.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return n.Labels[v1.CPUManager]
-				}, 2*time.Minute, 2*time.Second).Should(Equal("false"))
+				}, 3*time.Minute, 2*time.Second).Should(Equal("false"))
 			})
 			It("[test_id:1685]non master node should have a cpumanager label", func() {
 				cpuManagerEnabled := false
