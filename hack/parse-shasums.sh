@@ -19,25 +19,15 @@
 
 set -e
 
-if [[ -z "$push_log_file" ]]; then
-    echo "PUSH_LOG_FILE is empty: won't use shasums, falling back to tags"
+if [[ ! -f "${KUBEVIRT_DIR}/bazel-bin/push-virt-operator.digest" ]]; then
+    echo "digest files not found: won't use shasums, falling back to tags"
     return
 fi
 
-if [[ ! -f "$push_log_file" ]]; then
-    echo "$push_log_file not found: won't use shasums, falling back to tags"
-    return
-fi
+# bazel push images creates digest files in bazel-bin/push-<image-name>.digest
 
-# example log line: index.docker.io/kubevirt/virt-handler:v0.19.0 was published with digest: sha256:48104bcbc1d5f11b8f98d3f6ad875871ec3714482771b2c2ac7406aa02a05b00
-
-# 1. find virt-* images
-# 2. remove repo
-# 3. remove tag
-# 4. replace - with _
-# 5. print uppercase image_SHA=shasum
-# 6. source everything
-#
-# results in e.g. $VIRT_HANDLER_SHA = sha256:48104bcbc1d5f11b8f98d3f6ad875871ec3714482771b2c2ac7406aa02a05b00
-#
-source <(awk '$1 ~ /.*virt-.*/ { sub(".*/", "", $1) ; sub(":.*", "", $1) ; sub("-", "_", $1) ; print toupper($1) "_SHA=" $6}' "$push_log_file")
+VIRT_OPERATOR_SHA=$(cat ${KUBEVIRT_DIR}/bazel-bin/push-virt-operator.digest)
+VIRT_API_SHA=$(cat ${KUBEVIRT_DIR}/bazel-bin/push-virt-api.digest)
+VIRT_CONTROLLER_SHA=$(cat ${KUBEVIRT_DIR}/bazel-bin/push-virt-controller.digest)
+VIRT_HANDLER_SHA=$(cat ${KUBEVIRT_DIR}/bazel-bin/push-virt-handler.digest)
+VIRT_LAUNCHER_SHA=$(cat ${KUBEVIRT_DIR}/bazel-bin/push-virt-launcher.digest)

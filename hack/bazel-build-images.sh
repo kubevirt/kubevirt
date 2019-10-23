@@ -22,25 +22,13 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-for tag in ${docker_tag} ${docker_tag_alt}; do
-    bazel build \
-        --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo \
-        --workspace_status_command=./hack/print-workspace-status.sh \
-        --host_force_python=${bazel_py} \
-        --define container_prefix=${docker_prefix} \
-        --define image_prefix=${image_prefix} \
-        --define container_tag=${tag} \
-        //:build-images
-done
-
-# for the imagePrefix operator test
-if [[ $image_prefix_alt ]]; then
-    bazel build \
-        --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo \
-        --workspace_status_command=./hack/print-workspace-status.sh \
-        --host_force_python=${bazel_py} \
-        --define container_prefix=${docker_prefix} \
-        --define image_prefix=${image_prefix_alt} \
-        --define container_tag=${docker_tag} \
-        //:build-images
-fi
+# vars are uninteresting for the build step, they are interesting for the push step only
+bazel build \
+    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo \
+    --workspace_status_command=./hack/print-workspace-status.sh \
+    --host_force_python=${bazel_py} \
+    --define container_prefix= \
+    --define image_prefix= \
+    --define container_tag= \
+    //:build-other-images //cmd/virt-operator:virt-operator-image //cmd/virt-api:virt-api-image \
+    //cmd/virt-controller:virt-controller-image //cmd/virt-handler:virt-handler-image //cmd/virt-launcher:virt-launcher-image

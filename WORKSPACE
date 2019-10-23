@@ -135,11 +135,12 @@ go_register_toolchains(
 )
 
 load("@com_github_atlassian_bazel_tools//goimports:deps.bzl", "goimports_dependencies")
+
+goimports_dependencies()
+
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
-
-goimports_dependencies()
 
 load(
     "@bazel_gazelle//:deps.bzl",
