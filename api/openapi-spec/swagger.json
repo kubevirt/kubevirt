@@ -6030,6 +6030,42 @@
      }
     }
    },
+   "v1.VirtualMachineInstanceGuestOSInfo": {
+    "properties": {
+     "id": {
+      "description": "Guest OS Id",
+      "type": "string"
+     },
+     "kernelRelease": {
+      "description": "Guest OS Kernel Release",
+      "type": "string"
+     },
+     "kernelVersion": {
+      "description": "Kernel version of the Guest OS",
+      "type": "string"
+     },
+     "machine": {
+      "description": "Machine type of the Guest OS",
+      "type": "string"
+     },
+     "name": {
+      "description": "Name of the Guest OS",
+      "type": "string"
+     },
+     "prettyName": {
+      "description": "Guest OS Pretty Name",
+      "type": "string"
+     },
+     "version": {
+      "description": "Guest OS Version",
+      "type": "string"
+     },
+     "versionId": {
+      "description": "Version ID of the Guest OS",
+      "type": "string"
+     }
+    }
+   },
    "v1.VirtualMachineInstanceList": {
     "description": "VirtualMachineInstanceList is a list of VirtualMachines",
     "required": [
@@ -6511,6 +6547,10 @@
       "items": {
        "$ref": "#/definitions/v1.VirtualMachineInstanceCondition"
       }
+     },
+     "guestOSInfo": {
+      "description": "Guest OS Information",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSInfo"
      },
      "interfaces": {
       "description": "Interfaces represent the details of available network interfaces.",

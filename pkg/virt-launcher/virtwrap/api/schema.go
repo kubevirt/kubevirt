@@ -106,6 +106,18 @@ type DomainStatus struct {
 	Status     LifeCycle
 	Reason     StateChangeReason
 	Interfaces []InterfaceStatus
+	OSInfo     GuestOSInfo
+}
+
+type GuestOSInfo struct {
+	Name          string
+	KernelRelease string
+	Version       string
+	PrettyName    string
+	VersionId     string
+	KernelVersion string
+	Machine       string
+	Id            string
 }
 
 type InterfaceStatus struct {
