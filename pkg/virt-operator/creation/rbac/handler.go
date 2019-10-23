@@ -125,6 +125,20 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 					"watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"policy",
+				},
+				Resources: []string{
+					"podsecuritypolicies",
+				},
+				Verbs: []string{
+					"use",
+				},
+				ResourceNames: []string{
+					HandlerServiceAccountName,
+				},
+			},
 		},
 	}
 }

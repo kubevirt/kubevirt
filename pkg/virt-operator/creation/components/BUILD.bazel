@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "crds.go",
         "deployments.go",
+        "psps.go",
         "scc.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/creation/components",

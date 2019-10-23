@@ -1,0 +1,65 @@
+---
+apiVersion: v1beta1
+kind: PodSecurityPolicy
+metadata:
+  annotations:
+    apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: '*'
+    seccomp.security.alpha.kubernetes.io/defaultProfileName: runtime/default
+  labels:
+    kubevirt.io: ""
+  name: kubevirt-controller
+spec:
+  allowedCapabilities:
+  - NET_ADMIAN
+  - SYS_NICE
+  fsGroup:
+    rule: RunAsAny
+  runAsUser:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  volumes:
+  - configMap
+  - secret
+  - emptyDir
+  - downwardAPI
+  - persistentVolumeClaim
+  - hostPath
+---
+apiVersion: v1beta1
+kind: PodSecurityPolicy
+metadata:
+  annotations:
+    apparmor.security.beta.kubernetes.io/defaultProfileName: runtime/default
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: '*'
+    seccomp.security.alpha.kubernetes.io/defaultProfileName: runtime/default
+  labels:
+    kubevirt.io: ""
+  name: kubevirt-handler
+spec:
+  fsGroup:
+    ranges:
+    - max: 65535
+      min: 1000
+    rule: MustRunAs
+  hostPID: true
+  privileged: true
+  runAsUser:
+    rule: MustRunAsNonRoot
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    ranges:
+    - max: 65535
+      min: 1000
+    rule: MustRunAs
+  volumes:
+  - configMap
+  - secret
+  - emptyDir
+  - downwardAPI
+  - persistentVolumeClaim
+  - hostPath

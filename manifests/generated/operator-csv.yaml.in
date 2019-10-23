@@ -485,6 +485,14 @@ spec:
           verbs:
           - create
         - apiGroups:
+          - policy
+          resourceNames:
+          - kubevirt-controller
+          resources:
+          - podsecuritypolicies
+          verbs:
+          - use
+        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachineinstances
@@ -520,6 +528,14 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - policy
+          resourceNames:
+          - kubevirt-handler
+          resources:
+          - podsecuritypolicies
+          verbs:
+          - use
         - apiGroups:
           - ""
           resources:

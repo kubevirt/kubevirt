@@ -267,6 +267,14 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+- apiGroups:
+  - policy
+  resourceNames:
+  - kubevirt-controller
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -334,6 +342,14 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - policy
+  resourceNames:
+  - kubevirt-handler
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

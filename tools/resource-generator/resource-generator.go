@@ -71,6 +71,13 @@ func main() {
 		for _, r := range all {
 			util.MarshallObject(r, os.Stdout)
 		}
+	case "psp":
+		all := make([]interface{}, 0)
+		all = append(all, components.NewControllerPodSecurityPolicy())
+		all = append(all, components.NewHandlerPodSecurityPolicy())
+		for _, r := range all {
+			util.MarshallObject(r, os.Stdout)
+		}
 	case "cluster-rbac":
 		all := rbac.GetAllCluster(*namespace)
 		for _, r := range all {

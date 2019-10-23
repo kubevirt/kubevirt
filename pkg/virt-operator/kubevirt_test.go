@@ -755,6 +755,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespace(), config.GetMonitorServiceAccount())...)
 		all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetMonitorNamespace(), true))
+		// pod security policies
+		all = append(all, components.NewControllerPodSecurityPolicy())
+		all = append(all, components.NewHandlerPodSecurityPolicy())
 
 		for _, obj := range all {
 			if resource, ok := obj.(runtime.Object); ok {

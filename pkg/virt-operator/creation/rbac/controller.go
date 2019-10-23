@@ -188,6 +188,20 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"create",
 				},
 			},
+			{
+				APIGroups: []string{
+					"policy",
+				},
+				Resources: []string{
+					"podsecuritypolicies",
+				},
+				Verbs: []string{
+					"use",
+				},
+				ResourceNames: []string{
+					ControllerServiceAccountName,
+				},
+			},
 		},
 	}
 }

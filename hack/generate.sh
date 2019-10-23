@@ -28,6 +28,7 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kubevirt-rbac
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=cluster-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-cluster.authorization.k8s.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=operator-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-operator.authorization.k8s.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=prometheus --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/prometheus.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=psp >${KUBEVIRT_DIR}/manifests/generated/psp.yaml
 
 # used for Image fields in manifests
 function getVersion() {
