@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -88,6 +90,35 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				command = tests.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", tests.NamespaceTestDefault, vmi.Name)
 				Expect(command()).To(Succeed())
 				tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+			})
+		})
+
+		Context("with a LivenessProbe configured", func() {
+			When("paused via virtctl", func() {
+				It("should not be paused", func() {
+					By("Launching a VMI with LivenessProbe")
+					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+					// a random probe wich will not fail immediately
+					vmi.Spec.LivenessProbe = &v1.Probe{
+						Handler: v1.Handler{
+							HTTPGet: &k8sv1.HTTPGetAction{
+								Path: "/something",
+								Port: intstr.FromInt(8080),
+							},
+						},
+						InitialDelaySeconds: 120,
+						TimeoutSeconds:      120,
+						PeriodSeconds:       120,
+						SuccessThreshold:    1,
+						FailureThreshold:    1,
+					}
+					tests.RunVMIAndExpectLaunch(vmi, 90)
+
+					By("Pausing it")
+					command := tests.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", tests.NamespaceTestDefault, vmi.Name)
+					err := command()
+					Expect(err.Error()).To(ContainSubstring("Pausing VMIs with LivenessProbe is currently not supported"))
+				})
 			})
 		})
 	})

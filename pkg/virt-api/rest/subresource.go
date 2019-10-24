@@ -622,6 +622,9 @@ func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, r
 		if vmi == nil || vmi.Status.Phase != v1.Running {
 			return fmt.Errorf("VMI is not running"), http.StatusForbidden
 		}
+		if vmi.Spec.LivenessProbe != nil {
+			return fmt.Errorf("Pausing VMIs with LivenessProbe is currently not supported"), http.StatusForbidden
+		}
 		condManager := controller.NewVirtualMachineInstanceConditionManager()
 		if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 			return fmt.Errorf("VMI is already paused"), http.StatusForbidden
