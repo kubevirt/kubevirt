@@ -114,6 +114,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 			&KubeVirt{},
 			&KubeVirtList{},
 		)
+		metav1.AddToGroupVersion(scheme, groupVersion)
 	}
 	scheme.AddKnownTypes(metav1.Unversioned,
 		&metav1.Status{},
