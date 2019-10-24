@@ -11,7 +11,7 @@ image_pull_policy=${IMAGE_PULL_POLICY:-IfNotPresent}
 verbosity=${VERBOSITY:-2}
 package_name=${PACKAGE_NAME:-kubevirt-dev}
 push_log_file=${PUSH_LOG_FILE:-_out/imagePush.log}
-kubevirtci_git_hash="d29d4f8ef0c8c3ffc0717cc83e1df7cedfeaa680"
+kubevirtci_git_hash="82788129d18261968ad7416737c0516797336f74"
 
 # try to derive csv_version from docker tag. But it must start with x.y.z, without leading v
 default_csv_version="${docker_tag/latest/0.0.0}"
