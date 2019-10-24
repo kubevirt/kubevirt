@@ -83,6 +83,7 @@ type DomainManager interface {
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
 	GetDomainStats() ([]*stats.DomainStats, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance) error
+	GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error)
 }
 
 type LibvirtDomainManager struct {
@@ -1401,4 +1402,47 @@ func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
 	}
 	return info, err
+}
+
+// GetGuestInfo queries the agent store and return the aggregated data from Guest agent
+func (l *LibvirtDomainManager) GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error) {
+	sysInfo := l.agentData.GetSysInfo()
+	fsInfo := l.agentData.GetFS(10)
+	userInfo := l.agentData.GetUsers(10)
+
+	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{
+		GAVersion: l.agentData.GetGA(),
+		Hostname:  sysInfo.Hostname,
+		OS: v1.VirtualMachineInstanceGuestOSInfo{
+			Name:          sysInfo.OSInfo.Name,
+			KernelRelease: sysInfo.OSInfo.KernelRelease,
+			Version:       sysInfo.OSInfo.Version,
+			PrettyName:    sysInfo.OSInfo.PrettyName,
+			VersionID:     sysInfo.OSInfo.VersionId,
+			KernelVersion: sysInfo.OSInfo.KernelVersion,
+			Machine:       sysInfo.OSInfo.Machine,
+			ID:            sysInfo.OSInfo.Id,
+		},
+		Timezone: fmt.Sprintf("%s, %d", sysInfo.Timezone.Zone, sysInfo.Timezone.Offset),
+	}
+
+	for _, user := range userInfo {
+		guestInfo.UserList = append(guestInfo.UserList, v1.VirtualMachineInstanceGuestOSUser{
+			UserName:  user.Name,
+			Domain:    user.Domain,
+			LoginTime: user.LoginTime,
+		})
+	}
+
+	for _, fs := range fsInfo {
+		guestInfo.FSInfo.Filesystems = append(guestInfo.FSInfo.Filesystems, v1.VirtualMachineInstanceFileSystem{
+			DiskName:       fs.Name,
+			MountPoint:     fs.Mountpoint,
+			FileSystemType: fs.Type,
+			UsedBytes:      fs.UsedBytes,
+			TotalBytes:     fs.TotalBytes,
+		})
+	}
+
+	return guestInfo, nil
 }

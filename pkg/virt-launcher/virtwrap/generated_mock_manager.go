@@ -146,3 +146,14 @@ func (_m *MockDomainManager) CancelVMIMigration(_param0 *v1.VirtualMachineInstan
 func (_mr *_MockDomainManagerRecorder) CancelVMIMigration(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CancelVMIMigration", arg0)
 }
+
+func (_m *MockDomainManager) GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetGuestInfo")
+	ret0, _ := ret[0].(v1.VirtualMachineInstanceGuestAgentInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDomainManagerRecorder) GetGuestInfo() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetGuestInfo")
+}

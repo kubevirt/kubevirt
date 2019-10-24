@@ -109,6 +109,12 @@ type DomainStatus struct {
 	OSInfo     GuestOSInfo
 }
 
+type DomainSysInfo struct {
+	Hostname string
+	OSInfo   GuestOSInfo
+	Timezone Timezone
+}
+
 type GuestOSInfo struct {
 	Name          string
 	KernelRelease string
@@ -126,6 +132,25 @@ type InterfaceStatus struct {
 	Ip            string
 	IPs           []string
 	InterfaceName string
+}
+
+type Timezone struct {
+	Zone   string
+	Offset int
+}
+
+type Filesystem struct {
+	Name       string
+	Mountpoint string
+	Type       string
+	UsedBytes  int
+	TotalBytes int
+}
+
+type User struct {
+	Name      string
+	Domain    string
+	LoginTime int
 }
 
 // DomainGuestInfo represent guest agent info for specific domain

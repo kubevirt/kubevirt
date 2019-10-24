@@ -43,6 +43,39 @@ func stripAgentResponse(agentReply string) string {
 	return stripRE.FindStringSubmatch(agentReply)[1]
 }
 
+// Hostname of the guest vm
+type Hostname struct {
+	Hostname string `json:"host-name"`
+}
+
+// Timezone of the host
+type Timezone struct {
+	Zone   string `json:"zone,omitempty"`
+	Offset int    `json:"offset"`
+}
+
+// User on the guest host
+type User struct {
+	Name      string `json:"user"`
+	Domain    string `json:"domain"`
+	LoginTime int    `json:"login-time"`
+}
+
+// Filesystem of the host
+type Filesystem struct {
+	Name       string `json:"name"`
+	Mountpoint string `json:"mountpoint"`
+	Type       string `json:"type"`
+	UsedBytes  int    `json:"used-bytes,omitempty"`
+	TotalBytes int    `json:"total-bytes,omitempty"`
+}
+
+// AgentInfo from the guest VM serves the purpose
+// of checking the GA presence and version compatibility
+type AgentInfo struct {
+	Version string `json:"version"`
+}
+
 // parseGuestOSInfo parse agent reply string, extract guest os info
 // and converts the response to API domain guest os info
 func parseGuestOSInfo(agentReply string) (api.GuestOSInfo, error) {
@@ -84,7 +117,97 @@ func parseInterfaces(agentReply string) ([]api.InterfaceStatus, error) {
 	return resultInterfaces, nil
 }
 
-// MergeAgentStatusesWithDomainData merges QEMU interfaces with agent interfaces
+// parseHostname from the agent response
+func parseHostname(agentReply string) (string, error) {
+	result := Hostname{}
+	response := stripAgentResponse(agentReply)
+
+	err := json.Unmarshal([]byte(response), &result)
+	if err != nil {
+		return "", err
+	}
+
+	return result.Hostname, nil
+}
+
+// parseTimezone from the agent response
+func parseTimezone(agentReply string) (api.Timezone, error) {
+	result := Timezone{}
+	response := stripAgentResponse(agentReply)
+
+	err := json.Unmarshal([]byte(response), &result)
+	if err != nil {
+		return api.Timezone{}, err
+	}
+
+	return api.Timezone{
+		Zone:   result.Zone,
+		Offset: result.Offset,
+	}, nil
+}
+
+// parseFilesystem from the agent response
+func parseFilesystem(agentReply string) ([]api.Filesystem, error) {
+	result := []Filesystem{}
+	response := stripAgentResponse(agentReply)
+
+	err := json.Unmarshal([]byte(response), &result)
+	if err != nil {
+		return []api.Filesystem{}, err
+	}
+
+	convertedResult := []api.Filesystem{}
+
+	for _, fs := range result {
+		convertedResult = append(convertedResult, api.Filesystem{
+			Name:       fs.Name,
+			Mountpoint: fs.Mountpoint,
+			Type:       fs.Type,
+			TotalBytes: fs.TotalBytes,
+			UsedBytes:  fs.UsedBytes,
+		})
+	}
+
+	return convertedResult, nil
+}
+
+// parseUsers from the agent response
+func parseUsers(agentReply string) ([]api.User, error) {
+	result := []User{}
+	response := stripAgentResponse(agentReply)
+
+	err := json.Unmarshal([]byte(response), &result)
+	if err != nil {
+		return []api.User{}, err
+	}
+
+	convertedResult := []api.User{}
+
+	for _, user := range result {
+		convertedResult = append(convertedResult, api.User{
+			Name:      user.Name,
+			Domain:    user.Domain,
+			LoginTime: user.LoginTime,
+		})
+	}
+
+	return convertedResult, nil
+}
+
+// parseAgent gets the agent version from response
+func parseAgent(agentReply string) (string, error) {
+	result := AgentInfo{}
+	response := stripAgentResponse(agentReply)
+
+	err := json.Unmarshal([]byte(response), &result)
+	if err != nil {
+		return "", err
+	}
+
+	return result.Version, nil
+}
+
+// MergeAgentStatusesWithDomainData merge QEMU interfaces with agent interfaces
 func MergeAgentStatusesWithDomainData(domInterfaces []api.Interface, interfaceStatuses []api.InterfaceStatus) []api.InterfaceStatus {
 	aliasByMac := map[string]string{}
 	for _, ifc := range domInterfaces {
@@ -130,6 +253,7 @@ func convertInterfaceStatusesFromAgentJSON(agentResult []Interface) []api.Interf
 		if ifc.Name == "lo" {
 			continue
 		}
+
 		interfaceIP, interfaceIPs := extractIPs(ifc.IPs)
 		interfaceStatuses = append(interfaceStatuses, api.InterfaceStatus{
 			Mac:           ifc.MAC,

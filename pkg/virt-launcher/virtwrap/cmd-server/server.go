@@ -314,6 +314,33 @@ func (l *Launcher) GetDomainStats(ctx context.Context, request *cmdv1.EmptyReque
 	return response, nil
 }
 
+// GetGuestInfo collect guest info from the domain
+func (l *Launcher) GetGuestInfo(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.GuestInfoResponse, error) {
+	response := &cmdv1.GuestInfoResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	guestInfo, err := l.domainManager.GetGuestInfo()
+	if err != nil {
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	if jGuestInfo, err := json.Marshal(guestInfo); err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal agent info")
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	} else {
+		response.GuestInfoResponse = string(jGuestInfo)
+	}
+
+	return response, nil
+}
+
 func RunServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},

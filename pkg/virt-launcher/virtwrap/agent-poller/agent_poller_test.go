@@ -246,7 +246,6 @@ var _ = Describe("Qemu agent poller", func() {
 		})
 
 		It("should not parse Guest OS Info", func() {
-
 			malformedJSONInput := `{
                 "return": {{
                     "name": "TestGuestOSName",
@@ -264,10 +263,130 @@ var _ = Describe("Qemu agent poller", func() {
 			Expect(err).To(HaveOccurred(), "Should not parse the info")
 		})
 
+		It("should parse Hostname", func() {
+			jsonInput := `{
+                "return":{
+                    "host-name":"TestHost"
+                }
+            }`
+
+			hostname, err := parseHostname(jsonInput)
+			expectedHostname := "TestHost"
+
+			Expect(err).ToNot(HaveOccurred(), "hostname should be parser normally")
+			Expect(hostname).To(Equal(expectedHostname))
+		})
+
+		It("should parse Agent", func() {
+			jsonInput := `{
+                "return":{
+                    "version":"4.1"
+                }
+            }`
+
+			agent, err := parseAgent(jsonInput)
+			expectedAgent := "4.1"
+
+			Expect(err).ToNot(HaveOccurred(), "agent version should be parsed normally")
+			Expect(agent).To(Equal(expectedAgent))
+		})
+
+		It("should strip Agent response", func() {
+			jsonInput := `{"return":{"version":"4.1"}}`
+
+			response := stripAgentResponse(jsonInput)
+			expectedResponse := `{"version":"4.1"}`
+
+			Expect(response).To(Equal(expectedResponse))
+		})
+
+		It("should parse Timezone", func() {
+
+			jsonInput := `{
+                "return":{
+                    "zone":"Prague",
+                    "offset":2
+                }
+            }`
+
+			timezone, err := parseTimezone(jsonInput)
+			expectedTimezone := api.Timezone{
+				Zone:   "Prague",
+				Offset: 2,
+			}
+
+			Expect(err).ToNot(HaveOccurred(), "timezone should be parsed normally")
+			Expect(timezone).To(Equal(expectedTimezone))
+		})
+
+		It("should parse Filesystem", func() {
+
+			jsonInput := `{
+                "return":[
+                    {
+                        "name":"main",
+                        "mountpoint":"/",
+                        "type":"ext",
+                        "total-bytes":99999,
+                        "used-bytes":33333
+                    }
+                ]
+            }`
+
+			filesystem, err := parseFilesystem(jsonInput)
+			expectedFilesystem := []api.Filesystem{
+				api.Filesystem{
+					Name:       "main",
+					Mountpoint: "/",
+					Type:       "ext",
+					TotalBytes: 99999,
+					UsedBytes:  33333,
+				},
+			}
+
+			Expect(err).ToNot(HaveOccurred(), "filesystem should be parsed normally")
+			Expect(filesystem).To(Equal(expectedFilesystem))
+		})
+
+		It("should parse Users", func() {
+
+			jsonInput := `{
+                "return":[
+                    {
+                        "user":"bob",
+                        "domain":"bobs",
+                        "login-time":99999
+                    }
+                ]
+            }`
+
+			users, err := parseUsers(jsonInput)
+			expectedUsers := []api.User{
+				api.User{
+					Name:      "bob",
+					Domain:    "bobs",
+					LoginTime: 99999,
+				},
+			}
+
+			Expect(err).ToNot(HaveOccurred(), "users should be parsed normally")
+			Expect(users).To(Equal(expectedUsers))
+		})
+
 		Context("with AsyncAgentStore", func() {
+
+			It("should store and load the data", func() {
+				var agentStore = NewAsyncAgentStore()
+				agentVersion := "4.1"
+				agentStore.Store(GET_AGENT, agentVersion)
+				agent := agentStore.GetGA()
+
+				Expect(agent).To(Equal(agentVersion))
+			})
 
 			It("should fire an event for new sysinfo data", func() {
 				var agentStore = NewAsyncAgentStore()
+
 				fakeInfo := api.GuestOSInfo{
 					Name:          "TestGuestOSName",
 					KernelRelease: "1.1.0-Generic",

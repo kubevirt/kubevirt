@@ -36,10 +36,15 @@ type AgentCommand string
 // Aliases for commands executed on guest agent
 // TODO: when updated to libvirt 5.6.0 this can change to libvirt types
 // Aliases are also used as keys to the store, it does not matter how the keys are named,
-// only whether it relates to the right data
+// only whther it relates to the right data
 const (
 	GET_OSINFO     AgentCommand = "guest-get-osinfo"
+	GET_HOSTNAME   AgentCommand = "guest-get-host-name"
 	GET_INTERFACES AgentCommand = "guest-network-get-interfaces"
+	GET_TIMEZONE   AgentCommand = "guest-get-timezone"
+	GET_USERS      AgentCommand = "guest-get-users"
+	GET_FILESYSTEM AgentCommand = "guest-get-fsinfo"
+	GET_AGENT      AgentCommand = "guest-info"
 )
 
 // AgentUpdatedEvent fire up when data is changes in the store
@@ -92,6 +97,85 @@ func (s *AsyncAgentStore) Store(key AgentCommand, value interface{}) {
 	}
 }
 
+// GetSysInfo returns the sysInfo information packed together.
+// Sysinfo comprises of:
+//  * Guest Hostname
+//  * Guest OS version and architecture
+//  * Guest Timezone
+func (s *AsyncAgentStore) GetSysInfo() api.DomainSysInfo {
+	data, ok := s.store.Load(GET_OSINFO)
+	osinfo := api.GuestOSInfo{}
+	if ok {
+		osinfo = data.(api.GuestOSInfo)
+	}
+
+	data, ok = s.store.Load(GET_HOSTNAME)
+	hostname := ""
+	if ok {
+		hostname = data.(string)
+	}
+
+	data, ok = s.store.Load(GET_TIMEZONE)
+	timezone := api.Timezone{}
+	if ok {
+		timezone = data.(api.Timezone)
+	}
+
+	return api.DomainSysInfo{
+		Hostname: hostname,
+		OSInfo:   osinfo,
+		Timezone: timezone,
+	}
+}
+
+// GetGA returns guest agent record with its version if present
+func (s *AsyncAgentStore) GetGA() string {
+	data, ok := s.store.Load(GET_AGENT)
+	agent := ""
+	if !ok {
+		return agent
+	}
+
+	agent = data.(string)
+	return agent
+}
+
+// GetFS returns the filesystem list limited to the limit set
+func (s *AsyncAgentStore) GetFS(limit int) []api.Filesystem {
+	data, ok := s.store.Load(GET_FILESYSTEM)
+	filesystems := []api.Filesystem{}
+	if !ok {
+		return filesystems
+	}
+
+	filesystems = data.([]api.Filesystem)
+	if len(filesystems) <= limit {
+		return filesystems
+	}
+
+	limitedFilesystems := make([]api.Filesystem, limit)
+	copy(limitedFilesystems, filesystems[:limit])
+	return limitedFilesystems
+}
+
+// GetUsers return the use list limited to the limit set
+func (s *AsyncAgentStore) GetUsers(limit int) []api.User {
+	data, ok := s.store.Load(GET_USERS)
+	users := []api.User{}
+	if !ok {
+		return users
+	}
+
+	users = data.([]api.User)
+	if len(users) <= limit {
+		return users
+	}
+
+	limitedUsers := make([]api.User, limit)
+	copy(limitedUsers, users[:limit])
+	return limitedUsers
+}
+
 // PollerWorker collects the data from the guest agent
 // only unique items are stored as configuration
 type PollerWorker struct {
@@ -102,14 +186,14 @@ type PollerWorker struct {
 }
 
 // Poll is the call to the guestagent
-// TODO: with libvirt 5.6.0 direct call to agent can be replaced with call to libvirt
+// with libvirt 5.6.0 direct call to agent can be replaced with call to libvirt
 // Domain.GetGuestInfo
 func (p *PollerWorker) Poll(con cli.Connection, agentStore *AsyncAgentStore, domainName string, closeChan chan struct{}) {
 	ticker := time.NewTicker(time.Second * p.CallTick)
 
 	log.Log.Infof("Polling command: %v", p.AgentCommands)
 
-	// poller, used as a workaround for golang ticker
+	// subroutine to do actual polling, used as a workaround for golang ticker
 	// ticker does not do first tick immediately, but after period
 	poll := func(commands []AgentCommand) {
 		for _, command := range p.AgentCommands {
@@ -121,7 +205,7 @@ func (p *PollerWorker) Poll(con cli.Connection, agentStore *AsyncAgentStore, dom
 			}
 
 			// parse the json data and convert to domain api
-			// TODO: for libvirt 5.6.0 json conversion deprecated
+			// for libvirt 5.6.0 json conversion deprecated
 			switch command {
 			case GET_INTERFACES:
 				interfaces, err := parseInterfaces(cmdResult)
@@ -135,7 +219,36 @@ func (p *PollerWorker) Poll(con cli.Connection, agentStore *AsyncAgentStore, dom
 					log.Log.Errorf("Cannot parse guest agent guestosinfo %s", err.Error())
 				}
 				agentStore.Store(GET_OSINFO, osInfo)
-
+			case GET_HOSTNAME:
+				hostname, err := parseHostname(cmdResult)
+				if err != nil {
+					log.Log.Errorf("Cannot parse guest agent hostname %s", err.Error())
+				}
+				agentStore.Store(GET_HOSTNAME, hostname)
+			case GET_TIMEZONE:
+				timezone, err := parseTimezone(cmdResult)
+				if err != nil {
+					log.Log.Errorf("Cannot parse guest agent timezone %s", err.Error())
+				}
+				agentStore.Store(GET_TIMEZONE, timezone)
+			case GET_USERS:
+				users, err := parseUsers(cmdResult)
+				if err != nil {
+					log.Log.Errorf("Cannot parse guest agent users %s", err.Error())
+				}
+				agentStore.Store(GET_USERS, users)
+			case GET_FILESYSTEM:
+				filesystems, err := parseFilesystem(cmdResult)
+				if err != nil {
+					log.Log.Errorf("Cannot parse guest agent filesystem %s", err.Error())
+				}
+				agentStore.Store(GET_FILESYSTEM, filesystems)
+			case GET_AGENT:
+				agent, err := parseAgent(cmdResult)
+				if err != nil {
+					log.Log.Errorf("Cannot parse guest agent version %s", err.Error())
+				}
+				agentStore.Store(GET_AGENT, agent)
 			}
 
 		}
@@ -170,7 +283,10 @@ func CreatePoller(
 	vmiUID types.UID,
 	domainName string,
 	store *AsyncAgentStore,
-	qemuAgentPollerInterval time.Duration,
+	qemuAgentSysInterval time.Duration,
+	qemuAgentFileInterval time.Duration,
+	qemuAgentUserInterval time.Duration,
+	qemuAgentVersionInterval time.Duration,
 ) *AgentPoller {
 	p := &AgentPoller{
 		Connection: connecton,
@@ -180,10 +296,25 @@ func CreatePoller(
 		workers:    []PollerWorker{},
 	}
 
-	// this have to be done via configuration passed in, for now this is OK
+	// version command group
 	p.workers = append(p.workers, PollerWorker{
-		CallTick:      qemuAgentPollerInterval,
-		AgentCommands: []AgentCommand{GET_INTERFACES, GET_OSINFO},
+		CallTick:      qemuAgentVersionInterval,
+		AgentCommands: []AgentCommand{GET_AGENT},
+	})
+	// sys command group
+	p.workers = append(p.workers, PollerWorker{
+		CallTick:      qemuAgentSysInterval,
+		AgentCommands: []AgentCommand{GET_INTERFACES, GET_OSINFO, GET_TIMEZONE, GET_HOSTNAME},
+	})
+	// filesystem command group
+	p.workers = append(p.workers, PollerWorker{
+		CallTick:      qemuAgentFileInterval,
+		AgentCommands: []AgentCommand{GET_FILESYSTEM},
+	})
+	// user command group
+	p.workers = append(p.workers, PollerWorker{
+		CallTick:      qemuAgentUserInterval,
+		AgentCommands: []AgentCommand{GET_USERS},
 	})
 
 	return p

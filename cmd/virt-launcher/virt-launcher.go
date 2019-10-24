@@ -118,7 +118,19 @@ func createLibvirtConnection() virtcli.Connection {
 	return domainConn
 }
 
-func startDomainEventMonitoring(notifier *notifyclient.Notifier, virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, domainName string, agentStore *agentpoller.AsyncAgentStore, qemuAgentPollerInterval *time.Duration) {
+func startDomainEventMonitoring(
+	notifier *notifyclient.Notifier,
+	virtShareDir string,
+	domainConn virtcli.Connection,
+	deleteNotificationSent chan watch.Event,
+	vmiUID types.UID,
+	domainName string,
+	agentStore *agentpoller.AsyncAgentStore,
+	qemuAgentSysInterval time.Duration,
+	qemuAgentFileInterval time.Duration,
+	qemuAgentUserInterval time.Duration,
+	qemuAgentVersionInterval time.Duration,
+) {
 	go func() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
@@ -128,7 +140,7 @@ func startDomainEventMonitoring(notifier *notifyclient.Notifier, virtShareDir st
 		}
 	}()
 
-	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmiUID, domainName, agentStore, *qemuAgentPollerInterval)
+	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmiUID, domainName, agentStore, qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval, qemuAgentVersionInterval)
 	if err != nil {
 		panic(err)
 	}
@@ -316,7 +328,10 @@ func main() {
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 	noFork := pflag.Bool("no-fork", false, "Fork and let virt-launcher watch itself to react to crashes if set to false")
 	lessPVCSpaceToleration := pflag.Int("less-pvc-space-toleration", 0, "Toleration in percent when PVs' available space is smaller than requested")
-	qemuAgentPollerInterval := pflag.Duration("qemu-agent-poller-interval", 60, "Interval in seconds between consecutive qemu agent calls")
+	qemuAgentSysInterval := pflag.Duration("qemu-agent-sys-interval", 120, "Interval in seconds between consecutive qemu agent calls for sys commands")
+	qemuAgentFileInterval := pflag.Duration("qemu-agent-file-interval", 300, "Interval in seconds between consecutive qemu agent calls for file command")
+	qemuAgentUserInterval := pflag.Duration("qemu-agent-user-interval", 10, "Interval in seconds between consecutive qemu agent calls for user command")
+	qemuAgentVersionInterval := pflag.Duration("qemu-agent-version-interval", 300, "Interval in seconds between consecutive qemu agent calls for version command")
 	// set new default verbosity, was set to 0 by glog
 	goflag.Set("v", "2")
 
@@ -409,7 +424,7 @@ func main() {
 
 	events := make(chan watch.Event, 10)
 	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vm.UID, domainName, &agentStore, qemuAgentPollerInterval)
+	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vm.UID, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
