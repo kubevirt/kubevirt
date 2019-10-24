@@ -8,6 +8,8 @@ export KIND_NODE_CLI="docker exec -it "
 export KUBEVIRTCI_PATH
 export KUBEVIRTCI_CONFIG_PATH
 
+KUBECTL="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl --kubeconfig=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
+
 REGISTRY_NAME=${CLUSTER_NAME}-registry
 
 function _wait_kind_up {
@@ -36,20 +38,15 @@ function _fetch_kind() {
 function _configure-insecure-registry-and-reload() {
     local cmd_context="${1}" # context to run command e.g. sudo, docker exec
     ${cmd_context} "$(_insecure-registry-config-cmd)"
-    ${cmd_context} "$(_reload-docker-daemon-cmd)"
+    ${cmd_context} "$(_reload-containerd-daemon-cmd)"
 }
 
-function _reload-docker-daemon-cmd() {
-    echo "kill -s SIGHUP \$(pgrep dockerd)"
+function _reload-containerd-daemon-cmd() {
+    echo "systemctl restart containerd"
 }
 
 function _insecure-registry-config-cmd() {
-    echo "cat <<EOF > /etc/docker/daemon.json
-{
-    \"insecure-registries\": [\"${CONTAINER_REGISTRY_HOST}\"]
-}
-EOF
-"
+    echo "sed -i '/\[plugins.cri.registry.mirrors\]/a\        [plugins.cri.registry.mirrors.\"registry:5000\"]\n\          endpoint = [\"http://registry:5000\"]' /etc/containerd/config.toml"    
 }
 
 # this works since the nodes use the same names as containers
@@ -68,7 +65,7 @@ function _run_registry() {
 
 function _configure_registry_on_node() {
     _configure-insecure-registry-and-reload "${NODE_CMD} $1 bash -c"
-    ${NODE_CMD} $1 socat TCP-LISTEN:5000,fork TCP:$(docker inspect --format '{{.NetworkSettings.IPAddress }}' $REGISTRY_NAME):5000
+    ${NODE_CMD} $1  sh -c "echo $(docker inspect --format '{{.NetworkSettings.IPAddress }}' $REGISTRY_NAME)'\t'registry >> /etc/hosts"
 }
 
 function prepare_config() {
@@ -78,7 +75,7 @@ master_ip="127.0.0.1"
 kubeconfig=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 kubectl=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubectl
 docker_prefix=localhost:5000/kubevirt
-manifest_docker_prefix=localhost:5000/kubevirt
+manifest_docker_prefix=registry:5000/kubevirt
 EOF
 }
 
@@ -124,8 +121,7 @@ function kind_up() {
 }
 
 function _kubectl() {
-    export KUBECONFIG=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
-    ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl "$@"
+    ${KUBECTL} "$@"
 }
 
 function down() {
