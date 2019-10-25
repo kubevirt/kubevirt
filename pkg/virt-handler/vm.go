@@ -472,6 +472,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			vmi.Status.NodeName = migrationHost
 			vmi.Status.MigrationState.Completed = true
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", migrationHost))
+			d.setVMIGuestTime(vmi)
 		}
 
 		if !reflect.DeepEqual(oldStatus, vmi.Status) {
@@ -1731,6 +1732,17 @@ func (d *VirtualMachineController) updateNodeCpuManagerLabel(cpuManagerPath stri
 	}
 	log.DefaultLogger().V(4).Infof("Node has CPU Manager running")
 
+}
+
+func (d *VirtualMachineController) setVMIGuestTime(vmi *v1.VirtualMachineInstance) {
+	// update the vmi guest with the current time
+	client, err := d.getVerifiedLauncherClient(vmi)
+	if err == nil {
+		seterr := client.SetVirtualMachineGuestTime(vmi)
+		if seterr != nil {
+			log.Log.Reason(seterr).Error("failed to set vmi guest time to the current")
+		}
+	}
 }
 
 func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {

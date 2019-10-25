@@ -844,6 +844,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiUpdated.Status.NodeName = "othernode"
 			vmiUpdated.Labels[v1.NodeNameLabel] = "othernode"
 
+			client.EXPECT().Ping()
+			client.EXPECT().SetVirtualMachineGuestTime(vmiUpdated)
 			vmiInterface.EXPECT().Update(vmiUpdated)
 
 			controller.Execute()
