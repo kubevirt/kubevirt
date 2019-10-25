@@ -113,6 +113,16 @@ func (_mr *_MockLauncherClientRecorder) CancelVirtualMachineMigration(arg0 inter
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CancelVirtualMachineMigration", arg0)
 }
 
+func (_m *MockLauncherClient) SetVirtualMachineGuestTime(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "SetVirtualMachineGuestTime", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) SetVirtualMachineGuestTime(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetVirtualMachineGuestTime", arg0)
+}
+
 func (_m *MockLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "DeleteDomain", vmi)
 	ret0, _ := ret[0].(error)
