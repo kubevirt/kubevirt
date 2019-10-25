@@ -86,6 +86,7 @@ type DomainManager interface {
 	GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error)
 	GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error)
+	SetGuestTime(*v1.VirtualMachineInstance) error
 }
 
 type LibvirtDomainManager struct {
@@ -463,6 +464,30 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 		log.Log.Object(vmi).Infof("Live migration succeeded.")
 	}(l, vmi)
+}
+
+func (l *LibvirtDomainManager) SetGuestTime(vmi *v1.VirtualMachineInstance) error {
+	// Try to set VM time to the current value.  This is typically useful
+	// when clock wasn't running on the VM for some time (e.g. during
+	// suspension or migration), especially if the time delay exceeds NTP
+	// tolerance.
+	// It is not guaranteed that the time is actually set (it depends on guest
+	// environment, especially QEMU agent presence) or that the set time is
+	// very precise (NTP in the guest should take care of it if needed).
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+	}
+
+	currTime := time.Now()
+	secs := currTime.Unix()
+	nsecs := uint(currTime.Nanosecond())
+	err = dom.SetTime(secs, nsecs, libvirt.DOMAIN_TIME_SYNC)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
+	}
+	return nil
 }
 
 func getVMIEphemeralDisksTotalSize() *resource.Quantity {
