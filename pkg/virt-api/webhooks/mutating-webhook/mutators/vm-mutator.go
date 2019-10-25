@@ -86,6 +86,10 @@ func (mutator *VMsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissio
 }
 
 func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine) {
+	if vm.Spec.Template == nil {
+		// nothing to do, let's the validating webhook fail later
+		return
+	}
 	if vm.Spec.Template.Spec.Domain.Machine.Type == "" {
 		vm.Spec.Template.Spec.Domain.Machine.Type = mutator.ClusterConfig.GetMachineType()
 	}
