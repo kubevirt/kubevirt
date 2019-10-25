@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	v13 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -105,6 +106,76 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
 			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
+		})
+	})
+
+	Context("A mutated VirtualMachine given", func() {
+
+		var testingMachineType string = "pc-q35-2.7"
+		// "" is a fine default : the kubevirt will fall back to its hardcoded default.
+		var existingMachineType string = ""
+
+		BeforeEach(func() {
+			_, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+			if err != nil && !errors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			if errors.IsNotFound(err) {
+				// create an empty kubevirt-config configmap if none exists.
+				cfgMap := &k8sv1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: "kubevirt-config"},
+					Data: map[string]string{
+						"machine-type": testingMachineType,
+					},
+				}
+
+				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Create(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+			} else if err == nil {
+				existingMachineType = tests.UpdateClusterConfigValueAndWait("machine-type", testingMachineType)
+			}
+		})
+
+		AfterEach(func() {
+			tests.UpdateClusterConfigValueAndWait("machine-type", existingMachineType)
+		})
+
+		newVirtualMachineInstanceWithContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
+			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
+			return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
+		}
+
+		createVirtualMachine := func(running bool, template *v1.VirtualMachineInstance) *v1.VirtualMachine {
+			By("Creating VirtualMachine")
+			vm := tests.NewRandomVirtualMachine(template, running)
+			newVM, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
+			return newVM
+		}
+
+		It("should set the default MachineType when created without explicit value", func() {
+			By("Creating VirtualMachine")
+			template, _ := newVirtualMachineInstanceWithContainerDisk()
+			template.Spec.Domain.Machine.Type = ""
+			vm := createVirtualMachine(false, template)
+
+			createdVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(createdVM.Spec.Template.Spec.Domain.Machine.Type).To(Equal(testingMachineType))
+		})
+
+		It("should keep the supplied MachineType when created", func() {
+			By("Creating VirtualMachine")
+			explicitMachineType := "pc-q35-3.0"
+			template, _ := newVirtualMachineInstanceWithContainerDisk()
+			template.Spec.Domain.Machine.Type = explicitMachineType
+			vm := createVirtualMachine(false, template)
+
+			createdVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(createdVM.Spec.Template.Spec.Domain.Machine.Type).To(Equal(explicitMachineType))
 		})
 	})
 
