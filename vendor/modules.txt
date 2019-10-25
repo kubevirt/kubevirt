@@ -181,9 +181,9 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
 # github.com/onsi/ginkgo v1.8.0
-github.com/onsi/ginkgo/types
 github.com/onsi/ginkgo
 github.com/onsi/ginkgo/config
+github.com/onsi/ginkgo/types
 github.com/onsi/ginkgo/extensions/table
 github.com/onsi/ginkgo/internal/codelocation
 github.com/onsi/ginkgo/internal/failer
@@ -393,6 +393,7 @@ k8s.io/api/rbac/v1
 k8s.io/api/authorization/v1beta1
 k8s.io/api/admission/v1beta1
 k8s.io/api/extensions/v1beta1
+k8s.io/api/storage/v1
 k8s.io/api/autoscaling/v1
 k8s.io/api/admissionregistration/v1alpha1
 k8s.io/api/apps/v1beta1
@@ -414,7 +415,6 @@ k8s.io/api/rbac/v1beta1
 k8s.io/api/scheduling/v1alpha1
 k8s.io/api/scheduling/v1beta1
 k8s.io/api/settings/v1alpha1
-k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
 # k8s.io/apiextensions-apiserver v0.0.0-20190315093550-53c4693659ed => k8s.io/apiextensions-apiserver v0.0.0-20190228180357-d002e88f6236
