@@ -15,7 +15,7 @@ github.com/Azure/go-autorest/tracing
 github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 github.com/PuerkitoBio/urlesc
-# github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf
+# github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 github.com/asaskevich/govalidator
 # github.com/beorn7/perks v1.0.0
 github.com/beorn7/perks/quantile
@@ -23,7 +23,7 @@ github.com/beorn7/perks/quantile
 github.com/blang/semver
 # github.com/coreos/go-iptables v0.4.3
 github.com/coreos/go-iptables/iptables
-# github.com/coreos/go-semver v0.2.0
+# github.com/coreos/go-semver v0.3.0
 github.com/coreos/go-semver/semver
 # github.com/coreos/prometheus-operator v0.31.1 => github.com/coreos/prometheus-operator v0.0.0-20181206002233-dd6f23e7207c
 github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
@@ -60,16 +60,16 @@ github.com/go-kit/kit/log
 github.com/go-kit/kit/transport/http
 # github.com/go-logfmt/logfmt v0.4.0
 github.com/go-logfmt/logfmt
-# github.com/go-openapi/analysis v0.17.2
+# github.com/go-openapi/analysis v0.19.2
 github.com/go-openapi/analysis
 github.com/go-openapi/analysis/internal
-# github.com/go-openapi/errors v0.17.2
+# github.com/go-openapi/errors v0.19.2
 github.com/go-openapi/errors
 # github.com/go-openapi/jsonpointer v0.19.2
 github.com/go-openapi/jsonpointer
 # github.com/go-openapi/jsonreference v0.19.2
 github.com/go-openapi/jsonreference
-# github.com/go-openapi/loads v0.17.2
+# github.com/go-openapi/loads v0.19.2
 github.com/go-openapi/loads
 # github.com/go-openapi/runtime v0.17.2
 github.com/go-openapi/runtime
@@ -82,7 +82,7 @@ github.com/go-openapi/runtime/middleware/untyped
 github.com/go-openapi/runtime/security
 # github.com/go-openapi/spec v0.19.2
 github.com/go-openapi/spec
-# github.com/go-openapi/strfmt v0.18.0
+# github.com/go-openapi/strfmt v0.19.0
 github.com/go-openapi/strfmt
 # github.com/go-openapi/swag v0.19.2
 github.com/go-openapi/swag
@@ -111,11 +111,11 @@ github.com/golang/protobuf/ptypes/timestamp
 github.com/google/btree
 # github.com/google/goexpect v0.0.0-20190425035906-112704a48083
 github.com/google/goexpect
-# github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf
+# github.com/google/gofuzz v1.0.0
 github.com/google/gofuzz
 # github.com/google/goterm v0.0.0-20190311235235-ce302be1d114
 github.com/google/goterm/term
-# github.com/google/uuid v1.0.0
+# github.com/google/uuid v1.1.1
 github.com/google/uuid
 # github.com/googleapis/gnostic v0.2.0
 github.com/googleapis/gnostic/OpenAPIv2
@@ -172,6 +172,10 @@ github.com/mailru/easyjson/buffer
 github.com/mattn/go-runewidth
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/mfranczy/crd-rest-coverage v0.1.0
+github.com/mfranczy/crd-rest-coverage/pkg/report
+github.com/mfranczy/crd-rest-coverage/pkg/analysis
+github.com/mfranczy/crd-rest-coverage/pkg/stats
 # github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 github.com/mitchellh/go-ps
 # github.com/mitchellh/mapstructure v1.1.2
@@ -474,6 +478,9 @@ k8s.io/apimachinery/third_party/forked/golang/reflect
 k8s.io/apimachinery/pkg/apis/meta/internalversion
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/pkg/util/framer
+# k8s.io/apiserver v0.0.0-20190707085829-7f6005dcdcb2
+k8s.io/apiserver/pkg/apis/audit/v1
+k8s.io/apiserver/pkg/apis/audit
 # k8s.io/client-go v11.0.0+incompatible => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
 k8s.io/client-go/rest
 k8s.io/client-go/kubernetes/scheme

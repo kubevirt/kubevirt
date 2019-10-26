@@ -44,6 +44,7 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
+	covreport "github.com/mfranczy/crd-rest-coverage/pkg/report"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
@@ -96,6 +97,7 @@ var ContainerizedDataImporterNamespace = "cdi"
 var KubeVirtKubectlPath = ""
 var KubeVirtOcPath = ""
 var KubeVirtVirtctlPath = ""
+var KubeVirtGoCliPath = ""
 var KubeVirtInstallNamespace string
 var PreviousReleaseTag = ""
 var PreviousReleaseRegistry = ""
@@ -118,6 +120,7 @@ func init() {
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
 	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
 	flag.StringVar(&KubeVirtVirtctlPath, "virtctl-path", "", "Set path to virtctl binary")
+	flag.StringVar(&KubeVirtGoCliPath, "gocli-path", "", "Set path to gocli binary")
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kubevirt", "Set the namespace KubeVirt is installed in")
 	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
 	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
@@ -234,6 +237,13 @@ const (
 const (
 	// BlockDiskForTest contains name of the block PV and PVC
 	BlockDiskForTest = "block-disk-for-tests"
+)
+
+const (
+	k8sAuditLogPath = "/var/log/k8s-audit/k8s-audit.log"
+	osAuditLogPath  = "/var/lib/origin/audit-ocp.log"
+	swaggerPath     = "api/openapi-spec/swagger.json"
+	artifactsEnv    = "ARTIFACTS"
 )
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
@@ -472,6 +482,65 @@ func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeEmpty(), "The are pods in system which are not ready.")
 }
 
+func GenerateRESTReport() error {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return err
+	}
+
+	auditLogPath := k8sAuditLogPath
+	if IsOpenShift() {
+		v := cluster.GetOpenShiftMajorVersion(virtClient)
+		if v == cluster.OpenShift4Major {
+			// audit log for OKD4 is not available yet and the path is unknown
+			log.Log.Info("Skipping the REST API report on OKD4")
+			return nil
+		}
+		auditLogPath = osAuditLogPath
+	}
+	logs, _, err := RunCommandWithNS("", "gocli", "scp", auditLogPath, "-")
+	if err != nil {
+		return err
+	}
+
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "audit-")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err = tmpFile.Write([]byte(logs)); err != nil {
+		return err
+	}
+	if err = tmpFile.Close(); err != nil {
+		return err
+	}
+
+	coverage, err := covreport.Generate(tmpFile.Name(), swaggerPath, "/apis/kubevirt.io")
+	if err != nil {
+		return err
+	}
+
+	artifactsPath := os.Getenv(artifactsEnv)
+	if artifactsPath == "" {
+		return fmt.Errorf("ARTIFACTS env is empty, unable to save the coverage report")
+	}
+	if _, err := os.Stat(artifactsPath); os.IsNotExist(err) {
+		if err = os.MkdirAll(artifactsPath, 0755); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	err = covreport.Dump(filepath.Join(artifactsPath, "rest-coverage.json"), coverage)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func AfterTestSuitCleanup() {
 	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
 	createNamespaces()
@@ -493,6 +562,11 @@ func AfterTestSuitCleanup() {
 	removeNamespaces()
 
 	CleanNodes()
+
+	// Generate REST API coverage report
+	if err := GenerateRESTReport(); err != nil {
+		log.Log.Errorf("Could not generate REST coverage report %v", err)
+	}
 }
 
 func BeforeTestCleanup() {
@@ -2826,6 +2900,8 @@ func SkipIfNoCmd(cmdName string) {
 		cmdPath = KubeVirtKubectlPath
 	case "virtctl":
 		cmdPath = KubeVirtVirtctlPath
+	case "gocli":
+		cmdPath = KubeVirtGoCliPath
 	}
 	if cmdPath == "" {
 		Skip(fmt.Sprintf("Skip test that requires %s binary", cmdName))
@@ -2884,6 +2960,8 @@ func CreateCommandWithNS(namespace string, cmdName string, args ...string) (stri
 		cmdPath = KubeVirtKubectlPath
 	case "virtctl":
 		cmdPath = KubeVirtVirtctlPath
+	case "gocli":
+		cmdPath = KubeVirtGoCliPath
 	}
 
 	if cmdPath == "" {
