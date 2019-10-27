@@ -19,7 +19,7 @@ require (
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/ghodss/yaml v1.0.0
-	github.com/go-kit/kit v0.8.0
+	github.com/go-kit/kit v0.9.0
 	github.com/go-openapi/errors v0.19.2
 	github.com/go-openapi/runtime v0.17.2 // indirect
 	github.com/go-openapi/spec v0.19.2
@@ -83,6 +83,7 @@ replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v11.0.0+incompatible
 	github.com/coreos/prometheus-operator => github.com/coreos/prometheus-operator v0.0.0-20181206002233-dd6f23e7207c
 	github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
+	github.com/golang/glog => ./staging/src/github.com/golang/glog
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20190401163519-84c2b942258a
 	k8s.io/api => k8s.io/api v0.0.0-20190222213804-5cb15d344471
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20190228180357-d002e88f6236
