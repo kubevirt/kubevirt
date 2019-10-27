@@ -138,7 +138,7 @@ var _ = Describe("Slirp Networking", func() {
 		Expect(err).ToNot(HaveOccurred())
 	},
 		table.Entry("VirtualMachineInstance with slirp interface", &genericVmi),
-		table.Entry("VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
+		table.Entry("[test_id:1773]VirtualMachineInstance with slirp interface with custom MAC address", &deadbeafVmi),
 	)
 
 	Context("vmi with default slirp interface", func() {
