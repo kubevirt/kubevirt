@@ -442,7 +442,6 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		}
 
 		targetNodeDetectedDomain, timeLeft := d.hasTargetDetectedDomain(vmi)
-
 		// If we can't detect where the migration went to, then we have no
 		// way of transfering ownership. The only option here is to move the
 		// vmi to failed.  The cluster vmi controller will then tear down the
@@ -472,7 +471,8 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			vmi.Status.NodeName = migrationHost
 			vmi.Status.MigrationState.Completed = true
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", migrationHost))
-			d.setVMIGuestTime(vmi)
+			// require a VMI guest time sync on the destination
+			vmi.Status.MigrationState.GuestTimeSyncRequired = true
 		}
 
 		if !reflect.DeepEqual(oldStatus, vmi.Status) {
@@ -570,6 +570,14 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 		log.Log.Object(vmi).V(3).Info("Removing paused condition")
 		condManager.RemoveCondition(vmi, v1.VirtualMachineInstancePaused)
+	}
+
+	// Update guest time after a migration
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.GuestTimeSyncRequired {
+		err := d.setVMIGuestTime(vmi)
+		if err == nil {
+			vmi.Status.MigrationState.GuestTimeSyncRequired = false
+		}
 	}
 
 	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
@@ -1734,15 +1742,18 @@ func (d *VirtualMachineController) updateNodeCpuManagerLabel(cpuManagerPath stri
 
 }
 
-func (d *VirtualMachineController) setVMIGuestTime(vmi *v1.VirtualMachineInstance) {
+func (d *VirtualMachineController) setVMIGuestTime(vmi *v1.VirtualMachineInstance) error {
 	// update the vmi guest with the current time
 	client, err := d.getVerifiedLauncherClient(vmi)
-	if err == nil {
-		seterr := client.SetVirtualMachineGuestTime(vmi)
-		if seterr != nil {
-			log.Log.Reason(seterr).Error("failed to set vmi guest time to the current")
-		}
+	if err != nil {
+		return err
 	}
+	err = client.SetVirtualMachineGuestTime(vmi)
+	if err != nil {
+		log.Log.Reason(err).Error("failed to set vmi guest time to the current")
+		return err
+	}
+	return nil
 }
 
 func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {

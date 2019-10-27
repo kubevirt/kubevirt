@@ -843,9 +843,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiUpdated.Status.MigrationState.EndTimestamp = &now
 			vmiUpdated.Status.NodeName = "othernode"
 			vmiUpdated.Labels[v1.NodeNameLabel] = "othernode"
-
-			client.EXPECT().Ping()
-			client.EXPECT().SetVirtualMachineGuestTime(vmiUpdated)
+			vmiUpdated.Status.MigrationState.GuestTimeSyncRequired = true
 			vmiInterface.EXPECT().Update(vmiUpdated)
 
 			controller.Execute()
