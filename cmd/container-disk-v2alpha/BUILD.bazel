@@ -1,17 +1,8 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["main.go"],
-    importpath = "kubevirt.io/kubevirt/cmd/container-disk-v2alpha",
-    visibility = ["//visibility:private"],
-    deps = ["//staging/src/kubevirt.io/client-go/log:go_default_library"],
-)
-
-go_binary(
+cc_binary(
     name = "container-disk",
-    embed = [":go_default_library"],
-    pure = "on",
+    srcs = ["main.c"],
+    linkopts = [
+        "-static",
+    ],
     visibility = ["//visibility:public"],
 )
