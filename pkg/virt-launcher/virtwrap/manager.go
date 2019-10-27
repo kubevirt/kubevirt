@@ -478,6 +478,8 @@ func (l *LibvirtDomainManager) SetGuestTime(vmi *v1.VirtualMachineInstance) erro
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
+		return err
 	}
 
 	currTime := time.Now()
@@ -485,7 +487,23 @@ func (l *LibvirtDomainManager) SetGuestTime(vmi *v1.VirtualMachineInstance) erro
 	nsecs := uint(currTime.Nanosecond())
 	err = dom.SetTime(secs, nsecs, libvirt.DOMAIN_TIME_SYNC)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
+		libvirtError, ok := err.(libvirt.Error)
+		if !ok {
+			log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
+			return err
+		}
+
+		switch libvirtError.Code {
+		case libvirt.ERR_AGENT_UNRESPONSIVE:
+			log.Log.Object(vmi).Reason(err).Error("failed to set time: QEMU agent unresponsive")
+		case libvirt.ERR_OPERATION_UNSUPPORTED:
+			log.Log.Object(vmi).Reason(err).Error("failed to set time: not supported")
+		case libvirt.ERR_ARGUMENT_UNSUPPORTED:
+			log.Log.Object(vmi).Reason(err).Error("failed to set time: agent not configured")
+		default:
+			log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
+		}
+		return err
 	}
 	return nil
 }
