@@ -58,9 +58,9 @@ var _ = Describe("Configurations", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Context("for CPU and memory limits should", func() {
+	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", func() {
 
-		It("lead to get the burstable QOS class assigned when limit and requests differ", func() {
+		It("[test_id:3110]lead to get the burstable QOS class assigned when limit and requests differ", func() {
 			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			vmi = tests.RunVMIAndExpectScheduling(vmi, 60)
 
@@ -75,7 +75,7 @@ var _ = Describe("Configurations", func() {
 			}, 10*time.Second, 1*time.Second).Should(Equal(kubev1.PodQOSBurstable))
 		})
 
-		It("lead to get the guaranteed QOS class assigned when limit and requests are identical", func() {
+		It("[test_id:3111]lead to get the guaranteed QOS class assigned when limit and requests are identical", func() {
 			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			By("specifying identical limits and requests")
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
@@ -104,7 +104,7 @@ var _ = Describe("Configurations", func() {
 			}, 10*time.Second, 1*time.Second).Should(Equal(kubev1.PodQOSGuaranteed))
 		})
 
-		It("lead to get the guaranteed QOS class assigned when only limits are set", func() {
+		It("[test_id:3112]lead to get the guaranteed QOS class assigned when only limits are set", func() {
 			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			By("specifying identical limits and requests")
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
@@ -137,8 +137,8 @@ var _ = Describe("Configurations", func() {
 
 	})
 
-	Describe("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance definition", func() {
-		Context("with 3 CPU cores", func() {
+	Describe("VirtualMachineInstance definition", func() {
+		Context("[rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", func() {
 			availableNumberOfCPUs := tests.GetHighestCPUNumberAmongNodes(virtClient)
 
 			var vmi *v1.VirtualMachineInstance
@@ -380,8 +380,8 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("with no memory requested", func() {
-			It("should failed to the VMI creation", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with no memory requested", func() {
+			It("[test_id:3113]should failed to the VMI creation", func() {
 				vmi := tests.NewRandomVMI()
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 				By("Starting a VirtualMachineInstance")
@@ -390,7 +390,7 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("with cluster memory overcommit being applied", func() {
+		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied", func() {
 			BeforeEach(func() {
 				tests.UpdateClusterConfigValueAndWait("memory-overcommit", "200")
 			})
@@ -399,7 +399,7 @@ var _ = Describe("Configurations", func() {
 				tests.UpdateClusterConfigValueAndWait("memory-overcommit", "")
 			})
 
-			It("should set requested amount of memory according to the specified virtual memory", func() {
+			It("[test_id:3114]should set requested amount of memory according to the specified virtual memory", func() {
 				vmi := tests.NewRandomVMI()
 				guestMemory := resource.MustParse("4096M")
 				vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
@@ -409,7 +409,7 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("with EFI bootloader method", func() {
+		Context("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func() {
 
 			It("[test_id:1668]should use EFI", func() {
 				vmi := tests.NewRandomVMIWithEFIBootloader()
@@ -453,8 +453,8 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("with diverging memory limit from memory request and no guest memory", func() {
-			It("should show the memory limit inside the VMI", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging memory limit from memory request and no guest memory", func() {
+			It("[test_id:3115]should show the memory limit inside the VMI", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
 				vmi.Spec.Domain.Resources.Limits = kubev1.ResourceList{
@@ -560,8 +560,8 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("with usb controller", func() {
-			It("should start the VMI with usb controller when usb device is present", func() {
+		Context("[rfe_id:3078][crit:medium][vendor:cnv-qe@redhat.com][level:component]with usb controller", func() {
+			It("[test_id:3117]should start the VMI with usb controller when usb device is present", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
@@ -588,7 +588,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
 			})
 
-			It("should start the VMI with usb controller when input device doesn't have bus", func() {
+			It("[test_id:3117]should start the VMI with usb controller when input device doesn't have bus", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
@@ -614,7 +614,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
 			})
 
-			It("should start the VMI without usb controller", func() {
+			It("[test_id:3118]should start the VMI without usb controller", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -635,8 +635,8 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("with input devices", func() {
-			It("should failed to start the VMI with wrong type of input device", func() {
+		Context("[rfe_id:3077][crit:medium][vendor:cnv-qe@redhat.com][level:component]with input devices", func() {
+			It("[test_id:2642]should failed to start the VMI with wrong type of input device", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
@@ -650,7 +650,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).To(HaveOccurred(), "should not start vmi")
 			})
 
-			It("should failed to start the VMI with wrong bus of input device", func() {
+			It("[test_id:3074]should failed to start the VMI with wrong bus of input device", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
@@ -664,7 +664,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).To(HaveOccurred(), "should not start vmi")
 			})
 
-			It("should start the VMI with tablet input device with virtio bus", func() {
+			It("[test_id:3072]should start the VMI with tablet input device with virtio bus", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
@@ -691,7 +691,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred(), "should report input device")
 			})
 
-			It("should start the VMI with tablet input device with usb bus", func() {
+			It("[test_id:3073]should start the VMI with tablet input device with usb bus", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
@@ -756,9 +756,9 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("with namespace cpu limits lower than VMI required cpu", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with namespace cpu limits lower than VMI required cpu", func() {
 			var vmi *v1.VirtualMachineInstance
-			It("should fail to start the VMI", func() {
+			It("[test_id:3119]should fail to start the VMI", func() {
 				// create a namespace default limit
 				limitRangeObj := kubev1.LimitRange{
 
@@ -794,9 +794,9 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("with namespace limits higher than VMI requests", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with namespace limits higher than VMI requests", func() {
 			var vmi *v1.VirtualMachineInstance
-			It("should start the VMI with the right default settings from namespace limits", func() {
+			It("[test_id:3120]should start the VMI with the right default settings from namespace limits", func() {
 				// create a namespace default limit
 				limitRangeObj := kubev1.LimitRange{
 
@@ -843,7 +843,7 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("with hugepages", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with hugepages", func() {
 			var hugepagesVmi *v1.VirtualMachineInstance
 
 			verifyHugepagesConsumption := func() {
@@ -1020,7 +1020,7 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("with guestAgent", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent", func() {
 			var agentVMI *v1.VirtualMachineInstance
 
 			It("[test_id:1676]should have attached a guest agent channel by default", func() {
@@ -1109,14 +1109,14 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("with serial-number", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with serial-number", func() {
 			var snVmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
 				snVmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			})
 
-			It("should have serial-number set when present", func() {
+			It("[test_id:3121]should have serial-number set when present", func() {
 				snVmi.Spec.Domain.Firmware = &v1.Firmware{Serial: "4b2f5496-f3a3-460b-a375-168223f68845"}
 
 				By("Starting a VirtualMachineInstance")
@@ -1297,7 +1297,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		Context("when CPU features defined", func() {
-			It("should start a Virtaul Machine with matching features", func() {
+			It("[test_id:3123]should start a Virtaul Machine with matching features", func() {
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
 						{
@@ -1327,7 +1327,7 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("with machine type settings", func() {
+	Context("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", func() {
 		defaultMachineTypeKey := "machine-type"
 		defaultEmulatedMachineType := "emulated-machines"
 
@@ -1339,7 +1339,7 @@ var _ = Describe("Configurations", func() {
 			tests.UpdateClusterConfigValueAndWait(defaultMachineTypeKey, "")
 		})
 
-		It("should set machine type from VMI spec", func() {
+		It("[test_id:3124]should set machine type from VMI spec", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = "pc"
 			tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -1349,7 +1349,7 @@ var _ = Describe("Configurations", func() {
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
 		})
 
-		It("should set default machine type when it is not provided", func() {
+		It("[test_id:3125]should set default machine type when it is not provided", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = ""
 			tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -1359,7 +1359,7 @@ var _ = Describe("Configurations", func() {
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
 		})
 
-		It("should set machine type from kubevirt-config", func() {
+		It("[test_id:3126]should set machine type from kubevirt-config", func() {
 			tests.UpdateClusterConfigValueAndWait(defaultMachineTypeKey, "pc")
 
 			vmi := tests.NewRandomVMI()
@@ -1372,14 +1372,14 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("with CPU request settings", func() {
+	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU request settings", func() {
 		defaultCPURequestKey := "cpu-request"
 
 		AfterEach(func() {
 			tests.UpdateClusterConfigValueAndWait(defaultCPURequestKey, "")
 		})
 
-		It("should set CPU request from VMI spec", func() {
+		It("[test_id:3127]should set CPU request from VMI spec", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceCPU] = resource.MustParse("500m")
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -1390,7 +1390,7 @@ var _ = Describe("Configurations", func() {
 			Expect(cpuRequest.String()).To(Equal("500m"))
 		})
 
-		It("should set CPU request when it is not provided", func() {
+		It("[test_id:3128]should set CPU request when it is not provided", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 				Requests: kubev1.ResourceList{
@@ -1405,7 +1405,7 @@ var _ = Describe("Configurations", func() {
 			Expect(cpuRequest.String()).To(Equal("100m"))
 		})
 
-		It("should set CPU request from kubevirt-config", func() {
+		It("[test_id:3129]should set CPU request from kubevirt-config", func() {
 			tests.UpdateClusterConfigValueAndWait(defaultCPURequestKey, "800m")
 
 			vmi := tests.NewRandomVMI()
@@ -1907,7 +1907,7 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("Check Chassis value", func() {
+	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check Chassis value", func() {
 
 		It("[test_id:2927]Test Chassis value in a newly created VM", func() {
 			vmi := tests.NewRandomFedoraVMIWithDmidecode()
@@ -1941,7 +1941,7 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("Check SMBios with default and custom values", func() {
+	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check SMBios with default and custom values", func() {
 
 		var vmi *v1.VirtualMachineInstance
 
