@@ -14,7 +14,7 @@ kubectl() { cluster-up/kubectl.sh "$@"; }
 make cluster-down
 make cluster-up
 make cluster-sync
-CMD='cluster-up/kubectl.sh' make functest
+make ci-functest
 
 # Upgrade test requires OLM which is currently
 # only available with okd providers

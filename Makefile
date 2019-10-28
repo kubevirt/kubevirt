@@ -7,6 +7,13 @@ IMAGE_TAG          ?= latest
 OPERATOR_IMAGE     ?= kubevirt/hyperconverged-cluster-operator
 REGISTRY_NAMESPACE ?=
 
+# Prow doesn't have docker command
+DO=./hack/in-docker.sh
+ifeq (, $(shell which docker))
+DO=eval
+export JOB_TYPE=prow
+endif
+
 build: $(SOURCES) ## Build binary from source
 	go build -i -ldflags="-s -w" -o _out/hyperconverged-cluster-operator ./cmd/hyperconverged-cluster-operator
 	go build -i -ldflags="-s -w" -o _out/csv-merger tools/csv-merger/csv-merger.go
@@ -54,8 +61,18 @@ cluster-sync:
 cluster-clean:
 	CMD="./cluster-up/kubectl.sh" ./hack/clean.sh
 
-functest:
-	./hack/functest.sh
+ci-functest: build-functest test-functional
+
+functest: build-functest test-functional-prow
+
+build-functest:
+	${DO} ./hack/build-tests.sh
+
+test-functional:
+	JOB_TYPE="stdci" ./hack/run-tests.sh
+
+test-functional-prow:
+	./hack/run-tests.sh
 
 stageRegistry:
 	@APP_REGISTRY_NAMESPACE=redhat-operators-stage PACKAGE=kubevirt-hyperconverged ./tools/quay-registry.sh $(QUAY_USERNAME) $(QUAY_PASSWORD)
@@ -83,7 +100,7 @@ help: ## Show this help screen
 	@echo ''
 
 test-unit:
-	./hack/unit-test.sh
+	JOB_TYPE="travis" ./hack/build-tests.sh
 
 test: test-unit
 
@@ -105,4 +122,8 @@ test: test-unit
 		functest \
 		quay-token \
 		bundle-push \
-		build-push-all
+		build-push-all \
+		ci-functest \
+		build-functest \
+		test-functional \
+		test-functional-prow \
