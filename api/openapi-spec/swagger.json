@@ -6628,6 +6628,10 @@
       "description": "Indicates that the migration failed",
       "type": "boolean"
      },
+     "guestTimeSyncRequired": {
+      "description": "Indicates that VMI Guest time sync is required",
+      "type": "boolean"
+     },
      "migrationUid": {
       "description": "The VirtualMachineInstanceMigration object associated with this migration",
       "type": "string"

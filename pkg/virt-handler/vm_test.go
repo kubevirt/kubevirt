@@ -848,6 +848,129 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 		}, 3)
+		It("should remove guest time sync request when time is updated", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: metav1.Now(),
+					Status:        k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+
+				TargetNode:               "othernode",
+				TargetNodeAddress:        "127.0.0.1:12345",
+				SourceNode:               host,
+				MigrationUID:             "123",
+				TargetNodeDomainDetected: true,
+				GuestTimeSyncRequired: true,
+				Completed: true,
+				StartTimestamp: &now,
+				EndTimestamp: &now,
+			}
+
+			mockWatchdog.CreateFile(vmi)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Running
+			domain.Spec.Devices.Channels = []api.Channel{
+				{
+					Type: "unix",
+					Target: &api.ChannelTarget{
+						Name:  "org.qemu.guest_agent.0",
+						State: "connected",
+					},
+				},
+			}
+
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+			updatedVMI := vmi.DeepCopy()
+			updatedVMI.Status.MigrationState.GuestTimeSyncRequired = false
+
+			client.EXPECT().Ping()
+			client.EXPECT().SetVirtualMachineGuestTime(vmi)
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
+				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			})
+
+			vmiInterface.EXPECT().Update(updatedVMI)
+			controller.Execute()
+		})
+		It("should remove guest time sync request when time is exeeded", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: pastTime,
+					Status:        k8sv1.ConditionTrue,
+				},
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+
+				TargetNode:               "othernode",
+				TargetNodeAddress:        "127.0.0.1:12345",
+				SourceNode:               host,
+				MigrationUID:             "123",
+				TargetNodeDomainDetected: true,
+				GuestTimeSyncRequired: true,
+				Completed: true,
+				StartTimestamp: &now,
+				EndTimestamp: &now,
+			}
+
+			mockWatchdog.CreateFile(vmi)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Running
+			domain.Spec.Devices.Channels = []api.Channel{
+				{
+					Type: "unix",
+					Target: &api.ChannelTarget{
+						Name:  "org.qemu.guest_agent.0",
+						State: "connected",
+					},
+				},
+			}
+
+			updatedVMI := vmi.DeepCopy()
+			updatedVMI.Status.MigrationState.GuestTimeSyncRequired = false
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().Ping()
+			client.EXPECT().SetVirtualMachineGuestTime(vmi).Return(fmt.Errorf("Some error"))
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
+				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			})
+
+			vmiInterface.EXPECT().Update(updatedVMI)
+			controller.Execute()
+		})
 	})
 
 	Context("check if migratable", func() {

@@ -574,9 +574,26 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 
 	// Update guest time after a migration
 	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.GuestTimeSyncRequired {
-		err := d.setVMIGuestTime(vmi)
-		if err == nil {
-			vmi.Status.MigrationState.GuestTimeSyncRequired = false
+		timeSyncRequestTimeoutInSeconds := 5.0
+		isConditionRemoved := false
+		if channelConnected {
+			err := d.setVMIGuestTime(vmi)
+			if err == nil {
+				vmi.Status.MigrationState.GuestTimeSyncRequired = false
+				isConditionRemoved = true
+			}
+		}
+		if !isConditionRemoved {
+			var timeDiff time.Duration
+			for _, c := range vmi.Status.Conditions {
+				if c.Type == v1.VirtualMachineInstanceAgentConnected {
+					timeDiff = v12.Now().Sub((c.LastProbeTime).Time)
+					break
+				}
+			}
+			if timeDiff.Seconds() > timeSyncRequestTimeoutInSeconds {
+				vmi.Status.MigrationState.GuestTimeSyncRequired = false
+			}
 		}
 	}
 
