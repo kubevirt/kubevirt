@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 
-rm -rf vendor/github.com/golang/glog
-mkdir -p vendor/github.com/golang/
-ln -s ../../../pkg/staging/glog/ vendor/github.com/golang/glog
+set -ex
+
+source hack/common.sh
+
+# create symbolic link on glog package to avoid duplication
+rm -rf ${KUBEVIRT_DIR}/vendor/github.com/golang/glog
+mkdir -p ${KUBEVIRT_DIR}/vendor/github.com/golang
+ln -s ../../../staging/src/github.com/golang/glog/ ${KUBEVIRT_DIR}/vendor/github.com/golang/glog
 
 # create symbolic link on client-go package to avoid duplication
-rm -rf vendor/kubevirt.io/client-go
-mkdir -p vendor/kubevirt.io
-ln -s ../../staging/src/kubevirt.io/client-go/ vendor/kubevirt.io/client-go
+rm -rf ${KUBEVIRT_DIR}/vendor/kubevirt.io/client-go
+mkdir -p ${KUBEVIRT_DIR}/vendor/kubevirt.io
+ln -s ../../staging/src/kubevirt.io/client-go/ ${KUBEVIRT_DIR}/vendor/kubevirt.io/client-go

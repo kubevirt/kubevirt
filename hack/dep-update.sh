@@ -9,5 +9,10 @@ export GO111MODULE=on
     go mod tidy
 )
 
+(
+    cd staging/src/github.com/golang/glog
+    go mod tidy
+)
+
 go mod tidy
 go mod vendor

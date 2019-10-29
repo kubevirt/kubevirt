@@ -210,10 +210,10 @@ func Generate(auditLogsPath string, swaggerPath string, filter string) (*stats.C
 		return nil, err
 	}
 
-	scanner := bufio.NewReader(auditLogs)
+	reader := bufio.NewReader(auditLogs)
 	for {
 		var event auditv1.Event
-		b, err := scanner.ReadBytes('\n')
+		b, err := reader.ReadBytes('\n')
 		if err == io.EOF {
 			break
 		}
