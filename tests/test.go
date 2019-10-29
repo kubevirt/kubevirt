@@ -14,7 +14,7 @@
  * limitations under the License.
  *
  * Copyright 2017 Red Hat, Inc.
- *
+ * BARBAR TEST
  */
 
 package tests
