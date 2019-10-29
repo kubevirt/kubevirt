@@ -6,9 +6,6 @@ filters:
       - code-reviewers
     approvers:
       - approvers
-  "tests/.*":
-    reviewers:
-      - test-reviewers
   "pkg/virt-api/.*":
     reviewers:
       - ux-reviewers
