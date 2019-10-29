@@ -378,21 +378,6 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3bf7a571575875e7a2982d348cbd09dd92b84d501ea126e58b22ffa5e33e3e11"
-  name = "github.com/kubevirt/hyperconverged-cluster-operator"
-  packages = [
-    "pkg/apis",
-    "pkg/apis/hco/v1alpha1",
-    "pkg/components",
-    "pkg/controller",
-    "pkg/controller/hyperconverged",
-    "tools/util",
-  ]
-  pruneopts = "NT"
-  revision = "951de3e4e9159ee531c2e46377153c1894e37a90"
-
-[[projects]]
-  branch = "master"
   digest = "1:5abd2595ba85b83e66f26ac8e89605dd334f0bfe3c455c1bf25a6a176a4fe836"
   name = "github.com/mailru/easyjson"
   packages = [
@@ -1341,12 +1326,6 @@
     "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1",
     "github.com/kubevirt/cluster-network-addons-operator/pkg/components",
     "github.com/kubevirt/cluster-network-addons-operator/pkg/names",
-    "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis",
-    "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1",
-    "github.com/kubevirt/hyperconverged-cluster-operator/pkg/components",
-    "github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller",
-    "github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller/hyperconverged",
-    "github.com/kubevirt/hyperconverged-cluster-operator/tools/util",
     "github.com/onsi/ginkgo",
     "github.com/onsi/gomega",
     "github.com/openshift/custom-resource-status/conditions/v1",
