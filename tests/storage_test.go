@@ -62,7 +62,7 @@ var _ = Describe("Storage", func() {
 	})
 
 	Describe("Starting a VirtualMachineInstance", func() {
-		Context("with Alpine PVC", func() {
+		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
 			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc) {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := newVMI(tests.DiskAlpineHostPath)
@@ -104,7 +104,7 @@ var _ = Describe("Storage", func() {
 			)
 		})
 
-		Context("With an emptyDisk defined", func() {
+		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With an emptyDisk defined", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 			It("should create a writeable emptyDisk with the right capacity", func() {
 
@@ -153,7 +153,7 @@ var _ = Describe("Storage", func() {
 
 		})
 
-		Context("With an emptyDisk defined and a specified serial number", func() {
+		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With an emptyDisk defined and a specified serial number", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 			It("should create a writeable emptyDisk with the specified serial number", func() {
 
@@ -193,7 +193,7 @@ var _ = Describe("Storage", func() {
 
 		})
 
-		Context("With ephemeral alpine PVC", func() {
+		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ephemeral alpine PVC", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 			It("should be successfully started", func() {
 				// Start the VirtualMachineInstance with the PVC attached
@@ -254,7 +254,7 @@ var _ = Describe("Storage", func() {
 			})
 		})
 
-		Context("With VirtualMachineInstance with two PVCs", func() {
+		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With VirtualMachineInstance with two PVCs", func() {
 			BeforeEach(func() {
 				// Setup second PVC to use in this context
 				tests.CreateHostPathPv(tests.CustomHostPath, tests.HostPathCustom)
@@ -345,7 +345,7 @@ var _ = Describe("Storage", func() {
 						table.Entry("[test_id:3057]with sata driver", "sata"),
 					)
 
-					It("should start with multiple hostdisks in the same directory", func() {
+					It("[test_id:3107]should start with multiple hostdisks in the same directory", func() {
 						By("Starting VirtualMachineInstance")
 						// do not choose a specific node to run the test
 						vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
@@ -528,7 +528,7 @@ var _ = Describe("Storage", func() {
 					tests.UpdateClusterConfigValueAndWait(virtconfig.LessPVCSpaceTolerationKey, strconv.Itoa(toleration))
 				}
 
-				It("Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", func() {
+				It("[test_id:3108]Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", func() {
 
 					configureToleration(10)
 
@@ -545,7 +545,7 @@ var _ = Describe("Storage", func() {
 
 				})
 
-				It("Should initialize an empty PVC with a disk.img when disk is too small but within toleration", func() {
+				It("[test_id:3109]Should initialize an empty PVC with a disk.img when disk is too small but within toleration", func() {
 
 					configureToleration(30)
 
