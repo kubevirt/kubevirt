@@ -128,13 +128,13 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 		windowsVMI.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	})
 
-	It("[test_id:223]should succeed to start a vmi", func() {
+	It("[test_id:487]should succeed to start a vmi", func() {
 		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVMI)
 		Expect(err).To(BeNil())
 		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 	}, 300)
 
-	It("should succeed to stop a running vmi", func() {
+	It("[test_id:488]should succeed to stop a running vmi", func() {
 		By("Starting the vmi")
 		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVMI)
 		Expect(err).To(BeNil())
@@ -145,7 +145,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 		Expect(err).To(BeNil())
 	}, 300)
 
-	Context("[ref_id:295]with winrm connection", func() {
+	Context("[ref_id:139]with winrm connection", func() {
 		var winrmcliPod *k8sv1.Pod
 		var cli []string
 		var output string
@@ -203,7 +203,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			Expect(output).Should(ContainSubstring(strings.ToUpper(windowsFirmware)))
 		}, 360)
 
-		It("should have default masquerade IP", func() {
+		It("[test_id:3159]should have default masquerade IP", func() {
 			command := append(cli, "ipconfig /all")
 			By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 			Eventually(func() error {
@@ -219,7 +219,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			By("Checking that the Windows VirtualMachineInstance has expected IP address")
 			Expect(output).Should(ContainSubstring("10.0.2.2"))
 		}, 360)
-		It("should have the domain set properly", func() {
+		It("[test_id:3160]should have the domain set properly", func() {
 			command := append(cli, "wmic nicconfig get dnsdomain")
 			By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 
@@ -262,7 +262,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 		}, 360)
 	})
 
-	Context("[ref_id:222]with kubectl command", func() {
+	Context("[ref_id:142]with kubectl command", func() {
 		var workDir string
 		var yamlFile string
 		BeforeEach(func() {
@@ -282,7 +282,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			}
 		})
 
-		It("should succeed to start a vmi", func() {
+		It("[test_id:223]should succeed to start a vmi", func() {
 			By("Starting the vmi via kubectl command")
 			_, _, err = tests.RunCommand("kubectl", "create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
