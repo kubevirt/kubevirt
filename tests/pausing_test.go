@@ -93,6 +93,24 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 		})
 
+		When("paused via virtctl multiple times", func() {
+			It("should signal unpaused state with removed condition at the end", func() {
+				runVMI()
+
+				for i := 0; i < 3; i++ {
+					By("Pausing VMI")
+					command := tests.NewRepeatableVirtctlCommand("pause", "vmi", "--namespace", tests.NamespaceTestDefault, vmi.Name)
+					Expect(command()).To(Succeed())
+					tests.WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+
+					By("Unpausing VMI")
+					command = tests.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", tests.NamespaceTestDefault, vmi.Name)
+					Expect(command()).To(Succeed())
+					tests.WaitForVMIConditionRemovedOrFalse(virtClient, vmi, v1.VirtualMachineInstancePaused, 30)
+				}
+			})
+		})
+
 		Context("with a LivenessProbe configured", func() {
 			When("paused via virtctl", func() {
 				It("should not be paused", func() {
