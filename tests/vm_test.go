@@ -470,7 +470,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}
 		})
 
-		It("[test_id:1527]should not update the VirtualMachineInstance spec if Running", func() {
+		FIt("[test_id:1527]should not update the VirtualMachineInstance spec if Running", func() {
 			newVM := newVirtualMachine(true)
 
 			Eventually(func() bool {
