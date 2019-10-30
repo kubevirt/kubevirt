@@ -72,8 +72,8 @@ const vgpuEnvPrefix = "VGPU_PASSTHROUGH_DEVICES"
 
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
-	PauseVMI(*v1.VirtualMachineInstance) (*api.DomainSpec, error)
-	UnpauseVMI(*v1.VirtualMachineInstance) (*api.DomainSpec, error)
+	PauseVMI(*v1.VirtualMachineInstance) error
+	UnpauseVMI(*v1.VirtualMachineInstance) error
 	KillVMI(*v1.VirtualMachineInstance) error
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
@@ -1115,7 +1115,7 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 	return util.GetDomainSpec(state, dom)
 }
 
-func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
@@ -1126,46 +1126,36 @@ func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) (*api.Do
 	if err != nil {
 		// If the VirtualMachineInstance does not exist, we are done
 		if domainerrors.IsNotFound(err) {
-			return nil, fmt.Errorf("Domain not found.")
+			return fmt.Errorf("Domain not found.")
 		} else {
-			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed during pause.")
-			return nil, err
+			logger.Reason(err).Error("Getting the domain failed during pause.")
+			return err
 		}
 	}
 	defer dom.Free()
 
 	domState, _, err := dom.GetState()
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Getting the domain state failed.")
-		return nil, err
+		logger.Reason(err).Error("Getting the domain state failed.")
+		return err
 	}
 
 	if domState == libvirt.DOMAIN_RUNNING {
 		err = dom.Suspend()
 		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Signalling suspension failed.")
-			return nil, err
+			logger.Reason(err).Error("Signalling suspension failed.")
+			return err
 		}
-		log.Log.Object(vmi).Infof("Signaled pause for %s", vmi.GetObjectMeta().GetName())
+		logger.Infof("Signaled pause for %s", vmi.GetObjectMeta().GetName())
 		l.paused.add(vmi.UID)
 	} else {
-		log.Log.Object(vmi).Infof("Domain is not running for %s", vmi.GetObjectMeta().GetName())
+		logger.Infof("Domain is not running for %s", vmi.GetObjectMeta().GetName())
 	}
 
-	xmlstr, err := dom.GetXMLDesc(0)
-	if err != nil {
-		return nil, err
-	}
-	var newSpec api.DomainSpec
-	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
-	if err != nil {
-		logger.Reason(err).Error("Parsing domain XML failed.")
-		return nil, err
-	}
-	return &newSpec, nil
+	return nil
 }
 
-func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
+func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
@@ -1176,44 +1166,34 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) (*api.
 	if err != nil {
 		// If the VirtualMachineInstance does not exist, we are done
 		if domainerrors.IsNotFound(err) {
-			return nil, fmt.Errorf("Domain not found.")
+			return fmt.Errorf("Domain not found.")
 		} else {
-			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed during unpause.")
-			return nil, err
+			logger.Reason(err).Error("Getting the domain failed during unpause.")
+			return err
 		}
 	}
 	defer dom.Free()
 
 	domState, _, err := dom.GetState()
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Getting the domain state failed.")
-		return nil, err
+		logger.Reason(err).Error("Getting the domain state failed.")
+		return err
 	}
 
 	if domState == libvirt.DOMAIN_PAUSED {
 		err = dom.Resume()
 		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Signalling unpause failed.")
-			return nil, err
+			logger.Reason(err).Error("Signalling unpause failed.")
+			return err
 		}
-		log.Log.Object(vmi).Infof("Signaled unpause for %s", vmi.GetObjectMeta().GetName())
+		logger.Infof("Signaled unpause for %s", vmi.GetObjectMeta().GetName())
 		l.paused.remove(vmi.UID)
 
 	} else {
-		log.Log.Object(vmi).Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())
+		logger.Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())
 	}
 
-	xmlstr, err := dom.GetXMLDesc(0)
-	if err != nil {
-		return nil, err
-	}
-	var newSpec api.DomainSpec
-	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
-	if err != nil {
-		logger.Reason(err).Error("Parsing domain XML failed.")
-		return nil, err
-	}
-	return &newSpec, nil
+	return nil
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {

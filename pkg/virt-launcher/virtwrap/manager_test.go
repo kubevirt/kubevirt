@@ -198,7 +198,7 @@ var _ = Describe("Manager", func() {
 			table.Entry("shutoff", libvirt.DOMAIN_SHUTOFF),
 			table.Entry("unknown", libvirt.DOMAIN_NOSTATE),
 		)
-		It("should unpause a paused VirtualMachineInstance", func() {
+		It("should unpause a paused VirtualMachineInstance on SyncVMI, which was not paused by user", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
@@ -214,7 +214,7 @@ var _ = Describe("Manager", func() {
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
-		It("should not unpause a paused VirtualMachineInstance", func() {
+		It("should not unpause a paused VirtualMachineInstance on SyncVMI, which was paused by user", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
@@ -224,12 +224,10 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().Suspend().Return(nil)
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
 
-			newspec, err := manager.PauseVMI(vmi)
+			err = manager.PauseVMI(vmi)
 			Expect(err).To(BeNil())
-			Expect(newspec).ToNot(BeNil())
 
 			mockDomain.EXPECT().Free()
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
@@ -237,7 +235,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			// no expected call to unpause
 
-			newspec, err = manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -245,69 +243,53 @@ var _ = Describe("Manager", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.Marshal(domainSpec)
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().Suspend().Return(nil)
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
 
-			newspec, err := manager.PauseVMI(vmi)
+			err = manager.PauseVMI(vmi)
 			Expect(err).To(BeNil())
-			Expect(newspec).ToNot(BeNil())
 		})
 		It("should not try to pause a paused VirtualMachineInstance", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.Marshal(domainSpec)
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
 			// no call to suspend
 
-			newspec, err := manager.PauseVMI(vmi)
+			err = manager.PauseVMI(vmi)
 			Expect(err).To(BeNil())
-			Expect(newspec).ToNot(BeNil())
 		})
 		It("should unpause a VirtualMachineInstance", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.Marshal(domainSpec)
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
 			mockDomain.EXPECT().Resume().Return(nil)
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
 
-			newspec, err := manager.UnpauseVMI(vmi)
+			err = manager.UnpauseVMI(vmi)
 			Expect(err).To(BeNil())
-			Expect(newspec).ToNot(BeNil())
 		})
 		It("should not try to unpause a running VirtualMachineInstance", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.Marshal(domainSpec)
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
 			// no call to unpause
 
-			newspec, err := manager.UnpauseVMI(vmi)
+			err = manager.UnpauseVMI(vmi)
 			Expect(err).To(BeNil())
-			Expect(newspec).ToNot(BeNil())
 		})
 	})
 	Context("test migration monitor", func() {

@@ -174,7 +174,7 @@ func (l *Launcher) PauseVirtualMachine(ctx context.Context, request *cmdv1.VMIRe
 		return response, nil
 	}
 
-	if _, err := l.domainManager.PauseVMI(vmi); err != nil {
+	if err := l.domainManager.PauseVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to pause vmi")
 		response.Success = false
 		response.Message = getErrorMessage(err)
@@ -191,7 +191,7 @@ func (l *Launcher) UnpauseVirtualMachine(ctx context.Context, request *cmdv1.VMI
 		return response, nil
 	}
 
-	if _, err := l.domainManager.UnpauseVMI(vmi); err != nil {
+	if err := l.domainManager.UnpauseVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to unpause vmi")
 		response.Success = false
 		response.Message = getErrorMessage(err)
