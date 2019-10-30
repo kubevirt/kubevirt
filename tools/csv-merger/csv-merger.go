@@ -177,7 +177,10 @@ func main() {
 	templateStruct.Annotations["containerImage"] = *operatorImage
 	templateStruct.Name = "kubevirt-hyperconverged-operator.v" + *csvVersion
 	templateStruct.Spec.Version = version.OperatorVersion{semver.MustParse(*csvVersion)}
-	templateStruct.Spec.Replaces = "kubevirt-hyperconverged-operator.v" + *replacesCsvVersion
+
+	if *replacesCsvVersion != "" {
+		templateStruct.Spec.Replaces = "kubevirt-hyperconverged-operator.v" + *replacesCsvVersion
+	}
 
 	if *metadataDescription != "" {
 		templateStruct.Annotations["description"] = *metadataDescription
