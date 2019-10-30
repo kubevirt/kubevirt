@@ -244,7 +244,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return updatedVM
 		}
 
-		It("should carry annotations to VMI", func() {
+		It("[test_id:3161]should carry annotations to VMI", func() {
 			annotations := map[string]string{
 				"testannotation": "test",
 			}
@@ -272,7 +272,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}, 300*time.Second, 1*time.Second).Should(HaveKeyWithValue("testannotation", "test"), "VM should start normaly.")
 		})
 
-		It("should ignore kubernetes and kubevirt annotations to VMI", func() {
+		It("[test_id:3162]should ignore kubernetes and kubevirt annotations to VMI", func() {
 			annotations := map[string]string{
 				"kubevirt.io/test":   "test",
 				"kubernetes.io/test": "test",
@@ -628,7 +628,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			Context("Using RunStrategyAlways", func() {
-				It("should stop a running VM", func() {
+				It("[test_id:3163]should stop a running VM", func() {
 					By("creating a VM with RunStrategyAlways")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
@@ -657,7 +657,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(len(newVM.Status.StateChangeRequests)).To(Equal(0))
 				})
 
-				It("should restart a running VM", func() {
+				It("[test_id:3164]should restart a running VM", func() {
 					By("creating a VM with RunStrategyAlways")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
@@ -706,7 +706,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						"New VMI was created, but StateChangeRequest was never cleared")
 				})
 
-				It("should restart a succeeded VMI", func() {
+				It("[test_id:3165]should restart a succeeded VMI", func() {
 					By("creating a VM with RunStategyRunning")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
 
