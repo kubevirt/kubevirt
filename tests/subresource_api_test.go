@@ -47,31 +47,31 @@ var _ = Describe("Subresource Api", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Describe("Rbac Authorization", func() {
+	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization", func() {
 		resource := "virtualmachineinstances"
 
 		Context("with correct permissions", func() {
-			It("should be allowed to access subresource endpoint", func() {
+			It("[test_id:3170]should be allowed to access subresource endpoint", func() {
 				testClientJob(virtCli, true, resource)
 			}, 15)
 		})
 		Context("Without permissions", func() {
-			It("should not be able to access subresource endpoint", func() {
+			It("[test_id:3171]should not be able to access subresource endpoint", func() {
 				testClientJob(virtCli, false, resource)
 			}, 15)
 		})
 	})
 
-	Describe("Rbac Authorization For Version Command", func() {
+	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac Authorization For Version Command", func() {
 		resource := "version"
 
 		Context("with authenticated user", func() {
-			It("should be allowed to access subresource version endpoint", func() {
+			It("[test_id:3172]should be allowed to access subresource version endpoint", func() {
 				testClientJob(virtCli, true, resource)
 			}, 15)
 		})
 		Context("Without permissions", func() {
-			It("should be able to access subresource version endpoint", func() {
+			It("[test_id:3173]should be able to access subresource version endpoint", func() {
 				testClientJob(virtCli, false, resource)
 			}, 15)
 		})
@@ -120,7 +120,7 @@ var _ = Describe("Subresource Api", func() {
 		})
 
 		Context("With manual RunStrategy", func() {
-			It("Should not restart when VM is not running", func() {
+			It("[test_id:3174]Should not restart when VM is not running", func() {
 				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 				vm.Spec.RunStrategy = &manual
 				vm.Spec.Running = nil
@@ -134,7 +134,7 @@ var _ = Describe("Subresource Api", func() {
 				Expect(err).To(HaveOccurred())
 			})
 
-			It("Should restart when VM is running", func() {
+			It("[test_id:3175]Should restart when VM is running", func() {
 				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 				vm.Spec.RunStrategy = &manual
 				vm.Spec.Running = nil
@@ -174,7 +174,7 @@ var _ = Describe("Subresource Api", func() {
 		})
 
 		Context("With RunStrategy RerunOnFailure", func() {
-			It("Should restart the VM", func() {
+			It("[test_id:3176]Should restart the VM", func() {
 				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 				vm.Spec.RunStrategy = &restartOnError
 				vm.Spec.Running = nil
@@ -210,8 +210,8 @@ var _ = Describe("Subresource Api", func() {
 		})
 	})
 
-	Describe("the openapi spec for the subresources", func() {
-		It("should be aggregated into the the apiserver openapi spec", func() {
+	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] the openapi spec for the subresources", func() {
+		It("[test_id:3177]should be aggregated into the the apiserver openapi spec", func() {
 			Eventually(func() string {
 				spec, err := virtCli.RestClient().Get().AbsPath("/openapi/v2").DoRaw()
 				Expect(err).ToNot(HaveOccurred())
