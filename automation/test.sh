@@ -20,4 +20,5 @@ make ci-functest
 # only available with okd providers
 if [[ $TARGET =~ okd-.* ]]; then
   make upgrade-test
+  make ci-functest
 fi
