@@ -1,7 +1,6 @@
-# we need to pin the 4.2.0 image because https://github.com/operator-framework/operator-registry/issues/70
-FROM quay.io/openshift/origin-operator-registry:4.2.0
+FROM quay.io/openshift/origin-operator-registry:latest
 
-COPY olm-catalog /registry
+COPY deploy/olm-catalog /registry
 
 # Initialize the database
 RUN initializer --manifests /registry/kubevirt-hyperconverged --output bundles.db

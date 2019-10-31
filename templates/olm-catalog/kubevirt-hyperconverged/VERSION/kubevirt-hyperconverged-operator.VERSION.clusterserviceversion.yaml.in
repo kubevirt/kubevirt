@@ -509,11 +509,6 @@ spec:
         kind: {{.CNA.CRD.Spec.Names.Kind}}
         displayName: Cluster Network Addons
         description: Cluster Network Addons
-      - name: machineremediationoperators.machineremediation.kubevirt.io
-        version: v1alpha1
-        kind: MachineRemediationOperator
-        displayName: Machine Remediation Operator deployment
-        description: Represents a Machine Remediation Operator deployment
       - name: kubevirtcommontemplatesbundles.kubevirt.io
         version: v1
         kind: KubevirtCommonTemplatesBundle
