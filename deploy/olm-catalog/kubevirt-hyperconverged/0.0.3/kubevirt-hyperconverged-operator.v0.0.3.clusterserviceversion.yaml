@@ -12,7 +12,7 @@ metadata:
             "namespace": "kubevirt-hyperconverged"
           },
           "spec": {
-            "BareMetalPlatform": "false"
+            "BareMetalPlatform": false
           }
         },
         {
@@ -88,7 +88,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-10-07 23:54:11.33364688 +0200 CEST m=+0.045016825
+    createdAt: 2019-10-30 16:13:52.498487962 -0400 EDT m=+0.024737598
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
