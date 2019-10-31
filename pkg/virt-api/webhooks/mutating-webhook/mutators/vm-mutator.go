@@ -20,7 +20,6 @@ package mutators
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"k8s.io/api/admission/v1beta1"
 
@@ -34,14 +33,23 @@ type VMsMutator struct {
 	ClusterConfig *virtconfig.ClusterConfig
 }
 
+// until the minimum supported version is kubernetes 1.15 (see https://github.com/kubernetes/kubernetes/commit/c2fcdc818be1441dd788cae22648c04b1650d3af#diff-e057ec5b2ec27b4ba1e1a3915f715262)
+// the mtuating webhook must pass silently on errors instead of returning errors
+func emptyValidResponse() *v1beta1.AdmissionResponse {
+	return &v1beta1.AdmissionResponse{
+		Allowed: true,
+	}
+}
+
 func (mutator *VMsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	if !webhooks.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineGroupVersionResource.Group, webhooks.VirtualMachineGroupVersionResource.Resource) {
-		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineGroupVersionResource.Resource)
-		return webhooks.ToAdmissionResponseError(err)
+		log.Log.V(1).Warningf("vm-mutator: received invalid request")
+		return emptyValidResponse()
 	}
 
 	if resp := webhooks.ValidateSchema(v1.VirtualMachineGroupVersionKind, ar.Request.Object.Raw); resp != nil {
-		return resp
+		log.Log.V(1).Warningf("vm-mutator: received invalid object in request")
+		return emptyValidResponse()
 	}
 
 	raw := ar.Request.Object.Raw
@@ -49,7 +57,8 @@ func (mutator *VMsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissio
 
 	err := json.Unmarshal(raw, &vm)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		log.Log.V(1).Warningf("vm-mutator: unable to unmarshal object in request")
+		return emptyValidResponse()
 	}
 
 	// Set VM defaults
@@ -74,7 +83,8 @@ func (mutator *VMsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissio
 
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		log.Log.V(1).Warningf("vm-mutator: unable to marshal object in request")
+		return emptyValidResponse()
 	}
 
 	jsonPatchType := v1beta1.PatchTypeJSONPatch
