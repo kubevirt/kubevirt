@@ -1,18 +1,15 @@
+FROM quay.io/fedora/fedora:30-x86_64 AS builder
 ARG UPGRADE_VERSION=100.0.0
-# could not use "FROM golang:1.11" because dep is also needed
-FROM fedora:30 AS builder
-ARG UPGRADE_VERSION
 ENV GOPATH=/go
 RUN echo "UPGRADE_VERSION: ${UPGRADE_VERSION}"
 WORKDIR /go/src/github.com/kubevirt/hyperconverged-cluster-operator/
 COPY . .
-RUN dnf install -y dep golang make findutils tar
+RUN dnf install -y dep golang make findutils tar && dnf clean all -y
 RUN export UPGRADE_VERSION=${UPGRADE_VERSION}; ./hack/upgrade-create-new-version.sh
 
 FROM quay.io/openshift/origin-operator-registry:latest
 ARG KUBEVIRT_PROVIDER
-ARG UPGRADE_VERSION
-USER 1001
+ARG UPGRADE_VERSION=100.0.0
 # sed fails if chown=1001 is not applied
 COPY --chown=1001 --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/deploy/olm-catalog /registry
 

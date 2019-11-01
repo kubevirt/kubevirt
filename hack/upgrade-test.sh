@@ -110,6 +110,7 @@ echo "-- Upgrade Step 3/6: create catalogsource and subscription to install HCO"
 echo "--"
 
 ${CMD} create ns kubevirt-hyperconverged | true
+${CMD} get pods -n kubevirt-hyperconverged 
 
 cat <<EOF | ${CMD} create -f -
 apiVersion: operators.coreos.com/v1alpha2
