@@ -539,45 +539,47 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}
 		})
 
-		It("[test_id:1527]should not update the VirtualMachineInstance spec if Running", func() {
-			newVM := newVirtualMachine(true)
+		FContext("hanging test on CI", func() {
+			FIt("[test_id:1527]should not update the VirtualMachineInstance spec if Running", func() {
+				newVM := newVirtualMachine(true)
 
-			Eventually(func() bool {
+				Eventually(func() bool {
+					newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return newVM.Status.Ready
+				}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+				By("Updating the VM template spec")
 				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return newVM.Status.Ready
-			}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
-			By("Updating the VM template spec")
-			newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(newVM.Name, &v12.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+				updatedVM := newVM.DeepCopy()
+				updatedVM.Spec.Template.Spec.Domain.Resources.Requests = v13.ResourceList{
+					v13.ResourceMemory: resource.MustParse("4096Ki"),
+				}
+				updatedVM, err := virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
+				Expect(err).ToNot(HaveOccurred())
 
-			updatedVM := newVM.DeepCopy()
-			updatedVM.Spec.Template.Spec.Domain.Resources.Requests = v13.ResourceList{
-				v13.ResourceMemory: resource.MustParse("4096Ki"),
-			}
-			updatedVM, err := virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
-			Expect(err).ToNot(HaveOccurred())
+				By("Expecting the old VirtualMachineInstance spec still running")
+				vmi, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-			By("Expecting the old VirtualMachineInstance spec still running")
-			vmi, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &v12.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+				vmiMemory := vmi.Spec.Domain.Resources.Requests.Memory()
+				vmMemory := newVM.Spec.Template.Spec.Domain.Resources.Requests.Memory()
+				Expect(vmiMemory.Cmp(*vmMemory)).To(Equal(0))
 
-			vmiMemory := vmi.Spec.Domain.Resources.Requests.Memory()
-			vmMemory := newVM.Spec.Template.Spec.Domain.Resources.Requests.Memory()
-			Expect(vmiMemory.Cmp(*vmMemory)).To(Equal(0))
+				By("Restarting the VM")
+				newVM = stopVM(newVM)
+				newVM = startVM(newVM)
 
-			By("Restarting the VM")
-			newVM = stopVM(newVM)
-			newVM = startVM(newVM)
+				By("Expecting updated spec running")
+				vmi, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-			By("Expecting updated spec running")
-			vmi, err = virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &v12.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vmiMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-			vmMemory = updatedVM.Spec.Template.Spec.Domain.Resources.Requests.Memory()
-			Expect(vmiMemory.Cmp(*vmMemory)).To(Equal(0))
+				vmiMemory = vmi.Spec.Domain.Resources.Requests.Memory()
+				vmMemory = updatedVM.Spec.Template.Spec.Domain.Resources.Requests.Memory()
+				Expect(vmiMemory.Cmp(*vmMemory)).To(Equal(0))
+			})
 		})
 
 		It("[test_id:1528]should survive guest shutdown, multiple times", func() {
