@@ -33,8 +33,19 @@ elif [ -f "/sys/module/kvm_amd/parameters/nested" ]; then
 	KVM_NESTED=$( cat /sys/module/kvm_amd/parameters/nested )
 	KVM_ARCH="amd"
 fi
-if [ "$KVM_NESTED" != "Y" ]; then
-	echo "[ERR ] $KVM_ARCH nested virtualization not enabled"
-else
+
+function is_enabled() {
+	if [ "$1" == "1" ]; then
+		return 0
+	fi
+	if [ "$1" == "Y" ] || [ "$1" == "y"]; then
+		return 0
+	fi
+	return 1
+}
+
+if is_enabled "$KVM_NESTED"; then
 	echo "[ OK ] $KVM_ARCH nested virtualization enabled"
+else
+	echo "[ERR ] $KVM_ARCH nested virtualization not enabled"
 fi

@@ -2,9 +2,12 @@
 
 set -e
 
-_cli_container="kubevirtci/gocli@sha256:f6145018927094a6b62ac89fdb26f5901cb8030d9120f620b2490c9c9c25655a"
-_cli_with_tty="docker run --privileged --net=host --rm -t -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
-_cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
+if [ "${KUBEVIRTCI_RUNTIME}" = "podman" ]; then
+	_cli="pack8s"
+else
+	_cli_container="kubevirtci/gocli@sha256:f6145018927094a6b62ac89fdb26f5901cb8030d9120f620b2490c9c9c25655a"
+	_cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
+fi
 
 function _main_ip() {
     echo 127.0.0.1
