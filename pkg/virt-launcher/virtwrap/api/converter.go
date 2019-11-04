@@ -58,17 +58,18 @@ const (
 
 // +k8s:deepcopy-gen=false
 type ConverterContext struct {
-	UseEmulation   bool
-	Secrets        map[string]*k8sv1.Secret
-	VirtualMachine *v1.VirtualMachineInstance
-	CPUSet         []int
-	IsBlockPVC     map[string]bool
-	IsBlockDV      map[string]bool
-	DiskType       map[string]*containerdisk.DiskInfo
-	SRIOVDevices   map[string][]string
-	SMBios         *cmdv1.SMBios
-	GpuDevices     []string
-	VgpuDevices    []string
+	UseEmulation      bool
+	Secrets           map[string]*k8sv1.Secret
+	VirtualMachine    *v1.VirtualMachineInstance
+	CPUSet            []int
+	IsBlockPVC        map[string]bool
+	IsBlockDV         map[string]bool
+	DiskType          map[string]*containerdisk.DiskInfo
+	SRIOVDevices      map[string][]string
+	SMBios            *cmdv1.SMBios
+	GpuDevices        []string
+	VgpuDevices       []string
+	EmulatorThreadCpu *int
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
