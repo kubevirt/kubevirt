@@ -211,12 +211,12 @@ var _ = Describe("IOThreads", func() {
 		},
 			// special case: there's always at least one thread for the shared pool:
 			// two dedicated and one shared thread is 3 threads.
-			table.Entry("for one CPU", 1, 3),
+			table.Entry("[test_id:3097]for one CPU", 1, 3),
 			table.Entry("[test_id:856] for two CPUs", 2, 4),
-			table.Entry("[test_id:856] for three CPUs", 3, 6),
+			table.Entry("[test_id:3095] for three CPUs", 3, 6),
 			// there's only 6 threads expected because there's 6 total disks, even
 			// though the limit would have supported 8.
-			table.Entry("for four CPUs", 4, 6),
+			table.Entry("[test_id:3096]for four CPUs", 4, 6),
 		)
 	})
 })
