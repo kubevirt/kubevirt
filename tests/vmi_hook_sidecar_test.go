@@ -58,14 +58,14 @@ var _ = Describe("HookSidecars", func() {
 	Describe("[rfe_id:2667][crit:medium][vendor:cnv-qe@redhat.com][level:component] VMI definition", func() {
 
 		Context("with SM BIOS hook sidecar", func() {
-			It("should successfully start with hook sidecar annotation", func() {
+			It("[test_id:3155]should successfully start with hook sidecar annotation", func() {
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 			}, 300)
 
-			It("should successfully start with hook sidecar annotation for v1alpha2", func() {
+			It("[test_id:3156]should successfully start with hook sidecar annotation for v1alpha2", func() {
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
@@ -73,7 +73,7 @@ var _ = Describe("HookSidecars", func() {
 				tests.WaitForSuccessfulVMIStart(vmi)
 			}, 300)
 
-			It("should call Collect and OnDefineDomain on the hook sidecar", func() {
+			It("[test_id:3157]should call Collect and OnDefineDomain on the hook sidecar", func() {
 				By("Getting hook-sidecar logs")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -89,7 +89,7 @@ var _ = Describe("HookSidecars", func() {
 					Should(ContainSubstring("Hook's OnDefineDomain callback method has been called"))
 			}, 300)
 
-			It("should update domain XML with SM BIOS properties", func() {
+			It("[test_id:3158]should update domain XML with SM BIOS properties", func() {
 				By("Reading domain XML using virsh")
 				tests.SkipIfNoCmd("kubectl")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
