@@ -54,7 +54,7 @@ var _ = Describe("Infrastructure", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	Describe("Prometheus Endpoints", func() {
+	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component] Prometheus Endpoints", func() {
 		var preparedVMIs []*v1.VirtualMachineInstance
 		var pod *k8sv1.Pod
 		var metricsURL string

@@ -74,9 +74,9 @@ var _ = Describe("DataVolume Integration", func() {
 		return obj
 	}
 
-	Describe("Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
+	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
 		Context("using Alpine import", func() {
-			It("should be successfully started and stopped multiple times", func() {
+			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
@@ -108,9 +108,9 @@ var _ = Describe("DataVolume Integration", func() {
 		})
 	})
 
-	Describe("Starting a VirtualMachine with an invalid DataVolume", func() {
+	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with an invalid DataVolume", func() {
 		Context("using DataVolume with invalid URL", func() {
-			It("should correctly handle invalid DataVolumes", func() {
+			It("[test_id:3190]should correctly handle invalid DataVolumes", func() {
 				// Don't actually create the DataVolume since it's invalid.
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(InvalidDataVolumeUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				//  Add the invalid DataVolume to a VMI
@@ -410,9 +410,9 @@ var _ = Describe("DataVolume Integration", func() {
 
 	})
 
-	Describe("Starting a VirtualMachine with a DataVolume", func() {
+	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume", func() {
 		Context("using Alpine import", func() {
-			It("should be successfully started and stopped multiple times", func() {
+			It("[test_id:3191]should be successfully started and stopped multiple times", func() {
 				vm := tests.NewRandomVMWithDataVolume(tests.AlpineHttpUrl, tests.NamespaceTestDefault)
 				vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -436,7 +436,7 @@ var _ = Describe("DataVolume Integration", func() {
 				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})).To(Succeed())
 			})
 
-			It("should remove owner references on DataVolume if VM is orphan deleted.", func() {
+			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
 				// Cascade=false delete fails in ocp 3.11 with CRDs that contain multiple versions.
 				tests.SkipIfOpenShiftAndBelowOrEqualVersion("cascade=false delete does not work with CRD multi version support in ocp 3.11", "1.11.0")
 
@@ -474,7 +474,7 @@ var _ = Describe("DataVolume Integration", func() {
 		})
 	})
 
-	Describe("DataVolume clone permission checking", func() {
+	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] DataVolume clone permission checking", func() {
 		Context("using Alpine import/clone", func() {
 			var dataVolume *cdiv1.DataVolume
 			var createdVirtualMachine *v1.VirtualMachine
@@ -572,8 +572,8 @@ var _ = Describe("DataVolume Integration", func() {
 				createdVirtualMachine = tests.StartVirtualMachine(createdVirtualMachine)
 				createdVirtualMachine = tests.StopVirtualMachine(createdVirtualMachine)
 			},
-				table.Entry("with explicit role", explicitCloneRole),
-				table.Entry("with implicit role", implicitCloneRole),
+				table.Entry("[test_id:3193]with explicit role", explicitCloneRole),
+				table.Entry("[test_id:3194]with implicit role", implicitCloneRole),
 			)
 		})
 	})
