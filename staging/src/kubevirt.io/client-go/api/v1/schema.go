@@ -255,6 +255,10 @@ type CPU struct {
 	// with enough dedicated pCPUs and pin the vCPUs to it.
 	// +optional
 	DedicatedCPUPlacement bool `json:"dedicatedCpuPlacement,omitempty"`
+	// IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place
+	// the emulator thread on it.
+	// +optional
+	IsolateEmulatorThread bool `json:"isolateEmulatorThread,omitempty"`
 }
 
 // CPUFeature allows specifying a CPU feature.
