@@ -700,7 +700,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var originalData map[string]string
 			var options metav1.GetOptions
 			var defaultCPUModelKey = "default-cpu-model"
-			var defaultCPUModel = "Conroe"
+			var defaultCPUModel = "Nehalem"
 			var vmiCPUModel = "SandyBridge"
 
 			//store old kubevirt-config
@@ -731,7 +731,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal("Conroe"), "Expected default CPU model")
+				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal("Nehalem"), "Expected default CPU model")
 
 			})
 
