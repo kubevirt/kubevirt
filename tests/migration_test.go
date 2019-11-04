@@ -1232,7 +1232,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 					Eventually(func() bool {
 						_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 						return errors.IsNotFound(err)
-					}, 30*time.Second, 500*time.Millisecond).Should(BeTrue())
+					}, 60*time.Second, 500*time.Millisecond).Should(BeTrue())
 				}
 			})
 
