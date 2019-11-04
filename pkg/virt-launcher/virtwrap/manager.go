@@ -930,7 +930,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// reserve the last cpu for the emulator thread
 	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 		if len(podCPUSet) > 0 {
-			emulatorThreadCpu = &podCPUSet[len(podCPUSet)]
+			emulatorThreadCpu = &podCPUSet[len(podCPUSet)-1]
 			podCPUSet = podCPUSet[:len(podCPUSet)-1]
 		}
 	}
