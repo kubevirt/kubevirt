@@ -62,7 +62,7 @@ var _ = Describe("Storage", func() {
 	})
 
 	Describe("Starting a VirtualMachineInstance", func() {
-		Context("with Alpine PVC", func() {
+		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
 			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc) {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := newVMI(tests.DiskAlpineHostPath)
@@ -73,8 +73,8 @@ var _ = Describe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 			},
-				table.Entry("with Disk PVC", tests.NewRandomVMIWithPVC),
-				table.Entry("with CDRom PVC", tests.NewRandomVMIWithCDRom),
+				table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC),
+				table.Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom),
 			)
 
 			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
@@ -99,14 +99,14 @@ var _ = Describe("Storage", func() {
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
 			},
-				table.Entry("with Disk PVC", tests.NewRandomVMIWithPVC),
-				table.Entry("with CDRom PVC", tests.NewRandomVMIWithCDRom),
+				table.Entry("[test_id:3132]with Disk PVC", tests.NewRandomVMIWithPVC),
+				table.Entry("[test_id:3133]with CDRom PVC", tests.NewRandomVMIWithCDRom),
 			)
 		})
 
-		Context("With an emptyDisk defined", func() {
+		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With an emptyDisk defined", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-			It("should create a writeable emptyDisk with the right capacity", func() {
+			It("[test_id:3134]should create a writeable emptyDisk with the right capacity", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "echo hi!")
@@ -153,9 +153,9 @@ var _ = Describe("Storage", func() {
 
 		})
 
-		Context("With an emptyDisk defined and a specified serial number", func() {
+		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With an emptyDisk defined and a specified serial number", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-			It("should create a writeable emptyDisk with the specified serial number", func() {
+			It("[test_id:3135]should create a writeable emptyDisk with the specified serial number", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "echo hi!")
@@ -193,9 +193,9 @@ var _ = Describe("Storage", func() {
 
 		})
 
-		Context("With ephemeral alpine PVC", func() {
+		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ephemeral alpine PVC", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-			It("should be successfully started", func() {
+			It("[test_id:3136]should be successfully started", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 				tests.RunVMIAndExpectLaunch(vmi, 90)
@@ -206,7 +206,7 @@ var _ = Describe("Storage", func() {
 				expecter.Close()
 			})
 
-			It("should not persist data", func() {
+			It("[test_id:3137]should not persist data", func() {
 				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 
 				By("Starting the VirtualMachineInstance")
@@ -254,14 +254,14 @@ var _ = Describe("Storage", func() {
 			})
 		})
 
-		Context("With VirtualMachineInstance with two PVCs", func() {
+		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With VirtualMachineInstance with two PVCs", func() {
 			BeforeEach(func() {
 				// Setup second PVC to use in this context
 				tests.CreateHostPathPv(tests.CustomHostPath, tests.HostPathCustom)
 				tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
 			}, 120)
 
-			It("should start vmi multiple times", func() {
+			It("[test_id:3138]should start vmi multiple times", func() {
 				vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
 				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
 
@@ -345,7 +345,7 @@ var _ = Describe("Storage", func() {
 						table.Entry("[test_id:3057]with sata driver", "sata"),
 					)
 
-					It("should start with multiple hostdisks in the same directory", func() {
+					It("[test_id:3107]should start with multiple hostdisks in the same directory", func() {
 						By("Starting VirtualMachineInstance")
 						// do not choose a specific node to run the test
 						vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
@@ -528,7 +528,7 @@ var _ = Describe("Storage", func() {
 					tests.UpdateClusterConfigValueAndWait(virtconfig.LessPVCSpaceTolerationKey, strconv.Itoa(toleration))
 				}
 
-				It("Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", func() {
+				It("[test_id:3108]Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", func() {
 
 					configureToleration(10)
 
@@ -545,7 +545,7 @@ var _ = Describe("Storage", func() {
 
 				})
 
-				It("Should initialize an empty PVC with a disk.img when disk is too small but within toleration", func() {
+				It("[test_id:3109]Should initialize an empty PVC with a disk.img when disk is too small but within toleration", func() {
 
 					configureToleration(30)
 
@@ -585,7 +585,7 @@ var _ = Describe("Storage", func() {
 			})
 		})
 
-		Context("With Alpine ISCSI PVC", func() {
+		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine ISCSI PVC", func() {
 
 			pvName := "test-iscsi-lun" + rand.String(48)
 
@@ -602,7 +602,7 @@ var _ = Describe("Storage", func() {
 				tests.DeletePvAndPvc(pvName)
 			})
 
-			It("should be successfully started", func() {
+			It("[test_id:3139]should be successfully started", func() {
 				By("Create a VMIWithPVC")
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
