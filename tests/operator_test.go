@@ -659,15 +659,15 @@ spec:
 		ensureShasums()
 	})
 
-	It("[testid:1746]should have created and available condition", func() {
+	It("[test_id:1746]should have created and available condition", func() {
 		kv := getCurrentKv()
 
 		By("vyrifying that created and available condition is present")
 		waitForKv(kv)
 	})
 
-	Describe("should start a VM", func() {
-		It("using virt-launcher with a shasum", func() {
+	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should start a VM", func() {
+		It("[test_id:3144]using virt-launcher with a shasum", func() {
 
 			if tests.SkipShasumCheck {
 				Skip("Cannot currently test shasums, skipping")
@@ -690,13 +690,13 @@ spec:
 		})
 	})
 
-	Describe("should update kubevirt", func() {
+	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", func() {
 
 		// This test is installing a previous release of KubeVirt
 		// running a VM/VMI using that previous release
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
-		It("from previous release to target tested release", func() {
+		It("[test_id:3145]from previous release to target tested release", func() {
 			previousImageTag := tests.PreviousReleaseTag
 			previousImageRegistry := tests.PreviousReleaseRegistry
 
@@ -865,8 +865,8 @@ spec:
 		})
 	})
 
-	Describe("infrastructure management", func() {
-		It("should be able to delete and re-create kubevirt install", func() {
+	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]infrastructure management", func() {
+		It("[test_id:3146]should be able to delete and re-create kubevirt install", func() {
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
@@ -890,7 +890,7 @@ spec:
 			sanityCheckDeploymentsExist()
 		})
 
-		It("should be able to delete and re-create kubevirt install in a different namespace", func() {
+		It("[test_id:3147]should be able to delete and re-create kubevirt install in a different namespace", func() {
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
@@ -918,7 +918,7 @@ spec:
 			sanityCheckDeploymentsExistWithNS(newKV.Namespace)
 		})
 
-		It("should be able to create kubevirt install with custom image tag", func() {
+		It("[test_id:3148]should be able to create kubevirt install with custom image tag", func() {
 
 			if tests.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
@@ -957,7 +957,7 @@ spec:
 		})
 
 		// this test ensures that we can deal with image prefixes in case they are not used for tests already
-		It("should be able to create kubevirt install with image prefix", func() {
+		It("[test_id:3149]should be able to create kubevirt install with image prefix", func() {
 
 			if tests.ImagePrefixAlt == "" {
 				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
@@ -1023,7 +1023,7 @@ spec:
 			allPodsAreReady(kv)
 		})
 
-		It("should be able to update kubevirt install with custom image tag", func() {
+		It("[test_id:3150]should be able to update kubevirt install with custom image tag", func() {
 
 			if tests.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
@@ -1073,7 +1073,7 @@ spec:
 		// NOTE - this test verifies new operators can grab the leader election lease
 		// during operator updates. The only way the new infrastructure is deployed
 		// is if the update operator is capable of getting the lease.
-		It("should be able to update kubevirt install when operator updates if no custom image tag is set", func() {
+		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", func() {
 
 			if tests.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
@@ -1111,7 +1111,7 @@ spec:
 			allPodsAreReady(kv)
 		})
 
-		It("should fail if KV object already exists", func() {
+		It("[test_id:3152]should fail if KV object already exists", func() {
 
 			newKv := copyOriginalKv()
 			newKv.Name = "someother-kubevirt"
@@ -1199,7 +1199,7 @@ spec:
 		})
 	})
 
-	Describe("Dynamic feature detection", func() {
+	Describe("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]Dynamic feature detection", func() {
 
 		var vm *v1.VirtualMachine
 
@@ -1278,7 +1278,7 @@ spec:
 		})
 	})
 
-	Context("With ServiceMonitor Disabled", func() {
+	Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Disabled", func() {
 
 		BeforeEach(func() {
 			if tests.ServiceMonitorEnabled() {
