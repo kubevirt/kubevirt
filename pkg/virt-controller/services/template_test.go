@@ -653,6 +653,29 @@ var _ = Describe("Template", func() {
 				Expect(found).To(BeTrue(), "Expected compute container to be granted SYS_NICE capability")
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUManager, "true"))
 			})
+			It("should allocate 1 more cpu when isolateEmulatorThread requested", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{
+								Cores:                 2,
+								DedicatedCPUPlacement: true,
+								IsolateEmulatorThread: true,
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				cpu := resource.MustParse("3")
+				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().Cmp(cpu)).To(BeZero())
+			})
 			It("should add node affinity to pod", func() {
 				nodeAffinity := kubev1.NodeAffinity{}
 				vmi := v1.VirtualMachineInstance{
