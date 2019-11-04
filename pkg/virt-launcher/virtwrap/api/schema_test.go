@@ -250,6 +250,7 @@ var _ = Describe("Schema", func() {
 <vcpupin vcpu="1" cpuset="5"/>
 <iothreadpin iothread="0" cpuset="1"/>
 <iothreadpin iothread="1" cpuset="5"/>
+<emulatorpin cpuset="6"/>
 </cputune>`
 		var exampleCpuTune = CPUTune{
 			VCPUPin: []CPUTuneVCPUPin{
@@ -271,6 +272,9 @@ var _ = Describe("Schema", func() {
 					IOThread: 1,
 					CPUSet:   "5",
 				},
+			},
+			EmulatorPin: &CPUEmulatorPin{
+				CPUSet: "6",
 			},
 		}
 
