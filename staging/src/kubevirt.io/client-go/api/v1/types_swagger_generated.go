@@ -200,8 +200,7 @@ func (VirtualMachine) SwaggerDoc() map[string]string {
 
 func (VirtualMachineList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "VirtualMachineList is a list of virtualmachines",
-		"items": "Items is a list of VirtualMachines",
+		"": "VirtualMachineList is a list of virtualmachines",
 	}
 }
 
