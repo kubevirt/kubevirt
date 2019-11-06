@@ -41,7 +41,7 @@ EOF
 }
 
 shortlog() {
-    git shortlog -sne $RELSPANREF | sed "s/^/    /"
+    git shortlog -sne $RELSPANREF | sed "s/^/    /" | grep -v kubevirt-bot
 }
 
 functest() {
