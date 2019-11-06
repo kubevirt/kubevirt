@@ -67,12 +67,10 @@ func CopyTo(dst *websocket.Conn, src io.Reader) (written int64, err error) {
 }
 
 type binaryWriter struct {
-	conn  *websocket.Conn
-	write int
+	conn *websocket.Conn
 }
 
 func (s *binaryWriter) Write(p []byte) (int, error) {
-	s.write++
 	w, err := s.conn.NextWriter(websocket.BinaryMessage)
 	if err != nil {
 		return 0, convert(err)
@@ -84,7 +82,6 @@ func (s *binaryWriter) Write(p []byte) (int, error) {
 
 type binaryReader struct {
 	conn   *websocket.Conn
-	read   int
 	reader io.Reader
 }
 
@@ -92,7 +89,6 @@ func (s *binaryReader) Read(p []byte) (int, error) {
 	var msgType int
 	var err error
 	for {
-		s.read++
 		if s.reader == nil {
 			msgType, s.reader, err = s.conn.NextReader()
 		} else {
