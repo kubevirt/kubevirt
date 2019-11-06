@@ -88,7 +88,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-10-30 16:13:52.498487962 -0400 EDT m=+0.024737598
+    createdAt: 2019-11-05 06:34:07.576911673 -0500 EST m=+0.025574981
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -1267,6 +1267,7 @@ spec:
                 - command:
                   - hyperconverged-cluster-operator
                   env:
+                  - name: KVM_EMULATION
                   - name: OPERATOR_IMAGE
                     value: quay.io/kubevirt/hyperconverged-cluster-operator:latest
                   - name: OPERATOR_NAME

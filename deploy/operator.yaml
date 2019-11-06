@@ -20,7 +20,6 @@ spec:
         - hyperconverged-cluster-operator
         env:
         - name: KVM_EMULATION
-          value: ##-enable-only-in-CI-##
         - name: OPERATOR_IMAGE
           value: quay.io/kubevirt/hyperconverged-cluster-operator:latest
         - name: OPERATOR_NAME

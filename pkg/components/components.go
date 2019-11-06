@@ -60,6 +60,10 @@ func GetDeployment(repository string, tag string, imagePullPolicy string, Conver
 							},
 							Env: []corev1.EnvVar{
 								{
+									Name:  "KVM_EMULATION",
+									Value: "",
+								},
+								{
 									Name:  "OPERATOR_IMAGE",
 									Value: image,
 								},
