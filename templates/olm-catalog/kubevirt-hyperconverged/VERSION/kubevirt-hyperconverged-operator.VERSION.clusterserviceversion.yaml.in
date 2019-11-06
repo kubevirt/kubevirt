@@ -267,6 +267,7 @@ spec:
             - apps
             resources:
             - deployments
+            - deployment/finalizers
             - replicasets
             - daemonsets
             - statefulsets

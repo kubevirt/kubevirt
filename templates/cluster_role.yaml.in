@@ -54,6 +54,7 @@ rules:
   - apps
   resources:
   - deployments
+  - deployments/finalizers
   - replicasets
   - daemonsets
   - statefulsets
