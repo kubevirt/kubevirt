@@ -643,7 +643,7 @@ func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request,
 
 	validate := func(vmi *v1.VirtualMachineInstance) (error, int) {
 		if vmi == nil || vmi.Status.Phase != v1.Running {
-			return fmt.Errorf("VMI is not running"), http.StatusForbidden
+			return fmt.Errorf("VMI is not paused"), http.StatusForbidden
 		}
 		condManager := controller.NewVirtualMachineInstanceConditionManager()
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
