@@ -19,32 +19,61 @@
 package controller
 
 import (
-	"testing"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
 	v12 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
-func TestAddPodCondition(t *testing.T) {
+var _ = Describe("VirtualMachineInstance ConditionManager", func() {
 
-	vmi := v1.NewMinimalVMI("test")
+	var vmi *v1.VirtualMachineInstance
+	var cm *VirtualMachineConditionManager
+	var pc1 *v12.PodCondition
+	var pc2 *v12.PodCondition
 
-	pc1 := &v12.PodCondition{
-		Type:   v12.PodScheduled,
-		Status: v12.ConditionFalse,
-	}
-	pc2 := &v12.PodCondition{
-		Type:   v12.PodScheduled,
-		Status: v12.ConditionTrue,
-	}
+	BeforeEach(func() {
+		vmi = v1.NewMinimalVMI("test")
 
-	cm := NewVirtualMachineInstanceConditionManager()
+		pc1 = &v12.PodCondition{
+			Type:   v12.PodScheduled,
+			Status: v12.ConditionFalse,
+		}
+		pc2 = &v12.PodCondition{
+			Type:   v12.PodScheduled,
+			Status: v12.ConditionTrue,
+		}
 
-	cm.AddPodCondition(vmi, pc1)
-	cm.AddPodCondition(vmi, pc2)
+		cm = NewVirtualMachineInstanceConditionManager()
+	})
 
-	if len(vmi.Status.Conditions) != 1 {
-		t.Errorf("There should be exactly 1 condition when muliple conditions of the same type were added")
-	}
-}
+	When("Adding a condition", func() {
+
+		It("should report condition available", func() {
+			cm.AddPodCondition(vmi, pc1)
+			Expect(cm.HasCondition(vmi, v1.VirtualMachineInstanceConditionType(pc1.Type))).To(BeTrue())
+		})
+
+		It("should report different condition not available", func() {
+			cm.AddPodCondition(vmi, pc1)
+			Expect(cm.HasCondition(vmi, v1.VirtualMachineInstanceConditionType(v12.PodInitialized))).To(BeFalse())
+		})
+
+		When("adding a 2nd condition of same type", func() {
+			It("should only have 1 condition", func() {
+				cm.AddPodCondition(vmi, pc1)
+				cm.AddPodCondition(vmi, pc2)
+				Expect(len(vmi.Status.Conditions)).To(Equal(1))
+			})
+		})
+	})
+
+	When("VMI is nil", func() {
+		It("should gracefully report condition not available", func() {
+			var vmi2 *v1.VirtualMachineInstance
+			Expect(cm.HasCondition(vmi2, v1.VirtualMachineInstanceConditionType(pc1.Type))).To(BeFalse())
+		})
+	})
+})
