@@ -1696,6 +1696,93 @@ var _ = Describe("Configurations", func() {
 				log.DefaultLogger().Object(cpuVmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
 			})
+			It("should start a vmi with dedicated cpus and isolated emulator thread", func() {
+
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					Cores:                 2,
+					DedicatedCPUPlacement: true,
+					IsolateEmulatorThread: true,
+				}
+				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+
+				By("Checking that the VMI QOS is guaranteed")
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(cpuVmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.QOSClass).ToNot(BeNil())
+				Expect(*vmi.Status.QOSClass).To(Equal(kubev1.PodQOSGuaranteed))
+
+				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
+
+				By("Checking that the pod QOS is guaranteed")
+				readyPod := tests.GetRunningPodByVirtualMachineInstance(cpuVmi, tests.NamespaceTestDefault)
+				podQos := readyPod.Status.QOSClass
+				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
+
+				var computeContainer *kubev1.Container
+				for _, container := range readyPod.Spec.Containers {
+					if container.Name == "compute" {
+						computeContainer = &container
+					}
+				}
+				if computeContainer == nil {
+					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
+				}
+
+				output, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					readyPod,
+					"compute",
+					[]string{"cat", hw_utils.CPUSET_PATH},
+				)
+				log.Log.Infof("%v", output)
+				Expect(err).ToNot(HaveOccurred())
+				output = strings.TrimSuffix(output, "\n")
+				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output)
+				Expect(err).ToNot(HaveOccurred())
+
+				// 1 additioan pcpus should be allocated on the pod for the emulation threads
+				Expect(len(pinnedCPUsList)).To(Equal(int(cpuVmi.Spec.Domain.CPU.Cores) + 1))
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking the number of CPU cores under guest OS")
+				res, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
+					&expect.BExp{R: "2"},
+				}, 15*time.Second)
+				log.DefaultLogger().Object(cpuVmi).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should fail the vmi creation if IsolateEmulatorThread requested without dedicated cpus", func() {
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					Cores:                 2,
+					IsolateEmulatorThread: true,
+				}
+
+				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).To(HaveOccurred())
+			})
 
 			It("[test_id:802]should configure correct number of vcpus with requests.cpus", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
