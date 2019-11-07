@@ -1,0 +1,6 @@
+# okd-* provider, STDCI
+REGISTRY_IMAGE="registry:5000/kubevirt/hco-registry"
+REGISTRY_IMAGE_UPGRADE="registry:5000/kubevirt/hco-registry-upgrade"
+REGISTRY_IMAGE_URL_PREFIX="registry:5000/kubevirt"
+export CMD="./cluster-up/kubectl.sh"
+HCO_CATALOG_NAMESPACE="openshift-operator-lifecycle-manager"

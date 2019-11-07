@@ -86,7 +86,7 @@ upgrade-test:
 	./hack/upgrade-test.sh
 
 dump-state:
-	CMD="./cluster-up/kubectl.sh" ./hack/dump-state.sh 
+	./hack/dump-state.sh 
 
 
  

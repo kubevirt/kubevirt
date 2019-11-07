@@ -42,28 +42,15 @@
 # The hyperconverged-cluster deployment's image is also checked
 # to verify that it is updated to the new operator image from 
 # the local registry.
-source hack/common.sh
 
-if [ -n "${KUBEVIRT_PROVIDER}" ]; then
-  # okd-* provider, STDCI
-  REGISTRY_IMAGE="registry:5000/kubevirt/hco-registry"
-  REGISTRY_IMAGE_UPGRADE="registry:5000/kubevirt/hco-registry-upgrade"
-  REGISTRY_IMAGE_URL_PREFIX="registry:5000/kubevirt"
-  CMD="./cluster-up/kubectl.sh"
-  HCO_CATALOG_NAMESPACE="openshift-operator-lifecycle-manager"
+echo "KUBEVIRT_PROVIDER: $KUBEVIRT_PROVIDER"
+
+if [ -n "$KUBEVIRT_PROVIDER" ]; then
   echo "Running on STDCI ${KUBEVIRT_PROVIDER}"
+  source ./hack/upgrade-stdci-config
 else
-  # Prow OpenShift CI
-  # IMAGE_FORMAT=registry.svc.ci.openshift.org/ci-op-b1qw1nxw/stable:hyperconverged-cluster-operator
-  HCO_OPERATOR_IMAGE=`eval echo ${IMAGE_FORMAT}`
-  CI_IMAGE_URL_PREFIX=$(echo $HCO_OPERATOR_IMAGE | cut -d ":" -f 1)
-  echo "CI_IMAGE_URL_PREFIX: $CI_IMAGE_URL_PREFIX"
-  REGISTRY_IMAGE="${CI_IMAGE_URL_PREFIX}:hco-registry"
-  REGISTRY_IMAGE_UPGRADE="${CI_IMAGE_URL_PREFIX}:hco-registry-upgrade"
-  REGISTRY_IMAGE_URL_PREFIX=$CI_IMAGE_URL_PREFIX
-  HCO_CATALOG_NAMESPACE="openshift-marketplace"
-  CMD="oc"
   echo "Running on OpenShift CI"
+  source ./hack/upgrade-openshiftci-config
 fi
 
 function cleanup() {
@@ -82,7 +69,10 @@ echo "--"
 echo "-- Upgrade Step 1/6: clean cluster"
 echo "--"
 
-make cluster-clean
+if [ -n "$KUBEVIRT_PROVIDER" ]; then
+  make cluster-clean
+fi
+
 "${CMD}" delete -f ./deploy/hco.cr.yaml -n kubevirt-hyperconverged | true
 "${CMD}" delete subscription hco-subscription-example -n kubevirt-hyperconverged | true
 "${CMD}" delete catalogsource hco-catalogsource-example -n ${HCO_CATALOG_NAMESPACE} | true
@@ -93,7 +83,7 @@ make cluster-clean
 ${CMD} wait deployment packageserver --for condition=Available -n openshift-operator-lifecycle-manager --timeout="1200s"
 ${CMD} wait deployment catalog-operator --for condition=Available -n openshift-operator-lifecycle-manager --timeout="1200s"
 
-if [ -n "${KUBEVIRT_PROVIDER}" ]; then
+if [ -n "$KUBEVIRT_PROVIDER" ]; then
   echo "--"
   echo "-- Upgrade Step 2/6: build images for STDCI"
   echo "--"

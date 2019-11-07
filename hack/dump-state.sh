@@ -1,5 +1,6 @@
 #!/bin/bash
 
+CMD=${CMD:-./cluster-up/kubectl.sh}
 
 function RunCmd {
     cmd=$@
