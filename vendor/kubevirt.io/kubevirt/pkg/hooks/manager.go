@@ -41,21 +41,21 @@ import (
 )
 
 type callBackClient struct {
-	SocketPath          string
-	Version             string
-	subsribedHookPoints []*hooksInfo.HookPoint
+	SocketPath           string
+	Version              string
+	subscribedHookPoints []*hooksInfo.HookPoint
 }
 
 var manager *Manager
 var once sync.Once
 
 type Manager struct {
-	callbacksPerHookPoint map[string][]*callBackClient
+	CallbacksPerHookPoint map[string][]*callBackClient
 }
 
 func GetManager() *Manager {
 	once.Do(func() {
-		manager = &Manager{callbacksPerHookPoint: make(map[string][]*callBackClient)}
+		manager = &Manager{CallbacksPerHookPoint: make(map[string][]*callBackClient)}
 	})
 	return manager
 }
@@ -70,7 +70,7 @@ func (m *Manager) Collect(numberOfRequestedHookSidecars uint, timeout time.Durat
 	sortCallbacksPerHookPoint(callbacksPerHookPoint)
 	log.Log.Infof("Sorted all collected sidecar sockets per hook point based on their priority and name: %v", callbacksPerHookPoint)
 
-	m.callbacksPerHookPoint = callbacksPerHookPoint
+	m.CallbacksPerHookPoint = callbacksPerHookPoint
 
 	return nil
 }
@@ -106,8 +106,8 @@ func collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Dura
 					return nil, err
 				}
 
-				for _, subsribedHookPoint := range callBackClient.subsribedHookPoints {
-					callbacksPerHookPoint[subsribedHookPoint.GetName()] = append(callbacksPerHookPoint[subsribedHookPoint.GetName()], callBackClient)
+				for _, subscribedHookPoint := range callBackClient.subscribedHookPoints {
+					callbacksPerHookPoint[subscribedHookPoint.GetName()] = append(callbacksPerHookPoint[subscribedHookPoint.GetName()], callBackClient)
 				}
 
 				processedSockets[socket.Name()] = true
@@ -143,15 +143,15 @@ func processSideCarSocket(socketPath string) (*callBackClient, bool, error) {
 
 	if _, found := versionsSet[hooksV1alpha2.Version]; found {
 		return &callBackClient{
-			SocketPath:          socketPath,
-			Version:             hooksV1alpha2.Version,
-			subsribedHookPoints: info.GetHookPoints(),
+			SocketPath:           socketPath,
+			Version:              hooksV1alpha2.Version,
+			subscribedHookPoints: info.GetHookPoints(),
 		}, false, nil
 	} else if _, found := versionsSet[hooksV1alpha1.Version]; found {
 		return &callBackClient{
-			SocketPath:          socketPath,
-			Version:             hooksV1alpha1.Version,
-			subsribedHookPoints: info.GetHookPoints(),
+			SocketPath:           socketPath,
+			Version:              hooksV1alpha1.Version,
+			subscribedHookPoints: info.GetHookPoints(),
 		}, false, nil
 	} else {
 		return nil, false,
@@ -163,11 +163,11 @@ func processSideCarSocket(socketPath string) (*callBackClient, bool, error) {
 func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*callBackClient) {
 	for _, callbacks := range callbacksPerHookPoint {
 		for _, callback := range callbacks {
-			sort.Slice(callbacks, func(i, j int) bool {
-				if callback.subsribedHookPoints[i].Priority == callback.subsribedHookPoints[j].Priority {
-					return strings.Compare(callback.subsribedHookPoints[i].Name, callback.subsribedHookPoints[j].Name) < 0
+			sort.Slice(callback.subscribedHookPoints, func(i, j int) bool {
+				if callback.subscribedHookPoints[i].Priority == callback.subscribedHookPoints[j].Priority {
+					return strings.Compare(callback.subscribedHookPoints[i].Name, callback.subscribedHookPoints[j].Name) < 0
 				} else {
-					return callback.subsribedHookPoints[i].Priority > callback.subsribedHookPoints[j].Priority
+					return callback.subscribedHookPoints[i].Priority > callback.subscribedHookPoints[j].Priority
 				}
 			})
 		}
@@ -179,7 +179,7 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 	if err != nil {
 		return "", fmt.Errorf("Failed to marshal domain spec: %v", domainSpec)
 	}
-	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.OnDefineDomainHookPointName]; found {
+	if callbacks, found := m.CallbacksPerHookPoint[hooksInfo.OnDefineDomainHookPointName]; found {
 		for _, callback := range callbacks {
 			if callback.Version == hooksV1alpha1.Version || callback.Version == hooksV1alpha2.Version {
 				vmiJSON, err := json.Marshal(vmi)
@@ -228,7 +228,7 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 }
 
 func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData *cloudinit.CloudInitData) (*cloudinit.CloudInitData, error) {
-	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.PreCloudInitIsoHookPointName]; found {
+	if callbacks, found := m.CallbacksPerHookPoint[hooksInfo.PreCloudInitIsoHookPointName]; found {
 		for _, callback := range callbacks {
 			if callback.Version == hooksV1alpha2.Version {
 				var resultData *cloudinit.CloudInitData

@@ -687,6 +687,8 @@
     "http2",
     "http2/hpack",
     "idna",
+    "internal/timeseries",
+    "trace",
   ]
   pruneopts = "NT"
   revision = "74dc4d7220e7acc4e100824340f3e66577424772"
@@ -801,6 +803,56 @@
   pruneopts = "NT"
   revision = "b2f4a3cf3c67576a2ee09e1fe62656a5086ce880"
   version = "v1.6.1"
+
+[[projects]]
+  branch = "master"
+  digest = "1:c5446cfcc4a2e493c0e01f0bacf5339e23b6d5486051afa9279f25dc3f254912"
+  name = "google.golang.org/genproto"
+  packages = ["googleapis/rpc/status"]
+  pruneopts = "NT"
+  revision = "919d9bdd9fe6f1a5dd95ce5d5e4cdb8fd3c516d0"
+
+[[projects]]
+  digest = "1:8622b1d1f4ab105ff5119cbe6723331414c5b45d08cf4a4e53dca702cf1d7fb0"
+  name = "google.golang.org/grpc"
+  packages = [
+    ".",
+    "balancer",
+    "balancer/base",
+    "balancer/roundrobin",
+    "binarylog/grpc_binarylog_v1",
+    "codes",
+    "connectivity",
+    "credentials",
+    "credentials/internal",
+    "encoding",
+    "encoding/proto",
+    "grpclog",
+    "internal",
+    "internal/backoff",
+    "internal/balancerload",
+    "internal/binarylog",
+    "internal/channelz",
+    "internal/envconfig",
+    "internal/grpcrand",
+    "internal/grpcsync",
+    "internal/syscall",
+    "internal/transport",
+    "keepalive",
+    "metadata",
+    "naming",
+    "peer",
+    "resolver",
+    "resolver/dns",
+    "resolver/passthrough",
+    "serviceconfig",
+    "stats",
+    "status",
+    "tap",
+  ]
+  pruneopts = "NT"
+  revision = "f6d0f9ee430895e87ef1ceb5ac8f39725bafceef"
+  version = "v1.24.0"
 
 [[projects]]
   digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
@@ -1176,7 +1228,7 @@
   version = "v1.6.0"
 
 [[projects]]
-  digest = "1:76a310dcff15d3085ad45c80c47e9ba31057f2fa2d047ce407068e4242876af0"
+  digest = "1:b3c4d3cc8d5592f72c07799ca1a7c58038c3956d37b68bfb92df439ddf727e37"
   name = "kubevirt.io/client-go"
   packages = [
     "api/v1",
@@ -1188,8 +1240,8 @@
     "version",
   ]
   pruneopts = "NT"
-  revision = "c5d55802a4c27a4d1008c8e1ed7bf99999eb48f5"
-  version = "v0.20.8"
+  revision = "ed7b79808666d14e631c1207ff78c0004e53b283"
+  version = "v0.23.0"
 
 [[projects]]
   digest = "1:0bdf550113bbc32c2b77bb1c521c64116bd4553d976b9d4903135660ec440539"
@@ -1222,7 +1274,7 @@
   version = "v1.10.3"
 
 [[projects]]
-  digest = "1:f2e2cf0773aac7f46fb8f80278d1a303ee6a313f43370a747564044f5560dc3b"
+  digest = "1:6254f73789c3d95c6966a189871a3c7de543b58a2d9e089bb035cd52da2bfa3a"
   name = "kubevirt.io/kubevirt"
   packages = [
     ".",
@@ -1233,6 +1285,7 @@
     "pkg/emptydisk",
     "pkg/ephemeral-disk",
     "pkg/ephemeral-disk-utils",
+    "pkg/handler-launcher-com/cmd/v1",
     "pkg/host-disk",
     "pkg/ignition",
     "pkg/rest",
@@ -1247,8 +1300,8 @@
     "pkg/virt-operator/util",
   ]
   pruneopts = "NT"
-  revision = "d5430eaea926b9367e19079dedfe0df5d518ef67"
-  version = "v0.20.8"
+  revision = "9223d49108f7f9821ab8f8fa4cb9afd65e1350ab"
+  version = "v0.23.0"
 
 [[projects]]
   digest = "1:06035489efbd51ccface65fc878ceeb849aba05b2f9443c8993f363fc96e80ac"

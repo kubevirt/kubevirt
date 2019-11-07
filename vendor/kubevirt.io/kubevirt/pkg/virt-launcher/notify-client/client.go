@@ -134,7 +134,8 @@ func newWatchEventError(err error) watch.Event {
 	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 }
 
-func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event, interfaceStatus *[]api.InterfaceStatus) {
+func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
+	interfaceStatus *[]api.InterfaceStatus, osInfo *api.GuestOSInfo) {
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
@@ -198,6 +199,11 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		}
 		if interfaceStatus != nil {
 			domain.Status.Interfaces = *interfaceStatus
+		}
+		if osInfo != nil {
+			domain.Status.OSInfo = *osInfo
+		}
+		if interfaceStatus != nil || osInfo != nil {
 			event := watch.Event{Type: watch.Modified, Object: domain}
 			client.SendDomainEvent(event)
 			events <- event
@@ -219,11 +225,12 @@ func (n *Notifier) StartDomainNotifier(domainConn cli.Connection, deleteNotifica
 	// Run the event process logic in a separate go-routine to not block libvirt
 	go func() {
 		var interfaceStatuses *[]api.InterfaceStatus
+		var guestOsInfo *api.GuestOSInfo
 		for {
 			select {
 			case event := <-eventChan:
 				domain := util.NewDomainFromName(event.Domain, vmiUID)
-				eventCallback(domainConn, domain, event, n, deleteNotificationSent, interfaceStatuses)
+				eventCallback(domainConn, domain, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo)
 				agentPoller.UpdateDomain(domain)
 				if event.AgentEvent != nil {
 					if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
@@ -235,8 +242,10 @@ func (n *Notifier) StartDomainNotifier(domainConn cli.Connection, deleteNotifica
 				log.Log.Info("processed event")
 			case agentUpdate := <-agentUpdateChan:
 				interfaceStatuses = agentUpdate.InterfaceStatuses
+				guestOsInfo = agentUpdate.OsInfo
 				domainName := agentUpdate.DomainName
-				eventCallback(domainConn, util.NewDomainFromName(domainName, vmiUID), libvirtEvent{}, n, deleteNotificationSent, interfaceStatuses)
+				eventCallback(domainConn, util.NewDomainFromName(domainName, vmiUID), libvirtEvent{}, n, deleteNotificationSent,
+					interfaceStatuses, guestOsInfo)
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))
 				return

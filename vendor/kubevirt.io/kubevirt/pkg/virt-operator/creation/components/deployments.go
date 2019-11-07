@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -198,7 +199,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	}
 
 	pod := &deployment.Spec.Template.Spec
-	pod.ServiceAccountName = "kubevirt-apiserver"
+	pod.ServiceAccountName = rbac.ApiServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
 		RunAsNonRoot: boolPtr(true),
 	}
@@ -253,7 +254,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	}
 
 	pod := &deployment.Spec.Template.Spec
-	pod.ServiceAccountName = "kubevirt-controller"
+	pod.ServiceAccountName = rbac.ControllerServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
 		RunAsNonRoot: boolPtr(true),
 	}
@@ -344,7 +345,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	}
 
 	pod := &daemonset.Spec.Template.Spec
-	pod.ServiceAccountName = "kubevirt-handler"
+	pod.ServiceAccountName = rbac.HandlerServiceAccountName
 	pod.HostPID = true
 
 	container := &pod.Containers[0]

@@ -39,24 +39,27 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 const (
-	configMapName             = "kubevirt-config"
-	FeatureGatesKey           = "feature-gates"
-	EmulatedMachinesKey       = "emulated-machines"
-	MachineTypeKey            = "machine-type"
-	useEmulationKey           = "debug.useEmulation"
-	ImagePullPolicyKey        = "dev.imagePullPolicy"
-	MigrationsConfigKey       = "migrations"
-	CpuModelKey               = "default-cpu-model"
-	CpuRequestKey             = "cpu-request"
-	MemoryOvercommitKey       = "memory-overcommit"
-	LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
-	NodeSelectorsKey          = "node-selectors"
-	NetworkInterfaceKey       = "default-network-interface"
-	PermitSlirpInterface      = "permitSlirpInterface"
-	NodeDrainTaintDefaultKey  = "kubevirt.io/drain"
+	configMapName                     = "kubevirt-config"
+	FeatureGatesKey                   = "feature-gates"
+	EmulatedMachinesKey               = "emulated-machines"
+	MachineTypeKey                    = "machine-type"
+	useEmulationKey                   = "debug.useEmulation"
+	ImagePullPolicyKey                = "dev.imagePullPolicy"
+	MigrationsConfigKey               = "migrations"
+	CpuModelKey                       = "default-cpu-model"
+	CpuRequestKey                     = "cpu-request"
+	MemoryOvercommitKey               = "memory-overcommit"
+	LessPVCSpaceTolerationKey         = "pvc-tolerate-less-space-up-to-percent"
+	NodeSelectorsKey                  = "node-selectors"
+	NetworkInterfaceKey               = "default-network-interface"
+	PermitSlirpInterface              = "permitSlirpInterface"
+	PermitBridgeInterfaceOnPodNetwork = "permitBridgeInterfaceOnPodNetwork"
+	NodeDrainTaintDefaultKey          = "kubevirt.io/drain"
+	SmbiosConfigKey                   = "smbios"
 )
 
 type ConfigModifiedFn func()
@@ -181,6 +184,11 @@ func defaultClusterConfig() *Config {
 	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	defaultNetworkInterface := DefaultNetworkInterface
+	SmbiosDefaultConfig := &cmdv1.SMBios{
+		Family:       SmbiosConfigDefaultFamily,
+		Manufacturer: SmbiosConfigDefaultManufacturer,
+		Product:      SmbiosConfigDefaultProduct,
+	}
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: DefaultImagePullPolicy,
@@ -195,32 +203,36 @@ func defaultClusterConfig() *Config {
 			UnsafeMigrationOverride:           DefaultUnsafeMigrationOverride,
 			AllowAutoConverge:                 allowAutoConverge,
 		},
-		MachineType:            DefaultMachineType,
-		CPURequest:             cpuRequestDefault,
-		MemoryOvercommit:       DefaultMemoryOvercommit,
-		EmulatedMachines:       emulatedMachinesDefault,
-		LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
-		NodeSelectors:          nodeSelectorsDefault,
-		NetworkInterface:       defaultNetworkInterface,
-		PermitSlirpInterface:   DefaultPermitSlirpInterface,
+		MachineType:                       DefaultMachineType,
+		CPURequest:                        cpuRequestDefault,
+		MemoryOvercommit:                  DefaultMemoryOvercommit,
+		EmulatedMachines:                  emulatedMachinesDefault,
+		LessPVCSpaceToleration:            DefaultLessPVCSpaceToleration,
+		NodeSelectors:                     nodeSelectorsDefault,
+		NetworkInterface:                  defaultNetworkInterface,
+		PermitSlirpInterface:              DefaultPermitSlirpInterface,
+		PermitBridgeInterfaceOnPodNetwork: DefaultPermitBridgeInterfaceOnPodNetwork,
+		SmbiosConfig:                      SmbiosDefaultConfig,
 	}
 }
 
 type Config struct {
-	ResourceVersion        string
-	UseEmulation           bool
-	MigrationConfig        *MigrationConfig
-	ImagePullPolicy        k8sv1.PullPolicy
-	MachineType            string
-	CPUModel               string
-	CPURequest             resource.Quantity
-	MemoryOvercommit       int
-	EmulatedMachines       []string
-	FeatureGates           string
-	LessPVCSpaceToleration int
-	NodeSelectors          map[string]string
-	NetworkInterface       string
-	PermitSlirpInterface   bool
+	ResourceVersion                   string
+	UseEmulation                      bool
+	MigrationConfig                   *MigrationConfig
+	ImagePullPolicy                   k8sv1.PullPolicy
+	MachineType                       string
+	CPUModel                          string
+	CPURequest                        resource.Quantity
+	MemoryOvercommit                  int
+	EmulatedMachines                  []string
+	FeatureGates                      string
+	LessPVCSpaceToleration            int
+	NodeSelectors                     map[string]string
+	NetworkInterface                  string
+	PermitSlirpInterface              bool
+	PermitBridgeInterfaceOnPodNetwork bool
+	SmbiosConfig                      *cmdv1.SMBios
 }
 
 type MigrationConfig struct {
@@ -266,6 +278,16 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(config.MigrationConfig)
 		if err != nil {
 			return fmt.Errorf("failed to parse migration config: %v", err)
+		}
+	}
+
+	// set smbios values if they exist
+	smbiosConfig := strings.TrimSpace(configMap.Data[SmbiosConfigKey])
+	if smbiosConfig != "" {
+		// only set values if they were specified, default  values stay intact
+		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(smbiosConfig), 1024).Decode(config.SmbiosConfig)
+		if err != nil {
+			return fmt.Errorf("failed to parse SMBIOS config: %v", err)
 		}
 	}
 
@@ -357,6 +379,19 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		config.PermitSlirpInterface = false
 	default:
 		return fmt.Errorf("invalid value for permitSlirpInterfaces in config: %v", permitSlirp)
+	}
+
+	// disable bridge
+	permitBridge := strings.TrimSpace(configMap.Data[PermitBridgeInterfaceOnPodNetwork])
+	switch permitBridge {
+	case "":
+		// keep the default
+	case "false":
+		config.PermitBridgeInterfaceOnPodNetwork = false
+	case "true":
+		config.PermitBridgeInterfaceOnPodNetwork = true
+	default:
+		return fmt.Errorf("invalid value for permitBridgeInterfaceOnPodNetwork in config: %v", permitBridge)
 	}
 
 	// set default network interface

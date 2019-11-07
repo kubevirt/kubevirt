@@ -32,120 +32,26 @@ import (
 	"encoding/json"
 	"fmt"
 
-	v1 "k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 )
 
-// GroupName is the group name use in this package
-const GroupName = "kubevirt.io"
-const SubresourceGroupName = "subresources.kubevirt.io"
-
 const DefaultGracePeriodSeconds int64 = 30
-
-var ApiLatestVersion = "v1alpha3"
-var ApiSupportedWebhookVersions = []string{"v1alpha3"}
-var ApiStorageVersion = "v1alpha3"
-var ApiSupportedVersions = []extv1beta1.CustomResourceDefinitionVersion{
-	extv1beta1.CustomResourceDefinitionVersion{
-		Name:    "v1alpha3",
-		Served:  true,
-		Storage: true,
-	},
-}
-
-// GroupVersion is the latest group version for the KubeVirt api
-var GroupVersion = schema.GroupVersion{Group: GroupName, Version: ApiLatestVersion}
-
-// StorageGroupVersion is the group version our api is persistented internally as
-var StorageGroupVersion = schema.GroupVersion{Group: GroupName, Version: ApiStorageVersion}
-
-// SubresourceStorageGroupVersion is the group version our api is persistented internally as
-var SubresourceStorageGroupVersion = schema.GroupVersion{Group: SubresourceGroupName, Version: ApiStorageVersion}
-
-// GroupVersions is group version list used to register these objects
-// The preferred group version is the first item in the list.
-var GroupVersions = []schema.GroupVersion{{Group: GroupName, Version: "v1alpha3"}}
-
-// SubresourceGroupVersions is group version list used to register these objects
-// The preferred group version is the first item in the list.
-var SubresourceGroupVersions = []schema.GroupVersion{{Group: SubresourceGroupName, Version: "v1alpha3"}}
-
-// GroupVersionKind
-var VirtualMachineInstanceGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstance"}
-
-var VirtualMachineInstanceReplicaSetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceReplicaSet"}
-
-var VirtualMachineInstancePresetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstancePreset"}
-
-var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
-
-var VirtualMachineInstanceMigrationGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceMigration"}
-
-var KubeVirtGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "KubeVirt"}
-
-// Adds the list of known types to api.Scheme.
-func addKnownTypes(scheme *runtime.Scheme) error {
-
-	for _, groupVersion := range GroupVersions {
-		scheme.AddKnownTypes(groupVersion,
-			&VirtualMachineInstance{},
-			&VirtualMachineInstanceList{},
-			&metav1.ListOptions{},
-			&metav1.DeleteOptions{},
-			&VirtualMachineInstanceReplicaSet{},
-			&VirtualMachineInstanceReplicaSetList{},
-			&VirtualMachineInstancePreset{},
-			&VirtualMachineInstancePresetList{},
-			&VirtualMachineInstanceMigration{},
-			&VirtualMachineInstanceMigrationList{},
-			&metav1.GetOptions{},
-			&VirtualMachine{},
-			&VirtualMachineList{},
-			&KubeVirt{},
-			&KubeVirtList{},
-		)
-	}
-	scheme.AddKnownTypes(metav1.Unversioned,
-		&metav1.Status{},
-	)
-	scheme.AddKnownTypes(schema.GroupVersion{Group: "autoscaling", Version: "v1"},
-		&v1.Scale{},
-	)
-	return nil
-}
-
-var (
-	Scheme         = runtime.NewScheme()
-	Codecs         = serializer.NewCodecFactory(Scheme)
-	ParameterCodec = runtime.NewParameterCodec(Scheme)
-	SchemeBuilder  = runtime.NewSchemeBuilder(addKnownTypes)
-	AddToScheme    = SchemeBuilder.AddToScheme
-)
-
-func init() {
-	AddToScheme(Scheme)
-	AddToScheme(scheme.Scheme)
-}
 
 // VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.
 // ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type VirtualMachineInstance struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +k8s:openapi-gen=false
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
-	Spec VirtualMachineInstanceSpec `json:"spec,omitempty" valid:"required"`
+	Spec VirtualMachineInstanceSpec `json:"spec" valid:"required"`
 	// Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.
 	Status VirtualMachineInstanceStatus `json:"status,omitempty"`
 }
@@ -164,7 +70,7 @@ func (v *VirtualMachineInstance) UnmarshalBinary(data []byte) error {
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceList struct {
 	metav1.TypeMeta `json:",inline"`
-	ListMeta        metav1.ListMeta          `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualMachineInstance `json:"items"`
 }
 
@@ -251,6 +157,8 @@ type VirtualMachineInstanceStatus struct {
 	Phase VirtualMachineInstancePhase `json:"phase,omitempty"`
 	// Interfaces represent the details of available network interfaces.
 	Interfaces []VirtualMachineInstanceNetworkInterface `json:"interfaces,omitempty"`
+	// Guest OS Information
+	GuestOSInfo VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo,omitempty"`
 	// Represents the status of a live migration
 	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
 	// Represents the method using which the vmi can be migrated: live migration or block migration
@@ -260,16 +168,6 @@ type VirtualMachineInstanceStatus struct {
 	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
 	// +optional
 	QOSClass *k8sv1.PodQOSClass `json:"qosClass,omitempty"`
-}
-
-// Required to satisfy Object interface
-func (v *VirtualMachineInstance) GetObjectKind() schema.ObjectKind {
-	return &v.TypeMeta
-}
-
-// Required to satisfy ObjectMetaAccessor interface
-func (v *VirtualMachineInstance) GetObjectMeta() metav1.Object {
-	return &v.ObjectMeta
 }
 
 func (v *VirtualMachineInstance) IsScheduling() bool {
@@ -307,16 +205,6 @@ func (v *VirtualMachineInstance) WantsToHaveQOSGuaranteed() bool {
 	resources := v.Spec.Domain.Resources
 	return !resources.Requests.Memory().IsZero() && resources.Requests.Memory().Cmp(*resources.Limits.Memory()) == 0 &&
 		!resources.Requests.Cpu().IsZero() && resources.Requests.Cpu().Cmp(*resources.Limits.Cpu()) == 0
-}
-
-// Required to satisfy Object interface
-func (vl *VirtualMachineInstanceList) GetObjectKind() schema.ObjectKind {
-	return &vl.TypeMeta
-}
-
-// Required to satisfy ListMetaAccessor interface
-func (vl *VirtualMachineInstanceList) GetListMeta() meta.List {
-	return &vl.ListMeta
 }
 
 // ---
@@ -416,6 +304,25 @@ type VirtualMachineInstanceNetworkInterface struct {
 	IPs []string `json:"ipAddresses,omitempty"`
 	// The interface name inside the Virtual Machine
 	InterfaceName string `json:"interfaceName,omitempty"`
+}
+
+type VirtualMachineInstanceGuestOSInfo struct {
+	// Name of the Guest OS
+	Name string `json:"name,omitempty"`
+	// Guest OS Kernel Release
+	KernelRelease string `json:"kernelRelease,omitempty"`
+	// Guest OS Version
+	Version string `json:"version,omitempty"`
+	// Guest OS Pretty Name
+	PrettyName string `json:"prettyName,omitempty"`
+	// Version ID of the Guest OS
+	VersionID string `json:"versionId,omitempty"`
+	// Kernel version of the Guest OS
+	KernelVersion string `json:"kernelVersion,omitempty"`
+	// Machine type of the Guest OS
+	Machine string `json:"machine,omitempty"`
+	// Guest OS Id
+	ID string `json:"id,omitempty"`
 }
 
 type VirtualMachineInstanceMigrationState struct {
@@ -673,10 +580,11 @@ func PrepareVMINodeAntiAffinitySelectorRequirement(vmi *VirtualMachineInstance) 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceReplicaSet struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +k8s:openapi-gen=false
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
-	Spec VirtualMachineInstanceReplicaSetSpec `json:"spec,omitempty" valid:"required"`
+	Spec VirtualMachineInstanceReplicaSetSpec `json:"spec" valid:"required"`
 	// Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.
 	Status VirtualMachineInstanceReplicaSetStatus `json:"status,omitempty"`
 }
@@ -687,7 +595,7 @@ type VirtualMachineInstanceReplicaSet struct {
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceReplicaSetList struct {
 	metav1.TypeMeta `json:",inline"`
-	ListMeta        metav1.ListMeta                    `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualMachineInstanceReplicaSet `json:"items"`
 }
 
@@ -762,46 +670,17 @@ type VirtualMachineInstanceTemplateSpec struct {
 	Spec VirtualMachineInstanceSpec `json:"spec,omitempty" valid:"required"`
 }
 
-// Required to satisfy Object interface
-func (v *VirtualMachineInstanceReplicaSet) GetObjectKind() schema.ObjectKind {
-	return &v.TypeMeta
-}
-
-// Required to satisfy ObjectMetaAccessor interface
-func (v *VirtualMachineInstanceReplicaSet) GetObjectMeta() metav1.Object {
-	return &v.ObjectMeta
-}
-
-// Required to satisfy Object interface
-func (vl *VirtualMachineInstanceReplicaSetList) GetObjectKind() schema.ObjectKind {
-	return &vl.TypeMeta
-}
-
-// Required to satisfy ListMetaAccessor interface
-func (vl *VirtualMachineInstanceReplicaSetList) GetListMeta() meta.List {
-	return &vl.ListMeta
-}
-
 // VirtualMachineInstanceMigration represents the object tracking a VMI's migration
 // to another host in the cluster
 // ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigration struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +k8s:openapi-gen=false
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              VirtualMachineInstanceMigrationSpec   `json:"spec,omitempty" valid:"required"`
+	Spec              VirtualMachineInstanceMigrationSpec   `json:"spec" valid:"required"`
 	Status            VirtualMachineInstanceMigrationStatus `json:"status,omitempty"`
-}
-
-// Required to satisfy Object interface
-func (v *VirtualMachineInstanceMigration) GetObjectKind() schema.ObjectKind {
-	return &v.TypeMeta
-}
-
-// Required to satisfy ObjectMetaAccessor interface
-func (v *VirtualMachineInstanceMigration) GetObjectMeta() metav1.Object {
-	return &v.ObjectMeta
 }
 
 // VirtualMachineInstanceMigrationList is a list of VirtualMachineMigrations
@@ -810,18 +689,8 @@ func (v *VirtualMachineInstanceMigration) GetObjectMeta() metav1.Object {
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationList struct {
 	metav1.TypeMeta `json:",inline"`
-	ListMeta        metav1.ListMeta                   `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualMachineInstanceMigration `json:"items"`
-}
-
-// Required to satisfy Object interface
-func (vl *VirtualMachineInstanceMigrationList) GetObjectKind() schema.ObjectKind {
-	return &vl.TypeMeta
-}
-
-// Required to satisfy ListMetaAccessor interface
-func (vl *VirtualMachineInstanceMigrationList) GetListMeta() meta.List {
-	return &vl.ListMeta
 }
 
 // ---
@@ -869,20 +738,11 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type VirtualMachineInstancePreset struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +k8s:openapi-gen=false
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
 	Spec VirtualMachineInstancePresetSpec `json:"spec,omitempty" valid:"required"`
-}
-
-// Required to satisfy Object interface
-func (v *VirtualMachineInstancePreset) GetObjectKind() schema.ObjectKind {
-	return &v.TypeMeta
-}
-
-// Required to satisfy ObjectMetaAccessor interface
-func (v *VirtualMachineInstancePreset) GetObjectMeta() metav1.Object {
-	return &v.ObjectMeta
 }
 
 // VirtualMachineInstancePresetList is a list of VirtualMachinePresets
@@ -891,7 +751,7 @@ func (v *VirtualMachineInstancePreset) GetObjectMeta() metav1.Object {
 // +k8s:openapi-gen=true
 type VirtualMachineInstancePresetList struct {
 	metav1.TypeMeta `json:",inline"`
-	ListMeta        metav1.ListMeta                `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []VirtualMachineInstancePreset `json:"items"`
 }
 
@@ -922,16 +782,6 @@ func NewVirtualMachinePreset(name string, selector metav1.LabelSelector) *Virtua
 	}
 }
 
-// Required to satisfy Object interface
-func (vl *VirtualMachineInstancePresetList) GetObjectKind() schema.ObjectKind {
-	return &vl.TypeMeta
-}
-
-// Required to satisfy ListMetaAccessor interface
-func (vl *VirtualMachineInstancePresetList) GetListMeta() meta.List {
-	return &vl.ListMeta
-}
-
 // VirtualMachine handles the VirtualMachines that are not running
 // or are in a stopped state
 // The VirtualMachine contains the template to create the
@@ -941,11 +791,11 @@ func (vl *VirtualMachineInstancePresetList) GetListMeta() meta.List {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type VirtualMachine struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +k8s:openapi-gen=false
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
 	// Spec contains the specification of VirtualMachineInstance created
-	Spec VirtualMachineSpec `json:"spec,omitempty"`
+	Spec VirtualMachineSpec `json:"spec" valid:"required"`
 	// Status holds the current state of the controller and brief information
 	// about its associated VirtualMachineInstance
 	Status VirtualMachineStatus `json:"status,omitempty"`
@@ -976,10 +826,8 @@ func (vm *VirtualMachine) RunStrategy() (VirtualMachineRunStrategy, error) {
 // +k8s:openapi-gen=true
 type VirtualMachineList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	// Items is a list of VirtualMachines
-	Items []VirtualMachine `json:"items"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualMachine `json:"items"`
 }
 
 // VirtualMachineRunStrategy is a label for the requested VirtualMachineInstance Running State at the current time.
@@ -1055,16 +903,6 @@ type VirtualMachineStateChangeRequest struct {
 	Action StateChangeRequestAction `json:"action"`
 	// Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable
 	UID *types.UID `json:"uid,omitempty" optional:"true" protobuf:"bytes,5,opt,name=uid,casttype=k8s.io/kubernetes/pkg/types.UID"`
-}
-
-// GetObjectKind is required to satisfy Object interface
-func (v *VirtualMachine) GetObjectKind() schema.ObjectKind {
-	return &v.TypeMeta
-}
-
-// GetObjectMeta is required to satisfy ObjectMetaAccessor interface
-func (v *VirtualMachine) GetObjectMeta() metav1.Object {
-	return &v.ObjectMeta
 }
 
 // VirtualMachineCondition represents the state of VirtualMachine
@@ -1172,20 +1010,11 @@ type Probe struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=true
 type KubeVirt struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
+	// +k8s:openapi-gen=false
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              KubeVirtSpec   `json:"spec,omitempty" valid:"required"`
+	Spec              KubeVirtSpec   `json:"spec" valid:"required"`
 	Status            KubeVirtStatus `json:"status,omitempty"`
-}
-
-// Required to satisfy Object interface
-func (k *KubeVirt) GetObjectKind() schema.ObjectKind {
-	return &k.TypeMeta
-}
-
-// Required to satisfy ObjectMetaAccessor interface
-func (k *KubeVirt) GetObjectMeta() metav1.Object {
-	return &k.ObjectMeta
 }
 
 // KubeVirtList is a list of KubeVirts
@@ -1194,18 +1023,8 @@ func (k *KubeVirt) GetObjectMeta() metav1.Object {
 // +k8s:openapi-gen=true
 type KubeVirtList struct {
 	metav1.TypeMeta `json:",inline"`
-	ListMeta        metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []KubeVirt      `json:"items"`
-}
-
-// Required to satisfy Object interface
-func (kl *KubeVirtList) GetObjectKind() schema.ObjectKind {
-	return &kl.TypeMeta
-}
-
-// Required to satisfy ListMetaAccessor interface
-func (kl *KubeVirtList) GetListMeta() meta.List {
-	return &kl.ListMeta
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []KubeVirt `json:"items"`
 }
 
 // ---

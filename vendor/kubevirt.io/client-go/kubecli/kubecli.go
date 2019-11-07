@@ -64,6 +64,13 @@ func Init() {
 	}
 }
 
+func FlagSet() *flag.FlagSet {
+	set := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	set.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
+	set.StringVar(&master, "master", "", "master url")
+	return set
+}
+
 func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (KubevirtClient, error) {
 	config, err := clientcmd.BuildConfigFromFlags(master, kubeconfig)
 	if err != nil {

@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
@@ -53,12 +54,13 @@ const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 
+const debugLogs = "debugLogs"
+
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 const GenieNetworksAnnotation = "cni"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
-const CAP_SYS_RESOURCE = "SYS_RESOURCE"
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
 // Libvirt needs roughly 10 seconds to start.
@@ -75,6 +77,8 @@ const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
 
 // Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
 const ISTIO_KUBEVIRT_ANNOTATION = "traffic.sidecar.istio.io/kubevirtInterfaces"
+
+const ENV_VAR_LIBVIRT_DEBUG_LOGS = "LIBVIRT_DEBUG_LOGS"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -93,15 +97,6 @@ type templateService struct {
 }
 
 type PvcNotFoundError error
-
-func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.SRIOV != nil {
-			return true
-		}
-	}
-	return false
-}
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
@@ -351,7 +346,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		MountPath: "/var/run/libvirt",
 	})
 
-	if isSRIOVVmi(vmi) {
+	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) {
 		// libvirt needs this volume to access PCI device config;
 		// note that the volume should not be read-only because libvirt
 		// opens the config for writing
@@ -368,7 +363,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			},
 		})
 	}
-
 	serviceAccountName := ""
 
 	for _, volume := range vmi.Spec.Volumes {
@@ -684,8 +678,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	volumes = append(volumes, k8sv1.Volume{Name: "infra-ready-mount", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}})
 
-	containers := containerdisk.GenerateContainers(vmi, "container-disks", "virt-bin-share-dir")
-
 	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
 	if err != nil {
 		return nil, err
@@ -699,8 +691,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
+	if util.IsGPUVMI(vmi) {
+		for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
+			requestResource(&resources, gpu.DeviceName)
+		}
+	}
+
 	// VirtualMachineInstance target container
-	container := k8sv1.Container{
+	compute := k8sv1.Container{
 		Name:            "compute",
 		Image:           t.launcherImage,
 		ImagePullPolicy: imagePullPolicy,
@@ -720,21 +718,29 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	if vmi.Spec.ReadinessProbe != nil {
-		container.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
-		container.ReadinessProbe.InitialDelaySeconds = container.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay
+		compute.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
+		compute.ReadinessProbe.InitialDelaySeconds = compute.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay
 	}
 
 	if vmi.Spec.LivenessProbe != nil {
-		container.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
-		container.LivenessProbe.InitialDelaySeconds = container.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay
+		compute.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
+		compute.LivenessProbe.InitialDelaySeconds = compute.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay
 	}
 
 	for networkName, resourceName := range networkToResourceMap {
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
-		container.Env = append(container.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
+		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
 	}
 
-	containers = append(containers, container)
+	if _, ok := vmi.Labels[debugLogs]; ok {
+		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: "1"})
+	}
+
+	// Make sure the compute container is always the first since the mutating webhook shipped with the sriov operator
+	// for adding the requested resources to the pod will add them to the first container of the list
+	containers := []k8sv1.Container{compute}
+	containersDisks := containerdisk.GenerateContainers(vmi, "container-disks", "virt-bin-share-dir")
+	containers = append(containers, containersDisks...)
 
 	volumes = append(volumes,
 		k8sv1.Volume{
@@ -869,6 +875,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		v1.DomainAnnotation: domain,
 	}
 
+	for k, v := range vmi.Annotations {
+		if strings.Contains(k, "kubernetes.io") || strings.Contains(k, "kubevirt.io") {
+			// skip kubernetes and kubevirt internal annotations
+			continue
+		}
+		annotationsList[k] = v
+	}
+
 	cniAnnotations, err := getCniAnnotations(vmi)
 	if err != nil {
 		return nil, err
@@ -903,7 +917,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			SecurityContext: &k8sv1.PodSecurityContext{
 				RunAsUser: &userId,
 				SELinuxOptions: &k8sv1.SELinuxOptions{
-					Type: "spc_t",
+					Type: "virt_launcher.process",
 				},
 			},
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
@@ -948,12 +962,6 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	res = append(res, CAP_SYS_NICE)
-
-	if isSRIOVVmi(vmi) {
-		// this capability is needed for libvirt to be able to change ulimits for device passthrough:
-		// "error : cannot limit locked memory to 2098200576: Operation not permitted"
-		res = append(res, CAP_SYS_RESOURCE)
-	}
 	return res
 }
 
@@ -1084,7 +1092,7 @@ func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	for _, network := range vmi.Spec.Networks {
 		if network.Multus != nil {
 			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
-			crd, err := virtClient.NetworkClient().K8sCniCncfIo().NetworkAttachmentDefinitions(namespace).Get(networkName, metav1.GetOptions{})
+			crd, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Get(networkName, metav1.GetOptions{})
 			if err != nil {
 				return map[string]string{}, fmt.Errorf("Failed to locate network attachment definition %s/%s", namespace, networkName)
 			}

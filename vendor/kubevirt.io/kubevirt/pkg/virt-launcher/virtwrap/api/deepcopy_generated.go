@@ -93,21 +93,13 @@ func (in *BackingStore) DeepCopyInto(out *BackingStore) {
 	*out = *in
 	if in.Format != nil {
 		in, out := &in.Format, &out.Format
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(BackingStoreFormat)
-			**out = **in
-		}
+		*out = new(BackingStoreFormat)
+		**out = **in
 	}
 	if in.Source != nil {
 		in, out := &in.Source, &out.Source
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(DiskSource)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(DiskSource)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }
@@ -191,12 +183,8 @@ func (in *BootMenu) DeepCopyInto(out *BootMenu) {
 	*out = *in
 	if in.Timeout != nil {
 		in, out := &in.Timeout, &out.Timeout
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(uint)
-			**out = **in
-		}
+		*out = new(uint)
+		**out = **in
 	}
 	return
 }
@@ -237,12 +225,8 @@ func (in *CPU) DeepCopyInto(out *CPU) {
 	}
 	if in.Topology != nil {
 		in, out := &in.Topology, &out.Topology
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(CPUTopology)
-			**out = **in
-		}
+		*out = new(CPUTopology)
+		**out = **in
 	}
 	return
 }
@@ -352,21 +336,13 @@ func (in *Channel) DeepCopyInto(out *Channel) {
 	*out = *in
 	if in.Source != nil {
 		in, out := &in.Source, &out.Source
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(ChannelSource)
-			**out = **in
-		}
+		*out = new(ChannelSource)
+		**out = **in
 	}
 	if in.Target != nil {
 		in, out := &in.Target, &out.Target
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(ChannelTarget)
-			**out = **in
-		}
+		*out = new(ChannelTarget)
+		**out = **in
 	}
 	return
 }
@@ -465,30 +441,18 @@ func (in *Console) DeepCopyInto(out *Console) {
 	*out = *in
 	if in.Target != nil {
 		in, out := &in.Target, &out.Target
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(ConsoleTarget)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(ConsoleTarget)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.Source != nil {
 		in, out := &in.Source, &out.Source
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(ConsoleSource)
-			**out = **in
-		}
+		*out = new(ConsoleSource)
+		**out = **in
 	}
 	if in.Alias != nil {
 		in, out := &in.Alias, &out.Alias
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Alias)
-			**out = **in
-		}
+		*out = new(Alias)
+		**out = **in
 	}
 	return
 }
@@ -524,21 +488,13 @@ func (in *ConsoleTarget) DeepCopyInto(out *ConsoleTarget) {
 	*out = *in
 	if in.Type != nil {
 		in, out := &in.Type, &out.Type
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(string)
-			**out = **in
-		}
+		*out = new(string)
+		**out = **in
 	}
 	if in.Port != nil {
 		in, out := &in.Port, &out.Port
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(uint)
-			**out = **in
-		}
+		*out = new(uint)
+		**out = **in
 	}
 	return
 }
@@ -558,12 +514,8 @@ func (in *Controller) DeepCopyInto(out *Controller) {
 	*out = *in
 	if in.Driver != nil {
 		in, out := &in.Driver, &out.Driver
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(ControllerDriver)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(ControllerDriver)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }
@@ -583,12 +535,8 @@ func (in *ControllerDriver) DeepCopyInto(out *ControllerDriver) {
 	*out = *in
 	if in.IOThread != nil {
 		in, out := &in.IOThread, &out.IOThread
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(uint)
-			**out = **in
-		}
+		*out = new(uint)
+		**out = **in
 	}
 	return
 }
@@ -650,12 +598,8 @@ func (in *Devices) DeepCopyInto(out *Devices) {
 	}
 	if in.Ballooning != nil {
 		in, out := &in.Ballooning, &out.Ballooning
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Ballooning)
-			**out = **in
-		}
+		*out = new(Ballooning)
+		**out = **in
 	}
 	if in.Disks != nil {
 		in, out := &in.Disks, &out.Disks
@@ -687,21 +631,13 @@ func (in *Devices) DeepCopyInto(out *Devices) {
 	}
 	if in.Watchdog != nil {
 		in, out := &in.Watchdog, &out.Watchdog
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Watchdog)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(Watchdog)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.Rng != nil {
 		in, out := &in.Rng, &out.Rng
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Rng)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(Rng)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }
@@ -723,66 +659,38 @@ func (in *Disk) DeepCopyInto(out *Disk) {
 	out.Target = in.Target
 	if in.Driver != nil {
 		in, out := &in.Driver, &out.Driver
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(DiskDriver)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(DiskDriver)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.ReadOnly != nil {
 		in, out := &in.ReadOnly, &out.ReadOnly
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(ReadOnly)
-			**out = **in
-		}
+		*out = new(ReadOnly)
+		**out = **in
 	}
 	if in.Auth != nil {
 		in, out := &in.Auth, &out.Auth
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(DiskAuth)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(DiskAuth)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.Alias != nil {
 		in, out := &in.Alias, &out.Alias
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Alias)
-			**out = **in
-		}
+		*out = new(Alias)
+		**out = **in
 	}
 	if in.BackingStore != nil {
 		in, out := &in.BackingStore, &out.BackingStore
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(BackingStore)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(BackingStore)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.BootOrder != nil {
 		in, out := &in.BootOrder, &out.BootOrder
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(BootOrder)
-			**out = **in
-		}
+		*out = new(BootOrder)
+		**out = **in
 	}
 	if in.Address != nil {
 		in, out := &in.Address, &out.Address
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Address)
-			**out = **in
-		}
+		*out = new(Address)
+		**out = **in
 	}
 	return
 }
@@ -802,12 +710,8 @@ func (in *DiskAuth) DeepCopyInto(out *DiskAuth) {
 	*out = *in
 	if in.Secret != nil {
 		in, out := &in.Secret, &out.Secret
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(DiskSecret)
-			**out = **in
-		}
+		*out = new(DiskSecret)
+		**out = **in
 	}
 	return
 }
@@ -827,21 +731,13 @@ func (in *DiskDriver) DeepCopyInto(out *DiskDriver) {
 	*out = *in
 	if in.IOThread != nil {
 		in, out := &in.IOThread, &out.IOThread
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(uint)
-			**out = **in
-		}
+		*out = new(uint)
+		**out = **in
 	}
 	if in.Queues != nil {
 		in, out := &in.Queues, &out.Queues
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(uint)
-			**out = **in
-		}
+		*out = new(uint)
+		**out = **in
 	}
 	return
 }
@@ -877,12 +773,8 @@ func (in *DiskSource) DeepCopyInto(out *DiskSource) {
 	*out = *in
 	if in.Host != nil {
 		in, out := &in.Host, &out.Host
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(DiskSourceHost)
-			**out = **in
-		}
+		*out = new(DiskSourceHost)
+		**out = **in
 	}
 	return
 }
@@ -997,88 +889,52 @@ func (in *DomainSpec) DeepCopyInto(out *DomainSpec) {
 	out.Memory = in.Memory
 	if in.MemoryBacking != nil {
 		in, out := &in.MemoryBacking, &out.MemoryBacking
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(MemoryBacking)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(MemoryBacking)
+		(*in).DeepCopyInto(*out)
 	}
 	in.OS.DeepCopyInto(&out.OS)
 	if in.SysInfo != nil {
 		in, out := &in.SysInfo, &out.SysInfo
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(SysInfo)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(SysInfo)
+		(*in).DeepCopyInto(*out)
 	}
 	in.Devices.DeepCopyInto(&out.Devices)
 	if in.Clock != nil {
 		in, out := &in.Clock, &out.Clock
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Clock)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(Clock)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.Resource != nil {
 		in, out := &in.Resource, &out.Resource
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Resource)
-			**out = **in
-		}
+		*out = new(Resource)
+		**out = **in
 	}
 	if in.QEMUCmd != nil {
 		in, out := &in.QEMUCmd, &out.QEMUCmd
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Commandline)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(Commandline)
+		(*in).DeepCopyInto(*out)
 	}
 	in.Metadata.DeepCopyInto(&out.Metadata)
 	if in.Features != nil {
 		in, out := &in.Features, &out.Features
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Features)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(Features)
+		(*in).DeepCopyInto(*out)
 	}
 	in.CPU.DeepCopyInto(&out.CPU)
 	if in.VCPU != nil {
 		in, out := &in.VCPU, &out.VCPU
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(VCPU)
-			**out = **in
-		}
+		*out = new(VCPU)
+		**out = **in
 	}
 	if in.CPUTune != nil {
 		in, out := &in.CPUTune, &out.CPUTune
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(CPUTune)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(CPUTune)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.IOThreads != nil {
 		in, out := &in.IOThreads, &out.IOThreads
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(IOThreads)
-			**out = **in
-		}
+		*out = new(IOThreads)
+		**out = **in
 	}
 	return
 }
@@ -1103,6 +959,7 @@ func (in *DomainStatus) DeepCopyInto(out *DomainStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	out.OSInfo = in.OSInfo
 	return
 }
 
@@ -1169,129 +1026,73 @@ func (in *FeatureHyperv) DeepCopyInto(out *FeatureHyperv) {
 	*out = *in
 	if in.Relaxed != nil {
 		in, out := &in.Relaxed, &out.Relaxed
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureState)
-			**out = **in
-		}
+		*out = new(FeatureState)
+		**out = **in
 	}
 	if in.VAPIC != nil {
 		in, out := &in.VAPIC, &out.VAPIC
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureState)
-			**out = **in
-		}
+		*out = new(FeatureState)
+		**out = **in
 	}
 	if in.Spinlocks != nil {
 		in, out := &in.Spinlocks, &out.Spinlocks
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureSpinlocks)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(FeatureSpinlocks)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.VPIndex != nil {
 		in, out := &in.VPIndex, &out.VPIndex
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureState)
-			**out = **in
-		}
+		*out = new(FeatureState)
+		**out = **in
 	}
 	if in.Runtime != nil {
 		in, out := &in.Runtime, &out.Runtime
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureState)
-			**out = **in
-		}
+		*out = new(FeatureState)
+		**out = **in
 	}
 	if in.SyNIC != nil {
 		in, out := &in.SyNIC, &out.SyNIC
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureState)
-			**out = **in
-		}
+		*out = new(FeatureState)
+		**out = **in
 	}
 	if in.SyNICTimer != nil {
 		in, out := &in.SyNICTimer, &out.SyNICTimer
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureState)
-			**out = **in
-		}
+		*out = new(FeatureState)
+		**out = **in
 	}
 	if in.Reset != nil {
 		in, out := &in.Reset, &out.Reset
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureState)
-			**out = **in
-		}
+		*out = new(FeatureState)
+		**out = **in
 	}
 	if in.VendorID != nil {
 		in, out := &in.VendorID, &out.VendorID
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureVendorID)
-			**out = **in
-		}
+		*out = new(FeatureVendorID)
+		**out = **in
 	}
 	if in.Frequencies != nil {
 		in, out := &in.Frequencies, &out.Frequencies
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureState)
-			**out = **in
-		}
+		*out = new(FeatureState)
+		**out = **in
 	}
 	if in.Reenlightenment != nil {
 		in, out := &in.Reenlightenment, &out.Reenlightenment
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureState)
-			**out = **in
-		}
+		*out = new(FeatureState)
+		**out = **in
 	}
 	if in.TLBFlush != nil {
 		in, out := &in.TLBFlush, &out.TLBFlush
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureState)
-			**out = **in
-		}
+		*out = new(FeatureState)
+		**out = **in
 	}
 	if in.IPI != nil {
 		in, out := &in.IPI, &out.IPI
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureState)
-			**out = **in
-		}
+		*out = new(FeatureState)
+		**out = **in
 	}
 	if in.EVMCS != nil {
 		in, out := &in.EVMCS, &out.EVMCS
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureState)
-			**out = **in
-		}
+		*out = new(FeatureState)
+		**out = **in
 	}
 	return
 }
@@ -1311,12 +1112,8 @@ func (in *FeatureSpinlocks) DeepCopyInto(out *FeatureSpinlocks) {
 	*out = *in
 	if in.Retries != nil {
 		in, out := &in.Retries, &out.Retries
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(uint32)
-			**out = **in
-		}
+		*out = new(uint32)
+		**out = **in
 	}
 	return
 }
@@ -1368,39 +1165,23 @@ func (in *Features) DeepCopyInto(out *Features) {
 	*out = *in
 	if in.ACPI != nil {
 		in, out := &in.ACPI, &out.ACPI
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureEnabled)
-			**out = **in
-		}
+		*out = new(FeatureEnabled)
+		**out = **in
 	}
 	if in.APIC != nil {
 		in, out := &in.APIC, &out.APIC
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureEnabled)
-			**out = **in
-		}
+		*out = new(FeatureEnabled)
+		**out = **in
 	}
 	if in.Hyperv != nil {
 		in, out := &in.Hyperv, &out.Hyperv
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureHyperv)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(FeatureHyperv)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.SMM != nil {
 		in, out := &in.SMM, &out.SMM
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FeatureEnabled)
-			**out = **in
-		}
+		*out = new(FeatureEnabled)
+		**out = **in
 	}
 	return
 }
@@ -1436,11 +1217,7 @@ func (in *GracePeriodMetadata) DeepCopyInto(out *GracePeriodMetadata) {
 	*out = *in
 	if in.DeletionTimestamp != nil {
 		in, out := &in.DeletionTimestamp, &out.DeletionTimestamp
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = (*in).DeepCopy()
-		}
+		*out = (*in).DeepCopy()
 	}
 	return
 }
@@ -1460,12 +1237,8 @@ func (in *Graphics) DeepCopyInto(out *Graphics) {
 	*out = *in
 	if in.Listen != nil {
 		in, out := &in.Listen, &out.Listen
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(GraphicsListen)
-			**out = **in
-		}
+		*out = new(GraphicsListen)
+		**out = **in
 	}
 	return
 }
@@ -1497,17 +1270,29 @@ func (in *GraphicsListen) DeepCopy() *GraphicsListen {
 }
 
 // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *GuestOSInfo) DeepCopyInto(out *GuestOSInfo) {
+	*out = *in
+	return
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new GuestOSInfo.
+func (in *GuestOSInfo) DeepCopy() *GuestOSInfo {
+	if in == nil {
+		return nil
+	}
+	out := new(GuestOSInfo)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
 func (in *HostDevice) DeepCopyInto(out *HostDevice) {
 	*out = *in
 	in.Source.DeepCopyInto(&out.Source)
 	if in.BootOrder != nil {
 		in, out := &in.BootOrder, &out.BootOrder
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(BootOrder)
-			**out = **in
-		}
+		*out = new(BootOrder)
+		**out = **in
 	}
 	return
 }
@@ -1527,12 +1312,8 @@ func (in *HostDeviceSource) DeepCopyInto(out *HostDeviceSource) {
 	*out = *in
 	if in.Address != nil {
 		in, out := &in.Address, &out.Address
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Address)
-			**out = **in
-		}
+		*out = new(Address)
+		**out = **in
 	}
 	return
 }
@@ -1605,12 +1386,8 @@ func (in *Input) DeepCopyInto(out *Input) {
 	*out = *in
 	if in.Alias != nil {
 		in, out := &in.Alias, &out.Alias
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Alias)
-			**out = **in
-		}
+		*out = new(Alias)
+		**out = **in
 	}
 	return
 }
@@ -1630,103 +1407,59 @@ func (in *Interface) DeepCopyInto(out *Interface) {
 	*out = *in
 	if in.Address != nil {
 		in, out := &in.Address, &out.Address
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Address)
-			**out = **in
-		}
+		*out = new(Address)
+		**out = **in
 	}
 	in.Source.DeepCopyInto(&out.Source)
 	if in.Target != nil {
 		in, out := &in.Target, &out.Target
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(InterfaceTarget)
-			**out = **in
-		}
+		*out = new(InterfaceTarget)
+		**out = **in
 	}
 	if in.Model != nil {
 		in, out := &in.Model, &out.Model
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Model)
-			**out = **in
-		}
+		*out = new(Model)
+		**out = **in
 	}
 	if in.MAC != nil {
 		in, out := &in.MAC, &out.MAC
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(MAC)
-			**out = **in
-		}
+		*out = new(MAC)
+		**out = **in
 	}
 	if in.MTU != nil {
 		in, out := &in.MTU, &out.MTU
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(MTU)
-			**out = **in
-		}
+		*out = new(MTU)
+		**out = **in
 	}
 	if in.BandWidth != nil {
 		in, out := &in.BandWidth, &out.BandWidth
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(BandWidth)
-			**out = **in
-		}
+		*out = new(BandWidth)
+		**out = **in
 	}
 	if in.BootOrder != nil {
 		in, out := &in.BootOrder, &out.BootOrder
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(BootOrder)
-			**out = **in
-		}
+		*out = new(BootOrder)
+		**out = **in
 	}
 	if in.LinkState != nil {
 		in, out := &in.LinkState, &out.LinkState
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(LinkState)
-			**out = **in
-		}
+		*out = new(LinkState)
+		**out = **in
 	}
 	if in.FilterRef != nil {
 		in, out := &in.FilterRef, &out.FilterRef
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(FilterRef)
-			**out = **in
-		}
+		*out = new(FilterRef)
+		**out = **in
 	}
 	if in.Alias != nil {
 		in, out := &in.Alias, &out.Alias
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Alias)
-			**out = **in
-		}
+		*out = new(Alias)
+		**out = **in
 	}
 	if in.Driver != nil {
 		in, out := &in.Driver, &out.Driver
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(InterfaceDriver)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(InterfaceDriver)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }
@@ -1746,12 +1479,8 @@ func (in *InterfaceDriver) DeepCopyInto(out *InterfaceDriver) {
 	*out = *in
 	if in.Queues != nil {
 		in, out := &in.Queues, &out.Queues
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(uint)
-			**out = **in
-		}
+		*out = new(uint)
+		**out = **in
 	}
 	return
 }
@@ -1771,12 +1500,8 @@ func (in *InterfaceSource) DeepCopyInto(out *InterfaceSource) {
 	*out = *in
 	if in.Address != nil {
 		in, out := &in.Address, &out.Address
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Address)
-			**out = **in
-		}
+		*out = new(Address)
+		**out = **in
 	}
 	return
 }
@@ -1833,21 +1558,13 @@ func (in *KubeVirtMetadata) DeepCopyInto(out *KubeVirtMetadata) {
 	*out = *in
 	if in.GracePeriod != nil {
 		in, out := &in.GracePeriod, &out.GracePeriod
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(GracePeriodMetadata)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(GracePeriodMetadata)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.Migration != nil {
 		in, out := &in.Migration, &out.Migration
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(MigrationMetadata)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(MigrationMetadata)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }
@@ -1947,12 +1664,8 @@ func (in *MemoryBacking) DeepCopyInto(out *MemoryBacking) {
 	*out = *in
 	if in.HugePages != nil {
 		in, out := &in.HugePages, &out.HugePages
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(HugePages)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(HugePages)
+		(*in).DeepCopyInto(*out)
 	}
 	return
 }
@@ -1989,19 +1702,11 @@ func (in *MigrationMetadata) DeepCopyInto(out *MigrationMetadata) {
 	*out = *in
 	if in.StartTimestamp != nil {
 		in, out := &in.StartTimestamp, &out.StartTimestamp
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = (*in).DeepCopy()
-		}
+		*out = (*in).DeepCopy()
 	}
 	if in.EndTimestamp != nil {
 		in, out := &in.EndTimestamp, &out.EndTimestamp
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = (*in).DeepCopy()
-		}
+		*out = (*in).DeepCopy()
 	}
 	return
 }
@@ -2054,12 +1759,8 @@ func (in *OS) DeepCopyInto(out *OS) {
 	out.Type = in.Type
 	if in.SMBios != nil {
 		in, out := &in.SMBios, &out.SMBios
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(SMBios)
-			**out = **in
-		}
+		*out = new(SMBios)
+		**out = **in
 	}
 	if in.BootOrder != nil {
 		in, out := &in.BootOrder, &out.BootOrder
@@ -2068,39 +1769,23 @@ func (in *OS) DeepCopyInto(out *OS) {
 	}
 	if in.BootMenu != nil {
 		in, out := &in.BootMenu, &out.BootMenu
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(BootMenu)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(BootMenu)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.BIOS != nil {
 		in, out := &in.BIOS, &out.BIOS
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(BIOS)
-			**out = **in
-		}
+		*out = new(BIOS)
+		**out = **in
 	}
 	if in.BootLoader != nil {
 		in, out := &in.BootLoader, &out.BootLoader
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Loader)
-			**out = **in
-		}
+		*out = new(Loader)
+		**out = **in
 	}
 	if in.NVRam != nil {
 		in, out := &in.NVRam, &out.NVRam
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(NVRam)
-			**out = **in
-		}
+		*out = new(NVRam)
+		**out = **in
 	}
 	return
 }
@@ -2168,12 +1853,8 @@ func (in *Rng) DeepCopyInto(out *Rng) {
 	*out = *in
 	if in.Backend != nil {
 		in, out := &in.Backend, &out.Backend
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(RngBackend)
-			**out = **in
-		}
+		*out = new(RngBackend)
+		**out = **in
 	}
 	return
 }
@@ -2275,30 +1956,18 @@ func (in *Serial) DeepCopyInto(out *Serial) {
 	*out = *in
 	if in.Target != nil {
 		in, out := &in.Target, &out.Target
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(SerialTarget)
-			(*in).DeepCopyInto(*out)
-		}
+		*out = new(SerialTarget)
+		(*in).DeepCopyInto(*out)
 	}
 	if in.Source != nil {
 		in, out := &in.Source, &out.Source
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(SerialSource)
-			**out = **in
-		}
+		*out = new(SerialSource)
+		**out = **in
 	}
 	if in.Alias != nil {
 		in, out := &in.Alias, &out.Alias
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Alias)
-			**out = **in
-		}
+		*out = new(Alias)
+		**out = **in
 	}
 	return
 }
@@ -2334,12 +2003,8 @@ func (in *SerialTarget) DeepCopyInto(out *SerialTarget) {
 	*out = *in
 	if in.Port != nil {
 		in, out := &in.Port, &out.Port
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(uint)
-			**out = **in
-		}
+		*out = new(uint)
+		**out = **in
 	}
 	return
 }
@@ -2369,6 +2034,11 @@ func (in *SysInfo) DeepCopyInto(out *SysInfo) {
 	}
 	if in.BaseBoard != nil {
 		in, out := &in.BaseBoard, &out.BaseBoard
+		*out = make([]Entry, len(*in))
+		copy(*out, *in)
+	}
+	if in.Chassis != nil {
+		in, out := &in.Chassis, &out.Chassis
 		*out = make([]Entry, len(*in))
 		copy(*out, *in)
 	}
@@ -2455,39 +2125,23 @@ func (in *VideoModel) DeepCopyInto(out *VideoModel) {
 	*out = *in
 	if in.Heads != nil {
 		in, out := &in.Heads, &out.Heads
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(uint)
-			**out = **in
-		}
+		*out = new(uint)
+		**out = **in
 	}
 	if in.Ram != nil {
 		in, out := &in.Ram, &out.Ram
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(uint)
-			**out = **in
-		}
+		*out = new(uint)
+		**out = **in
 	}
 	if in.VRam != nil {
 		in, out := &in.VRam, &out.VRam
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(uint)
-			**out = **in
-		}
+		*out = new(uint)
+		**out = **in
 	}
 	if in.VGAMem != nil {
 		in, out := &in.VGAMem, &out.VGAMem
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(uint)
-			**out = **in
-		}
+		*out = new(uint)
+		**out = **in
 	}
 	return
 }
@@ -2507,12 +2161,8 @@ func (in *Watchdog) DeepCopyInto(out *Watchdog) {
 	*out = *in
 	if in.Alias != nil {
 		in, out := &in.Alias, &out.Alias
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(Alias)
-			**out = **in
-		}
+		*out = new(Alias)
+		**out = **in
 	}
 	return
 }

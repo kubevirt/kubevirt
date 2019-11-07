@@ -150,3 +150,8 @@ func (v *vm) Stop(name string) error {
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "stop")
 	return v.restClient.Put().RequestURI(uri).Do().Error()
 }
+
+func (v *vm) Migrate(name string) error {
+	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "migrate")
+	return v.restClient.Put().RequestURI(uri).Do().Error()
+}

@@ -34,6 +34,7 @@ import (
 type AgentUpdateEvent struct {
 	InterfaceStatuses *[]api.InterfaceStatus
 	DomainName        string
+	OsInfo            *api.GuestOSInfo
 }
 
 type AgentPoller struct {
@@ -48,6 +49,7 @@ type AgentPoller struct {
 
 type DomainData struct {
 	name       string
+	osInfo     api.GuestOSInfo
 	aliasByMac map[string]string
 	interfaces []api.InterfaceStatus
 }
@@ -55,6 +57,22 @@ type DomainData struct {
 // Result for json unmarshalling
 type Result struct {
 	Interfaces []Interface `json:"return"`
+}
+
+// Guest OS Info unmarshalling
+type ParsedGuestOsInfo struct {
+	Name          string `json:"name"`
+	KernelRelease string `json:"kernel-release"`
+	Version       string `json:"version"`
+	PrettyName    string `json:"pretty-name"`
+	VersionId     string `json:"version-id"`
+	KernelVersion string `json:"kernel-version"`
+	Machine       string `json:"machine"`
+	Id            string `json:"id"`
+}
+
+type GuestOSInfoResult struct {
+	OSInfo ParsedGuestOsInfo `json:"return"`
 }
 
 // Interface for json unmarshalling
@@ -98,18 +116,39 @@ func (p *AgentPoller) Start() {
 				p.domainData = p.createDomainData(domain)
 			case <-time.After(time.Duration(p.pollTime) * time.Second):
 				cmdResult, err := p.pollQemuAgent(p.domainData.name)
+				needUpdate := false
+				agentUpdateEvent := AgentUpdateEvent{DomainName: p.domainData.name,
+					InterfaceStatuses: &p.domainData.interfaces,
+					OsInfo:            &p.domainData.osInfo}
+
 				if err != nil {
 					log.Log.Reason(err).Error("Qemu agent poller error")
-					continue
-				}
-				interfaceStatuses := p.GetInterfaceStatuses(cmdResult)
-				if !reflect.DeepEqual(p.domainData.interfaces, interfaceStatuses) {
-					p.domainData.interfaces = interfaceStatuses
-
-					agentUpdateEvent := AgentUpdateEvent{
-						InterfaceStatuses: &interfaceStatuses,
-						DomainName:        p.domainData.name,
+				} else {
+					interfaceStatuses := p.GetInterfaceStatuses(cmdResult)
+					if !reflect.DeepEqual(p.domainData.interfaces, interfaceStatuses) {
+						p.domainData.interfaces = interfaceStatuses
+						agentUpdateEvent.InterfaceStatuses = &interfaceStatuses
+						needUpdate = true
 					}
+				}
+
+				// Lets poll for Guest OS Info, but only if we have haven't
+				// obtained the info. If we have the info already we do not
+				// want to poll it repeatedly as it is not expected to change.
+				if p.domainData.osInfo.Name == "" {
+					cmdResult, err = p.pollQemuAgentForOsInfo(p.domainData.name)
+					if err != nil {
+						log.Log.Reason(err).Error("Qemu agent poller error for guestOsInfo")
+					} else {
+						gInfo := p.GetGuestOsInfo(cmdResult)
+						if !reflect.DeepEqual(gInfo, p.domainData.osInfo) {
+							p.domainData.osInfo = gInfo
+							agentUpdateEvent.OsInfo = &gInfo
+							needUpdate = true
+						}
+					}
+				}
+				if needUpdate {
 					p.agentUpdateChan <- agentUpdateEvent
 				}
 			}
@@ -130,12 +169,26 @@ func (p *AgentPoller) GetInterfaceStatuses(cmdResult string) []api.InterfaceStat
 	return p.mergeAgentStatusesWithDomainData(interfaceStatuses)
 }
 
+func (p *AgentPoller) GetGuestOsInfo(cmdResult string) api.GuestOSInfo {
+	osInfo := parseAgentGuestInfoReplyToJson(cmdResult)
+	guestInfo := api.GuestOSInfo{}
+	guestInfo.Name = osInfo.Name
+	guestInfo.KernelRelease = osInfo.KernelRelease
+	guestInfo.Version = osInfo.Version
+	guestInfo.PrettyName = osInfo.PrettyName
+	guestInfo.VersionId = osInfo.VersionId
+	guestInfo.KernelVersion = osInfo.KernelVersion
+	guestInfo.Machine = osInfo.Machine
+	guestInfo.Id = osInfo.Id
+	return guestInfo
+}
+
 func (p *AgentPoller) UpdateDomain(domain *api.Domain) {
 	if domain != nil {
 		select {
 		case p.domainUpdate <- domain:
 		default:
-			log.Log.Error("Failed to upate agent poller domain info")
+			log.Log.Error("Failed to update agent poller domain info")
 		}
 	}
 }
@@ -158,10 +211,21 @@ func (p *AgentPoller) pollQemuAgent(domainName string) (string, error) {
 	return cmdResult, err
 }
 
+func (p *AgentPoller) pollQemuAgentForOsInfo(domainName string) (string, error) {
+	cmdResult, err := p.Connection.QemuAgentCommand("{\"execute\":\"guest-get-osinfo\"}", domainName)
+	return cmdResult, err
+}
+
 func parseAgentReplyToJson(agentReply string) *Result {
 	result := Result{}
 	json.Unmarshal([]byte(agentReply), &result)
 	return &result
+}
+
+func parseAgentGuestInfoReplyToJson(agentReply string) ParsedGuestOsInfo {
+	result := GuestOSInfoResult{}
+	json.Unmarshal([]byte(agentReply), &result)
+	return result.OSInfo
 }
 
 func (p *AgentPoller) mergeAgentStatusesWithDomainData(interfaceStatuses []api.InterfaceStatus) []api.InterfaceStatus {

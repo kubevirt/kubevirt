@@ -263,6 +263,17 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"put",
 				},
 			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"namespaces",
+				},
+				Verbs: []string{
+					"get",
+				},
+			},
 		},
 	}
 

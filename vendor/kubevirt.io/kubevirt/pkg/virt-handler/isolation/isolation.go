@@ -35,9 +35,16 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"unsafe"
+
+	"golang.org/x/sys/unix"
+
+	ps "github.com/mitchellh/go-ps"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -53,6 +60,9 @@ type PodIsolationDetector interface {
 	// Whitelist allows specifying cgroup controller which should be considered to detect the cgroup slice
 	// It returns a PodIsolationDetector to allow configuring the PodIsolationDetector via the builder pattern.
 	Whitelist(controller []string) PodIsolationDetector
+
+	// Adjust system resources to run the passed VM
+	AdjustResources(vm *v1.VirtualMachineInstance) error
 }
 
 type MountInfo struct {
@@ -118,6 +128,91 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (*I
 	}
 
 	return NewIsolationResult(pid, slice, controller), nil
+}
+
+// standard golang libraries don't provide API to set runtime limits
+// for other processes, so we have to directly call to kernel
+func prLimit(pid int, limit uintptr, rlimit *unix.Rlimit) error {
+	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
+		uintptr(pid),
+		limit,
+		uintptr(unsafe.Pointer(rlimit)),
+		0, 0, 0)
+	if errno != 0 {
+		return fmt.Errorf("Error setting prlimit: %v", errno)
+	}
+	return nil
+}
+
+func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {
+	// only VFIO attached domains require MEMLOCK adjustment
+	if !util.IsSRIOVVmi(vm) && !util.IsGPUVMI(vm) {
+		return nil
+	}
+
+	// bump memlock ulimit for libvirtd
+	res, err := s.Detect(vm)
+	if err != nil {
+		return err
+	}
+	launcherPid := res.Pid()
+
+	processes, err := ps.Processes()
+	if err != nil {
+		return fmt.Errorf("failed to get all processes: %v", err)
+	}
+
+	for _, process := range processes {
+		// consider all processes that are virt-launcher children
+		if process.PPid() != launcherPid {
+			continue
+		}
+
+		// libvirtd process sets the memory lock limit before fork/exec-ing into qemu
+		if process.Executable() != "libvirtd" {
+			continue
+		}
+
+		// make the best estimate for memory required by libvirt
+		memlockSize, err := getMemlockSize(vm)
+		if err != nil {
+			return err
+		}
+		rLimit := unix.Rlimit{
+			Max: uint64(memlockSize),
+			Cur: uint64(memlockSize),
+		}
+		err = prLimit(process.Pid(), unix.RLIMIT_MEMLOCK, &rLimit)
+		if err != nil {
+			return fmt.Errorf("failed to set rlimit for memory lock: %v", err)
+		}
+		// we assume a single process should match
+		break
+	}
+	return nil
+}
+
+// consider reusing getMemoryOverhead()
+// This is not scientific, but neither what libvirtd does is. See details in:
+// https://www.redhat.com/archives/libvirt-users/2019-August/msg00051.html
+func getMemlockSize(vm *v1.VirtualMachineInstance) (int64, error) {
+	memlockSize := resource.NewQuantity(0, resource.DecimalSI)
+
+	// start with base memory requested for the VM
+	vmiMemoryReq := vm.Spec.Domain.Resources.Requests.Memory()
+	memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
+
+	// allocate 1Gb for VFIO needs
+	memlockSize.Add(resource.MustParse("1G"))
+
+	// add some more memory for NUMA / CPU topology, platform memory alignment and other needs
+	memlockSize.Add(resource.MustParse("256M"))
+
+	bytes_, ok := memlockSize.AsInt64()
+	if !ok {
+		return 0, fmt.Errorf("could not calculate memory lock size")
+	}
+	return bytes_, nil
 }
 
 func NewIsolationResult(pid int, slice string, controller []string) *IsolationResult {

@@ -69,6 +69,13 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"features":        "Features like acpi, apic, hyperv, smm.\n+optional",
 		"devices":         "Devices allows adding disks, network interfaces, ...",
 		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
+		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
+	}
+}
+
+func (Chassis) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Chassis specifies the chassis info passed to the domain.",
 	}
 }
 
@@ -160,6 +167,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"rng":                        "Whether to have random number generator from host\n+optional",
 		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices\n+optional",
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature\n+optional",
+		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional",
 	}
 }
 
@@ -168,6 +176,12 @@ func (Input) SwaggerDoc() map[string]string {
 		"bus":  "Bus indicates the bus of input device to emulate.\nSupported values: virtio, usb.",
 		"type": "Type indicated the type of input device.\nSupported values: tablet.",
 		"name": "Name is the device name",
+	}
+}
+
+func (GPU) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name": "Name of the GPU device as exposed by a device plugin",
 	}
 }
 

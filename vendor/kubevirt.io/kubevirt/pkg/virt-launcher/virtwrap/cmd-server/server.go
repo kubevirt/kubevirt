@@ -157,7 +157,7 @@ func (l *Launcher) SyncVirtualMachine(ctx context.Context, request *cmdv1.VMIReq
 		return response, nil
 	}
 
-	if _, err := l.domainManager.SyncVMI(vmi, l.useEmulation); err != nil {
+	if _, err := l.domainManager.SyncVMI(vmi, l.useEmulation, request.Options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to sync vmi")
 		response.Success = false
 		response.Message = getErrorMessage(err)
@@ -237,7 +237,7 @@ func (l *Launcher) GetDomain(ctx context.Context, request *cmdv1.EmptyRequest) (
 		return response, nil
 	}
 
-	if len(list) >= 0 {
+	if len(list) > 0 {
 		if domain, err := json.Marshal(list[0]); err != nil {
 			log.Log.Reason(err).Errorf("Failed to marshal domain")
 			response.Response.Success = false

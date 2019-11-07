@@ -41,6 +41,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -65,6 +66,9 @@ type ConverterContext struct {
 	IsBlockDV      map[string]bool
 	DiskType       map[string]*containerdisk.DiskInfo
 	SRIOVDevices   map[string][]string
+	SMBios         *cmdv1.SMBios
+	GpuDevices     []string
+	VgpuDevices    []string
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -111,7 +115,7 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 		Name:  "qemu",
 		Cache: string(diskDevice.Cache),
 	}
-	if numQueues != nil {
+	if numQueues != nil && disk.Target.Bus == "virtio" {
 		disk.Driver.Queues = numQueues
 	}
 	disk.Alias = &Alias{Name: diskDevice.Name}
@@ -126,10 +130,10 @@ func checkDirectIOFlag(path string) bool {
 	// check if fs where disk.img file is located or block device
 	// support direct i/o
 	f, err := os.OpenFile(path, syscall.O_RDONLY|syscall.O_DIRECT, 0)
-	defer f.Close()
 	if err != nil && !os.IsNotExist(err) {
 		return false
 	}
+	defer f.Close()
 	return true
 }
 
@@ -513,19 +517,6 @@ func convertFeatureState(source *v1.FeatureState) *FeatureState {
 	return nil
 }
 
-//isUSBDevicePresent checks if exists device with usb bus in vmi
-func isUSBDevicePresent(vmi *v1.VirtualMachineInstance) bool {
-	usbDeviceExists := false
-	for _, input := range vmi.Spec.Domain.Devices.Inputs {
-		if input.Bus == "usb" {
-			usbDeviceExists = true
-			return usbDeviceExists
-		}
-	}
-
-	return usbDeviceExists
-}
-
 func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features, c *ConverterContext) error {
 	if source.ACPI.Enabled == nil || *source.ACPI.Enabled {
 		features.ACPI = &FeatureEnabled{}
@@ -628,6 +619,16 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	domain.ObjectMeta.Name = vmi.ObjectMeta.Name
 	domain.ObjectMeta.Namespace = vmi.ObjectMeta.Namespace
 
+	// Set VM CPU cores
+	// CPU topology will be created everytime, because user can specify
+	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
+	// in vmi.Spec.Domain.CPU
+	domain.Spec.CPU.Topology = getCPUTopology(vmi)
+	domain.Spec.VCPU = &VCPU{
+		Placement: "static",
+		CPUs:      calculateRequestedVCPUs(domain.Spec.CPU.Topology),
+	}
+
 	if _, err := os.Stat("/dev/kvm"); os.IsNotExist(err) {
 		if c.UseEmulation {
 			logger := log.DefaultLogger()
@@ -692,6 +693,60 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		if len(vmi.Spec.Domain.Firmware.Serial) > 0 {
 			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
+		}
+	}
+	if c.SMBios != nil {
+		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,
+			Entry{
+				Name:  "manufacturer",
+				Value: c.SMBios.Manufacturer,
+			},
+			Entry{
+				Name:  "family",
+				Value: c.SMBios.Family,
+			},
+			Entry{
+				Name:  "product",
+				Value: c.SMBios.Product,
+			},
+			Entry{
+				Name:  "sku",
+				Value: c.SMBios.Sku,
+			},
+			Entry{
+				Name:  "version",
+				Value: c.SMBios.Version,
+			},
+		)
+	}
+
+	// Take SMBios values from the VirtualMachineOptions
+	domain.Spec.OS.SMBios = &SMBios{
+		Mode: "sysinfo",
+	}
+
+	if vmi.Spec.Domain.Chassis != nil {
+		domain.Spec.SysInfo.Chassis = []Entry{
+			{
+				Name:  "manufacturer",
+				Value: string(vmi.Spec.Domain.Chassis.Manufacturer),
+			},
+			{
+				Name:  "version",
+				Value: string(vmi.Spec.Domain.Chassis.Version),
+			},
+			{
+				Name:  "serial",
+				Value: string(vmi.Spec.Domain.Chassis.Serial),
+			},
+			{
+				Name:  "asset",
+				Value: string(vmi.Spec.Domain.Chassis.Asset),
+			},
+			{
+				Name:  "sku",
+				Value: string(vmi.Spec.Domain.Chassis.Sku),
+			},
 		}
 	}
 
@@ -765,24 +820,25 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	currentDedicatedThread := uint(autoThreads + 1)
 
 	var numQueues *uint
+	var numBlkQueues *uint
 	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
 	virtioNetMQRequested := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
-	if virtioBlkMQRequested || virtioNetMQRequested {
-		// Requested CPU's is guaranteed to be no greater than the limit
-		if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
-			numCPUs := uint(cpuRequests.Value())
-			numQueues = &numCPUs
-		} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
-			numCPUs := uint(cpuLimit.Value())
-			numQueues = &numCPUs
-		}
+	vcpus := uint(calculateRequestedVCPUs(domain.Spec.CPU.Topology))
+	if vcpus == 0 {
+		vcpus = uint(1)
+	}
+	if virtioNetMQRequested {
+		numQueues = &vcpus
+	}
+	if virtioBlkMQRequested {
+		numBlkQueues = &vcpus
 	}
 
 	devicePerBus := make(map[string]int)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
 
-		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus, numQueues)
+		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus, numBlkQueues)
 		if err != nil {
 			return err
 		}
@@ -835,28 +891,32 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.Devices.Rng = newRng
 	}
 
+	isUSBDevicePresent := false
+	if vmi.Spec.Domain.Devices.Inputs != nil {
+		inputDevices := make([]Input, 0)
+		for _, input := range vmi.Spec.Domain.Devices.Inputs {
+			inputDevice := Input{}
+			err := Convert_v1_Input_To_api_InputDevice(&input, &inputDevice, c)
+			if err != nil {
+				return err
+			}
+			inputDevices = append(inputDevices, inputDevice)
+			if inputDevice.Bus == "usb" {
+				isUSBDevicePresent = true
+			}
+		}
+		domain.Spec.Devices.Inputs = inputDevices
+	}
+
 	//usb controller is turned on, only when user specify input device with usb bus,
 	//otherwise it is turned off
-	if usbDeviceExists := isUSBDevicePresent(vmi); !usbDeviceExists {
+	if !isUSBDevicePresent {
 		// disable usb controller
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
 			Type:  "usb",
 			Index: "0",
 			Model: "none",
 		})
-	}
-
-	if vmi.Spec.Domain.Devices.Inputs != nil {
-		inputDevices := make([]Input, 0)
-		for _, input := range vmi.Spec.Domain.Devices.Inputs {
-			inputDevice := Input{}
-			err := Convert_v1_Input_To_api_InputDevice(&input, &inputDevice, c)
-			inputDevices = append(inputDevices, inputDevice)
-			if err != nil {
-				return err
-			}
-		}
-		domain.Spec.Devices.Inputs = inputDevices
 	}
 
 	if vmi.Spec.Domain.Clock != nil {
@@ -880,16 +940,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	err = Convert_v1_Machine_To_api_OSType(apiOst, &domain.Spec.OS.Type, c)
 	if err != nil {
 		return err
-	}
-
-	// Set VM CPU cores
-	// CPU topology will be created everytime, because user can specify
-	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
-	// in vmi.Spec.Domain.CPU
-	domain.Spec.CPU.Topology = getCPUTopology(vmi)
-	domain.Spec.VCPU = &VCPU{
-		Placement: "static",
-		CPUs:      calculateRequestedVCPUs(domain.Spec.CPU.Topology),
 	}
 
 	if vmi.Spec.Domain.CPU != nil {
@@ -926,6 +976,24 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				}
 
 			}
+		}
+	}
+
+	// Append HostDevices to DomXML if GPU is requested
+	if util.IsGPUVMI(vmi) {
+		vgpuMdevUUID := append([]string{}, c.VgpuDevices...)
+		hostDevices, err := createHostDevicesFromMdevUUIDList(vgpuMdevUUID)
+		if err != nil {
+			log.Log.Reason(err).Error("Unable to parse Mdev UUID addresses")
+		} else {
+			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevices...)
+		}
+		gpuPCIAddresses := append([]string{}, c.GpuDevices...)
+		hostDevices, err = createHostDevicesFromPCIAddresses(gpuPCIAddresses)
+		if err != nil {
+			log.Log.Reason(err).Error("Unable to parse PCI addresses")
+		} else {
+			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDevices...)
 		}
 	}
 
@@ -1158,7 +1226,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
 		}
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: "-fw_cfg"})
-		ignitionpath := fmt.Sprintf("%s/data.ign", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace))
+		ignitionpath := fmt.Sprintf("%s/%s", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), ignition.IgnitionFile)
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionpath)})
 	}
 	return nil
@@ -1439,4 +1507,47 @@ func decoratePciAddressField(addressField string) (*Address, error) {
 		Function: "0x" + dbsfFields[3],
 	}
 	return decoratedAddrField, nil
+}
+
+func createHostDevicesFromPCIAddresses(pcis []string) ([]HostDevice, error) {
+	var hds []HostDevice
+	for _, pciAddr := range pcis {
+		address, err := decoratePciAddressField(pciAddr)
+		if err != nil {
+			return nil, err
+		}
+
+		hostDev := HostDevice{
+			Source: HostDeviceSource{
+				Address: address,
+			},
+			Type:    "pci",
+			Managed: "yes",
+		}
+
+		hds = append(hds, hostDev)
+	}
+
+	return hds, nil
+}
+
+func createHostDevicesFromMdevUUIDList(mdevUuidList []string) ([]HostDevice, error) {
+	var hds []HostDevice
+	for _, mdevUuid := range mdevUuidList {
+		decoratedAddrField := &Address{
+			UUID: mdevUuid,
+		}
+
+		hostDev := HostDevice{
+			Source: HostDeviceSource{
+				Address: decoratedAddrField,
+			},
+			Type:  "mdev",
+			Mode:  "subsystem",
+			Model: "vfio-pci",
+		}
+		hds = append(hds, hostDev)
+	}
+
+	return hds, nil
 }

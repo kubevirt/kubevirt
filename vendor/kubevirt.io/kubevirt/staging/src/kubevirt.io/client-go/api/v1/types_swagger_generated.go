@@ -44,6 +44,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"conditions":      "Conditions are specific points in VirtualMachineInstance's pod runtime.",
 		"phase":           "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
 		"interfaces":      "Interfaces represent the details of available network interfaces.",
+		"guestOSInfo":     "Guest OS Information",
 		"migrationState":  "Represents the status of a live migration",
 		"migrationMethod": "Represents the method using which the vmi can be migrated: live migration or block migration",
 		"qosClass":        "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements\nSee PodQOSClass type for available QOS classes\nMore info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md\n+optional",
@@ -65,6 +66,19 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 		"name":          "Name of the interface, corresponds to name of the network assigned to the interface",
 		"ipAddresses":   "List of all IP addresses of a Virtual Machine interface",
 		"interfaceName": "The interface name inside the Virtual Machine",
+	}
+}
+
+func (VirtualMachineInstanceGuestOSInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name":          "Name of the Guest OS",
+		"kernelRelease": "Guest OS Kernel Release",
+		"version":       "Guest OS Version",
+		"prettyName":    "Guest OS Pretty Name",
+		"versionId":     "Version ID of the Guest OS",
+		"kernelVersion": "Kernel version of the Guest OS",
+		"machine":       "Machine type of the Guest OS",
+		"id":            "Guest OS Id",
 	}
 }
 
@@ -186,8 +200,7 @@ func (VirtualMachine) SwaggerDoc() map[string]string {
 
 func (VirtualMachineList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "VirtualMachineList is a list of virtualmachines",
-		"items": "Items is a list of VirtualMachines",
+		"": "VirtualMachineList is a list of virtualmachines",
 	}
 }
 

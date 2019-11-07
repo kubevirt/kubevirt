@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -689,6 +690,15 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	vmi.Spec = vm.Spec.Template.Spec
 
 	setupStableFirmwareUUID(vm, vmi)
+
+	vmi.ObjectMeta.Annotations = map[string]string{}
+	for k, v := range vm.Annotations {
+		if strings.Contains(k, "kubernetes.io") || strings.Contains(k, "kubevirt.io") {
+			// skip kubernetes and kubevirt internal annotations
+			continue
+		}
+		vmi.ObjectMeta.Annotations[k] = v
+	}
 
 	// TODO check if vmi labels exist, and when make sure that they match. For now just override them
 	vmi.ObjectMeta.Labels = vm.Spec.Template.ObjectMeta.Labels

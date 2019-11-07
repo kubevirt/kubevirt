@@ -170,6 +170,20 @@ type DomainSpec struct {
 	// One of: shared, auto
 	// +optional
 	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
+	// Chassis specifies the chassis info passed to the domain.
+	// +optional
+	Chassis *Chassis `json:"chassis,omitempty"`
+}
+
+// Chassis specifies the chassis info passed to the domain.
+// ---
+// +k8s:openapi-gen=true
+type Chassis struct {
+	Manufacturer string `json:"manufacturer,omitempty"`
+	Version      string `json:"version,omitempty"`
+	Serial       string `json:"serial,omitempty"`
+	Asset        string `json:"asset,omitempty"`
+	Sku          string `json:"sku,omitempty"`
 }
 
 // Represents the firmware blob used to assist in the domain creation process.
@@ -327,6 +341,9 @@ type Devices struct {
 	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature
 	// +optional
 	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
+	//Whether to attach a GPU device to the vmi.
+	// +optional
+	GPUs []GPU `json:"gpus,omitempty"`
 }
 
 // ---
@@ -340,6 +357,14 @@ type Input struct {
 	Type string `json:"type"`
 	// Name is the device name
 	Name string `json:"name"`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type GPU struct {
+	// Name of the GPU device as exposed by a device plugin
+	Name       string `json:"name"`
+	DeviceName string `json:"deviceName"`
 }
 
 // ---

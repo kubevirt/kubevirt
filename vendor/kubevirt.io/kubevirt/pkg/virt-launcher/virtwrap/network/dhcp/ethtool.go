@@ -2,9 +2,11 @@ package dhcp
 
 // Origin: https://github.com/weaveworks/weave/blob/master/net/ethtool.go
 
-import "fmt"
-import "syscall"
-import "unsafe"
+import (
+	"fmt"
+	"syscall"
+	"unsafe"
+)
 
 const (
 	SIOCETHTOOL     = 0x8946     // linux/sockios.h

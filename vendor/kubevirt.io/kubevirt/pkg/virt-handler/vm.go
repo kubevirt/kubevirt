@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -48,7 +47,10 @@ import (
 	"kubevirt.io/client-go/log"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	virtutil "kubevirt.io/kubevirt/pkg/util"
+	clusterutils "kubevirt.io/kubevirt/pkg/util/cluster"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -250,6 +252,15 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	oldStatus := vmi.DeepCopy().Status
 
 	if domain != nil {
+		if vmi.Status.GuestOSInfo.Name != domain.Status.OSInfo.Name {
+			vmi.Status.GuestOSInfo.Name = domain.Status.OSInfo.Name
+			vmi.Status.GuestOSInfo.Version = domain.Status.OSInfo.VersionId
+			vmi.Status.GuestOSInfo.KernelRelease = domain.Status.OSInfo.KernelRelease
+			vmi.Status.GuestOSInfo.PrettyName = domain.Status.OSInfo.PrettyName
+			vmi.Status.GuestOSInfo.VersionID = domain.Status.OSInfo.VersionId
+			vmi.Status.GuestOSInfo.KernelVersion = domain.Status.OSInfo.KernelVersion
+			vmi.Status.GuestOSInfo.ID = domain.Status.OSInfo.Id
+		}
 		// This is needed to be backwards compatible with vmi's which have status interfaces
 		// with the name not being set
 		if len(domain.Spec.Devices.Interfaces) == 0 && len(vmi.Status.Interfaces) == 1 && vmi.Status.Interfaces[0].Name == "" {
@@ -774,14 +785,16 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	// set true to ensure that no updates to the current VirtualMachineInstance state will occur
 	forceIgnoreSync := false
 
-	log.Log.V(3).Infof("Processing vmi %v, existing: %v\n", vmi.Name, vmiExists)
+	log.Log.Infof("Processing event %v", key)
 	if vmiExists {
-		log.Log.V(3).Infof("vmi is in phase: %v\n", vmi.Status.Phase)
+		log.Log.Object(vmi).Infof("VMI is in phase: %v\n", vmi.Status.Phase)
+	} else {
+		log.Log.Info("VMI does not exist")
 	}
-
-	log.Log.V(3).Infof("Domain: existing: %v\n", domainExists)
 	if domainExists {
-		log.Log.V(3).Infof("Domain status: %v, reason: %v\n", domain.Status.Status, domain.Status.Reason)
+		log.Log.Object(domain).Infof("Domain status: %v, reason: %v\n", domain.Status.Status, domain.Status.Reason)
+	} else {
+		log.Log.Info("Domain does not exist")
 	}
 
 	domainAlive := domainExists &&
@@ -1429,7 +1442,22 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 		}
 
-		err = client.SyncVirtualMachine(vmi)
+		err = d.podIsolationDetector.AdjustResources(vmi)
+		if err != nil {
+			return fmt.Errorf("failed to adjust resources: %v", err)
+		}
+
+		options := &cmdv1.VirtualMachineOptions{
+			VirtualMachineSMBios: &cmdv1.SMBios{
+				Family:       d.clusterConfig.GetSMBIOS().Family,
+				Product:      d.clusterConfig.GetSMBIOS().Product,
+				Manufacturer: d.clusterConfig.GetSMBIOS().Manufacturer,
+				Sku:          d.clusterConfig.GetSMBIOS().Sku,
+				Version:      d.clusterConfig.GetSMBIOS().Version,
+			},
+		}
+
+		err = client.SyncVirtualMachine(vmi, options)
 		if err != nil {
 			return err
 		}
@@ -1560,6 +1588,15 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 }
 
 func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan struct{}) {
+	// This is a temporary workaround until k8s bug #66525 is resolved
+	cpuManagerPath := virtutil.CPUManagerPath
+	if t, err := clusterutils.IsOnOpenShift(d.clientset); err != nil {
+		// in that case leave the default cpuManagerPath
+		log.DefaultLogger().Reason(err).Errorf("Unable to detect cluster provider on %s, setting a default cpuManager file path %s", d.host, cpuManagerPath)
+	} else if t && clusterutils.GetOpenShiftMajorVersion(d.clientset) == clusterutils.OpenShift3Major {
+		cpuManagerPath = virtutil.CPUManagerOS3Path
+	}
+
 	for {
 		wait.JitterUntil(func() {
 			now, err := json.Marshal(v12.Now())
@@ -1577,33 +1614,30 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 			// Label the node if cpu manager is running on it
 			// This is a temporary workaround until k8s bug #66525 is resolved
 			if d.clusterConfig.CPUManagerEnabled() {
-				d.updateNodeCpuManagerLabel()
+				d.updateNodeCpuManagerLabel(cpuManagerPath)
 			}
 		}, interval, 1.2, true, stopCh)
 	}
 }
 
-func (d *VirtualMachineController) updateNodeCpuManagerLabel() {
-	entries, err := filepath.Glob("/proc/*/cmdline")
+func (d *VirtualMachineController) updateNodeCpuManagerLabel(cpuManagerPath string) {
+	var cpuManagerOptions map[string]interface{}
+
+	content, err := ioutil.ReadFile(cpuManagerPath)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
+		return
+	}
+
+	err = json.Unmarshal(content, &cpuManagerOptions)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
 		return
 	}
 
 	isEnabled := false
-	for _, entry := range entries {
-		content, err := ioutil.ReadFile(entry)
-		if os.IsNotExist(err) {
-			// processes can disappear anytime, it is ok if they don't exist anymore
-			continue
-		} else if err != nil {
-			log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
-			return
-		}
-		if strings.Contains(string(content), "kubelet") && strings.Contains(string(content), "cpu-manager-policy=static") {
-			isEnabled = true
-			break
-		}
+	if v, ok := cpuManagerOptions["policyName"]; ok && v == "static" {
+		isEnabled = true
 	}
 
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%t"}}}`, v1.CPUManager, isEnabled))

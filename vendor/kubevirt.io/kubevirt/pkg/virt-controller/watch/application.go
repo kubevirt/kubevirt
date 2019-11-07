@@ -69,7 +69,7 @@ const (
 
 	ephemeralDiskDir = virtShareDir + "-ephemeral-disks"
 
-	controllerThreads = 3
+	defaultControllerThreads = 3
 )
 
 var (
@@ -128,6 +128,15 @@ type VirtControllerApp struct {
 	hasCDI bool
 	// the channel used to trigger re-initialization.
 	reInitChan chan string
+
+	// number of threads for each controller
+	nodeControllerThreads             int
+	vmiControllerThreads              int
+	rsControllerThreads               int
+	vmControllerThreads               int
+	migrationControllerThreads        int
+	evacuationControllerThreads       int
+	disruptionBudgetControllerThreads int
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -287,13 +296,20 @@ func (vca *VirtControllerApp) Run() {
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(ctx context.Context) {
 					vca.informerFactory.Start(stop)
-					go vca.evacuationController.Run(controllerThreads, stop)
-					go vca.disruptionBudgetController.Run(controllerThreads, stop)
-					go vca.nodeController.Run(controllerThreads, stop)
-					go vca.vmiController.Run(controllerThreads, stop)
-					go vca.rsController.Run(controllerThreads, stop)
-					go vca.vmController.Run(controllerThreads, stop)
-					go vca.migrationController.Run(controllerThreads, stop)
+
+					golog.Printf("STARTING controllers with following threads : "+
+						"node %d, vmi %d, replicaset %d, vm %d, migration %d, evacuation %d, disruptionBudget %d",
+						vca.nodeControllerThreads, vca.vmiControllerThreads, vca.rsControllerThreads,
+						vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
+						vca.disruptionBudgetControllerThreads)
+
+					go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
+					go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
+					go vca.nodeController.Run(vca.nodeControllerThreads, stop)
+					go vca.vmiController.Run(vca.vmiControllerThreads, stop)
+					go vca.rsController.Run(vca.rsControllerThreads, stop)
+					go vca.vmController.Run(vca.vmControllerThreads, stop)
+					go vca.migrationController.Run(vca.migrationControllerThreads, stop)
 					cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 					close(vca.readyChan)
 				},
@@ -421,6 +437,29 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")
+
 	flag.StringVar(&vca.containerDiskDir, "container-disk-dir", containerDiskDir,
 		"Base directory for container disk data")
+
+	// allows user-defined threads based on the underlying hardware in use
+	flag.IntVar(&vca.nodeControllerThreads, "node-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for node controller")
+
+	flag.IntVar(&vca.vmiControllerThreads, "vmi-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for vmi controller")
+
+	flag.IntVar(&vca.rsControllerThreads, "rs-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for replicaset controller")
+
+	flag.IntVar(&vca.vmControllerThreads, "vm-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for vm controller")
+
+	flag.IntVar(&vca.migrationControllerThreads, "migration-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for migration controller")
+
+	flag.IntVar(&vca.evacuationControllerThreads, "evacuation-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for evacuation controller")
+
+	flag.IntVar(&vca.disruptionBudgetControllerThreads, "disruption-budget-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for disruption budget controller")
 }

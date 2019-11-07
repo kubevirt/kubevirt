@@ -43,13 +43,15 @@ import (
 )
 
 const (
-	cloudInitUserMaxLen = 2048
-	arrayLenMax         = 256
-	maxStrLen           = 256
+	arrayLenMax = 256
+	maxStrLen   = 256
 
-	// cloudInitNetworkMaxLen size is an arbitrary limit. It was selected to
-	// accommodate a reasonable number of interfaces and routes.
-	cloudInitNetworkMaxLen = 16384
+	// cloudInitNetworkMaxLen and CloudInitUserMaxLen are being limited
+	// to 2K to allow scaling of config as edits will cause entire object
+	// to be distributed to large no of nodes. For larger than 2K, user should
+	// use NetworkDataSecretRef and UserDataSecretRef
+	cloudInitUserMaxLen    = 2048
+	cloudInitNetworkMaxLen = 2048
 
 	// Copied from kubernetes/pkg/apis/core/validation/validation.go
 	maxDNSNameservers     = 3
@@ -57,9 +59,9 @@ const (
 	maxDNSSearchListChars = 256
 )
 
-var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
+var validInterfaceModels = map[string]*struct{}{"e1000": nil, "e1000e": nil, "ne2k_pci": nil, "pcnet": nil, "rtl8139": nil, "virtio": nil}
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
-var validCPUFeaturePolicies = []string{"", "force", "require", "optional", "disable", "forbid"}
+var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
 
 type VMICreateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
@@ -426,16 +428,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	// Validate CPU Feature Policies
 	if spec.Domain.CPU != nil && spec.Domain.CPU.Features != nil {
-		isValidPolicy := func(policy string) bool {
-			for _, p := range validCPUFeaturePolicies {
-				if p == policy {
-					return true
-				}
-			}
-			return false
-		}
 		for idx, feature := range spec.Domain.CPU.Features {
-			if !isValidPolicy(feature.Policy) {
+			if _, exists := validCPUFeaturePolicies[feature.Policy]; !exists {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueNotSupported,
 					Message: fmt.Sprintf("CPU feature %s uses policy %s that is not supported.", feature.Name, feature.Policy),
@@ -517,316 +511,323 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
-	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
-		multusDefaultCount := 0
-		multusExists := false
-		genieExists := false
-		podExists := false
+	multusDefaultCount := 0
+	multusExists := false
+	genieExists := false
+	podExists := false
 
-		for idx, network := range spec.Networks {
+	for idx, network := range spec.Networks {
 
-			cniTypesCount := 0
-			// network name not needed by default
-			networkNameExistsOrNotNeeded := true
+		cniTypesCount := 0
+		// network name not needed by default
+		networkNameExistsOrNotNeeded := true
 
-			if network.Pod != nil {
-				cniTypesCount++
-				podExists = true
-			}
-
-			if network.NetworkSource.Multus != nil {
-				cniTypesCount++
-				multusExists = true
-				networkNameExistsOrNotNeeded = network.Multus.NetworkName != ""
-				if network.NetworkSource.Multus.Default {
-					multusDefaultCount++
-				}
-			}
-
-			if network.NetworkSource.Genie != nil {
-				cniTypesCount++
-				genieExists = true
-				networkNameExistsOrNotNeeded = network.Genie.NetworkName != ""
-			}
-
-			if cniTypesCount == 0 {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("should have a network type"),
-					Field:   field.Child("networks").Index(idx).String(),
-				})
-			} else if cniTypesCount > 1 {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("should have only one network type"),
-					Field:   field.Child("networks").Index(idx).String(),
-				})
-			} else if genieExists && (podExists || multusExists) {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("cannot combine Genie with other CNIs across networks"),
-					Field:   field.Child("networks").Index(idx).String(),
-				})
-			}
-
-			if !networkNameExistsOrNotNeeded {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("CNI delegating plugin must have a networkName"),
-					Field:   field.Child("networks").Index(idx).String(),
-				})
-			}
-
-			networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]
+		if network.Pod != nil {
+			cniTypesCount++
+			podExists = true
 		}
 
-		if multusDefaultCount > 1 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Multus CNI should only have one default network"),
-				Field:   field.Child("networks").String(),
-			})
-		}
-
-		if podExists && multusDefaultCount > 0 {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Pod network cannot be defined when Multus default network is defined"),
-				Field:   field.Child("networks").String(),
-			})
-		}
-
-		// Make sure interfaces and networks are 1to1 related
-		networkInterfaceMap := make(map[string]struct{})
-
-		// Make sure the port name is unique across all the interfaces
-		portForwardMap := make(map[string]struct{})
-
-		vifMQ := spec.Domain.Devices.NetworkInterfaceMultiQueue
-		isVirtioNicRequested := false
-
-		// Validate that each interface has a matching network
-		for idx, iface := range spec.Domain.Devices.Interfaces {
-
-			networkData, networkExists := networkNameMap[iface.Name]
-
-			if !networkExists {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s '%s' not found.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-				})
-			} else if iface.Slirp != nil && networkData.Pod == nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("Slirp interface only implemented with pod network"),
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-				})
-			} else if iface.Slirp != nil && networkData.Pod != nil && !config.IsSlirpInterfaceEnabled() {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("Slirp interface is not enabled in kubevirt-config"),
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-				})
-			} else if iface.Masquerade != nil && networkData.Pod == nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("Masquerade interface only implemented with pod network"),
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-				})
-			}
-
-			// Check if the interface name is unique
-			if _, networkAlreadyUsed := networkInterfaceMap[iface.Name]; networkAlreadyUsed {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueDuplicate,
-					Message: fmt.Sprintf("Only one interface can be connected to one specific network"),
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-				})
-			}
-
-			networkInterfaceMap[iface.Name] = struct{}{}
-
-			// Check only ports configured on interfaces connected to a pod network
-			if networkExists && networkData.Pod != nil && iface.Ports != nil {
-				for portIdx, forwardPort := range iface.Ports {
-
-					if forwardPort.Port == 0 {
-						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueRequired,
-							Message: fmt.Sprintf("Port field is mandatory in every Port"),
-							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
-						})
-					}
-
-					if forwardPort.Port < 0 || forwardPort.Port > 65536 {
-						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("Port field must be in range 0 < x < 65536."),
-							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
-						})
-					}
-
-					if forwardPort.Protocol != "" {
-						if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
-							causes = append(causes, metav1.StatusCause{
-								Type:    metav1.CauseTypeFieldValueInvalid,
-								Message: fmt.Sprintf("Unknown protocol, only TCP or UDP allowed"),
-								Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
-							})
-						}
-					} else {
-						forwardPort.Protocol = "TCP"
-					}
-
-					if forwardPort.Name != "" {
-						if _, ok := portForwardMap[forwardPort.Name]; ok {
-							causes = append(causes, metav1.StatusCause{
-								Type:    metav1.CauseTypeFieldValueDuplicate,
-								Message: fmt.Sprintf("Duplicate name of the port: %s", forwardPort.Name),
-								Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
-							})
-						}
-
-						if msgs := validation.IsValidPortName(forwardPort.Name); len(msgs) != 0 {
-							causes = append(causes, metav1.StatusCause{
-								Type:    metav1.CauseTypeFieldValueInvalid,
-								Message: fmt.Sprintf("Invalid name of the port: %s", forwardPort.Name),
-								Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
-							})
-						}
-
-						portForwardMap[forwardPort.Name] = struct{}{}
-					}
-				}
-			}
-
-			// verify that selected model is supported
-			if iface.Model != "" {
-				isModelSupported := func(model string) bool {
-					for _, m := range validInterfaceModels {
-						if m == model {
-							return true
-						}
-					}
-					return false
-				}
-				if !isModelSupported(iface.Model) {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueNotSupported,
-						Message: fmt.Sprintf("interface %s uses model %s that is not supported.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Model),
-						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("model").String(),
-					})
-				}
-			}
-
-			// verify that selected macAddress is valid
-			if iface.MacAddress != "" {
-				mac, err := net.ParseMAC(iface.MacAddress)
-				if err != nil {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("interface %s has malformed MAC address (%s).", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
-						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
-					})
-				}
-				if len(mac) > 6 {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("interface %s has MAC address (%s) that is too long.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
-						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
-					})
-				}
-			}
-
-			if iface.BootOrder != nil {
-				order := *iface.BootOrder
-				// Verify boot order is greater than 0, if provided
-				if order < 1 {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
-						Field:   field.Index(idx).Child("bootOrder").String(),
-					})
-				} else {
-					// verify that there are no duplicate boot orders
-					if bootOrderMap[order] {
-						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("Boot order for %s already set for a different device.", field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String()),
-							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String(),
-						})
-					}
-					bootOrderMap[order] = true
-				}
-			}
-			// verify that the specified pci address is valid
-			if iface.PciAddress != "" {
-				_, err := util.ParsePciAddress(iface.PciAddress)
-				if err != nil {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("interface %s has malformed PCI address (%s).", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.PciAddress),
-						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("pciAddress").String(),
-					})
-				}
-			}
-			// verify that the extra dhcp options are valid
-			if iface.DHCPOptions != nil {
-				PrivateOptions := iface.DHCPOptions.PrivateOptions
-				err := ValidateDuplicateDHCPPrivateOptions(PrivateOptions)
-				if err != nil {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("Found Duplicates: %v", err),
-						Field:   field.String(),
-					})
-					return causes
-				}
-				for _, DHCPPrivateOption := range PrivateOptions {
-					if !(DHCPPrivateOption.Option >= 224 && DHCPPrivateOption.Option <= 254) {
-						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: "provided DHCPPrivateOptions are out of range, must be in range 224 to 254",
-							Field:   field.String(),
-						})
-					}
-				}
-			}
-
-			if iface.Model == "virtio" || iface.Model == "" {
-				isVirtioNicRequested = true
-			}
-
-			if iface.DHCPOptions != nil {
-				for index, ip := range iface.DHCPOptions.NTPServers {
-					if net.ParseIP(ip).To4() == nil {
-						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: fmt.Sprintf("NTP servers must be a valid IPv4 address."),
-							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("dhcpOptions", "ntpServers").Index(index).String(),
-						})
-					}
-				}
+		if network.NetworkSource.Multus != nil {
+			cniTypesCount++
+			multusExists = true
+			networkNameExistsOrNotNeeded = network.Multus.NetworkName != ""
+			if network.NetworkSource.Multus.Default {
+				multusDefaultCount++
 			}
 		}
-		// Network interface multiqueue can only be set for a virtio driver
-		if vifMQ != nil && *vifMQ && !isVirtioNicRequested {
 
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("virtio-net multiqueue request, but there are no virtio interfaces defined"),
-				Field:   field.Child("domain", "devices", "networkInterfaceMultiqueue").String(),
-			})
-
+		if network.NetworkSource.Genie != nil {
+			cniTypesCount++
+			genieExists = true
+			networkNameExistsOrNotNeeded = network.Genie.NetworkName != ""
 		}
 
-		// Validate that every network was assign to an interface
-		if len(networkInterfaceMap) != len(networkNameMap) {
+		if cniTypesCount == 0 {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
-				Message: fmt.Sprintf("every network must be mapped to an interface."),
-				Field:   field.Child("networks").String(),
+				Message: "should have a network type",
+				Field:   field.Child("networks").Index(idx).String(),
+			})
+		} else if cniTypesCount > 1 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "should have only one network type",
+				Field:   field.Child("networks").Index(idx).String(),
+			})
+		} else if genieExists && (podExists || multusExists) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "cannot combine Genie with other CNIs across networks",
+				Field:   field.Child("networks").Index(idx).String(),
+			})
+		}
+
+		if !networkNameExistsOrNotNeeded {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "CNI delegating plugin must have a networkName",
+				Field:   field.Child("networks").Index(idx).String(),
+			})
+		}
+
+		networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]
+	}
+
+	if multusDefaultCount > 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Multus CNI should only have one default network",
+			Field:   field.Child("networks").String(),
+		})
+	}
+
+	if podExists && multusDefaultCount > 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Pod network cannot be defined when Multus default network is defined",
+			Field:   field.Child("networks").String(),
+		})
+	}
+
+	// Make sure interfaces and networks are 1to1 related
+	networkInterfaceMap := make(map[string]struct{})
+
+	// Make sure the port name is unique across all the interfaces
+	portForwardMap := make(map[string]struct{})
+
+	vifMQ := spec.Domain.Devices.NetworkInterfaceMultiQueue
+	isVirtioNicRequested := false
+
+	// Validate that each interface has a matching network
+	for idx, iface := range spec.Domain.Devices.Interfaces {
+
+		networkData, networkExists := networkNameMap[iface.Name]
+
+		if !networkExists {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s '%s' not found.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+			})
+		} else if iface.Slirp != nil && networkData.Pod == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Slirp interface only implemented with pod network",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+			})
+		} else if iface.Slirp != nil && networkData.Pod != nil && !config.IsSlirpInterfaceEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Slirp interface is not enabled in kubevirt-config",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+			})
+		} else if iface.Masquerade != nil && networkData.Pod == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Masquerade interface only implemented with pod network",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+			})
+		} else if iface.InterfaceBindingMethod.Bridge != nil && networkData.NetworkSource.Pod != nil && !config.IsBridgeInterfaceOnPodNetworkEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Bridge on pod network configuration is not enabled under kubevirt-config",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+			})
+		}
+
+		// Check if the interface name is unique
+		if _, networkAlreadyUsed := networkInterfaceMap[iface.Name]; networkAlreadyUsed {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: "Only one interface can be connected to one specific network",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+			})
+		}
+
+		networkInterfaceMap[iface.Name] = struct{}{}
+
+		// Check only ports configured on interfaces connected to a pod network
+		if networkExists && networkData.Pod != nil && iface.Ports != nil {
+			for portIdx, forwardPort := range iface.Ports {
+
+				if forwardPort.Port == 0 {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueRequired,
+						Message: "Port field is mandatory.",
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
+					})
+				}
+
+				if forwardPort.Port < 0 || forwardPort.Port > 65536 {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: "Port field must be in range 0 < x < 65536.",
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).String(),
+					})
+				}
+
+				if forwardPort.Protocol != "" {
+					if forwardPort.Protocol != "TCP" && forwardPort.Protocol != "UDP" {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: "Unknown protocol, only TCP or UDP allowed",
+							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("protocol").String(),
+						})
+					}
+				} else {
+					forwardPort.Protocol = "TCP"
+				}
+
+				if forwardPort.Name != "" {
+					if _, ok := portForwardMap[forwardPort.Name]; ok {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueDuplicate,
+							Message: fmt.Sprintf("Duplicate name of the port: %s", forwardPort.Name),
+							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
+						})
+					}
+
+					if msgs := validation.IsValidPortName(forwardPort.Name); len(msgs) != 0 {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: fmt.Sprintf("Invalid name of the port: %s", forwardPort.Name),
+							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
+						})
+					}
+
+					portForwardMap[forwardPort.Name] = struct{}{}
+				}
+			}
+		}
+
+		// verify that selected model is supported
+		if iface.Model != "" {
+			if _, exists := validInterfaceModels[iface.Model]; !exists {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: fmt.Sprintf("interface %s uses model %s that is not supported.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Model),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("model").String(),
+				})
+			}
+		}
+
+		// verify that selected macAddress is valid
+		if iface.MacAddress != "" {
+			mac, err := net.ParseMAC(iface.MacAddress)
+			if err != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("interface %s has malformed MAC address (%s).", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
+				})
+			}
+			if len(mac) > 6 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("interface %s has MAC address (%s) that is too long.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.MacAddress),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
+				})
+			}
+		}
+
+		if iface.BootOrder != nil {
+			order := *iface.BootOrder
+			// Verify boot order is greater than 0, if provided
+			if order < 1 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
+					Field:   field.Index(idx).Child("bootOrder").String(),
+				})
+			} else {
+				// verify that there are no duplicate boot orders
+				if bootOrderMap[order] {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("Boot order for %s already set for a different device.", field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String()),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String(),
+					})
+				}
+				bootOrderMap[order] = true
+			}
+		}
+		// verify that the specified pci address is valid
+		if iface.PciAddress != "" {
+			_, err := util.ParsePciAddress(iface.PciAddress)
+			if err != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("interface %s has malformed PCI address (%s).", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.PciAddress),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("pciAddress").String(),
+				})
+			}
+		}
+		// verify that the extra dhcp options are valid
+		if iface.DHCPOptions != nil {
+			PrivateOptions := iface.DHCPOptions.PrivateOptions
+			err := ValidateDuplicateDHCPPrivateOptions(PrivateOptions)
+			if err != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("Found Duplicates: %v", err),
+					Field:   field.String(),
+				})
+				return causes
+			}
+			for _, DHCPPrivateOption := range PrivateOptions {
+				if !(DHCPPrivateOption.Option >= 224 && DHCPPrivateOption.Option <= 254) {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: "provided DHCPPrivateOptions are out of range, must be in range 224 to 254",
+						Field:   field.String(),
+					})
+				}
+			}
+		}
+
+		if iface.Model == "virtio" || iface.Model == "" {
+			isVirtioNicRequested = true
+		}
+
+		if iface.DHCPOptions != nil {
+			for index, ip := range iface.DHCPOptions.NTPServers {
+				if net.ParseIP(ip).To4() == nil {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: "NTP servers must be a list of valid IPv4 addresses.",
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("dhcpOptions", "ntpServers").Index(index).String(),
+					})
+				}
+			}
+		}
+	}
+	// Network interface multiqueue can only be set for a virtio driver
+	if vifMQ != nil && *vifMQ && !isVirtioNicRequested {
+
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "virtio-net multiqueue request, but there are no virtio interfaces defined",
+			Field:   field.Child("domain", "devices", "networkInterfaceMultiqueue").String(),
+		})
+
+	}
+
+	// Validate that every network was assign to an interface
+	networkDuplicates := map[string]struct{}{}
+	for i, network := range spec.Networks {
+		if _, exists := networkDuplicates[network.Name]; exists {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("Network with name %q already exists, every network must have a unique name", network.Name),
+				Field:   field.Child("networks").Index(i).Child("name").String(),
+			})
+		}
+		networkDuplicates[network.Name] = struct{}{}
+		if _, exists := networkInterfaceMap[network.Name]; !exists {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("%s '%s' not found.", field.Child("networks").Index(i).Child("name").String(), network.Name),
+				Field:   field.Child("networks").Index(i).Child("name").String(),
 			})
 		}
 	}
@@ -835,7 +836,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Input device can have only virtio or usb bus."),
+				Message: "Input device can have only virtio or usb bus.",
 				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("bus").String(),
 			})
 		}
@@ -843,29 +844,11 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		if input.Type != "tablet" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Input device can have only tablet type."),
+				Message: "Input device can have only tablet type.",
 				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("type").String(),
 			})
 		}
 	}
-	_, requestOk := spec.Domain.Resources.Requests[k8sv1.ResourceCPU]
-	_, limitOK := spec.Domain.Resources.Limits[k8sv1.ResourceCPU]
-	isCPUResourcesSet := (requestOk == true) || (limitOK == true)
-	if !isCPUResourcesSet && (spec.Domain.Devices.BlockMultiQueue != nil) && (*spec.Domain.Devices.BlockMultiQueue == true) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("MultiQueue for block devices can't be used without specifying CPU requests or limits."),
-			Field:   field.Child("domain", "devices", "blockMultiQueue").String(),
-		})
-	}
-	if !isCPUResourcesSet && (spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*spec.Domain.Devices.NetworkInterfaceMultiQueue == true) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("MultiQueue for network interfaces can't be used without specifying CPU requests or limits."),
-			Field:   field.Child("domain", "devices", "networkInterfaceMultiqueue").String(),
-		})
-	}
-
 	if spec.Domain.IOThreadsPolicy != nil {
 		isValidPolicy := func(policy v1.IOThreadsPolicy) bool {
 			for _, p := range validIOThreadsPolicies {
@@ -963,6 +946,14 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			})
 		}
 
+	}
+
+	if spec.Domain.Devices.GPUs != nil && !config.GPUPassthroughEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("GPU feature gate is not enabled in kubevirt-config"),
+			Field:   field.Child("GPUs").String(),
+		})
 	}
 
 	return causes
@@ -1331,7 +1322,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if userDataLen > cloudInitUserMaxLen {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s userdata exceeds %d byte limit", field.Index(idx).Child(dataSourceType).String(), cloudInitUserMaxLen),
+					Message: fmt.Sprintf("%s userdata exceeds %d byte limit. Should use UserDataSecretRef for larger data.", field.Index(idx).Child(dataSourceType).String(), cloudInitUserMaxLen),
 					Field:   field.Index(idx).Child(dataSourceType).String(),
 				})
 			}
@@ -1367,7 +1358,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			if networkDataLen > cloudInitNetworkMaxLen {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s networkdata exceeds %d byte limit", field.Index(idx).Child(dataSourceType).String(), cloudInitNetworkMaxLen),
+					Message: fmt.Sprintf("%s networkdata exceeds %d byte limit. Should use NetworkDataSecretRef for larger data.", field.Index(idx).Child(dataSourceType).String(), cloudInitNetworkMaxLen),
 					Field:   field.Index(idx).Child(dataSourceType).String(),
 				})
 			}
@@ -1495,7 +1486,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		if disk.Floppy != nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: fmt.Sprintf("Floppy disks are deprecated and will be removed from the API soon."),
+				Message: "Floppy disks are deprecated and will be removed from the API soon.",
 				Field:   field.Index(idx).Child("name").String(),
 			})
 		}

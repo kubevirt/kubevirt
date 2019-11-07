@@ -88,7 +88,7 @@ metadata:
     categories: OpenShift Optional
     certified: 'false'
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: 2019-11-05 06:34:07.576911673 -0500 EST m=+0.025574981
+    createdAt: 2019-11-06 22:15:45.109399242 +0100 CET m=+0.040846896
     description: Creates and maintains a HyperConverged KubeVirt Deployment
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: 'false'
@@ -496,6 +496,12 @@ spec:
               verbs:
               - put
             - apiGroups:
+              - ""
+              resources:
+              - namespaces
+              verbs:
+              - get
+            - apiGroups:
               - admissionregistration.k8s.io
               resources:
               - validatingwebhookconfigurations
@@ -524,8 +530,17 @@ spec:
               resources:
               - virtualmachines
               - virtualmachineinstances
+              verbs:
+              - get
+              - list
+              - watch
+              - patch
+            - apiGroups:
+              - kubevirt.io
+              resources:
               - virtualmachineinstancemigrations
               verbs:
+              - create
               - get
               - list
               - watch
@@ -1115,6 +1130,7 @@ spec:
             - apps
             resources:
             - deployments
+            - deployment/finalizers
             - replicasets
             - daemonsets
             - statefulsets
@@ -1323,12 +1339,12 @@ spec:
                   - "2"
                   env:
                   - name: OPERATOR_IMAGE
-                    value: kubevirt/virt-operator:v0.20.8
+                    value: kubevirt/virt-operator:v0.23.0
                   - name: WATCH_NAMESPACE
                     valueFrom:
                       fieldRef:
                         fieldPath: metadata.annotations['olm.targetNamespaces']
-                  image: kubevirt/virt-operator:v0.20.8
+                  image: kubevirt/virt-operator:v0.23.0
                   imagePullPolicy: IfNotPresent
                   name: virt-operator
                   ports:
@@ -1478,7 +1494,7 @@ spec:
                       - name: WATCH_NAMESPACE
                         value: ""
                       - name: VIRT_LAUNCHER_TAG
-                        value: v0.20.8
+                        value: v0.23.0
                       - name: OPERATOR_NAME
                         value: "kubevirt-ssp-operator"
 
@@ -1542,11 +1558,6 @@ spec:
         kind: NetworkAddonsConfig
         displayName: Cluster Network Addons
         description: Cluster Network Addons
-      - name: machineremediationoperators.machineremediation.kubevirt.io
-        version: v1alpha1
-        kind: MachineRemediationOperator
-        displayName: Machine Remediation Operator deployment
-        description: Represents a Machine Remediation Operator deployment
       - name: kubevirtcommontemplatesbundles.kubevirt.io
         version: v1
         kind: KubevirtCommonTemplatesBundle
