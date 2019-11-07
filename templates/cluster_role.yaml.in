@@ -11,12 +11,16 @@ metadata:
 rules:
 - apiGroups:
   - kubevirt.io
-  - oauth.openshift.io
   - template.openshift.io
   resources:
   - '*'
   verbs:
-  - '*'
+  - create 
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - monitoring.coreos.com
   resources:
@@ -33,11 +37,8 @@ rules:
   - clusterroles
   verbs:
   - create
-  - get
-  - list
   - watch
   - patch
-  - update
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -48,7 +49,6 @@ rules:
   - list
   - watch
   - patch
-  - update
 - apiGroups:
   - extensions
   - apps
@@ -57,40 +57,40 @@ rules:
   - deployments/finalizers
   - replicasets
   - daemonsets
-  - statefulsets
   verbs:
-  - '*'
+  - create
+  - update
+  - get
+  - list
+  - patch
+  - watch
 - apiGroups:
   - ""
   resources:
   - serviceaccounts
   - configmaps
-  - nodes
-  - endpoints
-  - events
-  - secrets
+  - services
   verbs:
   - create
   - get
   - patch
-  - update
   - list
   - watch
 - apiGroups:
   - ""
   resources:
-  - pods
+  - nodes
   verbs:
-  - '*'
+  - get
+  - patch
+  - update
 - apiGroups:
   - ""
   resources:
-  - services
+  - pods
   verbs:
-  - create
   - get
   - list
-  - patch
   - watch
 - apiGroups:
   - ""
@@ -115,7 +115,7 @@ rules:
   resources:
   - securitycontextconstraints
   verbs:
-  - '*'
+  - 'use'
   resourceNames:
   - privileged
 

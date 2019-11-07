@@ -224,12 +224,16 @@ spec:
           rules:
           - apiGroups:
             - kubevirt.io
-            - oauth.openshift.io
             - template.openshift.io
             resources:
             - '*'
             verbs:
-            - '*'
+            - create 
+            - get
+            - list
+            - patch
+            - update
+            - watch
           - apiGroups:
             - monitoring.coreos.com
             resources:
@@ -246,11 +250,8 @@ spec:
             - clusterroles
             verbs:
             - create
-            - get
-            - list
             - watch
             - patch
-            - update
           - apiGroups:
             - rbac.authorization.k8s.io
             resources:
@@ -261,7 +262,6 @@ spec:
             - list
             - watch
             - patch
-            - update
           - apiGroups:
             - extensions
             - apps
@@ -270,40 +270,40 @@ spec:
             - deployment/finalizers
             - replicasets
             - daemonsets
-            - statefulsets
             verbs:
-            - '*'
+            - create
+            - update
+            - get
+            - list
+            - patch
+            - watch
           - apiGroups:
             - ""
             resources:
             - serviceaccounts
             - configmaps
-            - nodes
-            - endpoints
-            - events
-            - secrets
+            - services
             verbs:
             - create
             - get
             - patch
-            - update
             - list
             - watch
           - apiGroups:
             - ""
             resources:
-            - pods
+            - nodes
             verbs:
-            - '*'
+            - get
+            - patch
+            - update
           - apiGroups:
             - ""
             resources:
-            - services
+            - pods
             verbs:
-            - create
             - get
             - list
-            - patch
             - watch
           - apiGroups:
             - ""
@@ -328,7 +328,7 @@ spec:
             resources:
             - securitycontextconstraints
             verbs:
-            - '*'
+            - 'use'
             resourceNames:
             - privileged
 
