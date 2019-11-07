@@ -129,13 +129,16 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 func usage() string {
 	usage := `  # Upload a local disk image to a newly created DataVolume:
-  {{ProgramName}} image-upload dv upload-dv --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --size=10Gi --image-path=/images/fedora30.qcow2
+  {{ProgramName}} image-upload dv dv-name --size=10Gi --image-path=/images/fedora30.qcow2
 
   # Upload a local disk image to an exististing DataVolume
-  {{ProgramName}} image-upload dv upload-dv --no-create --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --image-path=/images/fedora30.qcow2
+  {{ProgramName}} image-upload dv dv-name --no-create --image-path=/images/fedora30.qcow2
 
   # Upload a local disk image to an exististing PersistentVolumeClaim
-  {{ProgramName}} image-upload pvc upload-pvc --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --image-path=/images/fedora30.qcow2`
+  {{ProgramName}} image-upload pvc pvc-name --image-path=/images/fedora30.qcow2
+
+  # Upload to a DataVolume with explicit URL to CDI Upload Proxy
+  {{ProgramName}} image-upload dv dv-name --uploadproxy-url=https://cdi-uploadproxy.mycluster.com --image-path=/images/fedora30.qcow2`
 	return usage
 }
 
