@@ -31,7 +31,6 @@ import (
 
 const (
 	WebsocketMessageBufferSize = 10240
-	wsFrameHeaderSize          = 2 + 8 + 4 // Fixed header + length + mask (RFC 6455)
 )
 
 func NewUpgrader() *websocket.Upgrader {
@@ -55,24 +54,16 @@ func Dial(address string, tlsConfig *tls.Config) (*websocket.Conn, *http.Respons
 	return dialer.Dial(address, nil)
 }
 
-func Copy(dst *websocket.Conn, src *websocket.Conn) (written int64, err error) {
-	return copy(&binaryWriter{conn: dst}, &binaryReader{conn: src})
+func Copy(dst *websocket.Conn, src *websocket.Conn) (int64, error) {
+	return io.Copy(dst.UnderlyingConn(), src.UnderlyingConn())
 }
 
 func CopyFrom(dst io.Writer, src *websocket.Conn) (written int64, err error) {
-	return copy(dst, &binaryReader{conn: src})
+	return io.Copy(dst, &binaryReader{conn: src})
 }
 
 func CopyTo(dst *websocket.Conn, src io.Reader) (written int64, err error) {
-	return copy(&binaryWriter{conn: dst}, src)
-}
-
-func copy(dst io.Writer, src io.Reader) (written int64, err error) {
-	// our websocket package has an issue where it truncates messages
-	// when the message+header is greater than the buffer size we allocate.
-	// thus, we copy in chunks of WebsocketMessageBufferSize-wsFrameHeaderSize
-	buf := make([]byte, WebsocketMessageBufferSize-wsFrameHeaderSize)
-	return io.CopyBuffer(dst, src, buf)
+	return io.Copy(&binaryWriter{conn: dst}, src)
 }
 
 type binaryWriter struct {
@@ -85,27 +76,48 @@ func (s *binaryWriter) Write(p []byte) (int, error) {
 		return 0, convert(err)
 	}
 	defer w.Close()
-	return w.Write(p)
+	n, err := w.Write(p)
+	return n, err
 }
 
 type binaryReader struct {
-	conn *websocket.Conn
+	conn   *websocket.Conn
+	reader io.Reader
 }
 
 func (s *binaryReader) Read(p []byte) (int, error) {
+	var msgType int
+	var err error
 	for {
-		msgType, r, err := s.conn.NextReader()
+		if s.reader == nil {
+			msgType, s.reader, err = s.conn.NextReader()
+		} else {
+			msgType = websocket.BinaryMessage
+		}
 		if err != nil {
+			s.reader = nil
 			return 0, convert(err)
 		}
 
 		switch msgType {
 		case websocket.BinaryMessage:
-			n, err := r.Read(p)
+			n, readErr := s.reader.Read(p)
+			err = readErr
+			if err != nil {
+				s.reader = nil
+				if err == io.EOF {
+					if n == 0 {
+						continue
+					} else {
+						return n, nil
+					}
+				}
+			}
 			return n, convert(err)
-
 		case websocket.CloseMessage:
 			return 0, io.EOF
+		default:
+			s.reader = nil
 		}
 	}
 }
