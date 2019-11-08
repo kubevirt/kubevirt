@@ -61,7 +61,7 @@ and learn more about the major components by taking a look at
 
  * [Architecture](docs/architecture.md) - High-level view on the architecture
  * [Components](docs/components.md) - Detailed look at all components
- * [API Reference](https://www.kubevirt.io/api-reference/)
+ * [API Reference](https://kubevirt.io/api-reference/)
 
 
 # Community
