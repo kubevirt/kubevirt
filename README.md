@@ -127,7 +127,7 @@ $ export KUBEVIRT_PROVIDER="okd-4.1"
 ```
 2. Navigate to the project's directory
 ```bash
-$ cd <path>/hyperconverged-cluster-opertor
+$ cd <path>/hyperconverged-cluster-operator
 ```
 3. Remove an old cluster
 ```bash
