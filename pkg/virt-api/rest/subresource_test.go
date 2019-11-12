@@ -20,10 +20,12 @@
 package rest
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 
 	"github.com/onsi/ginkgo/extensions/table"
 
@@ -60,6 +62,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		flag.Set("kubeconfig", "")
 		flag.Set("master", server.URL())
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+		app.credentialsLock = &sync.Mutex{}
+		app.handlerTLSConfiguration = &tls.Config{}
 
 		request = restful.NewRequest(&http.Request{})
 		response = restful.NewResponse(httptest.NewRecorder())
@@ -77,31 +81,35 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		)
 	})
 
+	expectHandlerPod := func() {
+		pod := &k8sv1.Pod{}
+		pod.Labels = map[string]string{}
+		pod.Labels[v1.AppLabel] = "virt-handler"
+		pod.ObjectMeta.Name = "madeup-name"
+
+		pod.Spec.NodeName = "mynode"
+		pod.Status.Phase = k8sv1.PodRunning
+		pod.Status.PodIP = "10.35.1.1"
+
+		podList := k8sv1.PodList{}
+		podList.Items = []k8sv1.Pod{}
+		podList.Items = append(podList.Items, *pod)
+
+		server.AppendHandlers(
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/pods"),
+				ghttp.RespondWithJSONEncoded(http.StatusOK, podList),
+			),
+		)
+	}
+
 	Context("Subresource api", func() {
 		It("should find matching pod for running VirtualMachineInstance", func(done Done) {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
-			pod := &k8sv1.Pod{}
-			pod.Labels = map[string]string{}
-			pod.Labels[v1.AppLabel] = "virt-handler"
-			pod.ObjectMeta.Name = "madeup-name"
-
-			pod.Spec.NodeName = "mynode"
-			pod.Status.Phase = k8sv1.PodRunning
-			pod.Status.PodIP = "10.35.1.1"
-
-			podList := k8sv1.PodList{}
-			podList.Items = []k8sv1.Pod{}
-			podList.Items = append(podList.Items, *pod)
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/pods"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, podList),
-				),
-			)
+			expectHandlerPod()
 
 			result, err := app.getVirtHandlerConnForVMI(vmi)
 
@@ -898,6 +906,109 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			_, err := getChangeRequestJson(vm, stopRequest, startRequest)
 			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	expectVMI := func(running, paused bool) {
+		request.PathParameters()["name"] = "testvmi"
+		request.PathParameters()["namespace"] = "default"
+
+		phase := v1.Running
+		if !running {
+			phase = v1.Failed
+		}
+
+		vmi := v1.VirtualMachineInstance{
+			Status: v1.VirtualMachineInstanceStatus{
+				Phase: phase,
+			},
+		}
+
+		if paused {
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstancePaused,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+		}
+
+		server.AppendHandlers(
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi"),
+				ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+			),
+		)
+
+		expectHandlerPod()
+
+	}
+
+	Context("Pausing", func() {
+		It("Should pause a running, not paused VMI", func() {
+
+			expectVMI(true, false)
+
+			app.PauseVMIRequestHandler(request, response)
+
+			Expect(response.Error()).ToNot(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+
+		})
+
+		It("Should fail pausing a not running VMI", func() {
+
+			expectVMI(false, false)
+
+			app.PauseVMIRequestHandler(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+
+		})
+
+		It("Should fail pausing a running but paused VMI", func() {
+
+			expectVMI(true, true)
+
+			app.PauseVMIRequestHandler(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+
+		})
+
+		It("Should fail unpausing a running, not paused VMI", func() {
+
+			expectVMI(true, false)
+
+			app.UnpauseVMIRequestHandler(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+
+		})
+
+		It("Should fail unpausing a not running VMI", func() {
+
+			expectVMI(false, false)
+
+			app.UnpauseVMIRequestHandler(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+
+		})
+
+		It("Should unpause a running, paused VMI", func() {
+
+			expectVMI(true, true)
+
+			app.UnpauseVMIRequestHandler(request, response)
+
+			Expect(response.Error()).ToNot(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+
 		})
 	})
 

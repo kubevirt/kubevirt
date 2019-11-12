@@ -3,8 +3,8 @@ package templates
 // UsageTemplate returns the usage template for all subcommands
 func UsageTemplate() string {
 	return `Usage:{{if .Runnable}}
-  {{ProgramName}} {{prepare .Use}}{{end}}{{if .HasAvailableSubCommands}}
-  {{.CommandPath}} [command]{{end}}{{if gt (len .Aliases) 0}}
+  {{prepare .UseLine}}{{end}}{{if .HasAvailableSubCommands}}
+  {{prepare .CommandPath}} [command]{{end}}{{if gt (len .Aliases) 0}}
 
 Aliases:
   {{.NameAndAliases}}{{end}}{{if .HasExample}}

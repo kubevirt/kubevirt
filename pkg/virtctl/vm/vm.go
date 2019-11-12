@@ -102,10 +102,6 @@ type Command struct {
 	command      string
 }
 
-func NewCommand(command string) *Command {
-	return &Command{command: command}
-}
-
 func usage(cmd string) string {
 	usage := fmt.Sprintf("  # %s a virtual machine called 'myvm':\n", strings.Title(cmd))
 	usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)

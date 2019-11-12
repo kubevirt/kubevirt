@@ -20,7 +20,6 @@
 package rest
 
 import (
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -60,7 +59,7 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiI
 }
 
 func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := t.getVMI(request)
+	vmi, code, err := getVMI(request, t.vmiInformer)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
 		response.WriteError(code, err)
@@ -81,7 +80,7 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 }
 
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
-	vmi, code, err := t.getVMI(request)
+	vmi, code, err := getVMI(request, t.vmiInformer)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
 		response.WriteError(code, err)
@@ -99,18 +98,6 @@ func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restf
 		deleteStopChan(uid, stopCh, t.serialLock, t.serialStopChans)
 	}
 	t.stream(vmi, request, response, unixSocketPath, stopCh, cleanup)
-}
-
-func (t *ConsoleHandler) getVMI(request *restful.Request) (*v1.VirtualMachineInstance, int, error) {
-	key := fmt.Sprintf("%s/%s", request.PathParameter("namespace"), request.PathParameter("name"))
-	vmiObj, vmiExists, err := t.vmiInformer.GetStore().GetByKey(key)
-	if err != nil {
-		return nil, http.StatusInternalServerError, err
-	}
-	if !vmiExists {
-		return nil, http.StatusNotFound, fmt.Errorf("VMI %s does not exist", key)
-	}
-	return vmiObj.(*v1.VirtualMachineInstance), 0, nil
 }
 
 func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID](chan struct{})) chan struct{} {

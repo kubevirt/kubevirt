@@ -816,6 +816,47 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
 		})
 
+		It("should add paused condition", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			addVirtualMachine(vm)
+
+			markAsReady(vmi)
+			vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type:   virtv1.VirtualMachineInstancePaused,
+				Status: k8sv1.ConditionTrue,
+			})
+			vmiFeeder.Add(vmi)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objVM := obj.(*v1.VirtualMachine)
+				Expect(objVM.Status.Conditions).To(HaveLen(1))
+				cond := objVM.Status.Conditions[0]
+				Expect(cond.Type).To(Equal(v1.VirtualMachinePaused))
+				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+			}).Return(vm, nil)
+
+			controller.Execute()
+		})
+
+		It("should remove paused condition", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
+				Type:   virtv1.VirtualMachinePaused,
+				Status: k8sv1.ConditionTrue,
+			})
+			addVirtualMachine(vm)
+
+			markAsReady(vmi)
+			vmiFeeder.Add(vmi)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objVM := obj.(*v1.VirtualMachine)
+				Expect(objVM.Status.Conditions).To(HaveLen(0))
+			}).Return(vm, nil)
+
+			controller.Execute()
+		})
+
 		It("should back off if a sync error occurs", func() {
 			vm, vmi := DefaultVirtualMachine(false)
 

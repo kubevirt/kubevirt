@@ -46,6 +46,9 @@ func (d *VirtualMachineConditionManager) CheckFailure(vmi *v1.VirtualMachineInst
 }
 
 func (d *VirtualMachineConditionManager) HasCondition(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) bool {
+	if vmi == nil {
+		return false
+	}
 	for _, c := range vmi.Status.Conditions {
 		if c.Type == cond {
 			return true
