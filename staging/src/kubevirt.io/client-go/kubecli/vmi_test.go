@@ -43,6 +43,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	var client KubevirtClient
 	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances"
 	vmiPath := basePath + "/testvm"
+	subVMPath := "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"
 
 	BeforeEach(func() {
 		var err error
@@ -157,7 +158,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should exchange data with the VM", func() {
-		vncPath := "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm/vnc"
+		vncPath := subVMPath + "/vnc"
 
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", vncPath),
@@ -216,6 +217,28 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 
 		By("checking the result")
 		Expect(bufOut).To(Equal(bufIn))
+	})
+
+	It("should pause a VirtualMachineInstance", func() {
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("PUT", subVMPath+"/pause"),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
+		))
+		err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Pause("testvm")
+
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should unpause a VirtualMachineInstance", func() {
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("PUT", subVMPath+"/unpause"),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
+		))
+		err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Unpause("testvm")
+
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {

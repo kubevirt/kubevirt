@@ -253,6 +253,16 @@ func (_mr *_MockVirDomainRecorder) Create() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create")
 }
 
+func (_m *MockVirDomain) Suspend() error {
+	ret := _m.ctrl.Call(_m, "Suspend")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) Suspend() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Suspend")
+}
+
 func (_m *MockVirDomain) Resume() error {
 	ret := _m.ctrl.Call(_m, "Resume")
 	ret0, _ := ret[0].(error)

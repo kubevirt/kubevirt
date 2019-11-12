@@ -33,6 +33,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -497,6 +498,25 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 	case !channelConnected:
 		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceAgentConnected)
+	}
+
+	// Update paused condition in case VMI was paused / unpaused
+	if domain != nil && domain.Status.Status == api.Paused && domain.Status.Reason == api.ReasonPausedUser {
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
+			log.Log.Object(vmi).V(3).Info("Adding paused condition")
+			now := metav1.NewTime(time.Now())
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type:               v1.VirtualMachineInstancePaused,
+				Status:             k8sv1.ConditionTrue,
+				LastProbeTime:      now,
+				LastTransitionTime: now,
+				Reason:             "PausedByUser",
+				Message:            "VMI was paused by user",
+			})
+		}
+	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
+		log.Log.Object(vmi).V(3).Info("Removing paused condition")
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstancePaused)
 	}
 
 	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")

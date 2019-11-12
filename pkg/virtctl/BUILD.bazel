@@ -12,6 +12,7 @@ go_library(
         "//pkg/virtctl/console:go_default_library",
         "//pkg/virtctl/expose:go_default_library",
         "//pkg/virtctl/imageupload:go_default_library",
+        "//pkg/virtctl/pause:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
         "//pkg/virtctl/version:go_default_library",
         "//pkg/virtctl/vm:go_default_library",

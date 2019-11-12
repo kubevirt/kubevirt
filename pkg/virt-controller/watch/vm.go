@@ -160,30 +160,30 @@ func (c *VMController) execute(key string) error {
 		c.expectations.DeleteExpectations(key)
 		return nil
 	}
-	VM := obj.(*virtv1.VirtualMachine)
+	vm := obj.(*virtv1.VirtualMachine)
 
-	logger := log.Log.Object(VM)
+	logger := log.Log.Object(vm)
 
-	logger.V(4).Info("Started processing VM")
+	logger.V(4).Info("Started processing vm")
 
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
-	if !controller.ObservedLatestApiVersionAnnotation(VM) {
-		vm := VM.DeepCopy()
+	if !controller.ObservedLatestApiVersionAnnotation(vm) {
+		vm := vm.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(vm)
 		_, err = c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Update(vm)
 		return err
 	}
 
 	//TODO default vm if necessary, the aggregated apiserver will do that in the future
-	if VM.Spec.Template == nil {
+	if vm.Spec.Template == nil {
 		logger.Error("Invalid controller spec, will not re-enqueue.")
 		return nil
 	}
 
 	needsSync := c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
 
-	vmKey, err := controller.KeyFunc(VM)
+	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		return err
 	}
@@ -191,19 +191,19 @@ func (c *VMController) execute(key string) error {
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (v1.Object, error) {
-		fresh, err := c.clientset.VirtualMachine(VM.ObjectMeta.Namespace).Get(VM.ObjectMeta.Name, &v1.GetOptions{})
+		fresh, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Get(vm.ObjectMeta.Name, &v1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
-		if fresh.ObjectMeta.UID != VM.ObjectMeta.UID {
-			return nil, fmt.Errorf("original VirtualMachine %v/%v is gone: got uid %v, wanted %v", VM.Namespace, VM.Name, fresh.UID, VM.UID)
+		if fresh.ObjectMeta.UID != vm.ObjectMeta.UID {
+			return nil, fmt.Errorf("original VirtualMachine %v/%v is gone: got uid %v, wanted %v", vm.Namespace, vm.Name, fresh.UID, vm.UID)
 		}
 		return fresh, nil
 	})
 	cm := controller.NewVirtualMachineControllerRefManager(
 		controller.RealVirtualMachineControl{
 			Clientset: c.clientset,
-		}, VM, nil, virtv1.VirtualMachineGroupVersionKind, canAdoptFunc)
+		}, vm, nil, virtv1.VirtualMachineGroupVersionKind, canAdoptFunc)
 
 	var vmi *virtv1.VirtualMachineInstance
 	vmiObj, exist, err := c.vmiInformer.GetStore().GetByKey(vmKey)
@@ -223,7 +223,7 @@ func (c *VMController) execute(key string) error {
 		}
 	}
 
-	dataVolumes, err := c.listDataVolumesForVM(VM)
+	dataVolumes, err := c.listDataVolumesForVM(vm)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
 		return err
@@ -239,21 +239,21 @@ func (c *VMController) execute(key string) error {
 	var createErr error
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
-	if needsSync && VM.ObjectMeta.DeletionTimestamp == nil {
+	if needsSync && vm.ObjectMeta.DeletionTimestamp == nil {
 
-		dataVolumesReady, err := c.handleDataVolumes(VM, dataVolumes)
+		dataVolumesReady, err := c.handleDataVolumes(vm, dataVolumes)
 		if err != nil {
 			createErr = err
 		} else if dataVolumesReady == true {
-			createErr = c.startStop(VM, vmi)
+			createErr = c.startStop(vm, vmi)
 		} else {
-			log.Log.Object(VM).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
+			log.Log.Object(vm).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
 		}
 	}
 
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMIs. Don't update the status
 	// TODO: Workaround for https://github.com/kubernetes/kubernetes/issues/56348, remove it once it is fixed
-	if VM.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(VM, v1.FinalizerOrphanDependents) {
+	if vm.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(vm, v1.FinalizerOrphanDependents) {
 		err = c.orphan(cm, vmi)
 		if err != nil {
 			return err
@@ -265,7 +265,7 @@ func (c *VMController) execute(key string) error {
 		logger.Reason(err).Error("Creating the VirtualMachine failed.")
 	}
 
-	err = c.updateStatus(VM.DeepCopy(), vmi, createErr)
+	err = c.updateStatus(vm, vmi, createErr)
 	if err != nil {
 		logger.Reason(err).Error("Updating the VirtualMachine status failed.")
 		return err
@@ -1091,18 +1091,18 @@ func (c *VMController) removeCondition(vm *virtv1.VirtualMachine, cond virtv1.Vi
 	vm.Status.Conditions = conds
 }
 
-func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) error {
-	// Check if it is worth updating
-	errMatch := (createErr != nil) == c.hasCondition(vm, virtv1.VirtualMachineFailure)
+func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) error {
+
+	vm := vmOrig.DeepCopy()
+
 	created := vmi != nil
-	createdMatch := created == vm.Status.Created
+	vm.Status.Created = created
 
 	ready := false
-
 	if created {
 		ready = controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
 	}
-	readyMatch := ready == vm.Status.Ready
+	vm.Status.Ready = ready
 
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
@@ -1153,24 +1153,41 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 		}
 	}
 
-	if errMatch && createdMatch && readyMatch && !clearChangeRequest {
-		return nil
-	}
-
-	// Set created and ready flags
-	vm.Status.Created = created
-	vm.Status.Ready = ready
-
 	if clearChangeRequest {
 		vm.Status.StateChangeRequests = vm.Status.StateChangeRequests[1:]
 	}
 
 	// Add/Remove Failure condition if necessary
+	errMatch := (createErr != nil) == c.hasCondition(vm, virtv1.VirtualMachineFailure)
 	if !(errMatch) {
 		c.processFailure(vm, vmi, createErr)
 	}
 
-	_, err = c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Update(vm)
+	// Add/Remove Paused condition (VMI paused by user)
+	vmiCondManager := controller.NewVirtualMachineInstanceConditionManager()
+	if vmiCondManager.HasCondition(vmi, virtv1.VirtualMachineInstancePaused) {
+		if !c.hasCondition(vm, virtv1.VirtualMachinePaused) {
+			log.Log.Object(vm).V(3).Info("Adding paused condition")
+			now := v1.NewTime(time.Now())
+			vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
+				Type:               virtv1.VirtualMachinePaused,
+				Status:             k8score.ConditionTrue,
+				LastProbeTime:      now,
+				LastTransitionTime: now,
+				Reason:             "PausedByUser",
+				Message:            "VMI was paused by user",
+			})
+		}
+	} else if c.hasCondition(vm, virtv1.VirtualMachinePaused) {
+		log.Log.Object(vm).V(3).Info("Removing paused condition")
+		c.removeCondition(vm, virtv1.VirtualMachinePaused)
+	}
+
+	// only update if necessary
+	err = nil
+	if !reflect.DeepEqual(vm.Status, vmOrig.Status) {
+		_, err = c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Update(vm)
+	}
 
 	return err
 }

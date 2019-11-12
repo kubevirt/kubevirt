@@ -401,6 +401,8 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/pause
+  - virtualmachineinstances/unpause
   verbs:
   - get
 - apiGroups:
@@ -433,6 +435,8 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/pause
+  - virtualmachineinstances/unpause
   verbs:
   - get
 - apiGroups:

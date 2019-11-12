@@ -312,6 +312,11 @@ func (app *virtHandlerApp) Run() {
 		vmiInformer,
 	)
 
+	lifecycleHandler := rest.NewLifecycleHandler(
+		vmiInformer,
+		app.VirtShareDir,
+	)
+
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
 	if err != nil {
 		panic(err)
@@ -335,7 +340,7 @@ func (app *virtHandlerApp) Run() {
 
 	errCh := make(chan error)
 	go app.runPrometheusServer(errCh, certStore)
-	go app.runConsoleServer(errCh, consoleHandler)
+	go app.runServer(errCh, consoleHandler, lifecycleHandler)
 
 	// wait for one of the servers to exit
 	<-errCh
@@ -347,10 +352,12 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error, certStore certi
 	errCh <- http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
 }
 
-func (app *virtHandlerApp) runConsoleServer(errCh chan error, consoleHandler *rest.ConsoleHandler) {
+func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.ConsoleHandler, lifecycleHandler *rest.LifecycleHandler) {
 	ws := new(restful.WebService)
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console").To(consoleHandler.SerialHandler))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc").To(consoleHandler.VNCHandler))
+	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/pause").To(lifecycleHandler.PauseHandler))
+	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unpause").To(lifecycleHandler.UnpauseHandler))
 	restful.DefaultContainer.Add(ws)
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", app.ServiceListen.BindAddress, app.consoleServerPort),

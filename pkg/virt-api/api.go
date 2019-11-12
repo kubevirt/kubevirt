@@ -241,6 +241,24 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusNotFound, "Not Found", nil).
 			Returns(http.StatusBadRequest, "Bad Request", nil))
 
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("pause")).
+			To(subresourceApp.PauseVMIRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("pause").
+			Doc("Pause a VirtualMachineInstance object.").
+			Returns(http.StatusOK, "OK", nil).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			Returns(http.StatusBadRequest, "Bad Request", nil))
+
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("unpause")).
+			To(subresourceApp.UnpauseVMIRequestHandler). // handles VMIs as well
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("unpause").
+			Doc("Unpause a VirtualMachineInstance object.").
+			Returns(http.StatusOK, "OK", nil).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			Returns(http.StatusBadRequest, "Bad Request", nil))
+
 		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("console")).
 			To(subresourceApp.ConsoleRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
@@ -294,7 +312,15 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
-						Name:       "virtualmachines/restart",
+						Name:       "virtualmachineinstances/console",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/pause",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/unpause",
 						Namespaced: true,
 					},
 					{
@@ -306,11 +332,11 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
-						Name:       "virtualmachines/migrate",
+						Name:       "virtualmachines/restart",
 						Namespaced: true,
 					},
 					{
-						Name:       "virtualmachineinstances/console",
+						Name:       "virtualmachines/migrate",
 						Namespaced: true,
 					},
 				}
