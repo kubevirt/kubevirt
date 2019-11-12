@@ -111,7 +111,7 @@ and learn more about the major components by taking a look at our developer docu
 
   * [Architecture](https://github.com/kubevirt/kubevirt/blob/master/docs/architecture.md) - High-level view on the architecture
   * [Components](https://github.com/kubevirt/kubevirt/blob/master/docs/components.md) - Detailed look at all components
-  * [API Reference](https://github.com/kubevirt/kubevirt/blob/master/https://www.kubevirt.io/api-reference/)
+  * [API Reference](https://kubevirt.io/api-reference/)
 
 # Community
 
