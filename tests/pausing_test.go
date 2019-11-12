@@ -94,7 +94,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		When("paused via virtctl multiple times", func() {
-			It("should signal unpaused state with removed condition at the end", func() {
+			It("[test_id:3225]should signal unpaused state with removed condition at the end", func() {
 				runVMI()
 
 				for i := 0; i < 3; i++ {
@@ -113,7 +113,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		Context("with a LivenessProbe configured", func() {
 			When("paused via virtctl", func() {
-				It("should not be paused", func() {
+				It("[test_id:3224]should not be paused", func() {
 					By("Launching a VMI with LivenessProbe")
 					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 					// a random probe wich will not fail immediately
@@ -255,7 +255,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			})
 
-			It("should gracefully handle being started again", func() {
+			It("[test_id:3229]should gracefully handle being started again", func() {
 
 				runVM()
 
@@ -271,7 +271,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			})
 
-			It("should be restarted successfully into unpaused state", func() {
+			It("[test_id:3226]should be restarted successfully into unpaused state", func() {
 
 				runVM()
 
