@@ -1,0 +1,16 @@
+# Same as deploy/Dockerfile except it turns on KVM_EMULATION for CI
+FROM quay.io/openshift/origin-operator-registry:latest
+
+COPY deploy/olm-catalog /registry
+
+USER root
+# enable KVM_EMULATION for CI, needed by kubevirt-node-labeller on AWS
+RUN find /registry/kubevirt-hyperconverged/ -type f -exec sed -i 's|name: KVM_EMULATION|name: KVM_EMULATION\n                    value: "true"|' {} \; || :
+
+# Initialize the database
+RUN initializer --manifests /registry/kubevirt-hyperconverged --output bundles.db
+
+# There are multiple binaries in the origin-operator-registry
+# We want the registry-server
+ENTRYPOINT ["registry-server"]
+CMD ["--database", "bundles.db"]

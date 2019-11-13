@@ -333,6 +333,7 @@ spec:
                 - command:
                   - hyperconverged-cluster-operator
                   env:
+                  - name: KVM_EMULATION
                   - name: OPERATOR_IMAGE
                     value: quay.io/kubevirt/hyperconverged-cluster-operator:latest
                   - name: OPERATOR_NAME
