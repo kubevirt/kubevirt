@@ -1,4 +1,5 @@
 ---
+---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -44,7 +45,7 @@ spec:
   selector:
     kubevirt.io: cdi-http-import-server
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cdi-http-import-server
@@ -52,6 +53,9 @@ metadata:
   labels:
     kubevirt.io: "cdi-http-import-server"
 spec:
+  selector:
+    matchLabels:
+      kubevirt.io: "cdi-http-import-server"
   replicas: 1
   template:
     metadata:
@@ -73,7 +77,7 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: disks-images-provider
@@ -81,6 +85,9 @@ metadata:
   labels:
     kubevirt.io: "disks-images-provider"
 spec:
+  selector:
+    matchLabels:
+      kubevirt.io: "disks-images-provider"
   template:
     metadata:
       labels:
