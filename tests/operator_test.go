@@ -1219,7 +1219,7 @@ spec:
 			}
 		})
 
-		It("Ensure infra can handle dynamically detecting DataVolume Support", func() {
+		It("[test_id:3153]Ensure infra can handle dynamically detecting DataVolume Support", func() {
 			if !tests.HasDataVolumeCRD() {
 				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
 			}
@@ -1286,7 +1286,7 @@ spec:
 			}
 		})
 
-		It("Should not create RBAC Role or RoleBinding for ServiceMonitor", func() {
+		It("[test_id:3154]Should not create RBAC Role or RoleBinding for ServiceMonitor", func() {
 			rbacClient := virtClient.RbacV1()
 
 			By("Checking that Role for ServiceMonitor doesn't exist")
