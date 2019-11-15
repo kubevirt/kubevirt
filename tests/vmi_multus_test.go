@@ -222,7 +222,7 @@ var _ = Describe("Multus", func() {
 
 		Context("VirtualMachineInstance with multus network as default network", func() {
 
-			It("should create a virtual machine with one interface with multus default network definition", func() {
+			It("[test_id:1751]should create a virtual machine with one interface with multus default network definition", func() {
 				detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
@@ -259,7 +259,7 @@ var _ = Describe("Multus", func() {
 
 		Context("VirtualMachineInstance with cni ptp plugin interface with custom MAC address", func() {
 
-			It("should configure valid custom MAC address on ptp interface when using tuning plugin", func() {
+			It("[test_id:1705]should configure valid custom MAC address on ptp interface when using tuning plugin", func() {
 				customMacAddress := "50:00:00:00:90:0d"
 				ptpInterface := v1.Interface{
 					Name: "ptp",

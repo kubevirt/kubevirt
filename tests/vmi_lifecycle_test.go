@@ -118,7 +118,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Should(ContainSubstring("Found PID for"))
 		})
 
-		It("should carry annotations to pod", func() {
+		It("[test_id:3195]should carry annotations to pod", func() {
 			vmi.Annotations = map[string]string{
 				"testannotation": "test",
 			}
@@ -133,7 +133,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "test"), "annotation should be carried to the pod")
 		})
 
-		It("should not carry kubernetes and kubevirt annotations to pod", func() {
+		It("[test_id:3196]should not carry kubernetes and kubevirt annotations to pod", func() {
 			vmi.Annotations = map[string]string{
 				"kubevirt.io/test":   "test",
 				"kubernetes.io/test": "test",
@@ -167,7 +167,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Should(And(ContainSubstring("internal error: Cannot probe for supported suspend types"), ContainSubstring(`"subcomponent":"libvirt"`)))
 		})
 
-		It("should log libvirtd debug logs when enabled", func() {
+		It("[test_id:3197]should log libvirtd debug logs when enabled", func() {
 			var err error
 			vmi := tests.NewRandomVMI()
 			vmi.Labels = map[string]string{
@@ -493,7 +493,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}()).ShouldNot(Equal(timestamp), "Should not have old vmi heartbeat")
 			})
 
-			It("device plugins should re-register if the kubelet restarts", func() {
+			It("[test_ids:3198]device plugins should re-register if the kubelet restarts", func() {
 
 				By("starting a VMI on a node")
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -781,7 +781,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				time.Sleep(5 * time.Second)
 			})
 
-			It("should set default cpu model when vmi doesn't have it set", func() {
+			It("[test_id:3199]should set default cpu model when vmi doesn't have it set", func() {
 				tests.UpdateClusterConfigValueAndWait(defaultCPUModelKey, defaultCPUModel)
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
@@ -796,7 +796,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			})
 
-			It("should not set default cpu model when vmi has it set", func() {
+			It("[test_id:3200]should not set default cpu model when vmi has it set", func() {
 				tests.UpdateClusterConfigValueAndWait(defaultCPUModelKey, defaultCPUModel)
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
@@ -813,7 +813,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			})
 
-			It("should not set cpu model when vmi does not have it set and default cpu model is not set", func() {
+			It("[test_id:3201]should not set cpu model when vmi does not have it set and default cpu model is not set", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
@@ -917,7 +917,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, 60*time.Second, 1*time.Second).Should(Equal("Unschedulable"), "VMI should be unchedulable")
 			})
 
-			It("the vmi with cpu.features matching nfd labels on a node should be scheduled", func() {
+			It("[test_id:3202]the vmi with cpu.features matching nfd labels on a node should be scheduled", func() {
 
 				By("adding a node-feature-discovery CPU model label to a node")
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
@@ -957,7 +957,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			})
 
-			It("the vmi with cpu.features that cannot match nfd labels on a node should not be scheduled", func() {
+			It("[test_id:3203]the vmi with cpu.features that cannot match nfd labels on a node should not be scheduled", func() {
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
@@ -1003,7 +1003,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, 60*time.Second, 1*time.Second).Should(Equal("Unschedulable"), "VMI should be unchedulable")
 			})
 
-			It("the vmi with cpu.feature policy 'forbid' should not be scheduled on a node with that cpu feature label", func() {
+			It("[test_id:3204]the vmi with cpu.feature policy 'forbid' should not be scheduled on a node with that cpu feature label", func() {
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{

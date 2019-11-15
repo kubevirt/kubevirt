@@ -243,14 +243,14 @@ var _ = Describe("Templates", func() {
 		}
 
 		AssertTemplateTestSuccess := func() {
-			It("should succeed to create VirtualMachine via oc command", AssertVMCreationSuccess())
-			It("should fail to delete VirtualMachine via oc command", AssertVMDeletionFailure())
+			It("[test_id:3292]should succeed to create VirtualMachine via oc command", AssertVMCreationSuccess())
+			It("[test_id:3293]should fail to delete VirtualMachine via oc command", AssertVMDeletionFailure())
 
 			When("the VirtualMachine was created", func() {
 				BeforeEach(AssertVMCreationSuccess())
-				It("should succeed to start the VirtualMachine via oc command", AssertVMStartSuccess("oc"))
-				It("should succeed to delete VirtualMachine via oc command", AssertVMDeletionSuccess())
-				It("should fail to create the same VirtualMachine via oc command", AssertVMCreationFailure())
+				It("[test_id:3294]should succeed to start the VirtualMachine via oc command", AssertVMStartSuccess("oc"))
+				It("[test_id:3295]should succeed to delete VirtualMachine via oc command", AssertVMDeletionSuccess())
+				It("[test_id:3308]should fail to create the same VirtualMachine via oc command", AssertVMCreationFailure())
 			})
 		}
 
@@ -264,7 +264,7 @@ var _ = Describe("Templates", func() {
 			AssertTemplateTestSuccess()
 		})
 
-		Context("with RHEL Template", func() {
+		Context("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]with RHEL Template", func() {
 			BeforeEach(func() {
 				tests.SkipIfNoRhelImage(virtClient)
 				AssertTemplateSetupSuccess(vmsgen.GetTestTemplateRHEL7(), nil)()

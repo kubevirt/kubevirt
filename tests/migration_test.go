@@ -339,7 +339,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 	Describe("Starting a VirtualMachineInstance ", func() {
 		Context("with a bridge network interface", func() {
-			It("should reject a migration of a vmi with a bridge interface", func() {
+			It("[test_id:3226]should reject a migration of a vmi with a bridge interface", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{
@@ -435,7 +435,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig)
 			})
 
-			It("should complete a migration", func() {
+			It("[test_id:3237]should complete a migration", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -493,7 +493,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig)
 			})
 
-			It("should migrate a vmi with UNSAFE_MIGRATION flag set", func() {
+			It("[test_id:3238]should migrate a vmi with UNSAFE_MIGRATION flag set", func() {
 				// Normally, live migration with a shared volume that contains
 				// a non-clustered filesystem will be prevented for disk safety reasons.
 				// This test sets a UNSAFE_MIGRATION flag and a migration with an ext4 filesystem
@@ -549,7 +549,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
 			})
-			It("should reject a migration of a vmi with a non-shared data volume", func() {
+			It("[test_id:3239]should reject a migration of a vmi with a non-shared data volume", func() {
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 
@@ -705,7 +705,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// create a new PV and PVC (PVs can't be reused)
 				tests.DeletePvAndPvc(pvName)
 			})
-			It("should be successfully with a cloud init", func() {
+			It("[test_id:3240]should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
@@ -1105,7 +1105,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				table.Entry("[test_id:2226]with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
 				table.Entry("[test_id:2731]with OCS Disk", newVirtualMachineInstanceWithFedoraOCSDisk),
 			)
-			It("should be able to cancel a migration right after posting it", func() {
+			It("[test_id:3241]should be able to cancel a migration right after posting it", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -1194,14 +1194,14 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				vmi = cirrosVMIWithEvictionStrategy()
 			})
 
-			It("should block the eviction api", func() {
+			It("[test_id:3242]should block the eviction api", func() {
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
 			})
 
-			It("should recreate the PDB if VMIs with similar names are recreated", func() {
+			It("[test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
 				for x := 0; x < 3; x++ {
 					By("creating the VMI")
 					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -1228,7 +1228,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				}
 			})
 
-			It("should block the eviction api while a slow migration is in progress", func() {
+			It("[test_id:3244]should block the eviction api while a slow migration is in progress", func() {
 				vmi = fedoraVMIWithEvictionStrategy()
 
 				By("Starting the VirtualMachineInstance")
@@ -1510,7 +1510,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 		})
 		Context("with multiple VMIs with eviction policies set", func() {
 
-			It("should not migrate more than two VMIs at the same time from a node", func() {
+			It("[test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
 				var vmis []*v1.VirtualMachineInstance
 				for i := 0; i < 4; i++ {
 					vmi := cirrosVMIWithEvictionStrategy()

@@ -135,11 +135,11 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			table.Entry("[test_id:527]given a vm", "virtualmachines"),
 			table.Entry("[test_id:528]given a vmi preset", "virtualmachineinstancepresets"),
 			table.Entry("[test_id:529][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
-			table.Entry("given a vmi migration", "virtualmachineinstancemigrations"),
+			table.Entry("[test_id:3230]given a vmi migration", "virtualmachineinstancemigrations"),
 		)
 
 		var authClient *authClientV1.AuthorizationV1Client
-		It("Prepare auth client", func() {
+		It("[test_id:3231]Prepare auth client", func() {
 			virtClient, err := kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())
 			authClient, err = authClientV1.NewForConfig(virtClient.Config())
@@ -240,13 +240,13 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				doSarRequest(resource, subresource, user, verb, expectedRes)
 			}
 		},
-			table.Entry("on vm start", "virtualmachines", "start"),
-			table.Entry("on vm stop", "virtualmachines", "stop"),
-			table.Entry("on vm restart", "virtualmachines", "restart"),
+			table.Entry("[test_id:3232]on vm start", "virtualmachines", "start"),
+			table.Entry("[test_id:3233]on vm stop", "virtualmachines", "stop"),
+			table.Entry("[test_id:3234]on vm restart", "virtualmachines", "restart"),
 		)
 	})
 
-	Describe("With regular OpenShift user", func() {
+	Describe("[rfe_id:2919][crit:high][vendor:cnv-qe@redhat.com][level:component] With regular OpenShift user", func() {
 		BeforeEach(func() {
 			tests.SkipIfNoCmd("oc")
 		})
@@ -286,7 +286,7 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				table.Entry("[test_id:2915]given a vm", "virtualmachines"),
 				table.Entry("[test_id:2917]given a vmi preset", "virtualmachineinstancepresets"),
 				table.Entry("[test_id:2919]given a vmi replica set", "virtualmachineinstancereplicasets"),
-				table.Entry("given a vmi migration", "virtualmachineinstancemigrations"),
+				table.Entry("[test_id:3235]given a vmi migration", "virtualmachineinstancemigrations"),
 			)
 		})
 
