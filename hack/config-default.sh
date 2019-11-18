@@ -5,6 +5,7 @@ docker_tag_alt=${DOCKER_TAG_ALT}
 image_prefix=${IMAGE_PREFIX}
 image_prefix_alt=${IMAGE_PREFIX_ALT}
 namespace=kubevirt
+deploy_testing_infra=${DEPLOY_TESTING_INFRA:-false}
 csv_namespace=placeholder
 cdi_namespace=cdi
 image_pull_policy=${IMAGE_PULL_POLICY:-IfNotPresent}
