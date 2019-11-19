@@ -61,6 +61,7 @@ var (
 	sspCsv              = flag.String("ssp-csv", "", "")
 	cdiCsv              = flag.String("cdi-csv", "", "")
 	nmoCsv              = flag.String("nmo-csv", "", "")
+	hppCsv              = flag.String("hpp-csv", "", "")
 	operatorImage       = flag.String("operator-image-name", "", "")
 	imsConversionImage  = flag.String("ims-conversion-image-name", "", "")
 	imsVMWareImage      = flag.String("ims-vmware-image-name", "", "")
@@ -80,6 +81,7 @@ func main() {
 		*sspCsv,
 		*cdiCsv,
 		*nmoCsv,
+		*hppCsv,
 	}
 
 	// The template name and dir are configured in build/Dockerfile
