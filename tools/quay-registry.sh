@@ -11,7 +11,7 @@ APP_REGISTRY_NAMESPACE="${APP_REGISTRY_NAMESPACE:-kubevirt-hyperconverged}"
 TARGET_NAMESPACE="${TARGET_NAMESPACE:-kubevirt-hyperconverged}"
 
 # Latest version from: https://quay.io/application/kubevirt-hyperconverged/kubevirt-hyperconverged
-PACKAGE_VERSION="${PACKAGE_VERSION:-0.0.3}"
+PACKAGE_VERSION="${PACKAGE_VERSION:-1.0.0}"
 
 if [ "${CLUSTER}" == "KUBERNETES" ]; then
     MARKETPLACE_NAMESPACE="marketplace"

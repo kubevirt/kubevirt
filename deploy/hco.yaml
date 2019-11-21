@@ -22,9 +22,9 @@ metadata:
   name: hco-operatorhub
   namespace: kubevirt-hyperconverged
 spec:
-  channel: "0.0.3"
+  channel: "1.0.0"
   installPlanApproval: Automatic
   name: hco-operatorhub
   source: installed-community-kubevirt-hyperconverged
   sourceNamespace: kubevirt-hyperconverged
-  startingCSV: kubevirt-hyperconverged-operator.v0.0.3
+  startingCSV: kubevirt-hyperconverged-operator.v1.0.0
