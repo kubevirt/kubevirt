@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
 var EmptyDiskBaseDir = "/var/run/libvirt/empty-disks/"
@@ -27,6 +28,9 @@ func CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
 					return err
 				}
 			} else if err != nil {
+				return err
+			}
+			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(file); err != nil {
 				return err
 			}
 		}
