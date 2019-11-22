@@ -38,7 +38,9 @@ objects:
               name: disk0
             interfaces:
             - masquerade: {}
+              model: virtio
               name: default
+            networkInterfaceMultiqueue: true
           machine:
             type: ""
           resources:

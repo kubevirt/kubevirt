@@ -41,7 +41,9 @@ objects:
               name: cloudinitdisk
             interfaces:
             - masquerade: {}
+              model: virtio
               name: default
+            networkInterfaceMultiqueue: true
             rng: {}
           machine:
             type: ""
