@@ -70,6 +70,7 @@ var _ = Describe("Template", func() {
 	BeforeEach(func() {
 		svc = NewTemplateService("kubevirt/virt-launcher",
 			"/var/run/kubevirt",
+			"/var/run/kubevirt-network",
 			"/var/lib/kubevirt",
 			"/var/run/kubevirt-ephemeral-disks",
 			"/var/run/kubevirt/container-disks",
@@ -156,6 +157,7 @@ var _ = Describe("Template", func() {
 					"--uid", "1234",
 					"--namespace", "testns",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
+					"--kubevirt-network-dir", "/var/run/kubevirt-network",
 					"--ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks",
 					"--container-disk-dir", "/var/run/kubevirt/container-disks",
 					"--readiness-file", "/var/run/kubevirt-infra/healthy",
@@ -446,6 +448,7 @@ var _ = Describe("Template", func() {
 					"--uid", "1234",
 					"--namespace", "default",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
+					"--kubevirt-network-dir", "/var/run/kubevirt-network",
 					"--ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks",
 					"--container-disk-dir", "/var/run/kubevirt/container-disks",
 					"--readiness-file", "/var/run/kubevirt-infra/healthy",
@@ -1012,12 +1015,12 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
-				Expect(len(pod.Spec.Volumes)).To(Equal(7))
+				Expect(len(pod.Spec.Volumes)).To(Equal(8))
 				Expect(pod.Spec.Volumes[0].EmptyDir).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
 
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6))
-				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/dev/hugepages"))
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(7))
+				Expect(pod.Spec.Containers[0].VolumeMounts[5].MountPath).To(Equal("/dev/hugepages"))
 			},
 				table.Entry("hugepages-2Mi", "2Mi"),
 				table.Entry("hugepages-1Gi", "1Gi"),
@@ -1057,11 +1060,11 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty(), "No devices in manifest for 1st container")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Some mounts in manifest for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6), "4 mounts in manifest for 1st container")
-				Expect(pod.Spec.Containers[0].VolumeMounts[4].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(7), "7 mounts in manifest for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeMounts[5].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(7), "Found 4 volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(8), "Found 8 volumes in manifest")
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
@@ -1105,10 +1108,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName), "Found device for 1st container with correct name")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(5), "Found 5 mounts in manifest for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6), "Found 6 mounts in manifest for 1st container")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(7), "Found 4 volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(8), "Found 8 volumes in manifest")
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
@@ -1256,8 +1259,8 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
-				// Skip first three mounts that are generic for all launcher pods
-				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
+				// Skip first four mounts that are generic for all launcher pods
+				Expect(pod.Spec.Containers[0].VolumeMounts[5].MountPath).To(Equal("/sys/devices/"))
 				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/sys/devices/"))
 			})
 		})
@@ -1449,7 +1452,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(7))
+				Expect(len(pod.Spec.Volumes)).To(Equal(8))
 				Expect(pod.Spec.Volumes[0].ConfigMap).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].ConfigMap.LocalObjectReference.Name).To(Equal("test-configmap"))
 			})
@@ -1478,7 +1481,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(7))
+				Expect(len(pod.Spec.Volumes)).To(Equal(8))
 				Expect(pod.Spec.Volumes[0].Secret).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].Secret.SecretName).To(Equal("test-secret"))
 			})
@@ -1613,8 +1616,8 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
-				// Skip first three mounts that are generic for all launcher pods
-				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
+				// Skip first five mounts that are generic for all launcher pods
+				Expect(pod.Spec.Containers[0].VolumeMounts[5].MountPath).To(Equal("/sys/devices/"))
 				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/sys/devices/"))
 
 				resources := pod.Spec.Containers[0].Resources

@@ -22,6 +22,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -88,6 +89,7 @@ type TemplateService interface {
 type templateService struct {
 	launcherImage              string
 	virtShareDir               string
+	virtNetworkDir             string
 	virtLibDir                 string
 	ephemeralDiskDir           string
 	containerDiskDir           string
@@ -345,6 +347,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "virt-share-dir",
 		MountPath: t.virtShareDir,
+	})
+
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:             "virt-network-dir",
+		MountPath:        path.Join(t.virtNetworkDir, string(vmi.UID)),
+		MountPropagation: &prop,
 	})
 
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
@@ -676,6 +684,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--uid", string(vmi.UID),
 		"--namespace", namespace,
 		"--kubevirt-share-dir", t.virtShareDir,
+		"--kubevirt-network-dir", t.virtNetworkDir,
 		"--ephemeral-disk-dir", t.ephemeralDiskDir,
 		"--container-disk-dir", t.containerDiskDir,
 		"--readiness-file", "/var/run/kubevirt-infra/healthy",
@@ -800,6 +809,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			VolumeSource: k8sv1.VolumeSource{
 				HostPath: &k8sv1.HostPathVolumeSource{
 					Path: t.virtShareDir,
+				},
+			},
+		},
+		k8sv1.Volume{
+			Name: "virt-network-dir",
+			VolumeSource: k8sv1.VolumeSource{
+				HostPath: &k8sv1.HostPathVolumeSource{
+					Path: path.Join(t.virtNetworkDir, string(vmi.UID)),
 				},
 			},
 		},
@@ -1217,6 +1234,7 @@ func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[strin
 
 func NewTemplateService(launcherImage string,
 	virtShareDir string,
+	virtNetworkDir string,
 	virtLibDir string,
 	ephemeralDiskDir string,
 	containerDiskDir string,
@@ -1229,6 +1247,7 @@ func NewTemplateService(launcherImage string,
 	svc := templateService{
 		launcherImage:              launcherImage,
 		virtShareDir:               virtShareDir,
+		virtNetworkDir:             virtNetworkDir,
 		virtLibDir:                 virtLibDir,
 		ephemeralDiskDir:           ephemeralDiskDir,
 		containerDiskDir:           containerDiskDir,

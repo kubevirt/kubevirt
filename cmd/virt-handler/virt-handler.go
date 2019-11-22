@@ -102,6 +102,7 @@ type virtHandlerApp struct {
 	HostOverride            string
 	PodIpAddress            string
 	VirtShareDir            string
+	VirtNetworkDir          string
 	VirtLibDir              string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
@@ -239,7 +240,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	virtlauncher.InitializeSharedDirectories(app.VirtShareDir)
+	virtlauncher.InitializeSharedDirectories(app.VirtShareDir, app.VirtNetworkDir)
 
 	app.namespace, err = clientutil.GetNamespace()
 	if err != nil {
@@ -273,6 +274,7 @@ func (app *virtHandlerApp) Run() {
 		app.HostOverride,
 		app.PodIpAddress,
 		app.VirtShareDir,
+		app.VirtNetworkDir,
 		vmSourceSharedInformer,
 		vmTargetSharedInformer,
 		domainSharedInformer,
@@ -315,7 +317,7 @@ func (app *virtHandlerApp) Run() {
 	selinuxLauncherType := clusterConfig.GetSELinuxLauncherType()
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
-		for _, dir := range []string{app.VirtShareDir, app.VirtLibDir} {
+		for _, dir := range []string{app.VirtShareDir, app.VirtNetworkDir, app.VirtLibDir} {
 			if labeled, err := se.IsLabeled(dir); err != nil {
 				panic(err)
 			} else if !labeled {

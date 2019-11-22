@@ -52,6 +52,7 @@ var _ = Describe("VirtLauncher", func() {
 	uuid := "123-123-123-123"
 
 	tmpDir, _ := ioutil.TempDir("", "monitortest")
+	tmpNetworkDir, _ := ioutil.TempDir("", "monitortest-network")
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -116,7 +117,7 @@ var _ = Describe("VirtLauncher", func() {
 	}
 
 	BeforeEach(func() {
-		InitializeSharedDirectories(tmpDir)
+		InitializeSharedDirectories(tmpDir, tmpNetworkDir)
 		triggerFile := GracefulShutdownTriggerFromNamespaceName(tmpDir, "fakenamespace", "fakedomain")
 		shutdownCallback := func(pid int) {
 			syscall.Kill(pid, syscall.SIGTERM)

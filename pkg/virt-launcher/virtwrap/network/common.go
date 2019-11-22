@@ -25,11 +25,11 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"os/exec"
-
 	"io/ioutil"
 	"net"
 	"os"
+	"os/exec"
+	"path"
 
 	"github.com/coreos/go-iptables/iptables"
 
@@ -327,7 +327,17 @@ func writeToCachedFile(inter interface{}, fileName string, uid types.UID, name s
 	if err != nil {
 		return fmt.Errorf("error marshaling cached object: %v", err)
 	}
-	err = ioutil.WriteFile(getInterfaceCacheFile(fileName, uid, name), buf, 0644)
+
+	fileName = getInterfaceCacheFile(fileName, uid, name)
+	dir := path.Dir(fileName)
+
+	// make sure the per-vmi shared directory exists
+	err = os.MkdirAll(dir, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create directory to share cached files: %v", err)
+	}
+
+	err = ioutil.WriteFile(fileName, buf, 0644)
 	if err != nil {
 		return fmt.Errorf("error writing cached object: %v", err)
 	}

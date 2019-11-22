@@ -89,6 +89,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var err error
 	var shareDir string
+	var shareNetworkDir string
 	var testUUID types.UID
 	var stop chan struct{}
 
@@ -103,6 +104,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 		shareDir, err = ioutil.TempDir("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
 		certDir, err = ioutil.TempDir("", "migrationproxytest")
+		Expect(err).ToNot(HaveOccurred())
+		shareNetworkDir, err = ioutil.TempDir("", "kubevirt-network")
 		Expect(err).ToNot(HaveOccurred())
 
 		store, err := certificates.GenerateSelfSignedCert(certDir, "test", "test")
@@ -148,6 +151,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			host,
 			podIpAddress,
 			shareDir,
+			shareNetworkDir,
 			vmiSourceInformer,
 			vmiTargetInformer,
 			domainInformer,
@@ -183,6 +187,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		close(stop)
 		ctrl.Finish()
 		os.RemoveAll(shareDir)
+		os.RemoveAll(shareNetworkDir)
 		os.RemoveAll(certDir)
 	})
 

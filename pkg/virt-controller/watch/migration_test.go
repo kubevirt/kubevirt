@@ -165,7 +165,7 @@ var _ = Describe("Migration watcher", func() {
 		config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 		controller = NewMigrationController(
-			services.NewTemplateService("a", "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config),
+			services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config),
 			vmiInformer,
 			podInformer,
 			migrationInformer,

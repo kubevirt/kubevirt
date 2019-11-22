@@ -57,6 +57,9 @@ spec:
         volumeMounts:
         - mountPath: /var/run/kubevirt-libvirt-runtimes
           name: libvirt-runtimes
+        - mountPath: /var/run/kubevirt-network
+          mountPropagation: Bidirectional
+          name: virt-network-dir
         - mountPath: /var/run/kubevirt
           mountPropagation: Bidirectional
           name: virt-share-dir
@@ -73,6 +76,9 @@ spec:
       - hostPath:
           path: /var/run/kubevirt-libvirt-runtimes
         name: libvirt-runtimes
+      - hostPath:
+          path: /var/run/kubevirt-network
+        name: virt-network-dir
       - hostPath:
           path: /var/run/kubevirt
         name: virt-share-dir

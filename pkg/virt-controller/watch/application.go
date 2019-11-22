@@ -66,7 +66,8 @@ const (
 
 	imagePullSecret = ""
 
-	virtShareDir = "/var/run/kubevirt"
+	virtShareDir   = "/var/run/kubevirt"
+	virtNetworkDir = "/var/run/kubevirt-network"
 
 	ephemeralDiskDir = virtShareDir + "-ephemeral-disks"
 
@@ -129,6 +130,7 @@ type VirtControllerApp struct {
 	launcherImage              string
 	imagePullSecret            string
 	virtShareDir               string
+	virtNetworkDir             string
 	virtLibDir                 string
 	ephemeralDiskDir           string
 	containerDiskDir           string
@@ -368,6 +370,7 @@ func (vca *VirtControllerApp) initCommon() {
 	containerdisk.SetLocalDirectory(vca.ephemeralDiskDir + "/container-disk-data")
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.virtShareDir,
+		vca.virtNetworkDir,
 		vca.virtLibDir,
 		vca.ephemeralDiskDir,
 		vca.containerDiskDir,
@@ -456,6 +459,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", util.VirtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
+
+	flag.StringVar(&vca.virtNetworkDir, "kubevirt-network-dir", util.VirtNetworkDir,
+		"Directory for mounts to share network info between virt-handler and each virt-launcher pod")
 
 	flag.StringVar(&vca.virtLibDir, "kubevirt-lib-dir", util.VirtLibDir,
 		"Shared lib directory between virt-handler and virt-launcher")
