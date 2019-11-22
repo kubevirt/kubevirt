@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo"
@@ -36,11 +35,6 @@ import (
 var _ = Describe("ContainerDisk", func() {
 	var imageTempDirPath string
 	var backingTempDirPath string
-
-	owner, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
 
 	createBackingImageForPVC := func(volumeName string) {
 		// Note that this is within our tmpdir -- cleanup is done after tests.
@@ -87,7 +81,6 @@ var _ = Describe("ContainerDisk", func() {
 	}
 
 	BeforeEach(func() {
-		SetLocalDataOwner(owner.Username)
 
 		backingTempDirPath, err := ioutil.TempDir("", "ephemeraldisk-backing")
 		Expect(err).NotTo(HaveOccurred())

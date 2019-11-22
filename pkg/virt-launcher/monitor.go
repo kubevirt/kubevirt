@@ -111,7 +111,7 @@ func InitializePrivateDirectories(baseDir string) error {
 	if err := os.MkdirAll(baseDir, 0755); err != nil {
 		return err
 	}
-	if err := diskutils.SetFileOwnership("qemu", baseDir); err != nil {
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(baseDir); err != nil {
 		return err
 	}
 	return nil
@@ -127,7 +127,7 @@ func InitializeDisksDirectories(baseDir string) error {
 	if err != nil {
 		return err
 	}
-	err = diskutils.SetFileOwnership("qemu", baseDir)
+	err = diskutils.DefaultOwnershipManager.SetFileOwnership(baseDir)
 	if err != nil {
 		return err
 	}
