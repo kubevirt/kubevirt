@@ -3,6 +3,7 @@ package emptydisk
 import (
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path"
 
 	. "github.com/onsi/ginkgo"
@@ -13,6 +14,10 @@ import (
 )
 
 var _ = Describe("EmptyDisk", func() {
+	owner, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
 
 	AppendEmptyDisk := func(vmi *v1.VirtualMachineInstance, diskName string) {
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -33,6 +38,7 @@ var _ = Describe("EmptyDisk", func() {
 
 	BeforeEach(func() {
 		var err error
+		SetLocalDataOwner(owner.Username)
 		EmptyDiskBaseDir, err = ioutil.TempDir("", "emptydisk-dir")
 		Expect(err).ToNot(HaveOccurred())
 	})

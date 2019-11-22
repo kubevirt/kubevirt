@@ -5,7 +5,10 @@ go_library(
     srcs = ["emptydisk.go"],
     importpath = "kubevirt.io/kubevirt/pkg/emptydisk",
     visibility = ["//visibility:public"],
-    deps = ["//staging/src/kubevirt.io/client-go/api/v1:go_default_library"],
+    deps = [
+        "//pkg/ephemeral-disk-utils:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+    ],
 )
 
 go_test(

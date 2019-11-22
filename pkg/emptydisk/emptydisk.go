@@ -7,9 +7,11 @@ import (
 	"strconv"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
 var EmptyDiskBaseDir = "/var/run/libvirt/empty-disks/"
+var emptyDiskOwner = "qemu"
 
 func CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
 
@@ -29,6 +31,9 @@ func CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
 			} else if err != nil {
 				return err
 			}
+			if err := ephemeraldiskutils.SetFileOwnership(emptyDiskOwner, file); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -37,4 +42,9 @@ func CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
 
 func FilePathForVolumeName(volumeName string) string {
 	return path.Join(EmptyDiskBaseDir, volumeName+".qcow2")
+}
+
+// Used by tests.
+func SetLocalDataOwner(user string) {
+	emptyDiskOwner = user
 }
