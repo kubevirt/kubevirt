@@ -155,14 +155,11 @@ var _ = Describe("Operator", func() {
 
 	sanityCheckDeploymentsExistWithNS := func(namespace string) {
 		Eventually(func() error {
-			_, err := virtClient.ExtensionsV1beta1().Deployments(namespace).Get("virt-api", metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-
-			_, err = virtClient.ExtensionsV1beta1().Deployments(namespace).Get("virt-controller", metav1.GetOptions{})
-			if err != nil {
-				return err
+			for _, deployment := range []string{"virt-api", "virt-controller"} {
+				_, err := virtClient.AppsV1().Deployments(namespace).Get(deployment, metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
 			}
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -175,14 +172,11 @@ var _ = Describe("Operator", func() {
 	sanityCheckDeploymentsDeleted := func() {
 
 		Eventually(func() error {
-			_, err := virtClient.ExtensionsV1beta1().Deployments(tests.KubeVirtInstallNamespace).Get("virt-api", metav1.GetOptions{})
-			if err != nil && !errors.IsNotFound(err) {
-				return err
-			}
-
-			_, err = virtClient.ExtensionsV1beta1().Deployments(tests.KubeVirtInstallNamespace).Get("virt-controller", metav1.GetOptions{})
-			if err != nil && !errors.IsNotFound(err) {
-				return err
+			for _, deployment := range []string{"virt-api", "virt-controller"} {
+				_, err := virtClient.AppsV1().Deployments(tests.KubeVirtInstallNamespace).Get(deployment, metav1.GetOptions{})
+				if err != nil && !errors.IsNotFound(err) {
+					return err
+				}
 			}
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())

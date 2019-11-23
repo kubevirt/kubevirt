@@ -49,8 +49,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	k8sextv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -423,12 +423,12 @@ func DoScaleDeployment(namespace string, name string, desired int32) (error, int
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	deployment, err := virtCli.ExtensionsV1beta1().Deployments(namespace).Get(name, metav1.GetOptions{})
+	deployment, err := virtCli.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return err, -1
 	}
-	scale := &k8sextv1beta1.Scale{Spec: k8sextv1beta1.ScaleSpec{Replicas: desired}, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
-	scale, err = virtCli.ExtensionsV1beta1().Deployments(namespace).UpdateScale(name, scale)
+	scale := &autoscalingv1.Scale{Spec: autoscalingv1.ScaleSpec{Replicas: desired}, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+	scale, err = virtCli.AppsV1().Deployments(namespace).UpdateScale(name, scale)
 	if err != nil {
 		return err, -1
 	}
@@ -439,14 +439,14 @@ func DoScaleVirtHandler(namespace string, name string, selector map[string]strin
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	d, err := virtCli.ExtensionsV1beta1().DaemonSets(namespace).Get(name, metav1.GetOptions{})
+	d, err := virtCli.AppsV1().DaemonSets(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return 0, nil, 0, err
 	}
 	sel := d.Spec.Template.Spec.NodeSelector
 	ready := d.Status.DesiredNumberScheduled
 	d.Spec.Template.Spec.NodeSelector = selector
-	d, err = virtCli.ExtensionsV1beta1().DaemonSets(namespace).Update(d)
+	d, err = virtCli.AppsV1().DaemonSets(namespace).Update(d)
 	if err != nil {
 		return 0, nil, 0, err
 	}
@@ -1093,25 +1093,25 @@ func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructu
 	PanicOnError(err)
 
 	Eventually(func() int32 {
-		d, err := virtCli.ExtensionsV1beta1().Deployments(KubeVirtInstallNamespace).Get("virt-api", metav1.GetOptions{})
+		d, err := virtCli.AppsV1().Deployments(KubeVirtInstallNamespace).Get("virt-api", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return d.Status.ReadyReplicas
 	}, 3*time.Minute, 2*time.Second).Should(Equal(replicasApi), "virt-api is not ready")
 
 	Eventually(func() int32 {
-		d, err := virtCli.ExtensionsV1beta1().Deployments(KubeVirtInstallNamespace).Get("virt-controller", metav1.GetOptions{})
+		d, err := virtCli.AppsV1().Deployments(KubeVirtInstallNamespace).Get("virt-controller", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return d.Status.ReadyReplicas
 	}, 3*time.Minute, 2*time.Second).Should(Equal(replicasController), "virt-controller is not ready")
 
 	Eventually(func() int64 {
-		d, err := virtCli.ExtensionsV1beta1().DaemonSets(KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+		d, err := virtCli.AppsV1().DaemonSets(KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return d.Status.ObservedGeneration
 	}, 1*time.Minute, 2*time.Second).Should(Equal(newGeneration), "virt-handler did not bump the generation")
 
 	Eventually(func() int32 {
-		d, err := virtCli.ExtensionsV1beta1().DaemonSets(KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+		d, err := virtCli.AppsV1().DaemonSets(KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return d.Status.NumberAvailable
 	}, 1*time.Minute, 2*time.Second).Should(Equal(daemonInstances), "virt-handler is not ready")

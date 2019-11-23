@@ -5,12 +5,13 @@ docker_tag_alt=${DOCKER_TAG_ALT}
 image_prefix=${IMAGE_PREFIX}
 image_prefix_alt=${IMAGE_PREFIX_ALT}
 namespace=kubevirt
+deploy_testing_infra=${DEPLOY_TESTING_INFRA:-false}
 csv_namespace=placeholder
 cdi_namespace=cdi
 image_pull_policy=${IMAGE_PULL_POLICY:-IfNotPresent}
 verbosity=${VERBOSITY:-2}
 package_name=${PACKAGE_NAME:-kubevirt-dev}
-kubevirtci_git_hash="939594520a1ca5726b8aaeb2c1685d27e0b3687e"
+kubevirtci_git_hash="93d9ac5e33e6e12e723d71c550a163886430213b"
 
 # try to derive csv_version from docker tag. But it must start with x.y.z, without leading v
 default_csv_version="${docker_tag/latest/0.0.0}"
