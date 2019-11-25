@@ -19,6 +19,10 @@ spec:
   - JSONPath: .status.nodeName
     name: NodeName
     type: string
+  - JSONPath: .status.conditions[?(@.type=='LiveMigratable')].status
+    name: Live-Migratable
+    priority: 1
+    type: string
   group: kubevirt.io
   names:
     categories:
