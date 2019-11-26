@@ -9,9 +9,10 @@ aliases:
       - cynepco3hahue
       - stu-gott
       - SchSeba
-      - mfranczy
       - fabiand
       - codificat
+  emeritus_approvers:
+      - mfranczy
   code-reviewers:
       - davidvossel
       - rmohr
@@ -22,7 +23,6 @@ aliases:
       - cynepco3hahue
       - phoracek
       - SchSeba
-      - mfranczy
       - dhiller
       - pkotas
       - vatsalparekh
