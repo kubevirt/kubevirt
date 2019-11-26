@@ -325,7 +325,7 @@ func main() {
 	log.InitializeLogging("virt-launcher")
 
 	if !*noFork {
-		exitCode, err := ForkAndMonitor("qemu-system", *ephemeralDiskDir, *containerDiskDir)
+		exitCode, err := ForkAndMonitor("qemu-kvm", *ephemeralDiskDir, *containerDiskDir)
 		if err != nil {
 			log.Log.Reason(err).Error("monitoring virt-launcher failed")
 			os.Exit(1)
