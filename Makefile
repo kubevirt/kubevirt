@@ -88,8 +88,6 @@ upgrade-test:
 dump-state:
 	./hack/dump-state.sh 
 
-
- 
 help: ## Show this help screen
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'
 	@echo ''

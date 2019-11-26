@@ -66,7 +66,7 @@ function cleanup() {
 trap "cleanup" INT TERM EXIT
 
 echo "--"
-echo "-- Upgrade Step 1/6: clean cluster"
+echo "-- Upgrade Step 1/7: clean cluster"
 echo "--"
 
 if [ -n "$KUBEVIRT_PROVIDER" ]; then
@@ -85,18 +85,18 @@ ${CMD} wait deployment catalog-operator --for condition=Available -n openshift-o
 
 if [ -n "$KUBEVIRT_PROVIDER" ]; then
   echo "--"
-  echo "-- Upgrade Step 2/6: build images for STDCI"
+  echo "-- Upgrade Step 2/7: build images for STDCI"
   echo "--"
   ./hack/upgrade-test-build-images.sh
 else
   echo "--"
-  echo "-- Upgrade Step 2/6: Openshift CI detected."
+  echo "-- Upgrade Step 2/7: Openshift CI detected."
   echo "-- Image build skipped. Images are built through Prow."
   echo "--"
 fi
 
 echo "--"
-echo "-- Upgrade Step 3/6: create catalogsource and subscription to install HCO"
+echo "-- Upgrade Step 3/7: create catalogsource and subscription to install HCO"
 echo "--"
 
 ${CMD} create ns kubevirt-hyperconverged | true
@@ -174,6 +174,9 @@ ${CMD} create -f ./deploy/hco.cr.yaml -n kubevirt-hyperconverged
 HCO_OPERATOR_POD=`${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator | head -1 | awk '{ print $1 }'`
 ${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverged --timeout="600s"
 
+echo "-- check that cluster is operational"
+timeout 10m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh' 
+
 ${CMD} get subscription -n kubevirt-hyperconverged -o yaml
 ${CMD} get pods -n kubevirt-hyperconverged 
 
@@ -182,7 +185,7 @@ ${CMD} get deployments -n kubevirt-hyperconverged -o yaml | grep image | grep -v
 ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 
 echo "--"
-echo "-- Upgrade Step 4/6: patch existing catalog source with new registry image"
+echo "-- Upgrade Step 4/7: patch existing catalog source with new registry image"
 echo "-- and wait for hco-catalogsource pod to be in Ready state"
 echo "--"
 
@@ -201,9 +204,8 @@ ${CMD} wait pod $CATALOG_OPERATOR_POD --for condition=Ready -n openshift-operato
 #  currentCSV: kubevirt-hyperconverged-operator.v100.0.0
 #  installedCSV: kubevirt-hyperconverged-operator.v100.0.0
 echo "--"
-echo "-- Upgrade Step 5/6: verify the subscription's currentCSV and installedCSV have moved to the new version"
+echo "-- Upgrade Step 5/7: verify the subscription's currentCSV and installedCSV have moved to the new version"
 echo "--"
-
 
 sleep 10
 HCO_OPERATOR_POD=`${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator | head -1 | awk '{ print $1 }'`
@@ -212,7 +214,7 @@ ${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverg
 ./hack/retry.sh 2 30 "${CMD} get subscriptions -n kubevirt-hyperconverged -o yaml | grep installedCSV | grep v100.0.0"
 
 echo "--"
-echo "-- Upgrade Step 6/6: verify the hyperconverged-cluster deployment is using the new image"
+echo "-- Upgrade Step 6/7: verify the hyperconverged-cluster deployment is using the new image"
 echo "--"
 
 ./hack/retry.sh 6 30 "${CMD} get deployments -n kubevirt-hyperconverged -o yaml | grep image | grep hyperconverged-cluster | grep ${REGISTRY_IMAGE_URL_PREFIX}"
@@ -220,3 +222,8 @@ echo "--"
 echo "----- Images after upgrade"
 ${CMD} get deployments -n kubevirt-hyperconverged -o yaml | grep image | grep -v imagePullPolicy
 ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
+
+echo "-- Upgrade Step 7/7: wait that cluster will become operational"
+timeout 10m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
+
+echo "Cluster is up and running!"
