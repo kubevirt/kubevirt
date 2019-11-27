@@ -192,7 +192,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 		)
 		tryToPushMetric(swapTrafficDesc, mv, err, ch)
 	}
-	if vmStats.Memory.SwapInSet {
+	if vmStats.Memory.SwapOutSet {
 		mv, err := prometheus.NewConstMetric(
 			swapTrafficDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
