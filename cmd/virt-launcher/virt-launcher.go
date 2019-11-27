@@ -512,7 +512,13 @@ func ForkAndMonitor(qemuProcessCommandPrefix string, ephemeralDiskDir string, co
 
 	}
 	// give qemu some time to shut down in case it survived virt-handler
-	pid, _ := virtlauncher.FindPid(qemuProcessCommandPrefix)
+	// Most of the time we call `qemu-system=* binaries, but qemu-system-* packages
+	// are not everywhere available where libvirt and qemu are. There we usually call qemu-kvm
+	// which resides in /usr/libexec/qemu-kvm
+	pid, _ := virtlauncher.FindPid("qemu-system")
+	if pid <= 0 {
+		pid, _ = virtlauncher.FindPid("qemu-kvm")
+	}
 	if pid > 0 {
 		p, err := os.FindProcess(pid)
 		if err != nil {
