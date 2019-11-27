@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
 // GetSecretSourcePath returns a path to Secret mounted on a pod
@@ -46,8 +47,12 @@ func CreateSecretDisks(vmi *v1.VirtualMachineInstance) error {
 				return err
 			}
 
-			err = createIsoConfigImage(GetSecretDiskPath(volume.Name), filesPath)
-			if err != nil {
+			disk := GetSecretDiskPath(volume.Name)
+			if err := createIsoConfigImage(disk, filesPath); err != nil {
+				return err
+			}
+
+			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(disk); err != nil {
 				return err
 			}
 		}

@@ -41,7 +41,6 @@ import (
 type IsoCreationFunc func(isoOutFile, volumeID string, inDir string) error
 
 var cloudInitLocalDir = "/var/run/libvirt/cloud-init-dir"
-var cloudInitOwner = "qemu"
 var cloudInitIsoFunc = defaultIsoFunc
 
 // Locations of data source disk files
@@ -201,11 +200,6 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 // The unit test suite uses this function
 func SetIsoCreationFunction(isoFunc IsoCreationFunc) {
 	cloudInitIsoFunc = isoFunc
-}
-
-// The unit test suite uses this function
-func SetLocalDataOwner(user string) {
-	cloudInitOwner = user
 }
 
 func SetLocalDirectory(dir string) error {
@@ -425,8 +419,7 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 	diskutils.RemoveFile(userFile)
 	diskutils.RemoveFile(networkFile)
 
-	err = diskutils.SetFileOwnership(cloudInitOwner, isoStaging)
-	if err != nil {
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(isoStaging); err != nil {
 		return err
 	}
 
