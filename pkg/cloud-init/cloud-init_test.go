@@ -25,7 +25,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"os/user"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -51,17 +50,11 @@ var _ = Describe("CloudInit", func() {
 
 	tmpDir, _ := ioutil.TempDir("", "cloudinittest")
 
-	owner, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
-
 	BeforeSuite(func() {
 		err := SetLocalDirectory(tmpDir)
 		if err != nil {
 			panic(err)
 		}
-		SetLocalDataOwner(owner.Username)
 	})
 
 	BeforeEach(func() {
@@ -143,7 +136,7 @@ var _ = Describe("CloudInit", func() {
 				It("should fail to remove local data", func() {
 					namespace := "fake-namespace"
 					domain := "fake-domain"
-					err = removeLocalData(domain, namespace)
+					err := removeLocalData(domain, namespace)
 					Expect(err).ToNot(HaveOccurred())
 				})
 			})

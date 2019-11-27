@@ -164,7 +164,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Eventually(logs,
 				2*time.Second,
 				500*time.Millisecond).
-				Should(And(ContainSubstring("internal error: Cannot probe for supported suspend types"), ContainSubstring(`"subcomponent":"libvirt"`)))
+				Should(And(ContainSubstring("internal error: Unable to get DBus system bus connection"), ContainSubstring(`"subcomponent":"libvirt"`)))
 		})
 
 		It("should log libvirtd debug logs when enabled", func() {
