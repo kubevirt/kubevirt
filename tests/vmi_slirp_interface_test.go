@@ -101,13 +101,12 @@ var _ = Describe("Slirp Networking", func() {
 		Expect(err).ToNot(HaveOccurred())
 		// :0050 is port 80, 0A is listening
 		Expect(strings.Contains(output, "0: 00000000:0050 00000000:0000 0A")).To(BeTrue())
-
 		By("return \"Hello World!\" when connecting to localhost on port 80")
 		output, err = tests.ExecuteCommandOnPod(
 			virtClient,
 			vmiPod,
 			vmiPod.Spec.Containers[0].Name,
-			[]string{"curl", "-s", "--retry", "30", "--retry-delay", "30", "127.0.0.1"},
+			[]string{"nc", "127.0.0.1", "80", "--recv-only"},
 		)
 		log.Log.Infof("%v", output)
 		Expect(err).ToNot(HaveOccurred())
