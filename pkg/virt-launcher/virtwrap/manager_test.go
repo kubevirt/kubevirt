@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/user"
 	"strings"
 	"time"
 
@@ -37,6 +36,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -60,10 +61,6 @@ var _ = Describe("Manager", func() {
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	tmpDir, _ := ioutil.TempDir("", "cloudinittest")
-	owner, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
 	isoCreationFunc := func(isoOutFile, volumeID string, inDir string) error {
 		_, err := os.Create(isoOutFile)
 		return err
@@ -73,7 +70,7 @@ var _ = Describe("Manager", func() {
 		if err != nil {
 			panic(err)
 		}
-		cloudinit.SetLocalDataOwner(owner.Username)
+		ephemeraldiskutils.MockDefaultOwnershipManager()
 		cloudinit.SetIsoCreationFunction(isoCreationFunc)
 	})
 

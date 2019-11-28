@@ -22,6 +22,7 @@ package ephemeraldiskutils
 import (
 	"bytes"
 	"crypto/md5"
+	"fmt"
 	"io"
 	"os"
 	"os/user"
@@ -32,6 +33,41 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 )
+
+// TODO this should be part of structs, instead of a global
+var DefaultOwnershipManager OwnershipManagerInterface = &OwnershipManager{user: "qemu"}
+
+// For testing
+func MockDefaultOwnershipManager() {
+	owner, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+
+	DefaultOwnershipManager = &OwnershipManager{user: owner.Username}
+}
+
+type OwnershipManager struct {
+	user string
+}
+
+func (om *OwnershipManager) SetFileOwnership(file string) error {
+	owner, err := user.Lookup(om.user)
+	if err != nil {
+		return fmt.Errorf("failed to look up user %s: %v", om.user, err)
+	}
+
+	uid, err := strconv.Atoi(owner.Uid)
+	if err != nil {
+		return fmt.Errorf("failed to convert UID %s of user %s: %v", owner.Uid, om.user, err)
+	}
+
+	gid, err := strconv.Atoi(owner.Gid)
+	if err != nil {
+		return fmt.Errorf("failed to convert GID %s of user %s: %v", owner.Gid, om.user, err)
+	}
+	return os.Chown(file, uid, gid)
+}
 
 func RemoveFile(path string) error {
 	err := os.RemoveAll(path)
@@ -71,28 +107,6 @@ func Md5CheckSum(filePath string) ([]byte, error) {
 
 	result := hash.Sum(nil)
 	return result, nil
-}
-
-func SetFileOwnership(username string, file string) error {
-	usrObj, err := user.Lookup(username)
-	if err != nil {
-		log.Log.Reason(err).Errorf("unable to look up username %s", username)
-		return err
-	}
-
-	uid, err := strconv.Atoi(usrObj.Uid)
-	if err != nil {
-		log.Log.Reason(err).Errorf("unable to find uid for username %s", username)
-		return err
-	}
-
-	gid, err := strconv.Atoi(usrObj.Gid)
-	if err != nil {
-		log.Log.Reason(err).Errorf("unable to find gid for username %s", username)
-		return err
-	}
-
-	return os.Chown(file, uid, gid)
 }
 
 func FilesAreEqual(path1 string, path2 string) (bool, error) {
@@ -165,4 +179,8 @@ func ListVmWithEphemeralDisk(localPath string) ([]*v1.VirtualMachineInstance, er
 	})
 
 	return keys, err
+}
+
+type OwnershipManagerInterface interface {
+	SetFileOwnership(file string) error
 }

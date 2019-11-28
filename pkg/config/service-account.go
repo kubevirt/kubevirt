@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
 // GetServiceAccountDiskPath returns a path to the ServiceAccount iso image
@@ -40,8 +41,12 @@ func CreateServiceAccountDisk(vmi *v1.VirtualMachineInstance) error {
 				return err
 			}
 
-			err = createIsoConfigImage(GetServiceAccountDiskPath(), filesPath)
-			if err != nil {
+			disk := GetServiceAccountDiskPath()
+			if err := createIsoConfigImage(disk, filesPath); err != nil {
+				return err
+			}
+
+			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(disk); err != nil {
 				return err
 			}
 		}
