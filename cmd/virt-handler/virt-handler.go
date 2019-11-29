@@ -328,7 +328,7 @@ func (app *virtHandlerApp) Run() {
 		glog.Fatalf("unable to generate certificates: %v", err)
 	}
 
-	promvm.SetupCollector(app.virtCli, app.VirtShareDir, app.HostOverride)
+	promvm.SetupCollector(app.virtCli, app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight)
 
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})

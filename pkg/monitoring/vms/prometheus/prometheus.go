@@ -391,13 +391,13 @@ type Collector struct {
 	concCollector *concurrentCollector
 }
 
-func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName string) *Collector {
+func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName string, MaxRequestsInFlight int) *Collector {
 	log.Log.Infof("Starting collector: node name=%v", nodeName)
 	co := &Collector{
 		virtCli:       virtCli,
 		virtShareDir:  virtShareDir,
 		nodeName:      nodeName,
-		concCollector: NewConcurrentCollector(),
+		concCollector: NewConcurrentCollector(MaxRequestsInFlight),
 	}
 	prometheus.MustRegister(co)
 	return co

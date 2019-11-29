@@ -27,7 +27,7 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-const collectionTimeout time.Duration = 10 * time.Second // "long enough", crude heuristic
+const collectionTimeout = 10 * time.Second // "long enough", crude heuristic
 
 type vmiSocketMap map[string]*k6tv1.VirtualMachineInstance
 
@@ -36,13 +36,15 @@ type metricsScraper interface {
 }
 
 type concurrentCollector struct {
-	lock     sync.Mutex
-	busyKeys map[string]bool
+	lock             sync.Mutex
+	clientsPerKey    map[string]int
+	maxClientsPerKey int
 }
 
-func NewConcurrentCollector() *concurrentCollector {
+func NewConcurrentCollector(MaxRequestsPerKey int) *concurrentCollector {
 	return &concurrentCollector{
-		busyKeys: make(map[string]bool),
+		clientsPerKey:    make(map[string]int),
+		maxClientsPerKey: MaxRequestsPerKey,
 	}
 }
 
@@ -95,16 +97,16 @@ func (cc *concurrentCollector) collectFromSource(scraper metricsScraper, wg *syn
 func (cc *concurrentCollector) reserveKey(key string) bool {
 	cc.lock.Lock()
 	defer cc.lock.Unlock()
-	busy := cc.busyKeys[key]
-	if busy {
+	count := cc.clientsPerKey[key]
+	if count >= cc.maxClientsPerKey {
 		return false
 	}
-	cc.busyKeys[key] = true
+	cc.clientsPerKey[key] += 1
 	return true
 }
 
 func (cc *concurrentCollector) releaseKey(key string) {
 	cc.lock.Lock()
 	defer cc.lock.Unlock()
-	cc.busyKeys[key] = false
+	cc.clientsPerKey[key] -= 1
 }

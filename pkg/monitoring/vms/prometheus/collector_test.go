@@ -42,7 +42,7 @@ var _ = Describe("Collector", func() {
 	Context("on running source", func() {
 		It("should scrape all the sources", func() {
 			fs := newFakeScraper(len(socketToVMI))
-			cc := NewConcurrentCollector()
+			cc := NewConcurrentCollector(1)
 
 			skipped, completed := cc.Collect(socketToVMI, fs, 1*time.Second)
 
@@ -55,7 +55,7 @@ var _ = Describe("Collector", func() {
 		It("should gather the available data", func() {
 			fs := newFakeScraper(len(socketToVMI))
 			fs.Block("a")
-			cc := NewConcurrentCollector()
+			cc := NewConcurrentCollector(1)
 
 			skipped, completed := cc.Collect(socketToVMI, fs, 1*time.Second)
 
@@ -66,11 +66,17 @@ var _ = Describe("Collector", func() {
 		It("should skip it on later collections", func() {
 			fs := newFakeScraper(len(socketToVMI))
 			fs.Block("a")
-			cc := NewConcurrentCollector()
+			cc := NewConcurrentCollector(2)
 
 			By("Doing a first collection")
 			skipped, completed := cc.Collect(socketToVMI, fs, 1*time.Second)
 			// first collection is not aware of the blocked source
+			Expect(len(skipped)).To(Equal(0))
+			Expect(completed).To(BeFalse())
+
+			By("Doing a second collection")
+			skipped, completed = cc.Collect(socketToVMI, fs, 1*time.Second)
+			// second collection is not aware of the blocked source
 			Expect(len(skipped)).To(Equal(0))
 			Expect(completed).To(BeFalse())
 
@@ -86,7 +92,7 @@ var _ = Describe("Collector", func() {
 		It("should resume scraping when unblocks", func() {
 			fs := newFakeScraper(len(socketToVMI))
 			fs.Block("b")
-			cc := NewConcurrentCollector()
+			cc := NewConcurrentCollector(1)
 
 			By("Doing a first collection")
 			skipped, completed := cc.Collect(socketToVMI, fs, 1*time.Second)
