@@ -29,7 +29,7 @@ var _ = Describe("ImageUpload", func() {
 	tests.FlagParse()
 
 	namespace := tests.NamespaceTestDefault
-	pvcName := "alpine-pvc"
+	dvName := "alpine-dv"
 	pvcSize := "100Mi"
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -78,10 +78,10 @@ var _ = Describe("ImageUpload", func() {
 			By("Upload image")
 
 			virtctlCmd := tests.NewRepeatableVirtctlCommand("image-upload",
+				"dv", dvName,
 				"--namespace", namespace,
 				"--image-path", imagePath,
-				"--pvc-name", pvcName,
-				"--pvc-size", pvcSize,
+				"--size", pvcSize,
 				"--uploadproxy-url", fmt.Sprintf("https://127.0.0.1:%d", localUploadProxyPort),
 				"--wait-secs", "30",
 				"--storage-class", tests.Config.StorageClassLocal,
@@ -92,8 +92,12 @@ var _ = Describe("ImageUpload", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
+			By("Get DataVolume")
+			_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(dvName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			By("Start VM")
-			vmi := tests.NewRandomVMIWithPVC(pvcName)
+			vmi := tests.NewRandomVMIWithPVC(dvName)
 			vmi, err = virtClient.VirtualMachineInstance(namespace).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
@@ -103,7 +107,7 @@ var _ = Describe("ImageUpload", func() {
 	})
 
 	AfterEach(func() {
-		err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Delete(pvcName, &metav1.DeleteOptions{})
+		err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Delete(dvName, &metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			return
 		}
