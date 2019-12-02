@@ -204,7 +204,7 @@ func DeleteAll(kv *v1.KubeVirt,
 			if key, err := controller.KeyFunc(serviceMonitor); err == nil {
 				expectations.ServiceMonitor.AddExpectedDeletion(kvkey, key)
 				err := prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Delete(serviceMonitor.Name, deleteOptions)
-				if false && err != nil {
+				if err != nil {
 					expectations.ServiceMonitor.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete serviceMonitor %+v: %v", serviceMonitor, err)
 					return err
