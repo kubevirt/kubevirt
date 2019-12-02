@@ -103,7 +103,7 @@ func init() {
 func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "image-upload",
-		Short:   "Upload a VM image to a PersistentVolumeClaim.",
+		Short:   "Upload a VM image to a DataVolume/PersistentVolumeClaim.",
 		Example: usage(),
 		Args:    cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -131,10 +131,10 @@ func usage() string {
 	usage := `  # Upload a local disk image to a newly created DataVolume:
   {{ProgramName}} image-upload dv dv-name --size=10Gi --image-path=/images/fedora30.qcow2
 
-  # Upload a local disk image to an exististing DataVolume
+  # Upload a local disk image to an existing DataVolume
   {{ProgramName}} image-upload dv dv-name --no-create --image-path=/images/fedora30.qcow2
 
-  # Upload a local disk image to an exististing PersistentVolumeClaim
+  # Upload a local disk image to an existing PersistentVolumeClaim
   {{ProgramName}} image-upload pvc pvc-name --image-path=/images/fedora30.qcow2
 
   # Upload to a DataVolume with explicit URL to CDI Upload Proxy
