@@ -1403,12 +1403,26 @@ func getDomain(vmi *v1.VirtualMachineInstance) (*api.Domain, error) {
 		DiskType:       diskInfo,
 		IsBlockPVC:     isBlockPVCMap,
 		IsBlockDV:      isBlockDVMap,
+		// we won't use the domain object for actual libvirt definition
+		UseEmulation: true,
 	}
 	domain := &api.Domain{}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		return nil, err
 	}
 	return domain, nil
+}
+
+func setupNetworkPhase1(vmi *v1.VirtualMachineInstance) error {
+	domain, err := getDomain(vmi)
+	if err != nil {
+		return err
+	}
+	// todo: consider getting rid of domain argument completely
+	if err = network.SetupPodNetworkPhase1(vmi, domain); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
@@ -1494,15 +1508,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		}
 
 		if err := res.DoNetNS(func(_ ns.NetNS) error {
-			domain, err := getDomain(vmi)
-			if err != nil {
-				return err
-			}
-			// todo: consider getting rid of domain argument completely
-			if err = network.SetupPodNetworkPhase1(vmi, domain); err != nil {
-				return err
-			}
-			return nil
+			return setupNetworkPhase1(vmi)
 		}); err != nil {
 			return fmt.Errorf("failed to configure vmi network: %v", err)
 		}

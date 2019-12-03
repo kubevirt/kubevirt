@@ -553,6 +553,202 @@ var _ = Describe("Pod Network", func() {
 			})
 		})
 	})
+
+	Context("Masquerade startDHCP", func() {
+		It("should succeed", func() {
+			domain := NewDomainWithBridgeInterface()
+			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			Expect(err).ToNot(HaveOccurred())
+			masq, ok := driver.(*MasqueradePodInterface)
+			Expect(ok).To(BeTrue())
+
+			masq.vif.Gateway = masqueradeGwAddr.IP.To4()
+			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil).Return(nil)
+
+			err = masq.startDHCP(vmi)
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("should fail", func() {
+			domain := NewDomainWithBridgeInterface()
+			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			Expect(err).ToNot(HaveOccurred())
+			masq, ok := driver.(*MasqueradePodInterface)
+			Expect(ok).To(BeTrue())
+
+			masq.vif.Gateway = masqueradeGwAddr.IP.To4()
+
+			err = fmt.Errorf("failed to start DHCP server")
+			mockNetwork.EXPECT().StartDHCP(masq.vif, gomock.Any(), masq.bridgeInterfaceName, nil).Return(err)
+
+			err = masq.startDHCP(vmi)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+	Context("Bridge startDHCP", func() {
+		It("should succeed", func() {
+			domain := NewDomainWithBridgeInterface()
+			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			Expect(err).ToNot(HaveOccurred())
+			bridge, ok := driver.(*BridgePodInterface)
+			Expect(ok).To(BeTrue())
+
+			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil).Return(nil)
+
+			err = bridge.startDHCP(vmi)
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("should fail", func() {
+			domain := NewDomainWithBridgeInterface()
+			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			Expect(err).ToNot(HaveOccurred())
+			bridge, ok := driver.(*BridgePodInterface)
+			Expect(ok).To(BeTrue())
+
+			err = fmt.Errorf("failed to start DHCP server")
+			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil).Return(err)
+
+			err = bridge.startDHCP(vmi)
+			Expect(err).To(HaveOccurred())
+		})
+		It("should succeed when isLayer2 = true", func() {
+			domain := NewDomainWithBridgeInterface()
+			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			Expect(err).ToNot(HaveOccurred())
+			bridge, ok := driver.(*BridgePodInterface)
+			Expect(ok).To(BeTrue())
+
+			bridge.vif.IsLayer2 = true
+			err = fmt.Errorf("failed to start DHCP server")
+			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil).Return(err)
+
+			err = bridge.startDHCP(vmi)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+	Context("Slirp startDHCP", func() {
+		It("should succeed", func() {
+			domain := NewDomainWithSlirpInterface()
+			vmi := newVMISlirpInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+
+			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			Expect(err).ToNot(HaveOccurred())
+			slirp, ok := driver.(*SlirpPodInterface)
+			Expect(ok).To(BeTrue())
+
+			err = slirp.startDHCP(vmi)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("Bridge loadCachedVIF", func() {
+		It("should fail when nothing to load", func() {
+			domain := NewDomainWithBridgeInterface()
+			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			Expect(err).ToNot(HaveOccurred())
+			bridge, ok := driver.(*BridgePodInterface)
+			Expect(ok).To(BeTrue())
+
+			succ, err := bridge.loadCachedVIF("fakeuid", "fakename")
+			Expect(err).To(HaveOccurred())
+			Expect(succ).To(BeFalse())
+		})
+		It("should succeed when cache file present", func() {
+			domain := NewDomainWithBridgeInterface()
+			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			Expect(err).ToNot(HaveOccurred())
+			bridge, ok := driver.(*BridgePodInterface)
+			Expect(ok).To(BeTrue())
+
+			err = bridge.setCachedVIF("fakeuid", "fakename")
+			Expect(err).ToNot(HaveOccurred())
+
+			succ, err := bridge.loadCachedVIF("fakeuid", "fakename")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(succ).To(BeTrue())
+		})
+	})
+
+	Context("Slirp loadCachedVIF", func() {
+		It("should succeed", func() {
+			domain := NewDomainWithSlirpInterface()
+			vmi := newVMISlirpInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+
+			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			Expect(err).ToNot(HaveOccurred())
+			slirp, ok := driver.(*SlirpPodInterface)
+			Expect(ok).To(BeTrue())
+
+			// it doesn't fail regardless, whether called without setCachedVIF...
+			succ, err := slirp.loadCachedVIF("fakeuid", "fakename")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(succ).To(BeTrue())
+
+			// ...or after it
+			err = slirp.setCachedVIF("fakeuid", "fakename")
+			Expect(err).ToNot(HaveOccurred())
+
+			succ, err = slirp.loadCachedVIF("fakeuid", "fakename")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(succ).To(BeTrue())
+		})
+	})
+
+	Context("Masquerade loadCachedVIF", func() {
+		It("should fail when nothing to load", func() {
+			domain := NewDomainWithBridgeInterface()
+			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			Expect(err).ToNot(HaveOccurred())
+			masq, ok := driver.(*MasqueradePodInterface)
+			Expect(ok).To(BeTrue())
+
+			succ, err := masq.loadCachedVIF("fakeuid", "fakename")
+			Expect(err).To(HaveOccurred())
+			Expect(succ).To(BeFalse())
+		})
+		It("should succeed when cache file present", func() {
+			domain := NewDomainWithBridgeInterface()
+			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			Expect(err).ToNot(HaveOccurred())
+			masq, ok := driver.(*MasqueradePodInterface)
+			Expect(ok).To(BeTrue())
+
+			err = masq.setCachedVIF("fakeuid", "fakename")
+			Expect(err).ToNot(HaveOccurred())
+
+			succ, err := masq.loadCachedVIF("fakeuid", "fakename")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(succ).To(BeTrue())
+		})
+	})
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {

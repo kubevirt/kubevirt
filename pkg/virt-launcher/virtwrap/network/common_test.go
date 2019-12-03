@@ -21,10 +21,12 @@ package network
 
 import (
 	"io/ioutil"
+	"net"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/vishvananda/netlink"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -88,6 +90,24 @@ var _ = Describe("Common Methods", func() {
 			mac, err := networkHandler.GenerateRandomMac()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.HasPrefix(mac.String(), "02:00:00")).To(BeTrue())
+		})
+	})
+})
+
+var _ = Describe("VIF", func() {
+	Context("String", func() {
+		It("returns correct string representation", func() {
+			addr, _ := netlink.ParseAddr("10.0.0.200/24")
+			mac, _ := net.ParseMAC("de:ad:00:00:be:ef")
+			gw := net.ParseIP("10.0.0.1")
+			vif := &VIF{
+				Name:    "test-vif",
+				IP:      *addr,
+				MAC:     mac,
+				Gateway: gw,
+				Mtu:     1450,
+			}
+			Expect(vif.String()).To(Equal("VIF: { Name: test-vif, IP: 10.0.0.200, Mask: ffffff00, MAC: de:ad:00:00:be:ef, Gateway: 10.0.0.1, MTU: 1450, IsLayer2: false}"))
 		})
 	})
 })

@@ -1499,3 +1499,25 @@ func (m *vmiCondMatcher) Matches(x interface{}) bool {
 func (m *vmiCondMatcher) String() string {
 	return "conditions matches on vmis"
 }
+
+var _ = Describe("getDomain", func() {
+	Context("when passed a valid vmi spec", func() {
+		vmi := v1.NewMinimalVMI("testvmi")
+		It("should generate a valid domain object", func() {
+			domain, err := getDomain(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(domain).NotTo(BeNil())
+			Expect(domain.ObjectMeta.Name).To(Equal("testvmi"))
+		})
+	})
+})
+
+var _ = Describe("setupNetworkPhase1", func() {
+	Context("when passed a valid vmi spec", func() {
+		vmi := v1.NewMinimalVMI("testvmi")
+		It("should succeed", func() {
+			err := setupNetworkPhase1(vmi)
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+})
