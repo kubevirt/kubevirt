@@ -9,7 +9,8 @@ ENV OPERATOR=/usr/local/bin/hyperconverged-cluster-operator \
     CSV_MERGER=/usr/local/bin/csv-merger \
     USER_UID=1001 \
     USER_NAME=hyperconverged-cluster-operator \
-    CSV_TEMPLATE=/var/hco-csv-template.yaml.in
+    CSV_TEMPLATE=/var/hco-csv-template.yaml.in 
+
 
 COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/build/bin/ /usr/local/bin
 RUN /usr/local/bin/user_setup

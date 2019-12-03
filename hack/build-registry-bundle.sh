@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 IMAGE_REGISTRY="${IMAGE_REGISTRY:-docker.io}"
 REGISTRY_NAMESPACE="${REGISTRY_NAMESPACE:-}"

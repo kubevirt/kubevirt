@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash -ex
 #
 # This file is part of the KubeVirt project
 #
@@ -47,8 +47,14 @@ export REGISTRY_IMAGE_NAME="hco-registry-upgrade"
 export REGISTRY_EXTRA_BUILD_ARGS="--build-arg KUBEVIRT_PROVIDER=$KUBEVIRT_PROVIDER"
 make bundleRegistry
 
+pwd
+make container-clusterserviceversion
+ls -al ./test-out
+
+
 # check images are accessible
 CLUSTER_NODES=$(./cluster-up/kubectl.sh get nodes | grep Ready | cut -d ' ' -f 1)
 for NODE in $CLUSTER_NODES; do
     ./cluster-up/ssh.sh $NODE 'sudo podman pull registry:5000/kubevirt/hco-registry-upgrade:latest'
 done
+

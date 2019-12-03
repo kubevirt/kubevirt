@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -ex
 
 # TODO: If we create more hack scripts this should go in common
 # and be sourced

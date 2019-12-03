@@ -80,6 +80,9 @@ stageRegistry:
 bundleRegistry:
 	REGISTRY_NAMESPACE=$(REGISTRY_NAMESPACE) IMAGE_REGISTRY=$(IMAGE_REGISTRY) ./hack/build-registry-bundle.sh
 
+container-clusterserviceversion:
+	REGISTRY_NAMESPACE=$(REGISTRY_NAMESPACE) IMAGE_REGISTRY=$(IMAGE_REGISTRY) ./hack/upgrade-test-clusterserviceversion.sh
+
 build-push-all: container-build-operator container-push-operator container-build-operator-courier bundle-push
 
 upgrade-test:
