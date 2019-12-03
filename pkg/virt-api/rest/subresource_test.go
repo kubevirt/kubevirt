@@ -354,6 +354,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, podList),
 				),

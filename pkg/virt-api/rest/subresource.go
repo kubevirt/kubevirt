@@ -434,6 +434,15 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 			return
 		}
 	}
+	if bodyStruct.GracePeriodSeconds != nil {
+		if *bodyStruct.GracePeriodSeconds > 0 {
+			response.WriteError(http.StatusForbidden, fmt.Errorf("For force restart, only gracePeriod=0 is supported for now"))
+			return
+		} else if *bodyStruct.GracePeriodSeconds < 0 {
+			response.WriteError(http.StatusForbidden, fmt.Errorf("gracePeriod has to be greater or equal to 0"))
+			return
+		}
+	}
 
 	vm, code, err := app.fetchVirtualMachine(name, namespace)
 	if err != nil {
@@ -461,31 +470,6 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 
-	// Only force restart is supported for now
-	// Check if bodyMap["graceperiod"] is not empty because gracePeriodint64 can be 0 if that is empty
-	if bodyStruct.GracePeriodSeconds != nil {
-		if *bodyStruct.GracePeriodSeconds == 0 {
-			vmiPodname, err := app.findPod(namespace, vmi)
-			if err != nil {
-				response.WriteError(http.StatusForbidden, err)
-			}
-			// set termincationGracePeriod and delete the VMI pod to trigger a forced restart
-			err = app.virtCli.CoreV1().Pods(namespace).Delete(vmiPodname, &k8smetav1.DeleteOptions{GracePeriodSeconds: bodyStruct.GracePeriodSeconds})
-			if err != nil {
-				response.WriteError(http.StatusForbidden, err)
-			} else {
-				response.WriteHeader(http.StatusAccepted)
-			}
-			return
-		} else if *bodyStruct.GracePeriodSeconds > 0 {
-			response.WriteError(http.StatusForbidden, fmt.Errorf("For force restart, only gracePeriod=0 is supported for now"))
-			return
-		} else if *bodyStruct.GracePeriodSeconds < 0 {
-			response.WriteError(http.StatusForbidden, fmt.Errorf("gracePeriod has to be greater or equal to 0"))
-			return
-		}
-	}
-
 	bodyString, err := getChangeRequestJson(vm,
 		v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID},
 		v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
@@ -503,6 +487,25 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		}
 		response.WriteError(errCode, fmt.Errorf("%v: %s", err, bodyString))
 		return
+	}
+
+	// Only force restart with GracePeriodSeconds=0 is supported for now
+	// Here we are deleting the Pod because CRDs don't support gracePeriodSeconds at the moment
+	if bodyStruct.GracePeriodSeconds != nil {
+		if *bodyStruct.GracePeriodSeconds == 0 {
+			vmiPodname, err := app.findPod(namespace, vmi)
+			if err != nil {
+				response.WriteError(http.StatusForbidden, err)
+			}
+			// set termincationGracePeriod and delete the VMI pod to trigger a forced restart
+			err = app.virtCli.CoreV1().Pods(namespace).Delete(vmiPodname, &k8smetav1.DeleteOptions{GracePeriodSeconds: bodyStruct.GracePeriodSeconds})
+			if err != nil {
+				response.WriteError(http.StatusForbidden, err)
+			} else {
+				response.WriteHeader(http.StatusAccepted)
+			}
+			return
+		}
 	}
 
 	response.WriteHeader(http.StatusAccepted)
