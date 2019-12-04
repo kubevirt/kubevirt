@@ -180,6 +180,7 @@ rules:
   - pods
   verbs:
   - get
+  - list
   - delete
   - patch
 - apiGroups:
