@@ -22,22 +22,25 @@ package rest
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"sync"
-
-	"github.com/onsi/ginkgo/extensions/table"
 
 	"github.com/emicklei/go-restful"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/uuid"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -50,7 +53,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	var server *ghttp.Server
 	var backend *ghttp.Server
+	var backendIP string
 	var request *restful.Request
+	var recorder *httptest.ResponseRecorder
 	var response *restful.Response
 
 	running := true
@@ -61,27 +66,21 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	app := SubresourceAPIApp{}
 	BeforeEach(func() {
 		server = ghttp.NewServer()
-		backend = ghttp.NewServer()
+		backend = ghttp.NewTLSServer()
+		backendAddr := strings.Split(backend.Addr(), ":")
+		backendPort, err := strconv.Atoi(backendAddr[1])
+		backendIP = backendAddr[0]
+		Expect(err).ToNot(HaveOccurred())
+		app.consoleServerPort = backendPort
 		flag.Set("kubeconfig", "")
 		flag.Set("master", server.URL())
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		app.credentialsLock = &sync.Mutex{}
-		app.handlerTLSConfiguration = &tls.Config{}
+		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 
 		request = restful.NewRequest(&http.Request{})
-		response = restful.NewResponse(httptest.NewRecorder())
-
-		// To emulate rest server
-		backend.AppendHandlers(
-			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", "/"),
-				func(w http.ResponseWriter, r *http.Request) {
-					request.Request = r
-					response.ResponseWriter = w
-					app.VNCRequestHandler(request, response)
-				},
-			),
-		)
+		recorder = httptest.NewRecorder()
+		response = restful.NewResponse(recorder)
 	})
 
 	expectHandlerPod := func() {
@@ -92,7 +91,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 		pod.Spec.NodeName = "mynode"
 		pod.Status.Phase = k8sv1.PodRunning
-		pod.Status.PodIP = "10.35.1.1"
+		pod.Status.PodIP = backendIP
 
 		podList := k8sv1.PodList{}
 		podList.Items = []k8sv1.Pod{}
@@ -118,7 +117,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(err).ToNot(HaveOccurred())
 			ip, _, _ := result.ConnectionDetails()
-			Expect(ip).To(Equal("10.35.1.1"))
+			Expect(ip).To(Equal(backendIP))
 			close(done)
 		}, 5)
 
@@ -158,8 +157,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		It("should fail with no 'name' path param", func(done Done) {
 
 			app.VNCRequestHandler(request, response)
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+			ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
 			close(done)
 		}, 5)
 
@@ -168,8 +166,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["name"] = "testvmi"
 
 			app.VNCRequestHandler(request, response)
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+			ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
 			close(done)
 		}, 5)
 
@@ -186,8 +183,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			)
 
 			app.VNCRequestHandler(request, response)
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusNotFound))
+			ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
 			close(done)
 		}, 5)
 
@@ -204,8 +200,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			)
 
 			app.VNCRequestHandler(request, response)
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+			ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
 			close(done)
 		}, 5)
 
@@ -227,8 +222,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				),
 			)
 			app.VNCRequestHandler(request, response)
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
 			close(done)
 		}, 5)
 
@@ -251,8 +245,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			)
 
 			app.VNCRequestHandler(request, response)
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
 			close(done)
 		}, 5)
 
@@ -269,8 +262,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.RestartVMRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusNotFound))
+			ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
 			close(done)
 		}, 5)
 
@@ -293,10 +285,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.RestartVMRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			// check the msg string that would be presented to virtctl output
-			Expect(response.Error().Error()).To(Equal("Halted does not support manual restart requests"))
+			Expect(status.Error()).To(ContainSubstring("Halted does not support manual restart requests"))
 			close(done)
 		})
 
@@ -548,10 +539,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.RestartVMRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			// check the msg string that would be presented to virtctl output
-			Expect(response.Error().Error()).To(Equal("Halted does not support manual restart requests"))
+			Expect(status.Error()).To(ContainSubstring("Halted does not support manual restart requests"))
 		})
 
 		table.DescribeTable("should not fail with VMI and RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
@@ -581,7 +571,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.RestartVMRequestHandler(request, response)
 
-			Expect(response.Error()).To(Not(HaveOccurred()))
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 		},
 			table.Entry("Always", v1.RunStrategyAlways),
@@ -608,10 +597,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.RestartVMRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			// check the msg string that would be presented to virtctl output
-			Expect(response.Error().Error()).To(Equal(msg))
+			Expect(status.Error()).To(ContainSubstring(msg))
 		},
 			table.Entry("Always", v1.RunStrategyAlways, "VM is not running"),
 			table.Entry("Manual", v1.RunStrategyManual, "VM is not running"),
@@ -650,10 +638,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.StartVMRequestHandler(request, response)
 
-				Expect(response.Error()).To(HaveOccurred())
-				Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+				statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 				// check the msg string that would be presented to virtctl output
-				Expect(response.Error().Error()).To(Equal(msg))
+				Expect(statusErr.Error()).To(ContainSubstring(msg))
 			},
 			table.Entry("Always without VMI", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound, "Always does not support manual start requests"),
 			table.Entry("Always with VMI in phase Running", v1.RunStrategyAlways, v1.Running, http.StatusOK, "VM is already running"),
@@ -691,7 +678,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.StartVMRequestHandler(request, response)
 
-				Expect(response.Error()).NotTo(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			},
 			table.Entry("RerunOnFailure with VMI in state Succeeded", v1.RunStrategyRerunOnFailure, v1.Succeeded, http.StatusOK),
@@ -725,10 +711,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.StopVMRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			// check the msg string that would be presented to virtctl output
-			Expect(response.Error().Error()).To(Equal(msg))
+			Expect(statusErr.Error()).To(ContainSubstring(msg))
 		},
 			table.Entry("RunStrategyAlways", v1.RunStrategyAlways, "VM is not running"),
 			table.Entry("RunStrategyManual", v1.RunStrategyManual, "VM is not running"),
@@ -756,10 +741,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.StopVMRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			// check the msg string that would be presented to virtctl output
-			Expect(response.Error().Error()).To(Equal("VM is not running"))
+			Expect(statusErr.Error()).To(ContainSubstring("VM is not running"))
 		})
 
 		table.DescribeTable("should not fail on VM with RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
@@ -789,7 +773,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.StopVMRequestHandler(request, response)
 
-			Expect(response.Error()).NotTo(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 		},
 			table.Entry("Always", v1.RunStrategyAlways),
@@ -812,8 +795,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.MigrateVMRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusNotFound))
+			ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
 			close(done)
 		}, 5)
 
@@ -832,9 +814,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.MigrateVMRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
-			Expect(response.Error().Error()).To(Equal("VM is not running"))
+			status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			Expect(status.Error()).To(ContainSubstring("VM is not running"))
 			close(done)
 		})
 
@@ -864,8 +845,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.MigrateVMRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+			ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
 			close(done)
 		})
 
@@ -1063,6 +1043,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		}
 
 		vmi := v1.VirtualMachineInstance{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name:      "testvmi",
+				Namespace: "default",
+			},
 			Status: v1.VirtualMachineInstanceStatus{
 				Phase: phase,
 			},
@@ -1091,13 +1075,17 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	Context("Pausing", func() {
 		It("Should pause a running, not paused VMI", func() {
 
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/pause"),
+					ghttp.RespondWith(http.StatusOK, ""),
+				),
+			)
 			expectVMI(true, false)
 
 			app.PauseVMIRequestHandler(request, response)
 
-			Expect(response.Error()).ToNot(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
-
 		})
 
 		It("Should fail pausing a not running VMI", func() {
@@ -1106,9 +1094,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.PauseVMIRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
-
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 		})
 
 		It("Should fail pausing a running but paused VMI", func() {
@@ -1117,9 +1103,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.PauseVMIRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
-
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 		})
 
 		It("Should fail unpausing a running, not paused VMI", func() {
@@ -1128,9 +1112,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.UnpauseVMIRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
-
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 		})
 
 		It("Should fail unpausing a not running VMI", func() {
@@ -1139,20 +1121,21 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.UnpauseVMIRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
-
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 		})
 
 		It("Should unpause a running, paused VMI", func() {
-
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/unpause"),
+					ghttp.RespondWith(http.StatusOK, ""),
+				),
+			)
 			expectVMI(true, true)
 
 			app.UnpauseVMIRequestHandler(request, response)
 
-			Expect(response.Error()).ToNot(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
-
 		})
 	})
 
@@ -1184,4 +1167,14 @@ func newVirtualMachineInstanceInPhase(phase v1.VirtualMachineInstancePhase) *v1.
 
 func newMinimalVM(name string) *v1.VirtualMachine {
 	return &v1.VirtualMachine{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachine"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+}
+
+func ExpectStatusErrorWithCode(recorder *httptest.ResponseRecorder, code int) *errors.StatusError {
+	status := k8smetav1.Status{}
+	err := json.Unmarshal(recorder.Body.Bytes(), &status)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, status.Kind).To(Equal("Status"))
+	ExpectWithOffset(1, status.Code).To(BeNumerically("==", code))
+	ExpectWithOffset(1, recorder.Code).To(BeNumerically("==", code))
+	return &errors.StatusError{ErrStatus: status}
 }

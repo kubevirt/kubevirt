@@ -120,7 +120,7 @@ var _ = Describe("[rfe_id:609]VMIheadless", func() {
 
 				_, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).VNC(vmi.ObjectMeta.Name)
 
-				Expect(err.Error()).To(Equal("Can't connect to websocket (400): No graphics devices are present.\n"), "vnc should not connect on headless VM")
+				Expect(err.Error()).To(Equal("No graphics devices are present."), "vnc should not connect on headless VM")
 			})
 
 			It("[test_id:709][posneg:positive]should connect to console", func() {
