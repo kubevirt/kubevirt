@@ -3,6 +3,7 @@
     "storageClassHostPath":    "host-path",
     "storageClassBlockVolume": "block-volume",
     "storageClassRhel":        "rhel",
-    "storageClassWindows":     "windows"
+    "storageClassWindows":     "windows",
+    "manageStorageClasses":     true
 }
 

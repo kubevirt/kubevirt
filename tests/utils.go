@@ -553,8 +553,10 @@ func AfterTestSuitCleanup() {
 	DeletePVC(osAlpineHostPath)
 	DeletePV(osAlpineHostPath)
 
-	deleteStorageClass(Config.StorageClassHostPath)
-	deleteStorageClass(Config.StorageClassBlockVolume)
+	if Config.ManageStorageClasses {
+		deleteStorageClass(Config.StorageClassHostPath)
+		deleteStorageClass(Config.StorageClassBlockVolume)
+	}
 
 	if DeployTestingInfrastructureFlag {
 		WipeTestingInfrastructure()
@@ -725,8 +727,10 @@ func BeforeTestSuitSetup() {
 		return len(nodes.Items)
 	}, 5*time.Minute, 10*time.Second).ShouldNot(BeZero(), "no schedulable nodes found")
 
-	createStorageClass(Config.StorageClassHostPath)
-	createStorageClass(Config.StorageClassBlockVolume)
+	if Config.ManageStorageClasses {
+		createStorageClass(Config.StorageClassHostPath)
+		createStorageClass(Config.StorageClassBlockVolume)
+	}
 
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
