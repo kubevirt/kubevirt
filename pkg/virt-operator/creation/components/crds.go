@@ -66,6 +66,7 @@ func NewVirtualMachineInstanceCrd() *extv1beta1.CustomResourceDefinition {
 			{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
 			{Name: "IP", Type: "string", JSONPath: ".status.interfaces[0].ipAddress"},
 			{Name: "NodeName", Type: "string", JSONPath: ".status.nodeName"},
+			{Name: "Live-Migratable", Type: "string", JSONPath: ".status.conditions[?(@.type=='LiveMigratable')].status", Priority: 1},
 		},
 	}
 
@@ -95,6 +96,7 @@ func NewVirtualMachineCrd() *extv1beta1.CustomResourceDefinition {
 			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
 			{Name: "Running", Type: "boolean", JSONPath: ".spec.running"},
 			{Name: "Volume", Description: "Primary Volume", Type: "string", JSONPath: ".spec.volumes[0].name"},
+			{Name: "Created", Type: "boolean", JSONPath: ".status.created", Priority: 1},
 		},
 	}
 

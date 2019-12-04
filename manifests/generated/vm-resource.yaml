@@ -17,6 +17,10 @@ spec:
     description: Primary Volume
     name: Volume
     type: string
+  - JSONPath: .status.created
+    name: Created
+    priority: 1
+    type: boolean
   group: kubevirt.io
   names:
     categories:
