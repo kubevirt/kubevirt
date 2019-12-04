@@ -325,8 +325,6 @@ spec:
           - pods
           verbs:
           - get
-          - list
-          - watch
           - delete
           - patch
         - apiGroups:

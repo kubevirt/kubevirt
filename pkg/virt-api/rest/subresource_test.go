@@ -380,6 +380,68 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			close(done)
 		})
 
+		It("should not ForceRestart VirtualMachine if no Pods found for the VMI", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			body := map[string]int64{
+				"gracePeriodSeconds": 0,
+			}
+			bytesRepresentation, _ := json.Marshal(body)
+			request.Request.Body = ioutil.NopCloser(bytes.NewReader(bytesRepresentation))
+
+			vm := v1.VirtualMachine{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: "testvm",
+				},
+				Spec: v1.VirtualMachineSpec{
+					Running: &running,
+				},
+			}
+			vmi := v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{},
+			}
+			vmi.ObjectMeta.SetUID(uuid.NewUUID())
+
+			podList := k8sv1.PodList{}
+			podList.Items = []k8sv1.Pod{}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/default/pods"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, podList),
+				),
+			)
+
+			app.RestartVMRequestHandler(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			Expect(response.Error().Error()).To(Equal("connection failed. No VirtualMachineInstance pod is running"))
+			close(done)
+		})
+
 		It("should restart VirtualMachine", func(done Done) {
 			request.PathParameters()["name"] = "testvm"
 			request.PathParameters()["namespace"] = "default"

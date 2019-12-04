@@ -496,15 +496,18 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 			vmiPodname, err := app.findPod(namespace, vmi)
 			if err != nil {
 				response.WriteError(http.StatusForbidden, err)
+				return
 			}
 			// set termincationGracePeriod and delete the VMI pod to trigger a forced restart
 			err = app.virtCli.CoreV1().Pods(namespace).Delete(vmiPodname, &k8smetav1.DeleteOptions{GracePeriodSeconds: bodyStruct.GracePeriodSeconds})
 			if err != nil {
-				response.WriteError(http.StatusForbidden, err)
-			} else {
-				response.WriteHeader(http.StatusAccepted)
+				if errors.IsNotFound(err) {
+					// ignoring this because pod might be deleted by VM status change
+				} else {
+					response.WriteError(http.StatusForbidden, err)
+					return
+				}
 			}
-			return
 		}
 	}
 
@@ -539,7 +542,7 @@ func (app *SubresourceAPIApp) findPod(namespace string, vmi *v1.VirtualMachineIn
 			return podList.Items[0].ObjectMeta.Name, nil
 		}
 	}
-	return "", goerror.New("connection failed. Did not find matching VirtualMachineInstance pod")
+	return "", nil
 }
 
 func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, response *restful.Response) {
