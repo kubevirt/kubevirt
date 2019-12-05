@@ -438,7 +438,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
-			Expect(response.Error().Error()).To(Equal("connection failed. No VirtualMachineInstance pod is running"))
 			close(done)
 		})
 
