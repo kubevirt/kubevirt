@@ -29,6 +29,7 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
@@ -74,6 +75,20 @@ const (
 
 var (
 	containerDiskDir = filepath.Join(util.VirtShareDir, "/container-disks")
+
+	leaderGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "leading_virt_controller",
+			Help: "Indication for an operating virt-controller.",
+		},
+	)
+
+	readyGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "ready_virt_controller",
+			Help: "Indication for a virt-controller that is ready to take the lead.",
+		},
+	)
 )
 
 type VirtControllerApp struct {
@@ -140,6 +155,11 @@ type VirtControllerApp struct {
 }
 
 var _ service.Service = &VirtControllerApp{}
+
+func init() {
+	prometheus.MustRegister(leaderGauge)
+	prometheus.MustRegister(readyGauge)
+}
 
 func Execute() {
 	var err error
@@ -304,6 +324,8 @@ func (vca *VirtControllerApp) Run() {
 						vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
 						vca.disruptionBudgetControllerThreads)
 
+					leaderGauge.Set(1)
+
 					go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
 					go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
 					go vca.nodeController.Run(vca.nodeControllerThreads, stop)
@@ -323,7 +345,9 @@ func (vca *VirtControllerApp) Run() {
 		golog.Fatal(err)
 	}
 
+	readyGauge.Set(1)
 	leaderElector.Run(vca.ctx)
+	readyGauge.Set(0)
 	panic("unreachable")
 }
 
