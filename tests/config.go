@@ -37,6 +37,8 @@ type KubeVirtTestsConfiguration struct {
 	StorageClassRhel string `json:"storageClassRhel"`
 	// StorageClass to use to create windows PVCs
 	StorageClassWindows string `json:"storageClassWindows"`
+	// Flag if true the storageclasses are managed, false otherwise
+	ManageStorageClasses bool `json:"manageStorageClasses"`
 }
 
 func loadConfig() (*KubeVirtTestsConfiguration, error) {
