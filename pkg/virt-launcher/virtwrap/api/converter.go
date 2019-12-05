@@ -71,6 +71,7 @@ type ConverterContext struct {
 	GpuDevices        []string
 	VgpuDevices       []string
 	EmulatorThreadCpu *int
+	BestEffort        bool
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -1130,6 +1131,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			var pciAddr string
 			pciAddr, sriovPciAddresses, err = popSRIOVPCIAddress(iface.Name, sriovPciAddresses)
 			if err != nil {
+				if c.BestEffort {
+					continue
+				}
 				return err
 			}
 

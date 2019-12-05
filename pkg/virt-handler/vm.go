@@ -1405,6 +1405,7 @@ func getDomain(vmi *v1.VirtualMachineInstance) (*api.Domain, error) {
 		IsBlockDV:      isBlockDVMap,
 		// we won't use the domain object for actual libvirt definition
 		UseEmulation: true,
+		BestEffort:   true,
 	}
 	domain := &api.Domain{}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
