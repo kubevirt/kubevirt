@@ -43,6 +43,16 @@ var podInterfaceName = podInterface
 
 type plugFunction func(vif NetworkInterface, vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 
+// Network configuration is split into two parts, or phases, each executed in a
+// different context. Phase1 is run by virt-handler and heavylifts most
+// configuration steps. Phase2 is run by virt-launcher in the pod context and
+// completes steps left out of virt-handler. The reason to have a separate phase
+// for virt-launcher and not just have all the work done by virt-handler is
+// because there is no ready solution for DHCP server startup in virt-handler
+// context yet. This is a temporary limitation and the split is expected to go
+// once the final gap is closed. Moving all configuration steps into virt-handler
+// will also allow to downgrade privileges for virt-launcher, specifically, to
+// remove NET_ADMIN capability. Future patches should address that.
 type NetworkInterface interface {
 	PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 	PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
