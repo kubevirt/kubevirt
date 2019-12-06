@@ -236,7 +236,7 @@ type IsolationResult interface {
 	// full path to the network namespace
 	NetNamespace() string
 	// execute a function in the process network namespace
-	DoNetNS(func(_ ns.NetNS) error) error
+	DoNetNS(func() error) error
 }
 
 type realIsolationResult struct {
@@ -245,12 +245,14 @@ type realIsolationResult struct {
 	controller []string
 }
 
-func (r *realIsolationResult) DoNetNS(f func(_ ns.NetNS) error) error {
+func (r *realIsolationResult) DoNetNS(f func() error) error {
 	netns, err := ns.GetNS(r.NetNamespace())
 	if err != nil {
 		return fmt.Errorf("failed to get launcher pod network namespace: %v", err)
 	}
-	return netns.Do(f)
+	return netns.Do(func(_ ns.NetNS) error {
+		return f()
+	})
 }
 
 func (r *realIsolationResult) PIDNamespace() string {

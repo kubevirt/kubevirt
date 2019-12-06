@@ -31,8 +31,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/containernetworking/plugins/pkg/ns"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1513,7 +1511,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
 		}
 
-		if err := res.DoNetNS(func(_ ns.NetNS) error {
+		if err := res.DoNetNS(func() error {
 			return setupNetworkPhase1(vmi)
 		}); err != nil {
 			return fmt.Errorf("failed to configure vmi network: %v", err)
