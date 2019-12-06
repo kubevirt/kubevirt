@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/operator-framework/operator-sdk/pkg/predicate"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/reference"
@@ -79,7 +78,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource HyperConverged
-	err = c.Watch(&source.Kind{Type: &hcov1alpha1.HyperConverged{}}, &handler.EnqueueRequestForObject{}, predicate.GenerationChangedPredicate{})
+	err = c.Watch(&source.Kind{Type: &hcov1alpha1.HyperConverged{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
