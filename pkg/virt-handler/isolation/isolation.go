@@ -217,7 +217,7 @@ func getMemlockSize(vm *v1.VirtualMachineInstance) (int64, error) {
 }
 
 func NewIsolationResult(pid int, slice string, controller []string) IsolationResult {
-	return &RealIsolationResult{pid: pid, slice: slice, controller: controller}
+	return &realIsolationResult{pid: pid, slice: slice, controller: controller}
 }
 
 type IsolationResult interface {
@@ -231,13 +231,13 @@ type IsolationResult interface {
 	DoNetNS(func(_ ns.NetNS) error) error
 }
 
-type RealIsolationResult struct {
+type realIsolationResult struct {
 	pid        int
 	slice      string
 	controller []string
 }
 
-func (r *RealIsolationResult) DoNetNS(f func(_ ns.NetNS) error) error {
+func (r *realIsolationResult) DoNetNS(f func(_ ns.NetNS) error) error {
 	netns, err := ns.GetNS(r.NetNamespace())
 	if err != nil {
 		return fmt.Errorf("failed to get launcher pod network namespace: %v", err)
@@ -245,24 +245,24 @@ func (r *RealIsolationResult) DoNetNS(f func(_ ns.NetNS) error) error {
 	return netns.Do(f)
 }
 
-func (r *RealIsolationResult) PIDNamespace() string {
+func (r *realIsolationResult) PIDNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/pid", r.pid)
 }
 
-func (r *RealIsolationResult) Slice() string {
+func (r *realIsolationResult) Slice() string {
 	return r.slice
 }
 
-func (r *RealIsolationResult) MountNamespace() string {
+func (r *realIsolationResult) MountNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/mnt", r.pid)
 }
 
-func (r *RealIsolationResult) mountInfo() string {
+func (r *realIsolationResult) mountInfo() string {
 	return fmt.Sprintf("/proc/%d/mountinfo", r.pid)
 }
 
 // MountInfoRoot returns information about the root entry in /proc/mountinfo
-func (r *RealIsolationResult) MountInfoRoot() (*MountInfo, error) {
+func (r *realIsolationResult) MountInfoRoot() (*MountInfo, error) {
 	in, err := os.Open(r.mountInfo())
 	if err != nil {
 		return nil, fmt.Errorf("could not open mountinfo: %v", err)
@@ -301,7 +301,7 @@ func (r *RealIsolationResult) MountInfoRoot() (*MountInfo, error) {
 
 // IsMounted checks if a path in the mount namespace of a
 // given process isolation result is a mount point. Works with symlinks.
-func (r *RealIsolationResult) IsMounted(mountPoint string) (bool, error) {
+func (r *realIsolationResult) IsMounted(mountPoint string) (bool, error) {
 	mountPoint, err := filepath.EvalSymlinks(mountPoint)
 	if os.IsNotExist(err) {
 		return false, nil
@@ -341,7 +341,7 @@ func (r *RealIsolationResult) IsMounted(mountPoint string) (bool, error) {
 
 // ParentMountInfoFor takes the mount info from a container, and looks the corresponding
 // entry in /proc/mountinfo of the isolation result of the given process.
-func (r *RealIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (*MountInfo, error) {
+func (r *realIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (*MountInfo, error) {
 	in, err := os.Open(r.mountInfo())
 	if err != nil {
 		return nil, fmt.Errorf("could not open mountinfo: %v", err)
@@ -376,19 +376,19 @@ func (r *RealIsolationResult) ParentMountInfoFor(mountInfo *MountInfo) (*MountIn
 	return nil, fmt.Errorf("no parent entry for %v found in the mount namespace of %d", mountInfo.DeviceContainingFile, r.pid)
 }
 
-func (r *RealIsolationResult) NetNamespace() string {
+func (r *realIsolationResult) NetNamespace() string {
 	return fmt.Sprintf("/proc/%d/ns/net", r.pid)
 }
 
-func (r *RealIsolationResult) MountRoot() string {
+func (r *realIsolationResult) MountRoot() string {
 	return fmt.Sprintf("/proc/%d/root", r.pid)
 }
 
-func (r *RealIsolationResult) Pid() int {
+func (r *realIsolationResult) Pid() int {
 	return r.pid
 }
 
-func (r *RealIsolationResult) Controller() []string {
+func (r *realIsolationResult) Controller() []string {
 	return r.controller
 }
 
@@ -468,8 +468,8 @@ func sliceContains(controllers []string, value string) bool {
 	return false
 }
 
-func NodeIsolationResult() *RealIsolationResult {
-	return &RealIsolationResult{
+func NodeIsolationResult() *realIsolationResult {
+	return &realIsolationResult{
 		pid: 1,
 	}
 }
