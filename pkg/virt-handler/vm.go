@@ -1383,8 +1383,12 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 	return nil
 }
 
+// This function does just enough to get a domain object that would allow
+// phase1 network configuration to succeed. This object is not complete and may
+// miss some important data useful in a different context. Be cautious before
+// using the result of this function in a different context. Consider using
+// domainInformer instead as available.
 func getDomain(vmi *v1.VirtualMachineInstance) (*api.Domain, error) {
-	// todo: fill in domain with correct values for all keys
 	isBlockPVCMap := make(map[string]bool)
 	isBlockDVMap := make(map[string]bool)
 	diskInfo := make(map[string]*containerdisk.DiskInfo)
@@ -1415,11 +1419,12 @@ func getDomain(vmi *v1.VirtualMachineInstance) (*api.Domain, error) {
 }
 
 func setupNetworkPhase1(vmi *v1.VirtualMachineInstance) error {
+	// domainInformer doesn't have the domain cached just yet, so we have
+	// to reconstruct the object here
 	domain, err := getDomain(vmi)
 	if err != nil {
 		return err
 	}
-	// todo: consider getting rid of domain argument completely
 	if err = network.SetupPodNetworkPhase1(vmi, domain); err != nil {
 		return err
 	}
