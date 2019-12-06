@@ -658,11 +658,19 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 
 	logger := log.Log.Object(vmi)
 
+	var emulatorThreadCpu *int
 	domain := &api.Domain{}
 	podCPUSet, err := util.GetPodCPUSet()
 	if err != nil {
 		logger.Reason(err).Error("failed to read pod cpuset.")
 		return fmt.Errorf("failed to read pod cpuset: %v", err)
+	}
+	// reserve the last cpu for the emulator thread
+	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+		if len(podCPUSet) > 0 {
+			emulatorThreadCpu = &podCPUSet[len(podCPUSet)]
+			podCPUSet = podCPUSet[:len(podCPUSet)-1]
+		}
 	}
 	// Check if PVC volumes are block volumes
 	isBlockPVCMap := make(map[string]bool)
@@ -700,12 +708,13 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	}
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
-		VirtualMachine: vmi,
-		UseEmulation:   useEmulation,
-		CPUSet:         podCPUSet,
-		IsBlockPVC:     isBlockPVCMap,
-		IsBlockDV:      isBlockDVMap,
-		DiskType:       diskInfo,
+		VirtualMachine:    vmi,
+		UseEmulation:      useEmulation,
+		CPUSet:            podCPUSet,
+		IsBlockPVC:        isBlockPVCMap,
+		IsBlockDV:         isBlockDVMap,
+		DiskType:          diskInfo,
+		EmulatorThreadCpu: emulatorThreadCpu,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		return fmt.Errorf("conversion failed: %v", err)
@@ -942,10 +951,18 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	logger := log.Log.Object(vmi)
 
 	domain := &api.Domain{}
+	var emulatorThreadCpu *int
 	podCPUSet, err := util.GetPodCPUSet()
 	if err != nil {
 		logger.Reason(err).Error("failed to read pod cpuset.")
 		return nil, err
+	}
+	// reserve the last cpu for the emulator thread
+	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+		if len(podCPUSet) > 0 {
+			emulatorThreadCpu = &podCPUSet[len(podCPUSet)-1]
+			podCPUSet = podCPUSet[:len(podCPUSet)-1]
+		}
 	}
 
 	// Check if PVC volumes are block volumes
@@ -984,15 +1001,16 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
-		VirtualMachine: vmi,
-		UseEmulation:   useEmulation,
-		CPUSet:         podCPUSet,
-		IsBlockPVC:     isBlockPVCMap,
-		IsBlockDV:      isBlockDVMap,
-		DiskType:       diskInfo,
-		SRIOVDevices:   getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
-		GpuDevices:     getEnvAddressListByPrefix(gpuEnvPrefix),
-		VgpuDevices:    getEnvAddressListByPrefix(vgpuEnvPrefix),
+		VirtualMachine:    vmi,
+		UseEmulation:      useEmulation,
+		CPUSet:            podCPUSet,
+		IsBlockPVC:        isBlockPVCMap,
+		IsBlockDV:         isBlockDVMap,
+		DiskType:          diskInfo,
+		SRIOVDevices:      getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
+		GpuDevices:        getEnvAddressListByPrefix(gpuEnvPrefix),
+		VgpuDevices:       getEnvAddressListByPrefix(vgpuEnvPrefix),
+		EmulatorThreadCpu: emulatorThreadCpu,
 	}
 	if options != nil && options.VirtualMachineSMBios != nil {
 		c.SMBios = options.VirtualMachineSMBios

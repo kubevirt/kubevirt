@@ -613,6 +613,18 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				resources.Limits[k8sv1.ResourceCPU] = cpuRequest
 			}
 		}
+		// allocate 1 more pcpu if IsolateEmulatorThread request
+		if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+			emulatorThreadCpu := resource.NewQuantity(1, resource.BinarySI)
+			limits := resources.Limits[k8sv1.ResourceCPU]
+			limits.Add(*emulatorThreadCpu)
+			resources.Limits[k8sv1.ResourceCPU] = limits
+			if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+				cpuRequest.Add(*emulatorThreadCpu)
+				resources.Requests[k8sv1.ResourceCPU] = cpuRequest
+			}
+		}
+
 		resources.Limits[k8sv1.ResourceMemory] = *resources.Requests.Memory()
 	}
 

@@ -426,6 +426,13 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	if spec.Domain.CPU != nil && spec.Domain.CPU.IsolateEmulatorThread && !spec.Domain.CPU.DedicatedCPUPlacement {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("IsolateEmulatorThread should be only set in combination with DedicatedCPUPlacement"),
+			Field:   field.Child("domain", "cpu", "isolateEmulatorThread").String(),
+		})
+	}
 	// Validate CPU Feature Policies
 	if spec.Domain.CPU != nil && spec.Domain.CPU.Features != nil {
 		for idx, feature := range spec.Domain.CPU.Features {
