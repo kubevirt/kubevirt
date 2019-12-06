@@ -1091,6 +1091,12 @@ func (c *VMController) removeCondition(vm *virtv1.VirtualMachine, cond virtv1.Vi
 	vm.Status.Conditions = conds
 }
 
+func (c *VMController) addCondition(vm *virtv1.VirtualMachine, cond virtv1.VirtualMachineCondition) {
+	if !c.hasCondition(vm, cond.Type) {
+		vm.Status.Conditions = append(vm.Status.Conditions, cond)
+	}
+}
+
 func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) error {
 
 	vm := vmOrig.DeepCopy()
@@ -1100,7 +1106,21 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 
 	ready := false
 	if created {
-		ready = controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
+		vmiCond := controller.NewVirtualMachineInstanceConditionManager().GetConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
+		ready = vmiCond != nil
+		if ready && !c.hasCondition(vm, virtv1.VirtualMachineConditionType(k8score.PodReady)) {
+			cond := virtv1.VirtualMachineCondition{
+				LastProbeTime:      vmiCond.LastProbeTime,
+				LastTransitionTime: vmiCond.LastTransitionTime,
+				Message:            vmiCond.Message,
+				Reason:             vmiCond.Reason,
+				Status:             vmiCond.Status,
+				Type:               virtv1.VirtualMachineConditionType(k8score.PodReady),
+			}
+			c.addCondition(vm, cond)
+		} else if !ready && c.hasCondition(vm, virtv1.VirtualMachineConditionType(k8score.PodReady)) {
+			c.removeCondition(vm, virtv1.VirtualMachineConditionType(k8score.PodReady))
+		}
 	}
 	vm.Status.Ready = ready
 
@@ -1169,14 +1189,15 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 		if !c.hasCondition(vm, virtv1.VirtualMachinePaused) {
 			log.Log.Object(vm).V(3).Info("Adding paused condition")
 			now := v1.NewTime(time.Now())
-			vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
+			cond := virtv1.VirtualMachineCondition{
 				Type:               virtv1.VirtualMachinePaused,
 				Status:             k8score.ConditionTrue,
 				LastProbeTime:      now,
 				LastTransitionTime: now,
 				Reason:             "PausedByUser",
 				Message:            "VMI was paused by user",
-			})
+			}
+			c.addCondition(vm, cond)
 		}
 	} else if c.hasCondition(vm, virtv1.VirtualMachinePaused) {
 		log.Log.Object(vm).V(3).Info("Removing paused condition")
