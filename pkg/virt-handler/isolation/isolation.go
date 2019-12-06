@@ -221,13 +221,21 @@ func NewIsolationResult(pid int, slice string, controller []string) IsolationRes
 }
 
 type IsolationResult interface {
+	// cgroup slice
 	Slice() string
+	// process ID
 	Pid() int
+	// full path to the process namespace
 	PIDNamespace() string
+	// full path to the process root mount
 	MountRoot() string
+	// retrieve additional information about the process root mount
 	MountInfoRoot() (*MountInfo, error)
+	// full path to the mount namespace
 	MountNamespace() string
+	// full path to the network namespace
 	NetNamespace() string
+	// execute a function in the process network namespace
 	DoNetNS(func(_ ns.NetNS) error) error
 }
 
