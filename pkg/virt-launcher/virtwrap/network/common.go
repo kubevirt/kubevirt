@@ -47,25 +47,25 @@ import (
 const randomMacGenerationAttempts = 10
 
 type VIF struct {
-	Name     string
-	IP       netlink.Addr
-	MAC      net.HardwareAddr
-	Gateway  net.IP
-	Routes   *[]netlink.Route
-	Mtu      uint16
-	IsLayer2 bool
+	Name         string
+	IP           netlink.Addr
+	MAC          net.HardwareAddr
+	Gateway      net.IP
+	Routes       *[]netlink.Route
+	Mtu          uint16
+	IPAMDisabled bool
 }
 
 func (vif VIF) String() string {
 	return fmt.Sprintf(
-		"VIF: { Name: %s, IP: %s, Mask: %s, MAC: %s, Gateway: %s, MTU: %d, IsLayer2: %t}",
+		"VIF: { Name: %s, IP: %s, Mask: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: %t}",
 		vif.Name,
 		vif.IP.IP,
 		vif.IP.Mask,
 		vif.MAC,
 		vif.Gateway,
 		vif.Mtu,
-		vif.IsLayer2,
+		vif.IPAMDisabled,
 	)
 }
 

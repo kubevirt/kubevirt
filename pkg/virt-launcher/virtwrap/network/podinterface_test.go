@@ -632,7 +632,7 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgePodInterface)
 			Expect(ok).To(BeTrue())
 
-			bridge.vif.IsLayer2 = true
+			bridge.vif.IPAMDisabled = true
 			err = fmt.Errorf("failed to start DHCP server")
 			mockNetwork.EXPECT().StartDHCP(bridge.vif, gomock.Any(), api.DefaultBridgeName, nil).Return(err)
 

@@ -107,7 +107,7 @@ var _ = Describe("VIF", func() {
 				Gateway: gw,
 				Mtu:     1450,
 			}
-			Expect(vif.String()).To(Equal("VIF: { Name: test-vif, IP: 10.0.0.200, Mask: ffffff00, MAC: de:ad:00:00:be:ef, Gateway: 10.0.0.1, MTU: 1450, IsLayer2: false}"))
+			Expect(vif.String()).To(Equal("VIF: { Name: test-vif, IP: 10.0.0.200, Mask: ffffff00, MAC: de:ad:00:00:be:ef, Gateway: 10.0.0.1, MTU: 1450, IPAMDisabled: false}"))
 		})
 	})
 })

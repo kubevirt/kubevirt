@@ -250,10 +250,10 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 		return err
 	}
 	if len(addrList) == 0 {
-		b.vif.IsLayer2 = true
+		b.vif.IPAMDisabled = true
 	} else {
 		b.vif.IP = addrList[0]
-		b.vif.IsLayer2 = false
+		b.vif.IPAMDisabled = false
 	}
 
 	if len(b.vif.MAC) == 0 {
@@ -273,7 +273,7 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 	// Get interface MTU
 	b.vif.Mtu = uint16(b.podNicLink.Attrs().MTU)
 
-	if !b.vif.IsLayer2 {
+	if !b.vif.IPAMDisabled {
 		// Handle interface routes
 		if err := b.setInterfaceRoutes(); err != nil {
 			return err
@@ -283,7 +283,7 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 }
 
 func (b *BridgePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
-	if !b.vif.IsLayer2 {
+	if !b.vif.IPAMDisabled {
 		addr := fmt.Sprintf(bridgeFakeIP, b.podInterfaceNum)
 		fakeServerAddr, err := netlink.ParseAddr(addr)
 		if err != nil {
@@ -315,7 +315,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	if !b.vif.IsLayer2 {
+	if !b.vif.IPAMDisabled {
 		// Remove IP from POD interface
 		err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
 
