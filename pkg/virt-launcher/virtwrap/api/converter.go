@@ -71,7 +71,12 @@ type ConverterContext struct {
 	GpuDevices        []string
 	VgpuDevices       []string
 	EmulatorThreadCpu *int
-	BestEffort        bool
+	// Used to gracefully skip some initialization steps that are expected
+	// to fail in a limited runtime context. Used to initialize domain
+	// objects in virt-handler context that doesn't necessarily have access
+	// to all envvars and kernel capabilities that e.g. virt-launcher would
+	// have.
+	BestEffort bool
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {

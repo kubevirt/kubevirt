@@ -1405,9 +1405,11 @@ func getDomain(vmi *v1.VirtualMachineInstance) (*api.Domain, error) {
 		DiskType:       diskInfo,
 		IsBlockPVC:     isBlockPVCMap,
 		IsBlockDV:      isBlockDVMap,
-		// we won't use the domain object for actual libvirt definition
+		// virt-handler may not have kvm initialized
 		UseEmulation: true,
-		BestEffort:   true,
+		// skip non-essential initialization that requires full
+		// virt-launcher execution context (envvars etc.)
+		BestEffort: true,
 	}
 	domain := &api.Domain{}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
