@@ -50,7 +50,13 @@ type BindMechanism interface {
 	loadCachedInterface(uid types.UID, name string) (bool, error)
 	setCachedInterface(uid types.UID, name string) error
 
-	// different phases may need to pass state through cached VIF file
+	// virt-handler that executes phase1 of network configuration needs to
+	// pass details about discovered networking port into phase2 that is
+	// executed by virt-launcher. Virt-launcher cannot discover some of
+	// these details itself because at this point phase1 is complete and
+	// ports are rewired, meaning, routes and IP addresses configured by
+	// CNI plugin may be gone. For this matter, we use a cached VIF file to
+	// pass discovered information between phases.
 	loadCachedVIF(uid types.UID, name string) (bool, error)
 	setCachedVIF(uid types.UID, name string) error
 
