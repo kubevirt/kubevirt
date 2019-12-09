@@ -406,7 +406,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	bidi := corev1.MountPropagationBidirectional
 	volumes := []volume{
 		{"libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes", nil},
-		{"virt-network-dir", "/var/run/kubevirt-network", &bidi},
+		{"virt-network-dir", "/var/run/kubevirt-network", nil},
 		{"virt-share-dir", "/var/run/kubevirt", &bidi},
 		{"virt-lib-dir", "/var/lib/kubevirt", nil},
 		{"virt-private-dir", "/var/run/kubevirt-private", nil},

@@ -58,7 +58,6 @@ spec:
         - mountPath: /var/run/kubevirt-libvirt-runtimes
           name: libvirt-runtimes
         - mountPath: /var/run/kubevirt-network
-          mountPropagation: Bidirectional
           name: virt-network-dir
         - mountPath: /var/run/kubevirt
           mountPropagation: Bidirectional
