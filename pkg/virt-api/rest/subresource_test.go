@@ -436,8 +436,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.RestartVMRequestHandler(request, response)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
+			Expect(response.Error()).ToNot(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			close(done)
 		})
 

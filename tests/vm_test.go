@@ -702,7 +702,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				By("getting a VM with high TerminationGracePeriod")
 				newVMI := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
-				gracePeriod := int64(1800)
+				gracePeriod := int64(600)
 				newVMI.Spec.TerminationGracePeriodSeconds = &gracePeriod
 				newVM := tests.NewRandomVirtualMachine(newVMI, true)
 				_, err := virtClient.VirtualMachine(newVM.Namespace).Create(newVM)
@@ -713,9 +713,22 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				oldVMIUuid := newVM.ObjectMeta.UID
 
 				By("Invoking virtctl --force restart")
-				forceRestart := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RESTART, "--namespace", newVM.Namespace, "--force", newVM.Name, "--gracePeriod=0")
+				forceRestart := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RESTART, "--namespace", newVM.Namespace, "--force", newVM.Name, "--grace-period=0")
 				err = forceRestart()
 				Expect(err).ToNot(HaveOccurred())
+
+				zeroGracePeriod := int64(0)
+				// Checks if the old VMI Pod still exists after force-restart command
+				Eventually(func() string {
+					pod, err := tests.GetRunningPodByLabel(string(oldVMIUuid), v1.CreatedByLabel, newVM.Namespace)
+					if err != nil {
+						return err.Error()
+					}
+					if pod.GetDeletionGracePeriodSeconds() == &zeroGracePeriod && pod.GetDeletionTimestamp() != nil {
+						return "old VMI Pod still not deleted"
+					}
+					return ""
+				}, 120*time.Second, 1*time.Second).Should(ContainSubstring("failed to find pod"))
 
 				waitForVMIScheduling(virtClient, newVMI)
 

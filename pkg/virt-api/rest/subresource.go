@@ -498,6 +498,10 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 				response.WriteError(http.StatusForbidden, err)
 				return
 			}
+			if vmiPodname == "" {
+				response.WriteHeader(http.StatusAccepted)
+				return
+			}
 			// set termincationGracePeriod and delete the VMI pod to trigger a forced restart
 			err = app.virtCli.CoreV1().Pods(namespace).Delete(vmiPodname, &k8smetav1.DeleteOptions{GracePeriodSeconds: bodyStruct.GracePeriodSeconds})
 			if err != nil {
