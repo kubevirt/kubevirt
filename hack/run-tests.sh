@@ -9,9 +9,9 @@ CSV_FILE=
 if [ "${JOB_TYPE}" == "stdci" ]; then
     KUBECONFIG=${KUBEVIRTCI_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
     source ./hack/upgrade-stdci-config
-    
+
     # check if CSV test is requested (if this is run right after upgrade-test.sh)
-    CSV_FILE=./test-out/clusterserviceversion.yaml 
+    CSV_FILE=./test-out/clusterserviceversion.yaml
     if [ -f ${CSV_FILE} ]; then
         echo "** enable CSV test **"
         export TEST_KUBECTL_CMD="${CMD}"
@@ -19,8 +19,13 @@ if [ "${JOB_TYPE}" == "stdci" ]; then
     fi
 fi
 
-./${TEST_OUT_PATH}/func-tests.test -ginkgo.v -test.timeout 120m -kubeconfig="${KUBECONFIG}" 
+if [[ ${JOB_TYPE} = "prow" ]]; then
+    export KUBECTL_BINARY="oc"
+else
+    export KUBECTL_BINARY="cluster-up/kubectl.sh"
+fi
+./${TEST_OUT_PATH}/func-tests.test -ginkgo.v -test.timeout 120m -kubeconfig="${KUBECONFIG}" -installed-namespace=kubevirt-hyperconverged
 
 if [ -f ${CSV_FILE} ]; then
   rm -f ${CSV_FILE}
-fi  
+fi

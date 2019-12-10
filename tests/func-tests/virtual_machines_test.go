@@ -1,15 +1,15 @@
-package tests
+package tests_test
 
 import (
 	"flag"
 	"time"
 
+	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	testscore "kubevirt.io/kubevirt/tests"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/rand"
-
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 )
@@ -18,41 +18,29 @@ const timeout = 240 * time.Second
 const pollingInterval = 5 * time.Second
 
 var _ = Describe("Virtual Machines", func() {
-
-	kubecli.Init()
 	flag.Parse()
 	client, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
+	testscore.PanicOnError(err)
 
-	var vmi *kubevirtv1.VirtualMachineInstance
-	var vmiRandName = vmiName + rand.String(48)
-	vmi = kubevirtv1.NewMinimalVMIWithNS(testNamespace, vmiRandName)
-	jobType := GetJobTypeEnvVar()
+	BeforeEach(func() {
+		tests.BeforeEach()
+	})
 
 	Context("vmi testing", func() {
-		It("should enable software emulation for prow job", func() {
-			if jobType == "prow" {
-				kubevirtCfg, err := client.CoreV1().ConfigMaps(testNamespace).Get(kubevirtCfgMap, k8smetav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				kubevirtCfg.Data["debug.useEmulation"] = "true"
-				_, err = client.CoreV1().ConfigMaps(testNamespace).Update(kubevirtCfg)
-				Expect(err).ToNot(HaveOccurred())
-			} else {
-				Skip("Software emulation should not be enabled for this job")
-			}
-		})
 		It("should create verify and delete a vmi", func() {
+			vmi := testscore.NewRandomVMI()
+			vmiName := vmi.Name
 			Eventually(func() error {
-				_, err := client.VirtualMachineInstance(testNamespace).Create(vmi)
+				_, err := client.VirtualMachineInstance(testscore.NamespaceTestDefault).Create(vmi)
 				return err
 			}, timeout, pollingInterval).Should(Not(HaveOccurred()), "failed to create a vmi")
 			Eventually(func() bool {
-				vmi, err = client.VirtualMachineInstance(testNamespace).Get(vmiRandName, &k8smetav1.GetOptions{})
+				vmi, err = client.VirtualMachineInstance(testscore.NamespaceTestDefault).Get(vmiName, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.Status.Phase == kubevirtv1.Running
 			}, timeout, pollingInterval).Should(BeTrue(), "failed to get the vmi Running")
 			Eventually(func() error {
-				err := client.VirtualMachineInstance(testNamespace).Delete(vmiRandName, &k8smetav1.DeleteOptions{})
+				err := client.VirtualMachineInstance(testscore.NamespaceTestDefault).Delete(vmiName, &k8smetav1.DeleteOptions{})
 				return err
 			}, timeout, pollingInterval).Should(Not(HaveOccurred()), "failed to delete a vmi")
 		})

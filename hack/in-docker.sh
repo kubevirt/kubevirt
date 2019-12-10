@@ -6,7 +6,7 @@ source hack/common.sh
 
 HCO_DIR="$(readlink -f $(dirname $0)/../)"
 BUILD_DIR=${HCO_DIR}/tests/build
-WORK_DIR="/go/src/kubevirt.io/hyperconverged-cluster-operator"
+WORK_DIR="/go/src/github.com/kubevirt/hyperconverged-cluster-operator"
 BUILD_TAG="hco-test-build"
 
 # Build the encapsulated compile and test container

@@ -45,6 +45,14 @@
   version = "1.0.0"
 
 [[projects]]
+  digest = "1:5a23cd3a5496a0b2da7e3b348d14e77b11a210738c398200d7d6f04ea8cf3bd8"
+  name = "github.com/asaskevich/govalidator"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "ccb8e960c48f04d6935e72476ae4a51028f9e22f"
+  version = "v9"
+
+[[projects]]
   digest = "1:c819830f4f5ef85874a90ac3cbcc96cd322c715f5c96fbe4722eacd3dafbaa07"
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
@@ -81,6 +89,17 @@
   pruneopts = "NT"
   revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
   version = "v1.1.1"
+
+[[projects]]
+  branch = "master"
+  digest = "1:72b674cb4faedad73fdb82e7a4d04f40bd2c06b8e75de601f5e6ac4526bb2cb0"
+  name = "github.com/docker/spdystream"
+  packages = [
+    ".",
+    "spdy",
+  ]
+  pruneopts = "NT"
+  revision = "6480d4af844c189cf5dd913db24ddd339d3a4f85"
 
 [[projects]]
   digest = "1:13c005cd1497b291d3aaf711086e94f6046efb7f104db33208bff268f0187213"
@@ -141,6 +160,25 @@
   version = "v0.1.1"
 
 [[projects]]
+  digest = "1:b207f23640c59caf8516c3aa739bd5e92212e1c36ef513016782ab5d6b6918e2"
+  name = "github.com/go-openapi/analysis"
+  packages = [
+    ".",
+    "internal",
+  ]
+  pruneopts = "NT"
+  revision = "1024f3482ddc2c381cc918eb9eca596d51a70272"
+  version = "v0.19.6"
+
+[[projects]]
+  digest = "1:561157070be37514e296bbf1144e5e3130573483e253443bf378917475f55836"
+  name = "github.com/go-openapi/errors"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "0b2a0a1f89aa2eec2d13e03cd80ab0fdaf01f8ce"
+  version = "v0.19.2"
+
+[[projects]]
   digest = "1:260f7ebefc63024c8dfe2c9f1a2935a89fa4213637a1f522f592f80c001cc441"
   name = "github.com/go-openapi/jsonpointer"
   packages = ["."]
@@ -157,12 +195,28 @@
   version = "v0.19.2"
 
 [[projects]]
+  digest = "1:b285019f106a2c0cf85ec7e67a242dc93a319104c8556eae2d458f711592328a"
+  name = "github.com/go-openapi/loads"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "bda4742c39071f7804171d847fb6e9bca84f9f57"
+  version = "v0.19.4"
+
+[[projects]]
   branch = "master"
   digest = "1:f04cb7797917efbe9d9efd509a311f28930a9ee7ef1e047d01808d64ded53554"
   name = "github.com/go-openapi/spec"
   packages = ["."]
   pruneopts = "NT"
   revision = "bdfd7e07daecc404d77868a88b2364d0aed0ee5a"
+
+[[projects]]
+  digest = "1:b7031e4e96de7e57dfab4e355637237804b2e5150aca93d5113397d037b0c941"
+  name = "github.com/go-openapi/strfmt"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "6faa644e1cdafc07f7b38eb06c1af5f92128f289"
+  version = "v0.19.3"
 
 [[projects]]
   digest = "1:b318f36b1725220c1580b27504b8ee9d33a2a8e2db58f28c176edf6f0d1b7fb2"
@@ -246,12 +300,28 @@
   version = "v1.0.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:a85dcfe8766843b64fbeff770ea5e78cbe626aa3920a7c10e59a0a39dcb8b733"
+  name = "github.com/google/goexpect"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "5b6988669ffabaa2cf500d79322a7f938478569f"
+
+[[projects]]
   digest = "1:52c5834e2bebac9030c97cc0798ac11c3aa8a39f098aeb419f142533da6cd3cc"
   name = "github.com/google/gofuzz"
   packages = ["."]
   pruneopts = "NT"
   revision = "f140a6486e521aad38f5917de355cbf147cc0496"
   version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:0d2d5d3d1acf3972d05fef631c1f5696d2d4d58dd7173e2d3306bf3d7321a1fc"
+  name = "github.com/google/goterm"
+  packages = ["term"]
+  pruneopts = "NT"
+  revision = "fc88cf888a3fa99ecc23d1efc1a44284268457d3"
 
 [[projects]]
   digest = "1:ab3ec1fe3e39bac4b3ab63390767766622be35b7cab03f47f787f9ec60522a53"
@@ -326,6 +396,14 @@
   version = "v0.3.7"
 
 [[projects]]
+  digest = "1:406338ad39ab2e37b7f4452906442a3dbf0eb3379dd1f06aafb5c07e769a5fbb"
+  name = "github.com/inconshreveable/mousetrap"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
+  version = "v1.0"
+
+[[projects]]
   digest = "1:f5b9328966ccea0970b1d15075698eff0ddb3e75889560aad2e9f76b289b536a"
   name = "github.com/joho/godotenv"
   packages = ["."]
@@ -397,12 +475,40 @@
   version = "v1.0.4"
 
 [[projects]]
+  digest = "1:29e5436ec6d15aa1066ea400a2e86c793c656444a363e1d2b8e79e7748f463e7"
+  name = "github.com/mattn/go-runewidth"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "f93a0d58d5fd95e53f82782d07bb0c79d23e1290"
+  version = "v0.0.6"
+
+[[projects]]
   digest = "1:ea1db000388d88b31db7531c83016bef0d6db0d908a07794bfc36aca16fbf935"
   name = "github.com/matttproud/golang_protobuf_extensions"
   packages = ["pbutil"]
   pruneopts = "NT"
   revision = "c12348ce28de40eed0136aa2b644d0ee0650e56c"
   version = "v1.0.1"
+
+[[projects]]
+  digest = "1:2594e075ed1b0bbf20b61cc78e2ea4f2378b0a8d41a87f64b7845286b80c1cbf"
+  name = "github.com/mfranczy/crd-rest-coverage"
+  packages = [
+    "pkg/analysis",
+    "pkg/report",
+    "pkg/stats",
+  ]
+  pruneopts = "NT"
+  revision = "6aaaecb69ead6104ac4f3345d86e900e424ae369"
+  version = "v0.1.0"
+
+[[projects]]
+  digest = "1:a45ae66dea4c899d79fceb116accfa1892105c251f0dcd9a217ddc276b42ec68"
+  name = "github.com/mitchellh/mapstructure"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "3536a929edddb9a5b34bd6861dc4a9647cb459fe"
+  version = "v1.1.2"
 
 [[projects]]
   digest = "1:2f42fa12d6911c7b7659738758631bec870b7e9b4c6be5444f963cdcfccc191f"
@@ -626,12 +732,35 @@
   version = "v1.2.2"
 
 [[projects]]
+  digest = "1:37a91e5093cb260946900c75198c293f3439187e43f48e1a3ae10b4aa55bd7ad"
+  name = "github.com/spf13/cobra"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "f2b07da1e2c38d5f12845a4f607e2e1018cbb1f5"
+  version = "v0.0.5"
+
+[[projects]]
   digest = "1:9d8420bbf131d1618bde6530af37c3799340d3762cc47210c1d9532a4c3a2779"
   name = "github.com/spf13/pflag"
   packages = ["."]
   pruneopts = "NT"
   revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
   version = "v1.0.3"
+
+[[projects]]
+  digest = "1:26864b5faae4710765afdee07028acdbf7d02c0bc2b3595e682e5a0de1c85bdf"
+  name = "go.mongodb.org/mongo-driver"
+  packages = [
+    "bson",
+    "bson/bsoncodec",
+    "bson/bsonrw",
+    "bson/bsontype",
+    "bson/primitive",
+    "x/bsonx/bsoncore",
+  ]
+  pruneopts = "NT"
+  revision = "797e0a635920c291b1808180bf7249eaac5eafed"
+  version = "v1.1.3"
 
 [[projects]]
   digest = "1:cc9d86ec4e6e3bdf87e3a421273bfeed003cf8e21351c0302fe8b0eb7b10efe6"
@@ -668,7 +797,16 @@
   branch = "master"
   digest = "1:f82ba53ff318249f82e7efa709f68e93bfcbf899c252bd66739b66f4b0fce202"
   name = "golang.org/x/crypto"
-  packages = ["ssh/terminal"]
+  packages = [
+    "curve25519",
+    "ed25519",
+    "ed25519/internal/edwards25519",
+    "internal/chacha20",
+    "internal/subtle",
+    "poly1305",
+    "ssh",
+    "ssh/terminal",
+  ]
   pruneopts = "NT"
   revision = "60c769a6c58655dab1b9adac0d58967dd517cfba"
 
@@ -711,6 +849,7 @@
   digest = "1:fd4e4a0fc28da93ab16716b9c8b7e6f28479620d234ae0b8df5fe70b890d2dd2"
   name = "golang.org/x/sys"
   packages = [
+    "cpu",
     "unix",
     "windows",
   ]
@@ -854,6 +993,14 @@
   version = "v1.24.0"
 
 [[projects]]
+  digest = "1:21562b59c496f4cbd7a40beaa257ac6761002dd3e36259f532216082abace8b1"
+  name = "gopkg.in/cheggaaa/pb.v1"
+  packages = ["."]
+  pruneopts = "NT"
+  revision = "f907f6f5dd81f77c2bbc1cde92e4c5a04720cb11"
+  version = "v1.0.28"
+
+[[projects]]
   digest = "1:1b91ae0dc69a41d4c2ed23ea5cffb721ea63f5037ca4b81e6d6771fbb8f45129"
   name = "gopkg.in/fsnotify.v1"
   packages = ["."]
@@ -970,12 +1117,15 @@
     "pkg/util/diff",
     "pkg/util/errors",
     "pkg/util/framer",
+    "pkg/util/httpstream",
+    "pkg/util/httpstream/spdy",
     "pkg/util/intstr",
     "pkg/util/json",
     "pkg/util/mergepatch",
     "pkg/util/naming",
     "pkg/util/net",
     "pkg/util/rand",
+    "pkg/util/remotecommand",
     "pkg/util/runtime",
     "pkg/util/sets",
     "pkg/util/strategicpatch",
@@ -987,10 +1137,21 @@
     "pkg/version",
     "pkg/watch",
     "third_party/forked/golang/json",
+    "third_party/forked/golang/netutil",
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NT"
   revision = "2b1284ed4c93a43499e781493253e2ac5959c4fd"
+
+[[projects]]
+  digest = "1:8b3a74319ec630bd43d61f3d1c13df8e97530c98f7ef444ba41c417a328748b5"
+  name = "k8s.io/apiserver"
+  packages = [
+    "pkg/apis/audit",
+    "pkg/apis/audit/v1",
+  ]
+  pruneopts = "NT"
+  revision = "3ccfe8365421eb08e334b195786a2973460741d8"
 
 [[projects]]
   digest = "1:c904a3d70131b33df36e4e51b574226b82308fc1ea66964aa21095a95d453fc9"
@@ -1128,12 +1289,16 @@
     "tools/leaderelection/resourcelock",
     "tools/metrics",
     "tools/pager",
+    "tools/portforward",
     "tools/record",
     "tools/reference",
+    "tools/remotecommand",
     "transport",
+    "transport/spdy",
     "util/buffer",
     "util/cert",
     "util/connrotation",
+    "util/exec",
     "util/flowcontrol",
     "util/homedir",
     "util/integer",
@@ -1285,18 +1450,36 @@
     "pkg/ephemeral-disk",
     "pkg/ephemeral-disk-utils",
     "pkg/handler-launcher-com/cmd/v1",
+    "pkg/hooks",
+    "pkg/hooks/info",
+    "pkg/hooks/v1alpha1",
+    "pkg/hooks/v1alpha2",
     "pkg/host-disk",
     "pkg/ignition",
     "pkg/rest",
     "pkg/testutils",
     "pkg/util",
+    "pkg/util/cluster",
+    "pkg/util/hardware",
     "pkg/util/net/dns",
+    "pkg/util/net/grpc",
     "pkg/util/types",
     "pkg/virt-config",
+    "pkg/virt-controller/services",
     "pkg/virt-launcher/virtwrap/api",
     "pkg/virt-operator/creation/components",
     "pkg/virt-operator/creation/rbac",
     "pkg/virt-operator/util",
+    "pkg/virtctl",
+    "pkg/virtctl/console",
+    "pkg/virtctl/expose",
+    "pkg/virtctl/imageupload",
+    "pkg/virtctl/templates",
+    "pkg/virtctl/version",
+    "pkg/virtctl/vm",
+    "pkg/virtctl/vnc",
+    "tests",
+    "tools/vms-generator/utils",
   ]
   pruneopts = "NT"
   revision = "9223d49108f7f9821ab8f8fa4cb9afd65e1350ab"
@@ -1401,6 +1584,7 @@
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
+    "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/types",
@@ -1425,8 +1609,10 @@
     "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1",
     "kubevirt.io/containerized-data-importer/pkg/operator/resources/operator",
     "kubevirt.io/kubevirt",
+    "kubevirt.io/kubevirt/pkg/util/cluster",
     "kubevirt.io/kubevirt/pkg/virt-operator/creation/components",
     "kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac",
+    "kubevirt.io/kubevirt/tests",
     "sigs.k8s.io/controller-runtime/pkg/client",
     "sigs.k8s.io/controller-runtime/pkg/client/config",
     "sigs.k8s.io/controller-runtime/pkg/client/fake",

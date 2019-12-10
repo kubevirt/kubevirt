@@ -9,3 +9,5 @@ runtime_requirements:
 
 reporting:
   style: stdci
+
+timeout: 3h

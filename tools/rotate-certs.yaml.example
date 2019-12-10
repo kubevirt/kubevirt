@@ -1,0 +1,18 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: rotate-certs
+spec:
+  schedule: "35 2 * * 0"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccount: kubevirt-operator
+          containers:
+          - name: rotate-certs
+            image: <registry>/<image>
+            args:
+            - -n
+            - kubevirt
+          restartPolicy: Never

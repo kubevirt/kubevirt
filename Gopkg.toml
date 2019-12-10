@@ -69,6 +69,11 @@ required = [
   revision = "0fe22c71c47604641d9aa352c785b7912c200562"
 
 [[override]]
+  name = "k8s.io/apiserver"
+  # revision for tag "kubernetes-1.13.1"
+  revision = "3ccfe8365421eb08e334b195786a2973460741d8"
+
+[[override]]
   name = "k8s.io/apimachinery"
   # revision for tag "kubernetes-1.13.1"
   revision = "2b1284ed4c93a43499e781493253e2ac5959c4fd"
