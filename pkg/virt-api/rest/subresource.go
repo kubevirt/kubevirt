@@ -35,8 +35,11 @@ import (
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/util/cert"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -419,6 +422,28 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
+	bodyStruct := &v1.RestartOptions{}
+
+	if request.Request.Body != nil {
+		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			response.WriteError(http.StatusForbidden, fmt.Errorf("Can not unmarshal Request body to struct, error: %s", err))
+			return
+		}
+	}
+	if bodyStruct.GracePeriodSeconds != nil {
+		if *bodyStruct.GracePeriodSeconds > 0 {
+			response.WriteError(http.StatusForbidden, fmt.Errorf("For force restart, only gracePeriod=0 is supported for now"))
+			return
+		} else if *bodyStruct.GracePeriodSeconds < 0 {
+			response.WriteError(http.StatusForbidden, fmt.Errorf("gracePeriod has to be greater or equal to 0"))
+			return
+		}
+	}
+
 	vm, code, err := app.fetchVirtualMachine(name, namespace)
 	if err != nil {
 		response.WriteError(code, err)
@@ -464,7 +489,62 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 
+	// Only force restart with GracePeriodSeconds=0 is supported for now
+	// Here we are deleting the Pod because CRDs don't support gracePeriodSeconds at the moment
+	if bodyStruct.GracePeriodSeconds != nil {
+		if *bodyStruct.GracePeriodSeconds == 0 {
+			vmiPodname, err := app.findPod(namespace, vmi)
+			if err != nil {
+				response.WriteError(http.StatusForbidden, err)
+				return
+			}
+			if vmiPodname == "" {
+				response.WriteHeader(http.StatusAccepted)
+				return
+			}
+			// set termincationGracePeriod and delete the VMI pod to trigger a forced restart
+			err = app.virtCli.CoreV1().Pods(namespace).Delete(vmiPodname, &k8smetav1.DeleteOptions{GracePeriodSeconds: bodyStruct.GracePeriodSeconds})
+			if err != nil {
+				if !errors.IsNotFound(err) {
+					response.WriteError(http.StatusForbidden, err)
+					return
+				}
+			}
+		}
+	}
+
 	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) findPod(namespace string, vmi *v1.VirtualMachineInstance) (string, error) {
+	fieldSelector := fields.ParseSelectorOrDie("status.phase==" + string(v12.PodRunning))
+	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + string(vmi.UID)))
+	if err != nil {
+		return "", err
+	}
+	selector := k8smetav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
+	podList, err := app.virtCli.CoreV1().Pods(namespace).List(selector)
+	if err != nil {
+		return "", err
+	}
+	if len(podList.Items) == 0 {
+		return "", nil
+	} else if len(podList.Items) == 1 {
+		return podList.Items[0].ObjectMeta.Name, nil
+	} else {
+		// If we have 2 running pods, we might have a migration. Find the new pod!
+		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
+			for _, pod := range podList.Items {
+				if pod.Name == vmi.Status.MigrationState.TargetPod {
+					return pod.Name, nil
+				}
+			}
+		} else {
+			// fallback to old behaviour
+			return podList.Items[0].ObjectMeta.Name, nil
+		}
+	}
+	return "", nil
 }
 
 func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, response *restful.Response) {

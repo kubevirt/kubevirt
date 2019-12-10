@@ -326,6 +326,8 @@ spec:
           verbs:
           - get
           - list
+          - delete
+          - patch
         - apiGroups:
           - kubevirt.io
           resources:

@@ -138,6 +138,16 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(cmd.Execute()).To(BeNil())
 			})
 		})
+
+		It("should force restart vm", func() {
+			vm := kubecli.NewMinimalVM(vmName)
+
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
+			vmInterface.EXPECT().ForceRestart(vm.Name, 0).Return(nil).Times(1)
+
+			cmd := tests.NewVirtctlCommand("restart", vmName, "--force", "--grace-period=0")
+			Expect(cmd.Execute()).To(BeNil())
+		})
 	})
 
 	AfterEach(func() {
