@@ -11,7 +11,7 @@ cdi_namespace=cdi
 image_pull_policy=${IMAGE_PULL_POLICY:-IfNotPresent}
 verbosity=${VERBOSITY:-2}
 package_name=${PACKAGE_NAME:-kubevirt-dev}
-kubevirtci_git_hash="93d9ac5e33e6e12e723d71c550a163886430213b"
+kubevirtci_git_hash="9f0b85fcfee98ae65f6ad04a01117e77d9aeb41f"
 
 # try to derive csv_version from docker tag. But it must start with x.y.z, without leading v
 default_csv_version="${docker_tag/latest/0.0.0}"
