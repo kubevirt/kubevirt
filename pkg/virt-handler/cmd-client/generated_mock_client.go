@@ -147,6 +147,17 @@ func (_mr *_MockLauncherClientRecorder) GetDomainStats() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainStats")
 }
 
+func (_m *MockLauncherClient) GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgentInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetGuestInfo")
+	ret0, _ := ret[0].(*v1.VirtualMachineInstanceGuestAgentInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockLauncherClientRecorder) GetGuestInfo() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetGuestInfo")
+}
+
 func (_m *MockLauncherClient) Ping() error {
 	ret := _m.ctrl.Call(_m, "Ping")
 	ret0, _ := ret[0].(error)
