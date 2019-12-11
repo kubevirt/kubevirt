@@ -25,12 +25,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	yaml "github.com/ghodss/yaml"
 	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/blang/semver"
 	"github.com/kubevirt/hyperconverged-cluster-operator/tools/util"
@@ -49,10 +51,30 @@ type csvDeployments struct {
 	Name string                `json:"name"`
 	Spec appsv1.DeploymentSpec `json:"spec,omitempty"`
 }
+type relatedImage struct {
+	Name string `json:"name"`
+	Ref  string `json:"image"`
+}
+
 type csvStrategySpec struct {
 	ClusterPermissions []csvClusterPermissions `json:"clusterPermissions"`
 	Permissions        []csvPermissions        `json:"permissions"`
 	Deployments        []csvDeployments        `json:"deployments"`
+}
+
+// TODO: get rid of this once RelatedImages officially
+// appears in github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
+type ClusterServiceVersionSpecExtended struct {
+	csvv1.ClusterServiceVersionSpec
+	RelatedImages      []relatedImage          `json:"relatedImages,omitempty"`
+}
+
+type ClusterServiceVersionExtended struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+
+	Spec   ClusterServiceVersionSpecExtended   `json:"spec"`
+	Status csvv1.ClusterServiceVersionStatus   `json:"status"`
 }
 
 var (
@@ -70,7 +92,9 @@ var (
 	metadataDescription = flag.String("metadata-description", "", "")
 	specDescription     = flag.String("spec-description", "", "")
 	specDisplayName     = flag.String("spec-displayname", "", "")
+	relatedImagesList   = flag.String("related-images-list", "", "")
 )
+
 
 func main() {
 	flag.Parse()
@@ -93,7 +117,7 @@ func main() {
 		panic(err)
 	}
 
-	templateStruct := &csvv1.ClusterServiceVersion{}
+	templateStruct := &ClusterServiceVersionExtended{}
 	err = yaml.Unmarshal(templateCSVBytes, templateStruct)
 	if err != nil {
 		panic(err)
@@ -101,6 +125,18 @@ func main() {
 
 	templateStrategySpec := &csvStrategySpec{}
 	json.Unmarshal(templateStruct.Spec.InstallStrategy.StrategySpecRaw, templateStrategySpec)
+
+	for _, image := range strings.Split(*relatedImagesList, ",") {
+		if image != "" {
+			names := strings.Split(strings.Split(image, "@")[0], "/")
+			name := names[len(names)-1]
+			templateStruct.Spec.RelatedImages = append(
+				templateStruct.Spec.RelatedImages,
+				relatedImage{
+					Name:    name,
+					Ref:     image,
+				})}
+	}
 
 	for _, csvStr := range csvs {
 		if csvStr != "" {
