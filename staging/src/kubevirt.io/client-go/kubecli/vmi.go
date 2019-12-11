@@ -20,13 +20,15 @@
 package kubecli
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/gorilla/websocket"
+	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -83,9 +85,7 @@ func (aws *asyncWSRoundTripper) WebsocketCallback(ws *websocket.Conn, resp *http
 
 	if err != nil {
 		if resp != nil && resp.StatusCode != http.StatusOK {
-			buf := new(bytes.Buffer)
-			buf.ReadFrom(resp.Body)
-			return fmt.Errorf("Can't connect to websocket (%d): %s\n", resp.StatusCode, buf.String())
+			return enrichError(err, resp)
 		}
 		return fmt.Errorf("Can't connect to websocket: %s\n", err.Error())
 	}
@@ -381,4 +381,36 @@ func (v *vmis) Patch(name string, pt types.PatchType, data []byte, subresources 
 		Do().
 		Into(result)
 	return
+}
+
+// enrichError checks the response body for a k8s Status object and extracts the error from it.
+// TODO the k8s http REST client has very sophisticated handling, investigate on how we can reuse it
+func enrichError(httpErr error, resp *http.Response) error {
+	if resp == nil {
+		return httpErr
+	}
+	httpErr = fmt.Errorf("Can't connect to websocket (%d): %s\n", resp.StatusCode, httpErr)
+	status := &k8smetav1.Status{}
+
+	if resp.Header.Get("Content-Type") != "application/json" {
+		return httpErr
+	}
+	// decode, but if the result is Status return that as an error instead.
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	if len(body) == 0 {
+		return httpErr
+	}
+	err = json.Unmarshal(body, status)
+	if err != nil {
+		return err
+	}
+	if status.Kind == "Status" && status.APIVersion == "v1" {
+		if status.Status != k8smetav1.StatusSuccess {
+			return errors.FromObject(status)
+		}
+	}
+	return httpErr
 }

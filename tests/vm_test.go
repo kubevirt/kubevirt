@@ -660,7 +660,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Ensuring a second invocation should fail")
 				err = startCommand()
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("Error starting VirtualMachine VM is already running"))
+				Expect(err.Error()).To(Equal(fmt.Sprintf(`Error starting VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM is already running`, newVM.Name)))
 			})
 
 			It("[test_id:1530]should stop a VirtualMachineInstance once", func() {
@@ -695,7 +695,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Ensuring a second invocation should fail")
 				err = stopCommand()
 				Expect(err).ToNot(Succeed())
-				Expect(err.Error()).To(Equal("Error stopping VirtualMachine VM is not running"))
+				Expect(err.Error()).To(Equal(fmt.Sprintf(`Error stopping VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM is not running`, newVM.Name)))
 			})
 
 			It("[test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", func() {
