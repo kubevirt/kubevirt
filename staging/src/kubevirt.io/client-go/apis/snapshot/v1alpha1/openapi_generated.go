@@ -332,6 +332,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.Interface":                                           schema_kubevirtio_client_go_api_v1_Interface(ref),
 		"kubevirt.io/client-go/api/v1.InterfaceBindingMethod":                              schema_kubevirtio_client_go_api_v1_InterfaceBindingMethod(ref),
 		"kubevirt.io/client-go/api/v1.InterfaceBridge":                                     schema_kubevirtio_client_go_api_v1_InterfaceBridge(ref),
+		"kubevirt.io/client-go/api/v1.InterfaceMacvtap":                                    schema_kubevirtio_client_go_api_v1_InterfaceMacvtap(ref),
 		"kubevirt.io/client-go/api/v1.InterfaceMasquerade":                                 schema_kubevirtio_client_go_api_v1_InterfaceMasquerade(ref),
 		"kubevirt.io/client-go/api/v1.InterfaceSRIOV":                                      schema_kubevirtio_client_go_api_v1_InterfaceSRIOV(ref),
 		"kubevirt.io/client-go/api/v1.InterfaceSlirp":                                      schema_kubevirtio_client_go_api_v1_InterfaceSlirp(ref),
@@ -15187,6 +15188,11 @@ func schema_kubevirtio_client_go_api_v1_Interface(ref common.ReferenceCallback) 
 							Ref: ref("kubevirt.io/client-go/api/v1.InterfaceSRIOV"),
 						},
 					},
+					"macvtap": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.InterfaceMacvtap"),
+						},
+					},
 					"ports": {
 						SchemaProps: spec.SchemaProps{
 							Description: "List of ports to be forwarded to the virtual machine.",
@@ -15239,7 +15245,7 @@ func schema_kubevirtio_client_go_api_v1_Interface(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.DHCPOptions", "kubevirt.io/client-go/api/v1.InterfaceBridge", "kubevirt.io/client-go/api/v1.InterfaceMasquerade", "kubevirt.io/client-go/api/v1.InterfaceSRIOV", "kubevirt.io/client-go/api/v1.InterfaceSlirp", "kubevirt.io/client-go/api/v1.Port"},
+			"kubevirt.io/client-go/api/v1.DHCPOptions", "kubevirt.io/client-go/api/v1.InterfaceBridge", "kubevirt.io/client-go/api/v1.InterfaceMacvtap", "kubevirt.io/client-go/api/v1.InterfaceMasquerade", "kubevirt.io/client-go/api/v1.InterfaceSRIOV", "kubevirt.io/client-go/api/v1.InterfaceSlirp", "kubevirt.io/client-go/api/v1.Port"},
 	}
 }
 
@@ -15270,15 +15276,30 @@ func schema_kubevirtio_client_go_api_v1_InterfaceBindingMethod(ref common.Refere
 							Ref: ref("kubevirt.io/client-go/api/v1.InterfaceSRIOV"),
 						},
 					},
+					"macvtap": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.InterfaceMacvtap"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.InterfaceBridge", "kubevirt.io/client-go/api/v1.InterfaceMasquerade", "kubevirt.io/client-go/api/v1.InterfaceSRIOV", "kubevirt.io/client-go/api/v1.InterfaceSlirp"},
+			"kubevirt.io/client-go/api/v1.InterfaceBridge", "kubevirt.io/client-go/api/v1.InterfaceMacvtap", "kubevirt.io/client-go/api/v1.InterfaceMasquerade", "kubevirt.io/client-go/api/v1.InterfaceSRIOV", "kubevirt.io/client-go/api/v1.InterfaceSlirp"},
 	}
 }
 
 func schema_kubevirtio_client_go_api_v1_InterfaceBridge(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_InterfaceMacvtap(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
