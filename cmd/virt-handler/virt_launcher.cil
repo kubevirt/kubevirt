@@ -1,5 +1,5 @@
 (block virt_launcher
-    (blockinherit container)
+    (blockinherit kubevirt_container)
     (typeattributeset sandbox_net_domain (process))
     (allow process kernel_t (system (module_request)))
     (allow process mtrr_device_t (file (write)))
@@ -9,7 +9,6 @@
     (allow process sysfs_t (file (write)))
     (allow process tmp_t (dir (write add_name open getattr setattr read link search remove_name reparent lock ioctl)))
     (allow process tmp_t (file (setattr open read write create getattr append ioctl lock)))
-    (allow process container_share_t (dir (write add_name)))
-    (allow process container_share_t (file (create setattr write )))
     (allow process container_var_run_t (dir (write add_name open getattr setattr read link search remove_name reparent lock ioctl)))
-    (allow process container_var_run_t (file (setattr open read write create getattr append ioctl lock))))
+    (allow process container_var_run_t (file (setattr open read write create getattr append ioctl lock)))
+)
