@@ -1,9 +1,25 @@
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    name: cluster-network-addons-operator
+  name: cluster-network-addons-operator
+  namespace: kubevirt-hyperconverged
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cluster-network-addons-operator
+subjects:
+- kind: ServiceAccount
+  name: cluster-network-addons-operator
+  namespace: kubevirt-hyperconverged
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
-    kubevirt.io: ""
+    name: hyperconverged-cluster-operator
   name: hyperconverged-cluster-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -13,13 +29,27 @@ subjects:
 - kind: ServiceAccount
   name: hyperconverged-cluster-operator
   namespace: kubevirt-hyperconverged
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
-    kubevirt.io: ""
+    name: cluster-network-addons-operator
+  name: cluster-network-addons-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-network-addons-operator
+subjects:
+- kind: ServiceAccount
+  name: cluster-network-addons-operator
+  namespace: kubevirt-hyperconverged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    name: kubevirt-operator
   name: kubevirt-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -34,85 +64,42 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
-    kubevirt.io: ""
-  name: cdi-operator
+    name: kubevirt-ssp-operator
+  name: kubevirt-ssp-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cdi-operator
+  name: kubevirt-ssp-operator
 subjects:
 - kind: ServiceAccount
-  name: cdi-operator
+  name: kubevirt-ssp-operator
   namespace: kubevirt-hyperconverged
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: cdi-operator-admin
   labels:
-    operator.kubevirt.io: ""
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin
-  apiGroup: rbac.authorization.k8s.io
-subjects:
-  - kind: ServiceAccount
     name: cdi-operator
-    namespace: kubevirt-hyperconverged
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  labels:
-    kubevirt.io: ""
-  name: cluster-network-addons-operator
+  name: cdi-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-network-addons-operator
-subjects:
-  - kind: ServiceAccount
-    name: cluster-network-addons-operator
-    namespace: kubevirt-hyperconverged
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: cluster-network-addons-operator-admin
-  labels:
-    operator.kubevirt.io: ""
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin
-  apiGroup: rbac.authorization.k8s.io
-subjects:
-  - kind: ServiceAccount
-    name: cluster-network-addons-operator
-    namespace: kubevirt-hyperconverged
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: kubevirt-ssp-operator
-  labels:
-    operator.kubevirt.io: ""
-roleRef:
-  kind: ClusterRole
-  name: kubevirt-ssp-operator
-  apiGroup: rbac.authorization.k8s.io
+  name: cdi-operator
 subjects:
 - kind: ServiceAccount
-  name: kubevirt-ssp-operator
+  name: cdi-operator
   namespace: kubevirt-hyperconverged
 ---
-kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
 metadata:
+  labels:
+    name: node-maintenance-operator
   name: node-maintenance-operator
 roleRef:
+  apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: node-maintenance-operator
-  apiGroup: rbac.authorization.k8s.io
 subjects:
 - kind: ServiceAccount
   name: node-maintenance-operator

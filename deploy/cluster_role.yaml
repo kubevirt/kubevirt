@@ -1,5 +1,39 @@
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    name: cluster-network-addons-operator
+  name: cluster-network-addons-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - patch
+  - update
+  - delete
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - replicasets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - patch
+  - update
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
@@ -125,14 +159,52 @@ rules:
   verbs:
   - get
   - create
-
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    kubevirt.io: ""
+    name: cluster-network-addons-operator
+  name: cluster-network-addons-operator
+rules:
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - privileged
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operator.openshift.io
+  resources:
+  - networks
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networkaddonsoperator.network.kubevirt.io
+  resources:
+  - networkaddonsconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    name: kubevirt-operator
   name: kubevirt-operator
 rules:
 - apiGroups:
@@ -273,12 +345,6 @@ rules:
   verbs:
   - put
 - apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
-- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - validatingwebhookconfigurations
@@ -307,17 +373,8 @@ rules:
   resources:
   - virtualmachines
   - virtualmachineinstances
-  verbs:
-  - get
-  - list
-  - watch
-  - patch
-- apiGroups:
-  - kubevirt.io
-  resources:
   - virtualmachineinstancemigrations
   verbs:
-  - create
   - get
   - list
   - watch
@@ -604,14 +661,131 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    operator.cdi.kubevirt.io: ""
-  name: cdi-operator-cluster
+    name: kubevirt-ssp-operator
+  name: kubevirt-ssp-operator
+rules:
+- apiGroups:
+  - kubevirt.io
+  - template.openshift.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - prometheusrules
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - create
+  - watch
+  - patch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - patch
+- apiGroups:
+  - extensions
+  - apps
+  resources:
+  - deployments
+  - deployments/finalizers
+  - replicasets
+  - daemonsets
+  verbs:
+  - create
+  - update
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  - configmaps
+  - services
+  verbs:
+  - create
+  - update
+  - get
+  - patch
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - privileged
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    name: cdi-operator
+  name: cdi-operator
 rules:
 - apiGroups:
   - rbac.authorization.k8s.io
@@ -733,6 +907,7 @@ rules:
   - patch
 - apiGroups:
   - cdi.kubevirt.io
+  - upload.cdi.kubevirt.io
   resources:
   - '*'
   verbs:
@@ -830,164 +1005,6 @@ rules:
   - customresourcedefinitions
   verbs:
   - '*'
-
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    name: cluster-network-addons-operator
-  name: cluster-network-addons-operator
-rules:
-- apiGroups:
-  - security.openshift.io
-  resourceNames:
-  - privileged
-  resources:
-  - securitycontextconstraints
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - operator.openshift.io
-  resources:
-  - networks
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - networkaddonsoperator.network.kubevirt.io
-  resources:
-  - networkaddonsconfigs
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - '*'
-  resources:
-  - '*'
-  verbs:
-  - '*'
-
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kubevirt-ssp-operator
-rules:
-- apiGroups:
-  - kubevirt.io
-  - template.openshift.io
-  resources:
-  - '*'
-  verbs:
-  - create 
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - prometheusrules
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterroles
-  verbs:
-  - create
-  - watch
-  - patch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterrolebindings
-  verbs:
-  - create
-  - get
-  - list
-  - watch
-  - patch
-- apiGroups:
-  - extensions
-  - apps
-  resources:
-  - deployments
-  - deployments/finalizers
-  - replicasets
-  - daemonsets
-  verbs:
-  - create
-  - update
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - serviceaccounts
-  - configmaps
-  - services
-  verbs:
-  - create
-  - get
-  - patch
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - nodes
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - validatingwebhookconfigurations
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - watch
-- apiGroups:
-  - security.openshift.io
-  resources:
-  - securitycontextconstraints
-  verbs:
-  - 'use'
-  resourceNames:
-  - privileged
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

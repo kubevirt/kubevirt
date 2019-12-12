@@ -20,437 +20,290 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"flag"
-	"io"
 	"os"
-	"strings"
-	"text/template"
-	"time"
+	"path"
+	"sort"
 
 	"github.com/ghodss/yaml"
-	"github.com/spf13/pflag"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
+	"github.com/kubevirt/hyperconverged-cluster-operator/tools/util"
 
-	cnacomponents "github.com/kubevirt/cluster-network-addons-operator/pkg/components"
-	hcocomponents "github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
-	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	cdicomponents "kubevirt.io/containerized-data-importer/pkg/operator/resources/operator"
-	kvcomponents "kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
-	kvrbac "kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+	csvv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type operatorData struct {
-	Deployment        string
-	DeploymentSpec    string
-	RoleString        string
-	Rules             string
-	ClusterRoleString string
-	ClusterRules      string
-	CRD               *extv1beta1.CustomResourceDefinition
-	CRDString         string
-	CRString          string
-	OperatorTag       string
-	ComponentTag      string
-	ImageName         string
-}
+// flags for the command line arguments we accept
+var (
+	deployDir          = flag.String("deploy-dir", "deploy", "Directory where manifests should be written")
+	cnaCsv             = flag.String("cna-csv", "", "Cluster Network Addons CSV string")
+	virtCsv            = flag.String("virt-csv", "", "KubeVirt CSV string")
+	sspCsv             = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
+	cdiCsv             = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
+	nmoCsv             = flag.String("nmo-csv", "", "Node Maintenance Operator CSV String")
+	hppCsv              = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
+	operatorNamespace  = flag.String("operator-namespace", "kubevirt-hyperconverged", "Name of the Operator")
+	operatorImage      = flag.String("operator-image", "", "HyperConverged Cluster Operator image")
+	imsConversionImage = flag.String("ims-conversion-image-name", "", "IMS conversion image")
+	imsVMWareImage     = flag.String("ims-vmware-image-name", "", "IMS VMWare image")
+)
 
-type templateData struct {
-	Converged           bool
-	Namespace           string
-	CsvVersion          string
-	ReplacesVersion     string
-	Replaces            bool
-	ContainerPrefix     string
-	ImagePrefix         string
-	CnaContainerPrefix  string
-	ImagePullPolicy     string
-	CreatedAt           string
-	ConversionContainer string
-	VMWareContainer     string
-	HCO                 *operatorData
-	KubeVirt            *operatorData
-	CDI                 *operatorData
-	CNA                 *operatorData
-	SSP                 *operatorData
-	NMO                 *operatorData
-}
-
+// check handles errors
 func check(err error) {
 	if err != nil {
 		panic(err)
 	}
 }
 
-func fixResourceString(in string, indention int) string {
-	out := strings.Builder{}
-	scanner := bufio.NewScanner(strings.NewReader(in))
-	for scanner.Scan() {
-		line := scanner.Text()
-		// remove separator lines
-		if !strings.HasPrefix(line, "---") {
-			// indent so that it fits into the manifest
-			// spaces is is indention - 2, because we want to have 2 spaces less for being able to start an array
-			spaces := strings.Repeat(" ", indention-2)
-			if strings.HasPrefix(line, "apiGroups") {
-				// spaces + array start
-				out.WriteString(spaces + "- " + line + "\n")
-			} else {
-				// 2 more spaces
-				out.WriteString(spaces + "  " + line + "\n")
+func main() {
+	flag.Parse()
+
+	// open files for writing
+	operatorYaml, err := os.Create(path.Join(*deployDir, "operator.yaml"))
+	check(err)
+	saYaml, err := os.Create(path.Join(*deployDir, "service_account.yaml"))
+	check(err)
+	crbYaml, err := os.Create(path.Join(*deployDir, "cluster_role_binding.yaml"))
+	check(err)
+	crYaml, err := os.Create(path.Join(*deployDir, "cluster_role.yaml"))
+	check(err)
+	operatorCrd, err := os.Create(path.Join(*deployDir, "crds/hco.crd.yaml"))
+	check(err)
+	v2vCrd, err := os.Create(path.Join(*deployDir, "crds/v2vvmware.crd.yaml"))
+	check(err)
+	operatorCr, err := os.Create(path.Join(*deployDir, "hco.cr.yaml"))
+	check(err)
+	defer operatorYaml.Close()
+	defer saYaml.Close()
+	defer crbYaml.Close()
+	defer crYaml.Close()
+	defer operatorCrd.Close()
+	defer operatorCr.Close()
+	defer v2vCrd.Close()
+
+	// the CSVs we expect to handle
+	csvs := []string{
+		*cnaCsv,
+		*virtCsv,
+		*sspCsv,
+		*cdiCsv,
+		*nmoCsv,
+		*hppCsv,
+	}
+
+	// these represent the bare necessities for the HCO manifests, that is,
+	// enough to deploy the HCO itself.
+	// 1 deployment
+	// 1 service account
+	// 1 cluster role
+	// 1 cluster role binding
+	// as we handle each CSV we will add to our slices of deployments,
+	// permissions, role bindings, cluster permissions, and cluster role bindings.
+	// service accounts are represented as a map to prevent us from generating the
+	// same service account multiple times.
+	deployments := []appsv1.Deployment{
+		components.GetDeployment(
+			*operatorImage,
+			"IfNotPresent",
+			*imsConversionImage,
+			*imsVMWareImage,
+		),
+	}
+	serviceAccounts := map[string]v1.ServiceAccount{
+		"hyperconverged-cluster-operator": components.GetServiceAccount(*operatorNamespace),
+	}
+	permissions := []rbacv1.Role{}
+	roleBindings := []rbacv1.RoleBinding{}
+	clusterPermissions := []rbacv1.ClusterRole{
+		components.GetClusterRole(),
+	}
+	clusterRoleBindings := []rbacv1.ClusterRoleBinding{
+		components.GetClusterRoleBinding(*operatorNamespace),
+	}
+
+	for _, csvStr := range csvs {
+		if csvStr != "" {
+			csvBytes := []byte(csvStr)
+
+			csvStruct := &csvv1alpha1.ClusterServiceVersion{}
+
+			err := yaml.Unmarshal(csvBytes, csvStruct)
+			if err != nil {
+				panic(err)
+			}
+
+			strategySpec := &components.StrategyDetailsDeployment{}
+			json.Unmarshal(csvStruct.Spec.InstallStrategy.StrategySpecRaw, strategySpec)
+
+			// CSVs only contain the deployment spec, we must wrap
+			// the spec with the Type and Object Meta to make it a valid
+			// manifest
+			for _, deploymentSpec := range strategySpec.DeploymentSpecs {
+				deployments = append(deployments, appsv1.Deployment{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: deploymentSpec.Name,
+						Labels: map[string]string{
+							"name": deploymentSpec.Name,
+						},
+					},
+					Spec: deploymentSpec.Spec,
+				})
+			}
+
+			// Every permission we encounter in a CSV means we need to (potentially)
+			// add a service account to our map, add a Role to our slice of permissions
+			// (much like we did with deployments we need to wrap the rules with the
+			// Type and Object Meta to make a valid Role), and add a RoleBinding to our
+			// slice.
+			for _, permission := range strategySpec.Permissions {
+				serviceAccounts[permission.ServiceAccountName] = v1.ServiceAccount{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "ServiceAccount",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      permission.ServiceAccountName,
+						Namespace: *operatorNamespace,
+						Labels: map[string]string{
+							"name": permission.ServiceAccountName,
+						},
+					},
+				}
+				permissions = append(permissions, rbacv1.Role{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "rbac.authorization.k8s.io/v1",
+						Kind:       "Role",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: permission.ServiceAccountName,
+						Labels: map[string]string{
+							"name": permission.ServiceAccountName,
+						},
+					},
+					Rules: permission.Rules,
+				})
+				roleBindings = append(roleBindings, rbacv1.RoleBinding{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "rbac.authorization.k8s.io/v1",
+						Kind:       "RoleBinding",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      permission.ServiceAccountName,
+						Namespace: *operatorNamespace,
+						Labels: map[string]string{
+							"name": permission.ServiceAccountName,
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						APIGroup: "rbac.authorization.k8s.io",
+						Kind:     "Role",
+						Name:     permission.ServiceAccountName,
+					},
+					Subjects: []rbacv1.Subject{
+						rbacv1.Subject{
+							Kind:      "ServiceAccount",
+							Name:      permission.ServiceAccountName,
+							Namespace: *operatorNamespace,
+						},
+					},
+				})
+			}
+
+			// Same as permissions except ClusterRole instead of Role and
+			// ClusterRoleBinding instead of RoleBinding.
+			for _, clusterPermission := range strategySpec.ClusterPermissions {
+				serviceAccounts[clusterPermission.ServiceAccountName] = v1.ServiceAccount{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "ServiceAccount",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      clusterPermission.ServiceAccountName,
+						Namespace: *operatorNamespace,
+						Labels: map[string]string{
+							"name": clusterPermission.ServiceAccountName,
+						},
+					},
+				}
+				clusterPermissions = append(clusterPermissions, rbacv1.ClusterRole{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "rbac.authorization.k8s.io/v1",
+						Kind:       "ClusterRole",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: clusterPermission.ServiceAccountName,
+						Labels: map[string]string{
+							"name": clusterPermission.ServiceAccountName,
+						},
+					},
+					Rules: clusterPermission.Rules,
+				})
+				clusterRoleBindings = append(clusterRoleBindings, rbacv1.ClusterRoleBinding{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "rbac.authorization.k8s.io/v1",
+						Kind:       "ClusterRoleBinding",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: clusterPermission.ServiceAccountName,
+						Labels: map[string]string{
+							"name": clusterPermission.ServiceAccountName,
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						APIGroup: "rbac.authorization.k8s.io",
+						Kind:     "ClusterRole",
+						Name:     clusterPermission.ServiceAccountName,
+					},
+					Subjects: []rbacv1.Subject{
+						rbacv1.Subject{
+							Kind:      "ServiceAccount",
+							Name:      clusterPermission.ServiceAccountName,
+							Namespace: *operatorNamespace,
+						},
+					},
+				})
 			}
 		}
 	}
-	return out.String()
-}
 
-func marshallObject(obj interface{}, writer io.Writer) error {
-	jsonBytes, err := json.Marshal(obj)
-	check(err)
+	// Write out CRDs and CR
+	util.MarshallObject(components.GetOperatorCRD(), operatorCrd)
+	util.MarshallObject(components.GetV2VCRD(), v2vCrd)
+	util.MarshallObject(components.GetOperatorCR(), operatorCr)
 
-	var r unstructured.Unstructured
-	if err := json.Unmarshal(jsonBytes, &r.Object); err != nil {
-		return err
+	// Write out deployments
+	for _, deployment := range deployments {
+		util.MarshallObject(deployment, operatorYaml)
 	}
 
-	// remove status and metadata.creationTimestamp
-	unstructured.RemoveNestedField(r.Object, "template", "metadata", "creationTimestamp")
-	unstructured.RemoveNestedField(r.Object, "metadata", "creationTimestamp")
-	unstructured.RemoveNestedField(r.Object, "status")
-
-	jsonBytes, err = json.Marshal(r.Object)
-	if err != nil {
-		return err
+	// Write out rbac
+	// since maps are not ordered we must enforce one before writing
+	var keys []string
+	for saName := range serviceAccounts {
+		keys = append(keys, saName)
 	}
-
-	yamlBytes, err := yaml.JSONToYAML(jsonBytes)
-	if err != nil {
-		return err
+	sort.Strings(keys)
+	for _, k := range keys {
+		util.MarshallObject(serviceAccounts[k], saYaml)
 	}
-
-	// fix templates by removing quotes...
-	s := string(yamlBytes)
-	s = strings.Replace(s, "'{{", "{{", -1)
-	s = strings.Replace(s, "}}'", "}}", -1)
-	yamlBytes = []byte(s)
-
-	_, err = writer.Write([]byte("---\n"))
-	if err != nil {
-		return err
+	for _, permission := range permissions {
+		util.MarshallObject(permission, crYaml)
 	}
-
-	_, err = writer.Write(yamlBytes)
-	if err != nil {
-		return err
+	for _, roleBinding := range roleBindings {
+		util.MarshallObject(roleBinding, crbYaml)
 	}
-
-	return nil
-}
-
-func getHCO(data *templateData) {
-	writer := strings.Builder{}
-
-	// Get HCO Deployment
-	hcodeployment := hcocomponents.GetDeployment(
-		"quay.io",
-		data.HCO.OperatorTag,
-		"Always",
-		data.ConversionContainer,
-		data.VMWareContainer,
-	)
-	err := marshallObject(hcodeployment, &writer)
-	check(err)
-	deployment := writer.String()
-
-	// Get HCO DeploymentSpec for CSV
-	writer = strings.Builder{}
-	err = marshallObject(hcodeployment.Spec, &writer)
-	check(err)
-	deploymentSpec := fixResourceString(writer.String(), 12)
-
-	// Get HCO ClusterRole
-	writer = strings.Builder{}
-	clusterRole := hcocomponents.GetClusterRole()
-	marshallObject(clusterRole, &writer)
-	clusterRoleString := writer.String()
-
-	// Get the Rules out of HCO's ClusterRole
-	writer = strings.Builder{}
-	hcorules := clusterRole.Rules
-	for _, rule := range hcorules {
-		err := marshallObject(rule, &writer)
-		check(err)
+	for _, clusterPermission := range clusterPermissions {
+		util.MarshallObject(clusterPermission, crYaml)
 	}
-	rules := fixResourceString(writer.String(), 14)
-
-	// Get HCO CRD
-	writer = strings.Builder{}
-	crd := hcocomponents.GetCrd()
-	marshallObject(crd, &writer)
-	crdString := writer.String()
-
-	// Get HCO CR
-	writer = strings.Builder{}
-	cr := hcocomponents.GetCR()
-	marshallObject(cr, &writer)
-	crString := writer.String()
-
-	data.HCO.Deployment = deployment
-	data.HCO.DeploymentSpec = deploymentSpec
-	data.HCO.ClusterRoleString = clusterRoleString
-	data.HCO.Rules = rules
-	data.HCO.CRD = crd
-	data.HCO.CRDString = crdString
-	data.HCO.CRString = crString
-}
-
-func getKubeVirt(data *templateData) {
-	writer := strings.Builder{}
-
-	// Get KubeVirt Operator Deployment
-	kvdeployment, err := kvcomponents.NewOperatorDeployment(
-		"kubevirt",
-		data.ContainerPrefix,
-		data.ImagePrefix,
-		data.KubeVirt.OperatorTag,
-		v1.PullPolicy(data.ImagePullPolicy),
-		"2",
-		"", "", "", "", "",
-		// args in lasst line are needed when using shasums for virt-* images, but we don't know them here
-		// leaving them empty falls back to using the operator tag for all images
-	)
-	kvdeployment.ObjectMeta.Namespace = ""
-	check(err)
-	err = marshallObject(kvdeployment, &writer)
-	check(err)
-	deployment := writer.String()
-
-	// Get KubeVirt DeploymentSpec for CSV
-	writer = strings.Builder{}
-	err = marshallObject(kvdeployment.Spec, &writer)
-	check(err)
-	deploymentSpec := fixResourceString(writer.String(), 12)
-
-	// Get KubeVirt ClusterRole
-	writer = strings.Builder{}
-	clusterRole := kvrbac.NewOperatorClusterRole()
-	marshallObject(clusterRole, &writer)
-	clusterRoleString := writer.String()
-
-	// Get the Rules out of KubeVirt's ClusterRole
-	writer = strings.Builder{}
-	kvrules := clusterRole.Rules
-	for _, rule := range kvrules {
-		err := marshallObject(rule, &writer)
-		check(err)
+	for _, clusterRoleBinding := range clusterRoleBindings {
+		util.MarshallObject(clusterRoleBinding, crbYaml)
 	}
-	rules := fixResourceString(writer.String(), 14)
-
-	// Get KubeVirt CRD
-	writer = strings.Builder{}
-	crd := kvcomponents.NewKubeVirtCrd()
-	marshallObject(crd, &writer)
-	crdString := writer.String()
-
-	data.KubeVirt.Deployment = deployment
-	data.KubeVirt.DeploymentSpec = deploymentSpec
-	data.KubeVirt.ClusterRoleString = clusterRoleString
-	data.KubeVirt.Rules = rules
-	data.KubeVirt.CRD = crd
-	data.KubeVirt.CRDString = crdString
-}
-
-func getCDI(data *templateData) {
-	writer := strings.Builder{}
-
-	// Get CDI Deployment
-	cdideployment, err := cdicomponents.NewCdiOperatorDeployment(
-		data.Namespace,
-		data.ContainerPrefix,
-		data.CDI.OperatorTag,
-		"IfNotPresent",
-		"1",
-		(&cdicomponents.CdiImages{}).FillDefaults())
-
-	check(err)
-	err = marshallObject(cdideployment, &writer)
-	check(err)
-	deployment := writer.String()
-
-	// Get CDI DeploymentSpec for CSV
-	writer = strings.Builder{}
-	err = marshallObject(cdideployment.Spec, &writer)
-	check(err)
-	deploymentSpec := fixResourceString(writer.String(), 12)
-
-	// Get CDI ClusterRole
-	writer = strings.Builder{}
-	clusterRole := cdicomponents.NewCdiOperatorClusterRole()
-	marshallObject(clusterRole, &writer)
-	clusterRoleString := writer.String()
-
-	// Get the Rules out of CDI's ClusterRole
-	writer = strings.Builder{}
-	cdirules := clusterRole.Rules
-	for _, rule := range cdirules {
-		err := marshallObject(rule, &writer)
-		check(err)
-	}
-	rules := fixResourceString(writer.String(), 14)
-
-	// Get HCO CRD
-	writer = strings.Builder{}
-	crd := cdicomponents.NewCdiCrd()
-	marshallObject(crd, &writer)
-	crdString := writer.String()
-
-	data.CDI.Deployment = deployment
-	data.CDI.DeploymentSpec = deploymentSpec
-	data.CDI.ClusterRoleString = clusterRoleString
-	data.CDI.Rules = rules
-	data.CDI.CRD = crd
-	data.CDI.CRDString = crdString
-}
-
-func getCNA(data *templateData) {
-	writer := strings.Builder{}
-
-	// Get CNA Deployment
-	cnadeployment := cnacomponents.GetDeployment(
-		data.CNA.OperatorTag,
-		data.CNA.OperatorTag,
-		data.Namespace,
-		data.CnaContainerPrefix,
-		data.CNA.ImageName,
-		data.CNA.OperatorTag,
-		data.ImagePullPolicy,
-		(&cnacomponents.AddonsImages{}).FillDefaults(),
-	)
-	err := marshallObject(cnadeployment, &writer)
-	check(err)
-	deployment := writer.String()
-
-	// Get CNA DeploymentSpec for CSV
-	writer = strings.Builder{}
-	err = marshallObject(cnadeployment.Spec, &writer)
-	check(err)
-	deploymentSpec := fixResourceString(writer.String(), 12)
-
-	// Get CNA Role
-	writer = strings.Builder{}
-	role := cnacomponents.GetRole(data.Namespace)
-	marshallObject(role, &writer)
-	roleString := writer.String()
-
-	// Get the Rules out of CNA's ClusterRole
-	writer = strings.Builder{}
-	cnaRules := role.Rules
-	for _, rule := range cnaRules {
-		err := marshallObject(rule, &writer)
-		check(err)
-	}
-	rules := fixResourceString(writer.String(), 14)
-
-	// Get CNA ClusterRole
-	writer = strings.Builder{}
-	clusterRole := cnacomponents.GetClusterRole()
-	marshallObject(clusterRole, &writer)
-	clusterRoleString := writer.String()
-
-	// Get the Rules out of CNA's ClusterRole
-	writer = strings.Builder{}
-	cnaClusterRules := clusterRole.Rules
-	for _, rule := range cnaClusterRules {
-		err := marshallObject(rule, &writer)
-		check(err)
-	}
-	clusterRules := fixResourceString(writer.String(), 14)
-
-	// Get CNA CRD
-	writer = strings.Builder{}
-	crd := cnacomponents.GetCrd()
-	marshallObject(crd, &writer)
-	crdString := writer.String()
-
-	data.CNA.Deployment = deployment
-	data.CNA.DeploymentSpec = deploymentSpec
-	data.CNA.RoleString = roleString
-	data.CNA.Rules = rules
-	data.CNA.ClusterRoleString = clusterRoleString
-	data.CNA.ClusterRules = clusterRules
-	data.CNA.CRD = crd
-	data.CNA.CRDString = crdString
-}
-
-func main() {
-	converged := flag.Bool("converged", false, "")
-	namespace := flag.String("namespace", "kubevirt-hyperconverged", "")
-	csvVersion := flag.String("csv-version", "0.0.2", "")
-	replacesVersion := flag.String("replaces-version", "0.0.1", "")
-	containerPrefix := flag.String("container-prefix", "kubevirt", "")
-	imagePrefix := flag.String("image-prefix", "", "")
-	cnaContainerPrefix := flag.String("cna-container-prefix", *containerPrefix, "")
-	imsConversionContainer := flag.String("ims-conversion-container", "", "")
-	imsVMWareContainer := flag.String("ims-vmware-container", "", "")
-	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
-	inputFile := flag.String("input-file", "", "")
-
-	containerTag := flag.String("container-tag", "latest", "")
-	hcoTag := flag.String("hco-tag", *containerTag, "")
-	kubevirtTag := flag.String("kubevirt-tag", *containerTag, "")
-	cdiTag := flag.String("cdi-tag", *containerTag, "")
-	sspTag := flag.String("ssp-tag", *containerTag, "")
-	nmoTag := flag.String("nmo-tag", *containerTag, "")
-	cnaTag := flag.String("network-addons-tag", *containerTag, "")
-	cnaImageName := flag.String("cna-image-name", cnacomponents.Name, "")
-
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
-	pflag.Parse()
-
-	Replaces := true
-	if *replacesVersion == *csvVersion {
-		Replaces = false
-	}
-
-	data := &templateData{
-		Converged:           *converged,
-		Namespace:           *namespace,
-		CsvVersion:          *csvVersion,
-		ReplacesVersion:     *replacesVersion,
-		Replaces:            Replaces,
-		ContainerPrefix:     *containerPrefix,
-		ImagePrefix:         *imagePrefix,
-		CnaContainerPrefix:  *cnaContainerPrefix,
-		ImagePullPolicy:     *imagePullPolicy,
-		ConversionContainer: *imsConversionContainer,
-		VMWareContainer:     *imsVMWareContainer,
-
-		HCO:      &operatorData{OperatorTag: *hcoTag, ComponentTag: *hcoTag},
-		KubeVirt: &operatorData{OperatorTag: *kubevirtTag, ComponentTag: *kubevirtTag},
-		CDI:      &operatorData{OperatorTag: *cdiTag, ComponentTag: *cdiTag},
-		CNA:      &operatorData{OperatorTag: *cnaTag, ComponentTag: *cnaTag, ImageName: *cnaImageName},
-		SSP:      &operatorData{OperatorTag: *sspTag, ComponentTag: *sspTag},
-		NMO:      &operatorData{OperatorTag: *nmoTag, ComponentTag: *nmoTag},
-	}
-	data.CreatedAt = time.Now().String()
-
-	// Load in all HCO Resources
-	getHCO(data)
-	// Load in all of the KubeVirt Resources
-	getKubeVirt(data)
-	// Load in all CDI Resources
-	getCDI(data)
-	// Load in all CNA Resources
-	getCNA(data)
-
-	if *inputFile == "" {
-		panic("Must specify input file")
-	}
-
-	manifestTemplate := template.Must(template.ParseFiles(*inputFile))
-	err := manifestTemplate.Execute(os.Stdout, data)
-	check(err)
 }

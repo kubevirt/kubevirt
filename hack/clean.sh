@@ -24,16 +24,7 @@ source hack/common.sh
 "${CMD}" wait --for=delete hyperconverged.hco.kubevirt.io/hyperconverged-cluster || true
 # TODO: delete hangs on machine.crd.yaml. Only delete the ones that don't hang
 # from _out/crds/.
-"${CMD}" delete -f _out/crds/hco.crd.yaml --ignore-not-found || true
-"${CMD}" delete -f _out/crds/cdi.crd.yaml --ignore-not-found || true
-"${CMD}" delete -f _out/crds/cna.crd.yaml --ignore-not-found || true
-"${CMD}" delete -f _out/crds/common-template-bundles.crd.yaml --ignore-not-found || true
-"${CMD}" delete -f _out/crds/kubevirt.crd.yaml --ignore-not-found || true
-"${CMD}" delete -f _out/crds/metrics-aggregation.crd.yaml --ignore-not-found || true
-"${CMD}" delete -f _out/crds/node-labeller-bundles.crd.yaml --ignore-not-found || true
-"${CMD}" delete -f _out/crds/nodemaintenance.crd.yaml --ignore-not-found || true
-"${CMD}" delete -f _out/crds/template-validator.crd.yaml --ignore-not-found || true
-"${CMD}" delete -f _out/crds/v2vvmware.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f _out/crds --ignore-not-found || true
 "${CMD}" delete -f _out/operator.yaml --ignore-not-found || true
 
 # Delete kubevirt-operator

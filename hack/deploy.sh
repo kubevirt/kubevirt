@@ -69,12 +69,16 @@ else
 fi
 
 function status(){
-    "${CMD}" get hco -n "${HCO_NAMESPACE}" -o yaml
-    "${CMD}" get pods -n "${HCO_NAMESPACE}"
-    "${CMD}" get hco hyperconverged-cluster -n "${HCO_NAMESPACE}" -o=jsonpath='{range .status.conditions[*]}{.type}{"\t"}{.status}{"\t"}{.message}{"\n"}{end}'
-    # SSP components troubleshoot helpers
-    "${CMD}" describe pods -n "${HCO_NAMESPACE}" -l app=kubevirt-node-labeller
-    "${CMD}" logs -n "${HCO_NAMESPACE}" $( ${CMD} get pods -l name=kubevirt-ssp-operator -o custom-columns=:metadata.name )
+    "${CMD}" get hco -n "${HCO_NAMESPACE}" -o yaml || true
+    "${CMD}" get pods -n "${HCO_NAMESPACE}" || true
+    "${CMD}" get hco hyperconverged-cluster -n "${HCO_NAMESPACE}" -o=jsonpath='{range .status.conditions[*]}{.type}{"\t"}{.status}{"\t"}{.message}{"\n"}{end}' || true
+    # Get logs of all the pods
+    for PNAME in $( ${CMD} get pods -n ${HCO_NAMESPACE} --field-selector=status.phase!=Running -o custom-columns=:metadata.name )
+    do
+      echo -e "\n--- ${PNAME} ---"
+      ${CMD} describe pod -n ${HCO_NAMESPACE} ${PNAME} || true
+      ${CMD} logs -n ${HCO_NAMESPACE} ${PNAME} --all-containers=true || true
+    done
 }
 
 trap status EXIT
@@ -90,11 +94,6 @@ function debug(){
     exit 1
 }
 
-# machine CRD already exists on OKD clusters, so we do not want to deploy it again
-if [[ $(${CMD} get crd machines.machine.openshift.io) != "" ]]; then
-    rm -rf _out/crds/machine.crd.yaml
-fi
-
 # Deploy local manifests
 "${CMD}" create -f _out/cluster_role.yaml
 "${CMD}" create -f _out/service_account.yaml
@@ -103,7 +102,7 @@ fi
 if [ "${CI}" != "true" ]; then
 	"${CMD}" create -f _out/operator.yaml
 else
-	sed 's|name: KVM_EMULATION|name: KVM_EMULATION\n          value: "true"|' < _out/operator.yaml > _out/operator-ci.yaml
+	sed -E 's|^(\s*)- name: KVM_EMULATION$|\1- name: KVM_EMULATION\n\1  value: "true"|' < _out/operator.yaml > _out/operator-ci.yaml
 	cat _out/operator-ci.yaml
 	"${CMD}" create -f _out/operator-ci.yaml
 fi
