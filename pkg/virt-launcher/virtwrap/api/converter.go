@@ -1371,6 +1371,17 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				if err != nil {
 					return err
 				}
+			} else if iface.Macvtap != nil {
+				if net.Multus == nil {
+					return fmt.Errorf("macvtap interface %s requires Multus meta-cni", iface.Name)
+				}
+
+				domainIface.Type = "ethernet"
+				if iface.BootOrder != nil {
+					domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
+				} else {
+					domainIface.Rom = &Rom{Enabled: "no"}
+				}
 			}
 			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 		}

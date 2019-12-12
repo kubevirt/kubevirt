@@ -2138,6 +2138,8 @@ var CRDsValidation map[string]string = map[string]string{
                               macAddress:
                                 description: 'Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                 type: string
+                              macvtap:
+                                type: object
                               masquerade:
                                 type: object
                               model:
@@ -3688,6 +3690,8 @@ var CRDsValidation map[string]string = map[string]string{
                       macAddress:
                         description: 'Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                         type: string
+                      macvtap:
+                        type: object
                       masquerade:
                         type: object
                       model:
@@ -4994,6 +4998,8 @@ var CRDsValidation map[string]string = map[string]string{
                       macAddress:
                         description: 'Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                         type: string
+                      macvtap:
+                        type: object
                       masquerade:
                         type: object
                       model:
@@ -6059,6 +6065,8 @@ var CRDsValidation map[string]string = map[string]string{
                               macAddress:
                                 description: 'Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                 type: string
+                              macvtap:
+                                type: object
                               masquerade:
                                 type: object
                               model:
@@ -8019,6 +8027,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           macAddress:
                                             description: 'Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
                                             type: string
+                                          macvtap:
+                                            type: object
                                           masquerade:
                                             type: object
                                           model:
