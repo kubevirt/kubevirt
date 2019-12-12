@@ -18,7 +18,7 @@ func defaultExecFunc(binary string, args ...string) ([]byte, error) {
 	return exec.Command(binary, args...).CombinedOutput()
 }
 
-var POLICY_FILES = []string{"base_container", "virt_launcher"}
+var POLICY_FILES = []string{"kubevirt_container", "virt_launcher"}
 
 type SELinuxImpl struct {
 	Paths         []string
