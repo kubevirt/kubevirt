@@ -1107,6 +1107,95 @@ var _ = Describe("Configurations", func() {
 							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
 					"Agent condition should be gone")
 			})
+
+			It("should return the whole data when agent is present", func() {
+
+				agentVMI := tests.NewRandomFedoraVMIWitGuestAgent()
+
+				By("Starting a VirtualMachineInstance")
+				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+				tests.WaitForSuccessfulVMIStart(agentVMI)
+
+				getOptions := metav1.GetOptions{}
+				var freshVMI *v1.VirtualMachineInstance
+
+				By("VMI has the guest agent connected condition")
+				Eventually(func() []v1.VirtualMachineInstanceCondition {
+					freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+					return freshVMI.Status.Conditions
+				}, 240*time.Second, 2).Should(
+					ContainElement(
+						MatchFields(
+							IgnoreExtras,
+							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
+					"Should have agent connected condition")
+
+				By("Expecting the Guest VM information")
+				Eventually(func() bool {
+					guestInfo, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).GuestOsInfo(agentVMI.Name)
+					if err != nil {
+						// invalid request, retry
+						return false
+					}
+					if guestInfo.Hostname != "" &&
+						guestInfo.Timezone != "" &&
+						guestInfo.GAVersion != "" &&
+						guestInfo.OS.Name != "" &&
+						len(guestInfo.FSInfo.Filesystems) > 0 {
+						return true
+					}
+					return false
+				}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in subresource")
+			})
+
+			It("should not return the whole data when agent is not present", func() {
+
+				agentVMI := tests.NewRandomFedoraVMIWitGuestAgent()
+
+				By("Starting a VirtualMachineInstance")
+				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+				tests.WaitForSuccessfulVMIStart(agentVMI)
+
+				getOptions := metav1.GetOptions{}
+				var freshVMI *v1.VirtualMachineInstance
+
+				By("VMI has the guest agent connected condition")
+				Eventually(func() []v1.VirtualMachineInstanceCondition {
+					freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+					return freshVMI.Status.Conditions
+				}, 240*time.Second, 2).Should(
+					ContainElement(
+						MatchFields(
+							IgnoreExtras,
+							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
+					"Should have agent connected condition")
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Terminating guest agent and waiting for it to dissappear.")
+				res, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "systemctl stop guestagent\n"},
+				}, 400*time.Second)
+				log.DefaultLogger().Object(agentVMI).Infof("Login: %v", res)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Expecting the Guest VM information")
+				Eventually(func() string {
+					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).GuestOsInfo(agentVMI.Name)
+					if err != nil {
+						return err.Error()
+					}
+					return ""
+				}, 240*time.Second, 2).Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
+			})
+
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with serial-number", func() {
