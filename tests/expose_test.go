@@ -80,7 +80,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 300)
+				waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 420)
 			})
 		})
 
@@ -170,7 +170,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the pod to report a successful connection attempt")
-					waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 300)
+					waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 420)
 				}
 			})
 		})
@@ -207,7 +207,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 300)
+				waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 420)
 			})
 		})
 
@@ -250,7 +250,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the pod to report a successful connection attempt")
-					waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 300)
+					waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 420)
 				}
 			})
 		})
@@ -312,7 +312,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 300)
+				waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 420)
 			})
 		})
 	})
