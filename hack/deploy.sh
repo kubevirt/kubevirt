@@ -30,7 +30,7 @@ CI=""
 if [ "$1" == "CI" ]; then
 	echo "deploying on CI"
 	CI="true"
-elif [ "$HOSTNAME" == "hco-e2e-aws" ]; then
+elif [ "$HOSTNAME" == "hco-e2e-aws" ] || [ "$HOSTNAME" == "e2e-aws-cnv" ]; then
 	echo "deploying on AWS CI"
 	CI="true"
 fi
