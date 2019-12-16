@@ -65,6 +65,7 @@ go_test(
         "expose_test.go",
         "imageupload_test.go",
         "infra_test.go",
+        "kubectl_test.go",
         "migration_test.go",
         "networkpolicy_test.go",
         "operator_test.go",
