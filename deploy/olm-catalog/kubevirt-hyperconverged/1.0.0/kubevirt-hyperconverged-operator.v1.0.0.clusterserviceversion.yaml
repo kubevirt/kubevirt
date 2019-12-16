@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: "2019-12-12 18:11:25"
+    createdAt: "2019-12-13 11:09:13"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -501,6 +501,12 @@ spec:
           verbs:
           - put
         - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - get
+        - apiGroups:
           - admissionregistration.k8s.io
           resources:
           - validatingwebhookconfigurations
@@ -529,8 +535,17 @@ spec:
           resources:
           - virtualmachines
           - virtualmachineinstances
+          verbs:
+          - get
+          - list
+          - watch
+          - patch
+        - apiGroups:
+          - kubevirt.io
+          resources:
           - virtualmachineinstancemigrations
           verbs:
+          - create
           - get
           - list
           - watch
@@ -735,6 +750,8 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          - virtualmachineinstances/pause
+          - virtualmachineinstances/unpause
           verbs:
           - get
         - apiGroups:
@@ -767,6 +784,8 @@ spec:
           resources:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
+          - virtualmachineinstances/pause
+          - virtualmachineinstances/unpause
           verbs:
           - get
         - apiGroups:
@@ -1344,12 +1363,12 @@ spec:
                 - "2"
                 env:
                 - name: OPERATOR_IMAGE
-                  value: kubevirt/virt-operator:v0.20.8
+                  value: docker.io/kubevirt/virt-operator:v0.24.0
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: kubevirt/virt-operator:v0.20.8
+                image: docker.io/kubevirt/virt-operator:v0.24.0
                 imagePullPolicy: IfNotPresent
                 name: virt-operator
                 ports:

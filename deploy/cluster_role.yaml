@@ -345,6 +345,12 @@ rules:
   verbs:
   - put
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - validatingwebhookconfigurations
@@ -373,8 +379,17 @@ rules:
   resources:
   - virtualmachines
   - virtualmachineinstances
+  verbs:
+  - get
+  - list
+  - watch
+  - patch
+- apiGroups:
+  - kubevirt.io
+  resources:
   - virtualmachineinstancemigrations
   verbs:
+  - create
   - get
   - list
   - watch
@@ -579,6 +594,8 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/pause
+  - virtualmachineinstances/unpause
   verbs:
   - get
 - apiGroups:
@@ -611,6 +628,8 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
+  - virtualmachineinstances/pause
+  - virtualmachineinstances/unpause
   verbs:
   - get
 - apiGroups:
