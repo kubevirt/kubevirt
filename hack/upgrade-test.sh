@@ -109,7 +109,7 @@ ${CMD} create ns kubevirt-hyperconverged | true
 ${CMD} get pods -n kubevirt-hyperconverged 
 
 cat <<EOF | ${CMD} create -f -
-apiVersion: operators.coreos.com/v1alpha2
+apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
   name: hco-operatorgroup

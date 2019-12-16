@@ -69,7 +69,7 @@ kubectl create ns kubevirt-hyperconverged
 Create an OperatorGroup.
 ```bash
 cat <<EOF | kubectl create -f -
-apiVersion: operators.coreos.com/v1alpha2
+apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
   name: hco-operatorgroup
