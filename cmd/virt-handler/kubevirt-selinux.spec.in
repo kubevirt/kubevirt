@@ -4,7 +4,7 @@
 %global base_module kubevirt_container
 
 Name: kubevirt-selinux
-Version: 0.1
+Version: {{.CsvVersion}}
 Release: 1%{?dist}
 License: Apache V2
 URL: https://github.com/kubevirt/kubevirt
@@ -54,5 +54,5 @@ fi
 %license LICENSE
 
 %changelog
-* Tue Nov 26 2019 The KubeVirt Project <kubevirt-dev@googlegroups.com> - 0.1
+* Tue Nov 26 2019 The KubeVirt Project <kubevirt-dev@googlegroups.com>
 - Initial Specfile
