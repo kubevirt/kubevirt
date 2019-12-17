@@ -4,12 +4,16 @@
 
 # Hyperconverged Cluster Operator
 
-The goal of the hyperconverged-cluster-operator (HCO) is to provide a single
-entrypoint for multiple operators - kubevirt, cdi, networking, ect... - where
-users can deploy and configure them in a single object. This operator is
-sometimes referred to as a "meta operator" or an "operator for operators".
-Most importantly, this operator doesn't replace or interfere with OLM.
-It only creates operator CRs, which is the user's prerogative.
+A unified operator combining the following projects:
+
+- [KubeVirt](https://github.com/kubevirt/kubevirt)
+- [Containerized Data Importer](https://github.com/kubevirt/containerized-data-importer)
+- [Scheduling, Scale and Performance](https://github.com/MarSik/kubevirt-ssp-operator)
+- [Cluster Network Addons](https://github.com/kubevirt/cluster-network-addons-operator)
+- [Node Maintenance](https://github.com/kubevirt/node-maintenance-operator)
+
+This operator doesn't replace or interfere with Operator Lifecycle Manager (OLM).    
+It only creates operator CustomResources (CRs), which is a user functionality.
 
 ![](images/HCO-design.jpg)
 
