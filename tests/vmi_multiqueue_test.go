@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"encoding/xml"
-
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -43,18 +42,39 @@ var _ = Describe("MultiQueue", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	var vmi *v1.VirtualMachineInstance
-
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 	})
 
 	Context("MultiQueue Behavior", func() {
 
 		availableCPUs := tests.GetHighestCPUNumberAmongNodes(virtClient)
 
+		It("should be able to successfully boot fedora to the login prompt with networking mutiqueues enabled without being blocked by selinux", func() {
+			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+			numCpus := 3
+			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
+				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
+			)
+			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
+			multiQueue := true
+			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &multiQueue
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+			By("Creating and starting the VMI")
+			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
+
+			By("Checking if we can login")
+			e, err := tests.LoggedInFedoraExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			e.Close()
+		})
+
 		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			numCpus := 3
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
