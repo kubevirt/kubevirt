@@ -20,7 +20,6 @@
 package network
 
 import (
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -50,7 +49,6 @@ var _ = Describe("Pod Network", func() {
 	var bridgeTest *netlink.Bridge
 	var bridgeAddr *netlink.Addr
 	var testNic *VIF
-	var interfaceXml []byte
 	var tmpDir string
 	var masqueradeTestNic *VIF
 	var masqueradeDummyName string
@@ -94,7 +92,6 @@ var _ = Describe("Pod Network", func() {
 			MAC:     fakeMac,
 			Mtu:     1410,
 			Gateway: gw}
-		interfaceXml = []byte(`<Interface type="bridge"><source bridge="k6t-eth0"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac><mtu size="1410"></mtu><alias name="ua-default"></alias></Interface>`)
 
 		masqueradeGwStr = "10.0.2.1/30"
 		masqueradeGwAddr, _ = netlink.ParseAddr(masqueradeGwStr)
@@ -178,21 +175,12 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().NftablesAppendRule("nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
 		mockNetwork.EXPECT().NftablesAppendRule("nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
 
-		err := SetupPodNetworkPhase1(vm, domain)
-		Expect(err).To(BeNil())
-		Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
-		xmlStr, err := xml.Marshal(domain.Spec.Devices.Interfaces)
-		Expect(string(xmlStr)).To(Equal(string(interfaceXml)))
+		err := SetupPodNetworkPhase1(vm)
 		Expect(err).To(BeNil())
 
 		// Calling SetupPodNetworkPhase1 a second time should result in no
-		// mockNetwork function calls and interface should be identical
-		err = SetupPodNetworkPhase1(vm, domain)
-
-		Expect(err).To(BeNil())
-		Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
-		xmlStr, err = xml.Marshal(domain.Spec.Devices.Interfaces)
-		Expect(string(xmlStr)).To(Equal(string(interfaceXml)))
+		// mockNetwork function calls
+		err = SetupPodNetworkPhase1(vm)
 		Expect(err).To(BeNil())
 	}
 
@@ -238,7 +226,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
 				mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
 
-				SetupPodNetworkPhase1(vm, domain)
+				SetupPodNetworkPhase1(vm)
 			}
 			Expect(testNetworkPanic).To(Panic())
 		})
@@ -254,7 +242,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
 			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
 
-			err := SetupPodNetworkPhase1(vm, domain)
+			err := SetupPodNetworkPhase1(vm)
 			Expect(err).To(HaveOccurred())
 		})
 		Context("func filterPodNetworkRoutes()", func() {
@@ -275,86 +263,6 @@ var _ = Describe("Pod Network", func() {
 			It("should remove empty routes, and routes matching nic, leaving others intact", func() {
 				expectedRouteList := []netlink.Route{defRoute, gwRoute, staticRoute}
 				Expect(filterPodNetworkRoutes(staticRouteList, testNic)).To(Equal(expectedRouteList))
-			})
-		})
-		Context("func findInterfaceByName()", func() {
-			It("should fail on empty interface list", func() {
-				_, err := findInterfaceByName([]api.Interface{}, "default")
-				Expect(err).To(HaveOccurred())
-			})
-			It("should fail when interface is missing", func() {
-				interfaces := []api.Interface{
-					api.Interface{
-						Type: "not-bridge",
-						Source: api.InterfaceSource{
-							Bridge: api.DefaultBridgeName,
-						},
-						Alias: &api.Alias{
-							Name: "iface1",
-						},
-					},
-					api.Interface{
-						Type: "bridge",
-						Source: api.InterfaceSource{
-							Bridge: "other_br",
-						},
-						Alias: &api.Alias{
-							Name: "iface2",
-						},
-					},
-				}
-				_, err := findInterfaceByName(interfaces, "iface3")
-				Expect(err).To(HaveOccurred())
-			})
-			It("should pass when interface alias matches the name", func() {
-				interfaces := []api.Interface{
-					api.Interface{
-						Type: "bridge",
-						Source: api.InterfaceSource{
-							Bridge: api.DefaultBridgeName,
-						},
-						Alias: &api.Alias{
-							Name: "iface1",
-						},
-					},
-				}
-				idx, err := findInterfaceByName(interfaces, "iface1")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(idx).To(Equal(0))
-			})
-			It("should pass when matched interface is not the first in the list", func() {
-				interfaces := []api.Interface{
-					api.Interface{
-						Type: "not-bridge",
-						Source: api.InterfaceSource{
-							Bridge: api.DefaultBridgeName,
-						},
-						Alias: &api.Alias{
-							Name: "iface1",
-						},
-					},
-					api.Interface{
-						Type: "bridge",
-						Source: api.InterfaceSource{
-							Bridge: "other_br",
-						},
-						Alias: &api.Alias{
-							Name: "iface2",
-						},
-					},
-					api.Interface{
-						Type: "bridge",
-						Source: api.InterfaceSource{
-							Bridge: api.DefaultBridgeName,
-						},
-						Alias: &api.Alias{
-							Name: "iface3",
-						},
-					},
-				}
-				idx, err := findInterfaceByName(interfaces, "iface3")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(idx).To(Equal(2))
 			})
 		})
 		It("phase2 should panic if DHCP startup fails", func() {
@@ -397,7 +305,7 @@ var _ = Describe("Pod Network", func() {
 				}
 				vmi := newVMI("testnamespace", "testVmName")
 				podiface := PodInterface{}
-				err := podiface.PlugPhase1(vmi, iface, net, domain, "fakeiface")
+				err := podiface.PlugPhase1(vmi, iface, net, "fakeiface")
 				Expect(err).ToNot(HaveOccurred())
 
 				err = podiface.PlugPhase2(vmi, iface, net, domain, "fakeiface")

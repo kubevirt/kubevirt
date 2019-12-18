@@ -25,7 +25,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("Network", func() {
@@ -45,20 +44,17 @@ var _ = Describe("Network", func() {
 			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
 				return mockNetworkInterface, nil
 			}
-			domain := &api.Domain{}
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
 			iface := v1.DefaultBridgeNetworkInterface()
 			defaultNet := v1.DefaultPodNetwork()
 
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, defaultNet, domain, podInterface)
-			err := SetupNetworkInterfacesPhase1(vm, domain)
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, defaultNet, podInterface)
+			err := SetupNetworkInterfacesPhase1(vm)
 			Expect(err).To(BeNil())
 		})
 		It("should accept empty network list", func() {
 			vmi := newVMI("testnamespace", "testVmName")
-			domain := &api.Domain{}
-			err := SetupNetworkInterfacesPhase1(vmi, domain)
+			err := SetupNetworkInterfacesPhase1(vmi)
 			Expect(err).To(BeNil())
 		})
 		It("should configure networking with multus", func() {
@@ -66,9 +62,7 @@ var _ = Describe("Network", func() {
 				return mockNetworkInterface, nil
 			}
 			const multusInterfaceName = "net1"
-			domain := &api.Domain{}
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
 			iface := v1.DefaultBridgeNetworkInterface()
 			cniNet := &v1.Network{
 				Name: "default",
@@ -78,8 +72,8 @@ var _ = Describe("Network", func() {
 			}
 			vm.Spec.Networks = []v1.Network{*cniNet}
 
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, cniNet, domain, multusInterfaceName)
-			err := SetupNetworkInterfacesPhase1(vm, domain)
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, cniNet, multusInterfaceName)
+			err := SetupNetworkInterfacesPhase1(vm)
 			Expect(err).To(BeNil())
 		})
 		It("should configure networking with multus and a default multus network", func() {
@@ -87,9 +81,7 @@ var _ = Describe("Network", func() {
 				return mockNetworkInterface, nil
 			}
 
-			domain := &api.Domain{}
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
 
 			// We plug three multus interfaces in, with the default being second, to ensure the netN
 			// interfaces are numbered correctly
@@ -135,10 +127,10 @@ var _ = Describe("Network", func() {
 
 			vm.Spec.Networks = []v1.Network{*additionalCNINet1, *cniNet, *additionalCNINet2}
 
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], additionalCNINet1, domain, "net1")
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[1], cniNet, domain, "eth0")
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[2], additionalCNINet2, domain, "net2")
-			err := SetupNetworkInterfacesPhase1(vm, domain)
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], additionalCNINet1, "net1")
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[1], cniNet, "eth0")
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[2], additionalCNINet2, "net2")
+			err := SetupNetworkInterfacesPhase1(vm)
 			Expect(err).To(BeNil())
 		})
 		It("should configure networking with genie", func() {
@@ -146,9 +138,7 @@ var _ = Describe("Network", func() {
 				return mockNetworkInterface, nil
 			}
 			const genieInterfaceName = "eth0"
-			domain := &api.Domain{}
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
 			iface := v1.DefaultBridgeNetworkInterface()
 			cniNet := &v1.Network{
 				Name: "default",
@@ -158,8 +148,8 @@ var _ = Describe("Network", func() {
 			}
 			vm.Spec.Networks = []v1.Network{*cniNet}
 
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, cniNet, domain, genieInterfaceName)
-			err := SetupNetworkInterfacesPhase1(vm, domain)
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, cniNet, genieInterfaceName)
+			err := SetupNetworkInterfacesPhase1(vm)
 			Expect(err).To(BeNil())
 		})
 	})

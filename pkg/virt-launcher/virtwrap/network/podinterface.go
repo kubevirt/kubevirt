@@ -208,7 +208,7 @@ func getBinding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1
 			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName)}, nil
 	}
 	if iface.Slirp != nil {
-		return &SlirpPodInterface{vmi: vmi, iface: iface, virtIface: &api.Interface{}, domain: domain}, nil
+		return &SlirpPodInterface{vmi: vmi, iface: iface, domain: domain}, nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
@@ -536,6 +536,14 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 }
 
 func (p *MasqueradePodInterface) decorateConfig() error {
+	ifaces := p.domain.Spec.Devices.Interfaces
+	for _, iface := range ifaces {
+		if iface.Alias.Name == p.iface.Name {
+			iface.MTU = p.virtIface.MTU
+			iface.MAC = &api.MAC{MAC: p.vif.MAC.String()}
+			break
+		}
+	}
 	return nil
 }
 
@@ -809,12 +817,12 @@ func (s *SlirpPodInterface) decorateConfig() error {
 	ifaces := s.domain.Spec.Devices.Interfaces
 	for i, iface := range ifaces {
 		if iface.Alias.Name == s.iface.Name {
-			ifaces = append(ifaces[:i], ifaces[i+1:]...)
+			s.domain.Spec.Devices.Interfaces = append(ifaces[:i], ifaces[i+1:]...)
 			break
 		}
 	}
 
-	qemuArg := fmt.Sprintf("%s,netdev=%s,id=%s", s.virtIface.Model.Type, s.iface.Name, s.iface.Name)
+	qemuArg := fmt.Sprintf("%s,netdev=%s,id=%s", api.GetInterfaceType(s.iface), s.iface.Name, s.iface.Name)
 	if s.iface.MacAddress != "" {
 		// We assume address was already validated in API layer so just pass it to libvirt as-is.
 		qemuArg += fmt.Sprintf(",mac=%s", s.iface.MacAddress)
@@ -827,14 +835,7 @@ func (s *SlirpPodInterface) decorateConfig() error {
 }
 
 func (s *SlirpPodInterface) loadCachedInterface(uid types.UID, name string) (bool, error) {
-	var qemuArg api.Arg
-
-	isExist, err := readFromCachedFile(uid, name, qemuArgCacheFile, &qemuArg)
-	if err != nil {
-		return false, err
-	}
-
-	return isExist, nil
+	return true, nil
 }
 
 func (s *SlirpPodInterface) loadCachedVIF(uid types.UID, name string) (bool, error) {
@@ -846,5 +847,5 @@ func (b *SlirpPodInterface) setCachedVIF(uid types.UID, name string) error {
 }
 
 func (s *SlirpPodInterface) setCachedInterface(uid types.UID, name string) error {
-	return writeToCachedFile(s.virtIface, qemuArgCacheFile, uid, name)
+	return nil
 }
