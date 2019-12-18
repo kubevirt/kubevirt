@@ -54,21 +54,12 @@ type plugFunction func(vif NetworkInterface, vmi *v1.VirtualMachineInstance, ifa
 // will also allow to downgrade privileges for virt-launcher, specifically, to
 // remove NET_ADMIN capability. Future patches should address that.
 type NetworkInterface interface {
-	PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
+	PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string) error
 	PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 	Unplug()
 }
 
-func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	return _setupNetworkInterfaces(vmi, domain, NetworkInterface.PlugPhase1)
-}
-
-func SetupNetworkInterfacesPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	return _setupNetworkInterfaces(vmi, domain, NetworkInterface.PlugPhase2)
-}
-
-func _setupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, plug plugFunction) error {
-	// prepare networks map
+func getNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.Network, map[string]int) {
 	networks := map[string]*v1.Network{}
 	cniNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
@@ -81,28 +72,58 @@ func _setupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain,
 			cniNetworks[network.Name] = len(cniNetworks)
 		}
 	}
+	return networks, cniNetworks
+}
 
+func getNetworkInterfaceFactory(networks map[string]*v1.Network, ifaceName string) (NetworkInterface, error) {
+	network, ok := networks[ifaceName]
+	if !ok {
+		return nil, fmt.Errorf("failed to find a network %s", ifaceName)
+	}
+	vif, err := NetworkInterfaceFactory(network)
+	if err != nil {
+		return nil, err
+	}
+	return vif, nil
+}
+
+func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
+	if networks[ifaceName].Multus != nil && !networks[ifaceName].Multus.Default {
+		// multus pod interfaces named netX
+		return fmt.Sprintf("net%d", cniNetworks[ifaceName])
+	} else if networks[ifaceName].Genie != nil {
+		// genie pod interfaces named ethX
+		return fmt.Sprintf("eth%d", cniNetworks[ifaceName])
+	} else {
+		return podInterface
+	}
+}
+
+func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance) error {
+	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		network, ok := networks[iface.Name]
-		if !ok {
-			return fmt.Errorf("failed to find a network %s", iface.Name)
-		}
-		vif, err := NetworkInterfaceFactory(network)
+		vif, err := getNetworkInterfaceFactory(networks, iface.Name)
 		if err != nil {
 			return err
 		}
-
-		if networks[iface.Name].Multus != nil && !networks[iface.Name].Multus.Default {
-			// multus pod interfaces named netX
-			podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
-		} else if networks[iface.Name].Genie != nil {
-			// genie pod interfaces named ethX
-			podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
-		} else {
-			podInterfaceName = podInterface
+		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
+		err = NetworkInterface.PlugPhase1(vif, vmi, &iface, networks[iface.Name], podInterfaceName)
+		if err != nil {
+			return err
 		}
+	}
+	return nil
+}
 
-		err = plug(vif, vmi, &iface, network, domain, podInterfaceName)
+func SetupNetworkInterfacesPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		vif, err := getNetworkInterfaceFactory(networks, iface.Name)
+		if err != nil {
+			return err
+		}
+		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
+		err = NetworkInterface.PlugPhase2(vif, vmi, &iface, networks[iface.Name], domain, podInterfaceName)
 		if err != nil {
 			return err
 		}

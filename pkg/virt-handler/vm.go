@@ -1475,7 +1475,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		}
 
 		if err := res.DoNetNS(func() error {
-			return network.SetupPodNetworkPhase1(vmi, nil)
+			return network.SetupPodNetworkPhase1(vmi)
 		}); err != nil {
 			return fmt.Errorf("failed to configure vmi network: %v", err)
 		}
