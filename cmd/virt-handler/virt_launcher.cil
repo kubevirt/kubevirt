@@ -5,6 +5,7 @@
     (allow process mtrr_device_t (file (write)))
     (allow process self (tun_socket (relabelfrom)))
     (allow process self (tun_socket (relabelto)))
+    (allow process self (tun_socket (attach_queue)))
     (allow process sysfs_t (file (write)))
     (allow process tmp_t (dir (write add_name open getattr setattr read link search remove_name reparent lock ioctl)))
     (allow process tmp_t (file (setattr open read write create getattr append ioctl lock)))
