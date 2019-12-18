@@ -786,10 +786,10 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables() error {
 }
 
 type SlirpPodInterface struct {
-	vmi             *v1.VirtualMachineInstance
-	iface           *v1.Interface
-	virtIface       *api.Interface
-	domain          *api.Domain
+	vmi       *v1.VirtualMachineInstance
+	iface     *v1.Interface
+	virtIface *api.Interface
+	domain    *api.Domain
 }
 
 func (s *SlirpPodInterface) discoverPodNetworkInterface() error {
