@@ -339,6 +339,14 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 }
 
 func (b *BridgePodInterface) decorateConfig() error {
+	ifaces := b.domain.Spec.Devices.Interfaces
+	for i, iface := range ifaces {
+		if iface.Alias.Name == b.iface.Name {
+			ifaces[i].MTU = b.virtIface.MTU
+			ifaces[i].MAC = &api.MAC{MAC: b.vif.MAC.String()}
+			break
+		}
+	}
 	return nil
 }
 
