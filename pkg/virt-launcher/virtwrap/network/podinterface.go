@@ -271,9 +271,22 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 	return nil
 }
 
+func (b *BridgePodInterface) getFakeBridgeIP() (string, error) {
+	ifaces := b.vmi.Spec.Domain.Devices.Interfaces
+	for i, iface := range ifaces {
+		if iface.Name == b.iface.Name {
+			return fmt.Sprintf(bridgeFakeIP, i), nil
+		}
+	}
+	return "", fmt.Errorf("Failed to generate bridge fake address for interface %s", b.iface.Name)
+}
+
 func (b *BridgePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
 	if !b.vif.IPAMDisabled {
-		addr := fmt.Sprintf(bridgeFakeIP, 0) // todo
+		addr, err := b.getFakeBridgeIP()
+		if err != nil {
+			return err
+		}
 		fakeServerAddr, err := netlink.ParseAddr(addr)
 		if err != nil {
 			return fmt.Errorf("failed to parse address while starting DHCP server: %s", addr)
@@ -414,7 +427,11 @@ func (b *BridgePodInterface) createBridge() error {
 	}
 
 	// set fake ip on a bridge
-	fakeaddr, err := Handler.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0)) // todo
+	addr, err := b.getFakeBridgeIP()
+	if err != nil {
+		return err
+	}
+	fakeaddr, err := Handler.ParseAddr(addr)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.bridgeInterfaceName)
 		return err
