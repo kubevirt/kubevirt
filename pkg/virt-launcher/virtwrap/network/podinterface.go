@@ -537,10 +537,10 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 
 func (p *MasqueradePodInterface) decorateConfig() error {
 	ifaces := p.domain.Spec.Devices.Interfaces
-	for _, iface := range ifaces {
+	for i, iface := range ifaces {
 		if iface.Alias.Name == p.iface.Name {
-			iface.MTU = p.virtIface.MTU
-			iface.MAC = &api.MAC{MAC: p.vif.MAC.String()}
+			ifaces[i].MTU = p.virtIface.MTU
+			ifaces[i].MAC = &api.MAC{MAC: p.vif.MAC.String()}
 			break
 		}
 	}
