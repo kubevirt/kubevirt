@@ -29,7 +29,7 @@ fi
 source ${KUBEVIRTCI_PATH}/hack/common.sh
 
 test -t 1 && USE_TTY="-it"
-source ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/provider.sh
+source ${KUBEVIRTCI_CLUSTER_PATH}/$KUBEVIRT_PROVIDER/provider.sh
 source ${KUBEVIRTCI_PATH}/hack/config.sh
 
 ${_cli} --prefix $provider_prefix "$@"
