@@ -11,7 +11,7 @@ fi
 source ${KUBEVIRTCI_PATH}/hack/common.sh
 
 test -t 1 && USE_TTY="-it"
-source ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/provider.sh
+source ${KUBEVIRTCI_CLUSTER_PATH}/$KUBEVIRT_PROVIDER/provider.sh
 source ${KUBEVIRTCI_PATH}/hack/config.sh
 
 ssh_key=${KUBEVIRTCI_PATH}/hack/common.key
@@ -26,7 +26,7 @@ if [ -z "$node" ]; then
     exit 1
 fi
 
-if [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
+if [[ $KUBEVIRT_PROVIDER =~ (ocp|okd).* ]]; then
     ports=$(${KUBEVIRTCI_PATH}cli.sh --prefix $provider_prefix ports --container-name cluster)
 
     if [[ $node =~ worker-0.* ]]; then
