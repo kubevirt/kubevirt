@@ -19,6 +19,10 @@ HCO_VERSION="${HCO_VERSION:-1.0.0}"
 HCO_CHANNEL="${HCO_CHANNEL:-1.0.0}"
 APPROVAL="${APPROVAL:-Manual}"
 CONTENT_ONLY="${CONTENT_ONLY:-}"
+PRIVATE_REPO="${PRIVATE_REPO:-false}"
+QUAY_USERNAME="${QUAY_USERNAME:-}"
+QUAY_PASSWORD="${QUAY_PASSWORD:-}"
+QUAY_TOKEN="${QUAY_TOKEN:-}"
 
 RETRIES="${RETRIES:-10}"
 
@@ -37,6 +41,55 @@ function cleanup_tmp {
 trap cleanup_tmp EXIT
 
 cleanup_tmp
+
+AUTH_TOKEN=""
+
+if [ "$PRIVATE_REPO" = true ]; then
+  if [ -z "${QUAY_TOKEN}" ]; then
+      if [ -z "${QUAY_USERNAME}" ]; then
+          echo "QUAY_USERNAME is unset"
+          exit 1
+      fi
+
+      if [ -z "${QUAY_PASSWORD}" ]; then
+          echo "QUAY_PASSWORD is unset"
+          exit 1
+      fi
+
+      QUAY_TOKEN=$(curl -sH "Content-Type: application/json" -XPOST https://quay.io/cnr/api/v1/users/login -d '
+  {
+      "user": {
+          "username": "'"${QUAY_USERNAME}"'",
+          "password": "'"${QUAY_PASSWORD}"'"
+      }
+  }' | jq -r '.token')
+
+      echo $QUAY_TOKEN
+      if [ "${QUAY_TOKEN}" == "null" ]; then
+          echo "QUAY_TOKEN was 'null'.  Did you enter the correct quay Username & Password?"
+          exit 1
+      fi
+  fi
+
+  echo "Creating registry secret"
+  cat <<EOF | oc create -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "quay-registry-${APP_REGISTRY}"
+  namespace: "${MARKETPLACE_NAMESPACE}"
+type: Opaque
+stringData:
+      token: "$QUAY_TOKEN"
+EOF
+
+  AUTH_TOKEN=$(cat <<EOF
+  authorizationToken:
+    secretName: "quay-registry-${APP_REGISTRY}"
+EOF
+)
+
+fi
 
 if [ `oc get operatorgroup -n "${TARGET_NAMESPACE}" 2> /dev/null | wc -l` -eq 0 ]; then
     echo "Creating OperatorGroup"
@@ -63,6 +116,7 @@ spec:
   registryNamespace: "${APP_REGISTRY}"
   displayName: "${APP_REGISTRY}"
   publisher: "Kubevirt"
+${AUTH_TOKEN}
 EOF
 
 echo "Give the cluster 30 seconds to create the catalogSourceConfig..."
