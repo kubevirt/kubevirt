@@ -612,11 +612,13 @@ var _ = Describe("SRIOV", func() {
 	Context("VirtualMachineInstance with sriov plugin interface", func() {
 		getSriovVmi := func(networks []string) (vmi *v1.VirtualMachineInstance) {
 			// If we run on a host with Mellanox SR-IOV cards then we'll need to load in corresponding kernel modules.
+			// Stop NetworkManager to not interfere with manual IP configuration for SR-IOV interfaces.
 			// Use agent to signal about cloud-init phase completion.
 			userData := fmt.Sprintf(`#!/bin/sh
 			    echo "fedora" |passwd fedora --stdin
 			    dnf install -y kernel-modules-$(uname -r)
 			    modprobe mlx5_ib
+			    systemctl stop NetworkManager
 			    mkdir -p /usr/local/bin
 			    curl %s > /usr/local/bin/qemu-ga
 			    chmod +x /usr/local/bin/qemu-ga
