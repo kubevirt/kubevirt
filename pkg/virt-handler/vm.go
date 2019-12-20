@@ -1427,13 +1427,24 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				return err
 			}
 
+			res, err := d.podIsolationDetector.Detect(vmi)
+			if err != nil {
+				return fmt.Errorf("failed to detect isolation for migration target launcher pod: %v", err)
+			}
+
+			if err := res.DoNetNS(func() error {
+				return network.SetupPodNetworkPhase1(vmi)
+			}); err != nil {
+				return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
+			}
+
 			if err := client.SyncMigrationTarget(vmi); err != nil {
 				return fmt.Errorf("syncing migration target failed: %v", err)
 
 			}
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 
-			err := d.handlePostSyncMigrationProxy(vmi)
+			err = d.handlePostSyncMigrationProxy(vmi)
 			if err != nil {
 				return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
 			}
