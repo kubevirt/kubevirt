@@ -641,14 +641,15 @@ var _ = Describe("SRIOV", func() {
 		}
 
 		startVmi := func(vmi *v1.VirtualMachineInstance) {
-
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			return
+		}
 
+		waitVmi := func(vmi *v1.VirtualMachineInstance) {
 			// Need to wait for cloud init to finish and start the agent inside the vmi.
 			tests.WaitAgentConnected(virtClient, vmi)
 			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
-
 			return
 		}
 
@@ -683,6 +684,7 @@ var _ = Describe("SRIOV", func() {
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
 			vmi := getSriovVmi([]string{"sriov"})
 			startVmi(vmi)
+			waitVmi(vmi)
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -711,6 +713,7 @@ var _ = Describe("SRIOV", func() {
 			vmi := getSriovVmi([]string{"sriov"})
 			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = "de:ad:00:00:be:ef"
 			startVmi(vmi)
+			waitVmi(vmi)
 
 			By("checking virtual machine instance has an interface with the requested MAC address")
 			checkMacAddress(vmi, "eth1", "de:ad:00:00:be:ef")
@@ -719,6 +722,7 @@ var _ = Describe("SRIOV", func() {
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
 			vmi := getSriovVmi([]string{"sriov", "sriov2"})
 			startVmi(vmi)
+			waitVmi(vmi)
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -754,6 +758,8 @@ var _ = Describe("SRIOV", func() {
 			vmi2 := getSriovVmi([]string{"sriov-link-enabled"})
 			startVmi(vmi1)
 			startVmi(vmi2)
+			waitVmi(vmi1)
+			waitVmi(vmi2)
 
 			// manually configure IP/link on sriov interfaces because there is
 			// no DHCP server to serve the address to the guest
