@@ -120,7 +120,7 @@ safe_download() (
     fi
 )
 
-if [[ $TARGET =~ os-.* ]] || [[ $TARGET =~ okd-.* ]]; then
+if [[ $TARGET =~ os-.* ]] || [[ $TARGET =~ (okd|ocp)-.* ]]; then
     # Create images directory
     if [[ ! -d $RHEL_NFS_DIR ]]; then
         mkdir -p $RHEL_NFS_DIR
@@ -288,7 +288,7 @@ elif [[ $TARGET =~ sriov.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=SRIOV"
 elif [[ $TARGET =~ gpu.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=GPU" 
-elif [[ $TARGET =~ okd.* ]]; then
+elif [[ $TARGET =~ (okd|ocp).* ]]; then
   ginko_params="$ginko_params --ginkgo.skip=Genie|SRIOV|GPU"
 else
   ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|GPU"
