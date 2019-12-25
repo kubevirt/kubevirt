@@ -8,6 +8,13 @@ local machine and are then pushed to a registry which is exposed at
 
 ## Bringing the cluster up
 
+The container is stored at a private repository at quay.io/kubevirtci, you
+have to ask for pull permissions there and do a docker login before cluster-up
+
+```bash
+docker login -u [quay user] -p [quay password] quay.io
+```
+
 ```bash
 export KUBEVIRT_PROVIDER=ocp-4.3
 export KUBEVIRT_NUM_NODES=3 # master + two workers

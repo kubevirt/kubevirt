@@ -54,8 +54,14 @@ if [[ $image_prefix_alt ]]; then
     done
 fi
 
-# OKD provider has different node names and does not have docker
-if [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
+# OKD/OCP providers has different node names and does not have docker
+if [[ $KUBEVIRT_PROVIDER =~ ocp.* ]]; then
+    CONTAINER=$(docker ps | grep kubevirt | grep $KUBEVIRT_PROVIDER | awk '{print $1}')
+    nodes=()
+    nodes+=($(docker exec $CONTAINER virsh list --name | grep master))
+    nodes+=($(docker exec $CONTAINER virsh list --name | grep worker))
+    pull_command="podman"
+elif [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
     nodes=("master-0" "worker-0")
     pull_command="podman"
 elif [[ $KUBEVIRT_PROVIDER == "external" ]] || [[ $KUBEVIRT_PROVIDER =~ kind.* ]]; then
