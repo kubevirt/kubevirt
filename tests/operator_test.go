@@ -1363,6 +1363,15 @@ spec:
 				return string(data)
 			}, 90*time.Second, 3*time.Second).Should(ContainSubstring(tests.KubeVirtInstallNamespace), "Prometheus should be monitoring KubeVirt")
 		})
+
+		It("Should patch our namespace labels with openshift.io/cluster-monitoring=true", func() {
+			By("Inspecting the labels on our namespace")
+			namespace, err := virtClient.CoreV1().Namespaces().Get(tests.KubeVirtInstallNamespace, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			monitoringLabel, exists := namespace.ObjectMeta.Labels["openshift.io/cluster-monitoring"]
+			Expect(exists).To(BeTrue())
+			Expect(monitoringLabel).To(Equal("true"))
+		})
 	})
 })
 

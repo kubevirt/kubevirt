@@ -302,6 +302,9 @@ spec:
           - namespaces
           verbs:
           - get
+          - list
+          - watch
+          - patch
         - apiGroups:
           - admissionregistration.k8s.io
           resources:

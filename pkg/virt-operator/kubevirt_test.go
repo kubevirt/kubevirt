@@ -95,6 +95,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var infrastructurePodSource *framework.FakeControllerSource
 	var podDisruptionBudgetSource *framework.FakeControllerSource
 	var serviceMonitorSource *framework.FakeControllerSource
+	var namespaceSource *framework.FakeControllerSource
 
 	var stop chan struct{}
 	var controller *KubeVirtController
@@ -132,7 +133,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var resourceChanges map[string]map[string]int
 
 	resourceCount := 36
-	patchCount := 16
+	patchCount := 17
 	updateCount := 20
 
 	deleteFromCache := true
@@ -156,6 +157,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		go informers.InfrastructurePod.Run(stop)
 		go informers.PodDisruptionBudget.Run(stop)
 		go informers.ServiceMonitor.Run(stop)
+		go informers.Namespace.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
 
@@ -175,6 +177,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		cache.WaitForCacheSync(stop, informers.InfrastructurePod.HasSynced)
 		cache.WaitForCacheSync(stop, informers.PodDisruptionBudget.HasSynced)
 		cache.WaitForCacheSync(stop, informers.ServiceMonitor.HasSynced)
+		cache.WaitForCacheSync(stop, informers.Namespace.HasSynced)
 	}
 
 	getSCC := func() secv1.SecurityContextConstraints {
@@ -255,6 +258,14 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		informers.PodDisruptionBudget, podDisruptionBudgetSource = testutils.NewFakeInformerFor(&policyv1beta1.PodDisruptionBudget{})
 		stores.PodDisruptionBudgetCache = informers.PodDisruptionBudget.GetStore()
+
+		informers.Namespace, namespaceSource = testutils.NewFakeInformerWithIndexersFor(
+			&k8sv1.Namespace{}, cache.Indexers{
+				"namespace_name": func(obj interface{}) ([]string, error) {
+					return []string{obj.(*k8sv1.Namespace).GetName()}, nil
+				},
+			})
+		stores.NamespaceCache = informers.Namespace.GetStore()
 
 		// test OpenShift components
 		stores.IsOnOpenshift = true
@@ -1209,7 +1220,66 @@ var _ = Describe("KubeVirt Operator", func() {
 		))
 	}
 
+	fakeNamespaceModificationEvent := func() {
+		// Add modification event for namespace w/o the labels we need
+		namespaceSource.Modify(&k8sv1.Namespace{
+			TypeMeta: metav1.TypeMeta{
+				Kind: "Namespace",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: NAMESPACE,
+			},
+		})
+	}
+
+	shouldExpectNamespacePatch := func() {
+		kubeClient.Fake.PrependReactor("patch", "namespaces", genericPatchFunc)
+	}
+
 	Context("On valid KubeVirt object", func() {
+
+		It("Should not patch kubevirt namespace when labels are already defined", func(done Done) {
+			defer close(done)
+
+			// Add fake namespace with labels predefined
+			err := informers.Namespace.GetStore().Add(&k8sv1.Namespace{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "Namespace",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: NAMESPACE,
+					Labels: map[string]string{
+						"openshift.io/cluster-monitoring": "true",
+					},
+				},
+			})
+			Expect(err).To(Not(HaveOccurred()), "could not add fake namespace to the store")
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-install",
+					Namespace: NAMESPACE,
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeleted,
+				},
+			}
+			// Add kubevirt deployment and mark everything as ready
+			addKubeVirt(kv)
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			shouldExpectKubeVirtUpdate(1)
+			shouldExpectCreations()
+			addInstallStrategy(defaultConfig)
+			addAll(defaultConfig)
+			addPodsAndPodDisruptionBudgets(defaultConfig)
+			makeHandlerReady()
+			makeApiAndControllerReady()
+			makeHandlerReady()
+
+			// Now when the controller runs, if the namespace will be patched, the test will fail
+			// because the patch is not expected here.
+			controller.Execute()
+		}, 15)
+
 		It("should delete install strategy configmap once kubevirt install is deleted", func(done Done) {
 			defer close(done)
 
@@ -1257,6 +1327,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			addKubeVirt(kv)
 			customConfig := getConfig(defaultConfig.GetImageRegistry(), "custom.tag")
 
+			fakeNamespaceModificationEvent()
+			shouldExpectNamespacePatch()
 			addAll(customConfig)
 			// install strategy config
 			addInstallStrategy(customConfig)
@@ -1303,6 +1375,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeHandlerReady()
 
 			shouldExpectDeletions()
+			fakeNamespaceModificationEvent()
+			shouldExpectNamespacePatch()
 
 			controller.Execute()
 			Expect(totalDeletions).To(Equal(1))
@@ -1336,6 +1410,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			addPodsAndPodDisruptionBudgets(defaultConfig)
 			makeApiAndControllerReady()
 			makeHandlerReady()
+			fakeNamespaceModificationEvent()
+			shouldExpectNamespacePatch()
 
 			controller.Execute()
 
@@ -1373,6 +1449,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeHandlerReady()
 
 			shouldExpectDeletions()
+			fakeNamespaceModificationEvent()
+			shouldExpectNamespacePatch()
 
 			controller.Execute()
 			Expect(totalDeletions).To(Equal(numResources))
@@ -1684,10 +1762,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			// On create this prevents invalid specs from entering the cluster
 			// while controllers are available to process them.
 
-			// 3 because 2 for virt-controller service and deployment
-			// and
+			// 4 because 2 for virt-controller service and deployment,
 			// 1 because of the pdb of virt-controller
-			Expect(totalPatches).To(Equal(patchCount - 3))
+			// and another 1 because of the namespace was not patched yet.
+			Expect(totalPatches).To(Equal(patchCount - 4))
 			Expect(totalUpdates).To(Equal(updateCount))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1))
@@ -1744,8 +1822,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			// on update, apiserver won't get patched until daemonset and controller pods are online.
 			// this prevents the new API from coming online until the controllers can manage it.
 
-			// 2 because virt-api and PDB are not updated
-			Expect(totalPatches).To(Equal(patchCount - 2))
+			// 3 because virt-api, PDB and the namespace are not patched
+			Expect(totalPatches).To(Equal(patchCount - 3))
 			Expect(totalUpdates).To(Equal(updateCount))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1))
@@ -1791,6 +1869,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			shouldExpectPatchesAndUpdates()
 			shouldExpectKubeVirtUpdate(1)
+			fakeNamespaceModificationEvent()
+			shouldExpectNamespacePatch()
 
 			controller.Execute()
 
@@ -1802,7 +1882,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(totalUpdates).To(Equal(updateCount))
 
 			// ensure every resource is either patched or updated
-			Expect(totalUpdates + totalPatches).To(Equal(resourceCount))
+			// + 1 is for the namespace patch which we don't consider as a resource we own.
+			Expect(totalUpdates + totalPatches).To(Equal(resourceCount + 1))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(2))
 
@@ -1850,6 +1931,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			shouldExpectPatchesAndUpdates()
 			shouldExpectKubeVirtUpdate(1)
+			fakeNamespaceModificationEvent()
+			shouldExpectNamespacePatch()
 
 			controller.Execute()
 
@@ -1861,7 +1944,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(totalUpdates).To(Equal(updateCount))
 
 			// ensure every resource is either patched or updated
-			Expect(totalUpdates + totalPatches).To(Equal(resourceCount))
+			// + 1 is for the namespace patch which we don't consider as a resource we own.
+			Expect(totalUpdates + totalPatches).To(Equal(resourceCount + 1))
 
 		}, 15)
 
