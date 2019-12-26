@@ -41,6 +41,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
+	corev1 "k8s.io/api/core/v1"
+
 	kubev1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -159,6 +161,9 @@ type KubeInformerFactory interface {
 	// Fake ServiceMonitor informer used when Prometheus is not installed
 	DummyOperatorServiceMonitor() cache.SharedIndexInformer
 
+	// The namespace where kubevirt is deployed in
+	Namespace() cache.SharedIndexInformer
+
 	K8SInformerFactory() informers.SharedInformerFactory
 }
 
@@ -222,6 +227,22 @@ func (f *kubeInformerFactory) getInformer(key string, newFunc newSharedInformer)
 	f.informers[key] = informer
 
 	return informer
+}
+
+func (f *kubeInformerFactory) Namespace() cache.SharedIndexInformer {
+	return f.getInformer("namespaceInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "namespaces", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(
+			lw,
+			&corev1.Namespace{},
+			f.defaultResync,
+			cache.Indexers{
+				"namespace_name": func(obj interface{}) ([]string, error) {
+					return []string{obj.(*corev1.Namespace).GetName()}, nil
+				},
+			},
+		)
+	})
 }
 
 func (f *kubeInformerFactory) VMI() cache.SharedIndexInformer {
