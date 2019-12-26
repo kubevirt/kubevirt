@@ -40,3 +40,5 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
 	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.10.6
 )
+
+go 1.13
