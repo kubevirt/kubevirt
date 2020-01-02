@@ -48,7 +48,7 @@ type AgentUpdatedEvent struct {
 	DomainInfo api.DomainGuestInfo
 }
 
-// AgentStore stores the agent data converted to api domain objects
+// AsyncAgentStore stores the agent data converted to api domain objects
 // it offers methods to get the data and fire up an event when there
 // is a change of the data
 type AsyncAgentStore struct {
@@ -56,7 +56,7 @@ type AsyncAgentStore struct {
 	AgentUpdated chan AgentUpdatedEvent
 }
 
-// NewAgentAstore creates new agent store
+// NewAsyncAgentStore creates new agent store
 func NewAsyncAgentStore() AsyncAgentStore {
 	return AsyncAgentStore{
 		store:        sync.Map{},

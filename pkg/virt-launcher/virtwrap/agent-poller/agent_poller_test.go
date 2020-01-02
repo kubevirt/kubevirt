@@ -264,7 +264,7 @@ var _ = Describe("Qemu agent poller", func() {
 			Expect(err).To(HaveOccurred(), "Should not parse the info")
 		})
 
-		Context("with AgentStore", func() {
+		Context("with AsyncAgentStore", func() {
 
 			It("should fire an event for new sysinfo data", func() {
 				var agentStore = NewAsyncAgentStore()

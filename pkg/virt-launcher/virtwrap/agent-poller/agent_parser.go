@@ -79,7 +79,7 @@ func parseInterfaces(agentReply string) ([]api.InterfaceStatus, error) {
 		return []api.InterfaceStatus{}, err
 	}
 
-	resultInterfaces := convertInterfaceStatusesFromAgentJson(interfaces)
+	resultInterfaces := convertInterfaceStatusesFromAgentJSON(interfaces)
 
 	return resultInterfaces, nil
 }
@@ -123,14 +123,14 @@ func MergeAgentStatusesWithDomainData(domInterfaces []api.Interface, interfaceSt
 	return interfaceStatuses
 }
 
-// calculateInterfaceStatusesFromAgentJson does the conversion from agent info to api domain interfaces
-func convertInterfaceStatusesFromAgentJson(agentResult []Interface) []api.InterfaceStatus {
+// convertInterfaceStatusesFromAgentJSON does the conversion from agent info to api domain interfaces
+func convertInterfaceStatusesFromAgentJSON(agentResult []Interface) []api.InterfaceStatus {
 	interfaceStatuses := []api.InterfaceStatus{}
 	for _, ifc := range agentResult {
 		if ifc.Name == "lo" {
 			continue
 		}
-		interfaceIP, interfaceIPs := extractIps(ifc.IPs)
+		interfaceIP, interfaceIPs := extractIPs(ifc.IPs)
 		interfaceStatuses = append(interfaceStatuses, api.InterfaceStatus{
 			Mac:           ifc.MAC,
 			Ip:            interfaceIP,
@@ -141,7 +141,7 @@ func convertInterfaceStatusesFromAgentJson(agentResult []Interface) []api.Interf
 	return interfaceStatuses
 }
 
-func extractIps(ipAddresses []IP) (string, []string) {
+func extractIPs(ipAddresses []IP) (string, []string) {
 	interfaceIPs := []string{}
 	var interfaceIP string
 	for _, ipAddr := range ipAddresses {
