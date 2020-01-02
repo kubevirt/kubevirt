@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 
@@ -60,6 +61,8 @@ type BindMechanism interface {
 	loadCachedVIF(uid types.UID, name string) (bool, error)
 	setCachedVIF(uid types.UID, name string) error
 
+	cleanCachedFiles(uid types.UID, name string) error
+
 	startDHCP(vmi *v1.VirtualMachineInstance) error
 }
 
@@ -79,7 +82,7 @@ func writeVifFile(buf []byte, uid types.UID, name string) error {
 	return nil
 }
 
-func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string) error {
+func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, cleanup bool) error {
 	initHandler()
 
 	// There is nothing to plug for SR-IOV devices
@@ -90,6 +93,13 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 	driver, err := getBinding(vmi, iface, network, nil, podInterfaceName)
 	if err != nil {
 		return err
+	}
+
+	if cleanup {
+		err := driver.cleanCachedFiles(vmi.UID, iface.Name)
+		if err != nil {
+			return err
+		}
 	}
 
 	isExist, err := driver.loadCachedInterface(vmi.UID, iface.Name)
@@ -392,6 +402,18 @@ func (b *BridgePodInterface) setCachedVIF(uid types.UID, name string) error {
 	return writeVifFile(buf, uid, name)
 }
 
+func (b *BridgePodInterface) cleanCachedFiles(uid types.UID, name string) error {
+	for _, fileName := range []string{
+		getVifFile(uid, name),
+		getInterfaceCacheFile(interfaceCacheFile, uid, name),
+	} {
+		if err := os.RemoveAll(fileName); err != nil {
+			return fmt.Errorf("Failed to clean up cached file: %s", fileName)
+		}
+	}
+	return nil
+}
+
 func (b *BridgePodInterface) setInterfaceRoutes() error {
 	routes, err := Handler.RouteList(b.podNicLink, netlink.FAMILY_V4)
 	if err != nil {
@@ -606,12 +628,24 @@ func (p *MasqueradePodInterface) loadCachedVIF(uid types.UID, name string) (bool
 	return true, nil
 }
 
-func (b *MasqueradePodInterface) setCachedVIF(uid types.UID, name string) error {
-	buf, err := json.MarshalIndent(&b.vif, "", "  ")
+func (p *MasqueradePodInterface) setCachedVIF(uid types.UID, name string) error {
+	buf, err := json.MarshalIndent(&p.vif, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling vif object: %v", err)
 	}
 	return writeVifFile(buf, uid, name)
+}
+
+func (p *MasqueradePodInterface) cleanCachedFiles(uid types.UID, name string) error {
+	for _, fileName := range []string{
+		getVifFile(uid, name),
+		getInterfaceCacheFile(interfaceCacheFile, uid, name),
+	} {
+		if err := os.Remove(fileName); err != nil {
+			return fmt.Errorf("Failed to clean up cached file: %s", fileName)
+		}
+	}
+	return nil
 }
 
 func (p *MasqueradePodInterface) createBridge() error {
@@ -872,5 +906,9 @@ func (b *SlirpPodInterface) setCachedVIF(uid types.UID, name string) error {
 }
 
 func (s *SlirpPodInterface) setCachedInterface(uid types.UID, name string) error {
+	return nil
+}
+
+func (s *SlirpPodInterface) cleanCachedFiles(uid types.UID, name string) error {
 	return nil
 }

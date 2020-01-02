@@ -103,6 +103,16 @@ func (_mr *_MockBindMechanismRecorder) setCachedVIF(arg0, arg1 interface{}) *gom
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "setCachedVIF", arg0, arg1)
 }
 
+func (_m *MockBindMechanism) cleanCachedFiles(uid types.UID, name string) error {
+	ret := _m.ctrl.Call(_m, "cleanCachedFiles", uid, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) cleanCachedFiles(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "cleanCachedFiles", arg0, arg1)
+}
+
 func (_m *MockBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "startDHCP", vmi)
 	ret0, _ := ret[0].(error)

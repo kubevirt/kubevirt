@@ -1433,7 +1433,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 
 			if err := res.DoNetNS(func() error {
-				return network.SetupPodNetworkPhase1(vmi)
+				return network.SetupPodNetworkPhase1(vmi, true)
 			}); err != nil {
 				return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
 			}
@@ -1486,7 +1486,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		}
 
 		if err := res.DoNetNS(func() error {
-			return network.SetupPodNetworkPhase1(vmi)
+			return network.SetupPodNetworkPhase1(vmi, false)
 		}); err != nil {
 			return fmt.Errorf("failed to configure vmi network: %v", err)
 		}
