@@ -41,8 +41,8 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 		// Name will be there in all the cases, so verify name
 		Expect(resultFields[len(expectedHeader)]).To(Equal(vm.Name))
 	},
-		table.Entry("virtualmachine", "get", "vm", []string{"NAME", "AGE", "RUNNING", "VOLUME"}),
-		table.Entry("virtualmachineinstance", "get", "vmi", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME"}),
+		table.Entry("[test_id:3464]virtualmachine", "get", "vm", []string{"NAME", "AGE", "RUNNING", "VOLUME"}),
+		table.Entry("[test_id:3465]virtualmachineinstance", "get", "vmi", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME"}),
 	)
 
 	table.DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
