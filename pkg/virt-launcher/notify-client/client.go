@@ -135,7 +135,7 @@ func newWatchEventError(err error) watch.Event {
 }
 
 func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
-	interfaceStatus *[]api.InterfaceStatus, osInfo *api.GuestOSInfo) {
+	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo) {
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
@@ -198,7 +198,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 			}
 		}
 		if interfaceStatus != nil {
-			domain.Status.Interfaces = *interfaceStatus
+			domain.Status.Interfaces = interfaceStatus
 		}
 		if osInfo != nil {
 			domain.Status.OSInfo = *osInfo
@@ -212,26 +212,26 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 	}
 }
 
-func (n *Notifier) StartDomainNotifier(domainConn cli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, qemuAgentPollerInterval *time.Duration) error {
+func (n *Notifier) StartDomainNotifier(domainConn cli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, domainName string, agentStore *agentpoller.AsyncAgentStore, qemuAgentPollerInterval time.Duration) error {
 	eventChan := make(chan libvirtEvent, 10)
-	agentUpdateChan := make(chan agentpoller.AgentUpdateEvent, 10)
 
 	reconnectChan := make(chan bool, 10)
 
+	var domainCache *api.Domain
+
 	domainConn.SetReconnectChan(reconnectChan)
 
-	agentPoller := agentpoller.CreatePoller(domainConn, vmiUID, agentUpdateChan, qemuAgentPollerInterval)
+	agentPoller := agentpoller.CreatePoller(domainConn, vmiUID, domainName, agentStore, qemuAgentPollerInterval)
 
 	// Run the event process logic in a separate go-routine to not block libvirt
 	go func() {
-		var interfaceStatuses *[]api.InterfaceStatus
+		var interfaceStatuses []api.InterfaceStatus
 		var guestOsInfo *api.GuestOSInfo
 		for {
 			select {
 			case event := <-eventChan:
-				domain := util.NewDomainFromName(event.Domain, vmiUID)
-				eventCallback(domainConn, domain, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo)
-				agentPoller.UpdateDomain(domain)
+				domainCache = util.NewDomainFromName(event.Domain, vmiUID)
+				eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo)
 				if event.AgentEvent != nil {
 					if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
 						agentPoller.Start()
@@ -239,12 +239,14 @@ func (n *Notifier) StartDomainNotifier(domainConn cli.Connection, deleteNotifica
 						agentPoller.Stop()
 					}
 				}
-				log.Log.Info("processed event")
-			case agentUpdate := <-agentUpdateChan:
-				interfaceStatuses = agentUpdate.InterfaceStatuses
-				guestOsInfo = agentUpdate.OsInfo
-				domainName := agentUpdate.DomainName
-				eventCallback(domainConn, util.NewDomainFromName(domainName, vmiUID), libvirtEvent{}, n, deleteNotificationSent,
+			case agentUpdate := <-agentStore.AgentUpdated:
+				interfaceStatuses = agentUpdate.DomainInfo.Interfaces
+				guestOsInfo = agentUpdate.DomainInfo.OSInfo
+				if domainCache != nil && interfaceStatuses != nil {
+					interfaceStatuses = agentpoller.MergeAgentStatusesWithDomainData(domainCache.Spec.Devices.Interfaces, interfaceStatuses)
+				}
+
+				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
 					interfaceStatuses, guestOsInfo)
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))

@@ -19,9 +19,8 @@
 package agentpoller
 
 import (
-	"encoding/json"
-	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -31,265 +30,182 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
 
-type AgentUpdateEvent struct {
-	InterfaceStatuses *[]api.InterfaceStatus
-	DomainName        string
-	OsInfo            *api.GuestOSInfo
+// AgentCommand is a command executable on guest agent
+type AgentCommand string
+
+// Aliases for commands executed on guest agent
+// TODO: when updated to libvirt 5.6.0 this can change to libvirt types
+// Aliases are also used as keys to the store, it does not matter how the keys are named,
+// only whether it relates to the right data
+const (
+	GET_OSINFO     AgentCommand = "guest-get-osinfo"
+	GET_INTERFACES AgentCommand = "guest-network-get-interfaces"
+)
+
+// AgentUpdatedEvent fire up when data is changes in the store
+type AgentUpdatedEvent struct {
+	Type       AgentCommand
+	DomainInfo api.DomainGuestInfo
+}
+
+// AgentStore stores the agent data converted to api domain objects
+// it offers methods to get the data and fire up an event when there
+// is a change of the data
+type AsyncAgentStore struct {
+	store        sync.Map
+	AgentUpdated chan AgentUpdatedEvent
+}
+
+// NewAgentAstore creates new agent store
+func NewAsyncAgentStore() AsyncAgentStore {
+	return AsyncAgentStore{
+		store:        sync.Map{},
+		AgentUpdated: make(chan AgentUpdatedEvent, 10),
+	}
+}
+
+// Store saves the value with a key to the storage, when there is a change in data
+// it fires up updated event
+func (s *AsyncAgentStore) Store(key AgentCommand, value interface{}) {
+
+	oldData, _ := s.store.Load(key)
+	updated := (oldData == nil) || !reflect.DeepEqual(oldData, value)
+
+	s.store.Store(key, value)
+
+	if updated {
+		domainInfo := api.DomainGuestInfo{}
+		// Fill only updated part of the domainInfo
+		// not everything have to be watched for
+		switch key {
+		case GET_OSINFO:
+			info := value.(api.GuestOSInfo)
+			domainInfo.OSInfo = &info
+		case GET_INTERFACES:
+			domainInfo.Interfaces = value.([]api.InterfaceStatus)
+		}
+
+		s.AgentUpdated <- AgentUpdatedEvent{
+			Type:       key,
+			DomainInfo: domainInfo,
+		}
+	}
+}
+
+// PollerWorker collects the data from the guest agent
+// only unique items are stored as configuration
+type PollerWorker struct {
+	// AgentCommands is a list of commands executed on the guestAgent
+	AgentCommands []AgentCommand
+	// CallTick is how often to call this set of commands
+	CallTick time.Duration
+}
+
+// Poll is the call to the guestagent
+// TODO: with libvirt 5.6.0 direct call to agent can be replaced with call to libvirt
+// Domain.GetGuestInfo
+func (p *PollerWorker) Poll(con cli.Connection, agentStore *AsyncAgentStore, domainName string, closeChan chan struct{}) {
+	ticker := time.NewTicker(time.Second * p.CallTick)
+
+	log.Log.Infof("Polling command: %v", p.AgentCommands)
+
+	// poller, used as a workaround for golang ticker
+	// ticker does not do first tick immediately, but after period
+	poll := func(commands []AgentCommand) {
+		for _, command := range p.AgentCommands {
+			// replace with direct call to libvirt function when 5.6.0 is available
+			cmdResult, err := con.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, domainName)
+			if err != nil {
+				// skip the command on error, it is not vital
+				continue
+			}
+
+			// parse the json data and convert to domain api
+			// TODO: for libvirt 5.6.0 json conversion deprecated
+			switch command {
+			case GET_INTERFACES:
+				interfaces, err := parseInterfaces(cmdResult)
+				if err != nil {
+					log.Log.Errorf("Cannot parse guest agent interface %s", err.Error())
+				}
+				agentStore.Store(GET_INTERFACES, interfaces)
+			case GET_OSINFO:
+				osInfo, err := parseGuestOSInfo(cmdResult)
+				if err != nil {
+					log.Log.Errorf("Cannot parse guest agent guestosinfo %s", err.Error())
+				}
+				agentStore.Store(GET_OSINFO, osInfo)
+
+			}
+
+		}
+	}
+
+	// do the first round to fill the cache immediately
+	poll(p.AgentCommands)
+
+	for {
+		select {
+		case <-closeChan:
+			ticker.Stop()
+			return
+		case <-ticker.C:
+			poll(p.AgentCommands)
+		}
+	}
 }
 
 type AgentPoller struct {
-	Connection      cli.Connection
-	VmiUID          types.UID
-	domainData      *DomainData
-	agentDone       chan struct{}
-	domainUpdate    chan *api.Domain
-	pollTime        time.Duration
-	agentUpdateChan chan AgentUpdateEvent
+	Connection cli.Connection
+	VmiUID     types.UID
+	domainName string
+	agentDone  chan struct{}
+	workers    []PollerWorker
+	agentStore *AsyncAgentStore
 }
 
-type DomainData struct {
-	name       string
-	osInfo     api.GuestOSInfo
-	aliasByMac map[string]string
-	interfaces []api.InterfaceStatus
-}
-
-// Result for json unmarshalling
-type Result struct {
-	Interfaces []Interface `json:"return"`
-}
-
-// Guest OS Info unmarshalling
-type ParsedGuestOsInfo struct {
-	Name          string `json:"name"`
-	KernelRelease string `json:"kernel-release"`
-	Version       string `json:"version"`
-	PrettyName    string `json:"pretty-name"`
-	VersionId     string `json:"version-id"`
-	KernelVersion string `json:"kernel-version"`
-	Machine       string `json:"machine"`
-	Id            string `json:"id"`
-}
-
-type GuestOSInfoResult struct {
-	OSInfo ParsedGuestOsInfo `json:"return"`
-}
-
-// Interface for json unmarshalling
-type Interface struct {
-	MAC  string `json:"hardware-address"`
-	IPs  []IP   `json:"ip-addresses"`
-	Name string `json:"name"`
-}
-
-// IP for json unmarshalling
-type IP struct {
-	IP     string `json:"ip-address"`
-	Type   string `json:"ip-address-type"`
-	Prefix int    `json:"prefix"`
-}
-
-func CreatePoller(connecton cli.Connection, vmiUID types.UID, agentUpdateChan chan AgentUpdateEvent, qemuAgentPollerInterval *time.Duration) *AgentPoller {
+// CreatePoller creates the new structure that holds guest agent pollers
+func CreatePoller(
+	connecton cli.Connection,
+	vmiUID types.UID,
+	domainName string,
+	store *AsyncAgentStore,
+	qemuAgentPollerInterval time.Duration,
+) *AgentPoller {
 	p := &AgentPoller{
-		Connection:      connecton,
-		VmiUID:          vmiUID,
-		pollTime:        *qemuAgentPollerInterval,
-		agentUpdateChan: agentUpdateChan,
-		domainUpdate:    make(chan *api.Domain, 10),
+		Connection: connecton,
+		VmiUID:     vmiUID,
+		domainName: domainName,
+		agentStore: store,
+		workers:    []PollerWorker{},
 	}
+
+	// this have to be done via configuration passed in, for now this is OK
+	p.workers = append(p.workers, PollerWorker{
+		CallTick:      qemuAgentPollerInterval,
+		AgentCommands: []AgentCommand{GET_INTERFACES, GET_OSINFO},
+	})
+
 	return p
 }
 
+// Start the poller workers
 func (p *AgentPoller) Start() {
 	if p.agentDone != nil {
 		return
 	}
 	p.agentDone = make(chan struct{})
-	go func() {
-		for {
-			log.Log.Info("Qemu agent poller started")
-			select {
-			case <-p.agentDone:
-				log.Log.Info("Qemu agent poller stopped")
-				return // stop polling
-			case domain := <-p.domainUpdate:
-				p.domainData = p.createDomainData(domain)
-			case <-time.After(time.Duration(p.pollTime) * time.Second):
-				cmdResult, err := p.pollQemuAgent(p.domainData.name)
-				needUpdate := false
-				agentUpdateEvent := AgentUpdateEvent{DomainName: p.domainData.name,
-					InterfaceStatuses: &p.domainData.interfaces,
-					OsInfo:            &p.domainData.osInfo}
 
-				if err != nil {
-					log.Log.Reason(err).Error("Qemu agent poller error")
-				} else {
-					interfaceStatuses := p.GetInterfaceStatuses(cmdResult)
-					if !reflect.DeepEqual(p.domainData.interfaces, interfaceStatuses) {
-						p.domainData.interfaces = interfaceStatuses
-						agentUpdateEvent.InterfaceStatuses = &interfaceStatuses
-						needUpdate = true
-					}
-				}
-
-				// Lets poll for Guest OS Info, but only if we have haven't
-				// obtained the info. If we have the info already we do not
-				// want to poll it repeatedly as it is not expected to change.
-				if p.domainData.osInfo.Name == "" {
-					cmdResult, err = p.pollQemuAgentForOsInfo(p.domainData.name)
-					if err != nil {
-						log.Log.Reason(err).Error("Qemu agent poller error for guestOsInfo")
-					} else {
-						gInfo := p.GetGuestOsInfo(cmdResult)
-						if !reflect.DeepEqual(gInfo, p.domainData.osInfo) {
-							p.domainData.osInfo = gInfo
-							agentUpdateEvent.OsInfo = &gInfo
-							needUpdate = true
-						}
-					}
-				}
-				if needUpdate {
-					p.agentUpdateChan <- agentUpdateEvent
-				}
-			}
-		}
-	}()
+	for i := 0; i < len(p.workers); i++ {
+		log.Log.Infof("Starting agent poller with commands: %v", p.workers[i].AgentCommands)
+		go p.workers[i].Poll(p.Connection, p.agentStore, p.domainName, p.agentDone)
+	}
 }
 
+// Stop all poller workers
 func (p *AgentPoller) Stop() {
 	if p.agentDone != nil {
 		close(p.agentDone)
 		p.agentDone = nil
 	}
-}
-
-func (p *AgentPoller) GetInterfaceStatuses(cmdResult string) []api.InterfaceStatus {
-	parsedResult := parseAgentReplyToJson(cmdResult)
-	interfaceStatuses := calculateInterfaceStatusesFromAgentJson(parsedResult)
-	return p.mergeAgentStatusesWithDomainData(interfaceStatuses)
-}
-
-func (p *AgentPoller) GetGuestOsInfo(cmdResult string) api.GuestOSInfo {
-	osInfo := parseAgentGuestInfoReplyToJson(cmdResult)
-	guestInfo := api.GuestOSInfo{}
-	guestInfo.Name = osInfo.Name
-	guestInfo.KernelRelease = osInfo.KernelRelease
-	guestInfo.Version = osInfo.Version
-	guestInfo.PrettyName = osInfo.PrettyName
-	guestInfo.VersionId = osInfo.VersionId
-	guestInfo.KernelVersion = osInfo.KernelVersion
-	guestInfo.Machine = osInfo.Machine
-	guestInfo.Id = osInfo.Id
-	return guestInfo
-}
-
-func (p *AgentPoller) UpdateDomain(domain *api.Domain) {
-	if domain != nil {
-		select {
-		case p.domainUpdate <- domain:
-		default:
-			log.Log.Error("Failed to update agent poller domain info")
-		}
-	}
-}
-
-func (p *AgentPoller) createDomainData(domain *api.Domain) *DomainData {
-	aliasByMac := map[string]string{}
-	for _, ifc := range domain.Spec.Devices.Interfaces {
-		mac := ifc.MAC.MAC
-		alias := ifc.Alias.Name
-		aliasByMac[mac] = alias
-	}
-	return &DomainData{
-		name:       domain.Spec.Name,
-		aliasByMac: aliasByMac,
-	}
-}
-
-func (p *AgentPoller) pollQemuAgent(domainName string) (string, error) {
-	cmdResult, err := p.Connection.QemuAgentCommand("{\"execute\":\"guest-network-get-interfaces\"}", domainName)
-	return cmdResult, err
-}
-
-func (p *AgentPoller) pollQemuAgentForOsInfo(domainName string) (string, error) {
-	cmdResult, err := p.Connection.QemuAgentCommand("{\"execute\":\"guest-get-osinfo\"}", domainName)
-	return cmdResult, err
-}
-
-func parseAgentReplyToJson(agentReply string) *Result {
-	result := Result{}
-	json.Unmarshal([]byte(agentReply), &result)
-	return &result
-}
-
-func parseAgentGuestInfoReplyToJson(agentReply string) ParsedGuestOsInfo {
-	result := GuestOSInfoResult{}
-	json.Unmarshal([]byte(agentReply), &result)
-	return result.OSInfo
-}
-
-func (p *AgentPoller) mergeAgentStatusesWithDomainData(interfaceStatuses []api.InterfaceStatus) []api.InterfaceStatus {
-	aliasesCoveredByAgent := []string{}
-	// Add alias from domain to interfaceStatus
-	for i, interfaceStatus := range interfaceStatuses {
-		if alias, exists := p.domainData.aliasByMac[interfaceStatus.Mac]; exists {
-			interfaceStatuses[i].Name = alias
-			aliasesCoveredByAgent = append(aliasesCoveredByAgent, alias)
-		}
-	}
-
-	// If interface present in domain was not found in interfaceStatuses, add it
-	for mac, alias := range p.domainData.aliasByMac {
-		isCoveredByAgentData := false
-		for _, coveredAlias := range aliasesCoveredByAgent {
-			if alias == coveredAlias {
-				isCoveredByAgentData = true
-				break
-			}
-		}
-		if !isCoveredByAgentData {
-			interfaceStatuses = append(interfaceStatuses,
-				api.InterfaceStatus{
-					Mac:  mac,
-					Name: alias,
-				},
-			)
-		}
-	}
-	return interfaceStatuses
-}
-
-func calculateInterfaceStatusesFromAgentJson(agentResult *Result) []api.InterfaceStatus {
-	interfaceStatuses := []api.InterfaceStatus{}
-	for _, ifc := range agentResult.Interfaces {
-		if ifc.Name == "lo" {
-			continue
-		}
-		interfaceIP, interfaceIPs := extractIps(ifc.IPs)
-		interfaceStatuses = append(interfaceStatuses, api.InterfaceStatus{
-			Mac:           ifc.MAC,
-			Ip:            interfaceIP,
-			IPs:           interfaceIPs,
-			InterfaceName: ifc.Name,
-		})
-	}
-	return interfaceStatuses
-}
-
-func extractIps(ipAddresses []IP) (string, []string) {
-	interfaceIPs := []string{}
-	var interfaceIP string
-	for _, ipAddr := range ipAddresses {
-		ip := fmt.Sprintf("%s/%d", ipAddr.IP, ipAddr.Prefix)
-		// Prefer ipv4 as the main interface IP
-		if ipAddr.Type == "ipv4" && interfaceIP == "" {
-			interfaceIP = ip
-		}
-		interfaceIPs = append(interfaceIPs, ip)
-	}
-	// If no ipv4 interface was found, set any IP as the main IP of interface
-	if interfaceIP == "" && len(interfaceIPs) > 0 {
-		interfaceIP = interfaceIPs[0]
-	}
-	return interfaceIP, interfaceIPs
 }

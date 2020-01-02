@@ -178,7 +178,7 @@ var _ = Describe("Notify", func() {
 					},
 				}
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, &interfaceStatus, nil)
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)

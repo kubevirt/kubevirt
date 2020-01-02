@@ -28,16 +28,161 @@ import (
 
 var _ = Describe("Qemu agent poller", func() {
 	Context("recieving a reply from the agent", func() {
+		JSONInput := `{
+            "return": [
+                {
+                    "name":"lo",
+                    "ip-addresses": [
+                        {
+                            "ip-address-type": "ipv4",
+                            "ip-address": "127.0.0.1",
+                            "prefix": 8
+                        },
+                        {
+                            "ip-address-type": "ipv6",
+                            "ip-address": "::1",
+                            "prefix": 128
+                        }
+                    ],
+                    "hardware-address": "00:00:00:00:00:00"
+                },
+                {
+                    "name":"eth0",
+                    "ip-addresses": [
+                        {
+                            "ip-address-type": "ipv4",
+                            "ip-address": "10.244.0.81",
+                            "prefix": 24
+                        },
+                        {
+                            "ip-address-type": "ipv6",
+                            "ip-address": "fe80::858:aff:fef4:51",
+                            "prefix": 64
+                        }
+                    ],
+                    "hardware-address": "0a:58:0a:f4:00:51"
+                },
+                {
+                    "name":"eth1",
+                    "ip-addresses": [
+                        {
+                            "ip-address-type": "ipv6",
+                            "ip-address": "fe80::ff:feb0:1766",
+                            "prefix": 64
+                        }
+                    ],
+                    "hardware-address": "02:00:00:b0:17:66"
+                },
+                {
+                    "name": "eth5",
+                    "ip-addresses": [
+                        {
+                            "ip-address-type": "ipv4",
+                            "ip-address": "1.2.3.4",
+                            "prefix": 24
+                        },
+                        {
+                            "ip-address-type": "ipv6",
+                            "ip-address": "fe80::ff:1111:2222",
+                            "prefix":64
+                        }
+                    ],
+                    "hardware-address": "02:00:00:22:11:11"
+                }
+            ]
+        }`
+
+		It("should not parse network interface data into a list of interfaces", func() {
+			malformedJSONInput := `{
+                "return": [
+                    {
+                        "name":"lo",
+                        "ip-addresses": [
+                            {
+                                "ip-address-type": "ipv4",
+                                "ip-address": "127.0.0.1",
+                                "prefix": 8
+                            },
+
+                                "ip-address-type": "ipv6",
+                                "ip-address": "::1",
+                                "prefix": 128
+                            }
+                        ],
+                        "hardware-address": "00:00:00:00:00:00"
+                    }
+                ]
+            }`
+			_, err := parseInterfaces(malformedJSONInput)
+			Expect(err).To(HaveOccurred(), "should not parse network interfaces")
+
+		})
+
 		It("should parse it into a list of interfaces", func() {
-			agentPoller := AgentPoller{}
-			agentPoller.domainData = &DomainData{
-				// net2 only present in DomainData
-				aliasByMac: map[string]string{"0a:58:0a:f4:00:51": "ovs", "02:00:00:b0:17:66": "net1", "02:11:11:b0:17:66": "net2"},
+			// eth5 only present in agent data
+			interfaceStatuses, err := parseInterfaces(JSONInput)
+			Expect(err).ToNot(HaveOccurred(), "should parse network interfaces")
+
+			expectedStatuses := []api.InterfaceStatus{}
+			expectedStatuses = append(expectedStatuses,
+				api.InterfaceStatus{
+					Name:          "",
+					Mac:           "0a:58:0a:f4:00:51",
+					Ip:            "10.244.0.81/24",
+					IPs:           []string{"10.244.0.81/24", "fe80::858:aff:fef4:51/64"},
+					InterfaceName: "eth0",
+				})
+			expectedStatuses = append(expectedStatuses,
+				api.InterfaceStatus{
+					Name:          "",
+					Mac:           "02:00:00:b0:17:66",
+					Ip:            "fe80::ff:feb0:1766/64",
+					IPs:           []string{"fe80::ff:feb0:1766/64"},
+					InterfaceName: "eth1",
+				})
+			expectedStatuses = append(expectedStatuses,
+				api.InterfaceStatus{
+					Mac:           "02:00:00:22:11:11",
+					Ip:            "1.2.3.4/24",
+					IPs:           []string{"1.2.3.4/24", "fe80::ff:1111:2222/64"},
+					InterfaceName: "eth5",
+				})
+			Expect(interfaceStatuses).To(Equal(expectedStatuses))
+		})
+
+		It("should merge QEMU info and agent info", func() {
+			interfaceStatuses, err := parseInterfaces(JSONInput)
+			Expect(err).ToNot(HaveOccurred(), "should parse network inferfaces")
+
+			domInterfaces := []api.Interface{
+				api.Interface{
+					MAC: &api.MAC{
+						MAC: "0a:58:0a:f4:00:51",
+					},
+					Alias: &api.Alias{
+						Name: "ovs",
+					},
+				},
+				api.Interface{
+					MAC: &api.MAC{
+						MAC: "02:00:00:b0:17:66",
+					},
+					Alias: &api.Alias{
+						Name: "net1",
+					},
+				},
+				api.Interface{
+					MAC: &api.MAC{
+						MAC: "02:11:11:b0:17:66",
+					},
+					Alias: &api.Alias{
+						Name: "net2",
+					},
+				},
 			}
 
-			// eth5 only present in agent data
-			json_input := "{\"return\":[{\"name\":\"lo\",\"ip-addresses\":[{\"ip-address-type\":\"ipv4\",\"ip-address\":\"127.0.0.1\",\"prefix\":8},{\"ip-address-type\":\"ipv6\",\"ip-address\":\"::1\",\"prefix\":128}],\"hardware-address\":\"00:00:00:00:00:00\"},{\"name\":\"eth0\",\"ip-addresses\":[{\"ip-address-type\":\"ipv4\",\"ip-address\":\"10.244.0.81\",\"prefix\":24},{\"ip-address-type\":\"ipv6\",\"ip-address\":\"fe80::858:aff:fef4:51\",\"prefix\":64}],\"hardware-address\":\"0a:58:0a:f4:00:51\"},{\"name\":\"eth1\",\"ip-addresses\":[{\"ip-address-type\":\"ipv6\",\"ip-address\":\"fe80::ff:feb0:1766\",\"prefix\":64}],\"hardware-address\":\"02:00:00:b0:17:66\"}, {\"name\":\"eth5\",\"ip-addresses\":[{\"ip-address-type\":\"ipv4\",\"ip-address\":\"1.2.3.4\",\"prefix\":24},{\"ip-address-type\":\"ipv6\",\"ip-address\":\"fe80::ff:1111:2222\",\"prefix\":64}],\"hardware-address\":\"02:00:00:22:11:11\"}]}"
-			interfaceStatuses := agentPoller.GetInterfaceStatuses(json_input)
+			interfaceStatuses = MergeAgentStatusesWithDomainData(domInterfaces, interfaceStatuses)
+
 			expectedStatuses := []api.InterfaceStatus{}
 			expectedStatuses = append(expectedStatuses,
 				api.InterfaceStatus{
@@ -67,16 +212,28 @@ var _ = Describe("Qemu agent poller", func() {
 					Name: "net2",
 					Mac:  "02:11:11:b0:17:66",
 				})
+
 			Expect(interfaceStatuses).To(Equal(expectedStatuses))
 		})
 
 		It("should parse Guest OS Info", func() {
-			agentPoller := AgentPoller{}
-			agentPoller.domainData = &DomainData{}
 
-			jsonInput := "{\"return\":{\"name\":\"TestGuestOSName\",\"kernel-release\":\"1.1.0-Generic\",\"version\":\"1.0.0\",\"pretty-name\":\"TestGuestOSName 1.0.0\",\"version-id\":\"1.0.0\",\"kernel-version\":\"1.1.0\",\"machine\":\"x86_64\",\"id\":\"testguestos\"}}"
+			JSONInput := `{
+                "return": {
+                    "name": "TestGuestOSName",
+                    "kernel-release": "1.1.0-Generic",
+                    "version": "1.0.0",
+                    "pretty-name": "TestGuestOSName 1.0.0",
+                    "version-id": "1.0.0",
+                    "kernel-version": "1.1.0",
+                    "machine": "x86_64",
+                    "id": "testguestos"
+                }
+            }`
 
-			guestOSInfoStatus := agentPoller.GetGuestOsInfo(jsonInput)
+			guestOSInfoStatus, err := parseGuestOSInfo(JSONInput)
+			Expect(err).ToNot(HaveOccurred(), "Should parse the info")
+
 			expectedGuestOSInfo := api.GuestOSInfo{Name: "TestGuestOSName",
 				KernelRelease: "1.1.0-Generic",
 				Version:       "1.0.0",
@@ -86,6 +243,71 @@ var _ = Describe("Qemu agent poller", func() {
 				Machine:       "x86_64",
 				Id:            "testguestos"}
 			Expect(guestOSInfoStatus).To(Equal(expectedGuestOSInfo))
+		})
+
+		It("should not parse Guest OS Info", func() {
+
+			malformedJSONInput := `{
+                "return": {{
+                    "name": "TestGuestOSName",
+                    "kernel-release": "1.1.0-Generic",
+                    "version": "1.0.0"
+                    "pretty-name": "TestGuestOSName 1.0.0",
+                    "version-id": "1.0.0",
+                    "kernel-version": "1.1.0",
+                    "machine": "x86_64",
+                    "id": "testguestos"
+                }
+            }`
+
+			_, err := parseGuestOSInfo(malformedJSONInput)
+			Expect(err).To(HaveOccurred(), "Should not parse the info")
+		})
+
+		Context("with AgentStore", func() {
+
+			It("should fire an event for new sysinfo data", func() {
+				var agentStore = NewAsyncAgentStore()
+				fakeInfo := api.GuestOSInfo{
+					Name:          "TestGuestOSName",
+					KernelRelease: "1.1.0-Generic",
+					Version:       "1.0.0",
+					PrettyName:    "TestGuestOSName 1.0.0",
+					VersionId:     "1.0.0",
+					KernelVersion: "1.1.0",
+					Machine:       "x86_64",
+					Id:            "testguestos",
+				}
+				agentStore.Store(GET_OSINFO, fakeInfo)
+
+				Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
+					Type:       GET_OSINFO,
+					DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
+				})))
+			})
+
+			It("should not fire an event for the same sysinfo data", func() {
+				var agentStore = NewAsyncAgentStore()
+				fakeInfo := api.GuestOSInfo{
+					Name:          "TestGuestOSName",
+					KernelRelease: "1.1.0-Generic",
+					Version:       "1.0.0",
+					PrettyName:    "TestGuestOSName 1.0.0",
+					VersionId:     "1.0.0",
+					KernelVersion: "1.1.0",
+					Machine:       "x86_64",
+					Id:            "testguestos",
+				}
+
+				agentStore.Store(GET_OSINFO, fakeInfo)
+				Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
+					Type:       GET_OSINFO,
+					DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
+				})))
+
+				agentStore.Store(GET_OSINFO, fakeInfo)
+				Expect(agentStore.AgentUpdated).ToNot(Receive())
+			})
 		})
 	})
 })

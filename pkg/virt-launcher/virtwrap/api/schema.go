@@ -128,6 +128,12 @@ type InterfaceStatus struct {
 	InterfaceName string
 }
 
+// DomainGuestInfo represent guest agent info for specific domain
+type DomainGuestInfo struct {
+	Interfaces []InterfaceStatus
+	OSInfo     *GuestOSInfo
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type DomainList struct {
 	metav1.TypeMeta

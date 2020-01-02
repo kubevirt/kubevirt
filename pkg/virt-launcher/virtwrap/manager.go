@@ -58,6 +58,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -94,6 +95,7 @@ type LibvirtDomainManager struct {
 	notifier               *eventsclient.Notifier
 	lessPVCSpaceToleration int
 	paused                 pausedVMIs
+	agentData              *agentpoller.AsyncAgentStore
 }
 
 type migrationDisks struct {
@@ -124,7 +126,7 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 	return ok
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int, agentStore *agentpoller.AsyncAgentStore) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:                connection,
 		virtShareDir:           virtShareDir,
@@ -133,6 +135,7 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		paused: pausedVMIs{
 			paused: make(map[types.UID]bool, 0),
 		},
+		agentData: agentStore,
 	}
 
 	return &manager, nil

@@ -48,6 +48,7 @@ import (
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
+	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	virtcli "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
@@ -117,7 +118,7 @@ func createLibvirtConnection() virtcli.Connection {
 	return domainConn
 }
 
-func startDomainEventMonitoring(notifier *notifyclient.Notifier, virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, qemuAgentPollerInterval *time.Duration) {
+func startDomainEventMonitoring(notifier *notifyclient.Notifier, virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, domainName string, agentStore *agentpoller.AsyncAgentStore, qemuAgentPollerInterval *time.Duration) {
 	go func() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
@@ -127,7 +128,7 @@ func startDomainEventMonitoring(notifier *notifyclient.Notifier, virtShareDir st
 		}
 	}()
 
-	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmiUID, qemuAgentPollerInterval)
+	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmiUID, domainName, agentStore, *qemuAgentPollerInterval)
 	if err != nil {
 		panic(err)
 	}
@@ -366,16 +367,21 @@ func main() {
 	domainConn := createLibvirtConnection()
 	defer domainConn.Close()
 
+	var agentStore = agentpoller.NewAsyncAgentStore()
+
 	notifier, err := notifyclient.NewNotifier(*virtShareDir)
 	if err != nil {
 		panic(err)
 	}
 	defer notifier.Close()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration, &agentStore)
 	if err != nil {
 		panic(err)
 	}
+
+	// only single domain should be present
+	domainName := api.VMINamespaceKeyFunc(vm)
 
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
@@ -403,7 +409,7 @@ func main() {
 
 	events := make(chan watch.Event, 10)
 	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vm.UID, qemuAgentPollerInterval)
+	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vm.UID, domainName, &agentStore, qemuAgentPollerInterval)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,

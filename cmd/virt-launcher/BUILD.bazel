@@ -16,6 +16,7 @@ go_library(
         "//pkg/virt-launcher:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
         "//pkg/virt-launcher/virtwrap:go_default_library",
+        "//pkg/virt-launcher/virtwrap/agent-poller:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//pkg/virt-launcher/virtwrap/cmd-server:go_default_library",
