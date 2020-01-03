@@ -128,8 +128,13 @@ func createLabelsAndAnnotationsPatch(objectMeta *metav1.ObjectMeta) ([]string, e
 	if err != nil {
 		return ops, err
 	}
+	ownerRefBytes, err := json.Marshal(objectMeta.OwnerReferences)
+	if err != nil {
+		return ops, err
+	}
 	ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/metadata/labels", "value": %s }`, string(labelBytes)))
 	ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value": %s }`, string(annotationBytes)))
+	ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/metadata/ownerReferences", "value": %s }`, ownerRefBytes))
 
 	return ops, nil
 }
