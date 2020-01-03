@@ -106,7 +106,22 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 	objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation] = id
 
 	objectMeta.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(kv, v1.KubeVirtGroupVersionKind)}
+}
 
+func injectKubevirtCRMetadata(crd *extv1beta1.CustomResourceDefinition, objectMeta *metav1.ObjectMeta, version, imageRegistry, id string) {
+	if objectMeta.Labels == nil {
+		objectMeta.Labels = make(map[string]string)
+	}
+	objectMeta.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
+
+	if objectMeta.Annotations == nil {
+		objectMeta.Annotations = make(map[string]string)
+	}
+	objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = version
+	objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = imageRegistry
+	objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation] = id
+
+	objectMeta.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(crd, v1.KubeVirtGroupVersionKind)}
 }
 
 func generatePatchBytes(ops []string) []byte {
@@ -655,6 +670,14 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
 	id := kv.Status.TargetDeploymentID
 
+	log.Log.Info("Attempting to fetch Kubevirt CR")
+
+	kvcr, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Get("kubevirts.kubevirt.io", metav1.GetOptions{})
+
+	if err != nil {
+		log.Log.Errorf("Could not find a Kubevirt CR instance: %v", err)
+	}
+
 	for _, crd := range targetStrategy.crds {
 		var cachedCrd *extv1beta1.CustomResourceDefinition
 
@@ -664,7 +687,9 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 			cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
 		}
 
-		injectOperatorMetadata(kv, &crd.ObjectMeta, version, imageRegistry, id)
+		// Set CRDs owner reference to point to Kubevirt CRD
+		injectKubevirtCRMetadata(kvcr, &crd.ObjectMeta, version, imageRegistry, id)
+
 		if !exists {
 			// Create non existent
 			expectations.Crd.RaiseExpectations(kvkey, 1, 0)
