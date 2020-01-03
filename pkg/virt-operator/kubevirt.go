@@ -295,7 +295,6 @@ func NewKubeVirtController(
 }
 
 func (c *KubeVirtController) getKubeVirtKey() (string, error) {
-	// XXX use owner references instead in general
 	kvs := c.kubeVirtInformer.GetStore().List()
 	if len(kvs) > 1 {
 		log.Log.Errorf("More than one KubeVirt custom resource detected: %v", len(kvs))
