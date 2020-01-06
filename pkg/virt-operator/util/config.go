@@ -133,14 +133,12 @@ func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
 func GetObservedConfigFromKV(kv *v1.KubeVirt) (*KubeVirtDeploymentConfig, error) {
 	additionalProperties := getKVMapFromSpec(kv.Spec)
 
-	imagePrefix, found, err := getImagePrefixFromDeploymentConfig(kv.Status.ObservedDeploymentConfig)
+	imagePrefix, _, err := getImagePrefixFromDeploymentConfig(kv.Status.ObservedDeploymentConfig)
 
 	if err != nil {
 		return nil, fmt.Errorf("unable to load observed config from kubevirt custom resource: %v", err)
 	}
-	if found {
-		additionalProperties[ImagePrefixKey] = imagePrefix
-	}
+	additionalProperties[ImagePrefixKey] = imagePrefix
 	return getConfig(kv.Status.ObservedKubeVirtRegistry, kv.Status.ObservedKubeVirtVersion, kv.Namespace, additionalProperties), nil
 }
 
