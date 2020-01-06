@@ -390,6 +390,41 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 		patchOps := []string{}
 
+		vmiNetworksByName := map[string]virtv1.Network{}
+		for _, network := range vmiCopy.Spec.Networks {
+			if network.Name != "" {
+				vmiNetworksByName[network.Name] = network
+			}
+		}
+		for i, iface := range vmiCopy.Status.Interfaces {
+			if vmiNetworksByName[iface.Name].NetworkSource.Pod != nil && vmiCopy.Status.Interfaces[i].IP != pod.Status.PodIP {
+				vmiCopy.Status.Interfaces[i].IP = pod.Status.PodIP
+
+				// For forwarding binding mechanism like masquerade,
+				// it's sufficient to expose only PodIP to list of IPs
+				vmiCopy.Status.Interfaces[i].IPs = []string{pod.Status.PodIP}
+
+				// Currently will only traverse to the first Pod network found
+				break
+			}
+		}
+		// Patch the VMI interface to the new values if needed
+		if !reflect.DeepEqual(vmiCopy.Status.Interfaces, vmi.Status.Interfaces) {
+			newInterfaces, err := json.Marshal(vmiCopy.Status.Interfaces)
+			if err != nil {
+				return err
+			}
+			oldInterfaces, err := json.Marshal(vmi.Status.Interfaces)
+			if err != nil {
+				return err
+			}
+
+			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/interfaces", "value": %s }`, string(oldInterfaces)))
+			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/interfaces", "value": %s }`, string(newInterfaces)))
+
+			log.Log.V(3).Object(vmi).Infof("Patching VMI interfaces")
+		}
+
 		// We don't own the object anymore, so patch instead of update
 		if !reflect.DeepEqual(vmiCopy.Status.Conditions, vmi.Status.Conditions) {
 
