@@ -2,10 +2,12 @@ QUAY_USERNAME      ?=
 QUAY_PASSWORD      ?=
 SOURCE_DIRS        = cmd pkg
 SOURCES            := $(shell find . -name '*.go' -not -path "*/vendor/*")
+SHA                := $(shell git describe --no-match  --always --abbrev=40 --dirty)
 IMAGE_REGISTRY     ?= quay.io
 IMAGE_TAG          ?= latest
 OPERATOR_IMAGE     ?= kubevirt/hyperconverged-cluster-operator
 REGISTRY_NAMESPACE ?=
+
 
 # Prow doesn't have docker command
 DO=./hack/in-docker.sh
@@ -39,7 +41,7 @@ hack-clean: ## Run ./hack/clean.sh
 container-build: container-build-operator container-build-operator-courier
 
 container-build-operator:
-	docker build -f build/Dockerfile -t $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG) .
+	docker build -f build/Dockerfile -t $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
 
 container-build-operator-courier:
 	docker build -f tools/operator-courier/Dockerfile -t hco-courier .

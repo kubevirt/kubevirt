@@ -19,3 +19,9 @@ COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/
 COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/templates/olm-catalog/kubevirt-hyperconverged/VERSION/kubevirt-hyperconverged-operator.VERSION.clusterserviceversion_merger.yaml.in $CSV_TEMPLATE
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 USER ${USER_UID}
+
+ARG git_url=https://github.com/kubevirt/hyperconverged-cluster-operator.git
+ARG git_sha=NONE
+
+LABEL multi.GIT_URL=${git_url} \
+      multi.GIT_SHA=${git_sha}
