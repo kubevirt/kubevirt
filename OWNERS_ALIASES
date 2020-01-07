@@ -27,6 +27,7 @@ aliases:
       - pkotas
       - vatsalparekh
       - danielBelenky
+      - enp0s3
   ux-reviewers:
       - matthewcarleton
   test-reviewers:
