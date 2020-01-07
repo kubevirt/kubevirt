@@ -29,6 +29,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -40,38 +41,38 @@ type MigrationCreateAdmitter struct {
 func (admitter *MigrationCreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	migration, _, err := getAdmissionReviewMigration(ar)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceMigrationGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhookutils.ValidateSchema(v1.VirtualMachineInstanceMigrationGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
 	if !admitter.ClusterConfig.LiveMigrationEnabled() {
-		return webhooks.ToAdmissionResponseError(fmt.Errorf("LiveMigration feature gate is not enabled in kubevirt-config"))
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("LiveMigration feature gate is not enabled in kubevirt-config"))
 	}
 
 	causes := ValidateVirtualMachineInstanceMigrationSpec(k8sfield.NewPath("spec"), &migration.Spec)
 	if len(causes) > 0 {
-		return webhooks.ToAdmissionResponse(causes)
+		return webhookutils.ToAdmissionResponse(causes)
 	}
 
 	informers := webhooks.GetInformers()
 	cacheKey := fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName)
 	obj, exists, err := informers.VMIInformer.GetStore().GetByKey(cacheKey)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
 	// ensure VMI exists for the migration
 	if !exists {
-		return webhooks.ToAdmissionResponseError(fmt.Errorf("the VMI %s does not exist under the cache", migration.Spec.VMIName))
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("the VMI %s does not exist under the cache", migration.Spec.VMIName))
 	}
 	vmi := obj.(*v1.VirtualMachineInstance)
 
 	// Don't allow introducing a migration job for a VMI that has already finalized
 	if vmi.IsFinal() {
-		return webhooks.ToAdmissionResponseError(fmt.Errorf("Cannot migrated VMI in finalized state."))
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Cannot migrated VMI in finalized state."))
 	}
 
 	// Reject migration jobs for non-migratable VMIs
@@ -80,7 +81,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1b
 			c.Status == k8sv1.ConditionFalse {
 			errMsg := fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s",
 				c.Reason, c.Message)
-			return webhooks.ToAdmissionResponseError(errMsg)
+			return webhookutils.ToAdmissionResponseError(errMsg)
 		}
 	}
 
@@ -91,7 +92,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1b
 		!vmi.Status.MigrationState.Completed &&
 		!vmi.Status.MigrationState.Failed {
 
-		return webhooks.ToAdmissionResponseError(fmt.Errorf("in-flight migration detected. Active migration job (%s) is currently already in progress for VMI %s.", string(vmi.Status.MigrationState.MigrationUID), vmi.Name))
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("in-flight migration detected. Active migration job (%s) is currently already in progress for VMI %s.", string(vmi.Status.MigrationState.MigrationUID), vmi.Name))
 	}
 
 	reviewResponse := v1beta1.AdmissionResponse{}
@@ -101,7 +102,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1b
 
 func getAdmissionReviewMigration(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstanceMigration, old *v1.VirtualMachineInstanceMigration, err error) {
 
-	if !webhooks.ValidateRequestResource(ar.Request.Resource, webhooks.MigrationGroupVersionResource.Group, webhooks.MigrationGroupVersionResource.Resource) {
+	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.MigrationGroupVersionResource.Group, webhooks.MigrationGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.MigrationGroupVersionResource)
 	}
 

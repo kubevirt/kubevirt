@@ -17,7 +17,7 @@
  *
  */
 
-package virt_api
+package webhooks
 
 import (
 	"crypto/x509"

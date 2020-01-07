@@ -1,4 +1,4 @@
-package virt_api
+package webhooks
 
 import (
 	. "github.com/onsi/ginkgo"

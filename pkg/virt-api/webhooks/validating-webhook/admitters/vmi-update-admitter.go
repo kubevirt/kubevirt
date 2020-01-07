@@ -30,7 +30,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 )
 
@@ -39,18 +39,18 @@ type VMIUpdateAdmitter struct {
 
 func (admitter *VMIUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhookutils.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 	// Get new VMI from admission response
 	newVMI, oldVMI, err := getAdmissionReviewVMI(ar)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
 	// Reject VMI update if VMI spec changed
 	if !reflect.DeepEqual(newVMI.Spec, oldVMI.Spec) {
-		return webhooks.ToAdmissionResponse([]metav1.StatusCause{
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: "update of VMI object is restricted",
@@ -82,7 +82,7 @@ func admitVMILabelsUpdate(
 	newLabels := filterKubevirtLabels(newVMI)
 
 	if !reflect.DeepEqual(oldLabels, newLabels) {
-		return webhooks.ToAdmissionResponse([]metav1.StatusCause{
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: "modification of kubevirt.io/ labels on a VMI object is restricted",

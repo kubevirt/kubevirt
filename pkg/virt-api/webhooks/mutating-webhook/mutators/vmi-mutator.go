@@ -32,6 +32,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -41,12 +42,12 @@ type VMIsMutator struct {
 }
 
 func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	if !webhooks.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstanceGroupVersionResource.Group, webhooks.VirtualMachineInstanceGroupVersionResource.Resource) {
+	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstanceGroupVersionResource.Group, webhooks.VirtualMachineInstanceGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhookutils.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
@@ -55,7 +56,7 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 
 	err := json.Unmarshal(raw, &vmi)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
 	informers := webhooks.GetInformers()
@@ -82,7 +83,7 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	mutator.setDefaultPullPoliciesOnContainerDisks(&vmi)
 	err = mutator.setDefaultNetworkInterface(&vmi)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 	v1.SetObjectDefaults_VirtualMachineInstance(&vmi)
 
@@ -120,7 +121,7 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
 	jsonPatchType := v1beta1.PatchTypeJSONPatch

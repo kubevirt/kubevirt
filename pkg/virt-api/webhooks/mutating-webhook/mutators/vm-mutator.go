@@ -25,6 +25,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -42,12 +43,12 @@ func emptyValidResponse() *v1beta1.AdmissionResponse {
 }
 
 func (mutator *VMsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	if !webhooks.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineGroupVersionResource.Group, webhooks.VirtualMachineGroupVersionResource.Resource) {
+	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineGroupVersionResource.Group, webhooks.VirtualMachineGroupVersionResource.Resource) {
 		log.Log.V(1).Warningf("vm-mutator: received invalid request")
 		return emptyValidResponse()
 	}
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhookutils.ValidateSchema(v1.VirtualMachineGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		log.Log.V(1).Warningf("vm-mutator: received invalid object in request")
 		return emptyValidResponse()
 	}
