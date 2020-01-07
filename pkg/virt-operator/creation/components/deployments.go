@@ -500,6 +500,11 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 									Protocol:      corev1.ProtocolTCP,
 									ContainerPort: 8443,
 								},
+								{
+									Name:          "webhooks",
+									Protocol:      corev1.ProtocolTCP,
+									ContainerPort: 8444,
+								},
 							},
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{

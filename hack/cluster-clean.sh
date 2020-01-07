@@ -35,6 +35,7 @@ set +e
         sleep 10
         kill $cmdpid
     ) &
+    _kubectl delete validatingwebhookconfiguration -l ${label}
     _kubectl -n ${namespace} delete kv kubevirt
 )
 _kubectl -n ${namespace} patch kv kubevirt --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'

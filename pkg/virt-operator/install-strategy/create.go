@@ -1275,6 +1275,69 @@ func generateServicePatch(kv *v1.KubeVirt,
 	return patchOps, deleteAndReplace, nil
 }
 
+func createOrUpdateValidatingWebhookConfigurations(kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	version := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	for _, webhook := range targetStrategy.validatingWebhookConfigurations {
+		var cachedWebhook *admissionregistrationv1beta1.ValidatingWebhookConfiguration
+		webhook = webhook.DeepCopy()
+
+		obj, exists, _ := stores.ValidationWebhookCache.Get(webhook)
+		if exists {
+			cachedWebhook = obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration)
+		}
+
+		injectOperatorMetadata(kv, &webhook.ObjectMeta, version, imageRegistry, id)
+		if !exists {
+			expectations.ValidationWebhook.RaiseExpectations(kvkey, 1, 0)
+			_, err := clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(webhook)
+			if err != nil {
+				expectations.ValidationWebhook.LowerExpectations(kvkey, 1, 0)
+				return fmt.Errorf("unable to create validatingwebhook %+v: %v", webhook, err)
+			}
+		} else if !objectMatchesVersion(&cachedWebhook.ObjectMeta, version, imageRegistry, id) {
+			// Patch if old version
+			var ops []string
+
+			// Add Labels and Annotations Patches
+			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, labelAnnotationPatch...)
+
+			// Add Spec Patch
+			webhooks, err := json.Marshal(webhook.Webhooks)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
+
+			_, err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(webhook.Name, types.JSONPatchType, generatePatchBytes(ops))
+			if err != nil {
+				return fmt.Errorf("unable to patch validatingwebhookconfiguration %+v: %v", webhook, err)
+			}
+			log.Log.V(2).Infof("validatingwebhoookconfiguration %v updated", webhook.GetName())
+
+		} else {
+			log.Log.V(4).Infof("validatingwebhookconfiguration %v is up-to-date", webhook.GetName())
+		}
+	}
+	return nil
+}
+
 func createOrUpdateService(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
@@ -1770,6 +1833,12 @@ func SyncAll(kv *v1.KubeVirt,
 
 	// create/update SCCs
 	err = createOrUpdateSCC(kv, targetStrategy, stores, clientset, expectations)
+	if err != nil {
+		return false, err
+	}
+
+	// create/update ValidatingWebhookConfiguration
+	err = createOrUpdateValidatingWebhookConfigurations(kv, targetStrategy, stores, clientset, expectations)
 	if err != nil {
 		return false, err
 	}

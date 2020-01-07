@@ -29,6 +29,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	secv1 "github.com/openshift/api/security/v1"
+	"k8s.io/api/admissionregistration/v1beta1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -73,9 +74,10 @@ type InstallStrategy struct {
 
 	crds []*extv1beta1.CustomResourceDefinition
 
-	services    []*corev1.Service
-	deployments []*appsv1.Deployment
-	daemonSets  []*appsv1.DaemonSet
+	services                        []*corev1.Service
+	deployments                     []*appsv1.Deployment
+	daemonSets                      []*appsv1.DaemonSet
+	validatingWebhookConfigurations []*v1beta1.ValidatingWebhookConfiguration
 
 	// deprecated, keep it for backwards compatibility
 	customSCCPrivileges []*customSCCPrivilegedAccounts
@@ -172,6 +174,9 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	for _, entry := range strategy.services {
 		marshalutil.MarshallObject(entry, writer)
 	}
+	for _, entry := range strategy.validatingWebhookConfigurations {
+		marshalutil.MarshallObject(entry, writer)
+	}
 	for _, entry := range strategy.deployments {
 		marshalutil.MarshallObject(entry, writer)
 	}
@@ -244,8 +249,11 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		}
 	}
 
+	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewValidatingWebhookConfiguration(config.GetNamespace()))
+
 	strategy.services = append(strategy.services, components.NewPrometheusService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
+	strategy.services = append(strategy.services, components.NewWebhookService(config.GetNamespace()))
 	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
@@ -363,6 +371,12 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 		}
 
 		switch obj.Kind {
+		case "ValidatingWebhookConfiguration":
+			webhook := &v1beta1.ValidatingWebhookConfiguration{}
+			if err := yaml.Unmarshal([]byte(entry), &webhook); err != nil {
+				return nil, err
+			}
+			strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, webhook)
 		case "ServiceAccount":
 			sa := &corev1.ServiceAccount{}
 			if err := yaml.Unmarshal([]byte(entry), &sa); err != nil {

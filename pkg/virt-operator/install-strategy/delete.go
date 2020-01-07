@@ -22,6 +22,7 @@ package installstrategy
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -59,7 +60,9 @@ func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 	objects := stores.ValidationWebhookCache.List()
 	for _, obj := range objects {
 		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok {
-
+			if !strings.HasSuffix(webhook.Name, "-tmp-validator") {
+				continue
+			}
 			if webhook.DeletionTimestamp != nil {
 				continue
 			}
@@ -168,6 +171,25 @@ func DeleteAll(kv *v1.KubeVirt,
 				if err != nil {
 					expectations.Deployment.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete %s: %v", depl.Name, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	// delete validatingwebhooks
+	objects = stores.ValidationWebhookCache.List()
+	for _, obj := range objects {
+		if webhookConfiguration, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok && webhookConfiguration.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(webhookConfiguration); err == nil {
+				expectations.ValidationWebhook.AddExpectedDeletion(kvkey, key)
+				err := clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(webhookConfiguration.Name, deleteOptions)
+				if err != nil {
+					expectations.ValidationWebhook.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete validatingwebhook %+v: %v", webhookConfiguration, err)
 					return err
 				}
 			}
