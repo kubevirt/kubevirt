@@ -148,6 +148,9 @@ Typical cases where code regeneration should be triggered are:
 
  We have a check in our CI system, so that you don't miss when `make generate` needs to be called.
 
+ * Another case is when kubevirtci is updated, in order to vendor cluster-up run `hack/bump-kubevirtci.sh` and then
+   `make generate`
+
 ### Testing
 
 After a successful build you can run the *unit tests*:
