@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/cert"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+	"kubevirt.io/kubevirt/pkg/util/webhooks"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -224,7 +225,7 @@ var _ = Describe("Virt-api", func() {
 			}
 			store := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 			Expect(store.Add(configMap)).To(Succeed())
-			manager := NewClientCAManager(store)
+			manager := webhooks.NewClientCAManager(store)
 			Expect(app.setupTLS(manager)).To(Succeed())
 
 			By("checking if the initial certificate is used in the tlsConfig")

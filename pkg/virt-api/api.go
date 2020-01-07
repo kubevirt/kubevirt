@@ -43,6 +43,8 @@ import (
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
+	webhooksutils "kubevirt.io/kubevirt/pkg/util/webhooks"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -932,48 +934,28 @@ func (app *virtAPIApp) createSubresourceApiservice(version schema.GroupVersion) 
 	return nil
 }
 
-func (app *virtAPIApp) setupTLS(caManager ClientCAManager) error {
+func (app *virtAPIApp) setupTLS(caManager webhooksutils.ClientCAManager) error {
 
 	certPair, err := tls.X509KeyPair(app.certBytes, app.keyBytes)
 	if err != nil {
 		return fmt.Errorf("some special error: %b", err)
 	}
-
-	app.tlsConfig = &tls.Config{
-		Certificates: []tls.Certificate{certPair},
-		GetConfigForClient: func(hi *tls.ClientHelloInfo) (*tls.Config, error) {
-
-			pool, err := caManager.GetCurrent()
-			if err != nil {
-				log.Log.Reason(err).Error("Failed to get requestheader client CA")
-				return nil, err
-			}
-			config := &tls.Config{
-				Certificates: []tls.Certificate{certPair},
-				ClientCAs:    pool,
-				// A VerifyClientCertIfGiven request means we're not guaranteed
-				// a client has been authenticated unless they provide a peer
-				// cert.
-				//
-				// Make sure to verify in subresource endpoint that peer cert
-				// was provided before processing request. If the peer cert is
-				// given on the connection, then we can be guaranteed that it
-				// was signed by the client CA in our pool.
-				//
-				// There is another ClientAuth type called 'RequireAndVerifyClientCert'
-				// We can't use this type here because during the aggregated api status
-				// check it attempts to hit '/' on our api endpoint to verify an http
-				// response is given. That status request won't send a peer cert regardless
-				// if the TLS handshake requests it. As a result, the TLS handshake fails
-				// and our aggregated endpoint never becomes available.
-				ClientAuth: tls.VerifyClientCertIfGiven,
-			}
-
-			config.BuildNameToCertificate()
-			return config, nil
-		},
-	}
-	app.tlsConfig.BuildNameToCertificate()
+	// A VerifyClientCertIfGiven request means we're not guaranteed
+	// a client has been authenticated unless they provide a peer
+	// cert.
+	//
+	// Make sure to verify in subresource endpoint that peer cert
+	// was provided before processing request. If the peer cert is
+	// given on the connection, then we can be guaranteed that it
+	// was signed by the client CA in our pool.
+	//
+	// There is another ClientAuth type called 'RequireAndVerifyClientCert'
+	// We can't use this type here because during the aggregated api status
+	// check it attempts to hit '/' on our api endpoint to verify an http
+	// response is given. That status request won't send a peer cert regardless
+	// if the TLS handshake requests it. As a result, the TLS handshake fails
+	// and our aggregated endpoint never becomes available.
+	app.tlsConfig = webhooksutils.SetupTLS(caManager, certPair, tls.VerifyClientCertIfGiven)
 	return nil
 }
 
@@ -988,7 +970,7 @@ func (app *virtAPIApp) startTLS(stopCh <-chan struct{}) error {
 
 	cache.WaitForCacheSync(stopCh, authConfigMapInformer.HasSynced)
 
-	caManager := NewClientCAManager(authConfigMapInformer.GetStore())
+	caManager := webhooksutils.NewClientCAManager(authConfigMapInformer.GetStore())
 
 	err := app.setupTLS(caManager)
 	if err != nil {
