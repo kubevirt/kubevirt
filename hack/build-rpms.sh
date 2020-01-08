@@ -22,8 +22,7 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-if [ X"$1" == "XDOCKERIZED" ]
-then
+if [ X"$1" == "XDOCKERIZED" ]; then
     echo ${csv_version}
     rm -rf ${RPMS_OUT_DIR}
 
