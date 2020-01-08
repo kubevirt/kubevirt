@@ -3,15 +3,16 @@ load(
     "http_archive",
     "http_file",
 )
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 # Additional bazel rules
+
+# fix for https://github.com/bazelbuild/rules_go/issues/1999 will be included in > v0.20.3
 http_archive(
     name = "io_bazel_rules_go",
-    sha256 = "078f2a9569fa9ed846e60805fb5fb167d6f6c4ece48e6d409bf5fb2154eaf0d8",
-    urls = [
-        "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/rules_go/releases/download/v0.20.0/rules_go-v0.20.0.tar.gz",
-        "https://github.com/bazelbuild/rules_go/releases/download/v0.20.0/rules_go-v0.20.0.tar.gz",
-    ],
+    sha256 = "aca4d0081b8bf96dce8f1395904ab1f21f5fea9c08afb9a9c67358982d4491eb",
+    strip_prefix = "rules_go-b2c7df325cf96bf8daa9c5d329baf85df4b405eb",
+    urls = ["https://github.com/bazelbuild/rules_go/archive/b2c7df325cf96bf8daa9c5d329baf85df4b405eb.tar.gz"],
 )
 
 http_archive(
