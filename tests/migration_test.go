@@ -760,7 +760,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// create a new PV and PVC (PVs can't be reused)
 				tests.DeletePvAndPvc(pvName)
 			})
-			It("[test_id:1785]  should be migrated successfully", func() {
+			It("[test_id:2653]  should be migrated successfully, using guest agent on VM", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				By("Creating the  VMI")
 				vmi = tests.NewRandomVMIWithPVC(pvName)
