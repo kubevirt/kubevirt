@@ -33,3 +33,5 @@ aliases:
       - jerry7z
       - ILpinto
       - dshchedr
+  ci-approvers:
+      - dhiller
