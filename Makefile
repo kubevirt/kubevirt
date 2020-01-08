@@ -22,11 +22,8 @@ bazel-push-images:
 
 push: bazel-push-images
 
-bazel-tests:
-	hack/dockerized "hack/bazel-fmt.sh && bazel test \
-		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo \
-		--workspace_status_command=./hack/print-workspace-status.sh \
-        --test_output=errors -- //pkg/..."
+bazel-test:
+	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-test.sh"
 
 generate:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
@@ -50,7 +47,7 @@ goveralls: go-build
 go-test: go-build
 	SYNC_OUT=false hack/dockerized "./hack/build-go.sh test ${WHAT}"
 
-test: go-test
+test: bazel-test
 
 functest:
 	hack/dockerized "hack/build-func-tests.sh"
