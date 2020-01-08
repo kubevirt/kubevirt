@@ -8,9 +8,13 @@ import (
 	"reflect"
 	"strings"
 
+	"encoding/json"
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -41,9 +45,7 @@ const (
 	// use finalizers to manage the cleanup.
 	FinalizerName = "hyperconvergeds.hco.kubevirt.io"
 
-	// Foreground deletion finalizer is blocking removal of HyperConverged until explicitly dropped.
-	// TODO: Research whether there is a better way.
-	foregroundDeletionFinalizer = "foregroundDeletion"
+	HyperConvergedName = "hyperconverged-cluster"
 
 	// UndefinedNamespace is for cluster scoped resources
 	UndefinedNamespace string = ""
@@ -83,6 +85,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	hco, err := getHyperconverged()
+	if err != nil {
+		return err
+	}
+
 	// Watch secondary resources
 	for _, resource := range []runtime.Object{
 		&kubevirtv1.KubeVirt{},
@@ -93,9 +100,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&sspv1.KubevirtTemplateValidator{},
 		&sspv1.KubevirtMetricsAggregation{},
 	} {
-		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &hcov1alpha1.HyperConverged{},
+		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestsFromMapFunc{
+			ToRequests: handler.ToRequestsFunc(
+				// always enqueue the same HyperConverged object, since there should be only one
+				func(a handler.MapObject) []reconcile.Request{
+					return []reconcile.Request{
+						{NamespacedName: hco},
+					}
+				}),
 		})
 		if err != nil {
 			return err
@@ -186,6 +198,36 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	// in-memory conditions should start off empty. It will only ever hold
 	// negative conditions (!Available, Degraded, Progressing)
 	r.conditions = nil
+
+	// Handle finalizers
+	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
+		// Add the finalizer if it's not there
+		if !contains(instance.ObjectMeta.Finalizers, FinalizerName) {
+			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, FinalizerName)
+			err = r.client.Update(context.TODO(), instance)
+		}
+	} else {
+		if contains(instance.ObjectMeta.Finalizers, FinalizerName) {
+			for _, f := range []func(c client.Client, cr *hcov1alpha1.HyperConverged) error{
+				ensureCDIDeleted,
+				ensureNetworkAddonsDeleted,
+				ensureKubeVirtCommonTemplateBundleDeleted,
+			} {
+				err = f(r.client, instance)
+				if err != nil {
+					reqLogger.Error(err, "Failed to manually delete objects")
+					return reconcile.Result{}, err
+				}
+			}
+
+			// Remove the finalizer
+			instance.ObjectMeta.Finalizers = drop(instance.ObjectMeta.Finalizers, FinalizerName)
+			err = r.client.Update(context.TODO(), instance)
+
+			// Need to requeue because finalizer update does not change metadata.generation
+			return reconcile.Result{Requeue: true}, err
+		}
+	}
 
 	for _, f := range []func(*hcov1alpha1.HyperConverged, logr.Logger, reconcile.Request) error{
 		r.ensureKubeVirtConfig,
@@ -470,9 +512,6 @@ func newCDIForCR(cr *hcov1alpha1.HyperConverged, namespace string) *cdiv1alpha1.
 
 func (r *ReconcileHyperConverged) ensureCDI(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
 	cdi := newCDIForCR(instance, UndefinedNamespace)
-	if err := controllerutil.SetControllerReference(instance, cdi, r.scheme); err != nil {
-		return err
-	}
 
 	key, err := client.ObjectKeyFromObject(cdi)
 	if err != nil {
@@ -481,6 +520,7 @@ func (r *ReconcileHyperConverged) ensureCDI(instance *hcov1alpha1.HyperConverged
 
 	found := &cdiv1alpha1.CDI{}
 	err = r.client.Get(context.TODO(), key, found)
+
 	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("Creating CDI")
 		return r.client.Create(context.TODO(), cdi)
@@ -491,6 +531,20 @@ func (r *ReconcileHyperConverged) ensureCDI(instance *hcov1alpha1.HyperConverged
 	}
 
 	logger.Info("CDI already exists", "CDI.Namespace", found.Namespace, "CDI.Name", found.Name)
+
+	existingOwners := found.GetOwnerReferences()
+
+	// Previous versions used to have HCO-operator (scope namespace)
+	// as the owner of CDI (scope cluster).
+	// It's not legal, so remove that.
+	if (len(existingOwners) > 0) {
+		logger.Info("CDI has owners, removing...")
+		found.SetOwnerReferences([]metav1.OwnerReference{})
+		err = r.client.Update(context.TODO(), found)
+		if err != nil {
+			logger.Error(err, "Failed to remove CDI's previous owners")
+		}
+	}
 
 	// Add it to the list of RelatedObjects if found
 	objectRef, err := reference.GetReference(r.scheme, found)
@@ -590,9 +644,6 @@ func newNetworkAddonsForCR(cr *hcov1alpha1.HyperConverged, namespace string) *ne
 
 func (r *ReconcileHyperConverged) ensureNetworkAddons(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
 	networkAddons := newNetworkAddonsForCR(instance, UndefinedNamespace)
-	if err := controllerutil.SetControllerReference(instance, networkAddons, r.scheme); err != nil {
-		return err
-	}
 
 	key, err := client.ObjectKeyFromObject(networkAddons)
 	if err != nil {
@@ -601,11 +652,26 @@ func (r *ReconcileHyperConverged) ensureNetworkAddons(instance *hcov1alpha1.Hype
 
 	found := &networkaddonsv1alpha1.NetworkAddonsConfig{}
 	err = r.client.Get(context.TODO(), key, found)
+
 	if err != nil && apierrors.IsNotFound(err) {
 		logger.Info("Creating Network Addons")
 		return r.client.Create(context.TODO(), networkAddons)
 	} else if err != nil {
 		return err
+	}
+
+	existingOwners := found.GetOwnerReferences()
+
+	// Previous versions used to have HCO-operator (scope namespace)
+	// as the owner of NetworkAddons (scope cluster).
+	// It's not legal, so remove that.
+	if (len(existingOwners) > 0) {
+		logger.Info("NetworkAddons has owners, removing...")
+		found.SetOwnerReferences([]metav1.OwnerReference{})
+		err = r.client.Update(context.TODO(), found)
+		if err != nil {
+			logger.Error(err, "Failed to remove NetworkAddons' previous owners")
+		}
 	}
 
 	if !reflect.DeepEqual(found.Spec, networkAddons.Spec) {
@@ -772,9 +838,6 @@ func newKubeVirtCommonTemplateBundleForCR(cr *hcov1alpha1.HyperConverged, namesp
 
 func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
 	kvCTB := newKubeVirtCommonTemplateBundleForCR(instance, OpenshiftNamespace)
-	if err := controllerutil.SetControllerReference(instance, kvCTB, r.scheme); err != nil {
-		return err
-	}
 
 	key, err := client.ObjectKeyFromObject(kvCTB)
 	if err != nil {
@@ -790,6 +853,20 @@ func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(instance *h
 
 	if err != nil {
 		return err
+	}
+
+	existingOwners := found.GetOwnerReferences()
+
+	// Previous versions used to have HCO-operator (namespace: kubevirt-hyperconverged)
+	// as the owner of kvCTB (namespace: OpenshiftNamespace).
+	// It's not legal, so remove that.
+	if (len(existingOwners) > 0) {
+		logger.Info("kvCTB has owners, removing...")
+		found.SetOwnerReferences([]metav1.OwnerReference{})
+		err = r.client.Update(context.TODO(), found)
+		if err != nil {
+			logger.Error(err, "Failed to remove kvCTB's previous owners")
+		}
 	}
 
 	logger.Info("KubeVirt Common Templates Bundle already exists", "bundle.Namespace", found.Namespace, "bundle.Name", found.Name)
@@ -1084,4 +1161,132 @@ func isKVMAvailable() bool {
 	}
 	log.Info("Running with KVM available")
 	return true
+}
+
+// getHyperconverged returns the name/namespace of the HyperConverged resource
+func getHyperconverged() (types.NamespacedName, error) {
+	hco := types.NamespacedName{
+		Name: HyperConvergedName,
+	}
+
+	namespace, err := k8sutil.GetOperatorNamespace()
+	if err != nil {
+		return hco, err
+	}
+	hco.Namespace = namespace
+	return hco, nil
+}
+
+func contains(slice []string, s string) bool {
+	for _, element := range slice {
+		if element == s {
+			return true
+		}
+	}
+	return false
+}
+
+func drop(slice []string, s string) []string {
+	newSlice := []string{}
+	for _, element := range slice {
+		if element != s {
+			newSlice = append(newSlice, element)
+		}
+	}
+	return newSlice
+}
+
+// toUnstructured convers an arbitrary object (which MUST obey the
+// k8s object conventions) to an Unstructured
+func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
+	b, err := json.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	u := &unstructured.Unstructured{}
+	if err := json.Unmarshal(b, u); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+func componentResourceRemoval(o interface{}, c client.Client, cr *hcov1alpha1.HyperConverged) (error) {
+	resource, err := toUnstructured(o)
+	if err != nil {
+		log.Error(err, "Failed to convert object to Unstructured")
+		return err
+	}
+
+	err = c.Get(context.TODO(), types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, resource)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Info("Resource doesn't exist, there is nothing to remove", "Kind", resource.GetObjectKind())
+			return nil
+		}
+		return err
+	}
+
+	labels := resource.GetLabels()
+	if app, labelExists := labels["app"]; !labelExists || app != cr.Name {
+		log.Info("Existing resource wasn't deployed by HCO, ignoring", "Kind", resource.GetObjectKind())
+		return nil
+	}
+
+	err = c.Delete(context.TODO(), resource)
+	return err
+}
+
+func ensureCDIDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) (error) {
+	cdi := newCDIForCR(instance, UndefinedNamespace)
+	key, err := client.ObjectKeyFromObject(cdi)
+	if err != nil {
+		log.Error(err, "Failed to get object key for CDI")
+	}
+
+	found := &cdiv1alpha1.CDI{}
+	err = c.Get(context.TODO(), key, found)
+
+	if err != nil {
+		log.Error(err, "Failed to get CDI from kubernetes")
+		return err
+	}
+
+	return componentResourceRemoval(found, c, instance)
+}
+
+func ensureNetworkAddonsDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) (error) {
+	networkAddons := newNetworkAddonsForCR(instance, UndefinedNamespace)
+	key, err := client.ObjectKeyFromObject(networkAddons)
+	if err != nil {
+		log.Error(err, "Failed to get object key for Network Addons")
+	}
+
+	found := &networkaddonsv1alpha1.NetworkAddonsConfig{}
+	err = c.Get(context.TODO(), key, found)
+
+	if err != nil {
+		log.Error(err, "Failed to get NetworkAddonsConfig from kubernetes")
+		return err
+	}
+
+	return componentResourceRemoval(found, c, instance)
+}
+
+func ensureKubeVirtCommonTemplateBundleDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) (error) {
+	kvCTB := newKubeVirtCommonTemplateBundleForCR(instance, OpenshiftNamespace)
+
+	key, err := client.ObjectKeyFromObject(kvCTB)
+	if err != nil {
+		log.Error(err, "Failed to get object key for KubeVirt Common Templates Bundle")
+	}
+
+	found := &sspv1.KubevirtCommonTemplatesBundle{}
+	err = c.Get(context.TODO(), key, found)
+
+	if err != nil {
+		log.Error(err, "Failed to get KubeVirt Common Templates Bundle from kubernetes")
+		return err
+	}
+
+	return componentResourceRemoval(found, c, instance)
 }
