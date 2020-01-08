@@ -398,15 +398,22 @@ func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {
 	// and configmap
 	// Calculate a sha over all those properties
 	hasher := sha1.New()
-	values := c.getStringFromFields()
+	values := getStringFromFields(*c)
 	hasher.Write([]byte(values))
 
 	c.ID = hex.EncodeToString(hasher.Sum(nil))
 }
 
-func (c *KubeVirtDeploymentConfig) getStringFromFields() string {
+// use KubeVirtDeploymentConfig by value because we modify sth just for the ID
+func getStringFromFields(c KubeVirtDeploymentConfig) string {
 	result := ""
-	v := reflect.ValueOf(*c)
+
+	// image prefix might be empty. In order to get the same ID for missing and empty, remove an empty one
+	if prefix, ok := c.AdditionalProperties[ImagePrefixKey]; ok && prefix == "" {
+		delete(c.AdditionalProperties, ImagePrefixKey)
+	}
+
+	v := reflect.ValueOf(c)
 	for i := 0; i < v.NumField(); i++ {
 		fieldName := v.Type().Field(i).Name
 		result += fieldName
