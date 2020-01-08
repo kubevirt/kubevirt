@@ -175,4 +175,39 @@ var _ = Describe("Operator Config", func() {
 		})
 	})
 
+	Describe("creating config ID", func() {
+
+		var idMissing, idEmpty, idFilled string
+
+		BeforeEach(func() {
+			cfgMissing := &KubeVirtDeploymentConfig{}
+			cfgMissing.AdditionalProperties = make(map[string]string)
+			cfgMissing.generateInstallStrategyID()
+			idMissing = cfgMissing.ID
+
+			cfgEmpty := &KubeVirtDeploymentConfig{}
+			cfgEmpty.AdditionalProperties = make(map[string]string)
+			cfgEmpty.AdditionalProperties[ImagePrefixKey] = ""
+			cfgEmpty.generateInstallStrategyID()
+			idEmpty = cfgEmpty.ID
+
+			cfgFilled := &KubeVirtDeploymentConfig{}
+			cfgFilled.AdditionalProperties = make(map[string]string)
+			cfgFilled.AdditionalProperties[ImagePrefixKey] = "something"
+			cfgFilled.generateInstallStrategyID()
+			idFilled = cfgFilled.ID
+		})
+
+		It("should result in same ID with missing or empty image prefix", func() {
+			Expect(idMissing).ToNot(BeEmpty())
+			Expect(idMissing).To(Equal(idEmpty))
+		})
+
+		It("should result in different ID with filled image prefix", func() {
+			Expect(idFilled).ToNot(BeEmpty())
+			Expect(idFilled).ToNot(Equal(idEmpty))
+		})
+
+	})
+
 })
