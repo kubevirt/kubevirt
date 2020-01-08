@@ -16,6 +16,15 @@ type Admitter interface {
 	Admit(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
 }
 
+type AlwaysPassAdmitter struct {
+}
+
+func (*AlwaysPassAdmitter) Admit(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	return &reviewResponse
+}
+
 func Serve(resp http.ResponseWriter, req *http.Request, admitter Admitter) {
 	response := v1beta1.AdmissionReview{}
 	review, err := webhooks.GetAdmissionReview(req)
