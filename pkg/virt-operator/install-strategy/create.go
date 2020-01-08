@@ -1279,7 +1279,9 @@ func createOrUpdateValidatingWebhookConfigurations(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
-	expectations *util.Expectations) error {
+	expectations *util.Expectations,
+	caBundle []byte,
+) error {
 
 	version := kv.Status.TargetKubeVirtVersion
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
@@ -1294,9 +1296,20 @@ func createOrUpdateValidatingWebhookConfigurations(kv *v1.KubeVirt,
 		var cachedWebhook *admissionregistrationv1beta1.ValidatingWebhookConfiguration
 		webhook = webhook.DeepCopy()
 
+		for i, _ := range webhook.Webhooks {
+			webhook.Webhooks[i].ClientConfig.CABundle = caBundle
+		}
+
 		obj, exists, _ := stores.ValidationWebhookCache.Get(webhook)
+		certsMatch := true
 		if exists {
 			cachedWebhook = obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration)
+			for _, wh := range cachedWebhook.Webhooks {
+				if !reflect.DeepEqual(wh.ClientConfig.CABundle, caBundle) {
+					certsMatch = false
+					break
+				}
+			}
 		}
 
 		injectOperatorMetadata(kv, &webhook.ObjectMeta, version, imageRegistry, id)
@@ -1307,32 +1320,34 @@ func createOrUpdateValidatingWebhookConfigurations(kv *v1.KubeVirt,
 				expectations.ValidationWebhook.LowerExpectations(kvkey, 1, 0)
 				return fmt.Errorf("unable to create validatingwebhook %+v: %v", webhook, err)
 			}
-		} else if !objectMatchesVersion(&cachedWebhook.ObjectMeta, version, imageRegistry, id) {
-			// Patch if old version
-			var ops []string
-
-			// Add Labels and Annotations Patches
-			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, labelAnnotationPatch...)
-
-			// Add Spec Patch
-			webhooks, err := json.Marshal(webhook.Webhooks)
-			if err != nil {
-				return err
-			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
-
-			_, err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(webhook.Name, types.JSONPatchType, generatePatchBytes(ops))
-			if err != nil {
-				return fmt.Errorf("unable to patch validatingwebhookconfiguration %+v: %v", webhook, err)
-			}
-			log.Log.V(2).Infof("validatingwebhoookconfiguration %v updated", webhook.GetName())
-
 		} else {
-			log.Log.V(4).Infof("validatingwebhookconfiguration %v is up-to-date", webhook.GetName())
+			if !objectMatchesVersion(&cachedWebhook.ObjectMeta, version, imageRegistry, id) || !certsMatch {
+				// Patch if old version
+				var ops []string
+
+				// Add Labels and Annotations Patches
+				labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
+				if err != nil {
+					return err
+				}
+				ops = append(ops, labelAnnotationPatch...)
+
+				// Add Spec Patch
+				webhooks, err := json.Marshal(webhook.Webhooks)
+				if err != nil {
+					return err
+				}
+				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
+
+				_, err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(webhook.Name, types.JSONPatchType, generatePatchBytes(ops))
+				if err != nil {
+					return fmt.Errorf("unable to patch validatingwebhookconfiguration %+v: %v", webhook, err)
+				}
+				log.Log.V(2).Infof("validatingwebhoookconfiguration %v updated", webhook.GetName())
+
+			} else {
+				log.Log.V(4).Infof("validatingwebhookconfiguration %v is up-to-date", webhook.GetName())
+			}
 		}
 	}
 	return nil
@@ -1745,7 +1760,9 @@ func SyncAll(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
-	expectations *util.Expectations) (bool, error) {
+	expectations *util.Expectations,
+	caBundle []byte,
+) (bool, error) {
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -1838,7 +1855,7 @@ func SyncAll(kv *v1.KubeVirt,
 	}
 
 	// create/update ValidatingWebhookConfiguration
-	err = createOrUpdateValidatingWebhookConfigurations(kv, targetStrategy, stores, clientset, expectations)
+	err = createOrUpdateValidatingWebhookConfigurations(kv, targetStrategy, stores, clientset, expectations, caBundle)
 	if err != nil {
 		return false, err
 	}

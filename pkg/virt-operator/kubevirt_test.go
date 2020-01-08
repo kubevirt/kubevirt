@@ -274,7 +274,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		stores.ServiceMonitorCache = informers.ServiceMonitor.GetStore()
 		stores.ServiceMonitorEnabled = true
 
-		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers, NAMESPACE)
+		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers, NAMESPACE, nil)
 
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
