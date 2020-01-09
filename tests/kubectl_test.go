@@ -7,14 +7,16 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kubectl get vm/vmi tests", func() {
+var _ = FDescribe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kubectl get vm/vmi tests", func() {
 	tests.FlagParse()
 
 	var k8sClient string
+	var vm *v1.VirtualMachine
 
 	virtCli, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
@@ -23,14 +25,14 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 		k8sClient = tests.GetK8sCmdClient()
 		tests.SkipIfNoCmd(k8sClient)
 		tests.BeforeTestCleanup()
+
+		vm = tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+		vm, err = virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+		Expect(err).NotTo(HaveOccurred())
+		tests.StartVirtualMachine(vm)
 	})
 
 	table.DescribeTable("should verify set of columns for", func(verb, resource string, expectedHeader []string) {
-		vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
-		vm, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
-		Expect(err).NotTo(HaveOccurred())
-
-		tests.StartVirtualMachine(vm)
 
 		result, _, _ := tests.RunCommand(k8sClient, verb, resource)
 		Expect(result).ToNot(BeNil())
@@ -46,11 +48,6 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 	)
 
 	table.DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
-		vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
-		vm, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
-		Expect(err).NotTo(HaveOccurred())
-
-		tests.StartVirtualMachine(vm)
 
 		result, _, _ := tests.RunCommand(k8sClient, verb, resource, "-o", option)
 
