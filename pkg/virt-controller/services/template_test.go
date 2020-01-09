@@ -1589,7 +1589,26 @@ var _ = Describe("Template", func() {
 			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--less-pvc-space-toleration"), "command arg key should be correct")
 			Expect(pod.Spec.Containers[0].Command).To(ContainElement("42"), "command arg value should be correct")
 		})
+		Context("App armor annotation", func() {
+			It("should pass the app armor annotation to pod spec", func() {
+				annotations := map[string]string{
+					"container.apparmor.security.beta.kubernetes.io": "localhost/test-profile",
+				}
+				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvmi",
+						Namespace:   "testns",
+						UID:         "1234",
+						Annotations: annotations},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}})
 
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
+				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
+					"kubevirt.io/domain":                             "testvmi",
+					"container.apparmor.security.beta.kubernetes.io": "localhost/test-profile",
+				}))
+			})
+		})
 	})
 
 	Describe("ServiceAccountName", func() {

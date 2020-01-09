@@ -888,6 +888,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	for k, v := range vmi.Annotations {
+		if strings.Contains(k, "container.apparmor.security.beta.kubernetes.io") {
+			annotationsList[k] = v
+			continue
+		}
+
 		if strings.Contains(k, "kubernetes.io") || strings.Contains(k, "kubevirt.io") {
 			// skip kubernetes and kubevirt internal annotations
 			continue
