@@ -104,9 +104,6 @@ func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, vers
 	objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = version
 	objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = imageRegistry
 	objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation] = id
-
-	objectMeta.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(kv, v1.KubeVirtGroupVersionKind)}
-
 }
 
 func generatePatchBytes(ops []string) []byte {
@@ -131,8 +128,13 @@ func createLabelsAndAnnotationsPatch(objectMeta *metav1.ObjectMeta) ([]string, e
 	if err != nil {
 		return ops, err
 	}
+	ownerRefBytes, err := json.Marshal(objectMeta.OwnerReferences)
+	if err != nil {
+		return ops, err
+	}
 	ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/metadata/labels", "value": %s }`, string(labelBytes)))
 	ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/metadata/annotations", "value": %s }`, string(annotationBytes)))
+	ops = append(ops, fmt.Sprintf(`{ "op": "add", "path": "/metadata/ownerReferences", "value": %s }`, ownerRefBytes))
 
 	return ops, nil
 }
