@@ -66,6 +66,9 @@ const (
 	// account to use if one is not explicitly named
 	DefaultMonitorAccount = "prometheus-k8s"
 
+	// lookup key in AdditionalProperties
+	ImagePrefixKey = "imagePrefix"
+
 	// the regex used to parse the operator image
 	operatorImageRegex = "^(.*)/(.*)virt-operator([@:].*)?$"
 )
@@ -127,8 +130,31 @@ func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
 	return getConfig(kv.Spec.ImageRegistry, kv.Spec.ImageTag, kv.Namespace, getKVMapFromSpec(kv.Spec))
 }
 
-func GetObservedConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
-	return getConfig(kv.Status.ObservedKubeVirtRegistry, kv.Status.ObservedKubeVirtVersion, kv.Namespace, getKVMapFromSpec(kv.Spec))
+func GetObservedConfigFromKV(kv *v1.KubeVirt) (*KubeVirtDeploymentConfig, error) {
+	additionalProperties := getKVMapFromSpec(kv.Spec)
+
+	imagePrefix, _, err := getImagePrefixFromDeploymentConfig(kv.Status.ObservedDeploymentConfig)
+
+	if err != nil {
+		return nil, fmt.Errorf("unable to load observed config from kubevirt custom resource: %v", err)
+	}
+	additionalProperties[ImagePrefixKey] = imagePrefix
+	return getConfig(kv.Status.ObservedKubeVirtRegistry, kv.Status.ObservedKubeVirtVersion, kv.Namespace, additionalProperties), nil
+}
+
+// retrieve imagePrefix from an existing deployment config (which is stored as JSON)
+func getImagePrefixFromDeploymentConfig(deploymentConfig string) (string, bool, error) {
+	var obj interface{}
+	err := json.Unmarshal([]byte(deploymentConfig), &obj)
+	if err != nil {
+		return "", false, fmt.Errorf("unable to parse deployment config: %v", err)
+	}
+	for k, v := range obj.(map[string]interface{}) {
+		if k == ImagePrefixKey {
+			return v.(string), true, nil
+		}
+	}
+	return "", false, nil
 }
 
 func getKVMapFromSpec(spec v1.KubeVirtSpec) map[string]string {
@@ -156,14 +182,16 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	tagFromOperator := ""
 	operatorSha := ""
 	skipShasums := false
-	imagePrefix := ""
+	imagePrefix, useStoredImagePrefix := additionalProperties[ImagePrefixKey]
 
 	if len(matches) == 1 {
 		// only use registry from operator image if it was not given yet
 		if registry == "" {
 			registry = matches[0][1]
 		}
-		imagePrefix = matches[0][2]
+		if !useStoredImagePrefix {
+			imagePrefix = matches[0][2]
+		}
 
 		version := matches[0][3]
 		if version == "" {
@@ -370,15 +398,22 @@ func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {
 	// and configmap
 	// Calculate a sha over all those properties
 	hasher := sha1.New()
-	values := c.getStringFromFields()
+	values := getStringFromFields(*c)
 	hasher.Write([]byte(values))
 
 	c.ID = hex.EncodeToString(hasher.Sum(nil))
 }
 
-func (c *KubeVirtDeploymentConfig) getStringFromFields() string {
+// use KubeVirtDeploymentConfig by value because we modify sth just for the ID
+func getStringFromFields(c KubeVirtDeploymentConfig) string {
 	result := ""
-	v := reflect.ValueOf(*c)
+
+	// image prefix might be empty. In order to get the same ID for missing and empty, remove an empty one
+	if prefix, ok := c.AdditionalProperties[ImagePrefixKey]; ok && prefix == "" {
+		delete(c.AdditionalProperties, ImagePrefixKey)
+	}
+
+	v := reflect.ValueOf(c)
 	for i := 0; i < v.NumField(); i++ {
 		fieldName := v.Type().Field(i).Name
 		result += fieldName

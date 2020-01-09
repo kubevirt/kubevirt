@@ -732,7 +732,10 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, loadObservedVe
 
 	config := operatorutil.GetTargetConfigFromKV(kv)
 	if loadObservedVersion {
-		config = operatorutil.GetObservedConfigFromKV(kv)
+		config, err = operatorutil.GetObservedConfigFromKV(kv)
+		if err != nil {
+			return nil, true, err
+		}
 	}
 
 	// 1. see if we already loaded the install strategy
