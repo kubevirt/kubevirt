@@ -419,4 +419,22 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(vmis.Items)).Should(Equal(2))
 	})
+
+	It("should create and verify kubectl/oc output for vm replicaset", func() {
+		k8sClient := tests.GetK8sCmdClient()
+		tests.SkipIfNoCmd(k8sClient)
+
+		newRS := newReplicaSet()
+		doScale(newRS.ObjectMeta.Name, 2)
+
+		result, _, _ := tests.RunCommand(k8sClient, "get", "virtualmachineinstancereplicaset")
+		Expect(result).ToNot(BeNil())
+		resultFields := strings.Fields(result)
+		expectedHeader := []string{"NAME", "DESIRED", "CURRENT", "READY", "AGE"}
+		columnHeaders := resultFields[:len(expectedHeader)]
+		// Verify the generated header is same as expected
+		Expect(columnHeaders).To(Equal(expectedHeader))
+		// Name will be there in all the cases, so verify name
+		Expect(resultFields[len(expectedHeader)]).To(Equal(newRS.Name))
+	})
 })
