@@ -1743,6 +1743,97 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"))
 		})
+		It("Should create network configuration for macvtap interface and a multus network", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			multusNetworkName := "multusNet"
+			networkName := "net1"
+
+			iface1 := v1.Interface{Name: networkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
+
+			multusNetwork := v1.Network{
+				Name: networkName,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: multusNetworkName},
+				},
+			}
+			vmi.Spec.Networks = []v1.Network{multusNetwork}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).NotTo(BeNil(), "domain should not be nil")
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1), "should have a single interface")
+			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"), "Macvtap interfaces must be of type `ethernet`")
+		})
+		It("Should create network configuration for the default pod network plus a secondary macvtap network interface using multus", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			secondaryNetworkName := "net1"
+
+			iface1 := v1.Interface{Name: secondaryNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
+
+			defaultPodNetwork := v1.DefaultPodNetwork()
+			multusNetwork := v1.Network{
+				Name: secondaryNetworkName,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: secondaryNetworkName},
+				},
+			}
+			vmi.Spec.Networks = []v1.Network{*defaultPodNetwork, multusNetwork}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface(), iface1}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).NotTo(BeNil(), "domain should not be nil")
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2), "the VMI spec should feature 2 interfaces")
+			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"), "Macvtap interfaces must be of type `ethernet`")
+		})
+		It("Macvtap interfaces should allow setting boot order", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			firstMacvtapNetworkName := "net1"
+			secondMacvtapNetworkName := "net2"
+
+			firstToBoot := uint(1)
+			lastToBoot := uint(2)
+			iface1 := v1.Interface{Name: firstMacvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, BootOrder: &lastToBoot}
+			iface2 := v1.Interface{Name: secondMacvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}, BootOrder: &firstToBoot}
+
+			firstMacvtapNetwork := v1.Network{
+				Name: firstMacvtapNetworkName,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: firstMacvtapNetworkName},
+				},
+			}
+			secondMacvtapNetwork := v1.Network{
+				Name: secondMacvtapNetworkName,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: secondMacvtapNetworkName},
+				},
+			}
+			vmi.Spec.Networks = []v1.Network{firstMacvtapNetwork, secondMacvtapNetwork}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1, iface2}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).NotTo(BeNil(), "domain should not be nil")
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2), "the VMI spec should feature 2 interfaces")
+			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(lastToBoot), "the interface whose boot order is higher should be the last to boot")
+			Expect(domain.Spec.Devices.Interfaces[1].BootOrder.Order).To(Equal(firstToBoot), "the interface whose boot order is lower should be the first to boot")
+		})
+		Specify("macvtap interface binding must be used on a multus network", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			name1 := "net1"
+
+			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: &v1.InterfaceMacvtap{}}}
+
+			podNetwork := v1.Network{
+				Name: name1,
+				NetworkSource: v1.NetworkSource{
+					Pod: &v1.PodNetwork{},
+				},
+			}
+			vmi.Spec.Networks = []v1.Network{podNetwork}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
+
+			domain := &Domain{}
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(HaveOccurred(), "conversion should fail because a macvtap interface requires a multus network attachment")
+		})
 	})
 
 	Context("graphics and video device", func() {

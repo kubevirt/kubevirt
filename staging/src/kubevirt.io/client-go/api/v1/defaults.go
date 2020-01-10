@@ -185,6 +185,16 @@ func DefaultMasqueradeNetworkInterface() *Interface {
 	return iface
 }
 
+func DefaultMacvtapNetworkInterface(ifaceName string) *Interface {
+	iface := &Interface{
+		Name: ifaceName,
+		InterfaceBindingMethod: InterfaceBindingMethod{
+			Macvtap: &InterfaceMacvtap{},
+		},
+	}
+	return iface
+}
+
 func DefaultPodNetwork() *Network {
 	defaultNet := &Network{
 		Name: "default",
