@@ -147,4 +147,67 @@ var _ = Describe("Operator Config", func() {
 		})
 	})
 
+	Describe("parsing ObservedDeploymentConfig", func() {
+		It("should retrieve imagePrefix if present", func() {
+			prefix := "test-prefix-"
+			deploymentConfig := KubeVirtDeploymentConfig{}
+			deploymentConfig.ImagePrefix = prefix
+
+			blob, err := deploymentConfig.GetJson()
+			Expect(err).ToNot(HaveOccurred())
+
+			result, found, err := getImagePrefixFromDeploymentConfig(blob)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeTrue())
+			Expect(result).To(Equal(prefix))
+		})
+
+		It("should not error if imagePrefix is not present", func() {
+			deploymentConfig := KubeVirtDeploymentConfig{}
+
+			blob, err := deploymentConfig.GetJson()
+			Expect(err).ToNot(HaveOccurred())
+
+			result, found, err := getImagePrefixFromDeploymentConfig(blob)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(found).To(BeFalse())
+			Expect(result).To(Equal(""))
+		})
+	})
+
+	Describe("creating config ID", func() {
+
+		var idMissing, idEmpty, idFilled string
+
+		BeforeEach(func() {
+			cfgMissing := &KubeVirtDeploymentConfig{}
+			cfgMissing.AdditionalProperties = make(map[string]string)
+			cfgMissing.generateInstallStrategyID()
+			idMissing = cfgMissing.ID
+
+			cfgEmpty := &KubeVirtDeploymentConfig{}
+			cfgEmpty.AdditionalProperties = make(map[string]string)
+			cfgEmpty.AdditionalProperties[ImagePrefixKey] = ""
+			cfgEmpty.generateInstallStrategyID()
+			idEmpty = cfgEmpty.ID
+
+			cfgFilled := &KubeVirtDeploymentConfig{}
+			cfgFilled.AdditionalProperties = make(map[string]string)
+			cfgFilled.AdditionalProperties[ImagePrefixKey] = "something"
+			cfgFilled.generateInstallStrategyID()
+			idFilled = cfgFilled.ID
+		})
+
+		It("should result in same ID with missing or empty image prefix", func() {
+			Expect(idMissing).ToNot(BeEmpty())
+			Expect(idMissing).To(Equal(idEmpty))
+		})
+
+		It("should result in different ID with filled image prefix", func() {
+			Expect(idFilled).ToNot(BeEmpty())
+			Expect(idFilled).ToNot(Equal(idEmpty))
+		})
+
+	})
+
 })
