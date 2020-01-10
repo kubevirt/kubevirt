@@ -34,11 +34,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/cert"
 
-	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
-
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/util/webhooks"
+	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
+	operator_webhooks "kubevirt.io/kubevirt/pkg/virt-operator/webhooks"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -300,7 +300,7 @@ func (app *VirtOperatorApp) Run() {
 
 	var mux http.ServeMux
 	mux.HandleFunc("/kubevirt-validate-delete", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		validating_webhooks.Serve(w, r, &validating_webhooks.AlwaysPassAdmitter{})
+		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtDeletionAdmitter(app.clientSet))
 	}))
 	webhookServer.Handler = &mux
 	go func() {

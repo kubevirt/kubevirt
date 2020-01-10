@@ -19,10 +19,14 @@ type Admitter interface {
 type AlwaysPassAdmitter struct {
 }
 
-func (*AlwaysPassAdmitter) Admit(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func NewPassingAdmissionResponse() *v1beta1.AdmissionResponse {
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
+}
+
+func (*AlwaysPassAdmitter) Admit(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	return NewPassingAdmissionResponse()
 }
 
 func Serve(resp http.ResponseWriter, req *http.Request, admitter Admitter) {

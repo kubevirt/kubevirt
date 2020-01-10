@@ -131,6 +131,8 @@ rules:
   - watch
   - create
   - delete
+  - update
+  - patch
 - apiGroups:
   - monitoring.coreos.com
   resources:
