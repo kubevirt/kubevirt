@@ -29,7 +29,9 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	v12 "k8s.io/api/apps/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -1144,6 +1146,40 @@ spec:
 			deleteAllKvAndWait(true)
 		})
 
+		It("should create non-namespaces resources without owner references", func() {
+			crd, err := virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get("virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(crd.ObjectMeta.OwnerReferences).To(HaveLen(0))
+		})
+
+		It("should remove owner references on non-namespaces resources when updating a resource", func() {
+			By("adding an owner reference")
+			origCRD, err := virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get("virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
+			crd := origCRD.DeepCopy()
+			crd.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(&v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", UID: "a185f8c3-3f38-4b89-a8cc-80f3731f7ff9"}}, v1.KubeVirtGroupVersionKind)}
+			patch := patchCRD(origCRD, crd)
+			_, err = virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Patch("virtualmachineinstances.kubevirt.io", types.MergePatchType, patch)
+			Expect(err).ToNot(HaveOccurred())
+			By("verifying that the owner reference is there")
+			origCRD, err = virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get("virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(origCRD.OwnerReferences).ToNot(BeEmpty())
+
+			By("changing the install version to force an update")
+			crd = origCRD.DeepCopy()
+			crd.Annotations[v1.InstallStrategyVersionAnnotation] = "outdated"
+			patch = patchCRD(origCRD, crd)
+			_, err = virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Patch("virtualmachineinstances.kubevirt.io", types.MergePatchType, patch)
+			Expect(err).ToNot(HaveOccurred())
+			By("waiting until the owner reference disappears again")
+			Eventually(func() []metav1.OwnerReference {
+				crd, err = virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get("virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return crd.OwnerReferences
+			}, 10*time.Second, 1*time.Second).Should(BeEmpty())
+			Expect(crd.ObjectMeta.OwnerReferences).To(HaveLen(0))
+		})
+
 		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
 
 			BeforeEach(func() {
@@ -1329,3 +1365,13 @@ spec:
 		})
 	})
 })
+
+func patchCRD(orig *v1beta1.CustomResourceDefinition, modified *v1beta1.CustomResourceDefinition) []byte {
+	origCRDByte, err := json.Marshal(orig)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	crdByte, err := json.Marshal(modified)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	patch, err := jsonpatch.CreateMergePatch(origCRDByte, crdByte)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return patch
+}
