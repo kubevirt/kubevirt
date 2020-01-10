@@ -75,6 +75,7 @@ var _ = Describe("Pod Network", func() {
 	var pid int
 	var tapDeviceName string
 	var queueNumber uint32
+	var mtu int
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -88,7 +89,7 @@ var _ = Describe("Pod Network", func() {
 		Handler = mockNetwork
 		testMac := "12:34:56:78:9A:BC"
 		updateTestMac := "AF:B3:1F:78:2A:CA"
-		dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 1410}}
+		dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: mtu}}
 		address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
 		gw := net.IPv4(10, 35, 0, 1)
 		fakeMac, _ = net.ParseMAC(testMac)
@@ -99,6 +100,7 @@ var _ = Describe("Pod Network", func() {
 		routeList = []netlink.Route{routeAddr}
 		pid = os.Getpid()
 		tapDeviceName = "tap0"
+		mtu = 1410
 
 		// Create a bridge
 		bridgeTest = &netlink.Bridge{
@@ -110,7 +112,7 @@ var _ = Describe("Pod Network", func() {
 		masqueradeBridgeTest = &netlink.Bridge{
 			LinkAttrs: netlink.LinkAttrs{
 				Name: api.DefaultBridgeName,
-				MTU:  1410,
+				MTU:  mtu,
 			},
 		}
 
@@ -119,7 +121,7 @@ var _ = Describe("Pod Network", func() {
 		testNic = &VIF{Name: podInterface,
 			IP:        fakeAddr,
 			MAC:       fakeMac,
-			Mtu:       1410,
+			Mtu:       uint16(mtu),
 			Gateway:   gw,
 			TapDevice: tapDeviceName,
 		}
@@ -142,7 +144,7 @@ var _ = Describe("Pod Network", func() {
 			IP:          *masqueradeVmAddr,
 			IPv6:        *masqueradeIpv6VmAddr,
 			MAC:         fakeMac,
-			Mtu:         1410,
+			Mtu:         uint16(mtu),
 			Gateway:     masqueradeGwAddr.IP.To4(),
 			GatewayIpv6: masqueradeIpv6GwAddr.IP.To16()}
 	})
@@ -575,6 +577,25 @@ var _ = Describe("Pod Network", func() {
 				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default"}))
 			})
 		})
+		Context("Macvtap plug", func() {
+			It("Should pass a non-privileged macvtap interface to qemu", func() {
+				ifaceName := "macvtap0"
+				domain := NewDomainWithMacvtapInterface(ifaceName)
+				vmi := newVMIMacvtapInterface("testnamespace", "default", ifaceName)
+
+				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
+
+				driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, ifaceName)
+				mockNetwork.EXPECT().GetMacDetails(ifaceName).Return(fakeMac, nil)
+				mockNetwork.EXPECT().LinkByName(ifaceName).Return(dummy, nil)
+				Expect(err).ToNot(HaveOccurred(), "should have identified the correct binding mechanism")
+				TestRunPlug(driver)
+				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1), "should have a single interface")
+				Expect(domain.Spec.Devices.Interfaces[0].Target).To(Equal(&api.InterfaceTarget{Device: ifaceName, Managed: "no"}), "should have an unmanaged interface")
+				Expect(domain.Spec.Devices.Interfaces[0].MAC).To(Equal(&api.MAC{MAC: fakeMac.String()}), "should have the expected MAC address")
+				Expect(domain.Spec.Devices.Interfaces[0].MTU).To(Equal(&api.MTU{Size: "1410"}), "should have the expected MTU")
+			})
+		})
 	})
 
 	Context("Masquerade startDHCP", func() {
@@ -824,6 +845,13 @@ func newVMISlirpInterface(namespace string, name string) *v1.VirtualMachineInsta
 	return vmi
 }
 
+func newVMIMacvtapInterface(namespace string, vmiName string, ifaceName string) *v1.VirtualMachineInstance {
+	vmi := newVMI(namespace, vmiName)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMacvtapNetworkInterface(ifaceName)}
+	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+	return vmi
+}
+
 func NewDomainWithBridgeInterface() *api.Domain {
 	domain := &api.Domain{}
 	domain.Spec.Devices.Interfaces = []api.Interface{{
@@ -862,5 +890,19 @@ func NewDomainWithSlirpInterface() *api.Domain {
 		domain.Spec.QEMUCmd.QEMUArg = make([]api.Arg, 0)
 	}
 
+	return domain
+}
+
+func NewDomainWithMacvtapInterface(macvtapName string) *api.Domain {
+	domain := &api.Domain{}
+	domain.Spec.Devices.Interfaces = []api.Interface{{
+		Alias: &api.Alias{
+			Name: macvtapName,
+		},
+		Model: &api.Model{
+			Type: "virtio",
+		},
+		Type: "ethernet",
+	}}
 	return domain
 }
