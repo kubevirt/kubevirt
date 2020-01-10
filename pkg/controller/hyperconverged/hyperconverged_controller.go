@@ -10,8 +10,8 @@ import (
 
 	"encoding/json"
 	"github.com/go-logr/logr"
-	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
+	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -103,7 +103,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestsFromMapFunc{
 			ToRequests: handler.ToRequestsFunc(
 				// always enqueue the same HyperConverged object, since there should be only one
-				func(a handler.MapObject) []reconcile.Request{
+				func(a handler.MapObject) []reconcile.Request {
 					return []reconcile.Request{
 						{NamespacedName: hco},
 					}
@@ -537,7 +537,7 @@ func (r *ReconcileHyperConverged) ensureCDI(instance *hcov1alpha1.HyperConverged
 	// Previous versions used to have HCO-operator (scope namespace)
 	// as the owner of CDI (scope cluster).
 	// It's not legal, so remove that.
-	if (len(existingOwners) > 0) {
+	if len(existingOwners) > 0 {
 		logger.Info("CDI has owners, removing...")
 		found.SetOwnerReferences([]metav1.OwnerReference{})
 		err = r.client.Update(context.TODO(), found)
@@ -665,7 +665,7 @@ func (r *ReconcileHyperConverged) ensureNetworkAddons(instance *hcov1alpha1.Hype
 	// Previous versions used to have HCO-operator (scope namespace)
 	// as the owner of NetworkAddons (scope cluster).
 	// It's not legal, so remove that.
-	if (len(existingOwners) > 0) {
+	if len(existingOwners) > 0 {
 		logger.Info("NetworkAddons has owners, removing...")
 		found.SetOwnerReferences([]metav1.OwnerReference{})
 		err = r.client.Update(context.TODO(), found)
@@ -860,7 +860,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(instance *h
 	// Previous versions used to have HCO-operator (namespace: kubevirt-hyperconverged)
 	// as the owner of kvCTB (namespace: OpenshiftNamespace).
 	// It's not legal, so remove that.
-	if (len(existingOwners) > 0) {
+	if len(existingOwners) > 0 {
 		logger.Info("kvCTB has owners, removing...")
 		found.SetOwnerReferences([]metav1.OwnerReference{})
 		err = r.client.Update(context.TODO(), found)
@@ -1210,7 +1210,7 @@ func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	return u, nil
 }
 
-func componentResourceRemoval(o interface{}, c client.Client, cr *hcov1alpha1.HyperConverged) (error) {
+func componentResourceRemoval(o interface{}, c client.Client, cr *hcov1alpha1.HyperConverged) error {
 	resource, err := toUnstructured(o)
 	if err != nil {
 		log.Error(err, "Failed to convert object to Unstructured")
@@ -1236,7 +1236,7 @@ func componentResourceRemoval(o interface{}, c client.Client, cr *hcov1alpha1.Hy
 	return err
 }
 
-func ensureCDIDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) (error) {
+func ensureCDIDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) error {
 	cdi := newCDIForCR(instance, UndefinedNamespace)
 	key, err := client.ObjectKeyFromObject(cdi)
 	if err != nil {
@@ -1254,7 +1254,7 @@ func ensureCDIDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) (er
 	return componentResourceRemoval(found, c, instance)
 }
 
-func ensureNetworkAddonsDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) (error) {
+func ensureNetworkAddonsDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) error {
 	networkAddons := newNetworkAddonsForCR(instance, UndefinedNamespace)
 	key, err := client.ObjectKeyFromObject(networkAddons)
 	if err != nil {
@@ -1272,7 +1272,7 @@ func ensureNetworkAddonsDeleted(c client.Client, instance *hcov1alpha1.HyperConv
 	return componentResourceRemoval(found, c, instance)
 }
 
-func ensureKubeVirtCommonTemplateBundleDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) (error) {
+func ensureKubeVirtCommonTemplateBundleDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) error {
 	kvCTB := newKubeVirtCommonTemplateBundleForCR(instance, OpenshiftNamespace)
 
 	key, err := client.ObjectKeyFromObject(kvCTB)

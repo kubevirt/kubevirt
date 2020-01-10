@@ -47,15 +47,15 @@ type relatedImage struct {
 
 type ClusterServiceVersionSpecExtended struct {
 	csvv1alpha1.ClusterServiceVersionSpec
-	RelatedImages      []relatedImage          `json:"relatedImages,omitempty"`
+	RelatedImages []relatedImage `json:"relatedImages,omitempty"`
 }
 
 type ClusterServiceVersionExtended struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   ClusterServiceVersionSpecExtended   `json:"spec"`
-	Status csvv1alpha1.ClusterServiceVersionStatus   `json:"status"`
+	Spec   ClusterServiceVersionSpecExtended       `json:"spec"`
+	Status csvv1alpha1.ClusterServiceVersionStatus `json:"status"`
 }
 
 var (
@@ -108,10 +108,10 @@ func main() {
 		version,
 	)
 	csvExtended := ClusterServiceVersionExtended{
-		TypeMeta: csvBase.TypeMeta,
+		TypeMeta:   csvBase.TypeMeta,
 		ObjectMeta: csvBase.ObjectMeta,
-		Spec: ClusterServiceVersionSpecExtended{ClusterServiceVersionSpec: csvBase.Spec},
-		Status: csvBase.Status}
+		Spec:       ClusterServiceVersionSpecExtended{ClusterServiceVersionSpec: csvBase.Spec},
+		Status:     csvBase.Status}
 
 	// This is the base deployment + rbac for the HCO CSV
 	installStrategyBase := components.GetInstallStrategyBase(
@@ -128,9 +128,10 @@ func main() {
 			csvExtended.Spec.RelatedImages = append(
 				csvExtended.Spec.RelatedImages,
 				relatedImage{
-					Name:    name,
-					Ref:     image,
-				})}
+					Name: name,
+					Ref:  image,
+				})
+		}
 	}
 
 	for _, csvStr := range csvs {

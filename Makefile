@@ -16,6 +16,10 @@ DO=eval
 export JOB_TYPE=prow
 endif
 
+sanity:
+	go fmt ./...
+	git diff --exit-code
+
 build: $(SOURCES) ## Build binary from source
 	go build -i -ldflags="-s -w" -o _out/hyperconverged-cluster-operator ./cmd/hyperconverged-cluster-operator
 	go build -i -ldflags="-s -w" -o _out/csv-merger tools/csv-merger/csv-merger.go

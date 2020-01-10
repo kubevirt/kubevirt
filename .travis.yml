@@ -8,6 +8,8 @@ services:
 - docker
 
 script:
+# Do sanity checks
+- make sanity
 # Verify we can actually build the operator
 - make build
 # Unit tests
