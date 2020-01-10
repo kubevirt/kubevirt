@@ -233,7 +233,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"validatingwebhookconfigurations",
 				},
 				Verbs: []string{
-					"get", "list", "watch", "create", "delete",
+					"get", "list", "watch", "create", "delete", "update", "patch",
 				},
 			},
 			{

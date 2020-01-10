@@ -276,6 +276,8 @@ spec:
           - watch
           - create
           - delete
+          - update
+          - patch
         - apiGroups:
           - monitoring.coreos.com
           resources:
@@ -681,6 +683,9 @@ spec:
                 ports:
                 - containerPort: 8443
                   name: metrics
+                  protocol: TCP
+                - containerPort: 8444
+                  name: webhooks
                   protocol: TCP
                 readinessProbe:
                   httpGet:

@@ -60,7 +60,7 @@ func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 	objects := stores.ValidationWebhookCache.List()
 	for _, obj := range objects {
 		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok {
-			if !strings.HasSuffix(webhook.Name, "-tmp-validator") {
+			if !strings.HasPrefix(webhook.Name, "virt-operator-tmp-webhook") {
 				continue
 			}
 			if webhook.DeletionTimestamp != nil {
