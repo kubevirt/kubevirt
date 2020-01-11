@@ -5,6 +5,33 @@ set -e
 source $(dirname "$0")/common.sh
 source $(dirname "$0")/config.sh
 
+# generate clients for external APIs
+CLIENT_GEN_BASE=kubevirt.io/client-go/generated
+rm -rf ${KUBEVIRT_DIR}/staging/src/${CLIENT_GEN_BASE}
+
+client-gen --clientset-name versioned \
+    --input-base kubevirt.io/containerized-data-importer/pkg/apis \
+    --input core/v1alpha1,upload/v1alpha1 \
+    --output-base ${KUBEVIRT_DIR}/staging/src \
+    --output-package ${CLIENT_GEN_BASE}/containerized-data-importer/clientset \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+
+client-gen --clientset-name versioned \
+    --input-base github.com/coreos/prometheus-operator/pkg/apis \
+    --input monitoring/v1 \
+    --output-base ${KUBEVIRT_DIR}/staging/src \
+    --output-package ${CLIENT_GEN_BASE}/prometheus-operator/clientset \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+
+# revisit in k8s 1.16+
+# see https://github.com/kubernetes/kubernetes/pull/71049
+#client-gen --clientset-name versioned \
+#    --input-base github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis \
+#    --input k8s.cni.cncf.io/v1 \
+#    --output-base ${KUBEVIRT_DIR}/staging/src \
+#    --output-package ${CLIENT_GEN_BASE}/network-attachment-definition-client/clientset \
+#    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+
 find ${KUBEVIRT_DIR}/pkg/ -name "*generated*.go" -exec rm {} -f \;
 
 ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
