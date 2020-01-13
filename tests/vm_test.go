@@ -972,7 +972,21 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						Skip("Migration tests require at least 2 nodes")
 					}
 					By("creating a VM with RunStrategyAlways")
-					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyAlways)
+					vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
+					template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
+
+					var virtualMachine *v1.VirtualMachine
+					var err error
+
+					virtualMachine = NewRandomVirtualMachineWithRunStrategy(template, v1.RunStrategyAlways)
+
+					// Make vm migratable according to fix of bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1760028
+					virtualMachine.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+						Model: "Conroe",
+					}
+
+					virtualMachine, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(virtualMachine)
+					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for VM to be ready")
 					Eventually(func() bool {

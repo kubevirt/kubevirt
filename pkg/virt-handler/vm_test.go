@@ -607,6 +607,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Model: "Conroe",
+			}
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 			vmi = addActivePods(vmi, podTestUUID, host)
@@ -920,6 +923,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Model: "Conroe",
+			}
 			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
@@ -1723,6 +1729,35 @@ var _ = Describe("VirtualMachineInstance", func() {
 				err := controller.checkNetworkInterfacesForMigration(vmi)
 				Expect(err).ToNot(HaveOccurred())
 			})
+		})
+
+		Context("with CPU configuration", func() {
+
+			table.DescribeTable("should block migration for", func(cpu *v1.CPU) {
+				vmi := v1.NewMinimalVMI("testvmi")
+				if cpu != nil {
+					vmi.Spec.Domain.CPU = cpu
+				}
+
+				err := controller.checkCPUForMigration(vmi)
+				Expect(err).To(HaveOccurred(), "should block migration for CPU config")
+			},
+				table.Entry("empty CPU", nil),
+				table.Entry("undefined CPU", &v1.CPU{Model: ""}),
+				table.Entry("host-model CPU", &v1.CPU{Model: "host-model"}),
+				table.Entry("host-passthough", &v1.CPU{Model: "host-passthrough"}),
+			)
+
+			It("should not block migrate for defined CPU", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Model: "Conroe",
+				}
+
+				err := controller.checkCPUForMigration(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should not block migration for defined CPU")
+			})
+
 		})
 
 	})
