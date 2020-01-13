@@ -159,19 +159,53 @@ func (se *SELinuxImpl) Restore(dir string) error {
 }
 
 func (se *SELinuxImpl) InstallPolicy(dir string) (err error) {
+	permissive, _ := se.IsPermissive()
+	cmdOutput, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/semodule", "-l").CombinedOutput()
+	if err != nil {
+		if permissive {
+			log.Log.Warningf("Permissive mode, ignoring 'semodule' failure: out: %q, error: %v", string(cmdOutput), err)
+		} else {
+			return fmt.Errorf("failed to list selinux policies: %v", err)
+		}
+	}
+	policyModules := string(cmdOutput)
+
 	for _, policyName := range POLICY_FILES {
+		alreadyInstalled := false
+		if strings.Contains(policyModules, policyName) {
+			log.Log.Infof("selinux policy '%s' is already installed", policyName)
+			// Attempt to install policy anyways (in case this code has a newer version)
+			// however, if an error is encountered while attempting to install it
+			// (e.g. read-only filesystem), the situation is non-fatal so continue.
+			alreadyInstalled = true
+		}
+
+		// Note: policy name must match file name
 		fileDest := dir + "/" + policyName + ".cil"
 		err := copyPolicy(policyName, dir)
 		if err != nil {
-			return fmt.Errorf("failed to copy policy %v - err: % v", fileDest, err)
+			if permissive {
+				log.Log.Warningf("Permissive mode, ignoring failure attempting to copy %v - err: %v", fileDest, err)
+				continue
+			}
+			if alreadyInstalled {
+				log.Log.Warningf("Policy %q is already installed, ignoring error attempting to copy %v - err: %v", policyName, fileDest, err)
+				continue
+			}
+			return fmt.Errorf("failed to copy policy %v - err: %v", fileDest, err)
 		}
 		out, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/semodule", "-i", fileDest).CombinedOutput()
 		if err != nil {
-			if perm, _ := se.IsPermissive(); perm {
+			if permissive {
 				log.Log.Warningf("Permissive mode, ignoring 'semodule' failure: out: %q, error: %v", string(out), err)
-				return nil
+				continue
 			}
-			return fmt.Errorf("failed to install policy %v - err: % v", fileDest, err)
+			if alreadyInstalled {
+				log.Log.Warningf("Policy %q is already installed, ignoring 'semodule' failure: out: %q, error: %v", policyName, string(out), err)
+				continue
+
+			}
+			return fmt.Errorf("failed to install policy %v - err: %v", fileDest, err)
 		}
 	}
 	return nil
