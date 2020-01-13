@@ -25,6 +25,10 @@ spec:
           value: quay.io/kubevirt/hyperconverged-cluster-operator:latest
         - name: OPERATOR_NAME
           value: hyperconverged-cluster-operator
+        - name: OPERATOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: POD_NAME
           valueFrom:
             fieldRef:

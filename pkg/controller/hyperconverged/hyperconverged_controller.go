@@ -10,7 +10,6 @@ import (
 
 	"encoding/json"
 	"github.com/go-logr/logr"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,7 +44,8 @@ const (
 	// use finalizers to manage the cleanup.
 	FinalizerName = "hyperconvergeds.hco.kubevirt.io"
 
-	HyperConvergedName = "hyperconverged-cluster"
+	HyperConvergedName   = "hyperconverged-cluster"
+	OperatorNamespaceEnv = "OPERATOR_NAMESPACE"
 
 	// UndefinedNamespace is for cluster scoped resources
 	UndefinedNamespace string = ""
@@ -53,11 +53,13 @@ const (
 	// OpenshiftNamespace is for resources that belong in the openshift namespace
 	OpenshiftNamespace string = "openshift"
 
-	reconcileInit             = "Init"
-	reconcileInitMessage      = "Initializing HyperConverged cluster"
-	reconcileFailed           = "ReconcileFailed"
-	reconcileCompleted        = "ReconcileCompleted"
-	reconcileCompletedMessage = "Reconcile completed successfully"
+	reconcileInit               = "Init"
+	reconcileInitMessage        = "Initializing HyperConverged cluster"
+	reconcileFailed             = "ReconcileFailed"
+	reconcileCompleted          = "ReconcileCompleted"
+	reconcileCompletedMessage   = "Reconcile completed successfully"
+	invalidRequestReason        = "InvalidRequest"
+	invalidRequestMessageFormat = "Request does not match expected name (%v) and namespace (%v)"
 )
 
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -150,6 +152,24 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	hco, err := getHyperconverged()
+	if err != nil {
+		reqLogger.Error(err, "Failed to get HyperConverged namespaced name")
+		return reconcile.Result{}, err
+	}
+
+	// Ignore invalid requests
+	if request.NamespacedName != hco {
+		reqLogger.Info("Invalid request", "HyperConverged.Namespace", hco.Namespace, "HyperConverged.Name", hco.Name)
+		conditionsv1.SetStatusCondition(&instance.Status.Conditions, conditionsv1.Condition{
+			Type:    hcov1alpha1.ConditionReconcileComplete,
+			Status:  corev1.ConditionFalse,
+			Reason:  invalidRequestReason,
+			Message: fmt.Sprintf(invalidRequestMessageFormat, hco.Name, hco.Namespace),
+		})
+		return reconcile.Result{}, r.client.Status().Update(context.TODO(), instance)
 	}
 
 	// Add conditions if there are none
@@ -1169,11 +1189,12 @@ func getHyperconverged() (types.NamespacedName, error) {
 		Name: HyperConvergedName,
 	}
 
-	namespace, err := k8sutil.GetOperatorNamespace()
-	if err != nil {
-		return hco, err
+	if namespace, ok := os.LookupEnv(OperatorNamespaceEnv); ok {
+		hco.Namespace = namespace
+	} else {
+		return hco, fmt.Errorf("%s unset or empty in environment", OperatorNamespaceEnv)
 	}
-	hco.Namespace = namespace
+
 	return hco, nil
 }
 
