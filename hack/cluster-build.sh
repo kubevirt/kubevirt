@@ -21,7 +21,7 @@
 # We're leaving this file around for people who still reference this
 # specific script in their development workflow.
 
-set -e
+set -xe
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
