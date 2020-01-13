@@ -37,6 +37,10 @@ const (
 	HostDiskGate          = "HostDisk"
 	VirtIOFSGate          = "ExperimentalVirtiofsSupport"
 	MacvtapGate           = "Macvtap"
+	// 	MigratableHostModelCPU allows migration of VMs with host-model CPU
+	MigratableHostModelCPU = "WithHostModelCPU"
+	// MigratableHostPassthroughCPU allows migration of VMs with host-passthrough CPU
+	MigratableHostPassthroughCPU = "WithHostPassthroughCPU"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -98,4 +102,12 @@ func (config *ClusterConfig) MacvtapEnabled() bool {
 
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
 	return config.isFeatureGateEnabled(HostDevicesGate)
+}
+
+func (config *ClusterConfig) MigrationOfHostPassthroughCPUEnabled() bool {
+	return config.isFeatureGateEnabled(MigratableHostPassthroughCPU)
+}
+
+func (config *ClusterConfig) MigrationOfHostModelCPUEnabled() bool {
+	return config.isFeatureGateEnabled(MigratableHostModelCPU)
 }

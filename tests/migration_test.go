@@ -1190,6 +1190,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
+
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -1344,7 +1345,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					if !exists {
 						Skip("Skip OCS tests when Ceph is not present")
 					}
-
 					By("Starting an iSCSI POD")
 					iscsiTargetPod := tests.CreateISCSITargetPOD(cd.ContainerDiskFedora)
 					iscsiTargetIPAddress := libnet.GetPodIpByFamily(iscsiTargetPod, k8sv1.IPv4Protocol)
@@ -1356,7 +1356,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					tests.CreateISCSIPvAndPvc(pvName, "5Gi", iscsiTargetIPAddress, k8sv1.ReadWriteMany, volMode)
 					Expect(err).ToNot(HaveOccurred())
 					defer tests.DeletePvAndPvc(pvName)
-
 					dv := tests.NewRandomDataVolumeWithPVCSourceWithStorageClass(tests.NamespaceTestDefault, pvName, tests.NamespaceTestDefault, sc, "5Gi", k8sv1.ReadWriteMany)
 					dv.Spec.PVC.VolumeMode = &volMode
 					_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
@@ -1437,6 +1436,79 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 				})
 			})
+		})
+
+		Context("with restricted CPU models", func() {
+			var vmi *v1.VirtualMachineInstance
+
+			prepareMigration := func(cpuModel string) *v1.VirtualMachineInstanceMigration {
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Model: cpuModel,
+				}
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
+
+				// execute a migration, wait for finalized state
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+
+				return migration
+			}
+
+			disposeVMI := func(vmi *v1.VirtualMachineInstance) {
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			}
+
+			executeTest := func(cpuModel, featureName string, enable, positive bool) {
+				if enable {
+					tests.EnableFeatureGate(featureName)
+				} else {
+					tests.DisableFeatureGate(featureName)
+				}
+
+				By("Starting a Migration")
+				migration := prepareMigration(cpuModel)
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+				if positive {
+					Expect(err).NotTo(HaveOccurred())
+				} else {
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("CPUNotMigratable"))
+				}
+			}
+
+			BeforeEach(func() {
+				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			})
+
+			AfterEach(func() {
+				disposeVMI(vmi)
+			})
+
+			table.DescribeTable("should block migration for restricted CPU modes",
+				func(cpuModel, featureName string, enable, positive bool) {
+					executeTest(cpuModel, featureName, enable, positive)
+				},
+				table.Entry("with host-model cpu", "host-model", "MigratableHostModel", false, false),
+				table.Entry("with cpu-passthrough", "host-passthrough", "MigratableHostPassthrough", false, false),
+			)
+
+			table.DescribeTable("should not block migration when CPU modes permitted in feature gate",
+				func(cpuModel, featureName string, enable, positive bool) {
+					executeTest(cpuModel, featureName, enable, positive)
+				},
+				table.Entry("with host-model cpu", "host-model", "MigratableHostModel", true, true),
+				table.Entry("with cpu-passthrough", "host-passthrough", "MigratableHostPassthrough", true, true),
+			)
 		})
 	})
 

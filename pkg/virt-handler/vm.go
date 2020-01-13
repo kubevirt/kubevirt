@@ -839,7 +839,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		return err
 	}
 
-	// Cacluate whether the VM is migratable
+	// Calculate whether the VM is migratable
 	liveMigrationCondition, isBlockMigration := d.calculateLiveMigrationCondition(vmi, hasHotplug)
 	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
@@ -996,6 +996,17 @@ func (d *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		}
 		return &liveMigrationCondition, isBlockMigration
 	}
+	err = d.checkCPUForMigration(vmi)
+	if err != nil {
+		liveMigrationCondition := v1.VirtualMachineInstanceCondition{
+			Type:    v1.VirtualMachineInstanceIsMigratable,
+			Status:  k8sv1.ConditionFalse,
+			Message: err.Error(),
+			Reason:  v1.VirtualMachineInstanceReasonCPUModelNotMigratable,
+		}
+		return &liveMigrationCondition, isBlockMigration
+	}
+
 	return &liveMigrationCondition, isBlockMigration
 }
 
@@ -2410,6 +2421,26 @@ func (d *VirtualMachineController) setVMIGuestTime(vmi *v1.VirtualMachineInstanc
 		log.Log.Reason(err).Error("failed to set vmi guest time to the current")
 		return err
 	}
+	return nil
+}
+
+func (d *VirtualMachineController) checkCPUForMigration(vmi *v1.VirtualMachineInstance) error {
+	if vmi.Spec.Domain.CPU == nil {
+		return nil
+	}
+
+	model := vmi.Spec.Domain.CPU.Model
+	switch model {
+	case v1.CPUModeHostModel:
+		if !d.clusterConfig.MigrationOfHostModelCPUEnabled() {
+			return fmt.Errorf("cannot migrate VMI with current CPU model: %s", model)
+		}
+	case v1.CPUModeHostPassthrough:
+		if !d.clusterConfig.MigrationOfHostPassthroughCPUEnabled() {
+			return fmt.Errorf("cannot migrate VMI with current CPU model: %s", model)
+		}
+	}
+
 	return nil
 }
 

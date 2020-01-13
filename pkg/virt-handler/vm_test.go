@@ -1954,6 +1954,68 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 		})
 
+		Context("With specific CPU modes", func() {
+			var featuresBeforeTest []string
+			var vmi *v1.VirtualMachineInstance
+
+			setFeatureGates := func(featureGates []string) {
+				config := controller.clusterConfig.GetConfig()
+				featuresBeforeTest = config.DeveloperConfiguration.FeatureGates
+				config.DeveloperConfiguration.FeatureGates = featureGates
+			}
+
+			executeTest := func(model string, positive bool) {
+				vmi.Spec.Domain.CPU = &v1.CPU{Model: model}
+				err := controller.checkCPUForMigration(vmi)
+				if positive {
+					Expect(err).NotTo(HaveOccurred())
+				} else {
+					Expect(err).To(HaveOccurred())
+				}
+			}
+
+			Context("with CPU host-passthrough mode enabled", func() {
+
+				BeforeEach(func() {
+					setFeatureGates([]string{virtconfig.MigratableHostPassthroughCPU})
+					vmi = v1.NewMinimalVMI("testvmi")
+				})
+
+				AfterEach(func() {
+					setFeatureGates(featuresBeforeTest)
+				})
+
+				table.DescribeTable("migration", func(model string, positive bool) {
+					executeTest(model, positive)
+				},
+					table.Entry("allowed with host-passthrough", v1.CPUModeHostPassthrough, true),
+					table.Entry("allowed with user-defined CPU model", "Conroe", true),
+					table.Entry("allowed with undefined CPU model", "", true),
+					table.Entry("not allowed with host-model", v1.CPUModeHostModel, false),
+				)
+			})
+
+			Context("with CPU host-model mode enabled", func() {
+
+				BeforeEach(func() {
+					setFeatureGates([]string{virtconfig.MigratableHostModelCPU})
+				})
+
+				AfterEach(func() {
+					setFeatureGates(featuresBeforeTest)
+				})
+
+				table.DescribeTable("migration", func(model string, positive bool) {
+					executeTest(model, positive)
+				},
+					table.Entry("allowed with host-model", v1.CPUModeHostModel, true),
+					table.Entry("allowed with user-defined CPU model", "Conroe", true),
+					table.Entry("allowed with undefined CPU model", "", true),
+					table.Entry("not allowed with host-passthrough", v1.CPUModeHostPassthrough, false),
+				)
+			})
+		})
+
 	})
 	Context("When VirtualMachineInstance is connected to a network", func() {
 
