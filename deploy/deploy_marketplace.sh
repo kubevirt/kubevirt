@@ -103,8 +103,9 @@ spec: {}
 EOF
 fi
 
-echo "Creating OperatorSource"
-cat <<EOF | oc create -f -
+if [ `oc get OperatorSource "${APP_REGISTRY}" -n "${MARKETPLACE_NAMESPACE}" --no-headers 2> /dev/null | wc -l` -eq 0 ]; then
+    echo "Creating OperatorSource"
+    cat <<EOF | oc create -f -
 apiVersion: operators.coreos.com/v1
 kind: OperatorSource
 metadata:
@@ -118,6 +119,7 @@ spec:
   publisher: "Kubevirt"
 ${AUTH_TOKEN}
 EOF
+fi
 
 echo "Give the cluster 30 seconds to create the catalogSourceConfig..."
 sleep 30
