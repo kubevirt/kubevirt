@@ -132,8 +132,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 	var resourceChanges map[string]map[string]int
 
-	resourceCount := 36
-	patchCount := 17
+	resourceCount := 38
+	patchCount := 19
 	updateCount := 20
 
 	deleteFromCache := true
@@ -740,6 +740,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	addAll := func(config *util.KubeVirtDeploymentConfig) {
 		all := make([]interface{}, 0)
 
+		// webhooks
+		all = append(all, components.NewValidatingWebhookConfiguration(NAMESPACE))
 		// rbac
 		all = append(all, rbac.GetAllCluster(NAMESPACE)...)
 		all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
@@ -755,6 +757,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
 		all = append(all, components.NewKubeVirtHandlerSCC(NAMESPACE))
 		// services and deployments
+		all = append(all, components.NewWebhookService(NAMESPACE))
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
 		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
@@ -1120,6 +1123,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("update", "clusterrolebindings", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "roles", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "rolebindings", genericUpdateFunc)
+		kubeClient.Fake.PrependReactor("patch", "validatingwebhookconfigurations", genericPatchFunc)
 
 		kubeClient.Fake.PrependReactor("patch", "services", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "daemonsets", genericPatchFunc)
@@ -1142,6 +1146,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "clusterrolebindings", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "roles", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "rolebindings", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "validatingwebhookconfigurations", genericCreateFunc)
 
 		secClient.Fake.PrependReactor("patch", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			patch, _ := action.(testing.PatchAction)
@@ -1658,10 +1663,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.RoleCache.List())).To(Equal(3))
 			Expect(len(controller.stores.RoleBindingCache.List())).To(Equal(3))
 			Expect(len(controller.stores.CrdCache.List())).To(Equal(5))
-			Expect(len(controller.stores.ServiceCache.List())).To(Equal(2))
+			Expect(len(controller.stores.ServiceCache.List())).To(Equal(3))
 			Expect(len(controller.stores.DeploymentCache.List())).To(Equal(1))
 			Expect(len(controller.stores.DaemonSetCache.List())).To(Equal(0))
-			Expect(len(controller.stores.ValidationWebhookCache.List())).To(Equal(1))
+			Expect(len(controller.stores.ValidationWebhookCache.List())).To(Equal(2))
 			Expect(len(controller.stores.PodDisruptionBudgetCache.List())).To(Equal(1))
 			Expect(len(controller.stores.SCCCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ServiceMonitorCache.List())).To(Equal(1))
