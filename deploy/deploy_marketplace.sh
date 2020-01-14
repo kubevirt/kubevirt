@@ -91,7 +91,7 @@ EOF
 
 fi
 
-if [ `oc get operatorgroup -n "${TARGET_NAMESPACE}" 2> /dev/null | wc -l` -eq 0 ]; then
+if [ `oc get operatorgroup -n "${TARGET_NAMESPACE}" --no-headers 2> /dev/null | wc -l` -eq 0 ]; then
     echo "Creating OperatorGroup"
     cat <<EOF | oc create -f -
 apiVersion: operators.coreos.com/v1
