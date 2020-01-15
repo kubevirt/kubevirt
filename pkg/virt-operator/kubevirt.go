@@ -99,6 +99,14 @@ func NewKubeVirtController(
 		UpdateFunc: c.updateKubeVirt,
 	})
 
+	c.informers.Namespace.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, nil)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, nil)
+		},
+	})
 	c.informers.ServiceAccount.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.ServiceAccount)
@@ -458,6 +466,7 @@ func (c *KubeVirtController) Run(threadiness int, stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.informers.InfrastructurePod.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.PodDisruptionBudget.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.ServiceMonitor.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.Namespace.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
