@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"k8s.io/api/admission/v1beta1"
@@ -32,11 +31,6 @@ type KubeVirtDeletionAdmitter struct {
 }
 
 func (k *KubeVirtDeletionAdmitter) Admit(review *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	_, _, err := getAdmissionReviewKubeVirt(review)
-	if err != nil {
-		return webhookutils.ToAdmissionResponseError(err)
-	}
-
 	obj, err := k.client.KubeVirt(review.Request.Namespace).Get(review.Request.Name, &metav1.GetOptions{})
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -77,37 +71,4 @@ func (k *KubeVirtDeletionAdmitter) Admit(review *v1beta1.AdmissionReview) *v1bet
 	}
 
 	return validating_webhooks.NewPassingAdmissionResponse()
-}
-
-func getAdmissionReviewKubeVirt(ar *v1beta1.AdmissionReview) (new *v1.KubeVirt, old *v1.KubeVirt, err error) {
-
-	if !webhookutils.ValidateRequestResource(ar.Request.Resource, KubeVirtGroupVersionResource.Group, KubeVirtGroupVersionResource.Resource) {
-		return nil, nil, fmt.Errorf("expect resource to be '%s'", KubeVirtGroupVersionResource.Resource)
-	}
-
-	if ar.Request.Operation == v1beta1.Delete {
-		return nil, nil, nil
-	}
-
-	raw := ar.Request.Object.Raw
-	newKubeVirt := &v1.KubeVirt{}
-	oldKubeVirt := &v1.KubeVirt{}
-
-	err = json.Unmarshal(raw, newKubeVirt)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if ar.Request.Operation == v1beta1.Update {
-		raw := ar.Request.OldObject.Raw
-
-		err = json.Unmarshal(raw, oldKubeVirt)
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		oldKubeVirt = nil
-	}
-
-	return newKubeVirt, oldKubeVirt, nil
 }
