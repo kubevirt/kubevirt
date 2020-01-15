@@ -1511,6 +1511,58 @@ func addOrRemoveSSC(targetStrategy *InstallStrategy,
 	return nil
 }
 
+func syncKubevirtNamespaceLabels(kv *v1.KubeVirt, stores util.Stores, clientset kubecli.KubevirtClient) error {
+
+	targetNamespace := kv.ObjectMeta.Namespace
+	obj, exists, err := stores.NamespaceCache.GetByKey(targetNamespace)
+	if err != nil {
+		log.Log.Errorf("Failed to retrieve kubevirt namespace from store. Error: %s", err.Error())
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("Could not find namespace in store. Namespace key: %s", targetNamespace)
+	}
+
+	cachedNamespace := obj.(*corev1.Namespace)
+	// Prepare namespace metadata patch
+	targetLabels := map[string]string{
+		"openshift.io/cluster-monitoring": "true",
+	}
+	cachedLabels := cachedNamespace.ObjectMeta.Labels
+	labelsToPatch := make(map[string]string)
+	for targetLabelKey, targetLabelValue := range targetLabels {
+		cachedLabelValue, ok := cachedLabels[targetLabelKey]
+		if ok && cachedLabelValue == targetLabelValue {
+			continue
+		}
+		labelsToPatch[targetLabelKey] = targetLabelValue
+	}
+
+	if len(labelsToPatch) == 0 {
+		log.Log.Infof("Kubevirt namespace (%s) labels are in sync", targetNamespace)
+		return nil
+	}
+
+	labelsPatch, err := json.Marshal(labelsToPatch)
+	if err != nil {
+		log.Log.Errorf("Failed to marshal namespace labels: %s", err.Error())
+		return err
+	}
+
+	log.Log.Infof("Patching namespace %s with %s", targetNamespace, labelsPatch)
+	_, err = clientset.CoreV1().Namespaces().Patch(
+		targetNamespace,
+		types.MergePatchType,
+		[]byte(fmt.Sprintf(`{"metadata":{"labels": %s}}`, labelsPatch)),
+	)
+	if err != nil {
+		log.Log.Errorf("Could not patch kubevirt namespace labels: %s", err.Error())
+		return err
+	}
+	log.Log.Infof("kubevirt namespace labels patched")
+	return nil
+}
+
 func createOrUpdateSCC(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
@@ -1843,6 +1895,11 @@ func SyncAll(kv *v1.KubeVirt,
 			}
 		}
 
+	}
+
+	err = syncKubevirtNamespaceLabels(kv, stores, clientset)
+	if err != nil {
+		return false, err
 	}
 
 	// -------- CLEAN UP OLD UNUSED OBJECTS --------
