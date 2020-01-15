@@ -768,19 +768,20 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
-				// add userdata for service account mount
-				mountSvcAccCommands := fmt.Sprintf(`
-					#!/bin/bash
+				// create expected password and create service account mount
+				userData := fmt.Sprintf(`#!/bin/bash
+					echo "fedora" |passwd fedora --stdin
 					mkdir /mnt/servacc
 					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
 				`, secretDiskSerial)
-				tests.AddUserData(vmi, "cloud-init", mountSvcAccCommands)
+				tests.AddUserData(vmi, "cloud-init", userData)
 
 				tests.AddServiceAccountDisk(vmi, "default")
 				disks := vmi.Spec.Domain.Devices.Disks
 				disks[len(disks)-1].Serial = secretDiskSerial
 
 				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInFedoraExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
