@@ -52,9 +52,10 @@ import (
 const (
 	migrationWaitTime = 240
 	fedoraVMSize      = "256M"
+	secretDiskSerial = "D23YZ9W6WA5DJ487"
 )
 
-var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system] VM Live Migration", func() {
+var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system] VM Live Migration", func() {
 	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -767,8 +768,54 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
+				// create expected password and create service account mount
+				userData := fmt.Sprintf(`#!/bin/bash
+					echo "fedora" |passwd fedora --stdin
+					mkdir /mnt/servacc
+					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
+				`, secretDiskSerial)
+				tests.AddUserData(vmi, "cloud-init", userData)
+
+				tests.AddServiceAccountDisk(vmi, "default")
+				disks := vmi.Spec.Domain.Devices.Disks
+				disks[len(disks)-1].Serial = secretDiskSerial
+
+				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInFedoraExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				expecter.Close()
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration for iteration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigration(vmi, migrationUID)
+
+				By("Checking that the migrated VirtualMachineInstance console has expected output")
+				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 60)
+				defer expecter.Close()
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Checking that the service account is mounted")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
+					&expect.BExp{R: tests.NamespaceTestDefault},
+				}, 30*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
+			})
+			It("[test_id:2653]  should be migrated successfully, using guest agent on VM", func() {
+				// Start the VirtualMachineInstance with the PVC attached
+				By("Creating the  VMI")
+				vmi = tests.NewRandomVMIWithPVC(pvName)
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
 				// add userdata for guest agent and service account mount
-				secretDiskSerial := "D23YZ9W6WA5DJ487"
 				mountSvcAccCommands := fmt.Sprintf(`
 					mkdir /mnt/servacc
 					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
