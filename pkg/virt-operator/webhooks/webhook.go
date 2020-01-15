@@ -40,6 +40,10 @@ func (k *KubeVirtDeletionAdmitter) Admit(review *v1beta1.AdmissionReview) *v1bet
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
+	if obj.Status.Phase != v1.KubeVirtPhaseDeployed {
+		return validating_webhooks.NewPassingAdmissionResponse()
+	}
+
 	vmis, err := k.client.VirtualMachineInstance(metav1.NamespaceAll).List(&metav1.ListOptions{Limit: 2})
 
 	if err != nil {

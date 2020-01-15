@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -27,6 +28,7 @@ var _ = Describe("Webhook", func() {
 
 	BeforeEach(func() {
 		kv = &k6tv1.KubeVirt{}
+		kv.Status.Phase = k6tv1.KubeVirtPhaseDeployed
 		ctrl = gomock.NewController(GinkgoT())
 		kubeCli = kubecli.NewMockKubevirtClient(ctrl)
 		kvInterface = kubecli.NewMockKubeVirtInterface(ctrl)
@@ -121,4 +123,15 @@ var _ = Describe("Webhook", func() {
 		response := admitter.Admit(&v1beta1.AdmissionReview{Request: &v1beta1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 		Expect(response.Allowed).To(BeTrue())
 	})
+	table.DescribeTable("should not check for workloads if kubevirt phase is", func(phase k6tv1.KubeVirtPhase) {
+		kv.Spec.UninstallStrategy = k6tv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
+		kv.Status.Phase = phase
+		response := admitter.Admit(&v1beta1.AdmissionReview{Request: &v1beta1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
+		Expect(response.Allowed).To(BeTrue())
+	},
+		table.Entry("unset", k6tv1.KubeVirtPhase("")),
+		table.Entry("deploying", k6tv1.KubeVirtPhaseDeploying),
+		table.Entry("deleting", k6tv1.KubeVirtPhaseDeleting),
+		table.Entry("deleted", k6tv1.KubeVirtPhaseDeleted),
+	)
 })
