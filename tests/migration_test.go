@@ -784,7 +784,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInFedoraExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Should be able to login to the Fedora VM")
 				expecter.Close()
 
 				// execute a migration, wait for finalized state
@@ -798,14 +798,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
 				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 60)
 				defer expecter.Close()
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Should be able to re-login to the migrated VM")
 
 				By("Checking that the service account is mounted")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
 					&expect.BExp{R: tests.NamespaceTestDefault},
 				}, 30*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Should be able to access the mounted service account file")
 
 			})
 			It("[test_id:2653]  should be migrated successfully, using guest agent on VM", func() {
@@ -834,7 +834,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInFedoraExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Should be able to login to the Fedora VM")
 				expecter.Close()
 
 				// execute a migration, wait for finalized state
@@ -851,14 +851,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
 				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 60)
 				defer expecter.Close()
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Should be able to re-login to the migrated VM")
 
 				By("Checking that the service account is mounted")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
 					&expect.BExp{R: tests.NamespaceTestDefault},
 				}, 30*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Should be able to access the mounted service account file")
 
 			})
 		})
