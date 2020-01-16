@@ -497,14 +497,14 @@ func GetInstallStrategyBase(image, imagePullPolicy, conversionContainer, vmwareC
 }
 
 // GetCSVBase returns a base HCO CSV without an InstallStrategy
-func GetCSVBase(name, displayName, description, image, replaces string, version semver.Version) *csvv1alpha1.ClusterServiceVersion {
+func GetCSVBase(name, hcCRNamespace, displayName, description, image, replaces string, version semver.Version) *csvv1alpha1.ClusterServiceVersion {
 	almExamples, _ := json.Marshal([]interface{}{
 		map[string]interface{}{
 			"apiVersion": "hco.kubevirt.io/v1alpha1",
 			"kind":       "HyperConverged",
 			"metadata": map[string]string{
 				"name":      "kubevirt-hyperconverged",
-				"namespace": "kubevirt-hyperconverged",
+				"namespace": hcCRNamespace,
 			},
 			"spec": map[string]interface{}{
 				"BareMetalPlatform": false,

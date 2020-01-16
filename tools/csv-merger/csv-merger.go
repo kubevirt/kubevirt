@@ -74,6 +74,7 @@ var (
 	specDescription     = flag.String("spec-description", "", "Description")
 	specDisplayName     = flag.String("spec-displayname", "", "Display Name")
 	relatedImagesList   = flag.String("related-images-list", "", "Comma separated list of all the images referred in the CSV")
+	namespace           = flag.String("namespace", "kubevirt-hyperconverged", "Namespace")
 )
 
 func main() {
@@ -101,6 +102,7 @@ func main() {
 	// This is the basic CSV without an InstallStrategy defined
 	csvBase := components.GetCSVBase(
 		operatorName,
+		*namespace,
 		*specDisplayName,
 		*specDescription,
 		*operatorImage,
