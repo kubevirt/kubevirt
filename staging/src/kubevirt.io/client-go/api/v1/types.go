@@ -33,11 +33,13 @@ import (
 	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 const DefaultGracePeriodSeconds int64 = 30
@@ -1072,6 +1074,10 @@ type KubeVirtSpec struct {
 	// Specifies if kubevirt can be deleted if workloads are still present.
 	// This is mainly a precaution to avoid accidental data loss
 	UninstallStrategy KubeVirtUninstallStrategy `json:"uninstallStrategy,omitempty"`
+
+	// holds kubevirt configurations.
+	// same as the virt-configMap
+	KubevirtConfigurations KubevirtConfigurations `json:"kubevirt.yaml,omitempty"`
 }
 
 type KubeVirtUninstallStrategy string
@@ -1212,4 +1218,51 @@ type RenameOptions struct {
 	metav1.TypeMeta `json:",inline"`
 	NewName         string  `json:"newName"`
 	OldName         *string `json:"oldName,omitempty"`
+}
+
+// KubevirtConfigurations holds all kubevirt configurations
+// +k8s:openapi-gen=true
+type KubevirtConfigurations struct {
+	ResourceVersion         string                   `json:"resourceVersion,omitempty"`
+	MigrationConfig         *MigrationConfig         `json:"migrations,omitempty"`
+	ImagePullPolicy         k8sv1.PullPolicy         `json:"dev.imagePullPolicy,omitempty"`
+	MachineType             string                   `json:"machine-type,omitempty"`
+	CPUModel                string                   `json:"default-cpu-model,omitempty"`
+	CPURequest              *resource.Quantity       `json:"cpu-request,string,omitempty"`
+	EmulatedMachines        []string                 `json:"emulated-machines,omitempty"`
+	SMBIOSConfig            *cmdv1.SMBios            `json:"smbios,omitempty"`
+	NetworkConfigurations   *NetworkConfigurations   `json:"network,omitempty"`
+	DeveloperConfigurations *DeveloperConfigurations `json:"dev,omitempty"`
+	SELinuxLauncherType     string                   `json:"selinuxLauncherType,omitempty"`
+}
+
+// MigrationConfig holds migration options
+// +k8s:openapi-gen=true
+type MigrationConfig struct {
+	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,string,omitempty"`
+	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,string,omitempty"`
+	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
+	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
+	ProgressTimeout                   *int64             `json:"progressTimeout,string,omitempty"`
+	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
+	UnsafeMigrationOverride           bool               `json:"unsafeMigrationOverride,string"`
+	AllowAutoConverge                 bool               `json:"allowAutoConverge,string"`
+}
+
+// DeveloperConfigurations holds developer options
+// +k8s:openapi-gen=true
+type DeveloperConfigurations struct {
+	UseEmulation           bool              `json:"debug.useEmulation,string,omitempty"`
+	FeatureGates           []string          `json:"feature-gates,omitempty"`
+	NodeSelectors          map[string]string `json:"node-selectors,omitempty"`
+	LessPVCSpaceToleration int               `json:"pvc-tolerate-less-space-up-to-percent,string,omitempty"`
+	MemoryOvercommit       int               `json:"memory-overcommit,string,omitempty"`
+}
+
+// NetworkConfigurations holds network options
+// +k8s:openapi-gen=true
+type NetworkConfigurations struct {
+	NetworkInterface                  string `json:"default-network-interface,omitempty"`
+	PermitSlirpInterface              bool   `json:"permitSlirpInterface,string,omitempty"`
+	PermitBridgeInterfaceOnPodNetwork bool   `json:"permitBridgeInterfaceOnPodNetwork,string,omitempty"`
 }

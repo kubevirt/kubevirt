@@ -6,3 +6,4 @@ metadata:
   namespace: {{.Namespace}}
 spec:
   imagePullPolicy: {{.ImagePullPolicy}}
+  kubevirt.yaml: {}

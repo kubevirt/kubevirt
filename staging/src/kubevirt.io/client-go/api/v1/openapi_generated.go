@@ -44,6 +44,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.ContainerDiskSource":                       schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.DHCPOptions":                               schema_kubevirtio_client_go_api_v1_DHCPOptions(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.DataVolumeSource":                          schema_kubevirtio_client_go_api_v1_DataVolumeSource(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.DeveloperConfigurations":                   schema_kubevirtio_client_go_api_v1_DeveloperConfigurations(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Devices":                                   schema_kubevirtio_client_go_api_v1_Devices(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Disk":                                      schema_kubevirtio_client_go_api_v1_Disk(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.DiskDevice":                                schema_kubevirtio_client_go_api_v1_DiskDevice(ref),
@@ -80,11 +81,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubeVirtList":                              schema_kubevirtio_client_go_api_v1_KubeVirtList(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubeVirtSpec":                              schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubeVirtStatus":                            schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubevirtConfigurations":                    schema_kubevirtio_client_go_api_v1_KubevirtConfigurations(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.LunTarget":                                 schema_kubevirtio_client_go_api_v1_LunTarget(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Machine":                                   schema_kubevirtio_client_go_api_v1_Machine(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Memory":                                    schema_kubevirtio_client_go_api_v1_Memory(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MigrationConfig":                           schema_kubevirtio_client_go_api_v1_MigrationConfig(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork":                             schema_kubevirtio_client_go_api_v1_MultusNetwork(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Network":                                   schema_kubevirtio_client_go_api_v1_Network(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.NetworkConfigurations":                     schema_kubevirtio_client_go_api_v1_NetworkConfigurations(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.NetworkSource":                             schema_kubevirtio_client_go_api_v1_NetworkSource(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.PITTimer":                                  schema_kubevirtio_client_go_api_v1_PITTimer(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.PodNetwork":                                schema_kubevirtio_client_go_api_v1_PodNetwork(ref),
@@ -667,6 +671,64 @@ func schema_kubevirtio_client_go_api_v1_DataVolumeSource(ref common.ReferenceCal
 					},
 				},
 				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_DeveloperConfigurations(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeveloperConfigurations holds developer options",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"debug.useEmulation": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"feature-gates": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"node-selectors": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"pvc-tolerate-less-space-up-to-percent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"memory-overcommit": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -1932,9 +1994,17 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"kubevirt.yaml": {
+						SchemaProps: spec.SchemaProps{
+							Description: "holds kubevirt configurations. same as the virt-configMap",
+							Ref:         ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubevirtConfigurations"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubevirtConfigurations"},
 	}
 }
 
@@ -2025,6 +2095,90 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref common.ReferenceCallb
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_KubevirtConfigurations(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KubevirtConfigurations holds all kubevirt configurations",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resourceVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"migrations": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MigrationConfig"),
+						},
+					},
+					"dev.imagePullPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"machine-type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"default-cpu-model": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"cpu-request": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"emulated-machines": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"smbios": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1.SMBios"),
+						},
+					},
+					"network": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.NetworkConfigurations"),
+						},
+					},
+					"dev": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.DeveloperConfigurations"),
+						},
+					},
+					"selinuxLauncherType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1.SMBios", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.DeveloperConfigurations", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MigrationConfig", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.NetworkConfigurations"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_LunTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2098,6 +2252,69 @@ func schema_kubevirtio_client_go_api_v1_Memory(ref common.ReferenceCallback) com
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_MigrationConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MigrationConfig holds migration options",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"parallelOutboundMigrationsPerNode": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"parallelMigrationsPerCluster": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"bandwidthPerMigration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"nodeDrainTaintKey": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"progressTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"unsafeMigrationOverride": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"allowAutoConverge": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"unsafeMigrationOverride", "allowAutoConverge"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_MultusNetwork(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2161,6 +2378,37 @@ func schema_kubevirtio_client_go_api_v1_Network(ref common.ReferenceCallback) co
 		},
 		Dependencies: []string{
 			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GenieNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.PodNetwork"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_NetworkConfigurations(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NetworkConfigurations holds network options",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"default-network-interface": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"permitSlirpInterface": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"permitBridgeInterfaceOnPodNetwork": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

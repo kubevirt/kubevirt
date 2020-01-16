@@ -117,7 +117,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		var vmi *v1.VirtualMachineInstance
 		var policy = v1.EvictionStrategyLiveMigrate
 		BeforeEach(func() {
-			enableFeatureGate("LiveMigration")
+			enableFeatureGate(virtconfig.LiveMigrationGate)
 			vmi = v1.NewMinimalVMI("testvmi")
 			vmi.Spec.EvictionStrategy = nil
 		})

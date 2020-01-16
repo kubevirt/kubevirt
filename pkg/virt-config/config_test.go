@@ -8,7 +8,9 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
@@ -20,6 +22,7 @@ var _ = Describe("ConfigMap", func() {
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	var stopChan chan struct{}
+	defaultCPURequest := resource.MustParse(virtconfig.DefaultCPURequest)
 
 	BeforeEach(func() {
 		stopChan = make(chan struct{})
@@ -172,7 +175,7 @@ var _ = Describe("ConfigMap", func() {
 
 	It("Should return migration config values if specified as json", func() {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi", "progressTimeout" : 5, "completionTimeoutPerGiB": 5, "unsafeMigrationOverride": true, "allowAutoConverge": true}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "10", "parallelMigrationsPerCluster": "20", "bandwidthPerMigration": "110Mi", "progressTimeout" : "5", "completionTimeoutPerGiB": "5", "unsafeMigrationOverride": "true", "allowAutoConverge": "true"}`},
 		})
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
@@ -186,8 +189,8 @@ var _ = Describe("ConfigMap", func() {
 
 	It("Should return migration config values if specified as yaml", func() {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.MigrationsConfigKey: `"parallelOutboundMigrationsPerNode" : 10
-"parallelMigrationsPerCluster": 20
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `"parallelOutboundMigrationsPerNode" : "10"
+"parallelMigrationsPerCluster": "20"
 "bandwidthPerMigration": "110Mi"`},
 		})
 		result := clusterConfig.GetMigrationConfig()
@@ -198,7 +201,7 @@ var _ = Describe("ConfigMap", func() {
 
 	It("Should return defaults if parts of the config are not set", func() {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "10"}`},
 		})
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
@@ -208,13 +211,13 @@ var _ = Describe("ConfigMap", func() {
 
 	It("Should update the config if a newer version is available", func() {
 		clusterConfig, store, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "10"}`},
 		})
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
 
 		testutils.UpdateFakeClusterConfig(store, &kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 9}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "9"}`},
 		})
 		Eventually(func() uint32 {
 			return *clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode
@@ -223,7 +226,7 @@ var _ = Describe("ConfigMap", func() {
 
 	It("Should stick with the last good config", func() {
 		clusterConfig, store, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "10"}`},
 		})
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
@@ -238,7 +241,7 @@ var _ = Describe("ConfigMap", func() {
 
 	It("Should pick up the latest config once it is fixed and parsable again", func() {
 		clusterConfig, store, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "10"}`},
 		})
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
@@ -252,7 +255,7 @@ var _ = Describe("ConfigMap", func() {
 		}).Should(BeNumerically("==", 10))
 
 		validCfg := &kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 9}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "9"}`},
 		}
 		testutils.UpdateFakeClusterConfig(store, validCfg)
 		Consistently(func() uint32 {
@@ -300,4 +303,33 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when unset, GetSELinuxLauncherType should return the default", virtconfig.DefaultSELinuxLauncherType, virtconfig.DefaultSELinuxLauncherType),
 	)
 
+	table.DescribeTable("when kubevirt.yaml", func(value string, result v1.KubevirtConfigurations) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.KubevirtConfigurationsKey: value},
+		})
+		kubevirtConfig := clusterConfig.GetConfig()
+		kubevirtConfigJson, err := json.Marshal(kubevirtConfig)
+		Expect(err).ToNot(HaveOccurred())
+		resourceVersion := kubevirtConfig.ResourceVersion
+
+		// applying the new config to resultJson
+		kubevirtConfig = clusterConfig.GetDefaultClusterConfig()
+		kubevirtConfig.ResourceVersion = resourceVersion
+		resultJson, err := json.Marshal(result)
+		err = json.Unmarshal(resultJson, kubevirtConfig)
+		Expect(err).ToNot(HaveOccurred())
+		resultJson, err = json.Marshal(kubevirtConfig)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(kubevirtConfigJson)).To(BeEquivalentTo(string(resultJson)))
+
+	},
+		table.Entry("when values set, should equal to result",
+			`{"machine-type":"test","default-cpu-model":"test"}`,
+			v1.KubevirtConfigurations{CPURequest: &defaultCPURequest, MachineType: "test", CPUModel: "test"}),
+		table.Entry("when networkConfigurations set in kubevirt.yaml, should equal to result",
+			`{"network":{"default-network-interface":"test","permitSlirpInterface":"true","permitBridgeInterfaceOnPodNetwork":"true"}}`,
+			v1.KubevirtConfigurations{CPURequest: &defaultCPURequest, NetworkConfigurations: &v1.NetworkConfigurations{NetworkInterface: "test", PermitSlirpInterface: true, PermitBridgeInterfaceOnPodNetwork: true}}),
+		table.Entry("when developerConfigurations set in kubevirt.yaml, should equal to result",
+			`{"dev":{"debug.useEmulation":"true","feature-gates":["test1","test2"],"node-selectors": {"test":"test"},"pvc-tolerate-less-space-up-to-percent":"5", "memory-overcommit": "150"}}`,
+			v1.KubevirtConfigurations{CPURequest: &defaultCPURequest, DeveloperConfigurations: &v1.DeveloperConfigurations{UseEmulation: true, FeatureGates: []string{"test1", "test2"}, NodeSelectors: map[string]string{"test": "test"}, LessPVCSpaceToleration: 5, MemoryOvercommit: 150}}))
 })

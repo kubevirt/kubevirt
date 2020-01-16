@@ -278,6 +278,7 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 		"monitorNamespace":  "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
 		"monitorAccount":    "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
 		"uninstallStrategy": "Specifies if kubevirt can be deleted if workloads are still present.\nThis is mainly a precaution to avoid accidental data loss",
+		"kubevirt.yaml":     "holds kubevirt configurations.\nsame as the virt-configMap",
 	}
 }
 
@@ -333,5 +334,29 @@ func (VirtualMachineInstanceFileSystem) SwaggerDoc() map[string]string {
 func (RenameOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "Options for a rename operation",
+	}
+}
+
+func (KubevirtConfigurations) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "KubevirtConfigurations holds all kubevirt configurations\n+k8s:openapi-gen=true",
+	}
+}
+
+func (MigrationConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "MigrationConfig holds migration options\n+k8s:openapi-gen=true",
+	}
+}
+
+func (DeveloperConfigurations) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DeveloperConfigurations holds developer options\n+k8s:openapi-gen=true",
+	}
+}
+
+func (NetworkConfigurations) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "NetworkConfigurations holds network options\n+k8s:openapi-gen=true",
 	}
 }
