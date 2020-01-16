@@ -1,4 +1,4 @@
-FROM kubevirt/builder@sha256:e7935549daa12e222696a2e9715e820ab6ef5b1dd0f109431856fb144928b497
+FROM kubevirt/builder@sha256:fced8ed3e1a6edae04dcf9695be3f6088165d1b18511dd2c52467325d429dae1
 
 ENV GIMME_GO_VERSION=1.12.8
 ENV GOPATH="/go" GOBIN="/usr/bin"
