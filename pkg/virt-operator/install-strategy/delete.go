@@ -205,7 +205,7 @@ func DeleteAll(kv *v1.KubeVirt,
 		if svc, ok := obj.(*corev1.Service); ok && svc.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(svc); err == nil {
 				expectations.Service.AddExpectedDeletion(kvkey, key)
-				err := clientset.CoreV1().Services(kv.Namespace).Delete(svc.Name, deleteOptions)
+				err := clientset.CoreV1().Services(svc.Namespace).Delete(svc.Name, deleteOptions)
 				if err != nil {
 					expectations.Service.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete service %+v: %v", svc, err)

@@ -1386,7 +1386,7 @@ func createOrUpdateService(kv *v1.KubeVirt,
 		injectOperatorMetadata(kv, &service.ObjectMeta, version, imageRegistry, id)
 		if !exists {
 			expectations.Service.RaiseExpectations(kvkey, 1, 0)
-			_, err := core.Services(kv.Namespace).Create(service)
+			_, err := core.Services(service.Namespace).Create(service)
 			if err != nil {
 				expectations.Service.LowerExpectations(kvkey, 1, 0)
 				return false, fmt.Errorf("unable to create service %+v: %v", service, err)
@@ -1402,7 +1402,7 @@ func createOrUpdateService(kv *v1.KubeVirt,
 				if cachedService.DeletionTimestamp == nil {
 					if key, err := controller.KeyFunc(cachedService); err == nil {
 						expectations.Service.AddExpectedDeletion(kvkey, key)
-						err := core.Services(kv.Namespace).Delete(cachedService.Name, deleteOptions)
+						err := core.Services(service.Namespace).Delete(cachedService.Name, deleteOptions)
 						if err != nil {
 							expectations.Service.DeletionObserved(kvkey, key)
 							log.Log.Errorf("Failed to delete service %+v: %v", cachedService, err)
@@ -1416,7 +1416,7 @@ func createOrUpdateService(kv *v1.KubeVirt,
 				// after which the operator will recreate using new spec
 				return true, nil
 			} else if len(patchOps) != 0 {
-				_, err = core.Services(kv.Namespace).Patch(service.Name, types.JSONPatchType, generatePatchBytes(patchOps))
+				_, err = core.Services(service.Namespace).Patch(service.Name, types.JSONPatchType, generatePatchBytes(patchOps))
 				if err != nil {
 					return false, fmt.Errorf("unable to patch service %+v: %v", service, err)
 				}
@@ -2083,7 +2083,7 @@ func SyncAll(kv *v1.KubeVirt,
 			if !found {
 				if key, err := controller.KeyFunc(svc); err == nil {
 					expectations.Service.AddExpectedDeletion(kvkey, key)
-					err := clientset.CoreV1().Services(kv.Namespace).Delete(svc.Name, deleteOptions)
+					err := clientset.CoreV1().Services(svc.Namespace).Delete(svc.Name, deleteOptions)
 					if err != nil {
 						expectations.Service.DeletionObserved(kvkey, key)
 						log.Log.Errorf("Failed to delete service %+v: %v", svc, err)
