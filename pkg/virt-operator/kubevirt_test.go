@@ -518,7 +518,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	addInstallStrategy := func(config *util.KubeVirtDeploymentConfig) {
 		// install strategy config
-		resource, _ := installstrategy.NewInstallStrategyConfigMap(config, true)
+		resource, _ := installstrategy.NewInstallStrategyConfigMap(config, true, NAMESPACE)
 
 		resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
 		addResource(resource, config)
@@ -1687,7 +1687,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				addKubeVirt(kv)
 
 				// install strategy config
-				resource, _ := installstrategy.NewInstallStrategyConfigMap(defaultConfig, false)
+				resource, _ := installstrategy.NewInstallStrategyConfigMap(defaultConfig, false, NAMESPACE)
 				resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
 				addResource(resource, defaultConfig)
 
@@ -2105,7 +2105,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			})
 
 			// This generates and posts the install strategy config map
-			installstrategy.DumpInstallStrategyToConfigMap(virtClient)
+			installstrategy.DumpInstallStrategyToConfigMap(virtClient, NAMESPACE)
 		}, 15)
 	})
 })

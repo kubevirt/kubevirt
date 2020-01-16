@@ -9,14 +9,14 @@ import (
 	virtv1 "kubevirt.io/client-go/api/v1"
 )
 
-func NewWebhookService(namespace string) *corev1.Service {
+func NewWebhookService(operatorNamespace string) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
+			Namespace: operatorNamespace,
 			Name:      "kubevirt-operator-webhook",
 			Labels: map[string]string{
 				virtv1.AppLabel:          "",
@@ -43,7 +43,7 @@ func NewWebhookService(namespace string) *corev1.Service {
 	}
 }
 
-func NewValidatingWebhookConfiguration(namespace string) *v1beta1.ValidatingWebhookConfiguration {
+func NewValidatingWebhookConfiguration(operatorNamespace string) *v1beta1.ValidatingWebhookConfiguration {
 	failurePolicy := v1beta1.Fail
 	sideEffectNone := v1beta1.SideEffectClassNone
 	path := "/kubevirt-validate-delete"
@@ -64,7 +64,7 @@ func NewValidatingWebhookConfiguration(namespace string) *v1beta1.ValidatingWebh
 				Name: "kubevirt-validator.kubevirt.io",
 				ClientConfig: v1beta1.WebhookClientConfig{
 					Service: &v1beta1.ServiceReference{
-						Namespace: namespace,
+						Namespace: operatorNamespace,
 						Name:      "kubevirt-operator-webhook",
 						Path:      &path,
 					},

@@ -135,7 +135,7 @@ func Execute() {
 	}
 
 	if *dumpInstallStrategy {
-		err = installstrategy.DumpInstallStrategyToConfigMap(app.clientSet)
+		err = installstrategy.DumpInstallStrategyToConfigMap(app.clientSet, app.operatorNamespace)
 		if err != nil {
 			golog.Fatal(err)
 		}

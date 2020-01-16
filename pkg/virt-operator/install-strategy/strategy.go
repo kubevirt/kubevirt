@@ -86,9 +86,9 @@ type InstallStrategy struct {
 	serviceMonitors []*promv1.ServiceMonitor
 }
 
-func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool) (*corev1.ConfigMap, error) {
+func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool, operatorNamespace string) (*corev1.ConfigMap, error) {
 
-	strategy, err := GenerateCurrentInstallStrategy(config, addMonitorServiceResources)
+	strategy, err := GenerateCurrentInstallStrategy(config, addMonitorServiceResources, operatorNamespace)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 	return configMap, nil
 }
 
-func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
+func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
 
 	config, err := util.GetConfigFromEnv()
 	if err != nil {
@@ -127,7 +127,7 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 		return err
 	}
 
-	configMap, err := NewInstallStrategyConfigMap(config, addMonitorServiceResources)
+	configMap, err := NewInstallStrategyConfigMap(config, addMonitorServiceResources, operatorNamespace)
 	if err != nil {
 		return err
 	}
@@ -197,7 +197,7 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	return b.Bytes()
 }
 
-func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool) (*InstallStrategy, error) {
+func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool, operatorNamespace string) (*InstallStrategy, error) {
 
 	strategy := &InstallStrategy{}
 
@@ -249,11 +249,11 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		}
 	}
 
-	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewValidatingWebhookConfiguration(config.GetNamespace()))
+	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewValidatingWebhookConfiguration(operatorNamespace))
 
 	strategy.services = append(strategy.services, components.NewPrometheusService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
-	strategy.services = append(strategy.services, components.NewWebhookService(config.GetNamespace()))
+	strategy.services = append(strategy.services, components.NewWebhookService(operatorNamespace))
 	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
