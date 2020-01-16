@@ -31,16 +31,30 @@ type KubeVirtDeletionAdmitter struct {
 }
 
 func (k *KubeVirtDeletionAdmitter) Admit(review *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	obj, err := k.client.KubeVirt(review.Request.Namespace).Get(review.Request.Name, &metav1.GetOptions{})
-	if err != nil {
-		return webhookutils.ToAdmissionResponseError(err)
+	var kv *v1.KubeVirt
+	var err error
+	if review.Request.Name != "" {
+		kv, err = k.client.KubeVirt(review.Request.Namespace).Get(review.Request.Name, &metav1.GetOptions{})
+		if err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
+	} else {
+		list, err := k.client.KubeVirt(review.Request.Namespace).List(&metav1.ListOptions{})
+		if err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
+		if len(list.Items) == 0 {
+			return validating_webhooks.NewPassingAdmissionResponse()
+		} else {
+			kv = &list.Items[0]
+		}
 	}
 
-	if obj.Spec.UninstallStrategy == "" || obj.Spec.UninstallStrategy == v1.KubeVirtUninstallStrategyRemoveWorkloads {
+	if kv.Spec.UninstallStrategy == "" || kv.Spec.UninstallStrategy == v1.KubeVirtUninstallStrategyRemoveWorkloads {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	if obj.Status.Phase != v1.KubeVirtPhaseDeployed {
+	if kv.Status.Phase != v1.KubeVirtPhaseDeployed {
 		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 

@@ -32,7 +32,8 @@ var _ = Describe("Webhook", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		kubeCli = kubecli.NewMockKubevirtClient(ctrl)
 		kvInterface = kubecli.NewMockKubeVirtInterface(ctrl)
-		kvInterface.EXPECT().Get("kubevirt", gomock.Any()).Return(kv, nil)
+		kvInterface.EXPECT().Get("kubevirt", gomock.Any()).Return(kv, nil).AnyTimes()
+		kvInterface.EXPECT().List(gomock.Any()).Return(&k6tv1.KubeVirtList{}, nil).AnyTimes()
 		admitter = &KubeVirtDeletionAdmitter{kubeCli}
 		kubeCli.EXPECT().KubeVirt("test").Return(kvInterface)
 
@@ -123,6 +124,13 @@ var _ = Describe("Webhook", func() {
 		response := admitter.Admit(&v1beta1.AdmissionReview{Request: &v1beta1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 		Expect(response.Allowed).To(BeTrue())
 	})
+
+	It("should allow the deletion of namespaces, where it gets an admission request without a resource name", func() {
+		kv.Spec.UninstallStrategy = k6tv1.KubeVirtUninstallStrategyRemoveWorkloads
+		response := admitter.Admit(&v1beta1.AdmissionReview{Request: &v1beta1.AdmissionRequest{Namespace: "test", Name: ""}})
+		Expect(response.Allowed).To(BeTrue())
+	})
+
 	table.DescribeTable("should not check for workloads if kubevirt phase is", func(phase k6tv1.KubeVirtPhase) {
 		kv.Spec.UninstallStrategy = k6tv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
 		kv.Status.Phase = phase
