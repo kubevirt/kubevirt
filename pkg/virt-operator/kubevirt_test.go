@@ -1222,6 +1222,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	fakeNamespaceModificationEvent := func() {
 		// Add modification event for namespace w/o the labels we need
+		mockQueue.ExpectAdds(1)
 		namespaceSource.Modify(&k8sv1.Namespace{
 			TypeMeta: metav1.TypeMeta{
 				Kind: "Namespace",
@@ -1230,6 +1231,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Name: NAMESPACE,
 			},
 		})
+		mockQueue.Wait()
 	}
 
 	shouldExpectNamespacePatch := func() {
