@@ -62,3 +62,7 @@ function kubevirt_version() {
     fi
 }
 KUBEVIRT_VERSION="$(kubevirt_version)"
+
+function go_build() {
+    GOPROXY=off GOFLAGS=-mod=vendor go build "$@"
+}

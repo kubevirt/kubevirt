@@ -36,12 +36,12 @@ find ${KUBEVIRT_DIR}/pkg/ -name "*generated*.go" -exec rm {} -f \;
 
 ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
 /${KUBEVIRT_DIR}/hack/bootstrap-ginkgo.sh
-(cd ${KUBEVIRT_DIR}/tools/openapispec/ && go build)
+(cd ${KUBEVIRT_DIR}/tools/openapispec/ && go_build)
 
 ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DIR}/api/openapi-spec/swagger.json
 
-(cd ${KUBEVIRT_DIR}/tools/resource-generator/ && go build)
-(cd ${KUBEVIRT_DIR}/tools/csv-generator/ && go build)
+(cd ${KUBEVIRT_DIR}/tools/resource-generator/ && go_build)
+(cd ${KUBEVIRT_DIR}/tools/csv-generator/ && go_build)
 rm -f ${KUBEVIRT_DIR}/manifests/generated/*
 rm -f ${KUBEVIRT_DIR}/examples/*
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmi >${KUBEVIRT_DIR}/manifests/generated/vmi-resource.yaml
@@ -100,7 +100,7 @@ ${KUBEVIRT_DIR}/tools/csv-generator/csv-generator --namespace={{.CSVNamespace}} 
 sed -i "s/$_fake_csv_version/{{.CsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 sed -i "s/$_fake_replaces_csv_version/{{.ReplacesCsvVersion}}/g" ${KUBEVIRT_DIR}/manifests/generated/operator-csv.yaml.in
 
-(cd ${KUBEVIRT_DIR}/tools/vms-generator/ && go build)
+(cd ${KUBEVIRT_DIR}/tools/vms-generator/ && go_build)
 vms_docker_prefix=${DOCKER_PREFIX:-registry:5000/kubevirt}
 vms_docker_tag=${DOCKER_TAG:-devel}
 ${KUBEVIRT_DIR}/tools/vms-generator/vms-generator --container-prefix=${vms_docker_prefix} --container-tag=${vms_docker_tag} --generated-vms-dir=${KUBEVIRT_DIR}/examples

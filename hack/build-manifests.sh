@@ -33,7 +33,7 @@ kubevirt_logo_path="assets/kubevirt_logo.png"
 rm -rf ${MANIFESTS_OUT_DIR}
 rm -rf ${MANIFEST_TEMPLATES_OUT_DIR}
 
-(cd ${KUBEVIRT_DIR}/tools/manifest-templator/ && go build)
+(cd ${KUBEVIRT_DIR}/tools/manifest-templator/ && go_build)
 
 # first process file includes only
 args=$(cd ${KUBEVIRT_DIR}/manifests && find . -type f -name "*.yaml.in" -not -path "./generated/*")
