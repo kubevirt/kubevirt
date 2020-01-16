@@ -32,7 +32,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	promclientfake "github.com/coreos/prometheus-operator/pkg/client/versioned/fake"
 	secv1 "github.com/openshift/api/security/v1"
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -53,6 +52,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	promclientfake "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/version"
