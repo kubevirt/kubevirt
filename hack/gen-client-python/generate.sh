@@ -6,7 +6,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SWAGGER_CODEGEN_CLI_SRC=http://central.maven.org/maven2/io/swagger/swagger-codegen-cli/2.2.3/swagger-codegen-cli-2.2.3.jar
+SWAGGER_CODEGEN_CLI_SRC=https://repo1.maven.org/maven2/io/swagger/swagger-codegen-cli/2.2.3/swagger-codegen-cli-2.2.3.jar
 SWAGGER_CODEGEN_CLI="/tmp/swagger-codegen-cli.jar"
 KUBEVIRT_SPEC="${KUBEVIRT_DIR}/api/openapi-spec/swagger.json"
 CODEGEN_CONFIG_SRC="${KUBEVIRT_DIR}/hack/gen-client-python/swagger-codegen-config.json.in"
