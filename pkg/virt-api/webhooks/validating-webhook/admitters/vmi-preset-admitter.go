@@ -28,6 +28,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
@@ -35,12 +36,12 @@ type VMIPresetAdmitter struct {
 }
 
 func (admitter *VMIPresetAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	if !webhooks.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstancePresetGroupVersionResource.Group, webhooks.VirtualMachineInstancePresetGroupVersionResource.Resource) {
+	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstancePresetGroupVersionResource.Group, webhooks.VirtualMachineInstancePresetGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstancePresetGroupVersionResource.Resource)
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstancePresetGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhookutils.ValidateSchema(v1.VirtualMachineInstancePresetGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
@@ -49,12 +50,12 @@ func (admitter *VMIPresetAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 
 	err := json.Unmarshal(raw, &vmipreset)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
 	causes := ValidateVMIPresetSpec(k8sfield.NewPath("spec"), &vmipreset.Spec)
 	if len(causes) > 0 {
-		return webhooks.ToAdmissionResponse(causes)
+		return webhookutils.ToAdmissionResponse(causes)
 	}
 
 	reviewResponse := v1beta1.AdmissionResponse{}

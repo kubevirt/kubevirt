@@ -1054,7 +1054,18 @@ type KubeVirtSpec struct {
 	// The name of the Prometheus service account that needs read-access to KubeVirt endpoints
 	// Defaults to prometheus-k8s
 	MonitorAccount string `json:"monitorAccount,omitempty"`
+
+	// Specifies if kubevirt can be deleted if workloads are still present.
+	// This is mainly a precaution to avoid accidental data loss
+	UninstallStrategy KubeVirtUninstallStrategy `json:"uninstallStrategy,omitempty"`
 }
+
+type KubeVirtUninstallStrategy string
+
+const (
+	KubeVirtUninstallStrategyRemoveWorkloads                KubeVirtUninstallStrategy = "RemoveWorkloads"
+	KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist KubeVirtUninstallStrategy = "BlockUninstallIfWorkloadsExist"
+)
 
 // KubeVirtStatus represents information pertaining to a KubeVirt deployment.
 // ---

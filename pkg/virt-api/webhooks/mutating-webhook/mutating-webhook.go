@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -38,7 +38,7 @@ type mutator interface {
 
 func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
 	response := v1beta1.AdmissionReview{}
-	review, err := webhooks.GetAdmissionReview(req)
+	review, err := webhookutils.GetAdmissionReview(req)
 
 	if err != nil {
 		resp.WriteHeader(http.StatusBadRequest)

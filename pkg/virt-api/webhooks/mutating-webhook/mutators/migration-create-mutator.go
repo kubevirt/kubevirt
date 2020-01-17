@@ -26,6 +26,7 @@ import (
 	"k8s.io/api/admission/v1beta1"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
@@ -33,12 +34,12 @@ type MigrationCreateMutator struct {
 }
 
 func (mutator *MigrationCreateMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	if !webhooks.ValidateRequestResource(ar.Request.Resource, webhooks.MigrationGroupVersionResource.Group, webhooks.MigrationGroupVersionResource.Resource) {
+	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.MigrationGroupVersionResource.Group, webhooks.MigrationGroupVersionResource.Resource) {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.MigrationGroupVersionResource.Resource)
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceMigrationGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhookutils.ValidateSchema(v1.VirtualMachineInstanceMigrationGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
@@ -47,7 +48,7 @@ func (mutator *MigrationCreateMutator) Mutate(ar *v1beta1.AdmissionReview) *v1be
 
 	err := json.Unmarshal(raw, &migration)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
 	// Add a finalizer
@@ -71,7 +72,7 @@ func (mutator *MigrationCreateMutator) Mutate(ar *v1beta1.AdmissionReview) *v1be
 
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
 	jsonPatchType := v1beta1.PatchTypeJSONPatch

@@ -1275,6 +1275,84 @@ func generateServicePatch(kv *v1.KubeVirt,
 	return patchOps, deleteAndReplace, nil
 }
 
+func createOrUpdateValidatingWebhookConfigurations(kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations,
+	caBundle []byte,
+) error {
+
+	version := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	for _, webhook := range targetStrategy.validatingWebhookConfigurations {
+		var cachedWebhook *admissionregistrationv1beta1.ValidatingWebhookConfiguration
+		webhook = webhook.DeepCopy()
+
+		for i, _ := range webhook.Webhooks {
+			webhook.Webhooks[i].ClientConfig.CABundle = caBundle
+		}
+
+		obj, exists, _ := stores.ValidationWebhookCache.Get(webhook)
+		certsMatch := true
+		if exists {
+			cachedWebhook = obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration)
+			for _, wh := range cachedWebhook.Webhooks {
+				if !reflect.DeepEqual(wh.ClientConfig.CABundle, caBundle) {
+					certsMatch = false
+					break
+				}
+			}
+		}
+
+		injectOperatorMetadata(kv, &webhook.ObjectMeta, version, imageRegistry, id)
+		if !exists {
+			expectations.ValidationWebhook.RaiseExpectations(kvkey, 1, 0)
+			_, err := clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(webhook)
+			if err != nil {
+				expectations.ValidationWebhook.LowerExpectations(kvkey, 1, 0)
+				return fmt.Errorf("unable to create validatingwebhook %+v: %v", webhook, err)
+			}
+		} else {
+			if !objectMatchesVersion(&cachedWebhook.ObjectMeta, version, imageRegistry, id) || !certsMatch {
+				// Patch if old version
+				var ops []string
+
+				// Add Labels and Annotations Patches
+				labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
+				if err != nil {
+					return err
+				}
+				ops = append(ops, labelAnnotationPatch...)
+
+				// Add Spec Patch
+				webhooks, err := json.Marshal(webhook.Webhooks)
+				if err != nil {
+					return err
+				}
+				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
+
+				_, err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(webhook.Name, types.JSONPatchType, generatePatchBytes(ops))
+				if err != nil {
+					return fmt.Errorf("unable to patch validatingwebhookconfiguration %+v: %v", webhook, err)
+				}
+				log.Log.V(2).Infof("validatingwebhoookconfiguration %v updated", webhook.GetName())
+
+			} else {
+				log.Log.V(4).Infof("validatingwebhookconfiguration %v is up-to-date", webhook.GetName())
+			}
+		}
+	}
+	return nil
+}
+
 func createOrUpdateService(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
@@ -1308,7 +1386,7 @@ func createOrUpdateService(kv *v1.KubeVirt,
 		injectOperatorMetadata(kv, &service.ObjectMeta, version, imageRegistry, id)
 		if !exists {
 			expectations.Service.RaiseExpectations(kvkey, 1, 0)
-			_, err := core.Services(kv.Namespace).Create(service)
+			_, err := core.Services(service.Namespace).Create(service)
 			if err != nil {
 				expectations.Service.LowerExpectations(kvkey, 1, 0)
 				return false, fmt.Errorf("unable to create service %+v: %v", service, err)
@@ -1324,7 +1402,7 @@ func createOrUpdateService(kv *v1.KubeVirt,
 				if cachedService.DeletionTimestamp == nil {
 					if key, err := controller.KeyFunc(cachedService); err == nil {
 						expectations.Service.AddExpectedDeletion(kvkey, key)
-						err := core.Services(kv.Namespace).Delete(cachedService.Name, deleteOptions)
+						err := core.Services(service.Namespace).Delete(cachedService.Name, deleteOptions)
 						if err != nil {
 							expectations.Service.DeletionObserved(kvkey, key)
 							log.Log.Errorf("Failed to delete service %+v: %v", cachedService, err)
@@ -1338,7 +1416,7 @@ func createOrUpdateService(kv *v1.KubeVirt,
 				// after which the operator will recreate using new spec
 				return true, nil
 			} else if len(patchOps) != 0 {
-				_, err = core.Services(kv.Namespace).Patch(service.Name, types.JSONPatchType, generatePatchBytes(patchOps))
+				_, err = core.Services(service.Namespace).Patch(service.Name, types.JSONPatchType, generatePatchBytes(patchOps))
 				if err != nil {
 					return false, fmt.Errorf("unable to patch service %+v: %v", service, err)
 				}
@@ -1682,7 +1760,9 @@ func SyncAll(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
-	expectations *util.Expectations) (bool, error) {
+	expectations *util.Expectations,
+	caBundle []byte,
+) (bool, error) {
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -1770,6 +1850,12 @@ func SyncAll(kv *v1.KubeVirt,
 
 	// create/update SCCs
 	err = createOrUpdateSCC(kv, targetStrategy, stores, clientset, expectations)
+	if err != nil {
+		return false, err
+	}
+
+	// create/update ValidatingWebhookConfiguration
+	err = createOrUpdateValidatingWebhookConfigurations(kv, targetStrategy, stores, clientset, expectations, caBundle)
 	if err != nil {
 		return false, err
 	}
@@ -1908,8 +1994,37 @@ func SyncAll(kv *v1.KubeVirt,
 		return false, nil
 	}
 
+	// remove unused webhooks
+	// outdated webhooks can potentially block deletes of other objects during the cleanup and need to be removed first
+	objects := stores.ValidationWebhookCache.List()
+	for _, obj := range objects {
+		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
+			found := false
+			if strings.HasPrefix(webhook.Name, "virt-operator-tmp-webhook") {
+				continue
+			}
+			for _, targetWebhook := range targetStrategy.validatingWebhookConfigurations {
+				if targetWebhook.Name == webhook.Name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if key, err := controller.KeyFunc(webhook); err == nil {
+					expectations.ValidationWebhook.AddExpectedDeletion(kvkey, key)
+					err := clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(webhook.Name, deleteOptions)
+					if err != nil {
+						expectations.ValidationWebhook.DeletionObserved(kvkey, key)
+						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
+						return false, err
+					}
+				}
+			}
+		}
+	}
+
 	// remove unused crds
-	objects := stores.CrdCache.List()
+	objects = stores.CrdCache.List()
 	for _, obj := range objects {
 		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
 			found := false
@@ -1997,7 +2112,7 @@ func SyncAll(kv *v1.KubeVirt,
 			if !found {
 				if key, err := controller.KeyFunc(svc); err == nil {
 					expectations.Service.AddExpectedDeletion(kvkey, key)
-					err := clientset.CoreV1().Services(kv.Namespace).Delete(svc.Name, deleteOptions)
+					err := clientset.CoreV1().Services(svc.Namespace).Delete(svc.Name, deleteOptions)
 					if err != nil {
 						expectations.Service.DeletionObserved(kvkey, key)
 						log.Log.Errorf("Failed to delete service %+v: %v", svc, err)

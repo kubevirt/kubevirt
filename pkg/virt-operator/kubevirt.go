@@ -55,6 +55,7 @@ type KubeVirtController struct {
 	installStrategyMutex sync.Mutex
 	installStrategyMap   map[string]*installstrategy.InstallStrategy
 	operatorNamespace    string
+	caBundle             []byte
 }
 
 func NewKubeVirtController(
@@ -63,7 +64,9 @@ func NewKubeVirtController(
 	recorder record.EventRecorder,
 	stores util.Stores,
 	informers util.Informers,
-	operatorNamespace string) *KubeVirtController {
+	operatorNamespace string,
+	caBundle []byte,
+) *KubeVirtController {
 
 	c := KubeVirtController{
 		clientset:        clientset,
@@ -91,6 +94,7 @@ func NewKubeVirtController(
 		},
 		installStrategyMap: make(map[string]*installstrategy.InstallStrategy),
 		operatorNamespace:  operatorNamespace,
+		caBundle:           caBundle,
 	}
 
 	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -935,7 +939,7 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	}
 
 	// deploy
-	synced, err := installstrategy.SyncAll(kv, prevStrategy, targetStrategy, c.stores, c.clientset, &c.kubeVirtExpectations)
+	synced, err := installstrategy.SyncAll(kv, prevStrategy, targetStrategy, c.stores, c.clientset, &c.kubeVirtExpectations, c.caBundle)
 
 	if err != nil {
 		// deployment failed

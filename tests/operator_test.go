@@ -886,6 +886,29 @@ spec:
 			sanityCheckDeploymentsExist()
 		})
 
+		Describe("deleting with BlockUninstallIfWorkloadsExist", func() {
+			It("should be blocked if a workload exists", func() {
+				allPodsAreReady(originalKv)
+				sanityCheckDeploymentsExist()
+
+				By("setting the right uninstall strategy")
+				kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				kv.Spec.UninstallStrategy = v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
+				_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("creating a simple VMI")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros)))
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Deleting KubeVirt object")
+				err = virtClient.KubeVirt(kv.Namespace).Delete(kv.Name, &metav1.DeleteOptions{})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("there are still Virtual Machine Instances present"))
+			})
+		})
+
 		It("[test_id:3147]should be able to delete and re-create kubevirt install in a different namespace", func() {
 			allPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()

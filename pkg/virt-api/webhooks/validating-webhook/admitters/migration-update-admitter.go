@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
 type MigrationUpdateAdmitter struct {
@@ -36,16 +36,16 @@ func (admitter *MigrationUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1b
 	// Get new migration from admission response
 	newMigration, oldMigration, err := getAdmissionReviewMigration(ar)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceMigrationGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhookutils.ValidateSchema(v1.VirtualMachineInstanceMigrationGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
 	// Reject Migration update if spec changed
 	if !reflect.DeepEqual(newMigration.Spec, oldMigration.Spec) {
-		return webhooks.ToAdmissionResponse([]metav1.StatusCause{
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: "update of Migration object's spec is restricted",

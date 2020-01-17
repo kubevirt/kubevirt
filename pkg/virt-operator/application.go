@@ -21,6 +21,8 @@ package virt_operator
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
 	"io/ioutil"
 	golog "log"
 	"net/http"
@@ -28,6 +30,15 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/cert"
+
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	"kubevirt.io/kubevirt/pkg/util/webhooks"
+	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
+	operator_webhooks "kubevirt.io/kubevirt/pkg/virt-operator/webhooks"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -58,6 +69,13 @@ const (
 
 	// Default address that virt-operator listens on.
 	defaultHost = "0.0.0.0"
+
+	// selfsigned cert secret name
+	virtOperatorCertSecretName = "kubevirt-operator-certs"
+
+	certBytesValue        = "cert-bytes"
+	keyBytesValue         = "key-bytes"
+	signingCertBytesValue = "signing-cert-bytes"
 )
 
 type VirtOperatorApp struct {
@@ -78,7 +96,10 @@ type VirtOperatorApp struct {
 	stores    util.Stores
 	informers util.Informers
 
-	LeaderElection leaderelectionconfig.Configuration
+	LeaderElection   leaderelectionconfig.Configuration
+	certBytes        []byte
+	keyBytes         []byte
+	signingCertBytes []byte
 }
 
 var _ service.Service = &VirtOperatorApp{}
@@ -114,7 +135,7 @@ func Execute() {
 	}
 
 	if *dumpInstallStrategy {
-		err = installstrategy.DumpInstallStrategyToConfigMap(app.clientSet)
+		err = installstrategy.DumpInstallStrategyToConfigMap(app.clientSet, app.operatorNamespace)
 		if err != nil {
 			golog.Fatal(err)
 		}
@@ -193,8 +214,12 @@ func Execute() {
 		app.stores.ServiceMonitorCache = app.informerFactory.DummyOperatorServiceMonitor().GetStore()
 	}
 
+	if err = app.getSelfSignedCert(); err != nil {
+		panic(err)
+	}
+
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virt-operator")
-	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace)
+	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace, app.signingCertBytes)
 
 	image := os.Getenv(util.OperatorImageEnvName)
 	if image == "" {
@@ -254,6 +279,37 @@ func (app *VirtOperatorApp) Run() {
 		golog.Fatal(err)
 	}
 
+	apiAuthConfig := app.informerFactory.ApiAuthConfigMap()
+
+	stop := ctx.Done()
+	app.informerFactory.Start(stop)
+	cache.WaitForCacheSync(stop, apiAuthConfig.HasSynced)
+
+	caManager := webhooks.NewClientCAManager(apiAuthConfig.GetStore())
+	certPair, err := tls.X509KeyPair(app.certBytes, app.keyBytes)
+	if err != nil {
+		panic(err)
+	}
+
+	tlsConfig := webhooks.SetupTLS(caManager, certPair, tls.VerifyClientCertIfGiven)
+
+	webhookServer := &http.Server{
+		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, 8444),
+		TLSConfig: tlsConfig,
+	}
+
+	var mux http.ServeMux
+	mux.HandleFunc("/kubevirt-validate-delete", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtDeletionAdmitter(app.clientSet))
+	}))
+	webhookServer.Handler = &mux
+	go func() {
+		err := webhookServer.ListenAndServeTLS("", "")
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 	leaderElector, err := leaderelection.NewLeaderElector(
 		leaderelection.LeaderElectionConfig{
 			Lock:          rl,
@@ -264,8 +320,6 @@ func (app *VirtOperatorApp) Run() {
 				OnStartedLeading: func(ctx context.Context) {
 					log.Log.Infof("Started leading")
 					// run app
-					stop := ctx.Done()
-					app.informerFactory.Start(stop)
 					go app.kubeVirtController.Run(controllerThreads, stop)
 				},
 				OnStoppedLeading: func() {
@@ -296,4 +350,59 @@ func (app *VirtOperatorApp) AddFlags() {
 	app.Port = defaultPort
 
 	app.AddCommonFlags()
+}
+
+func (app *VirtOperatorApp) getSelfSignedCert() error {
+	var ok bool
+
+	caKeyPair, _ := triple.NewCA("kubevirt.io")
+	keyPair, _ := triple.NewServerKeyPair(
+		caKeyPair,
+		"kubevirt-operator-webhook."+app.operatorNamespace+".pod.cluster.local",
+		"kubevirt-operator-webhook",
+		app.operatorNamespace,
+		"cluster.local",
+		nil,
+		nil,
+	)
+
+	secret := &k8sv1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      virtOperatorCertSecretName,
+			Namespace: app.operatorNamespace,
+			Labels: map[string]string{
+				v1.AppLabel: "virt-operator-webhooks",
+			},
+		},
+		Type: "Opaque",
+		Data: map[string][]byte{
+			certBytesValue:        cert.EncodeCertPEM(keyPair.Cert),
+			keyBytesValue:         cert.EncodePrivateKeyPEM(keyPair.Key),
+			signingCertBytesValue: cert.EncodeCertPEM(caKeyPair.Cert),
+		},
+	}
+	_, err := app.clientSet.CoreV1().Secrets(app.operatorNamespace).Create(secret)
+	if errors.IsAlreadyExists(err) {
+		secret, err = app.clientSet.CoreV1().Secrets(app.operatorNamespace).Get(virtOperatorCertSecretName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	// retrieve self signed cert info from secret
+
+	app.certBytes, ok = secret.Data[certBytesValue]
+	if !ok {
+		return fmt.Errorf("%s value not found in %s virt-api secret", certBytesValue, virtOperatorCertSecretName)
+	}
+	app.keyBytes, ok = secret.Data[keyBytesValue]
+	if !ok {
+		return fmt.Errorf("%s value not found in %s virt-api secret", keyBytesValue, virtOperatorCertSecretName)
+	}
+	app.signingCertBytes, ok = secret.Data[signingCertBytesValue]
+	if !ok {
+		return fmt.Errorf("%s value not found in %s virt-api secret", signingCertBytesValue, virtOperatorCertSecretName)
+	}
+	return nil
 }
