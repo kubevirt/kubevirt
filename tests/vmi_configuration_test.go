@@ -737,7 +737,7 @@ var _ = Describe("Configurations", func() {
 						},
 					},
 				}
-				_, err := virtClient.Core().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
+				_, err := virtClient.CoreV1().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting a VirtualMachineInstance")
@@ -774,7 +774,7 @@ var _ = Describe("Configurations", func() {
 						},
 					},
 				}
-				_, err := virtClient.Core().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
+				_, err := virtClient.CoreV1().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting a VirtualMachineInstance")
@@ -816,7 +816,7 @@ var _ = Describe("Configurations", func() {
 						},
 					},
 				}
-				_, err := virtClient.Core().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
+				_, err := virtClient.CoreV1().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
@@ -849,7 +849,7 @@ var _ = Describe("Configurations", func() {
 			verifyHugepagesConsumption := func() {
 				// TODO: we need to check hugepages state via node allocated resources, but currently it has the issue
 				// https://github.com/kubernetes/kubernetes/issues/64691
-				pods, err := virtClient.Core().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(hugepagesVmi))
+				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(hugepagesVmi))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(1))
 
@@ -931,7 +931,7 @@ var _ = Describe("Configurations", func() {
 
 			Context("with unsupported page size", func() {
 				It("[test_id:1673]should failed to schedule the pod", func() {
-					nodes, err := virtClient.Core().Nodes().List(metav1.ListOptions{})
+					nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					hugepageType2Mi := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + "2Mi")

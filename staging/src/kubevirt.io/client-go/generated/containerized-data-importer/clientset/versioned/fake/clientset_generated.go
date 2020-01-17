@@ -44,7 +44,7 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 		}
 	}
 
-	cs := &Clientset{}
+	cs := &Clientset{tracker: o}
 	cs.discovery = &fakediscovery.FakeDiscovery{Fake: &cs.Fake}
 	cs.AddReactor("*", "*", testing.ObjectReaction(o))
 	cs.AddWatchReactor("*", func(action testing.Action) (handled bool, ret watch.Interface, err error) {
@@ -66,10 +66,15 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
 type Clientset struct {
 	testing.Fake
 	discovery *fakediscovery.FakeDiscovery
+	tracker   testing.ObjectTracker
 }
 
 func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 	return c.discovery
+}
+
+func (c *Clientset) Tracker() testing.ObjectTracker {
+	return c.tracker
 }
 
 var _ clientset.Interface = &Clientset{}
@@ -79,17 +84,7 @@ func (c *Clientset) CdiV1alpha1() cdiv1alpha1.CdiV1alpha1Interface {
 	return &fakecdiv1alpha1.FakeCdiV1alpha1{Fake: &c.Fake}
 }
 
-// Cdi retrieves the CdiV1alpha1Client
-func (c *Clientset) Cdi() cdiv1alpha1.CdiV1alpha1Interface {
-	return &fakecdiv1alpha1.FakeCdiV1alpha1{Fake: &c.Fake}
-}
-
 // UploadV1alpha1 retrieves the UploadV1alpha1Client
 func (c *Clientset) UploadV1alpha1() uploadv1alpha1.UploadV1alpha1Interface {
-	return &fakeuploadv1alpha1.FakeUploadV1alpha1{Fake: &c.Fake}
-}
-
-// Upload retrieves the UploadV1alpha1Client
-func (c *Clientset) Upload() uploadv1alpha1.UploadV1alpha1Interface {
 	return &fakeuploadv1alpha1.FakeUploadV1alpha1{Fake: &c.Fake}
 }

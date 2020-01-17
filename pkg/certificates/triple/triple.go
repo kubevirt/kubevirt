@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"net"
 
-	certutil "k8s.io/client-go/util/cert"
+	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
 type KeyPair struct {

@@ -7,7 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/certificates/triple:go_default_library",
-        "//vendor/k8s.io/client-go/util/cert:go_default_library",
+        "//pkg/certificates/triple/cert:go_default_library",
         "//vendor/k8s.io/client-go/util/certificate:go_default_library",
     ],
 )

@@ -19,6 +19,8 @@ limitations under the License.
 package versioned
 
 import (
+	"fmt"
+
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -30,11 +32,7 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	CdiV1alpha1() cdiv1alpha1.CdiV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Cdi() cdiv1alpha1.CdiV1alpha1Interface
 	UploadV1alpha1() uploadv1alpha1.UploadV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Upload() uploadv1alpha1.UploadV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -50,20 +48,8 @@ func (c *Clientset) CdiV1alpha1() cdiv1alpha1.CdiV1alpha1Interface {
 	return c.cdiV1alpha1
 }
 
-// Deprecated: Cdi retrieves the default version of CdiClient.
-// Please explicitly pick a version.
-func (c *Clientset) Cdi() cdiv1alpha1.CdiV1alpha1Interface {
-	return c.cdiV1alpha1
-}
-
 // UploadV1alpha1 retrieves the UploadV1alpha1Client
 func (c *Clientset) UploadV1alpha1() uploadv1alpha1.UploadV1alpha1Interface {
-	return c.uploadV1alpha1
-}
-
-// Deprecated: Upload retrieves the default version of UploadClient.
-// Please explicitly pick a version.
-func (c *Clientset) Upload() uploadv1alpha1.UploadV1alpha1Interface {
 	return c.uploadV1alpha1
 }
 
@@ -76,9 +62,14 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 }
 
 // NewForConfig creates a new Clientset for the given config.
+// If config's RateLimiter is not set and QPS and Burst are acceptable,
+// NewForConfig will generate a rate-limiter in configShallowCopy.
 func NewForConfig(c *rest.Config) (*Clientset, error) {
 	configShallowCopy := *c
 	if configShallowCopy.RateLimiter == nil && configShallowCopy.QPS > 0 {
+		if configShallowCopy.Burst <= 0 {
+			return nil, fmt.Errorf("Burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
+		}
 		configShallowCopy.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 	var cs Clientset
