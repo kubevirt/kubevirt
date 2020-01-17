@@ -56,19 +56,23 @@ RUN \
     go get -u -d github.com/golang/protobuf/protoc-gen-go && \
     # Install deepcopy-gen
     cd $GOPATH/src/k8s.io/code-generator/cmd/deepcopy-gen && \
-    git checkout kubernetes-1.13.4 && \
+    git checkout v0.16.4 && \
     go install && \
     # Install defaulter-gen
     cd $GOPATH/src/k8s.io/code-generator/cmd/defaulter-gen && \
-    git checkout kubernetes-1.13.4 && \
+    git checkout v0.16.4 && \
+    go install && \
+     # Install client-gen
+    cd $GOPATH/src/k8s.io/code-generator/cmd/client-gen && \
+    git checkout v0.16.4 && \
     go install && \
     # Install client-gen
     cd $GOPATH/src/k8s.io/code-generator/cmd/client-gen && \
-    git checkout kubernetes-1.13.4 && \
+    git checkout v0.16.4 && \
     go install && \
     # Install openapi-gen
     cd $GOPATH/src/k8s.io/kube-openapi/cmd/openapi-gen && \
-    git checkout c59034cc13d587f5ef4e85ca0ade0c1866ae8e1d && \
+    git checkout 30be4d16710ac61bce31eb28a01054596fe6a9f1 && \
     go install && \
     # Install protoc-gen-go
     cd $GOPATH/src/github.com/golang/protobuf/protoc-gen-go && \

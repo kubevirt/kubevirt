@@ -73,13 +73,13 @@ func mergeVMIResources(vmi *kubev1.VirtualMachineInstance, defaultRequirements *
 	for k, v := range defaultRequirements.Limits {
 		_, found := vmi.Spec.Domain.Resources.Limits[k]
 		if !found {
-			vmi.Spec.Domain.Resources.Limits[k] = *v.Copy()
+			vmi.Spec.Domain.Resources.Limits[k] = v
 		}
 	}
 	for k, v := range defaultRequirements.Requests {
 		_, found := vmi.Spec.Domain.Resources.Requests[k]
 		if !found {
-			vmi.Spec.Domain.Resources.Requests[k] = *v.Copy()
+			vmi.Spec.Domain.Resources.Requests[k] = v
 		}
 	}
 }
@@ -94,12 +94,10 @@ func defaultVMIResourceRequirements(limitRange *k8sv1.LimitRange) k8sv1.Resource
 		limit := limitRange.Spec.Limits[i]
 		if limit.Type == k8sv1.LimitTypeContainer {
 			for k, v := range limit.DefaultRequest {
-				value := v.Copy()
-				requirements.Requests[k8sv1.ResourceName(k)] = *value
+				requirements.Requests[k8sv1.ResourceName(k)] = v
 			}
 			for k, v := range limit.Default {
-				value := v.Copy()
-				requirements.Limits[k8sv1.ResourceName(k)] = *value
+				requirements.Limits[k8sv1.ResourceName(k)] = v
 			}
 		}
 	}

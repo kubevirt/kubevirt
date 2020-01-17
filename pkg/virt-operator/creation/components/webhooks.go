@@ -59,7 +59,7 @@ func NewValidatingWebhookConfiguration(operatorNamespace string) *v1beta1.Valida
 				virtv1.AppLabel: "virt-operator-validator",
 			},
 		},
-		Webhooks: []v1beta1.Webhook{
+		Webhooks: []v1beta1.ValidatingWebhook{
 			{
 				Name: "kubevirt-validator.kubevirt.io",
 				ClientConfig: v1beta1.WebhookClientConfig{

@@ -23,7 +23,6 @@ import (
 	"fmt"
 
 	"github.com/golang/mock/gomock"
-	fakenetworkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -39,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	fakenetworkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
