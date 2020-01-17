@@ -1994,8 +1994,37 @@ func SyncAll(kv *v1.KubeVirt,
 		return false, nil
 	}
 
+	// remove unused webhooks
+	// outdated webhooks can potentially block deletes of other objects during the cleanup and need to be removed first
+	objects := stores.ValidationWebhookCache.List()
+	for _, obj := range objects {
+		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
+			found := false
+			if strings.HasPrefix(webhook.Name, "virt-operator-tmp-webhook") {
+				continue
+			}
+			for _, targetWebhook := range targetStrategy.validatingWebhookConfigurations {
+				if targetWebhook.Name == webhook.Name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if key, err := controller.KeyFunc(webhook); err == nil {
+					expectations.ValidationWebhook.AddExpectedDeletion(kvkey, key)
+					err := clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(webhook.Name, deleteOptions)
+					if err != nil {
+						expectations.ValidationWebhook.DeletionObserved(kvkey, key)
+						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
+						return false, err
+					}
+				}
+			}
+		}
+	}
+
 	// remove unused crds
-	objects := stores.CrdCache.List()
+	objects = stores.CrdCache.List()
 	for _, obj := range objects {
 		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
 			found := false
