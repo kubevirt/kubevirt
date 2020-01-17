@@ -190,6 +190,22 @@ sspCsv="${TEMPDIR}/$(create_ssp_csv).${CSV_EXT}"
 cdiCsv="${TEMPDIR}/$(create_cdi_csv).${CSV_EXT}"
 nmoCsv="${TEMPDIR}/$(create_nmo_csv).${CSV_EXT}"
 hppCsv="${TEMPDIR}/$(create_hpp_csv).${CSV_EXT}"
+csvOverrides="${TEMPDIR}/csv_overrides.${CSV_EXT}"
+cat > ${csvOverrides} <<- EOM
+---
+spec:
+  links:
+  - name: KubeVirt project
+    url: https://kubevirt.io
+  - name: Source Code
+    url: https://github.com/kubevirt/hyperconverged-cluster-operator
+  maintainers:
+  - email: kubevirt-dev@googlegroups.com
+    name: KubeVirt project
+  maturity: alpha
+  provider:
+    name: KubeVirt project
+EOM
 popd
 
 mkdir -p "${CSV_DIR}"
@@ -226,6 +242,8 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --replaces-csv-version=${REPLACES_CSV_VERSION} \
   --spec-displayname="KubeVirt HyperConverged Cluster Operator" \
   --spec-description="$(<${PROJECT_ROOT}/docs/operator_description.md)" \
+  --crd-display="HyperConverged Cluster Operator" \
+  --csv-overrides="$(<${csvOverrides})" \
   --operator-image-name="${OPERATOR_IMAGE}" > "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}"
 (cd ${PROJECT_ROOT}/tools/csv-merger/ && go clean)
 

@@ -29,6 +29,7 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/ghodss/yaml"
+	"github.com/imdario/mergo"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	"github.com/kubevirt/hyperconverged-cluster-operator/tools/util"
 
@@ -75,6 +76,8 @@ var (
 	specDisplayName     = flag.String("spec-displayname", "", "Display Name")
 	relatedImagesList   = flag.String("related-images-list", "", "Comma separated list of all the images referred in the CSV")
 	namespace           = flag.String("namespace", "kubevirt-hyperconverged", "Namespace")
+	crdDisplay          = flag.String("crd-display", "KubeVirt HyperConverged Cluster", "Label show in OLM UI about the primary CRD")
+	csvOverrides        = flag.String("csv-overrides", "", "CSV like string with punctual changes that will be recursively applied (if possible)")
 )
 
 func main() {
@@ -108,6 +111,7 @@ func main() {
 		*operatorImage,
 		replaces,
 		version,
+		*crdDisplay,
 	)
 	csvExtended := ClusterServiceVersionExtended{
 		TypeMeta:   csvBase.TypeMeta,
@@ -244,6 +248,23 @@ func main() {
 	}
 	if *specDisplayName != "" {
 		csvExtended.Spec.DisplayName = *specDisplayName
+	}
+
+	if *csvOverrides != "" {
+		csvOBytes := []byte(*csvOverrides)
+
+		csvO := &ClusterServiceVersionExtended{}
+
+		err := yaml.Unmarshal(csvOBytes, csvO)
+		if err != nil {
+			panic(err)
+		}
+
+		err = mergo.Merge(&csvExtended, csvO, mergo.WithOverride)
+		if err != nil {
+			panic(err)
+		}
+
 	}
 
 	util.MarshallObject(csvExtended, os.Stdout)
