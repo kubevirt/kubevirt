@@ -114,7 +114,7 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		}
 
 		if err := driver.preparePodNetworkInterfaces(); err != nil {
-			log.Log.Reason(err).Critical("failed to prepared pod networking")
+			log.Log.Reason(err).Critical("failed to prepare pod networking")
 			panic(err)
 		}
 
@@ -408,7 +408,7 @@ func (b *BridgePodInterface) cleanCachedFiles(uid types.UID, name string) error 
 		getInterfaceCacheFile(interfaceCacheFile, uid, name),
 	} {
 		if err := os.RemoveAll(fileName); err != nil {
-			return fmt.Errorf("Failed to clean up cached file: %s", fileName)
+			return fmt.Errorf("Failed to clean up cached file %s: %v", fileName, err)
 		}
 	}
 	return nil
@@ -548,7 +548,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 	}
 	err := Handler.LinkAdd(bridgeNic)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to create a interface: %s", bridgeNic.Name)
+		log.Log.Reason(err).Errorf("failed to create an interface: %s", bridgeNic.Name)
 		return err
 	}
 
