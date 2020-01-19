@@ -641,8 +641,8 @@ func (p *MasqueradePodInterface) cleanCachedFiles(uid types.UID, name string) er
 		getVifFile(uid, name),
 		getInterfaceCacheFile(interfaceCacheFile, uid, name),
 	} {
-		if err := os.Remove(fileName); err != nil {
-			return fmt.Errorf("Failed to clean up cached file: %s", fileName)
+		if err := os.RemoveAll(fileName); err != nil {
+			return fmt.Errorf("Failed to clean up cached file %s: %v", fileName, err)
 		}
 	}
 	return nil
