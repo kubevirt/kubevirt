@@ -504,6 +504,40 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		if volume.ServiceAccount != nil {
 			serviceAccountName = volume.ServiceAccount.ServiceAccountName
 		}
+
+		if volume.CloudInitNoCloud != nil && volume.CloudInitNoCloud.UserDataSecretRef != nil {
+			// attach a secret referenced by the user
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					Secret: &k8sv1.SecretVolumeSource{
+						SecretName: volume.CloudInitNoCloud.UserDataSecretRef.Name,
+					},
+				},
+			})
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
+				ReadOnly:  true,
+			})
+		}
+
+		if volume.CloudInitConfigDrive != nil && volume.CloudInitConfigDrive.UserDataSecretRef != nil {
+			// attach a secret referenced by the user
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					Secret: &k8sv1.SecretVolumeSource{
+						SecretName: volume.CloudInitConfigDrive.UserDataSecretRef.Name,
+					},
+				},
+			})
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
+				ReadOnly:  true,
+			})
+		}
 	}
 
 	if t.imagePullSecret != "" {
