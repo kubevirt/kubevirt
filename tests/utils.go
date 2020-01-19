@@ -185,6 +185,11 @@ const (
 	NamespaceTestAlternative = "kubevirt-test-alternative"
 )
 
+const (
+	NFSTargetName = "test-nfs-target"
+	ISCSITargetName = "test-isci-target"
+)
+
 var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative}
 var schedulableNode = ""
 
@@ -3208,16 +3213,16 @@ func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string
 	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("256M")
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "test-iscsi-target",
+			GenerateName: ISCSITargetName,
 			Labels: map[string]string{
-				v1.AppLabel: "test-iscsi-target",
+				v1.AppLabel: ISCSITargetName,
 			},
 		},
 		Spec: k8sv1.PodSpec{
 			RestartPolicy: k8sv1.RestartPolicyNever,
 			Containers: []k8sv1.Container{
 				{
-					Name:      "test-iscsi-target",
+					Name:      ISCSITargetName,
 					Image:     image,
 					Resources: resources,
 				},
@@ -3334,9 +3339,9 @@ func CreateNFSTargetPOD(os string) (nfsTargetIP string) {
 	hostPathType := k8sv1.HostPathDirectory
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-nfs-target",
+			Name: NFSTargetName,
 			Labels: map[string]string{
-				v1.AppLabel: "test-nfs-target",
+				v1.AppLabel: NFSTargetName,
 			},
 		},
 		Spec: k8sv1.PodSpec{
@@ -3354,7 +3359,7 @@ func CreateNFSTargetPOD(os string) (nfsTargetIP string) {
 			},
 			Containers: []k8sv1.Container{
 				{
-					Name:            "test-nfs-target",
+					Name:            NFSTargetName,
 					Image:           image,
 					ImagePullPolicy: k8sv1.PullAlways,
 					Resources:       resources,
