@@ -30,6 +30,8 @@ source hack/common.sh
 source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
+kubectl() { cluster-up/kubectl.sh "$@"; }
+
 echo "Building ..."
 
 # Build everyting and publish it
@@ -54,8 +56,13 @@ if [[ $image_prefix_alt ]]; then
     done
 fi
 
-# OKD provider has different node names and does not have docker
-if [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
+# OKD/OCP providers has different node names and does not have docker
+if [[ $KUBEVIRT_PROVIDER =~ ocp.* ]]; then
+    nodes=()
+    nodes+=($(kubectl get nodes --no-headers | awk '{print $1}' | grep master))
+    nodes+=($(kubectl get nodes --no-headers | awk '{print $1}' | grep worker))
+    pull_command="podman"
+elif [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
     nodes=("master-0" "worker-0")
     pull_command="podman"
 elif [[ $KUBEVIRT_PROVIDER == "external" ]] || [[ $KUBEVIRT_PROVIDER =~ kind.* ]]; then

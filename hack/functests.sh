@@ -41,7 +41,7 @@ previous_release_registry=${PREVIOUS_RELEASE_REGISTRY:-$_default_previous_releas
 
 functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 
-if [[ ${KUBEVIRT_PROVIDER} == os-* ]] || [[ ${KUBEVIRT_PROVIDER} == okd-* ]]; then
+if [[ ${KUBEVIRT_PROVIDER} == os-* ]] || [[ ${KUBEVIRT_PROVIDER} =~ (okd|ocp)-* ]]; then
     oc=${kubectl}
 fi
 
