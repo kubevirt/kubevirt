@@ -2079,7 +2079,8 @@ func SyncAll(kv *v1.KubeVirt,
 	for _, obj := range objects {
 		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
 			found := false
-			if strings.HasPrefix(webhook.Name, "virt-operator-tmp-webhook") {
+			// XXX virt-api-validator is right now only half managed and not in the manifest, skip it right now on updates
+			if strings.HasPrefix(webhook.Name, "virt-operator-tmp-webhook") || webhook.Name == "virt-api-validator" {
 				continue
 			}
 			for _, targetWebhook := range targetStrategy.validatingWebhookConfigurations {

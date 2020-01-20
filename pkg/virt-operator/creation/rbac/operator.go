@@ -231,6 +231,18 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"validatingwebhookconfigurations",
+					"mutatingwebhookconfigurations",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "create", "delete", "update", "patch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"apiregistration.k8s.io",
+				},
+				Resources: []string{
+					"apiservices",
 				},
 				Verbs: []string{
 					"get", "list", "watch", "create", "delete", "update", "patch",

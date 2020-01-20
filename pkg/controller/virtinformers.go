@@ -40,6 +40,8 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	v1beta12 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -151,6 +153,12 @@ type KubeInformerFactory interface {
 	// Webhooks created/managed by virt operator
 	OperatorValidationWebhook() cache.SharedIndexInformer
 
+	// Webhooks created/managed by virt operator
+	OperatorMutatingWebhook() cache.SharedIndexInformer
+
+	// APIServices created/managed by virt operator
+	OperatorAPIService() cache.SharedIndexInformer
+
 	// PodDisruptionBudgets created/managed by virt operator
 	OperatorPodDisruptionBudget() cache.SharedIndexInformer
 
@@ -173,10 +181,11 @@ type KubeInformerFactory interface {
 }
 
 type kubeInformerFactory struct {
-	restClient    *rest.RESTClient
-	clientSet     kubecli.KubevirtClient
-	lock          sync.Mutex
-	defaultResync time.Duration
+	restClient       *rest.RESTClient
+	clientSet        kubecli.KubevirtClient
+	aggregatorClient aggregatorclient.Interface
+	lock             sync.Mutex
+	defaultResync    time.Duration
 
 	informers         map[string]cache.SharedIndexInformer
 	startedInformers  map[string]bool
@@ -184,10 +193,11 @@ type kubeInformerFactory struct {
 	k8sInformers      informers.SharedInformerFactory
 }
 
-func NewKubeInformerFactory(restClient *rest.RESTClient, clientSet kubecli.KubevirtClient, kubevirtNamespace string) KubeInformerFactory {
+func NewKubeInformerFactory(restClient *rest.RESTClient, clientSet kubecli.KubevirtClient, aggregatorClient aggregatorclient.Interface, kubevirtNamespace string) KubeInformerFactory {
 	return &kubeInformerFactory{
-		restClient: restClient,
-		clientSet:  clientSet,
+		restClient:       restClient,
+		clientSet:        clientSet,
+		aggregatorClient: aggregatorClient,
 		// Resulting resync period will be between 12 and 24 hours, like the default for k8s
 		defaultResync:     resyncPeriod(12 * time.Hour),
 		informers:         make(map[string]cache.SharedIndexInformer),
@@ -534,7 +544,7 @@ func (f *kubeInformerFactory) OperatorPod() cache.SharedIndexInformer {
 }
 
 func (f *kubeInformerFactory) OperatorValidationWebhook() cache.SharedIndexInformer {
-	return f.getInformer("operatorWebhookInformer", func() cache.SharedIndexInformer {
+	return f.getInformer("operatorValidatingWebhookInformer", func() cache.SharedIndexInformer {
 		labelSelector, err := labels.Parse(OperatorLabel)
 		if err != nil {
 			panic(err)
@@ -542,6 +552,30 @@ func (f *kubeInformerFactory) OperatorValidationWebhook() cache.SharedIndexInfor
 
 		lw := NewListWatchFromClient(f.clientSet.AdmissionregistrationV1beta1().RESTClient(), "validatingwebhookconfigurations", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &admissionregistrationv1beta1.ValidatingWebhookConfiguration{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorMutatingWebhook() cache.SharedIndexInformer {
+	return f.getInformer("operatorMutatingWebhookInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.AdmissionregistrationV1beta1().RESTClient(), "mutatingwebhookconfigurations", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &admissionregistrationv1beta1.MutatingWebhookConfiguration{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorAPIService() cache.SharedIndexInformer {
+	return f.getInformer("operatorAPIServiceInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.aggregatorClient.ApiregistrationV1beta1().RESTClient(), "apiservices", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &v1beta12.APIService{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

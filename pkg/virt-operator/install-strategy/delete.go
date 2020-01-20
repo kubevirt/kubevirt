@@ -34,6 +34,8 @@ import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -85,6 +87,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	strategy *InstallStrategy,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
+	aggregatorclient aggregatorclient.Interface,
 	expectations *util.Expectations) error {
 
 	kvkey, err := controller.KeyFunc(kv)
@@ -190,6 +193,44 @@ func DeleteAll(kv *v1.KubeVirt,
 				if err != nil {
 					expectations.ValidationWebhook.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete validatingwebhook %+v: %v", webhookConfiguration, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	// delete mutatingwebhooks
+	objects = stores.MutatingWebhookCache.List()
+	for _, obj := range objects {
+		if webhookConfiguration, ok := obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration); ok && webhookConfiguration.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(webhookConfiguration); err == nil {
+				expectations.MutatingWebhook.AddExpectedDeletion(kvkey, key)
+				err := clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(webhookConfiguration.Name, deleteOptions)
+				if err != nil {
+					expectations.MutatingWebhook.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete mutatingwebhook %+v: %v", webhookConfiguration, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	// delete apiservices
+	objects = stores.APIServiceCache.List()
+	for _, obj := range objects {
+		if apiservice, ok := obj.(*v1beta1.APIService); ok && apiservice.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(apiservice); err == nil {
+				expectations.APIService.AddExpectedDeletion(kvkey, key)
+				err := aggregatorclient.ApiregistrationV1beta1().APIServices().Delete(apiservice.Name, deleteOptions)
+				if err != nil {
+					expectations.APIService.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete apiservice %+v: %v", apiservice, err)
 					return err
 				}
 			}

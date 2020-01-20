@@ -103,7 +103,7 @@ func newInformers() *Informers {
 	if err != nil {
 		glog.Fatalf("Error searching for namespace: %v", err)
 	}
-	kubeInformerFactory := controller.NewKubeInformerFactory(kubeClient.RestClient(), kubeClient, namespace)
+	kubeInformerFactory := controller.NewKubeInformerFactory(kubeClient.RestClient(), kubeClient, nil, namespace)
 	return &Informers{
 		VMIInformer:             kubeInformerFactory.VMI(),
 		VMIPresetInformer:       kubeInformerFactory.VirtualMachinePreset(),

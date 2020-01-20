@@ -759,6 +759,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			return err
 		}
 	}
+
 	webHooks := app.validatingWebhooks()
 
 	if registerWebhook {
@@ -766,7 +767,8 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: virtWebhookValidator,
 				Labels: map[string]string{
-					v1.AppLabel: virtWebhookValidator,
+					v1.AppLabel:       virtWebhookValidator,
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 				},
 			},
 			Webhooks: webHooks,
@@ -775,6 +777,10 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			return err
 		}
 	} else {
+
+		// Ensure that we have the operator label attached, so that the operator can manage the resource later
+		// This is part of a soft transition from behing controlled by the apiserver, to being controlled by the operator
+		webhookRegistration.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
 
 		// update registered webhook with our data
 		webhookRegistration.Webhooks = webHooks
@@ -894,6 +900,7 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 			return err
 		}
 	}
+
 	webHooks := app.mutatingWebhooks()
 
 	if registerWebhook {
@@ -901,7 +908,8 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: virtWebhookMutator,
 				Labels: map[string]string{
-					v1.AppLabel: virtWebhookMutator,
+					v1.AppLabel:       virtWebhookMutator,
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 				},
 			},
 			Webhooks: webHooks,
@@ -910,6 +918,9 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 			return err
 		}
 	} else {
+		// Ensure that we have the operator label attached, so that the operator can manage the resource later
+		// This is part of a soft transition from behing controlled by the apiserver, to being controlled by the operator
+		webhookRegistration.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
 
 		// update registered webhook with our data
 		webhookRegistration.Webhooks = webHooks
@@ -941,7 +952,8 @@ func (app *virtAPIApp) subresourceApiservice(version schema.GroupVersion) *apire
 			Name:      subresourceAggregatedApiName,
 			Namespace: app.namespace,
 			Labels: map[string]string{
-				v1.AppLabel: "virt-api-aggregator",
+				v1.AppLabel:       "virt-api-aggregator",
+				v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 			},
 		},
 		Spec: apiregistrationv1beta1.APIServiceSpec{
@@ -979,6 +991,10 @@ func (app *virtAPIApp) createSubresourceApiservice(version schema.GroupVersion) 
 			return err
 		}
 	} else {
+
+		// Ensure that we have the operator label attached, so that the operator can manage the resource later
+		// This is part of a soft transition from behing controlled by the apiserver, to being controlled by the operator
+		apiService.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
 
 		// Always update spec to latest.
 		apiService.Spec = app.subresourceApiservice(version).Spec
@@ -1019,7 +1035,7 @@ func (app *virtAPIApp) startTLS(stopCh <-chan struct{}) error {
 
 	errors := make(chan error)
 
-	informerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.namespace)
+	informerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.aggregatorClient, app.namespace)
 
 	authConfigMapInformer := informerFactory.ApiAuthConfigMap()
 	informerFactory.Start(stopCh)
@@ -1072,7 +1088,7 @@ func (app *virtAPIApp) Run() {
 
 	// Run informers for webhooks usage
 	webhookInformers := webhooks.GetInformers()
-	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.namespace)
+	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.aggregatorClient, app.namespace)
 	configMapInformer := kubeInformerFactory.ConfigMap()
 	crdInformer := kubeInformerFactory.CRD()
 

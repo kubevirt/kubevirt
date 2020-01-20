@@ -278,7 +278,7 @@ func (app *virtHandlerApp) Run() {
 		glog.Fatalf("Error constructing migration tls config: %v", err)
 	}
 
-	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.namespace)
+	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, nil, app.namespace)
 
 	gracefulShutdownInformer := cache.NewSharedIndexInformer(
 		inotifyinformer.NewFileListWatchFromClient(

@@ -873,6 +873,18 @@ spec:
 			By("Sanity Checking Deployments infrastructure is deleted")
 			sanityCheckDeploymentsDeleted()
 
+			By("ensuring that namespaces can be successfully created and deleted")
+			_, err := virtClient.CoreV1().Namespaces().Create(&k8sv1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: tests.NamespaceTestOperator}})
+			if err != nil && !errors.IsAlreadyExists(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			err = virtClient.CoreV1().Namespaces().Delete(tests.NamespaceTestOperator, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				_, err := virtClient.CoreV1().Namespaces().Get(tests.NamespaceTestOperator, metav1.GetOptions{})
+				return errors.IsNotFound(err)
+			}, 60*time.Second, 1*time.Second).Should(BeTrue())
+
 			By("Creating KubeVirt Object")
 			createKv(copyOriginalKv())
 
@@ -1432,4 +1444,7 @@ func patchCRD(orig *v1beta1.CustomResourceDefinition, modified *v1beta1.CustomRe
 	patch, err := jsonpatch.CreateMergePatch(origCRDByte, crdByte)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return patch
+}
+
+func recreateOperatorNamespace(virtClient kubecli.KubevirtClient) {
 }
