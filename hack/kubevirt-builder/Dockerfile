@@ -1,4 +1,4 @@
-FROM mhenriks/builder:30-5.4.0
+FROM kubevirt/builder@sha256:112c6515515ece0949ea566cc911d884df9be1224980825d3d0ea6d3072ace0c
 
 ENV GIMME_GO_VERSION=1.12.8
 ENV GOPATH="/go" GOBIN="/usr/bin"
