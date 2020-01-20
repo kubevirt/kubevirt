@@ -37,7 +37,5 @@ docker run \
         --container-tag=latest \
         --container-prefix=docker.io/kubevirt \
         --test.timeout 180m \
-        --junit-output=data/results/junit.xml \
-        --deploy-testing-infra \
-        --path-to-testing-infra-manifests=data/manifests
+        --junit-output=data/results/junit.xml
 ```

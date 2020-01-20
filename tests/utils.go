@@ -105,9 +105,6 @@ var ConfigFile = ""
 var Config *KubeVirtTestsConfiguration
 var SkipShasumCheck bool
 
-var DeployTestingInfrastructureFlag = false
-var PathToTestingInfrastrucureManifests = ""
-
 func init() {
 	kubecli.Init()
 	flag.StringVar(&KubeVirtUtilityVersionTag, "utility-container-tag", "", "Set the image tag or digest to use")
@@ -122,8 +119,6 @@ func init() {
 	flag.StringVar(&KubeVirtVirtctlPath, "virtctl-path", "", "Set path to virtctl binary")
 	flag.StringVar(&KubeVirtGoCliPath, "gocli-path", "", "Set path to gocli binary")
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kubevirt", "Set the namespace KubeVirt is installed in")
-	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
-	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
 	flag.StringVar(&PreviousReleaseTag, "previous-release-tag", "", "Set tag of the release to test updating from")
 	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "", "Set registry of the release to test updating from")
 	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
@@ -558,9 +553,6 @@ func AfterTestSuitCleanup() {
 		deleteStorageClass(Config.StorageClassBlockVolume)
 	}
 
-	if DeployTestingInfrastructureFlag {
-		WipeTestingInfrastructure()
-	}
 	removeNamespaces()
 
 	CleanNodes()
@@ -711,10 +703,6 @@ func BeforeTestSuitSetup() {
 
 	createNamespaces()
 	createServiceAccounts()
-	if DeployTestingInfrastructureFlag {
-		WipeTestingInfrastructure()
-		DeployTestingInfrastructure()
-	}
 
 	// Wait for schedulable nodes
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -1083,67 +1071,6 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 		panic(err)
 	}
 	return nil
-}
-
-func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructured) error) {
-	// Scale down KubeVirt
-	err, replicasApi := DoScaleDeployment(KubeVirtInstallNamespace, "virt-api", 0)
-	PanicOnError(err)
-	err, replicasController := DoScaleDeployment(KubeVirtInstallNamespace, "virt-controller", 0)
-	PanicOnError(err)
-	daemonInstances, selector, _, err := DoScaleVirtHandler(KubeVirtInstallNamespace, "virt-handler", map[string]string{"kubevirt.io": "scaletozero"})
-	PanicOnError(err)
-	// Deploy / delete test infrastructure / dependencies
-	manifests := GetListOfManifests(PathToTestingInfrastrucureManifests)
-	for _, manifest := range manifests {
-		objects := ReadManifestYamlFile(manifest)
-		for _, obj := range objects {
-			err := actionOnObject(obj)
-			PanicOnError(err)
-		}
-	}
-	// Scale KubeVirt back
-	err, _ = DoScaleDeployment(KubeVirtInstallNamespace, "virt-api", replicasApi)
-	PanicOnError(err)
-	err, _ = DoScaleDeployment(KubeVirtInstallNamespace, "virt-controller", replicasController)
-	PanicOnError(err)
-	_, _, newGeneration, err := DoScaleVirtHandler(KubeVirtInstallNamespace, "virt-handler", selector)
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	Eventually(func() int32 {
-		d, err := virtCli.AppsV1().Deployments(KubeVirtInstallNamespace).Get("virt-api", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return d.Status.ReadyReplicas
-	}, 3*time.Minute, 2*time.Second).Should(Equal(replicasApi), "virt-api is not ready")
-
-	Eventually(func() int32 {
-		d, err := virtCli.AppsV1().Deployments(KubeVirtInstallNamespace).Get("virt-controller", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return d.Status.ReadyReplicas
-	}, 3*time.Minute, 2*time.Second).Should(Equal(replicasController), "virt-controller is not ready")
-
-	Eventually(func() int64 {
-		d, err := virtCli.AppsV1().DaemonSets(KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return d.Status.ObservedGeneration
-	}, 1*time.Minute, 2*time.Second).Should(Equal(newGeneration), "virt-handler did not bump the generation")
-
-	Eventually(func() int32 {
-		d, err := virtCli.AppsV1().DaemonSets(KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return d.Status.NumberAvailable
-	}, 1*time.Minute, 2*time.Second).Should(Equal(daemonInstances), "virt-handler is not ready")
-
-	WaitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
-}
-
-func DeployTestingInfrastructure() {
-	deployOrWipeTestingInfrastrucure(ApplyRawManifest)
-}
-
-func WipeTestingInfrastructure() {
-	deployOrWipeTestingInfrastrucure(DeleteRawManifest)
 }
 
 func cleanupSubresourceServiceAccount() {
