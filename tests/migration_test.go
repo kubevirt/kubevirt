@@ -760,6 +760,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				// create a new PV and PVC (PVs can't be reused)
 				tests.DeletePvAndPvc(pvName)
+				By("Deleting NFS pod")
+				Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
+				By("Waiting for NFS pod to disappear")
+				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
 			})
 			It("[test_id:1785]  should be migrated successfully", func() {
 				// Start the VirtualMachineInstance with the PVC attached
