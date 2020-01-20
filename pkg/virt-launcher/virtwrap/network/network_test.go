@@ -48,13 +48,13 @@ var _ = Describe("Network", func() {
 			iface := v1.DefaultBridgeNetworkInterface()
 			defaultNet := v1.DefaultPodNetwork()
 
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, defaultNet, podInterface)
-			err := SetupNetworkInterfacesPhase1(vm)
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, defaultNet, podInterface, false)
+			err := SetupNetworkInterfacesPhase1(vm, false)
 			Expect(err).To(BeNil())
 		})
 		It("should accept empty network list", func() {
 			vmi := newVMI("testnamespace", "testVmName")
-			err := SetupNetworkInterfacesPhase1(vmi)
+			err := SetupNetworkInterfacesPhase1(vmi, false)
 			Expect(err).To(BeNil())
 		})
 		It("should configure networking with multus", func() {
@@ -72,8 +72,8 @@ var _ = Describe("Network", func() {
 			}
 			vm.Spec.Networks = []v1.Network{*cniNet}
 
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, cniNet, multusInterfaceName)
-			err := SetupNetworkInterfacesPhase1(vm)
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, cniNet, multusInterfaceName, false)
+			err := SetupNetworkInterfacesPhase1(vm, false)
 			Expect(err).To(BeNil())
 		})
 		It("should configure networking with multus and a default multus network", func() {
@@ -127,10 +127,10 @@ var _ = Describe("Network", func() {
 
 			vm.Spec.Networks = []v1.Network{*additionalCNINet1, *cniNet, *additionalCNINet2}
 
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], additionalCNINet1, "net1")
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[1], cniNet, "eth0")
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[2], additionalCNINet2, "net2")
-			err := SetupNetworkInterfacesPhase1(vm)
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[0], additionalCNINet1, "net1", false)
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[1], cniNet, "eth0", false)
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, &vm.Spec.Domain.Devices.Interfaces[2], additionalCNINet2, "net2", false)
+			err := SetupNetworkInterfacesPhase1(vm, false)
 			Expect(err).To(BeNil())
 		})
 		It("should configure networking with genie", func() {
@@ -148,8 +148,8 @@ var _ = Describe("Network", func() {
 			}
 			vm.Spec.Networks = []v1.Network{*cniNet}
 
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, cniNet, genieInterfaceName)
-			err := SetupNetworkInterfacesPhase1(vm)
+			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, cniNet, genieInterfaceName, false)
+			err := SetupNetworkInterfacesPhase1(vm, false)
 			Expect(err).To(BeNil())
 		})
 	})
