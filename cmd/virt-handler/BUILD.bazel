@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//pkg/certificates:go_default_library",
         "//pkg/certificates/triple:go_default_library",
+        "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/inotify-informer:go_default_library",
         "//pkg/monitoring/client/prometheus:go_default_library",
@@ -40,7 +41,6 @@ go_library(
         "//vendor/k8s.io/client-go/kubernetes/typed/core/v1:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
-        "//vendor/k8s.io/client-go/util/cert:go_default_library",
         "//vendor/k8s.io/client-go/util/certificate:go_default_library",
     ],
 )

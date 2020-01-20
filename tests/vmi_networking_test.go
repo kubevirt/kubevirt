@@ -70,11 +70,11 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	waitForPodToFinish := func(pod *v12.Pod) v12.PodPhase {
 		Eventually(func() v12.PodPhase {
-			j, err := virtClient.Core().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
+			j, err := virtClient.CoreV1().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return j.Status.Phase
 		}, 90*time.Second, 1*time.Second).Should(Or(Equal(v12.PodSucceeded), Equal(v12.PodFailed)))
-		j, err := virtClient.Core().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
+		j, err := virtClient.CoreV1().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		logPodLogs(pod)
 		return j.Status.Phase

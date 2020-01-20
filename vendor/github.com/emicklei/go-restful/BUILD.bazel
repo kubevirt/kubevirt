@@ -12,6 +12,7 @@ go_library(
         "cors_filter.go",
         "curly.go",
         "curly_route.go",
+        "custom_verb.go",
         "doc.go",
         "entity_accessors.go",
         "filter.go",

@@ -24,7 +24,7 @@ import (
 	"github.com/onsi/gomega/types"
 )
 
-const GOMEGA_VERSION = "1.5.0"
+const GOMEGA_VERSION = "1.7.0"
 
 const nilFailHandlerPanic = `You are trying to make an assertion, but Gomega's fail handler is nil.
 If you're using Ginkgo then you probably forgot to put your assertion in an It().
@@ -155,7 +155,7 @@ func Expect(actual interface{}, extra ...interface{}) Assertion {
 //    ExpectWithOffset(1, "foo").To(Equal("foo"))
 //
 // Unlike `Expect` and `Ω`, `ExpectWithOffset` takes an additional integer argument
-// this is used to modify the call-stack offset when computing line numbers.
+// that is used to modify the call-stack offset when computing line numbers.
 //
 // This is most useful in helper functions that make assertions.  If you want Gomega's
 // error message to refer to the calling line in the test (as opposed to the line in the helper function)
@@ -280,7 +280,7 @@ func SetDefaultEventuallyPollingInterval(t time.Duration) {
 	defaultEventuallyPollingInterval = t
 }
 
-// SetDefaultConsistentlyDuration sets  the default duration for Consistently. Consistently will verify that your condition is satsified for this long.
+// SetDefaultConsistentlyDuration sets  the default duration for Consistently. Consistently will verify that your condition is satisfied for this long.
 func SetDefaultConsistentlyDuration(t time.Duration) {
 	defaultConsistentlyDuration = t
 }

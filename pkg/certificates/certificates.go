@@ -1,10 +1,10 @@
 package certificates
 
 import (
-	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/certificate"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
 func GenerateSelfSignedCert(certsDirectory string, name string, namespace string) (certificate.FileStore, error) {

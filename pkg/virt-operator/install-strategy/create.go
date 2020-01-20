@@ -35,7 +35,6 @@ import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/cert"
 
 	"github.com/blang/semver"
 
@@ -43,6 +42,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
@@ -340,7 +340,7 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 	stores util.Stores,
 	expectations *util.Expectations) error {
 
-	var webhooks []admissionregistrationv1beta1.Webhook
+	var webhooks []admissionregistrationv1beta1.ValidatingWebhook
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -374,7 +374,7 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 			continue
 		}
 		path := fmt.Sprintf("/fake-path/%s", crd.Name)
-		webhooks = append(webhooks, admissionregistrationv1beta1.Webhook{
+		webhooks = append(webhooks, admissionregistrationv1beta1.ValidatingWebhook{
 			Name:          fmt.Sprintf("%s-tmp-validator", crd.Name),
 			FailurePolicy: &failurePolicy,
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
@@ -1463,7 +1463,7 @@ func createOrUpdateServiceMonitors(kv *v1.KubeVirt,
 		if !exists {
 			// Create non existent
 			expectations.ServiceMonitor.RaiseExpectations(kvkey, 1, 0)
-			_, err := prometheusClient.Monitoring().ServiceMonitors(serviceMonitor.Namespace).Create(serviceMonitor)
+			_, err := prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Create(serviceMonitor)
 			if err != nil {
 				expectations.ServiceMonitor.LowerExpectations(kvkey, 1, 0)
 				return fmt.Errorf("unable to create serviceMonitor %+v: %v", serviceMonitor, err)
@@ -1488,7 +1488,7 @@ func createOrUpdateServiceMonitors(kv *v1.KubeVirt,
 			}
 			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
 
-			_, err = prometheusClient.Monitoring().ServiceMonitors(serviceMonitor.Namespace).Patch(serviceMonitor.Name, types.JSONPatchType, generatePatchBytes(ops))
+			_, err = prometheusClient.MonitoringV1().ServiceMonitors(serviceMonitor.Namespace).Patch(serviceMonitor.Name, types.JSONPatchType, generatePatchBytes(ops))
 			if err != nil {
 				return fmt.Errorf("unable to patch serviceMonitor %+v: %v", serviceMonitor, err)
 			}

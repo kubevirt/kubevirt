@@ -14,5 +14,10 @@ export GO111MODULE=on
     go mod tidy
 )
 
+(
+    cd staging/src/kubevirt.io/client-go/examples/listvms
+    go mod tidy
+)
+
 go mod tidy
 go mod vendor

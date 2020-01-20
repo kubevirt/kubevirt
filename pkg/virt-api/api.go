@@ -39,7 +39,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/cert"
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
@@ -51,6 +50,7 @@ import (
 	clientutil "kubevirt.io/client-go/util"
 	virtversion "kubevirt.io/client-go/version"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
@@ -574,7 +574,7 @@ func (app *virtAPIApp) createWebhook() error {
 	return nil
 }
 
-func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webhook {
+func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.ValidatingWebhook {
 
 	vmiPathCreate := vmiCreateValidatePath
 	vmiPathUpdate := vmiUpdateValidatePath
@@ -585,7 +585,7 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 	migrationUpdatePath := migrationUpdateValidatePath
 	failurePolicy := admissionregistrationv1beta1.Fail
 
-	webHooks := []admissionregistrationv1beta1.Webhook{
+	webHooks := []admissionregistrationv1beta1.ValidatingWebhook{
 		{
 			Name:          "virtualmachineinstances-create-validator.kubevirt.io",
 			FailurePolicy: &failurePolicy,
@@ -810,11 +810,11 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 	return nil
 }
 
-func (app *virtAPIApp) mutatingWebhooks() []admissionregistrationv1beta1.Webhook {
+func (app *virtAPIApp) mutatingWebhooks() []admissionregistrationv1beta1.MutatingWebhook {
 	vmPath := vmMutatePath
 	vmiPath := vmiMutatePath
 	migrationPath := migrationMutatePath
-	webHooks := []admissionregistrationv1beta1.Webhook{
+	webHooks := []admissionregistrationv1beta1.MutatingWebhook{
 		{
 			Name: "virtualmachines-mutator.kubevirt.io",
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{

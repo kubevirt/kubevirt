@@ -50,7 +50,7 @@ func (_ prometheusMetricsProvider) NewAddsMetric(name string) workqueue.CounterM
 	return adds
 }
 
-func (_ prometheusMetricsProvider) NewLatencyMetric(name string) workqueue.SummaryMetric {
+func (_ prometheusMetricsProvider) NewLatencyMetric(name string) workqueue.HistogramMetric {
 	latency := prometheus.NewSummary(prometheus.SummaryOpts{
 		Subsystem: name,
 		Name:      "queue_latency",
@@ -60,7 +60,7 @@ func (_ prometheusMetricsProvider) NewLatencyMetric(name string) workqueue.Summa
 	return latency
 }
 
-func (_ prometheusMetricsProvider) NewWorkDurationMetric(name string) workqueue.SummaryMetric {
+func (_ prometheusMetricsProvider) NewWorkDurationMetric(name string) workqueue.HistogramMetric {
 	workDuration := prometheus.NewSummary(prometheus.SummaryOpts{
 		Subsystem: name,
 		Name:      "work_duration",
@@ -80,10 +80,10 @@ func (_ prometheusMetricsProvider) NewRetriesMetric(name string) workqueue.Count
 	return retries
 }
 
-func (_ prometheusMetricsProvider) NewLongestRunningProcessorMicrosecondsMetric(name string) workqueue.SettableGaugeMetric {
+func (_ prometheusMetricsProvider) NewLongestRunningProcessorSecondsMetric(name string) workqueue.SettableGaugeMetric {
 	longestRunningProcessor := prometheus.NewGauge(prometheus.GaugeOpts{
 		Subsystem: name,
-		Name:      "longest_running_proceessror",
+		Name:      "longest_running_proceessror_seconds",
 		Help:      "The longest running processor time",
 	})
 	prometheus.Register(longestRunningProcessor)

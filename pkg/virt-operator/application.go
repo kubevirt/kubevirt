@@ -32,10 +32,10 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/cert"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	operator_webhooks "kubevirt.io/kubevirt/pkg/virt-operator/webhooks"
@@ -271,6 +271,7 @@ func (app *VirtOperatorApp) Run() {
 		app.operatorNamespace,
 		endpointName,
 		app.clientSet.CoreV1(),
+		app.clientSet.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
 			Identity:      id,
 			EventRecorder: recorder,

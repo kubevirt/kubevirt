@@ -279,6 +279,7 @@ func (vca *VirtControllerApp) Run() {
 		vca.kubevirtNamespace,
 		leaderelectionconfig.DefaultEndpointName,
 		vca.clientSet.CoreV1(),
+		vca.clientSet.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
 			Identity:      id,
 			EventRecorder: recorder,

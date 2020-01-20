@@ -1236,7 +1236,7 @@ func (in *KubeVirtCondition) DeepCopy() *KubeVirtCondition {
 func (in *KubeVirtList) DeepCopyInto(out *KubeVirtList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]KubeVirt, len(*in))
@@ -1791,7 +1791,7 @@ func (in *VirtualMachineInstanceGuestOSInfo) DeepCopy() *VirtualMachineInstanceG
 func (in *VirtualMachineInstanceList) DeepCopyInto(out *VirtualMachineInstanceList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]VirtualMachineInstance, len(*in))
@@ -1870,7 +1870,7 @@ func (in *VirtualMachineInstanceMigrationCondition) DeepCopy() *VirtualMachineIn
 func (in *VirtualMachineInstanceMigrationList) DeepCopyInto(out *VirtualMachineInstanceMigrationList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]VirtualMachineInstanceMigration, len(*in))
@@ -2021,7 +2021,7 @@ func (in *VirtualMachineInstancePreset) DeepCopyObject() runtime.Object {
 func (in *VirtualMachineInstancePresetList) DeepCopyInto(out *VirtualMachineInstancePresetList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]VirtualMachineInstancePreset, len(*in))
@@ -2122,7 +2122,7 @@ func (in *VirtualMachineInstanceReplicaSetCondition) DeepCopy() *VirtualMachineI
 func (in *VirtualMachineInstanceReplicaSetList) DeepCopyInto(out *VirtualMachineInstanceReplicaSetList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]VirtualMachineInstanceReplicaSet, len(*in))
@@ -2343,7 +2343,7 @@ func (in *VirtualMachineInstanceTemplateSpec) DeepCopy() *VirtualMachineInstance
 func (in *VirtualMachineList) DeepCopyInto(out *VirtualMachineList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]VirtualMachine, len(*in))
