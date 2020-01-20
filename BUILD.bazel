@@ -212,12 +212,12 @@ container_bundle(
         "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/example-cloudinit-hook-sidecar:example-cloudinit-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)subresource-access-test:$(container_tag)": "//cmd/subresource-access-test:subresource-access-test-image",
         # container-disk images
-        "$(container_prefix)/$(image_prefix)alpine-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:alpine-container-disk-image",
-        "$(container_prefix)/$(image_prefix)cirros-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:cirros-container-disk-image",
-        "$(container_prefix)/$(image_prefix)cirros-custom-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:cirros-custom-container-disk-image",
-        "$(container_prefix)/$(image_prefix)fedora-cloud-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:fedora-cloud-container-disk-image",
-        "$(container_prefix)/$(image_prefix)fedora30-cloud-container-disk-demo:$(container_tag)": "//cmd/container-disk-v2alpha:fedora30-cloud-container-disk-image",
-        "$(container_prefix)/$(image_prefix)virtio-container-disk:$(container_tag)": "//cmd/container-disk-v2alpha:virtio-container-disk-image",
+        "$(container_prefix)/$(image_prefix)alpine-container-disk-demo:$(container_tag)": "//containerimages:alpine-container-disk-image",
+        "$(container_prefix)/$(image_prefix)cirros-container-disk-demo:$(container_tag)": "//containerimages:cirros-container-disk-image",
+        "$(container_prefix)/$(image_prefix)cirros-custom-container-disk-demo:$(container_tag)": "//containerimages:cirros-custom-container-disk-image",
+        "$(container_prefix)/$(image_prefix)fedora-cloud-container-disk-demo:$(container_tag)": "//containerimages:fedora-cloud-container-disk-image",
+        "$(container_prefix)/$(image_prefix)fedora30-cloud-container-disk-demo:$(container_tag)": "//containerimages:fedora30-cloud-container-disk-image",
+        "$(container_prefix)/$(image_prefix)virtio-container-disk:$(container_tag)": "//containerimages:virtio-container-disk-image",
         # testing images
         "$(container_prefix)/$(image_prefix)disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
         "$(container_prefix)/$(image_prefix)cdi-http-import-server:$(container_tag)": "//images/cdi-http-import-server:cdi-http-import-server-image",
