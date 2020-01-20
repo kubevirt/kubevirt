@@ -79,9 +79,16 @@ manifest_docker_prefix=registry:5000/kubevirt
 EOF
 }
 
+function _configure_network() {
+    ${NODE_CMD} $1 modprobe br_netfilter
+    for knob in arp ip ip6; do
+        ${NODE_CMD} $1 sysctl -w net.bridge.bridge-nf-call-${knob}tables=1
+    done
+}
+
 function kind_up() {
     _fetch_kind
-  
+
     # appending eventual workers to the yaml
     for ((n=0;n<$(($KUBEVIRT_NUM_NODES-1));n++)); do 
         echo "- role: worker" >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
@@ -116,6 +123,7 @@ function kind_up() {
 
     for node in $(_kubectl get nodes --no-headers | awk '{print $1}'); do
         _configure_registry_on_node "$node"
+        _configure_network "$node"
     done
     prepare_config
 }
