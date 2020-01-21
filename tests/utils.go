@@ -186,7 +186,7 @@ const (
 )
 
 const (
-	NFSTargetName = "test-nfs-target"
+	NFSTargetName   = "test-nfs-target"
 	ISCSITargetName = "test-isci-target"
 )
 
