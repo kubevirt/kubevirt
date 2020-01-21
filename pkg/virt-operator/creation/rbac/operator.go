@@ -242,6 +242,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"servicemonitors",
+					"prometheusrules",
 				},
 				Verbs: []string{
 					"get", "list", "watch", "create", "delete", "update", "patch",

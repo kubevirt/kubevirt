@@ -19,13 +19,20 @@
 package components
 
 import (
+	"fmt"
+
 	"github.com/coreos/prometheus-operator/pkg/apis/monitoring"
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
+)
+
+const (
+	KUBEVIRT_PROMETHEUS_RULE_NAME = "prometheus-kubevirt-rules"
 )
 
 func newBlankCrd() *extv1beta1.CustomResourceDefinition {
@@ -243,7 +250,7 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: monitorNamespace,
-			Name:      "kubevirt",
+			Name:      KUBEVIRT_PROMETHEUS_RULE_NAME,
 			Labels: map[string]string{
 				"openshift.io/cluster-monitoring": "",
 				"prometheus.kubevirt.io":          "",
@@ -265,6 +272,64 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 					Scheme: "https",
 					TLSConfig: &promv1.TLSConfig{
 						InsecureSkipVerify: insecureSkipVerify,
+					},
+				},
+			},
+		},
+	}
+}
+
+// NewPrometheusRuleCR returns a PrometheusRule with a group of alerts for the KubeVirt deployment.
+func NewPrometheusRuleCR(namespace string) *promv1.PrometheusRule {
+	return &promv1.PrometheusRule{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: promv1.SchemeGroupVersion.String(),
+			Kind:       "PrometheusRule",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      KUBEVIRT_PROMETHEUS_RULE_NAME,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"prometheus.kubevirt.io": "",
+				"k8s-app":                "kubevirt",
+			},
+		},
+		Spec: *NewPrometheusRuleSpec(namespace),
+	}
+}
+
+// NewPrometheusRuleSpec makes a prometheus rule spec for kubevirt
+func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
+	return &promv1.PrometheusRuleSpec{
+		Groups: []promv1.RuleGroup{
+			{
+				Name: "kubevirt.rules",
+				Rules: []promv1.Rule{
+					{
+						Record: "num_of_running_virt_api_servers",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum(up{namespace='%s', %s='virt-api'})", ns, virtv1.AppLabel),
+						),
+					},
+					{
+						Alert: "VirtAPIDown",
+						Expr:  intstr.FromString("num_of_running_virt_api_servers == 0"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "All virt-api servers are down.",
+						},
+					},
+					{
+						Record: "num_of_allocatable_nodes",
+						Expr:   intstr.FromString("count(count (kube_node_status_allocatable) by (node))"),
+					},
+					{
+						Alert: "LowVirtAPICount",
+						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (num_of_running_virt_api_servers < 2)"),
+						For:   "60m",
+						Annotations: map[string]string{
+							"summary": "More than one virt-api should be running if more than one worker nodes exist.",
+						},
 					},
 				},
 			},

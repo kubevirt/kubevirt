@@ -84,6 +84,7 @@ type InstallStrategy struct {
 
 	sccs            []*secv1.SecurityContextConstraints
 	serviceMonitors []*promv1.ServiceMonitor
+	prometheusRules []*promv1.PrometheusRule
 }
 
 func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool, operatorNamespace string) (*corev1.ConfigMap, error) {
@@ -192,6 +193,9 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	for _, entry := range strategy.serviceMonitors {
 		marshalutil.MarshallObject(entry, writer)
 	}
+	for _, entry := range strategy.prometheusRules {
+		marshalutil.MarshallObject(entry, writer)
+	}
 	writer.Flush()
 
 	return b.Bytes()
@@ -219,6 +223,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		monitorServiceAccount := config.GetMonitorServiceAccount()
 		rbaclist = append(rbaclist, rbac.GetAllServiceMonitor(config.GetNamespace(), monitorNamespace, monitorServiceAccount)...)
 		strategy.serviceMonitors = append(strategy.serviceMonitors, components.NewServiceMonitorCR(config.GetNamespace(), monitorNamespace, true))
+		strategy.prometheusRules = append(strategy.prometheusRules, components.NewPrometheusRuleCR(config.GetNamespace()))
 	} else {
 		glog.Warningf("failed to create service monitor resources because namespace %s does not exist", monitorNamespace)
 	}
@@ -449,6 +454,12 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.serviceMonitors = append(strategy.serviceMonitors, sm)
+		case "PrometheusRule":
+			pr := &promv1.PrometheusRule{}
+			if err := yaml.Unmarshal([]byte(entry), &pr); err != nil {
+				return nil, err
+			}
+			strategy.prometheusRules = append(strategy.prometheusRules, pr)
 		default:
 			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
 

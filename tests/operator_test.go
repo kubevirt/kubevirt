@@ -1355,6 +1355,38 @@ spec:
 		})
 	})
 
+	Context("With PrometheusRule Enabled", func() {
+
+		BeforeEach(func() {
+			if !tests.PrometheusRuleEnabled() {
+				Skip("Test applies on when PrometheusRule is defined")
+			}
+		})
+
+		It("Checks if the kubevirt PrometheusRule cr exists and verify it's spec", func() {
+			monv1 := virtClient.PrometheusClient().MonitoringV1()
+			prometheusRule, err := monv1.PrometheusRules(tests.KubeVirtInstallNamespace).Get(components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			expectedPromRuleSpec := components.NewPrometheusRuleSpec(tests.KubeVirtInstallNamespace)
+			Expect(prometheusRule.Spec).To(Equal(*expectedPromRuleSpec))
+		})
+	})
+
+	Context("With PrometheusRule Disabled", func() {
+
+		BeforeEach(func() {
+			if tests.PrometheusRuleEnabled() {
+				Skip("Test applies on when PrometheusRule is not defined")
+			}
+		})
+
+		It("Checks that we do not deploy a PrometheusRule cr when not needed", func() {
+			monv1 := virtClient.PrometheusClient().MonitoringV1()
+			_, err := monv1.PrometheusRules(tests.KubeVirtInstallNamespace).Get(components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled", func() {
 
 		BeforeEach(func() {

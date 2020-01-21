@@ -163,6 +163,12 @@ type KubeInformerFactory interface {
 	// The namespace where kubevirt is deployed in
 	Namespace() cache.SharedIndexInformer
 
+	// PrometheusRules created/managed by virt operator
+	OperatorPrometheusRule() cache.SharedIndexInformer
+
+	// Fake PrometheusRule informer used when Prometheus not installed
+	DummyOperatorPrometheusRule() cache.SharedIndexInformer
+
 	K8SInformerFactory() informers.SharedInformerFactory
 }
 
@@ -587,5 +593,24 @@ func (f *kubeInformerFactory) CRD() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(restClient, "customresourcedefinitions", k8sv1.NamespaceAll, fields.Everything())
 
 		return cache.NewSharedIndexInformer(lw, &extv1beta1.CustomResourceDefinition{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorPrometheusRule() cache.SharedIndexInformer {
+	return f.getInformer("OperatorPrometheusRuleInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.PrometheusClient().MonitoringV1().RESTClient(), "prometheusrules", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &promv1.PrometheusRule{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) DummyOperatorPrometheusRule() cache.SharedIndexInformer {
+	return f.getInformer("FakeOperatorPrometheusRuleInformer", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&promv1.PrometheusRule{})
+		return informer
 	})
 }

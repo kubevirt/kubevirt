@@ -91,6 +91,7 @@ func NewKubeVirtController(
 			InstallStrategyJob:       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Jobs")),
 			PodDisruptionBudget:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets")),
 			ServiceMonitor:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceMonitor")),
+			PrometheusRule:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PrometheusRule")),
 		},
 		installStrategyMap: make(map[string]*installstrategy.InstallStrategy),
 		operatorNamespace:  operatorNamespace,
@@ -303,6 +304,18 @@ func NewKubeVirtController(
 		},
 	})
 
+	c.informers.PrometheusRule.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.PrometheusRule)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.PrometheusRule)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.PrometheusRule)
+		},
+	})
+
 	return &c
 }
 
@@ -471,6 +484,7 @@ func (c *KubeVirtController) Run(threadiness int, stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.informers.PodDisruptionBudget.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.ServiceMonitor.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.Namespace.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.PrometheusRule.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {

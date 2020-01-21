@@ -1020,6 +1020,21 @@ func ServiceMonitorEnabled() bool {
 	return serviceMonitorEnabled
 }
 
+// PrometheusRuleEnabled returns true if the PrometheusRule CRD is enabled
+// and false otherwise.
+func PrometheusRuleEnabled() bool {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	prometheusRuleEnabled, err := util.IsPrometheusRuleEnabled(virtClient)
+	if err != nil {
+		fmt.Printf("ERROR: Can't verify PrometheusRule CRD %v\n", err)
+		panic(err)
+	}
+
+	return prometheusRuleEnabled
+}
+
 func composeResourceURI(object unstructured.Unstructured) string {
 	uri := "/api"
 	if object.GetAPIVersion() != "v1" {

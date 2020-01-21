@@ -96,6 +96,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var podDisruptionBudgetSource *framework.FakeControllerSource
 	var serviceMonitorSource *framework.FakeControllerSource
 	var namespaceSource *framework.FakeControllerSource
+	var prometheusRuleSource *framework.FakeControllerSource
 
 	var stop chan struct{}
 	var controller *KubeVirtController
@@ -132,8 +133,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 	var resourceChanges map[string]map[string]int
 
-	resourceCount := 38
-	patchCount := 19
+	resourceCount := 39
+	patchCount := 20
 	updateCount := 20
 
 	deleteFromCache := true
@@ -158,6 +159,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		go informers.PodDisruptionBudget.Run(stop)
 		go informers.ServiceMonitor.Run(stop)
 		go informers.Namespace.Run(stop)
+		go informers.PrometheusRule.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
 
@@ -178,6 +180,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		cache.WaitForCacheSync(stop, informers.PodDisruptionBudget.HasSynced)
 		cache.WaitForCacheSync(stop, informers.ServiceMonitor.HasSynced)
 		cache.WaitForCacheSync(stop, informers.Namespace.HasSynced)
+		cache.WaitForCacheSync(stop, informers.PrometheusRule.HasSynced)
 	}
 
 	getSCC := func() secv1.SecurityContextConstraints {
@@ -274,6 +277,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		stores.ServiceMonitorCache = informers.ServiceMonitor.GetStore()
 		stores.ServiceMonitorEnabled = true
 
+		informers.PrometheusRule, prometheusRuleSource = testutils.NewFakeInformerFor(&promv1.PrometheusRule{})
+		stores.PrometheusRuleCache = informers.PrometheusRule.GetStore()
+		stores.PrometheusRulesEnabled = true
 		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers, NAMESPACE, nil)
 
 		// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -455,6 +461,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	addPrometheusRule := func(prometheusRule *promv1.PrometheusRule) {
+		mockQueue.ExpectAdds(1)
+		prometheusRuleSource.Add(prometheusRule)
+		mockQueue.Wait()
+	}
+
 	addResource := func(obj runtime.Object, config *util.KubeVirtDeploymentConfig) {
 		switch resource := obj.(type) {
 		case *k8sv1.ServiceAccount:
@@ -505,6 +517,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		case *promv1.ServiceMonitor:
 			injectMetadata(&obj.(*promv1.ServiceMonitor).ObjectMeta, config)
 			addServiceMonitor(resource)
+		case *promv1.PrometheusRule:
+			injectMetadata(&obj.(*promv1.PrometheusRule).ObjectMeta, config)
+			addPrometheusRule(resource)
 		default:
 			Fail("unknown resource type")
 		}
@@ -753,6 +768,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewReplicaSetCrd())
 		all = append(all, components.NewVirtualMachineCrd())
 		all = append(all, components.NewVirtualMachineInstanceMigrationCrd())
+		all = append(all, components.NewPrometheusRuleCR(config.GetNamespace()))
 		// sccs
 		all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
 		all = append(all, components.NewKubeVirtHandlerSCC(NAMESPACE))
@@ -968,6 +984,14 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	deletePrometheusRule := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.PrometheusRule.GetStore().GetByKey(key); exists {
+			prometheusRuleSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
+
 	deleteResource := func(resource string, key string) {
 		switch resource {
 		case "serviceaccounts":
@@ -1000,6 +1024,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			deleteSCC(key)
 		case "servicemonitors":
 			deleteServiceMonitor(key)
+		case "prometheusrules":
+			deletePrometheusRule(key)
 		default:
 			Fail(fmt.Sprintf("unknown resource type %+v", resource))
 		}
@@ -1106,6 +1132,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("delete", "poddisruptionbudgets", genericDeleteFunc)
 		secClient.Fake.PrependReactor("delete", "securitycontextconstraints", genericDeleteFunc)
 		promClient.Fake.PrependReactor("delete", "servicemonitors", genericDeleteFunc)
+		promClient.Fake.PrependReactor("delete", "prometheusrules", genericDeleteFunc)
 	}
 
 	shouldExpectJobDeletion := func() {
@@ -1131,6 +1158,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", genericPatchFunc)
 		secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericUpdateFunc)
 		promClient.Fake.PrependReactor("patch", "servicemonitors", genericPatchFunc)
+		promClient.Fake.PrependReactor("patch", "prometheusrules", genericPatchFunc)
 	}
 
 	shouldExpectRbacBackupCreations := func() {
@@ -1162,6 +1190,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", genericCreateFunc)
 		secClient.Fake.PrependReactor("create", "securitycontextconstraints", genericCreateFunc)
 		promClient.Fake.PrependReactor("create", "servicemonitors", genericCreateFunc)
+		promClient.Fake.PrependReactor("create", "prometheusrules", genericCreateFunc)
 	}
 
 	shouldExpectKubeVirtUpdate := func(times int) {
@@ -1672,6 +1701,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.PodDisruptionBudgetCache.List())).To(Equal(1))
 			Expect(len(controller.stores.SCCCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ServiceMonitorCache.List())).To(Equal(1))
+			Expect(len(controller.stores.PrometheusRuleCache.List())).To(Equal(1))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
 
