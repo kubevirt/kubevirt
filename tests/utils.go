@@ -49,7 +49,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -411,70 +410,6 @@ func (w *ObjectEventWatcher) WaitNotFor(stopChan chan struct{}, eventType EventT
 		return false
 	}, fmt.Sprintf("not happen event type %s, reason = %s", string(eventType), reflect.ValueOf(reason).String()))
 	return
-}
-
-// Do scale and retuns error, replicas-before.
-func DoScaleDeployment(namespace string, name string, desired int32) (error, int32) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	deployment, err := virtCli.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
-	if err != nil {
-		return err, -1
-	}
-	scale := &autoscalingv1.Scale{Spec: autoscalingv1.ScaleSpec{Replicas: desired}, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
-	scale, err = virtCli.AppsV1().Deployments(namespace).UpdateScale(name, scale)
-	if err != nil {
-		return err, -1
-	}
-	return nil, *deployment.Spec.Replicas
-}
-
-func DoScaleVirtHandler(namespace string, name string, selector map[string]string) (int32, map[string]string, int64, error) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	d, err := virtCli.AppsV1().DaemonSets(namespace).Get(name, metav1.GetOptions{})
-	if err != nil {
-		return 0, nil, 0, err
-	}
-	sel := d.Spec.Template.Spec.NodeSelector
-	ready := d.Status.DesiredNumberScheduled
-	d.Spec.Template.Spec.NodeSelector = selector
-	d, err = virtCli.AppsV1().DaemonSets(namespace).Update(d)
-	if err != nil {
-		return 0, nil, 0, err
-	}
-	return ready, sel, d.ObjectMeta.Generation, nil
-}
-
-func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
-	checkForPodsToBeReady := func() []string {
-		podsNotReady := make([]string, 0)
-		virtClient, err := kubecli.GetKubevirtClient()
-		PanicOnError(err)
-
-		podsList, err := virtClient.CoreV1().Pods(k8sv1.NamespaceAll).List(listOptions)
-		PanicOnError(err)
-		for _, pod := range podsList.Items {
-			for _, status := range pod.Status.ContainerStatuses {
-				if status.State.Terminated != nil {
-					break // We don't care about terminated pods
-				} else if status.State.Running != nil {
-					if !status.Ready { // We need to wait for this one
-						podsNotReady = append(podsNotReady, pod.Name)
-						break
-					}
-				} else {
-					// It is in Waiting state, We need to wait for this one
-					podsNotReady = append(podsNotReady, pod.Name)
-					break
-				}
-			}
-		}
-		return podsNotReady
-	}
-	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeEmpty(), "There are pods in system which are not ready.")
 }
 
 func GenerateRESTReport() error {
@@ -924,32 +859,6 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
-}
-
-func GetListOfManifests(pathToManifestsDir string) []string {
-	var manifests []string
-	matchFileName := func(pattern, filename string) bool {
-		match, err := filepath.Match(pattern, filename)
-		if err != nil {
-			panic(err)
-		}
-		return match
-	}
-	err := filepath.Walk(pathToManifestsDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			fmt.Printf("ERROR: Can not access a path %q: %v\n", path, err)
-			return err
-		}
-		if !info.IsDir() && matchFileName("*.yaml", info.Name()) {
-			manifests = append(manifests, path)
-		}
-		return nil
-	})
-	if err != nil {
-		fmt.Printf("ERROR: Walking the path %q: %v\n", pathToManifestsDir, err)
-		panic(err)
-	}
-	return manifests
 }
 
 func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
