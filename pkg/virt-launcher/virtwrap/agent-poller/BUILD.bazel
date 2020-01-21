@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["agent_poller.go"],
+    srcs = [
+        "agent_parser.go",
+        "agent_poller.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller",
     visibility = ["//visibility:public"],
     deps = [
