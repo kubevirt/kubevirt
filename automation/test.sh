@@ -28,6 +28,8 @@
 
 set -ex
 
+echo "IN TEST RUN IHAR:"
+
 export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
@@ -321,3 +323,8 @@ fi
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params make functest
+if [ $? -ne 0 ]; then
+  echo "Dump kubevirt state:"
+  make dump
+  exit 1
+fi
