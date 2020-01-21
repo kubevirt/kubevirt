@@ -52,6 +52,7 @@ import (
 const (
 	migrationWaitTime = 240
 	fedoraVMSize      = "256M"
+	secretDiskSerial  = "D23YZ9W6WA5DJ487"
 )
 
 var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system] VM Live Migration", func() {
@@ -751,16 +752,20 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			AfterEach(func() {
-				// delete VMI
 				By("Deleting the VMI")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-				// create a new PV and PVC (PVs can't be reused)
+				// PVs can't be reused
 				tests.DeletePvAndPvc(pvName)
+
+				By("Deleting NFS pod")
+				Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
+				By("Waiting for NFS pod to disappear")
+				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
 			})
-			It("[test_id:1785]  should be migrated successfully", func() {
+			It("[test_id:2653]  should be migrated successfully, using guest agent on VM", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				By("Creating the  VMI")
 				vmi = tests.NewRandomVMIWithPVC(pvName)
@@ -768,7 +773,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 				// add userdata for guest agent and service account mount
-				secretDiskSerial := "D23YZ9W6WA5DJ487"
 				mountSvcAccCommands := fmt.Sprintf(`
 					mkdir /mnt/servacc
 					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
@@ -787,7 +791,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInFedoraExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Should be able to login to the Fedora VM")
 				expecter.Close()
 
 				// execute a migration, wait for finalized state
@@ -804,14 +808,14 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
 				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 60)
 				defer expecter.Close()
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Should stay logged in to the migrated VM")
 
 				By("Checking that the service account is mounted")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
 					&expect.BExp{R: tests.NamespaceTestDefault},
 				}, 30*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Should be able to access the mounted service account file")
 
 			})
 		})
