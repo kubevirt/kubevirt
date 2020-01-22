@@ -151,13 +151,6 @@ export NAMESPACE="${NAMESPACE:-kubevirt}"
 # Make sure that the VM is properly shut down on exit
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
-
-# Check if we are on a pull request in jenkins.
-export KUBEVIRT_CACHE_FROM=${PULL_BASE_REF}
-if [ -n "${KUBEVIRT_CACHE_FROM}" ]; then
-    make builder-cache-pull
-fi
-
 make cluster-down
 
 # Create .bazelrc to use remote cache

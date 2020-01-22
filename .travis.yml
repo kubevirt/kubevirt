@@ -9,9 +9,6 @@ install:
 - git reset --hard
 
 script:
-- export KUBEVIRT_UPDATE_CACHE_FROM="${TRAVIS_BRANCH}"
-- export KUBEVIRT_CACHE_FROM="${TRAVIS_BRANCH}"
-- if [[ "${TRAVIS_PULL_REQUEST}" != "false" ]]; then make builder-cache-pull; fi # only use the cache in PRs, rebuild otherwise
 - make generate
 - if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run
   `make generate`. Please run it and commit the changes"; git status --porcelain; false; fi
@@ -39,13 +36,6 @@ deploy:
   skip_cleanup: true
   on:
     branch: master
-- provider: script
-  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && KUBEVIRT_UPDATE_CACHE_FROM="${TRAVIS_BRANCH}" make builder-cache-push
-  skip_cleanup: true
-  on:
-    tags: false
-    all_branches: true
-    condition: $TRAVIS_BRANCH != revert-*
 - provider: script
   script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && DOCKER_PREFIX="index.docker.io/kubevirt"
     DOCKER_TAG="$TRAVIS_TAG" QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub"
