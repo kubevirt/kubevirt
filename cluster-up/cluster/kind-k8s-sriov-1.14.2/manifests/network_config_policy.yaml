@@ -10,7 +10,7 @@ spec:
     sriov: "true"
   numVfs: $NODE_PF_NUM_VFS
   nicSelector:
-    pfNames:
-      - $NODE_PF
+    vendor: "$NODE_PF_VENDOR"
+    deviceID: "$NODE_PF_DEVICEID"
   priority: 90
   resourceName: sriov_net

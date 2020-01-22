@@ -84,6 +84,8 @@ for ifs in "${sriov_pfs[@]}"; do
   # the sriov operator will trigger a node reboot to update the firmware
   export NODE_PF="$ifs_name"
   export NODE_PF_NUM_VFS=$(cat /sys/class/net/"$NODE_PF"/device/sriov_totalvfs)
+  export NODE_PF_VENDOR=$(cat /sys/class/net/"$NODE_PF"/device/vendor | sed 's/0x//')
+  export NODE_PF_DEVICEID=$(cat /sys/class/net/"$NODE_PF"/device/device | sed 's/0x//')
   break
 done
 
