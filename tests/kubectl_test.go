@@ -38,10 +38,11 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 		if err != nil {
 			result, _, err = tests.RunCommand(k8sClient, verb, resource)
 		}
+		Expect(err).ToNot(HaveOccurred())
 		Expect(len(result)).ToNot(Equal(0))
 		resultFields := strings.Fields(result)
 		// Verify that only Header is not present
-		Expect(resultFields).ShouldNot(Equal(expectedHeader))
+		Expect(len(resultFields)).Should(BeNumerically(">", len(expectedHeader)))
 		columnHeaders := resultFields[:len(expectedHeader)]
 		// Verify the generated header is same as expected
 		Expect(columnHeaders).To(Equal(expectedHeader))
@@ -59,10 +60,11 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 		if err != nil {
 			result, _, err = tests.RunCommand(k8sClient, verb, resource)
 		}
+		Expect(err).ToNot(HaveOccurred())
 		Expect(len(result)).ToNot(Equal(0))
 		resultFields := strings.Fields(result)
 		// Verify that only Header is not present
-		Expect(resultFields).ShouldNot(Equal(expectedHeader))
+		Expect(len(resultFields)).Should(BeNumerically(">", len(expectedHeader)))
 		columnHeaders := resultFields[:len(expectedHeader)]
 		// Verify the generated header is same as expected
 		Expect(columnHeaders).To(Equal(expectedHeader))
