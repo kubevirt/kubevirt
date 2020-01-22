@@ -27,6 +27,7 @@ script:
 - make client-python
 - make manifests DOCKER_PREFIX="docker.io/kubevirt" DOCKER_TAG=$TRAVIS_TAG # skip getting old CSVs here (no QUAY_REPOSITORY), verification might fail because of stricter rules over time; falls back to latest if not on a tag
 - make olm-verify
+- make prom-rules-verify
 
 deploy:
 - provider: script

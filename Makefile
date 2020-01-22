@@ -120,6 +120,14 @@ builder-publish:
 olm-verify:
 	hack/dockerized "./hack/olm.sh verify"
 
+current-dir := $(shell pwd)
+
+build-prom-spec-dumper:
+	hack/dockerized "go build -o rule-spec-dumper ./hack/prom-rule-ci/rule-spec-dumper.go"
+
+prom-rules-verify: build-prom-spec-dumper
+	./hack/prom-rule-ci/verify-rules.sh ${current-dir}/rule-spec-dumper
+
 olm-push:
 	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} CSV_VERSION=${CSV_VERSION} QUAY_USERNAME=${QUAY_USERNAME} \
 	    QUAY_PASSWORD=${QUAY_PASSWORD} QUAY_REPOSITORY=${QUAY_REPOSITORY} PACKAGE_NAME=${PACKAGE_NAME} ./hack/olm.sh push"

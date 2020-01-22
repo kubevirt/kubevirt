@@ -308,7 +308,7 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 					{
 						Record: "num_of_running_virt_api_servers",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{namespace='%s', %s='virt-api'})", ns, virtv1.AppLabel),
+							fmt.Sprintf("sum(up{namespace='%s', pod='virt-api-.*'})", ns),
 						),
 					},
 					{
