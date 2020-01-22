@@ -287,3 +287,9 @@ requests. Normally you can resolve these conflicts extremely easy by simply
 accepting the new upstream version of the files and run `make` again. That will
 update the build files with your changes.
 
+#### Build.bazel build failures when switching branches
+
+In case you work on two or more branches, `make generate` for example might fails,
+the reason is there is a bazel server in the background, and when the base image changes,
+it should be auto restarted, the detection doesn't work always prefectly.
+To solve it, run `docker stop kubevirt-bazel-server`, which will stop the bazel server.
