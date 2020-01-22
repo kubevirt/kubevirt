@@ -19,6 +19,7 @@ HCO_VERSION="${HCO_VERSION:-1.0.0}"
 HCO_CHANNEL="${HCO_CHANNEL:-1.0.0}"
 APPROVAL="${APPROVAL:-Manual}"
 CONTENT_ONLY="${CONTENT_ONLY:-}"
+KVM_EMULATION="${KVM_EMULATION:-false}"
 PRIVATE_REPO="${PRIVATE_REPO:-false}"
 QUAY_USERNAME="${QUAY_USERNAME:-}"
 QUAY_PASSWORD="${QUAY_PASSWORD:-}"
@@ -152,6 +153,20 @@ for i in $(seq 1 $RETRIES); do
     fi
 done
 
+SUBSCRIPTION_CONFIG=""
+if [ "$KVM_EMULATION" = true ]; then
+  SUBSCRIPTION_CONFIG=$(cat <<EOF
+  config:
+    selector:
+      matchLabels:
+        name: hyperconverged-cluster-operator
+    env:
+      - name: KVM_EMULATION
+        value: "true"
+EOF
+)
+fi
+
 echo "Content Successfully Created"
 if [ -z "${CONTENT_ONLY}" ]; then
     echo "Creating Subscription"
@@ -168,6 +183,7 @@ spec:
   startingCSV: "kubevirt-hyperconverged-operator.v${HCO_VERSION}"
   channel: "${HCO_CHANNEL}"
   installPlanApproval: "${APPROVAL}"
+${SUBSCRIPTION_CONFIG}
 EOF
 
     echo "Give OLM 60 seconds to process the subscription..."
