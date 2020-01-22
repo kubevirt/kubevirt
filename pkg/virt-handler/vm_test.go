@@ -835,7 +835,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}, 3)
 	})
 
-	Context("check VMI disks for migration", func() {
+	Context("check if migratable", func() {
+
 		var testBlockPvc *k8sv1.PersistentVolumeClaim
 
 		BeforeEach(func() {
@@ -1151,6 +1152,82 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared HostDisk")))
 		})
+
+		Context("with network configuration", func() {
+			It("should block migration for bridge interface assigned to pod", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				interface_name := "interface_name"
+
+				vmi.Spec.Networks = []v1.Network{
+					v1.Network{
+						Name:          interface_name,
+						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+					},
+				}
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+					v1.Interface{
+						Name: interface_name,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{
+							Bridge: &v1.InterfaceBridge{},
+						},
+					},
+				}
+
+				err := controller.checkNetworkInterfacesForMigration(vmi)
+				Expect(err).To(HaveOccurred(), "should block migration for bridge binding")
+			})
+
+			It("should not block migration for bridge interface assigned to pod", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				interface_name := "interface_name"
+
+				vmi.Spec.Networks = []v1.Network{
+					v1.Network{
+						Name:          interface_name,
+						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+					},
+				}
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+					v1.Interface{
+						Name: interface_name,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{
+							Masquerade: &v1.InterfaceMasquerade{},
+						},
+					},
+				}
+
+				err := controller.checkNetworkInterfacesForMigration(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should not block migration for masquerade binding method")
+			})
+
+			It("should not block migration for bridge interface assigned to multus network", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				interface_name := "interface_name"
+
+				vmi.Spec.Networks = []v1.Network{
+					v1.Network{
+						Name:          "pod",
+						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+					},
+					v1.Network{
+						Name:          interface_name,
+						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
+					},
+				}
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+					v1.Interface{
+						Name: interface_name,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{
+							Bridge: &v1.InterfaceBridge{},
+						},
+					},
+				}
+
+				err := controller.checkNetworkInterfacesForMigration(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should not block migration for masquerade binding method")
+			})
+		})
+
 	})
 	Context("VirtualMachineInstance controller gets informed about interfaces in a Domain", func() {
 		It("should update existing interface with MAC", func() {
