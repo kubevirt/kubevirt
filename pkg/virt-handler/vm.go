@@ -1276,7 +1276,11 @@ func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.Vi
 			if iface.Masquerade != nil {
 				continue
 			}
-			return fmt.Errorf("cannot migrate VMI with the given interface & network, only Masquerade with a Pod network allowed for migration")
+		}
+		if networks[iface.Name].Multus != nil {
+			if iface.Bridge != nil {
+				continue
+			}
 		}
 		return fmt.Errorf("cannot migrate VMI with the given interface & network, only Masquerade with a Pod network allowed for migration")
 	}
