@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 
@@ -60,8 +59,6 @@ type BindMechanism interface {
 	// pass discovered information between phases.
 	loadCachedVIF(uid types.UID, name string) (bool, error)
 	setCachedVIF(uid types.UID, name string) error
-
-	cleanCachedFiles(uid types.UID, name string) error
 
 	startDHCP(vmi *v1.VirtualMachineInstance) error
 }
@@ -395,18 +392,6 @@ func (b *BridgePodInterface) setCachedVIF(uid types.UID, name string) error {
 	return writeVifFile(buf, uid, name)
 }
 
-func (b *BridgePodInterface) cleanCachedFiles(uid types.UID, name string) error {
-	for _, fileName := range []string{
-		getVifFile(uid, name),
-		getInterfaceCacheFile(interfaceCacheFile, uid, name),
-	} {
-		if err := os.RemoveAll(fileName); err != nil {
-			return fmt.Errorf("Failed to clean up cached file %s: %v", fileName, err)
-		}
-	}
-	return nil
-}
-
 func (b *BridgePodInterface) setInterfaceRoutes() error {
 	routes, err := Handler.RouteList(b.podNicLink, netlink.FAMILY_V4)
 	if err != nil {
@@ -627,18 +612,6 @@ func (p *MasqueradePodInterface) setCachedVIF(uid types.UID, name string) error 
 		return fmt.Errorf("error marshaling vif object: %v", err)
 	}
 	return writeVifFile(buf, uid, name)
-}
-
-func (p *MasqueradePodInterface) cleanCachedFiles(uid types.UID, name string) error {
-	for _, fileName := range []string{
-		getVifFile(uid, name),
-		getInterfaceCacheFile(interfaceCacheFile, uid, name),
-	} {
-		if err := os.RemoveAll(fileName); err != nil {
-			return fmt.Errorf("Failed to clean up cached file %s: %v", fileName, err)
-		}
-	}
-	return nil
 }
 
 func (p *MasqueradePodInterface) createBridge() error {
@@ -899,9 +872,5 @@ func (b *SlirpPodInterface) setCachedVIF(uid types.UID, name string) error {
 }
 
 func (s *SlirpPodInterface) setCachedInterface(uid types.UID, name string) error {
-	return nil
-}
-
-func (s *SlirpPodInterface) cleanCachedFiles(uid types.UID, name string) error {
 	return nil
 }
