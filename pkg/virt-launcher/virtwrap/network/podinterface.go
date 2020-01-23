@@ -82,7 +82,7 @@ func writeVifFile(buf []byte, uid types.UID, name string) error {
 	return nil
 }
 
-func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, cleanup bool) error {
+func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string) error {
 	initHandler()
 
 	// There is nothing to plug for SR-IOV devices
@@ -93,13 +93,6 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 	driver, err := getBinding(vmi, iface, network, nil, podInterfaceName)
 	if err != nil {
 		return err
-	}
-
-	if cleanup {
-		err := driver.cleanCachedFiles(vmi.UID, iface.Name)
-		if err != nil {
-			return err
-		}
 	}
 
 	isExist, err := driver.loadCachedInterface(vmi.UID, iface.Name)

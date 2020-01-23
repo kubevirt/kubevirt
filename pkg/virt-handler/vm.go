@@ -1070,6 +1070,12 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 		return err
 	}
 
+	// Clean up network related files
+	err = os.RemoveAll(fmt.Sprintf("/var/run/kubevirt-network/%s/", vmi.UID))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1433,7 +1439,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 
 			if err := res.DoNetNS(func() error {
-				return network.SetupPodNetworkPhase1(vmi, true)
+				return network.SetupPodNetworkPhase1(vmi)
 			}); err != nil {
 				return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
 			}
@@ -1486,7 +1492,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		}
 
 		if err := res.DoNetNS(func() error {
-			return network.SetupPodNetworkPhase1(vmi, false)
+			return network.SetupPodNetworkPhase1(vmi)
 		}); err != nil {
 			return fmt.Errorf("failed to configure vmi network: %v", err)
 		}
