@@ -1155,7 +1155,30 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should allow to migrate with adding default networks", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			err := controller.checkNetworkInterfacesForMigration(vmi)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should not block migration for bridge interface assigned to multus network", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			interfaceName := "interface_name"
+
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name:          interfaceName,
+					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				v1.Interface{
+					Name: interfaceName,
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Bridge: &v1.InterfaceBridge{},
+					},
+				},
+			}
+
+			err := controller.checkNetworkInterfacesForMigration(vmi)
+			Expect(err).ToNot(HaveOccurred(), "should block migration for bridging interface")
 		})
 	})
 	Context("VirtualMachineInstance controller gets informed about interfaces in a Domain", func() {
