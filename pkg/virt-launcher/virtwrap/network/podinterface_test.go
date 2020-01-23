@@ -175,12 +175,12 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().NftablesAppendRule("nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
 		mockNetwork.EXPECT().NftablesAppendRule("nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
 
-		err := SetupPodNetworkPhase1(vm, false)
+		err := SetupPodNetworkPhase1(vm)
 		Expect(err).To(BeNil())
 
 		// Calling SetupPodNetworkPhase1 a second time should result in no
 		// mockNetwork function calls
-		err = SetupPodNetworkPhase1(vm, false)
+		err = SetupPodNetworkPhase1(vm)
 		Expect(err).To(BeNil())
 	}
 
@@ -226,7 +226,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
 				mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
 
-				SetupPodNetworkPhase1(vm, false)
+				SetupPodNetworkPhase1(vm)
 			}
 			Expect(testNetworkPanic).To(Panic())
 		})
@@ -242,7 +242,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
 			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
 
-			err := SetupPodNetworkPhase1(vm, false)
+			err := SetupPodNetworkPhase1(vm)
 			Expect(err).To(HaveOccurred())
 		})
 		Context("func filterPodNetworkRoutes()", func() {
@@ -305,7 +305,7 @@ var _ = Describe("Pod Network", func() {
 				}
 				vmi := newVMI("testnamespace", "testVmName")
 				podiface := PodInterface{}
-				err := podiface.PlugPhase1(vmi, iface, net, "fakeiface", false)
+				err := podiface.PlugPhase1(vmi, iface, net, "fakeiface")
 				Expect(err).ToNot(HaveOccurred())
 
 				err = podiface.PlugPhase2(vmi, iface, net, domain, "fakeiface")
