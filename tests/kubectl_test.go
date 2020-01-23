@@ -58,7 +58,7 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 		result, _, _ := tests.RunCommand(k8sClient, verb, resource, "-o", option)
 		// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
 		if err != nil {
-			result, _, err = tests.RunCommand(k8sClient, verb, resource)
+			result, _, err = tests.RunCommand(k8sClient, verb, resource, "-o", option)
 		}
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(result)).ToNot(Equal(0))
