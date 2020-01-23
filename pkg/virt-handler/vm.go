@@ -1071,9 +1071,13 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	}
 
 	// Clean up network related files
-	err = os.RemoveAll(fmt.Sprintf("/var/run/kubevirt-network/%s/", vmi.UID))
-	if err != nil {
-		return err
+	baseDir := fmt.Sprintf("/var/run/kubevirt-network/%s/", vmi.UID)
+	dir, err := ioutil.ReadDir(baseDir)
+	for _, d := range dir {
+		err := os.RemoveAll(path.Join([]string{baseDir, d.Name()}...))
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
