@@ -71,12 +71,6 @@ type ConverterContext struct {
 	GpuDevices        []string
 	VgpuDevices       []string
 	EmulatorThreadCpu *int
-	// Used to gracefully skip some initialization steps that are expected
-	// to fail in a limited runtime context. Used to initialize domain
-	// objects in virt-handler context that doesn't necessarily have access
-	// to all envvars and kernel capabilities that e.g. virt-launcher would
-	// have.
-	BestEffort bool
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -1121,9 +1115,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			var pciAddr string
 			pciAddr, sriovPciAddresses, err = popSRIOVPCIAddress(iface.Name, sriovPciAddresses)
 			if err != nil {
-				if c.BestEffort {
-					continue
-				}
 				return err
 			}
 
