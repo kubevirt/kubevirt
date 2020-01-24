@@ -33,7 +33,7 @@ function deploy_sriov_operator {
     # be merged in openshift sriov operator. We need latest since that feature was not tagged yet
     sed -i '/SRIOV_CNI_IMAGE/!b;n;c\              value: nfvpe\/sriov-cni' ./deploy/operator.yaml
     sed -i 's#image: quay.io/openshift/origin-sriov-network-operator$#image: quay.io/openshift/origin-sriov-network-operator:4.2#' ./deploy/operator.yaml
-
+    sed -i 's#value: quay.io/openshift/origin-sriov-network-device-plugin:4.2$#value: quay.io/fpaoline/debugdp:latest#' ./deploy/operator.yaml
     # on prow nodes the default shell is dash and some commands are not working
     make deploy-setup-k8s SHELL=/bin/bash OPERATOR_EXEC="${KUBECTL}"
   popd
