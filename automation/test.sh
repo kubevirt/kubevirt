@@ -29,3 +29,4 @@
 set -ex
 
 KUBEVIRT_PROVIDER=kind-k8s-sriov-1.14.2 make cluster-up
+sleep 24h
