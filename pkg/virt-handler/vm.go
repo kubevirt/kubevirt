@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -1402,6 +1403,45 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 	return nil
 }
 
+func (d *VirtualMachineController) migrateNetworkCacheFiles(vmi *v1.VirtualMachineInstance) error {
+	res, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+	}
+
+	// migrate cache network files from old location private to virt-launcher into
+	// shared location managed by virt-handler; we cannot switch namespace
+	// for the handler process because it's multi-threaded, and instead use
+	// /proc/<pid>/root interface to access to the filesystem view of the
+	// launcher process
+	oldroot := fmt.Sprintf("/proc/%d/root/var/run/kubevirt-private", res.Pid())
+	files, err := ioutil.ReadDir(oldroot)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to read old network cache path from launcher pod: %v", err)
+	}
+	for _, info := range files {
+		if info.IsDir() {
+			continue
+		}
+		oldpath := path.Join(oldroot, info.Name())
+		if filepath.Ext(oldpath) != ".json" {
+			continue
+		}
+		data, err := ioutil.ReadFile(oldpath)
+		if err != nil {
+			return fmt.Errorf("failed to read old network cache file %s: %v", oldpath, err)
+		}
+		newpath := path.Join(virtutil.VirtNetworkDir, string(vmi.UID), info.Name())
+		if err := ioutil.WriteFile(newpath, data, 0644); err != nil {
+			return fmt.Errorf("failed to copy network cache file %s to new location %s: %v", oldpath, newpath, err)
+		}
+	}
+	return nil
+}
+
 func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
 	vmi := origVMI.DeepCopy()
 
@@ -1442,6 +1482,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				return fmt.Errorf("failed to detect isolation for migration target launcher pod: %v", err)
 			}
 
+			// configure network inside virt-launcher compute container
 			if err := res.DoNetNS(func() error {
 				return network.SetupPodNetworkPhase1(vmi)
 			}); err != nil {
@@ -1490,6 +1531,13 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 		}
 
+		// migrate old network cache files from older launcher pods
+		err := d.migrateNetworkCacheFiles(vmi)
+		if err != nil {
+			return fmt.Errorf("failed to migrate network cache files for vmi %s: %s", vmi.UID, err)
+		}
+
+		// configure network
 		res, err := d.podIsolationDetector.Detect(vmi)
 		if err != nil {
 			return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
@@ -1501,6 +1549,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			return fmt.Errorf("failed to configure vmi network: %v", err)
 		}
 
+		// set runtime limits as needed
 		err = d.podIsolationDetector.AdjustResources(vmi)
 		if err != nil {
 			return fmt.Errorf("failed to adjust resources: %v", err)
