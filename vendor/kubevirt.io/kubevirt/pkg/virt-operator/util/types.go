@@ -43,6 +43,7 @@ type Stores struct {
 	InfrastructurePodCache        cache.Store
 	PodDisruptionBudgetCache      cache.Store
 	ServiceMonitorCache           cache.Store
+	NamespaceCache                cache.Store
 	IsOnOpenshift                 bool
 	ServiceMonitorEnabled         bool
 }
@@ -122,6 +123,7 @@ type Informers struct {
 	InfrastructurePod        cache.SharedIndexInformer
 	PodDisruptionBudget      cache.SharedIndexInformer
 	ServiceMonitor           cache.SharedIndexInformer
+	Namespace                cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {

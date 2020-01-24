@@ -89,8 +89,6 @@ type ConfigMapResourceReference struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
-
-// CatalogSource is a repository of CSVs, CRDs, and operator packages.
 type CatalogSource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
@@ -107,8 +105,6 @@ func (c *CatalogSource) Address() string {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// CatalogSourceList is a repository of CSVs, CRDs, and operator packages.
 type CatalogSourceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

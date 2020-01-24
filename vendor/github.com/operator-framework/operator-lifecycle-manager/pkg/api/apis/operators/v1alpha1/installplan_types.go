@@ -100,23 +100,12 @@ type InstallPlanCondition struct {
 // allow overwriting `now` function for deterministic tests
 var now = metav1.Now
 
-// GetCondition returns the InstallPlanCondition of the given type if it exists in the InstallPlanStatus' Conditions.
-// Returns a condition of the given type with a ConditionStatus of "Unknown" if not found.
-func (s InstallPlanStatus) GetCondition(conditionType InstallPlanConditionType) InstallPlanCondition {
-	for _, cond := range s.Conditions {
-		if cond.Type == conditionType {
-			return cond
-		}
-	}
-
-	return InstallPlanCondition{
-		Type:   conditionType,
-		Status: corev1.ConditionUnknown,
-	}
-}
-
-// SetCondition adds or updates a condition, using `Type` as merge key.
+// SetCondition adds or updates a condition, using `Type` as merge key
 func (s *InstallPlanStatus) SetCondition(cond InstallPlanCondition) InstallPlanCondition {
+	updated := now()
+	cond.LastUpdateTime = updated
+	cond.LastTransitionTime = updated
+
 	for i, existing := range s.Conditions {
 		if existing.Type != cond.Type {
 			continue
@@ -131,24 +120,19 @@ func (s *InstallPlanStatus) SetCondition(cond InstallPlanCondition) InstallPlanC
 	return cond
 }
 
-
-func ConditionFailed(cond InstallPlanConditionType, reason InstallPlanConditionReason, message string, now *metav1.Time) InstallPlanCondition {
+func ConditionFailed(cond InstallPlanConditionType, reason InstallPlanConditionReason, err error) InstallPlanCondition {
 	return InstallPlanCondition{
 		Type:    cond,
 		Status:  corev1.ConditionFalse,
 		Reason:  reason,
-		Message: message,
-		LastUpdateTime: *now,
-		LastTransitionTime: *now,
+		Message: err.Error(),
 	}
 }
 
-func ConditionMet(cond InstallPlanConditionType, now *metav1.Time) InstallPlanCondition {
+func ConditionMet(cond InstallPlanConditionType) InstallPlanCondition {
 	return InstallPlanCondition{
 		Type:   cond,
 		Status: corev1.ConditionTrue,
-		LastUpdateTime: *now,
-		LastTransitionTime: *now,
 	}
 }
 
@@ -218,8 +202,6 @@ func (r StepResource) String() string {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
-
-// InstallPlan defines the installation of a set of operators.
 type InstallPlan struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
@@ -241,8 +223,6 @@ func (p *InstallPlan) EnsureCatalogSource(sourceName string) {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// InstallPlanList is a list of InstallPlan resources.
 type InstallPlanList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

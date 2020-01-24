@@ -27,6 +27,7 @@ import (
 	"syscall"
 
 	"kubevirt.io/client-go/log"
+	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -64,8 +65,9 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.Kube
 			}
 			isSharedPvc := types.IsPVCShared(pvc)
 
+			file := getPVCDiskImgPath(vmi.Spec.Volumes[i].Name, "disk.img")
 			volumeSource.HostDisk = &v1.HostDisk{
-				Path:     getPVCDiskImgPath(vmi.Spec.Volumes[i].Name, "disk.img"),
+				Path:     file,
 				Type:     v1.HostDiskExistsOrCreate,
 				Capacity: pvc.Status.Capacity[k8sv1.ResourceStorage],
 				Shared:   &isSharedPvc,
@@ -169,7 +171,9 @@ func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 			} else if err != nil {
 				return err
 			}
-
+			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(diskPath); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

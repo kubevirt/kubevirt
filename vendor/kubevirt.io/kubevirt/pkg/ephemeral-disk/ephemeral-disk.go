@@ -31,7 +31,6 @@ import (
 
 var mountBaseDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
 var pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"
-var ephemeralImageDiskOwner = "qemu"
 
 func generateBaseDir() string {
 	return fmt.Sprintf("%s", mountBaseDir)
@@ -54,11 +53,6 @@ func SetLocalDirectory(dir string) error {
 func setBackingDirectory(dir string) error {
 	pvcBaseDir = dir
 	return os.MkdirAll(dir, 0755)
-}
-
-// Used by tests.
-func SetLocalDataOwner(user string) {
-	ephemeralImageDiskOwner = user
 }
 
 func createVolumeDirectory(volumeName string) error {
@@ -109,7 +103,7 @@ func CreateBackedImageForVolume(volume v1.Volume, backingFile string) error {
 	}
 
 	// We need to ensure that the permissions are setup correctly.
-	err = diskutils.SetFileOwnership(ephemeralImageDiskOwner, imagePath)
+	err = diskutils.DefaultOwnershipManager.SetFileOwnership(imagePath)
 	return err
 }
 
