@@ -96,6 +96,7 @@ release-announce: .release-functest
 
 cluster-up:
 	./cluster-up/up.sh
+	./hack/install-cnao.sh
 
 cluster-down:
 	./cluster-up/down.sh
