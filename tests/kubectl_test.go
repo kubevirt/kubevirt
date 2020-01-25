@@ -15,7 +15,7 @@ import (
 var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kubectl get vm/vmi tests", func() {
 	tests.FlagParse()
 
-	var k8sClient string
+	var k8sClient, result string
 	var vm *v1.VirtualMachine
 
 	virtCli, err := kubecli.GetKubevirtClient()
@@ -33,10 +33,16 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 	})
 
 	table.DescribeTable("should verify set of columns for", func(verb, resource string, expectedHeader []string) {
-
-		result, _, _ := tests.RunCommand(k8sClient, verb, resource)
-		Expect(result).ToNot(BeNil())
+		result, _, err = tests.RunCommand(k8sClient, verb, resource)
+		// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
+		if err != nil {
+			result, _, err = tests.RunCommand(k8sClient, verb, resource)
+		}
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(result)).ToNot(Equal(0))
 		resultFields := strings.Fields(result)
+		// Verify that only Header is not present
+		Expect(len(resultFields)).Should(BeNumerically(">", len(expectedHeader)))
 		columnHeaders := resultFields[:len(expectedHeader)]
 		// Verify the generated header is same as expected
 		Expect(columnHeaders).To(Equal(expectedHeader))
@@ -50,9 +56,15 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 	table.DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
 
 		result, _, _ := tests.RunCommand(k8sClient, verb, resource, "-o", option)
-
-		Expect(result).ToNot(BeNil())
+		// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
+		if err != nil {
+			result, _, err = tests.RunCommand(k8sClient, verb, resource, "-o", option)
+		}
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(result)).ToNot(Equal(0))
 		resultFields := strings.Fields(result)
+		// Verify that only Header is not present
+		Expect(len(resultFields)).Should(BeNumerically(">", len(expectedHeader)))
 		columnHeaders := resultFields[:len(expectedHeader)]
 		// Verify the generated header is same as expected
 		Expect(columnHeaders).To(Equal(expectedHeader))
