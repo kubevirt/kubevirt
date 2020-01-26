@@ -36,12 +36,6 @@ function build_func_tests_image() {
         --label ${bin_name} .
 }
 
-# If set to the name of a branch, the builds will try to use an image of the form kubevirt/{name}:{branche}
-# as cache source (--cache-from)
-KUBEVIRT_CACHE_FROM=${KUBEVIRT_CACHE_FROM}
-# Push images in the form kubevirt/{name}:{branche} to update the build cache for this branch
-KUBEVIRT_UPDATE_CACHE_FROM=${KUBEVIRT_UPDATE_CACHE_FROM}
-
 # Use this environment variable to set a custom pkgdir path
 # Useful for cross-compilation where the default -pkdir for cross-builds may not be writable
 #KUBEVIRT_GO_BASE_PKGDIR="${GOPATH}/crossbuild-cache-root/"

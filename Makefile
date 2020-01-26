@@ -74,12 +74,6 @@ distclean: clean
 deps-update:
 	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
 
-builder-cache-push:
-	hack/builder-cache.sh push
-
-builder-cache-pull:
-	hack/builder-cache.sh pull
-
 build-verify:
 	hack/build-verify.sh
 

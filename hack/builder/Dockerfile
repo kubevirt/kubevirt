@@ -79,4 +79,19 @@ RUN \
     git checkout 1643683e1b54a9e88ad26d98f81400c8c9d9f4f9 && \
     go install
 
+RUN \
+    mkdir -p /go && \
+    source /etc/profile.d/gimme.sh && \
+    go get github.com/mattn/goveralls && \
+    go get -u github.com/golang/mock/gomock && \
+    go get -u github.com/rmohr/mock/mockgen && \
+    go get -u github.com/rmohr/go-swagger-utils/swagger-doc && \
+    go get -u github.com/onsi/ginkgo/ginkgo
+
+RUN pip3 install j2cli operator-courier==1.3.0
+
+COPY rsyncd.conf /etc/rsyncd.conf
+
 COPY entrypoint.sh /entrypoint.sh
+
+ENTRYPOINT [ "/entrypoint.sh" ]
