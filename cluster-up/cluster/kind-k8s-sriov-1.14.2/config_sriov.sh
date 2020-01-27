@@ -33,7 +33,7 @@ function deploy_sriov_operator {
     # be merged in openshift sriov operator. We need latest since that feature was not tagged yet
     sed -i '/SRIOV_CNI_IMAGE/!b;n;c\              value: nfvpe\/sriov-cni' ./deploy/operator.yaml
     sed -i 's#image: quay.io/openshift/origin-sriov-network-operator$#image: quay.io/openshift/origin-sriov-network-operator:4.2#' ./deploy/operator.yaml
-
+    sed -i 's#value: quay.io/openshift/origin-sriov-network-config-daemon$#value: quay.io/openshift/origin-sriov-network-config-daemon:4.2#' ./deploy/operator.yaml
     # on prow nodes the default shell is dash and some commands are not working
     make deploy-setup-k8s SHELL=/bin/bash OPERATOR_EXEC="${KUBECTL}"
   popd
@@ -78,16 +78,20 @@ for ifs in "${sriov_pfs[@]}"; do
     continue
   fi
 
-  # These values are used to populate the network definition policy yaml.
-  # We just use the first suitable pf
-  # We need the num of vfs because if we don't set this value equals to the total, in case of mellanox
-  # the sriov operator will trigger a node reboot to update the firmware
-  export NODE_PF="$ifs_name"
-  export NODE_PF_NUM_VFS=$(cat /sys/class/net/"$NODE_PF"/device/sriov_totalvfs)
-  break
+  # We set the variable below only in the first iteration as we need only one PF
+  # to inject into the Network Configuration manifest. We need to move all pfs to
+  # the node's namespace and for that reason we do not interrupt the loop.
+  if [ -z "$NODE_PF" ]; then
+    # These values are used to populate the network definition policy yaml.
+    # We just use the first suitable pf
+    # We need the num of vfs because if we don't set this value equals to the total, in case of mellanox
+    # the sriov operator will trigger a node reboot to update the firmware
+    export NODE_PF="$ifs_name"
+    export NODE_PF_NUM_VFS=$(cat /sys/class/net/"$NODE_PF"/device/sriov_totalvfs)
+  fi
+  ip link set "$ifs_name" netns "$SRIOV_NODE"
 done
 
-ip link set "$NODE_PF" netns "$SRIOV_NODE"
 
 # deploy multus
 _kubectl create -f $MANIFESTS_DIR/multus.yaml

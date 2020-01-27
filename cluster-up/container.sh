@@ -3,7 +3,8 @@
 set -e
 
 if [[ $KUBEVIRT_PROVIDER =~ (ocp|okd).* ]]; then
-    CONTAINER=$(docker ps | grep kubevirt | grep $KUBEVIRT_PROVIDER | awk '{print $1}')
+    POSTFIX="cluster"
+    CONTAINER=$(docker ps | grep kubevirt | grep "${KUBEVIRT_PROVIDER}-${POSTFIX}" | awk '{print $1}')
     if [ -z $CONTAINER ]; then
         echo "container was not found"
         exit 0
