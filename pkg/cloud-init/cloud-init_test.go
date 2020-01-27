@@ -25,41 +25,53 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/precond"
 )
 
 var _ = Describe("CloudInit", func() {
 
 	var (
-		ctrl            *gomock.Controller
-		virtClient      *kubecli.MockKubevirtClient
 		isoCreationFunc IsoCreationFunc
+		tmpDir          string
 	)
 
-	tmpDir, _ := ioutil.TempDir("", "cloudinittest")
+	createEmptyVMIWithVolumes := func(volumes []v1.Volume) *v1.VirtualMachineInstance {
+		return &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Volumes: volumes,
+			},
+		}
+	}
 
-	BeforeSuite(func() {
+	fakeVolumeMountDir := func(dirName string, files map[string]string) string {
+		volumeDir := filepath.Join(tmpDir, dirName)
+		err := os.Mkdir(volumeDir, 0700)
+		Expect(err).To(Not(HaveOccurred()), "could not create volume dir: ", volumeDir)
+		for fileName, content := range files {
+			err = ioutil.WriteFile(
+				filepath.Join(volumeDir, fileName),
+				[]byte(content),
+				0644)
+			Expect(err).To(Not(HaveOccurred()), "could not create file: ", fileName)
+		}
+		return volumeDir
+	}
+
+	BeforeEach(func() {
+		tmpDir, _ = ioutil.TempDir("", "cloudinittest")
 		err := SetLocalDirectory(tmpDir)
 		if err != nil {
 			panic(err)
 		}
-	})
-
-	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		isoCreationFunc = func(isoOutFile, volumeID string, inDir string) error {
 			switch volumeID {
 			case "cidata", "config-2":
@@ -79,7 +91,7 @@ var _ = Describe("CloudInit", func() {
 		SetIsoCreationFunction(isoCreationFunc)
 	})
 
-	AfterSuite(func() {
+	AfterEach(func() {
 		os.RemoveAll(tmpDir)
 	})
 
@@ -279,127 +291,44 @@ var _ = Describe("CloudInit", func() {
 				})
 
 				Context("with secretRefs", func() {
-					userDataSecretName := "userDataSecretName"
-					networkDataSecretName := "networkDataSecretName"
-					namespace := "testing"
-
-					createSecret := func(name, dataKey, dataValue string) *k8sv1.Secret {
-						return &k8sv1.Secret{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      name,
-								Namespace: namespace,
-							},
-							Type: "Opaque",
-							Data: map[string][]byte{
-								dataKey: []byte(dataValue),
+					createCloudInitSecretRefVolume := func(name, secret string) *v1.Volume {
+						return &v1.Volume{
+							Name: name,
+							VolumeSource: v1.VolumeSource{
+								CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+									UserDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: secret,
+									},
+								},
 							},
 						}
 					}
-					createUserDataSecret := func(data string) *k8sv1.Secret {
-						return createSecret(userDataSecretName, "userdata", data)
-					}
-					createBadUserDataSecret := func(data string) *k8sv1.Secret {
-						return createSecret(userDataSecretName, "baduserdara", data)
-					}
-					createNetworkDataSecret := func(data string) *k8sv1.Secret {
-						return createSecret(networkDataSecretName, "networkdata", data)
-					}
-					createBadNetworkDataSecret := func(data string) *k8sv1.Secret {
-						return createSecret(networkDataSecretName, "badnetworkdata", data)
-					}
 
-					It("should succeed to verify userDataSecretRef", func() {
-						userSecret := createUserDataSecret("secretUserData")
-						userClient := fake.NewSimpleClientset(userSecret)
-						virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()).AnyTimes()
-
-						cloudInitData := &v1.CloudInitNoCloudSource{
-							UserDataSecretRef: &k8sv1.LocalObjectReference{Name: userDataSecretName},
-						}
-
-						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-						Expect(err).To(BeNil())
-						Expect(cloudInitData.UserData).To(Equal("secretUserData"))
+					It("should resolve no-cloud data from volume", func() {
+						testVolume := createCloudInitSecretRefVolume("test-volume", "test-secret")
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+						fakeVolumeMountDir("test-volume", map[string]string{
+							"userdata":    "secret-userdata",
+							"networkdata": "secret-networkdata",
+						})
+						err := ResolveNoCloudSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
+						Expect(testVolume.CloudInitNoCloud.UserData).To(Equal("secret-userdata"))
+						Expect(testVolume.CloudInitNoCloud.NetworkData).To(Equal("secret-networkdata"))
 					})
 
-					It("should succeed to verify userDataSecretRef and networkDataSecretRef", func() {
-						userSecret := createUserDataSecret("secretUserData")
-						userClient := fake.NewSimpleClientset(userSecret)
-						networkSecret := createNetworkDataSecret("secretNetworkData")
-						networkClient := fake.NewSimpleClientset(networkSecret)
-
-						gomock.InOrder(
-							virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()),
-							virtClient.EXPECT().CoreV1().Return(networkClient.CoreV1()),
-						)
-
-						cloudInitData := &v1.CloudInitNoCloudSource{
-							UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: userDataSecretName},
-							NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: networkDataSecretName},
-						}
-
-						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-						Expect(err).To(BeNil())
-						Expect(cloudInitData.UserData).To(Equal("secretUserData"))
-						Expect(cloudInitData.NetworkData).To(Equal("secretNetworkData"))
+					It("should resolve empty no-cloud volume and do nothing", func() {
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{})
+						err := ResolveNoCloudSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "failed to resolve empty volumes")
 					})
 
-					It("should succeed to verify nothing", func() {
-						fakeClient := fake.NewSimpleClientset()
-						virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
-						cloudInitData := &v1.CloudInitNoCloudSource{}
-						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-						Expect(err).To(BeNil())
-					})
-
-					It("should fail to verify UserDataSecretRef without a secret", func() {
-						fakeClient := fake.NewSimpleClientset()
-						virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
-
-						cloudInitData := &v1.CloudInitNoCloudSource{
-							UserDataSecretRef: &k8sv1.LocalObjectReference{Name: userDataSecretName},
-						}
-
-						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-						Expect(err.Error()).To(Equal(fmt.Sprintf("secrets \"%s\" not found", userDataSecretName)))
-					})
-
-					It("should fail to verify NetworkDataSecretRef without a secret", func() {
-						fakeClient := fake.NewSimpleClientset()
-						virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
-
-						cloudInitData := &v1.CloudInitNoCloudSource{
-							NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: networkDataSecretName},
-						}
-
-						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-						Expect(err.Error()).To(Equal(fmt.Sprintf("secrets \"%s\" not found", networkDataSecretName)))
-					})
-
-					It("should fail to verify UserDataSecretRef with a misnamed secret", func() {
-						userSecret := createBadUserDataSecret("secretUserData")
-						userClient := fake.NewSimpleClientset(userSecret)
-						virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()).AnyTimes()
-
-						cloudInitData := &v1.CloudInitNoCloudSource{
-							UserDataSecretRef: &k8sv1.LocalObjectReference{Name: userDataSecretName},
-						}
-
-						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-						Expect(err.Error()).To(Equal(fmt.Sprintf("userdata key not found in k8s secret %s <nil>", userDataSecretName)))
-					})
-
-					It("should fail to verify NetworkDataSecretRef with a misnamed secret", func() {
-						networkSecret := createBadNetworkDataSecret("secretNetworkData")
-						networkClient := fake.NewSimpleClientset(networkSecret)
-						virtClient.EXPECT().CoreV1().Return(networkClient.CoreV1())
-
-						cloudInitData := &v1.CloudInitNoCloudSource{
-							NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: networkDataSecretName},
-						}
-
-						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-						Expect(err.Error()).To(Equal(fmt.Sprintf("networkdata key not found in k8s secret %s <nil>", networkDataSecretName)))
+					It("should fail if both userdata and network data does not exist", func() {
+						testVolume := createCloudInitSecretRefVolume("test-volume", "test-secret")
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+						err := ResolveNoCloudSecrets(vmi, tmpDir)
+						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
+						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
 					})
 				})
 			})
@@ -473,128 +402,46 @@ var _ = Describe("CloudInit", func() {
 				})
 
 				Context("with secretRefs", func() {
-					userDataSecretName := "userDataSecretName"
-					networkDataSecretName := "networkDataSecretName"
-					namespace := "testing"
-
-					createSecret := func(name, dataKey, dataValue string) *k8sv1.Secret {
-						return &k8sv1.Secret{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      name,
-								Namespace: namespace,
-							},
-							Type: "Opaque",
-							Data: map[string][]byte{
-								dataKey: []byte(dataValue),
+					createCloudInitConfigDriveVolume := func(name, secret string) *v1.Volume {
+						return &v1.Volume{
+							Name: name,
+							VolumeSource: v1.VolumeSource{
+								CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+									UserDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: secret,
+									},
+								},
 							},
 						}
 					}
-					createUserDataSecret := func(data string) *k8sv1.Secret {
-						return createSecret(userDataSecretName, "userdata", data)
-					}
-					createBadUserDataSecret := func(data string) *k8sv1.Secret {
-						return createSecret(userDataSecretName, "baduserdara", data)
-					}
-					createNetworkDataSecret := func(data string) *k8sv1.Secret {
-						return createSecret(networkDataSecretName, "networkdata", data)
-					}
-					createBadNetworkDataSecret := func(data string) *k8sv1.Secret {
-						return createSecret(networkDataSecretName, "badnetworkdata", data)
-					}
-
-					It("should succeed to verify userDataSecretRef", func() {
-						userSecret := createUserDataSecret("secretUserData")
-						userClient := fake.NewSimpleClientset(userSecret)
-						virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()).AnyTimes()
-
-						cloudInitData := &v1.CloudInitConfigDriveSource{
-							UserDataSecretRef: &k8sv1.LocalObjectReference{Name: userDataSecretName},
-						}
-
-						err := resolveConfigDriveSecrets(cloudInitData, namespace, virtClient)
-						Expect(err).To(BeNil())
-						Expect(cloudInitData.UserData).To(Equal("secretUserData"))
+					It("should resolve config-drive data from volume", func() {
+						testVolume := createCloudInitConfigDriveVolume("test-volume", "test-secret")
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+						fakeVolumeMountDir("test-volume", map[string]string{
+							"userdata":    "secret-userdata",
+							"networkdata": "secret-networkdata",
+						})
+						err := ResolveConfigDriveSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
+						Expect(testVolume.CloudInitConfigDrive.UserData).To(Equal("secret-userdata"))
+						Expect(testVolume.CloudInitConfigDrive.NetworkData).To(Equal("secret-networkdata"))
 					})
 
-					It("should succeed to verify userDataSecretRef and networkDataSecretRef", func() {
-						userSecret := createUserDataSecret("secretUserData")
-						userClient := fake.NewSimpleClientset(userSecret)
-						networkSecret := createNetworkDataSecret("secretNetworkData")
-						networkClient := fake.NewSimpleClientset(networkSecret)
-
-						gomock.InOrder(
-							virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()),
-							virtClient.EXPECT().CoreV1().Return(networkClient.CoreV1()),
-						)
-
-						cloudInitData := &v1.CloudInitConfigDriveSource{
-							UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: userDataSecretName},
-							NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: networkDataSecretName},
-						}
-
-						err := resolveConfigDriveSecrets(cloudInitData, namespace, virtClient)
-						Expect(err).To(BeNil())
-						Expect(cloudInitData.UserData).To(Equal("secretUserData"))
-						Expect(cloudInitData.NetworkData).To(Equal("secretNetworkData"))
+					It("should resolve empty config-drive volume and do nothing", func() {
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{})
+						err := ResolveConfigDriveSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "failed to resolve empty volumes")
 					})
 
-					It("should succeed to verify nothing", func() {
-						fakeClient := fake.NewSimpleClientset()
-						virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
-						cloudInitData := &v1.CloudInitConfigDriveSource{}
-						err := resolveConfigDriveSecrets(cloudInitData, namespace, virtClient)
-						Expect(err).To(BeNil())
+					It("should fail if both userdata and network data does not exist", func() {
+						testVolume := createCloudInitConfigDriveVolume("test-volume", "test-secret")
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+						err := ResolveConfigDriveSecrets(vmi, tmpDir)
+						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
+						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
+
 					})
 
-					It("should fail to verify UserDataSecretRef without a secret", func() {
-						fakeClient := fake.NewSimpleClientset()
-						virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
-
-						cloudInitData := &v1.CloudInitConfigDriveSource{
-							UserDataSecretRef: &k8sv1.LocalObjectReference{Name: userDataSecretName},
-						}
-
-						err := resolveConfigDriveSecrets(cloudInitData, namespace, virtClient)
-						Expect(err.Error()).To(Equal(fmt.Sprintf("secrets \"%s\" not found", userDataSecretName)))
-					})
-
-					It("should fail to verify NetworkDataSecretRef without a secret", func() {
-						fakeClient := fake.NewSimpleClientset()
-						virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
-
-						cloudInitData := &v1.CloudInitConfigDriveSource{
-							NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: networkDataSecretName},
-						}
-
-						err := resolveConfigDriveSecrets(cloudInitData, namespace, virtClient)
-						Expect(err.Error()).To(Equal(fmt.Sprintf("secrets \"%s\" not found", networkDataSecretName)))
-					})
-
-					It("should fail to verify UserDataSecretRef with a misnamed secret", func() {
-						userSecret := createBadUserDataSecret("secretUserData")
-						userClient := fake.NewSimpleClientset(userSecret)
-						virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()).AnyTimes()
-
-						cloudInitData := &v1.CloudInitConfigDriveSource{
-							UserDataSecretRef: &k8sv1.LocalObjectReference{Name: userDataSecretName},
-						}
-
-						err := resolveConfigDriveSecrets(cloudInitData, namespace, virtClient)
-						Expect(err.Error()).To(Equal(fmt.Sprintf("userdata key not found in k8s secret %s <nil>", userDataSecretName)))
-					})
-
-					It("should fail to verify NetworkDataSecretRef with a misnamed secret", func() {
-						networkSecret := createBadNetworkDataSecret("secretNetworkData")
-						networkClient := fake.NewSimpleClientset(networkSecret)
-						virtClient.EXPECT().CoreV1().Return(networkClient.CoreV1())
-
-						cloudInitData := &v1.CloudInitConfigDriveSource{
-							NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: networkDataSecretName},
-						}
-
-						err := resolveConfigDriveSecrets(cloudInitData, namespace, virtClient)
-						Expect(err.Error()).To(Equal(fmt.Sprintf("networkdata key not found in k8s secret %s <nil>", networkDataSecretName)))
-					})
 				})
 			})
 		})

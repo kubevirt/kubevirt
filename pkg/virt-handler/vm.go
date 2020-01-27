@@ -46,7 +46,6 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
@@ -1392,11 +1391,6 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	}
 
 	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
-	if err != nil {
-		return err
-	}
-
-	err = cloudinit.InjectCloudInitSecrets(vmi, d.clientset)
 	if err != nil {
 		return err
 	}
