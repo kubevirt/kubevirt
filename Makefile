@@ -18,6 +18,7 @@ endif
 
 sanity:
 	go fmt ./...
+	go mod vendor
 	git diff --exit-code
 
 build: $(SOURCES) ## Build binary from source
