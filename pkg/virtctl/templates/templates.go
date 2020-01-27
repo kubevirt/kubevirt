@@ -18,7 +18,8 @@ Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "he
 Flags:
 {{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
 
-Use "{{ProgramName}} options" for a list of global command-line options (applies to all commands).{{end}}
+Global Flags:
+{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}
 `
 }
 
