@@ -1152,7 +1152,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared HostDisk")))
 		})
 
-		It("should allow to migrate with adding default networks", func() {
+		It("should not allow to migrate with adding default network configuration", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			err := controller.checkNetworkInterfacesForMigration(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -1178,7 +1178,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			err := controller.checkNetworkInterfacesForMigration(vmi)
-			Expect(err).ToNot(HaveOccurred(), "should block migration for bridging interface")
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 	Context("VirtualMachineInstance controller gets informed about interfaces in a Domain", func() {

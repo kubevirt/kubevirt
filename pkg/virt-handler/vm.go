@@ -1272,17 +1272,9 @@ func (d *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.Vi
 		networks[network.Name] = network.DeepCopy()
 	}
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if networks[iface.Name].Pod != nil {
-			if iface.Masquerade != nil {
-				continue
-			}
+		if iface.Masquerade == nil && networks[iface.Name].Pod != nil {
+			return fmt.Errorf("cannot migrate VMI which does not use masquerade to connect to the pod network")
 		}
-		if networks[iface.Name].Multus != nil {
-			if iface.Bridge != nil {
-				continue
-			}
-		}
-		return fmt.Errorf("cannot migrate VMI with the given interface & network, only Masquerade with a Pod network allowed for migration")
 	}
 	return nil
 }
