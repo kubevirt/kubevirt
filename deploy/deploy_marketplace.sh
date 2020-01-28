@@ -92,18 +92,6 @@ EOF
 
 fi
 
-if [ `oc get operatorgroup -n "${TARGET_NAMESPACE}" --no-headers 2> /dev/null | wc -l` -eq 0 ]; then
-    echo "Creating OperatorGroup"
-    cat <<EOF | oc create -f -
-apiVersion: operators.coreos.com/v1
-kind: OperatorGroup
-metadata:
-  name: "${TARGET_NAMESPACE}-group"
-  namespace: "${TARGET_NAMESPACE}"
-spec: {}
-EOF
-fi
-
 if [ `oc get OperatorSource "${APP_REGISTRY}" -n "${MARKETPLACE_NAMESPACE}" --no-headers 2> /dev/null | wc -l` -eq 0 ]; then
     echo "Creating OperatorSource"
     cat <<EOF | oc create -f -
@@ -169,6 +157,19 @@ fi
 
 echo "Content Successfully Created"
 if [ -z "${CONTENT_ONLY}" ]; then
+
+    if [ `oc get operatorgroup -n "${TARGET_NAMESPACE}" --no-headers 2> /dev/null | wc -l` -eq 0 ]; then
+    echo "Creating OperatorGroup"
+    cat <<EOF | oc create -f -
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: "${TARGET_NAMESPACE}-group"
+  namespace: "${TARGET_NAMESPACE}"
+spec: {}
+EOF
+    fi
+
     echo "Creating Subscription"
     cat <<EOF | oc create -f -
 apiVersion: operators.coreos.com/v1alpha1
