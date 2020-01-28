@@ -40,7 +40,7 @@ function up() {
     fi
 
     # The auth has the format base64(user:password)
-    auth=$(cat ~/.docker/config.json  | jq -r '.auths["'$container_registry'"]["auth"]' |base64 -d)
+    auth=$(cat ~/.docker/config.json  | docker run --rm -i imega/jq:1.6 -r '.auths["'$container_registry'"]["auth"]' |base64 -d)
     user=$(echo $auth |awk -F: '{print $1}')
     password=$(echo $auth |awk -F: '{print $2}')
 
