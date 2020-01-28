@@ -84,7 +84,7 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 					"",
 				},
 				Resources: []string{
-					"secrets", "persistentvolumeclaims",
+					"persistentvolumeclaims",
 				},
 				Verbs: []string{
 					"get",
@@ -190,6 +190,7 @@ func newHandlerRole(namespace string) *rbacv1.Role {
 				},
 				Verbs: []string{
 					"create",
+					"get",
 				},
 			},
 		},
