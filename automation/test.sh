@@ -313,4 +313,5 @@ fi
 
 
 # Run functional tests
-FUNC_TEST_ARGS=$ginko_params make functest
+#FUNC_TEST_ARGS=$ginko_params make functest
+sleep 24h
