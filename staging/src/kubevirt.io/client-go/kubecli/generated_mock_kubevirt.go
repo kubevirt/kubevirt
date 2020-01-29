@@ -1138,6 +1138,16 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Migrate(arg0 interface{}) *gomo
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migrate", arg0)
 }
 
+func (_m *MockVirtualMachineInterface) Rename(name string, newName string) error {
+	ret := _m.ctrl.Call(_m, "Rename", name, newName)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) Rename(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Rename", arg0, arg1)
+}
+
 // Mock of VirtualMachineInstanceMigrationInterface interface
 type MockVirtualMachineInstanceMigrationInterface struct {
 	ctrl     *gomock.Controller

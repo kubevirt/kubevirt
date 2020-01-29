@@ -463,6 +463,11 @@ const (
 	// This annotation is used to inject ignition data
 	// Used on VirtualMachineInstance.
 	IgnitionAnnotation string = "kubevirt.io/ignitiondata"
+
+	// This annotation indicates that this VM is in the process of renaming
+	RenameToAnnotation   = AppLabel + "/renameTo"
+	RenameFromAnnotation = AppLabel + "/renameFrom"
+	VirtualMachineLabel  = AppLabel + "/vm"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

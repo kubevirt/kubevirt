@@ -880,6 +880,111 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
 			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
 		})
+
+		Context("VM rename", func() {
+			Context("source VM", func() {
+				var vm *v1.VirtualMachine
+
+				BeforeEach(func() {
+					vm, _ = DefaultVirtualMachineWithNames(false, "test", "")
+					virtcontroller.SetLatestApiVersionAnnotation(vm)
+				})
+
+				Context("a VM with the new name exists", func() {
+					var newVM *v1.VirtualMachine
+					var checkForExistingVM *gomock.Call
+
+					BeforeEach(func() {
+						newVM, _ = DefaultVirtualMachineWithNames(false, "newtest", "")
+						checkForExistingVM = vmInterface.EXPECT().
+							Get(newVM.Name, gomock.Any()).
+							Return(newVM, nil)
+						vm.Annotations[v1.RenameToAnnotation] = newVM.Name
+					})
+
+					It("should remove annotations if the new name is already taken", func() {
+						vmInterface.EXPECT().
+							Patch(vm.Name, types.MergePatchType, gomock.Any()).
+							After(checkForExistingVM)
+
+						addVirtualMachine(vm)
+						controller.Execute()
+					})
+				})
+
+				Context("a VM with the new name does not exist", func() {
+					var newName string
+					var checkForExistingVM *gomock.Call
+
+					BeforeEach(func() {
+						newName = "newtest"
+
+						checkForExistingVM = vmInterface.EXPECT().
+							Get(newName, gomock.Any()).
+							Return(nil, fmt.Errorf("not found"))
+
+						vm.Annotations[v1.RenameToAnnotation] = newName
+					})
+
+					It("should create a new VM if the new name is available and patch the old VM", func() {
+						newVM := vm.DeepCopy()
+						newVM.Name = newName
+
+						createNewVM := vmInterface.EXPECT().
+							Create(gomock.Any()).
+							Do(func(objs ...interface{}) {
+								Expect(objs[0].(*v1.VirtualMachine).Name).To(Equal(newName))
+							}).
+							Return(newVM, nil).
+							After(checkForExistingVM)
+
+						vmInterface.EXPECT().
+							Patch(vm.Name, types.MergePatchType, gomock.Any()).
+							Do(func(objs ...interface{}) {
+								Expect(objs[0].(string)).To(Equal(vm.Name))
+							}).
+							Return(vm, nil).
+							After(createNewVM)
+
+						addVirtualMachine(vm)
+						controller.Execute()
+					})
+				})
+			})
+
+			Context("target VM", func() {
+				var vm *v1.VirtualMachine
+
+				BeforeEach(func() {
+					vm, _ = DefaultVirtualMachineWithNames(false, "test", "")
+					virtcontroller.SetLatestApiVersionAnnotation(vm)
+					vm.Annotations[v1.RenameFromAnnotation] = "oldtest"
+				})
+
+				It("should fail if removal of old VM failed", func() {
+					vmInterface.EXPECT().
+						Delete(vm.Annotations[v1.RenameFromAnnotation], gomock.Any()).
+						Return(fmt.Errorf("something"))
+
+					addVirtualMachine(vm)
+					controller.Execute()
+				})
+
+				It("should delete the old VM and patch the new VM", func() {
+					delete := vmInterface.EXPECT().
+						Delete(vm.Annotations[v1.RenameFromAnnotation], gomock.Any()).
+						Return(nil)
+
+					vmInterface.EXPECT().
+						Patch(vm.Name, types.MergePatchType, gomock.Any()).
+						Return(vm, nil).
+						After(delete)
+
+					addVirtualMachine(vm)
+					controller.Execute()
+				})
+			})
+		})
 	})
 })
 

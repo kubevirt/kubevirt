@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -47,6 +48,14 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 )
+
+const vmPathFormat = "/apis/kubevirt.io/%s/namespaces/%s/virtualmachines/%s"
+
+type readCloserWrapper struct {
+	io.Reader
+}
+
+func (b *readCloserWrapper) Close() error { return nil }
 
 var _ = Describe("VirtualMachineInstance Subresources", func() {
 	kubecli.Init()
@@ -141,6 +150,10 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		)
 
 		expectHandlerPod()
+	}
+
+	getVMPath := func(version, namespace, vmName string) string {
+		return fmt.Sprintf(vmPathFormat, version, namespace, vmName)
 	}
 
 	Context("Subresource api", func() {
@@ -580,6 +593,212 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.Error()).NotTo(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			close(done)
+		})
+
+		Context("Subresource api - rename", func() {
+			var (
+				vm      *v1.VirtualMachine
+				newName string
+			)
+
+			newRenameBody := func(newName string) io.ReadCloser {
+				newNameBytes := []byte(newName)
+				return &readCloserWrapper{bytes.NewReader(newNameBytes)}
+			}
+
+			BeforeEach(func() {
+				vm = newMinimalVM("renametest")
+				vm.Namespace = "renametestns"
+
+				request.PathParameters()["name"] = vm.Name
+				request.PathParameters()["namespace"] = vm.Namespace
+
+				newName = vm.Name + "new"
+			})
+
+			Context("Without VM mocking", func() {
+				It("should fail if no name is provided in the request body", func(done Done) {
+					app.RenameVMRequestHandler(request, response)
+
+					status := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+					Expect(status.Error()).To(ContainSubstring("no body"))
+
+					close(done)
+				})
+
+				It("should fail if the new name is empty", func(done Done) {
+					request.Request.Body = newRenameBody("")
+
+					app.RenameVMRequestHandler(request, response)
+
+					status := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+					Expect(status.Error()).To(ContainSubstring("empty"))
+					close(done)
+				})
+
+				It("should fail if the new name is identical to the current name", func(done Done) {
+					request.Request.Body = newRenameBody(vm.Name)
+
+					app.RenameVMRequestHandler(request, response)
+
+					status := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+					Expect(status.Error()).To(ContainSubstring("identical"))
+
+					close(done)
+				})
+			})
+
+			Context("With source VM mocking", func() {
+				BeforeEach(func() {
+					vmGetStatus := http.StatusOK
+					request.Request.Body = newRenameBody(newName)
+
+					server.AppendHandlers(
+						ghttp.CombineHandlers(
+							ghttp.VerifyRequest("GET", getVMPath("v1alpha3", vm.Namespace, vm.Name)),
+							ghttp.RespondWithJSONEncodedPtr(&vmGetStatus, vm),
+						),
+					)
+				})
+
+				Context("With no running/runStrategy applied", func() {
+					It("should fail if no running state or runStrategy are applied", func(done Done) {
+						app.RenameVMRequestHandler(request, response)
+						status := ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
+						Expect(status.Error()).To(ContainSubstring("Could not determine"))
+
+						close(done)
+					})
+				})
+
+				Context("With invalid source VM running status", func() {
+					BeforeEach(func() {
+						running := true
+						vm.Spec.Running = &running
+					})
+
+					It("should fail if the VM is running", func(done Done) {
+						app.RenameVMRequestHandler(request, response)
+
+						status := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+						Expect(status.Error()).To(ContainSubstring("running VM is not allowed"))
+
+						close(done)
+					})
+				})
+
+				Context("With invalid source VM runStrategy applied", func() {
+					BeforeEach(func() {
+						runStrategy := v1.RunStrategyManual
+						vm.Spec.RunStrategy = &runStrategy
+					})
+
+					It("should fail if non-halted run strategy is applied", func(done Done) {
+						app.RenameVMRequestHandler(request, response)
+
+						status := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+						Expect(status.Error()).To(ContainSubstring("'Halted' run strategy"))
+
+						close(done)
+					})
+				})
+
+				Context("With valid running status or runStrategy", func() {
+					BeforeEach(func() {
+						running := false
+						vm.Spec.Running = &running
+					})
+
+					Context("With destination VM mocking", func() {
+						var (
+							newVM *v1.VirtualMachine
+						)
+
+						BeforeEach(func() {
+							newVM = newMinimalVM(newName)
+							newVM.Namespace = vm.Namespace
+
+							server.AppendHandlers(
+								ghttp.CombineHandlers(
+									ghttp.VerifyRequest("GET", getVMPath("v1alpha3", newVM.Namespace, newVM.Name)),
+									ghttp.RespondWithJSONEncoded(http.StatusOK, newVM),
+								),
+							)
+						})
+
+						It("should fail if the new name is already taken", func(done Done) {
+							request.Request.Body = newRenameBody(newVM.Name)
+
+							app.RenameVMRequestHandler(request, response)
+
+							status := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+							Expect(status.Error()).To(ContainSubstring("already exists"))
+
+							close(done)
+						})
+					})
+
+					Context("When a VM with the new name does not exist", func() {
+						BeforeEach(func() {
+							server.AppendHandlers(
+								ghttp.CombineHandlers(
+									ghttp.VerifyRequest("GET", getVMPath("v1alpha3", vm.Namespace, newName)),
+									ghttp.RespondWith(http.StatusNotFound, nil),
+								),
+							)
+						})
+
+						Context("With vm patch mocking", func() {
+							Context("With failing patch", func() {
+								BeforeEach(func() {
+									server.AppendHandlers(
+										ghttp.CombineHandlers(
+											ghttp.VerifyRequest("PATCH", getVMPath("v1alpha3", vm.Namespace, vm.Name)),
+											ghttp.RespondWith(http.StatusInternalServerError, nil),
+										),
+									)
+								})
+
+								It("should fail due to failed patch", func(done Done) {
+									app.RenameVMRequestHandler(request, response)
+
+									ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+
+									close(done)
+								})
+							})
+
+							Context("With successfull patch", func() {
+								BeforeEach(func() {
+									vmPatchStatus := http.StatusOK
+
+									patchedVM := vm.DeepCopy()
+									patchedVM.Annotations = map[string]string{
+										v1.RenameToAnnotation: newName,
+									}
+
+									server.AppendHandlers(
+										ghttp.CombineHandlers(
+											ghttp.VerifyRequest("PATCH", getVMPath("v1alpha3", vm.Namespace, vm.Name)),
+											ghttp.RespondWithJSONEncodedPtr(&vmPatchStatus, patchedVM),
+										),
+									)
+								})
+
+								It("should succeed", func(done Done) {
+									request.Request.Body = newRenameBody(newName)
+
+									app.RenameVMRequestHandler(request, response)
+
+									Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+
+									close(done)
+								})
+							})
+						})
+					})
+				})
+			})
 		})
 	})
 

@@ -140,6 +140,16 @@ func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *v1beta1.AdmissionRe
 		}
 	}
 
+	if len(causes) > 0 {
+		return causes, nil
+	}
+
+	causes = validateNoModificationsDuringRename(ar, vm)
+
+	if len(causes) > 0 {
+		return causes, nil
+	}
+
 	return causes, nil
 }
 
@@ -223,4 +233,79 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	}
 
 	return causes
+}
+
+// This function rejects VM patches/edits if the VM has a rename annotation (renaming process is in progress)
+func validateNoModificationsDuringRename(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if vm.Annotations == nil {
+		return causes
+	}
+
+	vmHasRenameTo := hasRenameToAnnotations(vm)
+	vmHasRenameFrom := hasRenameFromAnnotations(vm)
+
+	// Prevent creation of VM with rename annotation
+	if ar.Operation == v1beta1.Create {
+		if vmHasRenameTo {
+			return append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Creating a VM with renameTo annotation is prohibited (annotation %s found)",
+					v1.RenameToAnnotation),
+				Field: k8sfield.NewPath("metadata", "annotations",
+					v1.RenameToAnnotation).String(),
+			})
+		}
+	} else if ar.Operation == v1beta1.Update {
+		// Prevent rename annotation on a VM update
+		if vmHasRenameFrom {
+			return append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Adding renameFrom annotation to a VM is prohibited (annotation %s found)",
+					v1.RenameFromAnnotation),
+				Field: k8sfield.NewPath("metadata", "annotations",
+					v1.RenameFromAnnotation).String(),
+			})
+		}
+
+		// Reject renameTo annotation if the VM is running
+		if vmHasRenameTo {
+			if vm.Spec.Running != nil && *vm.Spec.Running {
+				return append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "Cannot rename a running VM",
+					Field:   k8sfield.NewPath("spec", "running").String(),
+				})
+			} else if vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy != v1.RunStrategyHalted {
+				return append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "Cannot rename a VM with an active runStrategy",
+					Field:   k8sfield.NewPath("spec", "runStrategy").String(),
+				})
+			}
+		}
+	}
+
+	return causes
+}
+
+func hasRenameToAnnotations(vm *v1.VirtualMachine) bool {
+	if vm.Annotations == nil {
+		return false
+	}
+
+	_, hasRenameToAnnotation := vm.Annotations[v1.RenameToAnnotation]
+
+	return hasRenameToAnnotation
+}
+
+func hasRenameFromAnnotations(vm *v1.VirtualMachine) bool {
+	if vm.Annotations == nil {
+		return false
+	}
+
+	_, hasRenameFromAnnotation := vm.Annotations[v1.RenameFromAnnotation]
+
+	return hasRenameFromAnnotation
 }

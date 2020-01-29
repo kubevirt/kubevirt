@@ -308,6 +308,16 @@ func (app *virtAPIApp) composeSubresources() {
 			Writes(v1.VirtualMachineInstanceGuestAgentInfo{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestAgentInfo{}))
 
+		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("rename")).
+			To(subresourceApp.RenameVMRequestHandler).
+			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+			Operation("rename").
+			Doc("Rename a stopped VirtualMachine object.").
+			Returns(http.StatusOK, "OK", nil).
+			Returns(http.StatusAccepted, "Accepted", nil).
+			Returns(http.StatusNotFound, "Not Found", nil).
+			Returns(http.StatusBadRequest, "Bad Request", nil))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -356,6 +366,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/guestosinfo",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachines/rename",
 						Namespaced: true,
 					},
 				}

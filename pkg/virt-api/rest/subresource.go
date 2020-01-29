@@ -25,6 +25,7 @@ import (
 	goerror "errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strings"
@@ -515,6 +516,98 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 				}
 			}
 		}
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) RenameVMRequestHandler(request *restful.Request, response *restful.Response) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	if request.Request.Body == nil {
+		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"),
+			response)
+		return
+	}
+
+	// Read the new name of the VM
+	newNameBuf, err := ioutil.ReadAll(request.Request.Body)
+
+	if err != nil {
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"),
+			name, err), response)
+		return
+	}
+
+	newName := string(newNameBuf)
+
+	request.Request.Body.Close()
+
+	if newName == "" {
+		writeError(errors.NewBadRequest("The new name is empty"), response)
+		return
+	}
+
+	if name == newName {
+		writeError(errors.NewBadRequest("The new name cannot be identical to the old name"), response)
+		return
+	}
+
+	// Make sure the VM is stopped and was not scheduled for renaming already
+	vm, statusErr := app.fetchVirtualMachine(name, namespace)
+
+	if statusErr != nil {
+		writeError(statusErr, response)
+		return
+	}
+
+	// Check for renaming annotation on vm
+	if vm.Annotations != nil {
+		_, isScheduledForRenaming := vm.Annotations[v1.RenameToAnnotation]
+
+		if isScheduledForRenaming {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"),
+				name, fmt.Errorf("VM is already scheduled for renaming")), response)
+			return
+		}
+	}
+
+	// Make sure VM is stopped
+	if vm.Spec.Running == nil {
+		if vm.Spec.RunStrategy == nil {
+			writeError(errors.NewInternalError(fmt.Errorf("Could not determine the running status of the vm")),
+				response)
+			return
+		} else if *vm.Spec.RunStrategy != v1.RunStrategyHalted {
+			writeError(errors.NewBadRequest("Renaming a VM is only allowed if 'Halted' run strategy is applied"),
+				response)
+			return
+		}
+	} else if *vm.Spec.Running {
+		writeError(errors.NewBadRequest("Renaming a running VM is not allowed"), response)
+		return
+	}
+
+	// Make sure a VM with the newName doesn't exist
+	_, statusErr = app.fetchVirtualMachine(newName, namespace)
+
+	if statusErr == nil {
+		writeError(errors.NewBadRequest("A VM with the new name already exists"), response)
+		return
+	} else if statusErr.ErrStatus.Code != http.StatusNotFound {
+		writeError(statusErr, response)
+		return
+	}
+
+	patchString := fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%s"}}}`,
+		v1.RenameToAnnotation, newName)
+	vm, err = app.virtCli.VirtualMachine(namespace).Patch(name, types.MergePatchType, []byte(patchString))
+
+	if err != nil {
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"),
+			name, err), response)
+		return
 	}
 
 	response.WriteHeader(http.StatusAccepted)
