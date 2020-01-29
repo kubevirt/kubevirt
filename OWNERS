@@ -11,6 +11,3 @@ filters:
   "pkg/virt-api/.*":
     reviewers:
       - ux-reviewers
-  "cluster-up-sha.txt":
-    approvers:
-      - ci-approvers
