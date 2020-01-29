@@ -756,6 +756,22 @@ var _ = Describe("SRIOV", func() {
 			// start peer machines with sriov interfaces from the same resource pool
 			vmi1 := getSriovVmi([]string{"sriov-link-enabled"})
 			vmi2 := getSriovVmi([]string{"sriov-link-enabled"})
+
+			// Explicitly choose different random mac addresses instead of relying on kubemacpool to do it:
+			// 1) we don't at the moment deploy kubemacpool in kind providers
+			// 2) even if we would do, it's probably a good idea to have the suite not depend on this fact
+			//
+			// This step is needed to guarantee that no VFs on the PF carry a duplicate MAC address that may affect
+			// ability of VMIs to send and receive ICMP packets on their ports.
+			mac1, err := tests.GenerateRandomMac()
+			Expect(err).ToNot(HaveOccurred())
+
+			mac2, err := tests.GenerateRandomMac()
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi1.Spec.Domain.Devices.Interfaces[1].MacAddress = mac1.String()
+			vmi2.Spec.Domain.Devices.Interfaces[1].MacAddress = mac2.String()
+
 			startVmi(vmi1)
 			startVmi(vmi2)
 			waitVmi(vmi1)
