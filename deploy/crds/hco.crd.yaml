@@ -8,9 +8,6 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
-  - JSONPath: .status.phase
-    name: Phase
-    type: string
   group: hco.kubevirt.io
   names:
     kind: HyperConverged

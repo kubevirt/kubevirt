@@ -421,7 +421,6 @@ func GetOperatorCRD() *extv1beta1.CustomResourceDefinition {
 
 			AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
 				{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
-				{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
 			},
 
 			Subresources: &extv1beta1.CustomResourceSubresources{
