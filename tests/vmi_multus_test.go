@@ -779,8 +779,8 @@ var _ = Describe("SRIOV", func() {
 
 			// manually configure IP/link on sriov interfaces because there is
 			// no DHCP server to serve the address to the guest
-			configureSRIOV(vmi1, "eth1", "192.168.1.1", "#")
-			configureSRIOV(vmi2, "eth1", "192.168.1.2", "#")
+			configInterface(vmi1, "eth1", "192.168.1.1/24", "#")
+			configInterface(vmi2, "eth1", "192.168.1.2/24", "#")
 
 			// now check ICMP goes both ways
 			pingVirtualMachine(vmi1, "192.168.1.2", "#")
@@ -815,19 +815,6 @@ func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAdd
 
 func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName, prompt string) {
 	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
-	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: "0"},
-	}, 15)
-	Expect(err).ToNot(HaveOccurred(), "Interface %q was not found in the VMI %s within the given timeout", interfaceName, vmi.Name)
-}
-
-func configureSRIOV(vmi *v1.VirtualMachineInstance, interfaceName, addr, prompt string) {
-	cmdCheck := fmt.Sprintf("ifconfig %s %s/24 up\n", interfaceName, addr)
 	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
