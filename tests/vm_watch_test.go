@@ -22,7 +22,7 @@ const (
 
 	// Define a timeout for read opeartions in order to prevent test hanging
 	readTimeout     = 1 * time.Minute
-	processWaitTime = 1 * time.Minute
+	processWaitTime = 2 * time.Minute
 
 	bufferSize = 1024
 )
