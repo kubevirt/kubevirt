@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 
@@ -164,9 +165,19 @@ func (l *PodInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		panic(err)
 	}
 
-	if err := driver.startDHCP(vmi); err != nil {
-		log.Log.Reason(err).Critical("failed to start DHCP server")
-		panic(err)
+	dhcpStartedFile := "/var/run/kubevirt-private/dhcp_started"
+	_, err = os.Stat(dhcpStartedFile)
+	if os.IsNotExist(err) {
+		if err := driver.startDHCP(vmi); err != nil {
+			log.Log.Reason(err).Critical("failed to start DHCP server")
+			panic(err)
+		}
+		newFile, err := os.Create(dhcpStartedFile)
+		if err != nil {
+			log.Log.Reason(err).Critical("failed to indicate DHCP server is started")
+			panic(err)
+		}
+		newFile.Close()
 	}
 
 	return nil
