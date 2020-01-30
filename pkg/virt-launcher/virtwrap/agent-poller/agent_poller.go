@@ -141,6 +141,7 @@ func (s *AsyncAgentStore) GetGA() string {
 }
 
 // GetFS returns the filesystem list limited to the limit set
+// set limit to -1 to return the whole list
 func (s *AsyncAgentStore) GetFS(limit int) []api.Filesystem {
 	data, ok := s.store.Load(GET_FILESYSTEM)
 	filesystems := []api.Filesystem{}
@@ -149,7 +150,7 @@ func (s *AsyncAgentStore) GetFS(limit int) []api.Filesystem {
 	}
 
 	filesystems = data.([]api.Filesystem)
-	if len(filesystems) <= limit {
+	if len(filesystems) <= limit || limit == -1 {
 		return filesystems
 	}
 
@@ -159,6 +160,7 @@ func (s *AsyncAgentStore) GetFS(limit int) []api.Filesystem {
 }
 
 // GetUsers return the use list limited to the limit set
+// set limit to -1 to return all users
 func (s *AsyncAgentStore) GetUsers(limit int) []api.User {
 	data, ok := s.store.Load(GET_USERS)
 	users := []api.User{}
@@ -167,7 +169,7 @@ func (s *AsyncAgentStore) GetUsers(limit int) []api.User {
 	}
 
 	users = data.([]api.User)
-	if len(users) <= limit {
+	if len(users) <= limit || limit == -1 {
 		return users
 	}
 

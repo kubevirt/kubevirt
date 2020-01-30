@@ -341,6 +341,60 @@ func (l *Launcher) GetGuestInfo(ctx context.Context, request *cmdv1.EmptyRequest
 	return response, nil
 }
 
+// GetUsers returns the list of active users on the guest machine
+func (l *Launcher) GetUsers(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.GuestUserListResponse, error) {
+	response := &cmdv1.GuestUserListResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	users, err := l.domainManager.GetUsers()
+	if err != nil {
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	if jUsers, err := json.Marshal(users); err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal guest user list")
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	} else {
+		response.GuestUserListResponse = string(jUsers)
+	}
+
+	return response, nil
+}
+
+// GetFilesystems returns a full list of active filesystems on the guest machine
+func (l *Launcher) GetFilesystems(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.GuestFilesystemsResponse, error) {
+	response := &cmdv1.GuestFilesystemsResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	fs, err := l.domainManager.GetFilesystems()
+	if err != nil {
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	if jFS, err := json.Marshal(fs); err != nil {
+		log.Log.Reason(err).Errorf("Failed to marshal guest user list")
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	} else {
+		response.GuestFilesystemsResponse = string(jFS)
+	}
+
+	return response, nil
+}
+
 func RunServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},

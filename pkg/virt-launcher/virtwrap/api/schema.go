@@ -150,7 +150,7 @@ type Filesystem struct {
 type User struct {
 	Name      string
 	Domain    string
-	LoginTime int
+	LoginTime float64
 }
 
 // DomainGuestInfo represent guest agent info for specific domain

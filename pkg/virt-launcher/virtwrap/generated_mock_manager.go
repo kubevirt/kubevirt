@@ -157,3 +157,25 @@ func (_m *MockDomainManager) GetGuestInfo() (v1.VirtualMachineInstanceGuestAgent
 func (_mr *_MockDomainManagerRecorder) GetGuestInfo() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetGuestInfo")
 }
+
+func (_m *MockDomainManager) GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error) {
+	ret := _m.ctrl.Call(_m, "GetUsers")
+	ret0, _ := ret[0].([]v1.VirtualMachineInstanceGuestOSUser)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDomainManagerRecorder) GetUsers() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetUsers")
+}
+
+func (_m *MockDomainManager) GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error) {
+	ret := _m.ctrl.Call(_m, "GetFilesystems")
+	ret0, _ := ret[0].([]v1.VirtualMachineInstanceFileSystem)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDomainManagerRecorder) GetFilesystems() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetFilesystems")
+}

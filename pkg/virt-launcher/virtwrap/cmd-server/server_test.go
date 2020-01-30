@@ -179,6 +179,38 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(domStats.Name).To(Equal(list[0].Name))
 			Expect(domStats.UUID).To(Equal(list[0].UUID))
 		})
+
+		It("should return full user list", func() {
+			userList := []v1.VirtualMachineInstanceGuestOSUser{
+				v1.VirtualMachineInstanceGuestOSUser{
+					UserName: "testUser",
+				},
+			}
+
+			domainManager.EXPECT().GetUsers().Return(userList, nil)
+
+			fetchedList, err := client.GetUsers()
+			Expect(err).ToNot(HaveOccurred(), "should fetch users without any issue")
+			Expect(fetchedList).To(Equal(userList), "fetched list should be the same")
+		})
+
+		It("should return full filesystem list", func() {
+			fsList := []v1.VirtualMachineInstanceFileSystem{
+				v1.VirtualMachineInstanceFileSystem{
+					DiskName:       "main",
+					MountPoint:     "/",
+					FileSystemType: "EXT4",
+					UsedBytes:      3333,
+					TotalBytes:     9999,
+				},
+			}
+
+			domainManager.EXPECT().GetFilesystems().Return(fsList, nil)
+
+			fetchedList, err := client.GetFilesystems()
+			Expect(err).ToNot(HaveOccurred(), "should fetch filesystems without any issue")
+			Expect(fetchedList).To(Equal(fsList), "fetched list should be the same")
+		})
 	})
 
 	Describe("Version mismatch", func() {
