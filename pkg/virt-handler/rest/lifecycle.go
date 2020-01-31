@@ -116,3 +116,55 @@ func (lh *LifecycleHandler) GetGuestInfo(request *restful.Request, response *res
 	log.Log.Object(vmi).Infof("returning guestinfo :%v", guestInfo)
 	response.WriteEntity(guestInfo)
 }
+
+func (lh *LifecycleHandler) GetUsers(request *restful.Request, response *restful.Response) {
+	vmi, code, err := getVMI(request, lh.vmiInformer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
+		response.WriteError(code, err)
+		return
+	}
+
+	log.Log.Object(vmi).Infof("Retreiving userlist from %s", vmi.Name)
+
+	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()))
+	client, err := cmdclient.NewClient(sockFile)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
+		response.WriteError(http.StatusInternalServerError, err)
+	}
+
+	userList, err := client.GetUsers()
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to get user list")
+		response.WriteError(http.StatusInternalServerError, err)
+	}
+
+	response.WriteEntity(userList)
+}
+
+func (lh *LifecycleHandler) GetFilesystems(request *restful.Request, response *restful.Response) {
+	vmi, code, err := getVMI(request, lh.vmiInformer)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to retrieve VMI")
+		response.WriteError(code, err)
+		return
+	}
+
+	log.Log.Object(vmi).Infof("Retreiving filesystem list from %s", vmi.Name)
+
+	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()))
+	client, err := cmdclient.NewClient(sockFile)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
+		response.WriteError(http.StatusInternalServerError, err)
+	}
+
+	fsList, err := client.GetFilesystems()
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to get guest info")
+		response.WriteError(http.StatusInternalServerError, err)
+	}
+
+	response.WriteEntity(fsList)
+}

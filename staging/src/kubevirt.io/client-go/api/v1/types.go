@@ -1186,16 +1186,36 @@ type VirtualMachineInstanceGuestAgentInfo struct {
 	FSInfo VirtualMachineInstanceFileSystemInfo `json:"fsInfo,omitempty"`
 }
 
-// VirtualMachineInstanceGuestOSUser is the single user of the guest os
+// VirtualMachineInstanceGuestOSUserList comprises the list of all active users on guest machine
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceGuestOSUserList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualMachineInstanceGuestOSUser `json:"items"`
+}
+
+// VirtualMachineGuestOSUser is the single user of the guest os
 type VirtualMachineInstanceGuestOSUser struct {
-	UserName  string `json:"userName"`
-	Domain    string `json:"domain,omitempty"`
-	LoginTime int    `json:"loginTime,omitempty"`
+	UserName  string  `json:"userName"`
+	Domain    string  `json:"domain,omitempty"`
+	LoginTime float64 `json:"loginTime,omitempty"`
 }
 
 // VirtualMachineInstanceFileSystemInfo represents information regarding single guest os filesystem
 type VirtualMachineInstanceFileSystemInfo struct {
 	Filesystems []VirtualMachineInstanceFileSystem `json:"disks"`
+}
+
+// VirtualMachineInstanceFileSystemList comprises the list of all filesystems on guest machine
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceFileSystemList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualMachineInstanceFileSystem `json:"items"`
 }
 
 // VirtualMachineInstanceFileSystem represents guest os disk

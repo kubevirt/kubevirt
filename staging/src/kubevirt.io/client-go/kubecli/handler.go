@@ -17,11 +17,13 @@ import (
 )
 
 const (
-	consoleTemplateURI   = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
-	vncTemplateURI       = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
-	pauseTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
-	unpauseTemplateURI   = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
-	guestInfoTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
+	consoleTemplateURI        = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
+	vncTemplateURI            = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
+	pauseTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
+	unpauseTemplateURI        = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
+	guestInfoTemplateURI      = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
+	userListTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/userlist"
+	filesystemListTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/filesystemlist"
 )
 
 func NewVirtHandlerClient(client KubevirtClient) VirtHandlerClient {
@@ -48,6 +50,8 @@ type VirtHandlerConn interface {
 	Put(url string, tlsConfig *tls.Config) error
 	Get(url string, tlsConfig *tls.Config) (string, error)
 	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 }
 
 type virtHandler struct {
@@ -242,4 +246,20 @@ func (v *virtHandlerConn) GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (stri
 		return "", err
 	}
 	return fmt.Sprintf(guestInfoTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+}
+
+func (v *virtHandlerConn) UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	ip, port, err := v.ConnectionDetails()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(userListTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+}
+
+func (v *virtHandlerConn) FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	ip, port, err := v.ConnectionDetails()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(filesystemListTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }

@@ -158,9 +158,9 @@ func (_mr *_MockLauncherClientRecorder) GetGuestInfo() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetGuestInfo")
 }
 
-func (_m *MockLauncherClient) GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error) {
+func (_m *MockLauncherClient) GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error) {
 	ret := _m.ctrl.Call(_m, "GetUsers")
-	ret0, _ := ret[0].([]v1.VirtualMachineInstanceGuestOSUser)
+	ret0, _ := ret[0].(v1.VirtualMachineInstanceGuestOSUserList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -169,9 +169,9 @@ func (_mr *_MockLauncherClientRecorder) GetUsers() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetUsers")
 }
 
-func (_m *MockLauncherClient) GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error) {
+func (_m *MockLauncherClient) GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error) {
 	ret := _m.ctrl.Call(_m, "GetFilesystems")
-	ret0, _ := ret[0].([]v1.VirtualMachineInstanceFileSystem)
+	ret0, _ := ret[0].(v1.VirtualMachineInstanceFileSystemList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

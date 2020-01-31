@@ -191,7 +191,7 @@ var _ = Describe("Virt remote commands", func() {
 
 			fetchedList, err := client.GetUsers()
 			Expect(err).ToNot(HaveOccurred(), "should fetch users without any issue")
-			Expect(fetchedList).To(Equal(userList), "fetched list should be the same")
+			Expect(fetchedList.Items).To(Equal(userList), "fetched list should be the same")
 		})
 
 		It("should return full filesystem list", func() {
@@ -209,7 +209,7 @@ var _ = Describe("Virt remote commands", func() {
 
 			fetchedList, err := client.GetFilesystems()
 			Expect(err).ToNot(HaveOccurred(), "should fetch filesystems without any issue")
-			Expect(fetchedList).To(Equal(fsList), "fetched list should be the same")
+			Expect(fetchedList.Items).To(Equal(fsList), "fetched list should be the same")
 		})
 	})
 
