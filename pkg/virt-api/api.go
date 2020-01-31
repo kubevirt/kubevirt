@@ -318,6 +318,24 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusNotFound, "Not Found", nil).
 			Returns(http.StatusBadRequest, "Bad Request", nil))
 
+		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("userlist")).
+			To(subresourceApp.UserList).
+			Consumes(restful.MIME_JSON).
+			Produces(restful.MIME_JSON).
+			Operation("userlist").
+			Doc("Get list of active users via guest agent").
+			Writes(v1.VirtualMachineInstanceGuestOSUserList{}).
+			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestOSUserList{}))
+
+		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("filesystemlist")).
+			To(subresourceApp.FilesystemList).
+			Consumes(restful.MIME_JSON).
+			Produces(restful.MIME_JSON).
+			Operation("filesystemlist").
+			Doc("Get list of active filesystems on guest machine via guest agent").
+			Writes(v1.VirtualMachineInstanceFileSystemList{}).
+			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceFileSystemList{}))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -370,6 +388,14 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachines/rename",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/userlist",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/filesystemlist",
 						Namespaced: true,
 					},
 				}

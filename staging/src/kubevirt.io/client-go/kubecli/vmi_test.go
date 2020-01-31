@@ -256,6 +256,41 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		Expect(fetchedInfo).To(Equal(osInfo), "fetched info should be the same as passed in")
 	})
 
+	It("should fetch UserList from VirtualMachineInstance via subresource", func() {
+		userList := []v1.VirtualMachineInstanceGuestOSUser{
+			v1.VirtualMachineInstanceGuestOSUser{
+				UserName: "testUser",
+			},
+		}
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", subVMPath+"/userlist"),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, osInfo),
+		))
+		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).UserList("testvm")
+
+		Expect(err).ToNot(HaveOccurred(), "should fetch info normally")
+		Expect(fetchedInfo).To(Equal(userList), "fetched info should be the same as passed in")
+	})
+
+	It("should fetch FilesystemList from VirtualMachineInstance via subresource", func() {
+		userList := []v1.VirtualMachineInstanceFileSystem{
+			v1.VirtualMachineInstanceFileSystem{
+				DiskName:   "main",
+				MountPoint: "/",
+			},
+		}
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", subVMPath+"/filesystemlist"),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, osInfo),
+		))
+		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).FilesystemList("testvm")
+
+		Expect(err).ToNot(HaveOccurred(), "should fetch info normally")
+		Expect(fetchedInfo).To(Equal(userList), "fetched info should be the same as passed in")
+	})
+
 	AfterEach(func() {
 		server.Close()
 	})
