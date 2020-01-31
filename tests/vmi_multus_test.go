@@ -43,10 +43,11 @@ import (
 )
 
 const (
-	postUrl            = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
-	linuxBridgeConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"br10\", \"vlan\": 100, \"ipam\": {}},{\"type\": \"tuning\"}]}"}}`
-	ptpConfCRD         = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
-	sriovConfCRD       = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	postUrl                = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
+	linuxBridgeConfCRD     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"br10\", \"vlan\": 100, \"ipam\": {}},{\"type\": \"tuning\"}]}"}}`
+	ptpConfCRD             = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
+	sriovConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	sriovLinkEnableConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 )
 
 var _ = Describe("Multus", func() {
@@ -587,6 +588,12 @@ var _ = Describe("SRIOV", func() {
 			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault, sriovResourceName))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
+		result = virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov-link-enabled")).
+			Body([]byte(fmt.Sprintf(sriovLinkEnableConfCRD, "sriov-link-enabled", tests.NamespaceTestDefault, sriovResourceName))).
+			Do()
+		Expect(result.Error()).NotTo(HaveOccurred())
 	})
 
 	BeforeEach(func() {
@@ -605,11 +612,13 @@ var _ = Describe("SRIOV", func() {
 	Context("VirtualMachineInstance with sriov plugin interface", func() {
 		getSriovVmi := func(networks []string) (vmi *v1.VirtualMachineInstance) {
 			// If we run on a host with Mellanox SR-IOV cards then we'll need to load in corresponding kernel modules.
+			// Stop NetworkManager to not interfere with manual IP configuration for SR-IOV interfaces.
 			// Use agent to signal about cloud-init phase completion.
 			userData := fmt.Sprintf(`#!/bin/sh
 			    echo "fedora" |passwd fedora --stdin
 			    dnf install -y kernel-modules-$(uname -r)
 			    modprobe mlx5_ib
+			    systemctl stop NetworkManager
 			    mkdir -p /usr/local/bin
 			    curl %s > /usr/local/bin/qemu-ga
 			    chmod +x /usr/local/bin/qemu-ga
@@ -632,14 +641,15 @@ var _ = Describe("SRIOV", func() {
 		}
 
 		startVmi := func(vmi *v1.VirtualMachineInstance) {
-
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
+			return
+		}
 
+		waitVmi := func(vmi *v1.VirtualMachineInstance) {
 			// Need to wait for cloud init to finish and start the agent inside the vmi.
 			tests.WaitAgentConnected(virtClient, vmi)
-
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
 			return
 		}
 
@@ -674,6 +684,7 @@ var _ = Describe("SRIOV", func() {
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
 			vmi := getSriovVmi([]string{"sriov"})
 			startVmi(vmi)
+			waitVmi(vmi)
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -702,6 +713,7 @@ var _ = Describe("SRIOV", func() {
 			vmi := getSriovVmi([]string{"sriov"})
 			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = "de:ad:00:00:be:ef"
 			startVmi(vmi)
+			waitVmi(vmi)
 
 			By("checking virtual machine instance has an interface with the requested MAC address")
 			checkMacAddress(vmi, "eth1", "de:ad:00:00:be:ef")
@@ -710,6 +722,7 @@ var _ = Describe("SRIOV", func() {
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
 			vmi := getSriovVmi([]string{"sriov", "sriov2"})
 			startVmi(vmi)
+			waitVmi(vmi)
 
 			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -734,6 +747,44 @@ var _ = Describe("SRIOV", func() {
 			// there is little we can do beyond just checking three devices are present: PCI slots are different inside
 			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
 			// it's hard to match them.
+		})
+
+		// Note: test case assumes interconnectivity between SR-IOV
+		// interfaces. It can be achieved either by configuring the external switch
+		//properly, or via in-PF switching for VFs (works for some NIC models)
+		It("should connect to another machine with sriov interface", func() {
+			// start peer machines with sriov interfaces from the same resource pool
+			vmi1 := getSriovVmi([]string{"sriov-link-enabled"})
+			vmi2 := getSriovVmi([]string{"sriov-link-enabled"})
+
+			// Explicitly choose different random mac addresses instead of relying on kubemacpool to do it:
+			// 1) we don't at the moment deploy kubemacpool in kind providers
+			// 2) even if we would do, it's probably a good idea to have the suite not depend on this fact
+			//
+			// This step is needed to guarantee that no VFs on the PF carry a duplicate MAC address that may affect
+			// ability of VMIs to send and receive ICMP packets on their ports.
+			mac1, err := tests.GenerateRandomMac()
+			Expect(err).ToNot(HaveOccurred())
+
+			mac2, err := tests.GenerateRandomMac()
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi1.Spec.Domain.Devices.Interfaces[1].MacAddress = mac1.String()
+			vmi2.Spec.Domain.Devices.Interfaces[1].MacAddress = mac2.String()
+
+			startVmi(vmi1)
+			startVmi(vmi2)
+			waitVmi(vmi1)
+			waitVmi(vmi2)
+
+			// manually configure IP/link on sriov interfaces because there is
+			// no DHCP server to serve the address to the guest
+			configInterface(vmi1, "eth1", "192.168.1.1/24", "#")
+			configInterface(vmi2, "eth1", "192.168.1.2/24", "#")
+
+			// now check ICMP goes both ways
+			pingVirtualMachine(vmi1, "192.168.1.2", "#")
+			pingVirtualMachine(vmi2, "192.168.1.1", "#")
 		})
 	})
 })
