@@ -331,6 +331,90 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 							"summary": "More than one virt-api should be running if more than one worker nodes exist.",
 						},
 					},
+					{
+						Record: "num_of_running_virt_controllers",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum(up{pod='virt-controller-.*', namespace='%s'})", ns),
+						),
+					},
+					{
+						Record: "num_of_ready_virt_controllers",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum(ready_virt_controller{namespace='%s'})", ns),
+						),
+					},
+					{
+						Alert: "LowReadyVirtControllersCount",
+						Expr:  intstr.FromString("num_of_ready_virt_controllers <  num_of_running_virt_controllers"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "Some virt controllers are running but not ready.",
+						},
+					},
+					{
+						Alert: "NoReadyVirtController",
+						Expr:  intstr.FromString("num_of_ready_virt_controllers == 0"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "No ready virt-controller was detected for the last 5 min.",
+						},
+					},
+					{
+						Alert: "VirtControllerDown",
+						Expr:  intstr.FromString("num_of_running_virt_controllers == 0"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "No running virt-controller was detected for the last 5 min.",
+						},
+					},
+					{
+						Alert: "LowVirtControllersCount",
+						Expr:  intstr.FromString("(num_of_allocatable_nodes > 1) and (num_of_ready_virt_controllers < 2)"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "More than one virt-controller should be ready if more than one worker node.",
+						},
+					},
+					{
+						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_hour",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod='virt-controller-.*', namespace='%s', code=~'[2][0-9][0-9]'}[60m]))", ns),
+						),
+					},
+					{
+						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_hour",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod='virt-controller-.*', namespace='%s', code=~'[^2][0-9][0-9]'}[60m]))", ns),
+						),
+					},
+					{
+						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_5m",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod='virt-controller-.*', namespace='%s', code=~'[2][0-9][0-9]'}[5m]))", ns),
+						),
+					},
+					{
+						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_5m",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod='virt-controller-.*', namespace='%s', code=~'[^2][0-9][0-9]'}[5m]))", ns),
+						),
+					},
+					{
+						Alert: "VirtControllerRESTErrorsHigh",
+						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_hour / vec_by_virt_controllers_all_client_rest_requests_in_last_hour) >= 0.05"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "More than 5% of the rest calls failed in virt-controller for the last hour",
+						},
+					},
+					{
+						Alert: "VirtControllerRESTErrorsBurst",
+						Expr:  intstr.FromString("(vec_by_virt_controllers_failed_client_rest_requests_in_last_5m / vec_by_virt_controllers_all_client_rest_requests_in_last_5m) >= 0.8"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "More than 80% of the rest calls failed in virt-controller for the last 5 minutes",
+						},
+					},
 				},
 			},
 		},
