@@ -1196,6 +1196,87 @@ var _ = Describe("Configurations", func() {
 				}, 240*time.Second, 2).Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
 			})
 
+			It("should return user list", func() {
+				agentVMI := tests.NewRandomFedoraVMIWitGuestAgent()
+
+				By("Starting a VirtualMachineInstance")
+				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+				tests.WaitForSuccessfulVMIStart(agentVMI)
+
+				getOptions := metav1.GetOptions{}
+				var freshVMI *v1.VirtualMachineInstance
+
+				By("VMI has the guest agent connected condition")
+				Eventually(func() []v1.VirtualMachineInstanceCondition {
+					freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+					return freshVMI.Status.Conditions
+				}, 240*time.Second, 2).Should(
+					ContainElement(
+						MatchFields(
+							IgnoreExtras,
+							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
+					"Should have agent connected condition")
+
+				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				// do some action on VM
+				expecter.Send("ls")
+
+				By("Expecting the Guest VM information")
+				Eventually(func() bool {
+					userList, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).UserList(agentVMI.Name)
+					if err != nil {
+						// invalid request, retry
+						return false
+					}
+					if len(userList.Items) > 0 && userList.Items[0].UserName == "fedora" {
+						return true
+					}
+					return false
+				}, 240*time.Second, 2).Should(BeTrue(), "Should have some users")
+			})
+
+			It("should return user list", func() {
+				agentVMI := tests.NewRandomFedoraVMIWitGuestAgent()
+
+				By("Starting a VirtualMachineInstance")
+				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+				tests.WaitForSuccessfulVMIStart(agentVMI)
+
+				getOptions := metav1.GetOptions{}
+				var freshVMI *v1.VirtualMachineInstance
+
+				By("VMI has the guest agent connected condition")
+				Eventually(func() []v1.VirtualMachineInstanceCondition {
+					freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+					return freshVMI.Status.Conditions
+				}, 240*time.Second, 2).Should(
+					ContainElement(
+						MatchFields(
+							IgnoreExtras,
+							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
+					"Should have agent connected condition")
+
+				By("Expecting the Guest VM information")
+				Eventually(func() bool {
+					fsList, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).FilesystemList(agentVMI.Name)
+					if err != nil {
+						// invalid request, retry
+						return false
+					}
+					if len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != "" {
+						return true
+					}
+					return false
+				}, 240*time.Second, 2).Should(BeTrue(), "Should have some filesystem")
+			})
+
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with serial-number", func() {
