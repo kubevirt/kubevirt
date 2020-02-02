@@ -27,7 +27,7 @@ const (
 	bufferSize = 1024
 )
 
-var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component]VmWatch", func() {
+var _ = FDescribe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component]VmWatch", func() {
 	tests.FlagParse()
 
 	virtCli, err := kubecli.GetKubevirtClient()
@@ -229,20 +229,22 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		// Read column titles
 		vmStatus := readVMStatus(stdout, nil, readTimeout)
-		Expect(vmStatus.name).To(Equal("NAME"))
-		Expect(vmStatus.age).To(Equal("AGE"))
-		Expect(vmStatus.running).To(Equal("RUNNING"))
-		Expect(vmStatus.volume).To(Equal("VOLUME"))
+		Expect(vmStatus.name).To(Equal("NAME"), "Output should have the NAME column")
+		Expect(vmStatus.age).To(Equal("AGE"), "Output should have the AGE column")
+		Expect(vmStatus.running).To(Equal("RUNNING"), "Output should have the RUNNING column")
+		Expect(vmStatus.volume).To(Equal("VOLUME"), "Output should have the VOLUME column")
 
 		// Read first status of the vm
 		vmStatus = readVMStatus(stdout, vmStatus, readTimeout)
 		Expect(vmStatus.name).To(Equal(vm.Name))
+		By("Expecting vm.running == false")
 		Expect(vmStatus.running).To(Equal("false"))
 
 		By("Starting the VM")
 		vm = tests.StartVirtualMachine(vm)
 
 		vmStatus = readVMStatus(stdout, vmStatus, readTimeout)
+		By("Expecting vm.running == true")
 		Expect(vmStatus.running).To(Equal("true"))
 
 		By("Restarting the VM")
@@ -250,12 +252,14 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		Expect(err).ToNot(HaveOccurred(), "VM should have been restarted")
 
 		vmStatus = readVMStatus(stdout, nil, readTimeout)
+		By("Expecting vm.running == true")
 		Expect(vmStatus.running).To(Equal("true"))
 
 		By("Stopping the VM")
 		vm = tests.StopVirtualMachine(vm)
 
 		vmStatus = readVMStatus(stdout, vmStatus, readTimeout)
+		By("Expecting vm.running == false")
 		Expect(vmStatus.running).To(Equal("false"))
 
 		By("Deleting the VM")
@@ -266,6 +270,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 	It("[test_id:3466]Should update vmi status with the proper columns using 'kubectl get vmi -w'", func() {
 		By("Creating a random VMI spec")
 		vm := tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+
 		Expect(vm).ToNot(BeNil())
 
 		By("Setting up the kubectl command")
@@ -278,9 +283,9 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		defer cmd.Process.Kill()
 
-		go failOnError(stderr)
-
 		time.Sleep(processWaitTime)
+
+		go failOnError(stderr)
 
 		By("Applying vmi to the cluster")
 		vm, err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Create(vm)
@@ -291,24 +296,29 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		// Read the column titles
 		vmiStatus := readVMIStatus(stdout, nil, readTimeout)
-		Expect(vmiStatus.name).To(Equal("NAME"))
-		Expect(vmiStatus.age).To(Equal("AGE"))
-		Expect(vmiStatus.phase).To(Equal("PHASE"))
-		Expect(vmiStatus.ip).To(Equal("IP"))
-		Expect(vmiStatus.node).To(Equal("NODENAME"))
+		Expect(vmiStatus.name).To(Equal("NAME"), "Output should have the NAME column")
+		Expect(vmiStatus.age).To(Equal("AGE"), "Output should have the AGE column")
+		Expect(vmiStatus.phase).To(Equal("PHASE"), "Output should have the PHASE column")
+		Expect(vmiStatus.ip).To(Equal("IP"), "Output should have the IP column")
+		Expect(vmiStatus.node).To(Equal("NODENAME"), "Output should have the NODENAME column")
 
+		By("Expecting vmi.phase == ''")
 		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
 		Expect(vmiStatus.phase).To(Equal(""))
 
+		By("Expecting vmi.phase == Pending")
 		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
 		Expect(vmiStatus.phase).To(Equal("Pending"))
 
+		By("Expecting vmi.phase == Scheduling")
 		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
 		Expect(vmiStatus.phase).To(Equal("Scheduling"))
 
+		By("Expecting vmi.phase == Scheduled")
 		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
 		Expect(vmiStatus.phase).To(Equal("Scheduled"))
 
+		By("Expecting vmi.phase == Running")
 		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
 		Expect(vmiStatus.phase).To(Equal("Running"))
 
@@ -316,21 +326,27 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Restart(vm.ObjectMeta.Name)
 		Expect(err).ToNot(HaveOccurred(), "VMI should have been restarted")
 
+		By("Expecting vmi.phase == Failed")
 		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
 		Expect(vmiStatus.phase).To(Equal("Failed"))
 
+		By("Expecting vmi.phase == ''")
 		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
 		Expect(vmiStatus.phase).To(Equal(""))
 
+		By("Expecting vmi.phase == Pending")
 		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
 		Expect(vmiStatus.phase).To(Equal("Pending"))
 
+		By("Expecting vmi.phase == Scheduling")
 		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
 		Expect(vmiStatus.phase).To(Equal("Scheduling"))
 
+		By("Expecting vmi.phase == Scheduled")
 		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
 		Expect(vmiStatus.phase).To(Equal("Scheduled"))
 
+		By("Expecting vmi.phase == Running")
 		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
 		Expect(vmiStatus.phase).To(Equal("Running"))
 	})
