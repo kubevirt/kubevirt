@@ -27,7 +27,7 @@ const (
 	bufferSize = 1024
 )
 
-var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component]VmWatch", func() {
+var _ = FDescribe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component]VmWatch", func() {
 	tests.FlagParse()
 
 	virtCli, err := kubecli.GetKubevirtClient()
@@ -155,24 +155,24 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 	// returns a new status.
 	// if old_status is non-nil, the function will read status lines until
 	// new_status.running != old_status.running in order to skip duplicated status lines
-	readVMStatus := func(rc io.ReadCloser, old_status *vmStatus, timeout time.Duration) *vmStatus {
-		new_stat := newVMStatus(strings.Fields(readLine(rc, timeout)))
+	readVMStatus := func(rc io.ReadCloser, oldStatus *vmStatus, timeout time.Duration) *vmStatus {
+		newStat := newVMStatus(strings.Fields(readLine(rc, timeout)))
 
-		for old_status != nil && new_stat.running == old_status.running {
-			new_stat = newVMStatus(strings.Fields(readLine(rc, timeout)))
+		for oldStatus != nil && newStat.running == oldStatus.running {
+			newStat = newVMStatus(strings.Fields(readLine(rc, timeout)))
 		}
 
-		return new_stat
+		return newStat
 	}
 
 	// Reads VMI status from the given pipe (stdin in this case) and
 	// returns a new status.
 	// if old_status is non-nil, the function will read status lines until
 	// new_status.phase != old_status.phase in order to skip duplicated lines
-	readVMIStatus := func(rc io.ReadCloser, old_status *vmiStatus, timeout time.Duration) *vmiStatus {
+	readVMIStatus := func(rc io.ReadCloser, oldStatus *vmiStatus, timeout time.Duration) *vmiStatus {
 		newStat := newVMIStatus(strings.Fields(readLine(rc, timeout)))
 
-		for old_status != nil && newStat.phase == old_status.phase {
+		for oldStatus != nil && newStat.phase == oldStatus.phase {
 			newStat = newVMIStatus(strings.Fields(readLine(rc, timeout)))
 		}
 
@@ -202,6 +202,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 	BeforeEach(func() {
 		tests.SkipIfVersionBelow("Printing format for `kubectl get -w` on custom resources is only relevant for 1.16.2+", relevantk8sVer)
+		tests.BeforeTestCleanup()
 	})
 
 	It("[test_id:3468]Should update vm status with the proper columns using 'kubectl get vm -w'", func() {
@@ -349,5 +350,9 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		By("Expecting vmi.phase == Running")
 		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
 		Expect(vmiStatus.phase).To(Equal("Running"))
+
+		By("Deleting the VM")
+		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Delete(vm.ObjectMeta.Name, &v1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred(), "VM should have been deleted from the cluster")
 	})
 })
