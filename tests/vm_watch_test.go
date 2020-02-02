@@ -27,7 +27,7 @@ const (
 	bufferSize = 1024
 )
 
-var _ = FDescribe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component]VmWatch", func() {
+var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component]VmWatch", func() {
 	tests.FlagParse()
 
 	virtCli, err := kubecli.GetKubevirtClient()
