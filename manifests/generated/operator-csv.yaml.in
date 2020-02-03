@@ -503,7 +503,6 @@ spec:
         - apiGroups:
           - ""
           resources:
-          - secrets
           - persistentvolumeclaims
           verbs:
           - get
@@ -542,6 +541,7 @@ spec:
           - secrets
           verbs:
           - create
+          - get
         - apiGroups:
           - subresources.kubevirt.io
           resources:

@@ -198,6 +198,50 @@ var _ = Describe("Template", func() {
 				Expect(debugLogsValue).To(Equal("1"))
 			})
 		})
+		Context("with cloud-init secret", func() {
+			It("should add volume with secret referenced by cloud-init user secret ref", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Volumes: []v1.Volume{
+							{
+								Name: "cloud-init-user-data-secret-ref",
+								VolumeSource: v1.VolumeSource{
+									CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+										UserDataSecretRef: &kubev1.LocalObjectReference{
+											Name: "some-secret",
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				cloudInitVolumeFound := false
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Name == "cloud-init-user-data-secret-ref" {
+						cloudInitVolumeFound = true
+					}
+				}
+				Expect(cloudInitVolumeFound).To(BeTrue(), "could not find cloud init secret volume")
+
+				cloudInitVolumeMountFound := false
+				for _, volumeMount := range pod.Spec.Containers[0].VolumeMounts {
+					if volumeMount.Name == "cloud-init-user-data-secret-ref" {
+						cloudInitVolumeMountFound = true
+					}
+				}
+				Expect(cloudInitVolumeMountFound).To(BeTrue(), "could not find cloud init secret volume mount")
+			})
+		})
 		Context("with multus annotation", func() {
 			It("should add multus networks in the pod annotation", func() {
 				vmi := v1.VirtualMachineInstance{

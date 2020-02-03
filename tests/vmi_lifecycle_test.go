@@ -313,8 +313,26 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("with user-data", func() {
+
+			findLauncherForVMI := func(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+				By("Finding a launcher for VMI: " + vmi.Name)
+				launchers, err := virtClient.
+					CoreV1().
+					Pods(tests.NamespaceTestDefault).
+					List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-launcher"})
+				Expect(err).To(BeNil(), "Should list virt-launchers")
+				var launcher k8sv1.Pod
+				for _, launcherPod := range launchers.Items {
+					if domain, ok := launcherPod.ObjectMeta.Annotations[v1.DomainAnnotation]; ok && domain == vmi.Name {
+						return &launcherPod
+					}
+				}
+				Expect(launcher).ToNot(BeNil(), "Should find virt-launcher pod for created VMI")
+				return nil
+			}
+
 			Context("without k8s secret", func() {
-				It("[test_id:1629]should retry starting the VirtualMachineInstance", func() {
+				It("[test_id:1629]should not be able to start virt-launcher pod", func() {
 					userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
 					vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
 
@@ -327,23 +345,21 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						}
 					}
 					By("Starting a VirtualMachineInstance")
-					obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 					Expect(err).To(BeNil(), "Should create VMI successfully")
-
-					By("Checking that VirtualMachineInstance was restarted twice")
-					retryCount := 0
 					stopChan := make(chan struct{})
 					defer close(stopChan)
-					tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).Watch(stopChan, func(event *k8sv1.Event) bool {
-						if event.Type == "Warning" && event.Reason == v1.SyncFailed.String() {
-							retryCount++
-							if retryCount >= 2 {
-								// Done, two retries is enough
+					launcher := findLauncherForVMI(vmi)
+					tests.NewObjectEventWatcher(launcher).
+						SinceWatchedObjectResourceVersion().
+						Timeout(60*time.Second).
+						Watch(stopChan, func(event *k8sv1.Event) bool {
+							if event.Type == "Warning" && event.Reason == "FailedMount" {
 								return true
 							}
-						}
-						return false
-					}, fmt.Sprintf("two events of type Warning, reason = %s", v1.SyncFailed.String()))
+							return false
+						},
+							"event of type Warning, reason = FailedMount")
 				})
 
 				It("[test_id:1630]should log warning and proceed once the secret is there", func() {
@@ -363,13 +379,16 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					By("Starting a VirtualMachineInstance")
 					createdVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 					Expect(err).To(BeNil(), "Should create VMI successfully")
-
+					launcher := findLauncherForVMI(vmi)
 					// Wait until we see that starting the VirtualMachineInstance is failing
 					By("Checking that VirtualMachineInstance start failed")
 					stopChan := make(chan struct{})
 					defer close(stopChan)
-					event := tests.NewObjectEventWatcher(createdVMI).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(stopChan, tests.WarningEvent, v1.SyncFailed)
-					Expect(event.Message).To(ContainSubstring("nonexistent"), "VMI should not be started")
+					event := tests.NewObjectEventWatcher(launcher).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(stopChan, tests.WarningEvent, "FailedMount")
+					Expect(event.Message).To(SatisfyAny(
+						ContainSubstring(`secret "nonexistent" not found`),
+						ContainSubstring(`secrets "nonexistent" not found`), // for k8s 1.11.x
+					), "VMI should not be started")
 
 					// Creat nonexistent secret, so that the VirtualMachineInstance can recover
 					By("Creating a user-data secret")
@@ -391,7 +410,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					// Wait for the VirtualMachineInstance to be started, allow warning events to occur
 					By("Checking that VirtualMachineInstance start succeeded")
-					tests.NewObjectEventWatcher(createdVMI).SinceWatchedObjectResourceVersion().Timeout(30*time.Second).WaitFor(stopChan, tests.NormalEvent, v1.Started)
+					tests.NewObjectEventWatcher(createdVMI).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(stopChan, tests.NormalEvent, v1.Started)
 				})
 			})
 		})

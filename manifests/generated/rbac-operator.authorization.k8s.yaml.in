@@ -358,7 +358,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secrets
   - persistentvolumeclaims
   verbs:
   - get
@@ -397,6 +396,7 @@ rules:
   - secrets
   verbs:
   - create
+  - get
 - apiGroups:
   - subresources.kubevirt.io
   resources:
