@@ -1078,6 +1078,9 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 		baseDir := fmt.Sprintf("/var/run/kubevirt-network/%s/", vmiId)
 		dir, err := ioutil.ReadDir(baseDir)
 		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
 			return fmt.Errorf("failed to read network cache file directory %s: %s", baseDir, err)
 		}
 		for _, d := range dir {
