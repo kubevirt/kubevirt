@@ -1056,8 +1056,10 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	d.closeLauncherClient(vmi)
 
-	d.migrationProxy.StopTargetListener(string(vmi.UID))
-	d.migrationProxy.StopSourceListener(string(vmi.UID))
+	vmiId := string(vmi.UID)
+
+	d.migrationProxy.StopTargetListener(vmiId)
+	d.migrationProxy.StopSourceListener(vmiId)
 
 	// Unmount container disks and clean up remaining files
 	err = d.containerDiskMounter.Unmount(vmi)
@@ -1072,12 +1074,18 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	}
 
 	// Clean up network related files
-	baseDir := fmt.Sprintf("/var/run/kubevirt-network/%s/", vmi.UID)
-	dir, err := ioutil.ReadDir(baseDir)
-	for _, d := range dir {
-		err := os.RemoveAll(path.Join([]string{baseDir, d.Name()}...))
+	if vmiId != "" {
+		baseDir := fmt.Sprintf("/var/run/kubevirt-network/%s/", vmiId)
+		dir, err := ioutil.ReadDir(baseDir)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to read network cache file directory %s: %s", baseDir, err)
+		}
+		for _, d := range dir {
+			fileName := path.Join([]string{baseDir, d.Name()}...)
+			err := os.RemoveAll(fileName)
+			if err != nil {
+				return fmt.Errorf("failed to remove %s: %s", fileName, err)
+			}
 		}
 	}
 
