@@ -3704,6 +3704,10 @@ func GetNodeCPUInfo(vmi *v1.VirtualMachineInstance) string {
 func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
 	name := vmi.Name
 	namespace := vmi.Namespace
+	labels := map[string]string{"name": name}
+	for k, v := range vmi.Labels {
+		labels[k] = v
+	}
 	vm := &v1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -3713,7 +3717,7 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 			Running: &running,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:    map[string]string{"name": name},
+					Labels:    labels,
 					Name:      name,
 					Namespace: namespace,
 				},
