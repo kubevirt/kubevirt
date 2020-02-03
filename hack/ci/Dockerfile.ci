@@ -90,6 +90,7 @@ RUN yum remove -y git && \
     yum install -y git && \
     yum clean all && rm -rf /var/cache/yum/*
 
+# TODO: remove patching of external provider, after kubevirtci#199 has been merged and kubevirt updates
 RUN \
     export DOCKER_PREFIX='dhiller' && \
     export DOCKER_TAG="latest" && \
@@ -98,7 +99,7 @@ RUN \
     export GOPATH="/go" && \
     export GOBIN="/usr/bin" && \
     source /etc/profile.d/gimme.sh && \
-    curl -L -O -o cluster-up/cluster/external/provider.sh https://raw.githubusercontent.com/dhiller/kubevirtci/fix-external-provider/cluster-up/cluster/external/provider.sh && \
+    (cd cluster-up/cluster/external && curl -L -O -o provider.sh https://raw.githubusercontent.com/dhiller/kubevirtci/fix-external-provider/cluster-up/cluster/external/provider.sh) && \
     bash -x ./hack/build-manifests.sh && \
     bash -x ./hack/build-func-tests.sh && \
     curl -L -O -o kvm-ds.yaml https://raw.githubusercontent.com/kubevirt/kubernetes-device-plugins/master/manifests/kvm-ds.yml
