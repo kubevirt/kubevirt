@@ -50,16 +50,6 @@ func (_mr *_MockBindMechanismRecorder) preparePodNetworkInterfaces() *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "preparePodNetworkInterfaces")
 }
 
-func (_m *MockBindMechanism) decorateConfig() error {
-	ret := _m.ctrl.Call(_m, "decorateConfig")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockBindMechanismRecorder) decorateConfig() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "decorateConfig")
-}
-
 func (_m *MockBindMechanism) loadCachedInterface(pid string, name string) (bool, error) {
 	ret := _m.ctrl.Call(_m, "loadCachedInterface", pid, name)
 	ret0, _ := ret[0].(bool)
@@ -100,6 +90,16 @@ func (_m *MockBindMechanism) setCachedVIF(pid string, name string) error {
 
 func (_mr *_MockBindMechanismRecorder) setCachedVIF(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "setCachedVIF", arg0, arg1)
+}
+
+func (_m *MockBindMechanism) decorateConfig() error {
+	ret := _m.ctrl.Call(_m, "decorateConfig")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) decorateConfig() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "decorateConfig")
 }
 
 func (_m *MockBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {

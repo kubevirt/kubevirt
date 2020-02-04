@@ -45,8 +45,6 @@ type BindMechanism interface {
 	discoverPodNetworkInterface() error
 	preparePodNetworkInterfaces() error
 
-	decorateConfig() error
-
 	loadCachedInterface(pid, name string) (bool, error)
 	setCachedInterface(pid, name string) error
 
@@ -60,6 +58,9 @@ type BindMechanism interface {
 	loadCachedVIF(pid, name string) (bool, error)
 	setCachedVIF(pid, name string) error
 
+	// The following entry points require domain initialized for the
+	// binding and can be used in phase2 only.
+	decorateConfig() error
 	startDHCP(vmi *v1.VirtualMachineInstance) error
 }
 
