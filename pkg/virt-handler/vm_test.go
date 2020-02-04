@@ -60,7 +60,6 @@ import (
 
 func StubOutNetworkForTest() {
 	network.SetupPodNetworkPhase1 = func(vm *v1.VirtualMachineInstance) error { return nil }
-	network.SetupPodNetworkPhase2 = func(vm *v1.VirtualMachineInstance, domain *api.Domain) error { return nil }
 }
 
 var _ = Describe("VirtualMachineInstance", func() {
