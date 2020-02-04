@@ -165,7 +165,7 @@ func (l *PodInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		panic(err)
 	}
 
-	dhcpStartedFile := "/var/run/kubevirt-private/dhcp_started"
+	dhcpStartedFile := fmt.Sprintf("/var/run/kubevirt-private/dhcp_started-%s", podInterfaceName)
 	_, err = os.Stat(dhcpStartedFile)
 	if os.IsNotExist(err) {
 		if err := driver.startDHCP(vmi); err != nil {
