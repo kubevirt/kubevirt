@@ -1152,10 +1152,26 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared HostDisk")))
 		})
 
-		It("should not allow to migrate with adding default network configuration", func() {
+		It("should block migrations if the pod network is connected via a binding method different than masquerade", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
+			interfaceName := "interface_name"
+
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name:          interfaceName,
+					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				v1.Interface{
+					Name: interfaceName,
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Bridge: &v1.InterfaceBridge{},
+					},
+				},
+			}
 			err := controller.checkNetworkInterfacesForMigration(vmi)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("should not block migration for bridge interface assigned to multus network", func() {
