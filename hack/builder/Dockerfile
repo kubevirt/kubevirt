@@ -1,4 +1,7 @@
-FROM fedora:30
+ARG ARCH
+FROM ${ARCH}/fedora:30
+
+COPY qemu-ppc64le-static /usr/bin/qemu-ppc64le-static
 
 ENV LIBVIRT_VERSION 5.1.0
 
