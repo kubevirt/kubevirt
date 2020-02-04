@@ -1424,8 +1424,8 @@ func (d *VirtualMachineController) migrateNetworkCacheFiles(vmi *v1.VirtualMachi
 	// for the handler process because it's multi-threaded, and instead use
 	// /proc/<pid>/root interface to access to the filesystem view of the
 	// launcher process
-	oldroot := fmt.Sprintf("/proc/%d/root/var/run/kubevirt-private", res.Pid())
-	files, err := ioutil.ReadDir(oldroot)
+	oldRoot := fmt.Sprintf("/proc/%d/root/var/run/kubevirt-private", res.Pid())
+	files, err := ioutil.ReadDir(oldRoot)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -1436,7 +1436,7 @@ func (d *VirtualMachineController) migrateNetworkCacheFiles(vmi *v1.VirtualMachi
 		if info.IsDir() {
 			continue
 		}
-		oldpath := path.Join(oldroot, info.Name())
+		oldpath := path.Join(oldRoot, info.Name())
 		if filepath.Ext(oldpath) != ".json" {
 			continue
 		}
