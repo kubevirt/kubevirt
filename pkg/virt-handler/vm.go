@@ -822,12 +822,11 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		log.Log.Info("Domain does not exist")
 	}
 
-	// make sure the per-vmi shared directory exists
-	interfaceCacheFile := "/var/run/kubevirt-network/%s/interface-cache-%s.json" // todo
-	dir := fmt.Sprintf(path.Dir(interfaceCacheFile), string(vmi.UID))
+	// make sure the per-vmi network cache file shared directory exists
+	dir := fmt.Sprintf("/var/run/kubevirt-network/%s", string(vmi.UID))
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
-		return fmt.Errorf("failed to create directory to share cached files: %v", err)
+		return fmt.Errorf("failed to create shared network cache file directory %s: %v", dir, err)
 	}
 
 	domainAlive := domainExists &&
