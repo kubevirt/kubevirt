@@ -132,6 +132,7 @@ var _ = Describe("VirtLauncher", func() {
 
 	AfterEach(func() {
 		os.RemoveAll(tmpDir)
+		os.RemoveAll(tmpNetworkDir)
 		if processStarted == true {
 			cmdLock.Lock()
 			defer cmdLock.Unlock()
