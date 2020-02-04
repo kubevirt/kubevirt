@@ -68,12 +68,12 @@ type PodInterface struct{}
 
 func (l *PodInterface) Unplug() {}
 
-func getVifFile(uid types.UID, name string) string {
+func getVifFilePath(uid types.UID, name string) string {
 	return fmt.Sprintf(vifCacheFile, uid, name)
 }
 
 func writeVifFile(buf []byte, uid types.UID, name string) error {
-	err := ioutil.WriteFile(getVifFile(uid, name), buf, 0644)
+	err := ioutil.WriteFile(getVifFilePath(uid, name), buf, 0644)
 	if err != nil {
 		return fmt.Errorf("error writing vif object: %v", err)
 	}
@@ -383,7 +383,7 @@ func (b *BridgePodInterface) setCachedInterface(uid types.UID, name string) erro
 }
 
 func (b *BridgePodInterface) loadCachedVIF(uid types.UID, name string) (bool, error) {
-	buf, err := ioutil.ReadFile(getVifFile(uid, name))
+	buf, err := ioutil.ReadFile(getVifFilePath(uid, name))
 	if err != nil {
 		return false, err
 	}
@@ -605,7 +605,7 @@ func (p *MasqueradePodInterface) setCachedInterface(uid types.UID, name string) 
 }
 
 func (p *MasqueradePodInterface) loadCachedVIF(uid types.UID, name string) (bool, error) {
-	buf, err := ioutil.ReadFile(getVifFile(uid, name))
+	buf, err := ioutil.ReadFile(getVifFilePath(uid, name))
 	if err != nil {
 		return false, err
 	}
