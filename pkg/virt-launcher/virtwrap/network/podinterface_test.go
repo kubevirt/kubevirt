@@ -144,44 +144,45 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().StartDHCP(masqueradeTestNic, masqueradeGwAddr, api.DefaultBridgeName, nil)
 		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMCIDR).Return("10.0.2.1/30", "10.0.2.2/30", nil)
 		// Global nat rules using iptables
-		mockNetwork.EXPECT().IptablesNewChain("nat", gomock.Any()).Return(nil).AnyTimes()
+		mockNetwork.EXPECT().IptablesNewChain("nat", gomock.Any()).Return(nil).Times(2)
 		mockNetwork.EXPECT().IptablesAppendRule("nat",
 			"POSTROUTING",
 			"-s",
 			"10.0.2.2",
 			"-j",
-			"MASQUERADE").Return(nil).AnyTimes()
+			"MASQUERADE").Return(nil)
 		mockNetwork.EXPECT().IptablesAppendRule("nat",
 			"PREROUTING",
 			"-i",
 			"eth0",
 			"-j",
-			"KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
+			"KUBEVIRT_PREINBOUND").Return(nil)
 		mockNetwork.EXPECT().IptablesAppendRule("nat",
 			"POSTROUTING",
 			"-o",
 			"k6t-eth0",
 			"-j",
-			"KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
+			"KUBEVIRT_POSTINBOUND").Return(nil)
 		mockNetwork.EXPECT().IptablesAppendRule("nat",
 			"KUBEVIRT_PREINBOUND",
 			"-j",
 			"DNAT",
 			"--to-destination",
-			"10.0.2.2").Return(nil).AnyTimes()
+			"10.0.2.2").Return(nil)
 		//Global net rules using nftable
-		mockNetwork.EXPECT().NftablesLoad("ipv4-nat").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().NftablesNewChain("nat", "KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().NftablesNewChain("nat", "KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().NftablesAppendRule("nat", "postrouting", "ip", "saddr", "10.0.2.2", "counter", "masquerade").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().NftablesAppendRule("nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().NftablesAppendRule("nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
+		mockNetwork.EXPECT().NftablesLoad("ipv4-nat").Return(nil)
+		mockNetwork.EXPECT().NftablesNewChain("nat", "KUBEVIRT_PREINBOUND").Return(nil)
+		mockNetwork.EXPECT().NftablesNewChain("nat", "KUBEVIRT_POSTINBOUND").Return(nil)
+		mockNetwork.EXPECT().NftablesAppendRule("nat", "postrouting", "ip", "saddr", "10.0.2.2", "counter", "masquerade").Return(nil)
+		mockNetwork.EXPECT().NftablesAppendRule("nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil)
+		mockNetwork.EXPECT().NftablesAppendRule("nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil)
 
 		err := SetupPodNetworkPhase1(vm, pid)
 		Expect(err).To(BeNil())
 
-		// Calling SetupPodNetworkPhase1 a second time should result in no
-		// mockNetwork function calls
+		// Calling SetupPodNetworkPhase1 a second time should result in
+		// no mockNetwork function calls, as confirmed by mock object
+		// limited number of calls expected for each mocked entry point.
 		err = SetupPodNetworkPhase1(vm, pid)
 		Expect(err).To(BeNil())
 	}
