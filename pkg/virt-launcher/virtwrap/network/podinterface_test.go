@@ -463,7 +463,7 @@ var _ = Describe("Pod Network", func() {
 	})
 
 	Context("Masquerade startDHCP", func() {
-		It("should succeed", func() {
+		It("should succeed when DHCP server started", func() {
 			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
@@ -479,7 +479,7 @@ var _ = Describe("Pod Network", func() {
 			err = masq.startDHCP(vmi)
 			Expect(err).ToNot(HaveOccurred())
 		})
-		It("should fail", func() {
+		It("should fail when DHCP server failed", func() {
 			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
@@ -499,7 +499,7 @@ var _ = Describe("Pod Network", func() {
 		})
 	})
 	Context("Bridge startDHCP", func() {
-		It("should succeed", func() {
+		It("should succeed when DHCP server started", func() {
 			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
@@ -514,7 +514,7 @@ var _ = Describe("Pod Network", func() {
 			err = bridge.startDHCP(vmi)
 			Expect(err).ToNot(HaveOccurred())
 		})
-		It("should fail", func() {
+		It("should fail when DHCP server failed", func() {
 			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
@@ -530,7 +530,7 @@ var _ = Describe("Pod Network", func() {
 			err = bridge.startDHCP(vmi)
 			Expect(err).To(HaveOccurred())
 		})
-		It("should succeed when isLayer2 = true", func() {
+		It("should succeed when DHCP server started and isLayer2 = true", func() {
 			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
@@ -549,7 +549,7 @@ var _ = Describe("Pod Network", func() {
 		})
 	})
 	Context("Slirp startDHCP", func() {
-		It("should succeed", func() {
+		It("should succeed when DHCP server started", func() {
 			domain := NewDomainWithSlirpInterface()
 			vmi := newVMISlirpInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
@@ -562,6 +562,7 @@ var _ = Describe("Pod Network", func() {
 			err = slirp.startDHCP(vmi)
 			Expect(err).ToNot(HaveOccurred())
 		})
+		// slirp never fails to start DHCP because it doesn't need it at all
 	})
 
 	Context("Bridge loadCachedVIF", func() {
