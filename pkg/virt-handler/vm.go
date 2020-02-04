@@ -26,8 +26,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -71,7 +69,6 @@ func NewController(
 	host string,
 	ipAddress string,
 	virtShareDir string,
-	virtNetworkDir string,
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -92,7 +89,6 @@ func NewController(
 		host:                     host,
 		ipAddress:                ipAddress,
 		virtShareDir:             virtShareDir,
-		virtNetworkDir:           virtNetworkDir,
 		vmiSourceInformer:        vmiSourceInformer,
 		vmiTargetInformer:        vmiTargetInformer,
 		domainInformer:           domainInformer,
@@ -142,7 +138,6 @@ type VirtualMachineController struct {
 	host                     string
 	ipAddress                string
 	virtShareDir             string
-	virtNetworkDir           string
 	Queue                    workqueue.RateLimitingInterface
 	vmiSourceInformer        cache.SharedIndexInformer
 	vmiTargetInformer        cache.SharedIndexInformer
@@ -822,13 +817,6 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		log.Log.Info("Domain does not exist")
 	}
 
-	// make sure the per-vmi network cache file shared directory exists
-	dir := fmt.Sprintf("/var/run/kubevirt-network/%s", string(vmi.UID))
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		return fmt.Errorf("failed to create shared network cache file directory %s: %v", dir, err)
-	}
-
 	domainAlive := domainExists &&
 		domain.Status.Status != api.Shutoff &&
 		domain.Status.Status != api.Crashed &&
@@ -1070,25 +1058,6 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	err = watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
 	if err != nil {
 		return err
-	}
-
-	// Clean up network related files
-	if vmiId != "" {
-		baseDir := fmt.Sprintf("/var/run/kubevirt-network/%s/", vmiId)
-		dir, err := ioutil.ReadDir(baseDir)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
-			return fmt.Errorf("failed to read network cache file directory %s: %s", baseDir, err)
-		}
-		for _, d := range dir {
-			fileName := path.Join([]string{baseDir, d.Name()}...)
-			err := os.RemoveAll(fileName)
-			if err != nil {
-				return fmt.Errorf("failed to remove %s: %s", fileName, err)
-			}
-		}
 	}
 
 	return nil
@@ -1413,45 +1382,6 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 	return nil
 }
 
-func (d *VirtualMachineController) migrateNetworkCacheFiles(vmi *v1.VirtualMachineInstance) error {
-	res, err := d.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
-	}
-
-	// migrate cache network files from old location private to virt-launcher into
-	// shared location managed by virt-handler; we cannot switch namespace
-	// for the handler process because it's multi-threaded, and instead use
-	// /proc/<pid>/root interface to access to the filesystem view of the
-	// launcher process
-	oldRoot := fmt.Sprintf("/proc/%d/root/var/run/kubevirt-private", res.Pid())
-	files, err := ioutil.ReadDir(oldRoot)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("failed to read old network cache path from launcher pod: %v", err)
-	}
-	for _, info := range files {
-		if info.IsDir() {
-			continue
-		}
-		oldpath := path.Join(oldRoot, info.Name())
-		if filepath.Ext(oldpath) != ".json" {
-			continue
-		}
-		data, err := ioutil.ReadFile(oldpath)
-		if err != nil {
-			return fmt.Errorf("failed to read old network cache file %s: %v", oldpath, err)
-		}
-		newpath := path.Join(virtutil.VirtNetworkDir, string(vmi.UID), info.Name())
-		if err := ioutil.WriteFile(newpath, data, 0644); err != nil {
-			return fmt.Errorf("failed to copy network cache file %s to new location %s: %v", oldpath, newpath, err)
-		}
-	}
-	return nil
-}
-
 func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
 	vmi := origVMI.DeepCopy()
 
@@ -1494,7 +1424,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 
 			// configure network inside virt-launcher compute container
 			if err := res.DoNetNS(func() error {
-				return network.SetupPodNetworkPhase1(vmi)
+				return network.SetupPodNetworkPhase1(vmi, res.Pid())
 			}); err != nil {
 				return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
 			}
@@ -1541,12 +1471,6 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 		}
 
-		// migrate old network cache files from older launcher pods
-		err := d.migrateNetworkCacheFiles(vmi)
-		if err != nil {
-			return fmt.Errorf("failed to migrate network cache files for vmi %s: %s", vmi.UID, err)
-		}
-
 		// configure network
 		res, err := d.podIsolationDetector.Detect(vmi)
 		if err != nil {
@@ -1554,7 +1478,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		}
 
 		if err := res.DoNetNS(func() error {
-			return network.SetupPodNetworkPhase1(vmi)
+			return network.SetupPodNetworkPhase1(vmi, res.Pid())
 		}); err != nil {
 			return fmt.Errorf("failed to configure vmi network: %v", err)
 		}

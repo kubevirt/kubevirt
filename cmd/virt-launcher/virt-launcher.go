@@ -163,12 +163,11 @@ func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, st
 }
 
 func initializeDirs(virtShareDir string,
-	virtNetworkDir string,
 	ephemeralDiskDir string,
 	containerDiskDir string,
 	uid string) {
 
-	err := virtlauncher.InitializeSharedDirectories(virtShareDir, virtNetworkDir)
+	err := virtlauncher.InitializeSharedDirectories(virtShareDir)
 	if err != nil {
 		panic(err)
 	}
@@ -305,7 +304,6 @@ func cleanupContainerDiskDirectory(ephemeralDiskDir string) {
 func main() {
 	qemuTimeout := pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
-	virtNetworkDir := pflag.String("kubevirt-network-dir", "/var/run/kubevirt-network", "Directory for mounts to share network info between virt-handler and each virt-launcher pod")
 	ephemeralDiskDir := pflag.String("ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks", "Base directory for ephemeral disk data")
 	containerDiskDir := pflag.String("container-disk-dir", "/var/run/kubevirt/container-disks", "Base directory for container disk data")
 	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
@@ -346,7 +344,7 @@ func main() {
 	vm := v1.NewVMIReferenceFromNameWithNS(*namespace, *name)
 
 	// Initialize local and shared directories
-	initializeDirs(*virtShareDir, *virtNetworkDir, *ephemeralDiskDir, *containerDiskDir, *uid)
+	initializeDirs(*virtShareDir, *ephemeralDiskDir, *containerDiskDir, *uid)
 
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})

@@ -32,7 +32,6 @@ import (
 	"strings"
 
 	"github.com/vishvananda/netlink"
-	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -48,8 +47,8 @@ type BindMechanism interface {
 
 	decorateConfig() error
 
-	loadCachedInterface(uid types.UID, name string) (bool, error)
-	setCachedInterface(uid types.UID, name string) error
+	loadCachedInterface(pid, name string) (bool, error)
+	setCachedInterface(pid, name string) error
 
 	// virt-handler that executes phase1 of network configuration needs to
 	// pass details about discovered networking port into phase2 that is
@@ -58,8 +57,8 @@ type BindMechanism interface {
 	// ports are rewired, meaning, routes and IP addresses configured by
 	// CNI plugin may be gone. For this matter, we use a cached VIF file to
 	// pass discovered information between phases.
-	loadCachedVIF(uid types.UID, name string) (bool, error)
-	setCachedVIF(uid types.UID, name string) error
+	loadCachedVIF(pid, name string) (bool, error)
+	setCachedVIF(pid, name string) error
 
 	startDHCP(vmi *v1.VirtualMachineInstance) error
 }
@@ -68,19 +67,19 @@ type PodInterface struct{}
 
 func (l *PodInterface) Unplug() {}
 
-func getVifFilePath(uid types.UID, name string) string {
-	return fmt.Sprintf(vifCacheFile, uid, name)
+func getVifFilePath(pid, name string) string {
+	return fmt.Sprintf(vifCacheFile, pid, name)
 }
 
-func writeVifFile(buf []byte, uid types.UID, name string) error {
-	err := ioutil.WriteFile(getVifFilePath(uid, name), buf, 0644)
+func writeVifFile(buf []byte, pid, name string) error {
+	err := ioutil.WriteFile(getVifFilePath(pid, name), buf, 0644)
 	if err != nil {
 		return fmt.Errorf("error writing vif object: %v", err)
 	}
 	return nil
 }
 
-func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string) error {
+func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
 	initHandler()
 
 	// There is nothing to plug for SR-IOV devices
@@ -93,7 +92,8 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		return err
 	}
 
-	isExist, err := driver.loadCachedInterface(vmi.UID, iface.Name)
+	pidStr := fmt.Sprintf("%d", pid)
+	isExist, err := driver.loadCachedInterface(pidStr, iface.Name)
 	if err != nil {
 		return err
 	}
@@ -109,13 +109,13 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 			panic(err)
 		}
 
-		err = driver.setCachedInterface(vmi.UID, iface.Name)
+		err = driver.setCachedInterface(pidStr, iface.Name)
 		if err != nil {
 			log.Log.Reason(err).Critical("failed to save interface configuration")
 			panic(err)
 		}
 
-		err = driver.setCachedVIF(vmi.UID, iface.Name)
+		err = driver.setCachedVIF(pidStr, iface.Name)
 		if err != nil {
 			log.Log.Reason(err).Critical("failed to save vif configuration")
 			panic(err)
@@ -139,7 +139,9 @@ func (l *PodInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		return err
 	}
 
-	isExist, err := driver.loadCachedInterface(vmi.UID, iface.Name)
+	pid := "self"
+
+	isExist, err := driver.loadCachedInterface(pid, iface.Name)
 	if err != nil {
 		log.Log.Reason(err).Critical("failed to load cached interface configuration")
 		panic(err)
@@ -149,7 +151,7 @@ func (l *PodInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		panic(errors.New("cached interface configuration doesn't exist"))
 	}
 
-	isExist, err = driver.loadCachedVIF(vmi.UID, iface.Name)
+	isExist, err = driver.loadCachedVIF(pid, iface.Name)
 	if err != nil {
 		log.Log.Reason(err).Critical("failed to load cached vif configuration")
 		panic(err)
@@ -361,10 +363,10 @@ func (b *BridgePodInterface) decorateConfig() error {
 	return nil
 }
 
-func (b *BridgePodInterface) loadCachedInterface(uid types.UID, name string) (bool, error) {
+func (b *BridgePodInterface) loadCachedInterface(pid, name string) (bool, error) {
 	var ifaceConfig api.Interface
 
-	isExist, err := readFromCachedFile(uid, name, interfaceCacheFile, &ifaceConfig)
+	isExist, err := readFromCachedFile(pid, name, interfaceCacheFile, &ifaceConfig)
 	if err != nil {
 		return false, err
 	}
@@ -377,13 +379,13 @@ func (b *BridgePodInterface) loadCachedInterface(uid types.UID, name string) (bo
 	return false, nil
 }
 
-func (b *BridgePodInterface) setCachedInterface(uid types.UID, name string) error {
-	err := writeToCachedFile(b.virtIface, interfaceCacheFile, uid, name)
+func (b *BridgePodInterface) setCachedInterface(pid, name string) error {
+	err := writeToCachedFile(b.virtIface, interfaceCacheFile, pid, name)
 	return err
 }
 
-func (b *BridgePodInterface) loadCachedVIF(uid types.UID, name string) (bool, error) {
-	buf, err := ioutil.ReadFile(getVifFilePath(uid, name))
+func (b *BridgePodInterface) loadCachedVIF(pid, name string) (bool, error) {
+	buf, err := ioutil.ReadFile(getVifFilePath(pid, name))
 	if err != nil {
 		return false, err
 	}
@@ -395,12 +397,12 @@ func (b *BridgePodInterface) loadCachedVIF(uid types.UID, name string) (bool, er
 	return true, nil
 }
 
-func (b *BridgePodInterface) setCachedVIF(uid types.UID, name string) error {
+func (b *BridgePodInterface) setCachedVIF(pid, name string) error {
 	buf, err := json.MarshalIndent(&b.vif, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling vif object: %v", err)
 	}
-	return writeVifFile(buf, uid, name)
+	return writeVifFile(buf, pid, name)
 }
 
 func (b *BridgePodInterface) setInterfaceRoutes() error {
@@ -583,10 +585,10 @@ func (p *MasqueradePodInterface) decorateConfig() error {
 	return nil
 }
 
-func (p *MasqueradePodInterface) loadCachedInterface(uid types.UID, name string) (bool, error) {
+func (p *MasqueradePodInterface) loadCachedInterface(pid, name string) (bool, error) {
 	var ifaceConfig api.Interface
 
-	isExist, err := readFromCachedFile(uid, name, interfaceCacheFile, &ifaceConfig)
+	isExist, err := readFromCachedFile(pid, name, interfaceCacheFile, &ifaceConfig)
 	if err != nil {
 		return false, err
 	}
@@ -599,13 +601,13 @@ func (p *MasqueradePodInterface) loadCachedInterface(uid types.UID, name string)
 	return false, nil
 }
 
-func (p *MasqueradePodInterface) setCachedInterface(uid types.UID, name string) error {
-	err := writeToCachedFile(p.virtIface, interfaceCacheFile, uid, name)
+func (p *MasqueradePodInterface) setCachedInterface(pid, name string) error {
+	err := writeToCachedFile(p.virtIface, interfaceCacheFile, pid, name)
 	return err
 }
 
-func (p *MasqueradePodInterface) loadCachedVIF(uid types.UID, name string) (bool, error) {
-	buf, err := ioutil.ReadFile(getVifFilePath(uid, name))
+func (p *MasqueradePodInterface) loadCachedVIF(pid, name string) (bool, error) {
+	buf, err := ioutil.ReadFile(getVifFilePath(pid, name))
 	if err != nil {
 		return false, err
 	}
@@ -617,12 +619,12 @@ func (p *MasqueradePodInterface) loadCachedVIF(uid types.UID, name string) (bool
 	return true, nil
 }
 
-func (p *MasqueradePodInterface) setCachedVIF(uid types.UID, name string) error {
+func (p *MasqueradePodInterface) setCachedVIF(pid, name string) error {
 	buf, err := json.MarshalIndent(&p.vif, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling vif object: %v", err)
 	}
-	return writeVifFile(buf, uid, name)
+	return writeVifFile(buf, pid, name)
 }
 
 func (p *MasqueradePodInterface) createBridge() error {
@@ -870,18 +872,18 @@ func (s *SlirpPodInterface) decorateConfig() error {
 	return nil
 }
 
-func (s *SlirpPodInterface) loadCachedInterface(uid types.UID, name string) (bool, error) {
+func (s *SlirpPodInterface) loadCachedInterface(pid, name string) (bool, error) {
 	return true, nil
 }
 
-func (s *SlirpPodInterface) loadCachedVIF(uid types.UID, name string) (bool, error) {
+func (s *SlirpPodInterface) loadCachedVIF(pid, name string) (bool, error) {
 	return true, nil
 }
 
-func (b *SlirpPodInterface) setCachedVIF(uid types.UID, name string) error {
+func (b *SlirpPodInterface) setCachedVIF(pid, name string) error {
 	return nil
 }
 
-func (s *SlirpPodInterface) setCachedInterface(uid types.UID, name string) error {
+func (s *SlirpPodInterface) setCachedInterface(pid, name string) error {
 	return nil
 }

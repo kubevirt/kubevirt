@@ -57,6 +57,7 @@ var _ = Describe("Pod Network", func() {
 	var masqueradeGwAddr *netlink.Addr
 	var masqueradeVmStr string
 	var masqueradeVmAddr *netlink.Addr
+	var pid int
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
@@ -78,6 +79,7 @@ var _ = Describe("Pod Network", func() {
 		addrList = []netlink.Addr{fakeAddr}
 		routeAddr = netlink.Route{Gw: gw}
 		routeList = []netlink.Route{routeAddr}
+		pid = os.Getpid()
 
 		// Create a bridge
 		bridgeTest = &netlink.Bridge{
@@ -175,12 +177,12 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().NftablesAppendRule("nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
 		mockNetwork.EXPECT().NftablesAppendRule("nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
 
-		err := SetupPodNetworkPhase1(vm)
+		err := SetupPodNetworkPhase1(vm, pid)
 		Expect(err).To(BeNil())
 
 		// Calling SetupPodNetworkPhase1 a second time should result in no
 		// mockNetwork function calls
-		err = SetupPodNetworkPhase1(vm)
+		err = SetupPodNetworkPhase1(vm, pid)
 		Expect(err).To(BeNil())
 	}
 
@@ -226,7 +228,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
 				mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
 
-				SetupPodNetworkPhase1(vm)
+				SetupPodNetworkPhase1(vm, pid)
 			}
 			Expect(testNetworkPanic).To(Panic())
 		})
@@ -242,7 +244,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
 			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
 
-			err := SetupPodNetworkPhase1(vm)
+			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(HaveOccurred())
 		})
 		Context("func filterPodNetworkRoutes()", func() {
@@ -305,7 +307,7 @@ var _ = Describe("Pod Network", func() {
 				}
 				vmi := newVMI("testnamespace", "testVmName")
 				podiface := PodInterface{}
-				err := podiface.PlugPhase1(vmi, iface, net, "fakeiface")
+				err := podiface.PlugPhase1(vmi, iface, net, "fakeiface", pid)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = podiface.PlugPhase2(vmi, iface, net, domain, "fakeiface")
@@ -575,7 +577,7 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgePodInterface)
 			Expect(ok).To(BeTrue())
 
-			succ, err := bridge.loadCachedVIF("fakeuid", "fakename")
+			succ, err := bridge.loadCachedVIF(fmt.Sprintf("%d", pid), "fakename")
 			Expect(err).To(HaveOccurred())
 			Expect(succ).To(BeFalse())
 		})
@@ -589,10 +591,10 @@ var _ = Describe("Pod Network", func() {
 			bridge, ok := driver.(*BridgePodInterface)
 			Expect(ok).To(BeTrue())
 
-			err = bridge.setCachedVIF("fakeuid", "fakename")
+			err = bridge.setCachedVIF(fmt.Sprintf("%d", pid), "fakename")
 			Expect(err).ToNot(HaveOccurred())
 
-			succ, err := bridge.loadCachedVIF("fakeuid", "fakename")
+			succ, err := bridge.loadCachedVIF(fmt.Sprintf("%d", pid), "fakename")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succ).To(BeTrue())
 		})
@@ -610,15 +612,15 @@ var _ = Describe("Pod Network", func() {
 			Expect(ok).To(BeTrue())
 
 			// it doesn't fail regardless, whether called without setCachedVIF...
-			succ, err := slirp.loadCachedVIF("fakeuid", "fakename")
+			succ, err := slirp.loadCachedVIF(fmt.Sprintf("%d", pid), "fakename")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succ).To(BeTrue())
 
 			// ...or after it
-			err = slirp.setCachedVIF("fakeuid", "fakename")
+			err = slirp.setCachedVIF(fmt.Sprintf("%d", pid), "fakename")
 			Expect(err).ToNot(HaveOccurred())
 
-			succ, err = slirp.loadCachedVIF("fakeuid", "fakename")
+			succ, err = slirp.loadCachedVIF(fmt.Sprintf("%d", pid), "fakename")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succ).To(BeTrue())
 		})
@@ -635,7 +637,7 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradePodInterface)
 			Expect(ok).To(BeTrue())
 
-			succ, err := masq.loadCachedVIF("fakeuid", "fakename")
+			succ, err := masq.loadCachedVIF(fmt.Sprintf("%d", pid), "fakename")
 			Expect(err).To(HaveOccurred())
 			Expect(succ).To(BeFalse())
 		})
@@ -649,10 +651,10 @@ var _ = Describe("Pod Network", func() {
 			masq, ok := driver.(*MasqueradePodInterface)
 			Expect(ok).To(BeTrue())
 
-			err = masq.setCachedVIF("fakeuid", "fakename")
+			err = masq.setCachedVIF(fmt.Sprintf("%d", pid), "fakename")
 			Expect(err).ToNot(HaveOccurred())
 
-			succ, err := masq.loadCachedVIF("fakeuid", "fakename")
+			succ, err := masq.loadCachedVIF(fmt.Sprintf("%d", pid), "fakename")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succ).To(BeTrue())
 		})

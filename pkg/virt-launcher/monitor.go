@@ -134,20 +134,17 @@ func InitializeDisksDirectories(baseDir string) error {
 	return nil
 }
 
-func InitializeSharedDirectories(baseSharedDir string, baseNetworkDir string) error {
-	err := os.MkdirAll(watchdog.WatchdogFileDirectory(baseSharedDir), 0755)
+func InitializeSharedDirectories(baseDir string) error {
+	err := os.MkdirAll(watchdog.WatchdogFileDirectory(baseDir), 0755)
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(GracefulShutdownTriggerDir(baseSharedDir), 0755)
+
+	err = os.MkdirAll(GracefulShutdownTriggerDir(baseDir), 0755)
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(cmdclient.SocketsDirectory(baseSharedDir), 0755)
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(baseNetworkDir, 0755)
+	err = os.MkdirAll(cmdclient.SocketsDirectory(baseDir), 0755)
 	if err != nil {
 		return err
 	}

@@ -34,9 +34,9 @@ import (
 
 const podInterface = "eth0"
 
-var interfaceCacheFile = "/var/run/kubevirt-network/%s/interface-cache-%s.json"
-var qemuArgCacheFile = "/var/run/kubevirt-network/%s/qemu-arg-%s.json"
-var vifCacheFile = "/var/run/kubevirt-network/%s/vif-cache-%s.json"
+var interfaceCacheFile = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
+var qemuArgCacheFile = "/proc/%s/root/var/run/kubevirt-private/qemu-arg-%s.json"
+var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 var NetworkInterfaceFactory = getNetworkClass
 
 var podInterfaceName = podInterface
@@ -54,7 +54,7 @@ type plugFunction func(vif NetworkInterface, vmi *v1.VirtualMachineInstance, ifa
 // will also allow to downgrade privileges for virt-launcher, specifically, to
 // remove NET_ADMIN capability. Future patches should address that.
 type NetworkInterface interface {
-	PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string) error
+	PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error
 	PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 	Unplug()
 }
@@ -99,7 +99,7 @@ func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string
 	}
 }
 
-func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance) error {
+func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		vif, err := getNetworkInterfaceFactory(networks, iface.Name)
@@ -107,7 +107,7 @@ func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance) error {
 			return err
 		}
 		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
-		err = NetworkInterface.PlugPhase1(vif, vmi, &iface, networks[iface.Name], podInterfaceName)
+		err = NetworkInterface.PlugPhase1(vif, vmi, &iface, networks[iface.Name], podInterfaceName, pid)
 		if err != nil {
 			return err
 		}

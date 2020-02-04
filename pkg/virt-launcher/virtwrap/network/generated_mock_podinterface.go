@@ -5,7 +5,6 @@ package network
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	types "k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 )
@@ -61,8 +60,8 @@ func (_mr *_MockBindMechanismRecorder) decorateConfig() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "decorateConfig")
 }
 
-func (_m *MockBindMechanism) loadCachedInterface(uid types.UID, name string) (bool, error) {
-	ret := _m.ctrl.Call(_m, "loadCachedInterface", uid, name)
+func (_m *MockBindMechanism) loadCachedInterface(pid string, name string) (bool, error) {
+	ret := _m.ctrl.Call(_m, "loadCachedInterface", pid, name)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -72,8 +71,8 @@ func (_mr *_MockBindMechanismRecorder) loadCachedInterface(arg0, arg1 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "loadCachedInterface", arg0, arg1)
 }
 
-func (_m *MockBindMechanism) setCachedInterface(uid types.UID, name string) error {
-	ret := _m.ctrl.Call(_m, "setCachedInterface", uid, name)
+func (_m *MockBindMechanism) setCachedInterface(pid string, name string) error {
+	ret := _m.ctrl.Call(_m, "setCachedInterface", pid, name)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -82,8 +81,8 @@ func (_mr *_MockBindMechanismRecorder) setCachedInterface(arg0, arg1 interface{}
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "setCachedInterface", arg0, arg1)
 }
 
-func (_m *MockBindMechanism) loadCachedVIF(uid types.UID, name string) (bool, error) {
-	ret := _m.ctrl.Call(_m, "loadCachedVIF", uid, name)
+func (_m *MockBindMechanism) loadCachedVIF(pid string, name string) (bool, error) {
+	ret := _m.ctrl.Call(_m, "loadCachedVIF", pid, name)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -93,8 +92,8 @@ func (_mr *_MockBindMechanismRecorder) loadCachedVIF(arg0, arg1 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "loadCachedVIF", arg0, arg1)
 }
 
-func (_m *MockBindMechanism) setCachedVIF(uid types.UID, name string) error {
-	ret := _m.ctrl.Call(_m, "setCachedVIF", uid, name)
+func (_m *MockBindMechanism) setCachedVIF(pid string, name string) error {
+	ret := _m.ctrl.Call(_m, "setCachedVIF", pid, name)
 	ret0, _ := ret[0].(error)
 	return ret0
 }

@@ -28,25 +28,23 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("Common Methods", func() {
+	pid := "self"
 	Context("Functions Read and Write from cache", func() {
 		It("should persist interface payload", func() {
 			tmpDir, _ := ioutil.TempDir("", "commontest")
 			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
 			ifaceName := "iface_name"
-			var vmUUID types.UID = "uu_id"
 			iface := api.Interface{Type: "fake_type", Source: api.InterfaceSource{Bridge: "fake_br"}}
-			err := writeToCachedFile(&iface, interfaceCacheFile, vmUUID, ifaceName)
+			err := writeToCachedFile(&iface, interfaceCacheFile, pid, ifaceName)
 			Expect(err).ToNot(HaveOccurred())
 
 			var cached_iface api.Interface
-			isExist, err := readFromCachedFile(vmUUID, ifaceName, interfaceCacheFile, &cached_iface)
+			isExist, err := readFromCachedFile(pid, ifaceName, interfaceCacheFile, &cached_iface)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(isExist).To(BeTrue())
 
@@ -57,13 +55,12 @@ var _ = Describe("Common Methods", func() {
 			setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
 			qemuArgName := "iface_name"
-			var vmUUID types.UID = "uu_id"
 			qemuArg := api.Arg{Value: "test_value"}
-			err := writeToCachedFile(&qemuArg, interfaceCacheFile, vmUUID, qemuArgName)
+			err := writeToCachedFile(&qemuArg, interfaceCacheFile, pid, qemuArgName)
 			Expect(err).ToNot(HaveOccurred())
 
 			var cached_qemuArg api.Arg
-			isExist, err := readFromCachedFile(vmUUID, qemuArgName, interfaceCacheFile, &cached_qemuArg)
+			isExist, err := readFromCachedFile(pid, qemuArgName, interfaceCacheFile, &cached_qemuArg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(isExist).To(BeTrue())
 

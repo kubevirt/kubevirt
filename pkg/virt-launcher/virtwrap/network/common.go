@@ -29,14 +29,11 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"path"
 
 	"github.com/coreos/go-iptables/iptables"
 
 	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
-
-	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -322,21 +319,13 @@ func initHandler() {
 	}
 }
 
-func writeToCachedFile(inter interface{}, fileName string, uid types.UID, name string) error {
+func writeToCachedFile(inter interface{}, fileName, pid, name string) error {
 	buf, err := json.MarshalIndent(&inter, "", "  ")
 	if err != nil {
 		return fmt.Errorf("error marshaling cached object: %v", err)
 	}
 
-	fileName = getInterfaceCacheFile(fileName, uid, name)
-	dir := path.Dir(fileName)
-
-	// make sure the per-vmi shared directory exists
-	err = os.MkdirAll(dir, 0755)
-	if err != nil {
-		return fmt.Errorf("failed to create directory to share cached files: %v", err)
-	}
-
+	fileName = getInterfaceCacheFile(fileName, pid, name)
 	err = ioutil.WriteFile(fileName, buf, 0644)
 	if err != nil {
 		return fmt.Errorf("error writing cached object: %v", err)
@@ -344,8 +333,8 @@ func writeToCachedFile(inter interface{}, fileName string, uid types.UID, name s
 	return nil
 }
 
-func readFromCachedFile(uid types.UID, name, fileName string, inter interface{}) (bool, error) {
-	buf, err := ioutil.ReadFile(getInterfaceCacheFile(fileName, uid, name))
+func readFromCachedFile(pid, name, fileName string, inter interface{}) (bool, error) {
+	buf, err := ioutil.ReadFile(getInterfaceCacheFile(fileName, pid, name))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
@@ -360,8 +349,8 @@ func readFromCachedFile(uid types.UID, name, fileName string, inter interface{})
 	return true, nil
 }
 
-func getInterfaceCacheFile(filePath string, uid types.UID, name string) string {
-	return fmt.Sprintf(filePath, uid, name)
+func getInterfaceCacheFile(filePath, pid, name string) string {
+	return fmt.Sprintf(filePath, pid, name)
 }
 
 // filter out irrelevant routes
