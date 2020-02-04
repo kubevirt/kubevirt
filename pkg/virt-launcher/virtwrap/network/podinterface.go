@@ -125,6 +125,22 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 	return nil
 }
 
+func ensureDHCP(vmi *v1.VirtualMachineInstance, driver BindMechanism, podInterfaceName string) error {
+	dhcpStartedFile := fmt.Sprintf("/var/run/kubevirt-private/dhcp_started-%s", podInterfaceName)
+	_, err := os.Stat(dhcpStartedFile)
+	if os.IsNotExist(err) {
+		if err := driver.startDHCP(vmi); err != nil {
+			return fmt.Errorf("failed to start DHCP server for interface %s", podInterfaceName)
+		}
+		newFile, err := os.Create(dhcpStartedFile)
+		if err != nil {
+			return fmt.Errorf("failed to create dhcp started file %s: %s", dhcpStartedFile, err)
+		}
+		newFile.Close()
+	}
+	return nil
+}
+
 func (l *PodInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
 	precond.MustNotBeNil(domain)
 	initHandler()
@@ -167,19 +183,10 @@ func (l *PodInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		panic(err)
 	}
 
-	dhcpStartedFile := fmt.Sprintf("/var/run/kubevirt-private/dhcp_started-%s", podInterfaceName)
-	_, err = os.Stat(dhcpStartedFile)
-	if os.IsNotExist(err) {
-		if err := driver.startDHCP(vmi); err != nil {
-			log.Log.Reason(err).Critical("failed to start DHCP server")
-			panic(err)
-		}
-		newFile, err := os.Create(dhcpStartedFile)
-		if err != nil {
-			log.Log.Reason(err).Critical("failed to indicate DHCP server is started")
-			panic(err)
-		}
-		newFile.Close()
+	err = ensureDHCP(vmi, driver, podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Criticalf("failed to ensure dhcp service running for %s: %s", podInterfaceName, err)
+		panic(err)
 	}
 
 	return nil
