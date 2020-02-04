@@ -29,7 +29,7 @@ function _wait_containers_ready {
 
 function _fetch_kind() {
     if [ ! -f ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind ]; then
-        wget https://github.com/kubernetes-sigs/kind/releases/download/v0.3.0/kind-linux-amd64 -O ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind
+        wget https://github.com/kubernetes-sigs/kind/releases/download/v0.7.0/kind-linux-amd64 -O ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind
         chmod +x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind
     fi
     KIND=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind
@@ -71,7 +71,11 @@ function _configure_registry_on_node() {
 function prepare_config() {
     BASE_PATH=${KUBEVIRTCI_CONFIG_PATH:-$PWD}
     cat >$BASE_PATH/$KUBEVIRT_PROVIDER/config-provider-$KUBEVIRT_PROVIDER.sh <<EOF
-master_ip="127.0.0.1"
+if [ -z ${IPV6_CNI+x} ]; then
+    master_ip="127.0.0.1"
+else
+    master_ip="::1"
+fi
 kubeconfig=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 kubectl=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubectl
 docker_prefix=localhost:5000/kubevirt
@@ -88,12 +92,18 @@ function kind_up() {
     done
 
     $KIND --loglevel debug create cluster --retain --name=${CLUSTER_NAME} --config=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml --image=$KIND_NODE_IMAGE
-    cp $($KIND get kubeconfig-path --name=${CLUSTER_NAME}) ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
+    $KIND get kubeconfig --name=${CLUSTER_NAME} > ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 
     docker cp ${CLUSTER_NAME}-control-plane:/kind/bin/kubectl ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
     chmod u+x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
-    
-    _kubectl create -f $KIND_MANIFESTS_DIR/kube-flannel.yaml
+   
+    echo "ipv6 cni: $IPV6_CNI"
+    if [ -z ${IPV6_CNI+x} ]; then
+        echo "no ipv6, safe to install flannel"
+        _kubectl create -f $KIND_MANIFESTS_DIR/kube-flannel.yaml
+    else
+        echo "ipv6 enabled, using kindnetd, until better solution"
+    fi
 
     _wait_kind_up
     _kubectl cluster-info
