@@ -277,14 +277,12 @@ var _ = Describe("Pod Network", func() {
 			}
 			Expect(testDhcpPanic).To(Panic())
 		})
-		Context("getBinding", func() {
+		Context("getPhase1Binding", func() {
 			Context("for Bridge", func() {
 				It("should populate MAC address", func() {
-					domain := NewDomainWithBridgeInterface()
 					vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-					api.SetObjectDefaults_Domain(domain)
 					vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-					driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+					driver, err := getPhase1Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], podInterface)
 					Expect(err).ToNot(HaveOccurred())
 					bridge, ok := driver.(*BridgePodInterface)
 					Expect(ok).To(BeTrue())
@@ -412,7 +410,7 @@ var _ = Describe("Pod Network", func() {
 
 				api.SetObjectDefaults_Domain(domain)
 
-				driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+				driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 				Expect(err).ToNot(HaveOccurred())
 				TestRunPlug(driver)
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
@@ -427,7 +425,7 @@ var _ = Describe("Pod Network", func() {
 				api.SetObjectDefaults_Domain(domain)
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
 
-				driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+				driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 				Expect(err).ToNot(HaveOccurred())
 				TestRunPlug(driver)
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
@@ -453,7 +451,7 @@ var _ = Describe("Pod Network", func() {
 						Name: "default",
 					}})
 
-				driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+				driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 				Expect(err).ToNot(HaveOccurred())
 				TestRunPlug(driver)
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
@@ -470,7 +468,7 @@ var _ = Describe("Pod Network", func() {
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 			Expect(err).ToNot(HaveOccurred())
 			masq, ok := driver.(*MasqueradePodInterface)
 			Expect(ok).To(BeTrue())
@@ -486,7 +484,7 @@ var _ = Describe("Pod Network", func() {
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 			Expect(err).ToNot(HaveOccurred())
 			masq, ok := driver.(*MasqueradePodInterface)
 			Expect(ok).To(BeTrue())
@@ -506,7 +504,7 @@ var _ = Describe("Pod Network", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 			Expect(err).ToNot(HaveOccurred())
 			bridge, ok := driver.(*BridgePodInterface)
 			Expect(ok).To(BeTrue())
@@ -521,7 +519,7 @@ var _ = Describe("Pod Network", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 			Expect(err).ToNot(HaveOccurred())
 			bridge, ok := driver.(*BridgePodInterface)
 			Expect(ok).To(BeTrue())
@@ -537,7 +535,7 @@ var _ = Describe("Pod Network", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 			Expect(err).ToNot(HaveOccurred())
 			bridge, ok := driver.(*BridgePodInterface)
 			Expect(ok).To(BeTrue())
@@ -556,7 +554,7 @@ var _ = Describe("Pod Network", func() {
 			vmi := newVMISlirpInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
 
-			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 			Expect(err).ToNot(HaveOccurred())
 			slirp, ok := driver.(*SlirpPodInterface)
 			Expect(ok).To(BeTrue())
@@ -568,11 +566,9 @@ var _ = Describe("Pod Network", func() {
 
 	Context("Bridge loadCachedVIF", func() {
 		It("should fail when nothing to load", func() {
-			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			driver, err := getPhase1Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], podInterface)
 			Expect(err).ToNot(HaveOccurred())
 			bridge, ok := driver.(*BridgePodInterface)
 			Expect(ok).To(BeTrue())
@@ -582,11 +578,9 @@ var _ = Describe("Pod Network", func() {
 			Expect(succ).To(BeFalse())
 		})
 		It("should succeed when cache file present", func() {
-			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			driver, err := getPhase1Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], podInterface)
 			Expect(err).ToNot(HaveOccurred())
 			bridge, ok := driver.(*BridgePodInterface)
 			Expect(ok).To(BeTrue())
@@ -602,11 +596,9 @@ var _ = Describe("Pod Network", func() {
 
 	Context("Slirp loadCachedVIF", func() {
 		It("should succeed", func() {
-			domain := NewDomainWithSlirpInterface()
 			vmi := newVMISlirpInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
 
-			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			driver, err := getPhase1Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], podInterface)
 			Expect(err).ToNot(HaveOccurred())
 			slirp, ok := driver.(*SlirpPodInterface)
 			Expect(ok).To(BeTrue())
@@ -628,11 +620,9 @@ var _ = Describe("Pod Network", func() {
 
 	Context("Masquerade loadCachedVIF", func() {
 		It("should fail when nothing to load", func() {
-			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			driver, err := getPhase1Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], podInterface)
 			Expect(err).ToNot(HaveOccurred())
 			masq, ok := driver.(*MasqueradePodInterface)
 			Expect(ok).To(BeTrue())
@@ -642,11 +632,9 @@ var _ = Describe("Pod Network", func() {
 			Expect(succ).To(BeFalse())
 		})
 		It("should succeed when cache file present", func() {
-			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-			driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+			driver, err := getPhase1Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], podInterface)
 			Expect(err).ToNot(HaveOccurred())
 			masq, ok := driver.(*MasqueradePodInterface)
 			Expect(ok).To(BeTrue())

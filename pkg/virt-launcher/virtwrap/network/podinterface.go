@@ -87,7 +87,7 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		return nil
 	}
 
-	driver, err := getBinding(vmi, iface, network, nil, podInterfaceName)
+	driver, err := getPhase1Binding(vmi, iface, network, podInterfaceName)
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func (l *PodInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		return nil
 	}
 
-	driver, err := getBinding(vmi, iface, network, domain, podInterfaceName)
+	driver, err := getPhase2Binding(vmi, iface, network, domain, podInterfaceName)
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,15 @@ func (l *PodInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 	return nil
 }
 
-func getBinding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
+// The only difference between bindings for two phases is that the first phase
+// should not require access to domain definition, hence we pass nil instead of
+// it. This means that any functions called under phase1 code path should not
+// use the domain set on the binding.
+func getPhase1Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string) (BindMechanism, error) {
+	return getPhase2Binding(vmi, iface, network, nil, podInterfaceName)
+}
+
+func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
 	populateMacAddress := func(vif *VIF, iface *v1.Interface) error {
 		if iface.MacAddress != "" {
 			macAddress, err := net.ParseMAC(iface.MacAddress)
