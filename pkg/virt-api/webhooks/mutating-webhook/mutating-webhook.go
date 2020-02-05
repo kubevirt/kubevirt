@@ -65,7 +65,6 @@ func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
 		resp.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	resp.WriteHeader(http.StatusOK)
 }
 
 func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {

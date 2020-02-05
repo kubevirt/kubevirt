@@ -58,5 +58,4 @@ func Serve(resp http.ResponseWriter, req *http.Request, admitter Admitter) {
 		resp.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	resp.WriteHeader(http.StatusOK)
 }
