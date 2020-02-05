@@ -211,6 +211,6 @@ spec:
 EOF
 
     echo "Waiting for HCO to get fully deployed"
-    oc wait -n ${TARGET_NAMESPACE} hyperconverged hyperconverged-cluster --for condition=Available --timeout=15m
+    oc wait -n ${TARGET_NAMESPACE} hyperconverged kubevirt-hyperconverged --for condition=Available --timeout=15m
     oc wait "$(oc get pods -n ${TARGET_NAMESPACE} -l name=hyperconverged-cluster-operator -o name)" -n "${TARGET_NAMESPACE}" --for condition=Ready --timeout=15m
 fi
