@@ -11,7 +11,7 @@ EXIT_STATUS=0
 MAX_GET_HCO_RETRY=500
 
 HCO_KIND="hyperconvergeds.hco.kubevirt.io"
-HCO_NAME="hyperconverged-cluster"
+HCO_NAME="kubevirt-hyperconverged"
 HCO_NAMESPACE="kubevirt-hyperconverged"
 
 function get_operator_json() {
@@ -202,7 +202,7 @@ EOF
 
 function check_dependent_operators_up {
     # get all operators mentioned as related objects of hco operator 
-    RELATED_OBJECTS=`${CMD} get hyperconvergeds.hco.kubevirt.io hyperconverged-cluster -n kubevirt-hyperconverged -o go-template='{{range .status.relatedObjects }}{{if .namespace }}{{ printf "%s %s %s\n" .kind .name .namespace }}{{ else }}{{ printf "%s %s .\n" .kind .name }}{{ end }}{{ end }}'`
+    RELATED_OBJECTS=`${CMD} get hyperconvergeds.hco.kubevirt.io kubevirt-hyperconverged -n kubevirt-hyperconverged -o go-template='{{range .status.relatedObjects }}{{if .namespace }}{{ printf "%s %s %s\n" .kind .name .namespace }}{{ else }}{{ printf "%s %s .\n" .kind .name }}{{ end }}{{ end }}'`
 
     # check that each operator is up
      while read line; do 

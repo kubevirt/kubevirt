@@ -2,5 +2,5 @@
 apiVersion: hco.kubevirt.io/v1alpha1
 kind: HyperConverged
 metadata:
-  name: hyperconverged-cluster
+  name: kubevirt-hyperconverged
 spec: {}

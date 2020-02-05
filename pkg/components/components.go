@@ -467,7 +467,7 @@ func GetOperatorCR() *hcov1alpha1.HyperConverged {
 			Kind:       "HyperConverged",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "hyperconverged-cluster",
+			Name: "kubevirt-hyperconverged",
 		},
 		Spec: hcov1alpha1.HyperConvergedSpec{
 			BareMetalPlatform:     false,

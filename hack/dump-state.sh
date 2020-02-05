@@ -46,9 +46,9 @@ RunCmd "${CMD} get pods -n kubevirt-hyperconverged"
 RunCmd "${CMD} get subscription -n kubevirt-hyperconverged -o yaml"
 RunCmd "${CMD} get deployment/hco-operator -n kubevirt-hyperconverged -o yaml"
 
-ShowOperatorSummary  hyperconvergeds.hco.kubevirt.io hyperconverged-cluster kubevirt-hyperconverged  
+ShowOperatorSummary  hyperconvergeds.hco.kubevirt.io kubevirt-hyperconverged kubevirt-hyperconverged
 
-RELATED_OBJECTS=`${CMD} get hyperconvergeds.hco.kubevirt.io hyperconverged-cluster -n kubevirt-hyperconverged -o go-template='{{range .status.relatedObjects }}{{if .namespace }}{{ printf "%s %s %s\n" .kind .name .namespace }}{{ else }}{{ printf "%s %s .\n" .kind .name }}{{ end }}{{ end }}'`
+RELATED_OBJECTS=`${CMD} get hyperconvergeds.hco.kubevirt.io kubevirt-hyperconverged -n kubevirt-hyperconverged -o go-template='{{range .status.relatedObjects }}{{if .namespace }}{{ printf "%s %s %s\n" .kind .name .namespace }}{{ else }}{{ printf "%s %s .\n" .kind .name }}{{ end }}{{ end }}'`
 
 echo "${RELATED_OBJECTS}" | while read line; do 
 

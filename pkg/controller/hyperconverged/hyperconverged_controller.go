@@ -44,7 +44,7 @@ const (
 	// use finalizers to manage the cleanup.
 	FinalizerName = "hyperconvergeds.hco.kubevirt.io"
 
-	HyperConvergedName   = "hyperconverged-cluster"
+	HyperConvergedName   = "kubevirt-hyperconverged"
 	OperatorNamespaceEnv = "OPERATOR_NAMESPACE"
 
 	// UndefinedNamespace is for cluster scoped resources

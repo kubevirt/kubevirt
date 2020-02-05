@@ -173,7 +173,7 @@ ${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverg
 
 HCO_NAMESPACE="kubevirt-hyperconverged"
 HCO_KIND="hyperconvergeds"
-HCO_RESOURCE_NAME="hyperconverged-cluster"
+HCO_RESOURCE_NAME="kubevirt-hyperconverged"
 
 ${CMD} create -f ./deploy/hco.cr.yaml -n kubevirt-hyperconverged
 

@@ -24,7 +24,7 @@ source hack/common.sh
 HCO_IMAGE=${HCO_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:latest}
 HCO_NAMESPACE="kubevirt-hyperconverged"
 HCO_KIND="hyperconvergeds"
-HCO_RESOURCE_NAME="hyperconverged-cluster"
+HCO_RESOURCE_NAME="kubevirt-hyperconverged"
 
 CI=""
 if [ "$1" == "CI" ]; then
@@ -71,7 +71,7 @@ fi
 function status(){
     "${CMD}" get hco -n "${HCO_NAMESPACE}" -o yaml || true
     "${CMD}" get pods -n "${HCO_NAMESPACE}" || true
-    "${CMD}" get hco hyperconverged-cluster -n "${HCO_NAMESPACE}" -o=jsonpath='{range .status.conditions[*]}{.type}{"\t"}{.status}{"\t"}{.message}{"\n"}{end}' || true
+    "${CMD}" get hco "${HCO_RESOURCE_NAME}" -n "${HCO_NAMESPACE}" -o=jsonpath='{range .status.conditions[*]}{.type}{"\t"}{.status}{"\t"}{.message}{"\n"}{end}' || true
     # Get logs of all the pods
     for PNAME in $( ${CMD} get pods -n ${HCO_NAMESPACE} --field-selector=status.phase!=Running -o custom-columns=:metadata.name )
     do

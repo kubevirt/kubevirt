@@ -139,7 +139,7 @@ EOF
 apiVersion: hco.kubevirt.io/v1alpha1
 kind: HyperConverged
 metadata:
-  name: hyperconverged-cluster
+  name: kubevirt-hyperconverged
   namespace: "${TARGET_NAMESPACE}"
 spec:
   BareMetalPlatform: true

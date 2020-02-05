@@ -35,7 +35,7 @@ import (
 )
 
 // name and namespace of our primary resource
-var name = "hyperconverged-cluster"
+var name = "kubevirt-hyperconverged"
 var namespace = "kubevirt-hyperconverged"
 
 // Mock request to simulate Reconcile() being called on an event for a watched resource
