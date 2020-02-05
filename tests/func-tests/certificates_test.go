@@ -46,9 +46,9 @@ var _ = Describe("Certificates", func() {
 		Expect(oldCert).ToNot(BeEmpty())
 
 		By("invoking the rotation script")
-		Expect(RotateCeritifcates(testscore.KubeVirtInstallNamespace)).To(Succeed())
+		Expect(RotateCeritifcates(testscore.KubeVirtInstallNamespace, testscore.ContainerizedDataImporterNamespace)).To(Succeed())
 		By("waiting for all pods to become ready again")
-		WaitForPodsToBecomeReady(testscore.KubeVirtInstallNamespace)
+		WaitForAllPodsToBecomeReady()
 
 		By("getting the ceritifcate again after doing the rotation")
 		newCert, err := GetCertForService("kubemacpool-service", testscore.KubeVirtInstallNamespace, "443")
@@ -60,24 +60,24 @@ var _ = Describe("Certificates", func() {
 
 	It("should rotate cdi certificates", func() {
 		By("getting the cdi-api certificate")
-		oldCDIAPICert, err := GetCertForService("cdi-api", testscore.KubeVirtInstallNamespace, "443")
+		oldCDIAPICert, err := GetCertForService("cdi-api", testscore.ContainerizedDataImporterNamespace, "443")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(oldCDIAPICert).ToNot(BeEmpty())
 
 		By("getting the cdi-uploadproxy certificate")
-		oldCDIUploadproxyCert, err := GetCertForService("cdi-uploadproxy", testscore.KubeVirtInstallNamespace, "443")
+		oldCDIUploadproxyCert, err := GetCertForService("cdi-uploadproxy", testscore.ContainerizedDataImporterNamespace, "443")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(oldCDIUploadproxyCert).ToNot(BeEmpty())
 
 		By("invoking the rotation script")
-		Expect(RotateCeritifcates(testscore.KubeVirtInstallNamespace)).To(Succeed())
+		Expect(RotateCeritifcates(testscore.KubeVirtInstallNamespace, testscore.ContainerizedDataImporterNamespace)).To(Succeed())
 		By("waiting for all pods to become ready again")
-		WaitForPodsToBecomeReady(testscore.KubeVirtInstallNamespace)
+		WaitForAllPodsToBecomeReady()
 
 		By("getting the ceritifcate again after doing the rotation")
-		newCertAPICert, err := GetCertForService("cdi-api", testscore.KubeVirtInstallNamespace, "443")
+		newCertAPICert, err := GetCertForService("cdi-api", testscore.ContainerizedDataImporterNamespace, "443")
 		Expect(newCertAPICert).ToNot(BeEmpty())
-		newCertUploadproxyCert, err := GetCertForService("cdi-uploadproxy", testscore.KubeVirtInstallNamespace, "443")
+		newCertUploadproxyCert, err := GetCertForService("cdi-uploadproxy", testscore.ContainerizedDataImporterNamespace, "443")
 		Expect(newCertUploadproxyCert).ToNot(BeEmpty())
 
 		By("verifying that the ceritificate indeed changed")
@@ -102,9 +102,9 @@ var _ = Describe("Certificates", func() {
 		Expect(oldVirtHandlerCert).ToNot(BeEmpty())
 
 		By("invoking the rotation script")
-		Expect(RotateCeritifcates(testscore.KubeVirtInstallNamespace)).To(Succeed())
+		Expect(RotateCeritifcates(testscore.KubeVirtInstallNamespace, testscore.ContainerizedDataImporterNamespace)).To(Succeed())
 		By("waiting for all pods to become ready again")
-		WaitForPodsToBecomeReady(testscore.KubeVirtInstallNamespace)
+		WaitForAllPodsToBecomeReady()
 
 		By("getting the ceritifcate again after doing the rotation")
 		newVirtAPICert, err := GetCertForPod("kubevirt.io=virt-api", testscore.KubeVirtInstallNamespace, "8443")
@@ -187,8 +187,8 @@ var _ = Describe("Certificates", func() {
 
 		It("should start the VMI after a certificate rotation", func() {
 			By("Rotating the certs first")
-			Expect(RotateCeritifcates(testscore.KubeVirtInstallNamespace)).To(Succeed())
-			WaitForPodsToBecomeReady(testscore.KubeVirtInstallNamespace)
+			Expect(RotateCeritifcates(testscore.KubeVirtInstallNamespace, testscore.ContainerizedDataImporterNamespace)).To(Succeed())
+			WaitForAllPodsToBecomeReady()
 			jobType := tests.GetJobTypeEnvVar()
 			storageClass := tests.KubeVirtStorageClassLocal
 			if jobType == "prow" {
@@ -242,8 +242,8 @@ var _ = Describe("Certificates", func() {
 	})
 })
 
-func RotateCeritifcates(namespace string) error {
-	cmd := exec.Command("bash", "-c", fmt.Sprintf("tools/rotate-certs.sh -n %s", namespace))
+func RotateCeritifcates(namespace string, cdiNamespace string) error {
+	cmd := exec.Command("bash", "-c", fmt.Sprintf("tools/rotate-certs.sh -n %s --cdi-namespace %s", namespace, cdiNamespace))
 	cmd.Stdout = GinkgoWriter
 	cmd.Stderr = GinkgoWriter
 	return cmd.Run()
@@ -283,6 +283,11 @@ func ForwardPortsForService(name string, namespace string, stopChan chan struct{
 	service, err := client.CoreV1().Services(namespace).Get(name, k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return tests.ForwardPortsFromService(service, ports, stopChan, 10*time.Second)
+}
+
+func WaitForAllPodsToBecomeReady() {
+	WaitForPodsToBecomeReady(testscore.ContainerizedDataImporterNamespace)
+	WaitForPodsToBecomeReady(testscore.KubeVirtInstallNamespace)
 }
 
 func WaitForPodsToBecomeReady(namespace string) {
