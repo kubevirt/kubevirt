@@ -477,6 +477,42 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 							"summary": "More than 80% of the rest calls failed in virt-operator for the last 5 minutes",
 						},
 					},
+					{
+						Record: "num_of_ready_virt_operators",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum(ready_virt_operator{namespace='%s'})", ns),
+						),
+					},
+					{
+						Record: "num_of_leading_virt_operators",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum(ready_virt_operator{namespace='%s'})", ns),
+						),
+					},
+					{
+						Alert: "LowReadyVirtOperatorsCount",
+						Expr:  intstr.FromString("num_of_ready_virt_operators <  num_of_running_virt_operators"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "Some virt-operators are running but not ready.",
+						},
+					},
+					{
+						Alert: "NoReadyVirtOperator",
+						Expr:  intstr.FromString("num_of_running_virt_operators == 0"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "No ready virt-operator was detected for the last 5 min.",
+						},
+					},
+					{
+						Alert: "NoLeadingVirtOperator",
+						Expr:  intstr.FromString("num_of_leading_virt_operators == 0"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "No leading virt-operator was detected for the last 5 min.",
+						},
+					},
 				},
 			},
 		},
