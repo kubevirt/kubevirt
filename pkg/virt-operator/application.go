@@ -32,6 +32,7 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
@@ -100,6 +101,7 @@ type VirtOperatorApp struct {
 	certBytes        []byte
 	keyBytes         []byte
 	signingCertBytes []byte
+	aggregatorClient aggregatorclient.Interface
 }
 
 var _ service.Service = &VirtOperatorApp{}
@@ -118,6 +120,13 @@ func Execute() {
 	if err != nil {
 		golog.Fatal(err)
 	}
+
+	config, err := kubecli.GetConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	app.aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 	app.clientSet, err = kubecli.GetKubevirtClient()
 
@@ -142,7 +151,7 @@ func Execute() {
 		os.Exit(0)
 	}
 
-	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.operatorNamespace)
+	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.aggregatorClient, app.operatorNamespace)
 
 	app.kubeVirtInformer = app.informerFactory.KubeVirt()
 	app.kubeVirtCache = app.kubeVirtInformer.GetStore()
@@ -158,6 +167,8 @@ func Execute() {
 		Deployment:               app.informerFactory.OperatorDeployment(),
 		DaemonSet:                app.informerFactory.OperatorDaemonSet(),
 		ValidationWebhook:        app.informerFactory.OperatorValidationWebhook(),
+		MutatingWebhook:          app.informerFactory.OperatorMutatingWebhook(),
+		APIService:               app.informerFactory.OperatorAPIService(),
 		InstallStrategyConfigMap: app.informerFactory.OperatorInstallStrategyConfigMaps(),
 		InstallStrategyJob:       app.informerFactory.OperatorInstallStrategyJob(),
 		InfrastructurePod:        app.informerFactory.OperatorPod(),
@@ -176,6 +187,8 @@ func Execute() {
 		DeploymentCache:               app.informerFactory.OperatorDeployment().GetStore(),
 		DaemonSetCache:                app.informerFactory.OperatorDaemonSet().GetStore(),
 		ValidationWebhookCache:        app.informerFactory.OperatorValidationWebhook().GetStore(),
+		MutatingWebhookCache:          app.informerFactory.OperatorMutatingWebhook().GetStore(),
+		APIServiceCache:               app.informerFactory.OperatorAPIService().GetStore(),
 		InstallStrategyConfigMapCache: app.informerFactory.OperatorInstallStrategyConfigMaps().GetStore(),
 		InstallStrategyJobCache:       app.informerFactory.OperatorInstallStrategyJob().GetStore(),
 		InfrastructurePodCache:        app.informerFactory.OperatorPod().GetStore(),
@@ -234,7 +247,7 @@ func Execute() {
 	}
 
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virt-operator")
-	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace, app.signingCertBytes)
+	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.aggregatorClient, app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, app.operatorNamespace, app.signingCertBytes)
 
 	image := os.Getenv(util.OperatorImageEnvName)
 	if image == "" {

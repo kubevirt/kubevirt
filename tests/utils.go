@@ -184,9 +184,11 @@ const (
 	NamespaceTestDefault = "kubevirt-test-default"
 	// NamespaceTestAlternative is used to test controller-namespace independency.
 	NamespaceTestAlternative = "kubevirt-test-alternative"
+	// NamespaceTestOperator is used to test if namespaces can still be deleted when kubevirt is uninstalled
+	NamespaceTestOperator = "kubevirt-test-operator"
 )
 
-var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative}
+var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
 var schedulableNode = ""
 
 type startType string

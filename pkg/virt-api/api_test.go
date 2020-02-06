@@ -95,7 +95,8 @@ var _ = Describe("Virt-api", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: virtWebhookMutator,
 				Labels: map[string]string{
-					v1.AppLabel: virtWebhookMutator,
+					v1.AppLabel:       virtWebhookMutator,
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 				},
 			},
 			Webhooks: app.mutatingWebhooks(),
@@ -109,7 +110,8 @@ var _ = Describe("Virt-api", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: virtWebhookValidator,
 				Labels: map[string]string{
-					v1.AppLabel: virtWebhookValidator,
+					v1.AppLabel:       virtWebhookValidator,
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 				},
 			},
 			Webhooks: app.validatingWebhooks(),
@@ -151,7 +153,8 @@ var _ = Describe("Virt-api", func() {
 					Name:      virtApiCertSecretName,
 					Namespace: namespaceKubevirt,
 					Labels: map[string]string{
-						v1.AppLabel: "virt-api-aggregator",
+						v1.AppLabel:       "virt-api-aggregator",
+						v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 					},
 				},
 				Type: "Opaque",

@@ -270,6 +270,19 @@ spec:
           - admissionregistration.k8s.io
           resources:
           - validatingwebhookconfigurations
+          - mutatingwebhookconfigurations
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - update
+          - patch
+        - apiGroups:
+          - apiregistration.k8s.io
+          resources:
+          - apiservices
           verbs:
           - get
           - list

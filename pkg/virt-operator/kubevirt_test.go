@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -152,6 +153,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		go informers.Deployment.Run(stop)
 		go informers.DaemonSet.Run(stop)
 		go informers.ValidationWebhook.Run(stop)
+		go informers.MutatingWebhook.Run(stop)
+		go informers.APIService.Run(stop)
 		go informers.SCC.Run(stop)
 		go informers.InstallStrategyJob.Run(stop)
 		go informers.InstallStrategyConfigMap.Run(stop)
@@ -173,6 +176,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		cache.WaitForCacheSync(stop, informers.Deployment.HasSynced)
 		cache.WaitForCacheSync(stop, informers.DaemonSet.HasSynced)
 		cache.WaitForCacheSync(stop, informers.ValidationWebhook.HasSynced)
+		cache.WaitForCacheSync(stop, informers.MutatingWebhook.HasSynced)
+		cache.WaitForCacheSync(stop, informers.APIService.HasSynced)
 		cache.WaitForCacheSync(stop, informers.SCC.HasSynced)
 		cache.WaitForCacheSync(stop, informers.InstallStrategyJob.HasSynced)
 		cache.WaitForCacheSync(stop, informers.InstallStrategyConfigMap.HasSynced)
@@ -246,6 +251,10 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		informers.ValidationWebhook, validatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{})
 		stores.ValidationWebhookCache = informers.ValidationWebhook.GetStore()
+		informers.MutatingWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1beta1.MutatingWebhookConfiguration{})
+		stores.MutatingWebhookCache = informers.MutatingWebhook.GetStore()
+		informers.APIService, _ = testutils.NewFakeInformerFor(&v1beta1.APIService{})
+		stores.APIServiceCache = informers.APIService.GetStore()
 
 		informers.SCC, sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
 		stores.SCCCache = informers.SCC.GetStore()
@@ -280,7 +289,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.PrometheusRule, prometheusRuleSource = testutils.NewFakeInformerFor(&promv1.PrometheusRule{})
 		stores.PrometheusRuleCache = informers.PrometheusRule.GetStore()
 		stores.PrometheusRulesEnabled = true
-		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers, NAMESPACE, nil)
+		controller = NewKubeVirtController(virtClient, nil, kvInformer, recorder, stores, informers, NAMESPACE, nil)
 
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
