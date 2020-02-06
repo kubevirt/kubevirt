@@ -198,30 +198,6 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	se, exists, err := selinux.NewSELinux()
-	if err == nil && exists {
-		for _, dir := range []string{app.VirtShareDir, app.VirtLibDir} {
-			if labeled, err := se.IsLabeled(dir); err != nil {
-				panic(err)
-			} else if !labeled {
-				err := se.Label("container_file_t", dir)
-				if err != nil {
-					panic(err)
-				}
-			}
-			err := se.Restore(dir)
-			if err != nil {
-				panic(err)
-			}
-		}
-		err = se.InstallPolicy("/var/run/kubevirt")
-		if err != nil {
-			panic(fmt.Errorf("failed to install virt-launcher selinux policy: %v", err))
-		}
-	} else if err != nil {
-		//an error occured
-		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
-	}
 	// Create event recorder
 	app.virtCli, err = kubecli.GetKubevirtClient()
 	if err != nil {
@@ -289,6 +265,7 @@ func (app *virtHandlerApp) Run() {
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
 	vmiInformer := factory.VMI()
+	clusterConfig := virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), app.namespace)
 
 	vmController := virthandler.NewController(
 		recorder,
@@ -302,7 +279,7 @@ func (app *virtHandlerApp) Run() {
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
-		virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), app.namespace),
+		clusterConfig,
 		app.migrationTLSConfig,
 		podIsolationDetector,
 	)
@@ -334,7 +311,37 @@ func (app *virtHandlerApp) Run() {
 	stop := make(chan struct{})
 	defer close(stop)
 	factory.Start(stop)
-	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiInformer.HasSynced)
+
+	selinuxLauncherType := clusterConfig.GetSELinuxLauncherType()
+	se, exists, err := selinux.NewSELinux()
+	if err == nil && exists {
+		for _, dir := range []string{app.VirtShareDir, app.VirtLibDir} {
+			if labeled, err := se.IsLabeled(dir); err != nil {
+				panic(err)
+			} else if !labeled {
+				err := se.Label("container_file_t", dir)
+				if err != nil {
+					panic(err)
+				}
+			}
+			err := se.Restore(dir)
+			if err != nil {
+				panic(err)
+			}
+		}
+		// Only install KubeVirt's policy if not using a custom one
+		if selinuxLauncherType == "" {
+			err = se.InstallPolicy("/var/run/kubevirt")
+		}
+		if err != nil {
+			panic(fmt.Errorf("failed to install virt-launcher selinux policy: %v", err))
+		}
+	} else if err != nil {
+		//an error occured
+		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
+	}
+
+	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiInformer.HasSynced, factory.CRD().HasSynced)
 
 	go vmController.Run(10, stop)
 
