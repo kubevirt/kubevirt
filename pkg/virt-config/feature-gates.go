@@ -34,6 +34,7 @@ const (
 	SnapshotGate          = "Snapshot"
 	HostDiskGate          = "HostDisk"
 	VirtIOFSGate          = "ExperimentalVirtiofsSupport"
+	CPUMigrationGate      = "MigrationCPU"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -81,6 +82,11 @@ func (config *ClusterConfig) HostDiskEnabled() bool {
 	return config.isFeatureGateEnabled(HostDiskGate)
 }
 
+
 func (config *ClusterConfig) VirtiofsEnabled() bool {
 	return config.isFeatureGateEnabled(VirtIOFSGate)
+}
+
+func (config *ClusterConfig) CPUMigrationCompatibilityEnabled() bool {
+	return config.isFeatureGateEnabled(CPUMigrationGate)
 }

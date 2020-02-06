@@ -1570,7 +1570,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		Context("without CPU properly set", func() {
 
-			table.DescribeTable("should block migration", func(cpuModel string) {
+			prepareMigration := func(cpuModel string) (*v1.VirtualMachineInstance, *v1.VirtualMachineInstanceMigration) {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Model: cpuModel,
@@ -1588,22 +1588,64 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// execute a migration, wait for finalized state
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 
-				By("Starting a Migration")
-				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("CPUNotMigratable"))
+				return vmi, migration
+			}
 
+			disposeVMI := func(vmi *v1.VirtualMachineInstance) {
 				// delete VMI
 				By("Deleting the VMI")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			}
+
+			table.DescribeTable("should block migration with feature-gate CPUMigrationGate enabled", func(cpuModel string) {
+				tests.EnableFeatureGate("MigrationCPU")
+
+				vmi, migration := prepareMigration(cpuModel)
+
+				By("Starting a Migration")
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("CPUNotMigratable"))
+
+				disposeVMI(vmi)
 			},
 				table.Entry("with empty cpu", ""),
 				table.Entry("with host-model cpu", "host-model"),
 				table.Entry("with cpu-passthrough", "host-passthrough"),
 			)
+
+			table.DescribeTable("should not block migration", func(cpuModel string) {
+				tests.DisableFeatureGate("MigrationCPU")
+
+				vmi, migration := prepareMigration(cpuModel)
+
+				By("Starting a Migration")
+				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigration(vmi, migrationUID)
+
+				disposeVMI(vmi)
+			},
+				table.Entry("with empty cpu", ""),
+				table.Entry("with host-model cpu", "host-model"),
+			)
+
+			It("should always block migration with cpu-passthrough", func() {
+				tests.DisableFeatureGate("MigrationCPU")
+
+				vmi, migration := prepareMigration("host-passthrough")
+
+				By("Starting a Migration")
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("CPUNotMigratable"))
+
+				disposeVMI(vmi)
+			})
 
 		})
 	})

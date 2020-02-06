@@ -1743,9 +1743,20 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(err).To(HaveOccurred(), "should block migration for CPU config")
 			},
 				table.Entry("empty CPU", nil),
+				table.Entry("host-passthough", &v1.CPU{Model: "host-passthrough"}),
+			)
+
+			table.DescribeTable("should not block migration for", func(cpu *v1.CPU) {
+				vmi := v1.NewMinimalVMI("testvmi")
+				if cpu != nil {
+					vmi.Spec.Domain.CPU = cpu
+				}
+
+				err := controller.checkCPUForMigrationFeatureGated(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should Not block migration for CPU config if feature gate is not enabled")
+			},
 				table.Entry("undefined CPU", &v1.CPU{Model: ""}),
 				table.Entry("host-model CPU", &v1.CPU{Model: "host-model"}),
-				table.Entry("host-passthough", &v1.CPU{Model: "host-passthrough"}),
 			)
 
 			It("should not block migrate for defined CPU", func() {
@@ -1755,6 +1766,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 				}
 
 				err := controller.checkCPUForMigration(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should not block migration for defined CPU")
+			})
+
+			It("should not block migrate for defined CPU", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Model: "Conroe",
+				}
+
+				err := controller.checkCPUForMigrationFeatureGated(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should not block migration for defined CPU")
 			})
 

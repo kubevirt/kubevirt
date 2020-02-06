@@ -741,6 +741,20 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			}
 			vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
 			migrate = false
+		} else if d.clusterConfig.CPUMigrationCompatibilityEnabled() {
+			// Hot fix of https://bugzilla.redhat.com/show_bug.cgi?id=1760028
+			// Host-model check is behind feature-gate to allow user to decided whether to check or not
+			err := d.checkCPUForMigrationFeatureGated(vmi)
+			if err != nil {
+				liveMigrationCondition := v1.VirtualMachineInstanceCondition{
+					Type:    v1.VirtualMachineInstanceIsMigratable,
+					Status:  k8sv1.ConditionFalse,
+					Message: err.Error(),
+					Reason:  v1.VirtualMachineInstanceReasonCPUNotMigratable,
+				}
+				vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+				migrate = false
+			}
 		}
 
 		isBlockMigration, err := d.checkVolumesForMigration(vmi)
@@ -1808,7 +1822,20 @@ func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 }
 
 // checkCPUForMigration is a hotfix for bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1760028
-// to disable migration when host-model od cpu-pass-through is used.
+// to disable migration when cpu-pass-through is used.
+// For cpu-pass-through migration is always blocked
+func (d *VirtualMachineController) checkCPUForMigration(vmi *v1.VirtualMachineInstance) error {
+	if vmi.Spec.Domain.CPU == nil {
+		return fmt.Errorf("cannot migrate VMI with null CPU configuration")
+	}
+	if vmi.Spec.Domain.CPU.Model == v1.CPUModeHostPassthrough {
+		return fmt.Errorf("cannot migrate VMI with current CPU configuration: %s", vmi.Spec.Domain.CPU.Model)
+	}
+	return nil
+}
+
+// checkCPUForMigrationFeatureGated is a hotfix for bugzilla: https://bugzilla.redhat.com/show_bug.cgi?id=1760028
+// to disable migration when host-model is used.
 // The check here relies on the fact the first defaulting is done in mutating webhook
 // where the default is set based on cluster-wide config, which still can be empty.
 // If no CPU is set on VMI and the empty CPU gets here it is passed over to virt-launcher.
@@ -1816,14 +1843,11 @@ func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 //
 // Therefore the fix checks if the CPU here is either empty, or set to host-model or pass-through
 // and marks VMI as non-migratable if so.
-func (d *VirtualMachineController) checkCPUForMigration(vmi *v1.VirtualMachineInstance) error {
-	if vmi.Spec.Domain.CPU == nil {
-		return fmt.Errorf("cannot migrate VMI with null CPU configuration")
-	}
-	if vmi.Spec.Domain.CPU.Model == "" ||
-		vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel ||
-		vmi.Spec.Domain.CPU.Model == v1.CPUModeHostPassthrough {
-		return fmt.Errorf("cannot migrate VMI with current CPU configuration: %s", vmi.Spec.Domain.CPU.Model)
+func (d *VirtualMachineController) checkCPUForMigrationFeatureGated(vmi *v1.VirtualMachineInstance) error {
+	if d.clusterConfig.CPUMigrationCompatibilityEnabled() {
+		if vmi.Spec.Domain.CPU.Model == "" || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel {
+			return fmt.Errorf("cannot migrate VMI with current CPU configuration: %s", vmi.Spec.Domain.CPU.Model)
+		}
 	}
 	return nil
 }
