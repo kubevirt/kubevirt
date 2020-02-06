@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
@@ -244,7 +245,11 @@ var _ = Describe("ImageUpload", func() {
 		Expect(err).To(BeNil())
 	}
 
-	testInit := func(statusCode int, kubeobjects ...runtime.Object) {
+	waitProcessingComplete := func(client kubernetes.Interface, namespace, name string, interval, timeout time.Duration) error {
+		return nil
+	}
+
+	testInitAsync := func(statusCode int, async bool, kubeobjects ...runtime.Object) {
 		createCalled = false
 		updateCalled = false
 
@@ -259,14 +264,27 @@ var _ = Describe("ImageUpload", func() {
 		addReactors()
 
 		server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == "HEAD" {
+				if async {
+					w.WriteHeader(http.StatusOK)
+				} else {
+					w.WriteHeader(http.StatusNotFound)
+				}
+				return
+			}
 			w.WriteHeader(statusCode)
 		}))
 		config.Status.UploadProxyURL = &server.URL
 		updateCDIConfig(config)
 
+		imageupload.UploadProcessingCompleteFunc = waitProcessingComplete
 		imageupload.SetHTTPClientCreator(func(bool) *http.Client {
 			return server.Client()
 		})
+	}
+
+	testInit := func(statusCode int, kubeobjects ...runtime.Object) {
+		testInitAsync(statusCode, true, kubeobjects...)
 	}
 
 	testDone := func() {
@@ -275,15 +293,18 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	Context("Successful upload to PVC", func() {
-		It("PVC does not exist", func() {
-			testInit(http.StatusOK)
+		DescribeTable("PVC does exist", func(async bool) {
+			testInitAsync(http.StatusOK, async)
 			cmd := tests.NewRepeatableVirtctlCommand(commandName, "dv", dvName, "--size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
 			Expect(createCalled).To(BeTrue())
 			validatePVC()
 			validateDataVolume()
-		})
+		},
+			Entry("PVC does not exist, async", true),
+			Entry("PVC does not exist sync", false),
+		)
 
 		It("PVC does not exist --pcvc-size", func() {
 			testInit(http.StatusOK)

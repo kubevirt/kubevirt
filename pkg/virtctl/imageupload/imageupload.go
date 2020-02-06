@@ -58,7 +58,13 @@ const (
 
 	uploadReadyWaitInterval = 2 * time.Second
 
-	//UploadProxyURI is a URI of the upoad proxy
+	processingWaitInterval = 2 * time.Second
+	processingWaitTotal    = 24 * time.Hour
+
+	//UploadProxyURIAsync is a URI of the upload proxy, the endpoint is asynchronous
+	UploadProxyURIAsync = "/v1alpha1/upload-async"
+
+	//UploadProxyURI is a URI of the upload proxy, the endpoint is synchronous for backwards compatibility
 	UploadProxyURI = "/v1alpha1/upload"
 
 	configName = "config"
@@ -83,6 +89,11 @@ var (
 type HTTPClientCreator func(bool) *http.Client
 
 var httpClientCreatorFunc HTTPClientCreator
+
+type processingCompleteFunc func(kubernetes.Interface, string, string, time.Duration, time.Duration) error
+
+// UploadProcessingCompleteFunc the function called while determining if post transfer processing is complete.
+var UploadProcessingCompleteFunc processingCompleteFunc = waitUploadProcessingComplete
 
 // SetHTTPClientCreator allows overriding the default http client
 // useful for unit tests
@@ -263,9 +274,15 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Uploading %s completed successfully\n", imagePath)
+	fmt.Println("Uploading data completed successfully, waiting for processing to complete, you can hit ctrl-c without interrupting the progress")
+	err = UploadProcessingCompleteFunc(virtClient, namespace, name, processingWaitInterval, processingWaitTotal)
+	if err != nil {
+		fmt.Printf("Timed out waiting for post upload processing to complete, please check upload pod status for progress\n")
+	} else {
+		fmt.Printf("Uploading %s completed successfully\n", imagePath)
+	}
 
-	return nil
+	return err
 }
 
 func getHTTPClient(insecure bool) *http.Client {
@@ -291,12 +308,36 @@ func ConstructUploadProxyPath(uploadProxyURL string) (string, error) {
 	if !strings.Contains(uploadProxyURL, UploadProxyURI) {
 		u.Path = path.Join(u.Path, UploadProxyURI)
 	}
+	return u.String(), nil
+}
+
+//ConstructUploadProxyPathAsync - receives uploadproxy adress and concatenates to it URI
+func ConstructUploadProxyPathAsync(uploadProxyURL, token string, insecure bool) (string, error) {
+	u, err := url.Parse(uploadProxyURL)
+
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.Contains(uploadProxyURL, UploadProxyURIAsync) {
+		u.Path = path.Join(u.Path, UploadProxyURIAsync)
+	}
+
+	// Attempt to discover async URL
+	client := httpClientCreatorFunc(insecure)
+	req, _ := http.NewRequest("HEAD", u.String(), nil)
+	req.Header.Add("Authorization", "Bearer "+token)
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		// Async not available, use regular upload url.
+		return ConstructUploadProxyPath(uploadProxyURL)
+	}
 
 	return u.String(), nil
 }
 
 func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) error {
-	url, err := ConstructUploadProxyPath(uploadProxyURL)
+	url, err := ConstructUploadProxyPathAsync(uploadProxyURL, token, insecure)
 	if err != nil {
 		return err
 	}
@@ -381,6 +422,26 @@ func waitUploadServerReady(client kubernetes.Interface, namespace, name string, 
 		}
 
 		return done, nil
+	})
+
+	return err
+}
+
+func waitUploadProcessingComplete(client kubernetes.Interface, namespace, name string, interval, timeout time.Duration) error {
+	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		// upload controler sets this to true when uploadserver pod is ready to receive data
+		podPhase := pvc.Annotations[PodPhaseAnnotation]
+
+		if podPhase == string(v1.PodSucceeded) {
+			fmt.Printf("Processing completed successfully\n")
+		}
+
+		return podPhase == string(v1.PodSucceeded), nil
 	})
 
 	return err
