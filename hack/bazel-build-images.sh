@@ -24,9 +24,7 @@ source hack/config.sh
 
 # vars are uninteresting for the build step, they are interesting for the push step only
 bazel build \
-    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo \
-    --workspace_status_command=./hack/print-workspace-status.sh \
-    --host_force_python=${bazel_py} \
+    --config=${ARCHITECTURE} \
     --define container_prefix= \
     --define image_prefix= \
     --define container_tag= \

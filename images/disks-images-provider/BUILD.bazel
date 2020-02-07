@@ -7,34 +7,63 @@ load("@io_bazel_rules_container_rpm//rpm:rpm.bzl", "rpm_image")
 
 rpm_image(
     name = "qemu-img-image",
-    base = "@fedora//image",
-    rpms = [
-        "@qemu-img//file",
-        "@capstone//file",
-        "@libaio//file",
-        "@libstdc//file",
-    ],
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_ppc64le//image",
+        "//conditions:default": "@fedora//image",
+    }),
+    rpms = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": [
+            "@qemu-img_ppc64le//file",
+            "@capstone_ppc64le//file",
+            "@libaio_ppc64le//file",
+            "@libstdc_ppc64le//file",
+        ],
+        "//conditions:default": [
+            "@qemu-img//file",
+            "@capstone//file",
+            "@libaio//file",
+            "@libstdc//file",
+        ],
+    }),
 )
 
 genrule(
     name = "alpine-img",
-    srcs = ["@alpine_image//file"],
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@alpine_image_ppc64le//file"],
+        "//conditions:default": ["@alpine_image//file"],
+    }),
     outs = ["images/alpine/disk.img"],
-    cmd = "mkdir -p images/alpine && cat $(location @alpine_image//file) > $@",
+    cmd = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "mkdir -p images/alpine && cat $(location @alpine_image_ppc64le//file) > $@",
+        "//conditions:default": "mkdir -p images/alpine && cat $(location @alpine_image//file) > $@",
+    }),
 )
 
 genrule(
     name = "cirros-img",
-    srcs = ["@cirros_image//file"],
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@cirros_image_ppc64le//file"],
+        "//conditions:default": ["@cirros_image//file"],
+    }),
     outs = ["images/cirros/disk.img"],
-    cmd = "mkdir -p images/cirros && cat $(location @cirros_image//file) > $@",
+    cmd = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "mkdir -p images/cirros && cat $(location @cirros_image_ppc64le//file) > $@",
+        "//conditions:default": "mkdir -p images/cirros && cat $(location @cirros_image//file) > $@",
+    }),
 )
 
 genrule(
     name = "fedora-img",
-    srcs = ["@fedora_image//file"],
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@fedora_image_ppc64le//file"],
+        "//conditions:default": ["@fedora_image//file"],
+    }),
     outs = ["images/fedora-cloud/disk.qcow2"],
-    cmd = "mkdir -p images/fedora-cloud && cat $(location @fedora_image//file) > $@",
+    cmd = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "mkdir -p images/fedora-cloud && cat $(location @fedora_image_ppc64le//file) > $@",
+        "//conditions:default": "mkdir -p images/fedora-cloud && cat $(location @fedora_image//file) > $@",
+    }),
 )
 
 genrule(

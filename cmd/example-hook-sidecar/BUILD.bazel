@@ -31,7 +31,10 @@ load(
 
 container_image(
     name = "example-hook-sidecar-image",
-    base = "@fedora//image",
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_ppc64le//image",
+        "//conditions:default": "@fedora//image",
+    }),
     directory = "/",
     entrypoint = ["/example-hook-sidecar"],
     files = [":example-hook-sidecar"],

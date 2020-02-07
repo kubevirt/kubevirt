@@ -1,6 +1,8 @@
 package api
 
 import (
+	"runtime"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -10,13 +12,21 @@ var _ = Describe("Defaults", func() {
 	It("should set architecture", func() {
 		domain := &Domain{}
 		SetDefaults_OSType(&domain.Spec.OS.Type)
-		Expect(domain.Spec.OS.Type.Arch).To(Equal("x86_64"))
+		if runtime.GOARCH == "ppc64le" {
+			Expect(domain.Spec.OS.Type.Arch).To(Equal("ppc64le"))
+		} else {
+			Expect(domain.Spec.OS.Type.Arch).To(Equal("x86_64"))
+		}
 	})
 
-	It("should set q35 machine type and hvm domain type", func() {
+	It("should set machine type and hvm domain type", func() {
 		domain := &Domain{}
 		SetDefaults_OSType(&domain.Spec.OS.Type)
-		Expect(domain.Spec.OS.Type.Machine).To(Equal("q35"))
+		if runtime.GOARCH == "ppc64le" {
+			Expect(domain.Spec.OS.Type.Machine).To(Equal("pseries"))
+		} else {
+			Expect(domain.Spec.OS.Type.Machine).To(Equal("q35"))
+		}
 		Expect(domain.Spec.OS.Type.OS).To(Equal("hvm"))
 	})
 

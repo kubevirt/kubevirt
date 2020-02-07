@@ -1,5 +1,9 @@
 package api
 
+import (
+	"runtime"
+)
+
 const (
 	resolvConf        = "/etc/resolv.conf"
 	DefaultProtocol   = "TCP"
@@ -19,13 +23,21 @@ func SetDefaults_OSType(ostype *OSType) {
 	ostype.OS = "hvm"
 
 	if ostype.Arch == "" {
-		ostype.Arch = "x86_64"
+		if runtime.GOARCH == "ppc64le" {
+			ostype.Arch = "ppc64le"
+		} else {
+			ostype.Arch = "x86_64"
+		}
 	}
 
 	// q35 is an alias of the newest q35 machine type.
 	// TODO: we probably want to select concrete type in the future for "future-backwards" compatibility.
 	if ostype.Machine == "" {
-		ostype.Machine = "q35"
+		if runtime.GOARCH == "ppc64le" {
+			ostype.Machine = "pseries"
+		} else {
+			ostype.Machine = "q35"
+		}
 	}
 }
 

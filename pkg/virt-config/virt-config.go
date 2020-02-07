@@ -24,6 +24,8 @@ package virtconfig
 */
 
 import (
+	"runtime"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -37,10 +39,12 @@ const (
 	MigrationAllowAutoConverge               bool   = false
 	MigrationProgressTimeout                 int64  = 150
 	MigrationCompletionTimeoutPerGiB         int64  = 800
-	DefaultMachineType                              = "q35"
+	DefaultAMD64MachineType                         = "q35"
+	DefaultPPC64LEMachineType                       = "pseries"
 	DefaultCPURequest                               = "100m"
 	DefaultMemoryOvercommit                         = 100
-	DefaultEmulatedMachines                         = "q35*,pc-q35*"
+	DefaultAMD64EmulatedMachines                    = "q35*,pc-q35*"
+	DefaultPPC64LEEmulatedMachines                  = "pseries*"
 	DefaultLessPVCSpaceToleration                   = 10
 	DefaultNodeSelectors                            = ""
 	DefaultNetworkInterface                         = "bridge"
@@ -53,6 +57,16 @@ const (
 	SmbiosConfigDefaultProduct                      = "None"
 	DefaultPermitBridgeInterfaceOnPodNetwork        = true
 )
+
+// Set default machine type and supported emulated machines based on architecture
+func getDefaultMachinesForArch() (string, string) {
+	if runtime.GOARCH == "ppc64le" {
+		return DefaultPPC64LEMachineType, DefaultPPC64LEEmulatedMachines
+	}
+	return DefaultAMD64MachineType, DefaultAMD64EmulatedMachines
+}
+
+var DefaultMachineType, DefaultEmulatedMachines = getDefaultMachinesForArch()
 
 func (c *ClusterConfig) IsUseEmulation() bool {
 	return c.getConfig().UseEmulation

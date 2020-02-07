@@ -21,6 +21,7 @@ package services
 
 import (
 	"errors"
+	"runtime"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -1220,6 +1221,10 @@ var _ = Describe("Template", func() {
 
 		Context("with sriov interface", func() {
 			It("should not run privileged", func() {
+				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
+				if runtime.GOARCH == "ppc64le" {
+					Skip("ppc64le is currently running is privileged mode, so skipping test")
+				}
 				sriovInterface := v1.InterfaceSRIOV{}
 				domain := v1.DomainSpec{}
 				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &sriovInterface}}}
@@ -1555,6 +1560,10 @@ var _ = Describe("Template", func() {
 
 		Context("with GPU device interface", func() {
 			It("should not run privileged", func() {
+				// For Power we are currently running in privileged mode or libvirt will fail to lock memory
+				if runtime.GOARCH == "ppc64le" {
+					Skip("ppc64le is currently running is privileged mode, so skipping test")
+				}
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",

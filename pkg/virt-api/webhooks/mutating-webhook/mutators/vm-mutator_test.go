@@ -20,6 +20,7 @@ package mutators
 
 import (
 	"encoding/json"
+	rt "runtime"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -85,7 +86,11 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 	It("should apply defaults on VM create", func() {
 		vmSpec, _ := getVMSpecMetaFromResponse()
-		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("q35"))
+		if rt.GOARCH == "ppc64le" {
+			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("pseries"))
+		} else {
+			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("q35"))
+		}
 	})
 
 	It("should apply configurable defaults on VM create", func() {

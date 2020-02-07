@@ -7,24 +7,45 @@ load("@io_bazel_rules_container_rpm//rpm:rpm.bzl", "rpm_image")
 
 rpm_image(
     name = "cdi-http-import-server-base-image",
-    base = "@kubevirt-testing//image",
-    rpms = [
-        "@qemu-img//file",
-        "@qemu-guest-agent//file",
-        "@stress//file",
-        "@libstdc//file",
-        "@capstone//file",
-        "@libaio//file",
-        "@e2fsprogs//file",
-        "@dmidecode//file",
-    ],
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@kubevirt-testing_ppc64le//image",
+        "//conditions:default": "@kubevirt-testing//image",
+    }),
+    rpms = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": [
+            "@qemu-img_ppc64le//file",
+            "@qemu-guest-agent_ppc64le//file",
+            "@stress_ppc64le//file",
+            "@libstdc_ppc64le//file",
+            "@capstone_ppc64le//file",
+            "@libaio_ppc64le//file",
+            "@e2fsprogs_ppc64le//file",
+            "@dmidecode//file",
+        ],
+        "//conditions:default": [
+            "@qemu-img//file",
+            "@qemu-guest-agent//file",
+            "@stress//file",
+            "@libstdc//file",
+            "@capstone//file",
+            "@libaio//file",
+            "@e2fsprogs//file",
+            "@dmidecode//file",
+        ],
+    }),
 )
 
 genrule(
     name = "alpine-iso",
-    srcs = ["@alpine_image//file"],
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@alpine_image_ppc64le//file"],
+        "//conditions:default": ["@alpine_image//file"],
+    }),
     outs = ["usr/share/nginx/html/images/alpine.iso"],
-    cmd = "mkdir -p usr/share/nginx/html/images && cat $(location @alpine_image//file) > $@",
+    cmd = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "mkdir -p usr/share/nginx/html/images && cat $(location @alpine_image_ppc64le//file) > $@",
+        "//conditions:default": "mkdir -p usr/share/nginx/html/images && cat $(location @alpine_image//file) > $@",
+    }),
 )
 
 pkg_tar(
@@ -38,9 +59,15 @@ pkg_tar(
 
 genrule(
     name = "cirros-img",
-    srcs = ["@cirros_image//file"],
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@cirros_image_ppc64le//file"],
+        "//conditions:default": ["@cirros_image//file"],
+    }),
     outs = ["usr/share/nginx/html/images/cirros.img"],
-    cmd = "mkdir disk && cat $(location @cirros_image//file) > $@",
+    cmd = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "mkdir disk && cat $(location @cirros_image_ppc64le//file) > $@",
+        "//conditions:default": "mkdir disk && cat $(location @cirros_image//file) > $@",
+    }),
 )
 
 pkg_tar(
@@ -52,9 +79,15 @@ pkg_tar(
 
 genrule(
     name = "fedora-img",
-    srcs = ["@fedora_image//file"],
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@fedora_image_ppc64le//file"],
+        "//conditions:default": ["@fedora_image//file"],
+    }),
     outs = ["usr/share/nginx/html/images/fedora.img"],
-    cmd = "mkdir disk && cat $(location @fedora_image//file) > $@",
+    cmd = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "mkdir disk && cat $(location @fedora_image_ppc64le//file) > $@",
+        "//conditions:default": "mkdir disk && cat $(location @fedora_image//file) > $@",
+    }),
 )
 
 pkg_tar(

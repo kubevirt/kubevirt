@@ -3,14 +3,20 @@ load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 container_image(
     name = "alpine-container-disk-image",
     directory = "/disk",
-    files = ["@alpine_image//file"],
+    files = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@alpine_image_ppc64le//file"],
+        "//conditions:default": ["@alpine_image//file"],
+    }),
     visibility = ["//visibility:public"],
 )
 
 container_image(
     name = "cirros-container-disk-image",
     directory = "/disk",
-    files = ["@cirros_image//file"],
+    files = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@cirros_image_ppc64le//file"],
+        "//conditions:default": ["@cirros_image//file"],
+    }),
     visibility = ["//visibility:public"],
 )
 
@@ -18,21 +24,30 @@ container_image(
 container_image(
     name = "cirros-custom-container-disk-image",
     directory = "/custom-disk",
-    files = ["@cirros_image//file"],
+    files = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@cirros_image_ppc64le//file"],
+        "//conditions:default": ["@cirros_image//file"],
+    }),
     visibility = ["//visibility:public"],
 )
 
 container_image(
     name = "fedora-cloud-container-disk-image",
     directory = "/disk",
-    files = ["@fedora_image//file"],
+    files = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@fedora_image_ppc64le//file"],
+        "//conditions:default": ["@fedora_image//file"],
+    }),
     visibility = ["//visibility:public"],
 )
 
 container_image(
     name = "fedora30-cloud-container-disk-image",
     directory = "/disk",
-    files = ["@fedora30_image//file"],
+    files = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@fedora30_image_ppc64le//file"],
+        "//conditions:default": ["@fedora30_image//file"],
+    }),
     visibility = ["//visibility:public"],
 )
 

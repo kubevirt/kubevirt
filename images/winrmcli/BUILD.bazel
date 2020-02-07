@@ -9,7 +9,10 @@ load(
 
 container_image(
     name = "winrmcli-image",
-    base = "@fedora//image",
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_ppc64le//image",
+        "//conditions:default": "@fedora//image",
+    }),
     directory = "/usr/bin",
     files = [
         "@com_github_masterzen_winrmcli//:winrm-cli",

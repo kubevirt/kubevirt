@@ -61,7 +61,10 @@ load(
 
 container_image(
     name = "version-container",
-    base = "@fedora//image",
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_ppc64le//image",
+        "//conditions:default": "@fedora//image",
+    }),
     directory = "/",
     files = [
         ":base_container.cil",

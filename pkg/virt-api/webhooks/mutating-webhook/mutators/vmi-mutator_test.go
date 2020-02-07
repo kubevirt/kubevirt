@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	rt "runtime"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -159,7 +160,11 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		)
 		vmiSpec, _ := getVMISpecMetaFromResponse()
-		Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
+		if rt.GOARCH == "ppc64le" {
+			Expect(vmiSpec.Domain.Machine.Type).To(Equal("pseries"))
+		} else {
+			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
+		}
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal("100m"))
 		// no default for requested memory when no memory is specified
