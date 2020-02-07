@@ -148,7 +148,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			})
 
-			It("volumeMode should be block when platform is baremetal", func() {
+			It("volumeMode should be filesystem when platform is baremetal", func() {
 				hco := &hcov1alpha1.HyperConverged{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      name,
@@ -160,10 +160,10 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 
 				expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
-				Expect(expectedResource.Data["volumeMode"]).To(Equal("Block"))
+				Expect(expectedResource.Data["volumeMode"]).To(Equal("Filesystem"))
 			})
 
-			It("volumeMode should be block when platform is not baremetal", func() {
+			It("volumeMode should be filesystem when platform is not baremetal", func() {
 				hco := &hcov1alpha1.HyperConverged{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      name,

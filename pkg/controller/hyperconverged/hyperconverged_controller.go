@@ -1063,13 +1063,6 @@ func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(instance *hcov
 }
 
 func newKubeVirtStorageConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
-	var volumeMode string
-	if *(&cr.Spec.BareMetalPlatform) {
-		volumeMode = "Block"
-	} else {
-		volumeMode = "Filesystem"
-	}
-
 	localSC := "local-sc"
 	if *(&cr.Spec.LocalStorageClassName) != "" {
 		localSC = *(&cr.Spec.LocalStorageClassName)
@@ -1085,8 +1078,8 @@ func newKubeVirtStorageConfigForCR(cr *hcov1alpha1.HyperConverged, namespace str
 			Namespace: namespace,
 		},
 		Data: map[string]string{
-			"accessMode":            "ReadWriteMany",
-			"volumeMode":            volumeMode,
+			"accessMode":            "ReadWriteOnce",
+			"volumeMode":            "Filesystem",
 			localSC + ".accessMode": "ReadWriteOnce",
 			localSC + ".volumeMode": "Filesystem",
 		},
