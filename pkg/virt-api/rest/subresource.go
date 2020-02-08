@@ -167,9 +167,7 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 	}()
 
 	// wait for copy to finish and check the result
-	if err = <-copyErr; err == nil || err == io.EOF {
-		response.WriteHeader(http.StatusOK)
-	} else {
+	if err = <-copyErr; err != nil && err != io.EOF {
 		log.Log.Object(vmi).Reason(err).Error("Error in websocket proxy")
 		writeError(errors.NewInternalError(err), response)
 		return

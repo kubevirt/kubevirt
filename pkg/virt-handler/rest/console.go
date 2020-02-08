@@ -182,14 +182,13 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 
 	select {
 	case <-stopCh:
-		response.WriteHeader(http.StatusOK)
+		break
 	case err := <-errCh:
 		if err != nil && err != io.EOF {
 			log.Log.Object(vmi).Reason(err).Error("Error in proxing websocket and unix socket")
 			response.WriteHeader(http.StatusInternalServerError)
-		} else {
-			response.WriteHeader(http.StatusOK)
 		}
+
 		cleanup()
 	}
 }
