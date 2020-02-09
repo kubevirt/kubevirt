@@ -332,7 +332,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			}
 
 			Context("without k8s secret", func() {
-				It("[test_id:1629]should not be able to start virt-launcher pod", func() {
+				It("[test_id:1629][posneg:negative]should not be able to start virt-launcher pod", func() {
 					userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
 					vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
 
