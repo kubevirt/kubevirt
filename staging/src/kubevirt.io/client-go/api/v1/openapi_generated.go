@@ -96,6 +96,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.SecretVolumeSource":                        schema_kubevirtio_client_go_api_v1_SecretVolumeSource(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource":                schema_kubevirtio_client_go_api_v1_ServiceAccountVolumeSource(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Timer":                                     schema_kubevirtio_client_go_api_v1_Timer(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VMIService":                                schema_kubevirtio_client_go_api_v1_VMIService(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VMIServiceList":                            schema_kubevirtio_client_go_api_v1_VMIServiceList(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VMIServiceSpec":                            schema_kubevirtio_client_go_api_v1_VMIServiceSpec(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VMIServiceStatus":                          schema_kubevirtio_client_go_api_v1_VMIServiceStatus(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachine":                            schema_kubevirtio_client_go_api_v1_VirtualMachine(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineCondition":                   schema_kubevirtio_client_go_api_v1_VirtualMachineCondition(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstance":                    schema_kubevirtio_client_go_api_v1_VirtualMachineInstance(ref),
@@ -2507,6 +2511,157 @@ func schema_kubevirtio_client_go_api_v1_Timer(ref common.ReferenceCallback) comm
 		},
 		Dependencies: []string{
 			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.HPETTimer", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.HypervTimer", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KVMTimer", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.PITTimer", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.RTCTimer"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_VMIService(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMIService is the Schema for the VMIServices API",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VMIServiceSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VMIServiceStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VMIServiceSpec", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VMIServiceStatus"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_VMIServiceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMIServiceList is a list of vmiservicelist",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VMIService"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VMIService"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_VMIServiceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstanceServiceSpec defines the desired state of VirtualMachineInstanceService VMIServiceSpec defines the desired state of VMIService",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"selector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+					"hosts": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.HostNetworkPair"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"selector", "hosts"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.HostNetworkPair"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_VMIServiceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMIServiceStatus defines the observed state of VMIService",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeName is the name where the VirtualMachineInstance is currently running.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

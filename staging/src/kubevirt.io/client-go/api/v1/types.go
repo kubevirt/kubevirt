@@ -1234,3 +1234,56 @@ type RenameOptions struct {
 	NewName         string  `json:"newName"`
 	OldName         *string `json:"oldName,omitempty"`
 }
+
+// VirtualMachineInstanceServiceSpec defines the desired state of VirtualMachineInstanceService
+// VMIServiceSpec defines the desired state of VMIService
+// +k8s:openapi-gen=true
+type VMIServiceSpec struct {
+	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	Selector *metav1.LabelSelector `json:"selector" valid:"required"`
+	Hosts    []HostNetworkPair     `json:"hosts"`
+}
+
+type HostNetworkPair struct {
+	VM      string `json:"vm"`
+	Network string `json:"network"`
+}
+
+type RequestRules struct {
+	ReadOnly  []string `json:"readonly"`
+	ReadWrite []string `json:"readwrite"`
+}
+
+// VMIServiceStatus defines the observed state of VMIService
+// +k8s:openapi-gen=true
+type VMIServiceStatus struct {
+	// NodeName is the name where the VirtualMachineInstance is currently running.
+	NodeName string `json:"nodeName,omitempty"`
+	Reason   string `json:"reason,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// VMIService is the Schema for the VMIServices API
+// +k8s:openapi-gen=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=vmiservices,scope=Namespaced
+type VMIService struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   VMIServiceSpec   `json:"spec,omitempty"`
+	Status VMIServiceStatus `json:"status,omitempty"`
+}
+
+// VMIServiceList is a list of vmiservicelist
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VMIServiceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VMIService `json:"items"`
+}

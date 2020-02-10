@@ -385,6 +385,8 @@ func (vca *VirtControllerApp) initCommon() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
 	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
+	//TODO (Kunal):
+	// Create VMIService controler.
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

@@ -71,6 +71,7 @@ var (
 	VirtualMachineGroupVersionKind                   = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
 	VirtualMachineInstanceMigrationGroupVersionKind  = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceMigration"}
 	KubeVirtGroupVersionKind                         = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "KubeVirt"}
+	VMIServiceGroupVersionKind                       = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VMIService"}
 )
 
 var (
@@ -103,6 +104,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 			&VirtualMachineList{},
 			&KubeVirt{},
 			&KubeVirtList{},
+			&VMIService{},
+			&VMIServiceList{},
 		)
 		metav1.AddToGroupVersion(scheme, groupVersion)
 	}

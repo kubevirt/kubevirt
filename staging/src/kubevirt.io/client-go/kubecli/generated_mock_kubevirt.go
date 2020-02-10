@@ -88,6 +88,16 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachineInstance(arg0 interface{})
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineInstance", arg0)
 }
 
+func (_m *MockKubevirtClient) VMIService(namespace string) VMIServiceInterface {
+	ret := _m.ctrl.Call(_m, "VMIService", namespace)
+	ret0, _ := ret[0].(VMIServiceInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) VMIService(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VMIService", arg0)
+}
+
 func (_m *MockKubevirtClient) VirtualMachineInstanceMigration(namespace string) VirtualMachineInstanceMigrationInterface {
 	ret := _m.ctrl.Call(_m, "VirtualMachineInstanceMigration", namespace)
 	ret0, _ := ret[0].(VirtualMachineInstanceMigrationInterface)
@@ -647,6 +657,97 @@ func (_m *MockStreamInterface) Stream(options StreamOptions) error {
 
 func (_mr *_MockStreamInterfaceRecorder) Stream(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stream", arg0)
+}
+
+// Mock of VMIServiceInterface interface
+type MockVMIServiceInterface struct {
+	ctrl     *gomock.Controller
+	recorder *_MockVMIServiceInterfaceRecorder
+}
+
+// Recorder for MockVMIServiceInterface (not exported)
+type _MockVMIServiceInterfaceRecorder struct {
+	mock *MockVMIServiceInterface
+}
+
+func NewMockVMIServiceInterface(ctrl *gomock.Controller) *MockVMIServiceInterface {
+	mock := &MockVMIServiceInterface{ctrl: ctrl}
+	mock.recorder = &_MockVMIServiceInterfaceRecorder{mock}
+	return mock
+}
+
+func (_m *MockVMIServiceInterface) EXPECT() *_MockVMIServiceInterfaceRecorder {
+	return _m.recorder
+}
+
+func (_m *MockVMIServiceInterface) Get(name string, options *v11.GetOptions) (*v114.VMIService, error) {
+	ret := _m.ctrl.Call(_m, "Get", name, options)
+	ret0, _ := ret[0].(*v114.VMIService)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVMIServiceInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
+}
+
+func (_m *MockVMIServiceInterface) List(opts *v11.ListOptions) (*v114.VMIServiceList, error) {
+	ret := _m.ctrl.Call(_m, "List", opts)
+	ret0, _ := ret[0].(*v114.VMIServiceList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVMIServiceInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
+}
+
+func (_m *MockVMIServiceInterface) Create(instance *v114.VMIService) (*v114.VMIService, error) {
+	ret := _m.ctrl.Call(_m, "Create", instance)
+	ret0, _ := ret[0].(*v114.VMIService)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVMIServiceInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
+}
+
+func (_m *MockVMIServiceInterface) Update(_param0 *v114.VMIService) (*v114.VMIService, error) {
+	ret := _m.ctrl.Call(_m, "Update", _param0)
+	ret0, _ := ret[0].(*v114.VMIService)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVMIServiceInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0)
+}
+
+func (_m *MockVMIServiceInterface) Delete(name string, options *v11.DeleteOptions) error {
+	ret := _m.ctrl.Call(_m, "Delete", name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVMIServiceInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
+}
+
+func (_m *MockVMIServiceInterface) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (*v114.VMIService, error) {
+	_s := []interface{}{name, pt, data}
+	for _, _x := range subresources {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "Patch", _s...)
+	ret0, _ := ret[0].(*v114.VMIService)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVMIServiceInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
 // Mock of VirtualMachineInstanceInterface interface

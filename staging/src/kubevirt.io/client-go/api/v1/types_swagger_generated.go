@@ -347,3 +347,37 @@ func (RenameOptions) SwaggerDoc() map[string]string {
 		"": "Options for a rename operation",
 	}
 }
+
+func (VMIServiceSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "VirtualMachineInstanceServiceSpec defines the desired state of VirtualMachineInstanceService\nVMIServiceSpec defines the desired state of VMIService\n+k8s:openapi-gen=true",
+		"selector": "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster\nImportant: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file\nAdd custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html",
+	}
+}
+
+func (HostNetworkPair) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (RequestRules) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (VMIServiceStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "VMIServiceStatus defines the observed state of VMIService\n+k8s:openapi-gen=true",
+		"nodeName": "NodeName is the name where the VirtualMachineInstance is currently running.",
+	}
+}
+
+func (VMIService) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VMIService is the Schema for the VMIServices API\n+k8s:openapi-gen=true\n+kubebuilder:subresource:status\n+kubebuilder:resource:path=vmiservices,scope=Namespaced",
+	}
+}
+
+func (VMIServiceList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VMIServiceList is a list of vmiservicelist",
+	}
+}

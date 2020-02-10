@@ -46,6 +46,7 @@ import (
 
 type KubevirtClient interface {
 	VirtualMachineInstance(namespace string) VirtualMachineInstanceInterface
+	VMIService(namespace string) VMIServiceInterface
 	VirtualMachineInstanceMigration(namespace string) VirtualMachineInstanceMigrationInterface
 	ReplicaSet(namespace string) ReplicaSetInterface
 	VirtualMachine(namespace string) VirtualMachineInterface
@@ -116,6 +117,15 @@ type StreamOptions struct {
 
 type StreamInterface interface {
 	Stream(options StreamOptions) error
+}
+
+type VMIServiceInterface interface {
+	Get(name string, options *k8smetav1.GetOptions) (*v1.VMIService, error)
+	List(opts *k8smetav1.ListOptions) (*v1.VMIServiceList, error)
+	Create(instance *v1.VMIService) (*v1.VMIService, error)
+	Update(*v1.VMIService) (*v1.VMIService, error)
+	Delete(name string, options *k8smetav1.DeleteOptions) error
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VMIService, err error)
 }
 
 type VirtualMachineInstanceInterface interface {

@@ -15,6 +15,7 @@ go_library(
         "vm.go",
         "vmi.go",
         "vmipreset.go",
+        "vmiservice.go",
         "websocket.go",
     ],
     importpath = "kubevirt.io/client-go/kubecli",

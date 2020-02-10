@@ -9,6 +9,7 @@ go_library(
         "replicaset.go",
         "vm.go",
         "vmi.go",
+        "vmiservice.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch",
     visibility = ["//visibility:public"],
