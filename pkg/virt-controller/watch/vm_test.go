@@ -891,8 +891,10 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				Context("a VM with the new name exists", func() {
-					var newVM *v1.VirtualMachine
-					var checkForExistingVM *gomock.Call
+					var (
+						newVM              *v1.VirtualMachine
+						checkForExistingVM *gomock.Call
+					)
 
 					BeforeEach(func() {
 						newVM, _ = DefaultVirtualMachineWithNames(false, "newtest", "")
@@ -913,8 +915,10 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				Context("a VM with the new name does not exist", func() {
-					var newName string
-					var checkForExistingVM *gomock.Call
+					var (
+						newName            string
+						checkForExistingVM *gomock.Call
+					)
 
 					BeforeEach(func() {
 						newName = "newtest"

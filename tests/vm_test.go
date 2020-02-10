@@ -1262,6 +1262,55 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 			})
 		})
+
+		FContext("VM rename", func() {
+			var vm1 *v1.VirtualMachine
+
+			BeforeEach(func() {
+				vm1 = newVirtualMachine(false)
+			})
+
+			It("should rename a stopped VM only once", func() {
+				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm1.Name, vm1.Name+"new",
+					"--namespace", vm1.Namespace)
+				Expect(renameCommand()).To(Succeed())
+				Expect(renameCommand()).ToNot(Succeed())
+			})
+
+			It("should rename a stopped VM", func() {
+				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm1.Name, vm1.Name+"new",
+					"--namespace", vm1.Namespace)
+				Expect(renameCommand()).To(Succeed())
+			})
+
+			It("should reject renaming a running VM", func() {
+				vm2 := newVirtualMachine(true)
+
+				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm2.Name, vm2.Name+"new",
+					"--namespace", vm2.Namespace)
+				Expect(renameCommand()).ToNot(Succeed())
+			})
+
+			It("should reject renaming a VM to the same name", func() {
+				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm1.Name, vm1.Name,
+					"--namespace", vm1.Namespace)
+				Expect(renameCommand()).ToNot(Succeed())
+			})
+
+			It("should reject renaming a VM with an empty name", func() {
+				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm1.Name, "",
+					"--namespace", vm1.Namespace)
+				Expect(renameCommand()).ToNot(Succeed())
+			})
+
+			It("should reject renaming a VM if the new name is taken", func() {
+				vm2 := newVirtualMachine(true)
+
+				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm1.Name, vm2.Name,
+					"--namespace", vm1.Namespace)
+				Expect(renameCommand()).ToNot(Succeed())
+			})
+		})
 	})
 
 	Context("[rfe_id:273]with oc/kubectl", func() {
@@ -1520,6 +1569,110 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 		})
 
+	})
+
+	Context("VM rename", func() {
+		var (
+			vm  *v1.VirtualMachine
+			cli kubecli.VirtualMachineInterface
+		)
+
+		BeforeEach(func() {
+			vm = tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			cli = virtClient.VirtualMachine(tests.NamespaceTestDefault)
+		})
+
+		Context("VM creation", func() {
+			It("should fail if a VM is created with renameTo annotation", func() {
+				vm.Annotations = map[string]string{
+					v1.RenameToAnnotation: "somethingnew",
+				}
+
+				_, err := cli.Create(vm)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("Creating a VM with renameTo annotation is prohibited"))
+			})
+
+			It("should succeed if a VM is created with renameFrom annotation", func() {
+				vm.Annotations = map[string]string{
+					v1.RenameFromAnnotation: "somethingold",
+				}
+
+				_, err := cli.Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		Context("VM update", func() {
+			var (
+				vm1 *v1.VirtualMachine
+			)
+
+			BeforeEach(func() {
+				vm1 = tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+				cli.Create(vm1)
+			})
+
+			It("should fail if the new name is already taken", func() {
+				vm2 := tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+				cli.Create(vm2)
+
+				err := cli.Rename(vm1.Name, vm2.Name)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("name already exists"))
+			})
+
+			It("should fail if the new name is empty", func() {
+				err := cli.Rename(vm1.Name, "")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("new name is empty"))
+			})
+
+			It("should fail if the new name is identical to the current name", func() {
+				err := cli.Rename(vm1.Name, vm1.Name)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("identical"))
+			})
+
+			It("should fail if the VM is running", func() {
+				err := cli.Start(vm1.Name)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = cli.Rename(vm1.Name, vm1.Name+"new")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("running"))
+			})
+
+			It("should fail if the VM has an active runStrategy", func() {
+				vm1 = tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+				rs := v1.RunStrategyManual
+				vm1.Spec.RunStrategy = &rs
+				vm1.Spec.Running = nil
+
+				_, err := cli.Create(vm1)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = cli.Rename(vm1.Name, vm1.Name+"new")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).
+					To(ContainSubstring("Renaming a VM is only allowed if 'Halted' run strategy is applied"))
+			})
+
+			It("should succeed", func() {
+				err := cli.Rename(vm1.Name, vm1.Name+"new")
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() error {
+					_, err := cli.Get(vm1.Name+"new", &v12.GetOptions{})
+
+					return err
+				}).Should(BeNil())
+
+				_, err = cli.Get(vm1.Name, &v12.GetOptions{})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("not found"))
+			})
+		})
 	})
 })
 

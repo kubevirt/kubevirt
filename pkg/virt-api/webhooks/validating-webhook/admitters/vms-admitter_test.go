@@ -215,8 +215,10 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 
 	Context("VM rename", func() {
-		var vm *v1.VirtualMachine
-		var ar *v1beta1.AdmissionReview
+		var (
+			vm *v1.VirtualMachine
+			ar *v1beta1.AdmissionReview
+		)
 
 		BeforeEach(func() {
 			vmName := "testvm"

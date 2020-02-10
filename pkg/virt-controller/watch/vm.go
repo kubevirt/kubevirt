@@ -21,6 +21,7 @@ package watch
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -350,8 +351,7 @@ func handleVMRenaming(vm *virtv1.VirtualMachine, c *VMController, logger *log.Fi
 				}
 			}
 		} else {
-			errMsg := fmt.Sprintf("a VM with the name '%s' exists, renaming process of VM '%s' failed",
-				renameTo, vm.Name)
+			errMsg := fmt.Sprintf("a VM with the name '%s' exists", renameTo)
 			logger.Error(errMsg)
 		}
 
@@ -361,7 +361,8 @@ func handleVMRenaming(vm *virtv1.VirtualMachine, c *VMController, logger *log.Fi
 		_, err = c.clientset.VirtualMachine(vm.Namespace).Patch(vm.Name, types.MergePatchType, []byte(patchString))
 
 		if err != nil && !strings.Contains(err.Error(), "not found") {
-			logger.Reason(err).Error(fmt.Sprintf("Failed removing 'renameTo' annotation from vm: %s", vm.Name))
+			errMsg := fmt.Sprintf("Failed removing 'renameTo' annotation from vm: %s", vm.Name)
+			logger.Reason(err).Error(errMsg)
 			return err
 		}
 
@@ -403,6 +404,31 @@ func handleVMRenaming(vm *virtv1.VirtualMachine, c *VMController, logger *log.Fi
 
 	// VM has no rename annotations, nothing to do
 	return nil
+}
+
+func writeEventToVM(c *VMController, vm *virtv1.VirtualMachine, msg string) {
+	hostname, _ := os.Hostname()
+
+	event := &k8score.Event{
+		InvolvedObject:      k8score.ObjectReference{
+			Kind:            vm.Kind,
+			Namespace:       vm.Namespace,
+			Name:            vm.Name,
+			UID:             vm.UID,
+			APIVersion:      vm.APIVersion,
+			ResourceVersion: vm.ResourceVersion,
+		},
+		Reason:              "",
+		Message:             msg,
+		Source:              k8score.EventSource{
+			Component: "virt-controller",
+			Host:      hostname,
+		},
+		ReportingController: "virt-controller",
+		ReportingInstance:   hostname,
+	}
+
+	c.clientset.CoreV1().Events(vm.Namespace).Create(event)
 }
 
 func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
