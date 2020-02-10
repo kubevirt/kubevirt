@@ -98,7 +98,8 @@ func (BIOS) SwaggerDoc() map[string]string {
 
 func (EFI) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "If set, EFI will be used instead of BIOS.\n\n+k8s:openapi-gen=true",
+		"":           "If set, EFI will be used instead of BIOS.\n\n+k8s:openapi-gen=true",
+		"secureBoot": "If set, SecureBoot will be enabled and the OVMF roms will be swapped for\nSecureBoot-enabled ones.\nRequires SMM to be enabled.\nDefaults to false\n+optional",
 	}
 }
 

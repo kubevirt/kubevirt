@@ -219,6 +219,12 @@ type BIOS struct {
 //
 // +k8s:openapi-gen=true
 type EFI struct {
+	// If set, SecureBoot will be enabled and the OVMF roms will be swapped for
+	// SecureBoot-enabled ones.
+	// Requires SMM to be enabled.
+	// Defaults to false
+	// +optional
+	SecureBoot *bool `json:"secureBoot,omitempty"`
 }
 
 //
