@@ -297,7 +297,7 @@ var _ = Describe("ConfigMap", func() {
 		Expect(selinuxLauncherType).To(Equal(result))
 	},
 		table.Entry("when set, GetSELinuxLauncherType should return the value", "spc_t", "spc_t"),
-		table.Entry("when unset, GetSELinuxLauncherType should return the default", "", ""),
+		table.Entry("when unset, GetSELinuxLauncherType should return the default", virtconfig.DefaultSELinuxLauncherType, virtconfig.DefaultSELinuxLauncherType),
 	)
 
 })
