@@ -21,7 +21,6 @@ package watch
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -281,7 +280,7 @@ func (c *VMController) execute(key string) error {
 		return createErr
 	}
 
-	err = handleVMRenaming(vm, c, logger)
+	err = c.handleVMRenaming(vm, logger)
 
 	if err != nil {
 		return err
@@ -290,7 +289,7 @@ func (c *VMController) execute(key string) error {
 	return nil
 }
 
-func handleVMRenaming(vm *virtv1.VirtualMachine, c *VMController, logger *log.FilteredLogger) error {
+func (c *VMController) handleVMRenaming(vm *virtv1.VirtualMachine, logger *log.FilteredLogger) error {
 	// Check if renameTo annotation exists
 	renameTo, hasRenameToAnnotation := vm.ObjectMeta.Annotations[virtv1.RenameToAnnotation]
 
@@ -342,7 +341,7 @@ func handleVMRenaming(vm *virtv1.VirtualMachine, c *VMController, logger *log.Fi
 					}
 				}
 
-				_, err := c.clientset.VirtualMachine(vm.Namespace).Create(newVM)
+				_, err = c.clientset.VirtualMachine(vm.Namespace).Create(newVM)
 
 				if err != nil {
 					errMsg := fmt.Sprintf("Could not reserve the name '%s' for VM '%s'", renameTo, vm.Name)
@@ -378,14 +377,35 @@ func handleVMRenaming(vm *virtv1.VirtualMachine, c *VMController, logger *log.Fi
 		// TODO can I delete the old vm using c.vmiVMInformer.GetStore().Delete()
 		// TODO and be 100% sure it will be removed from the cluster?
 		// TODO If its possible, tests should be fixed
-		err := c.clientset.VirtualMachine(vm.Namespace).Delete(renameFrom, &v1.DeleteOptions{})
+		// Check if the old VM still exists
+		oldVM, err := c.clientset.VirtualMachine(vm.Namespace).
+			Get(vm.Annotations[virtv1.RenameFromAnnotation], &v1.GetOptions{})
 
 		if err != nil {
 			if !strings.Contains(err.Error(), "not found") {
-				errMsg :=
-					fmt.Sprintf("Could not release VM name '%s' after renaming to '%s'", renameFrom, vm.Name)
+				errMsg := fmt.Sprintf("Could not determine if the old name was made available: %s", vm.Name)
 				logger.Reason(err).Error(errMsg)
 				return err
+			}
+		} else {
+			// Check if rename annotations match
+			if oldVM.Annotations != nil {
+				oldVMRenameTo, oldVMHasRenameToAnnotation := oldVM.Annotations[virtv1.RenameToAnnotation]
+
+				if oldVMHasRenameToAnnotation && oldVMRenameTo == vm.Name {
+					err := c.clientset.VirtualMachine(vm.Namespace).Delete(renameFrom, &v1.DeleteOptions{})
+
+					if err != nil {
+						if !strings.Contains(err.Error(), "not found") {
+							errMsg :=
+								fmt.Sprintf("Could not release VM name '%s' after renaming to '%s'",
+									renameFrom, vm.Name)
+							logger.Reason(err).Error(errMsg)
+							return err
+						}
+					}
+
+				}
 			}
 		}
 
@@ -395,7 +415,8 @@ func handleVMRenaming(vm *virtv1.VirtualMachine, c *VMController, logger *log.Fi
 		_, err = c.clientset.VirtualMachine(vm.Namespace).Patch(vm.Name, types.MergePatchType, []byte(patchString))
 
 		if err != nil {
-			logger.Reason(err).Error(fmt.Sprintf("Failed removing 'renameFrom' annotation from vm: %s", vm.Name))
+			errMsg := fmt.Sprintf("Failed removing 'renameFrom' annotation from vm: %s", vm.Name)
+			logger.Reason(err).Error(errMsg)
 			return err
 		}
 
@@ -404,31 +425,6 @@ func handleVMRenaming(vm *virtv1.VirtualMachine, c *VMController, logger *log.Fi
 
 	// VM has no rename annotations, nothing to do
 	return nil
-}
-
-func writeEventToVM(c *VMController, vm *virtv1.VirtualMachine, msg string) {
-	hostname, _ := os.Hostname()
-
-	event := &k8score.Event{
-		InvolvedObject:      k8score.ObjectReference{
-			Kind:            vm.Kind,
-			Namespace:       vm.Namespace,
-			Name:            vm.Name,
-			UID:             vm.UID,
-			APIVersion:      vm.APIVersion,
-			ResourceVersion: vm.ResourceVersion,
-		},
-		Reason:              "",
-		Message:             msg,
-		Source:              k8score.EventSource{
-			Component: "virt-controller",
-			Host:      hostname,
-		},
-		ReportingController: "virt-controller",
-		ReportingInstance:   hostname,
-	}
-
-	c.clientset.CoreV1().Events(vm.Namespace).Create(event)
 }
 
 func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {

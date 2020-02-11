@@ -1263,7 +1263,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 		})
 
-		FContext("VM rename", func() {
+		Context("VM rename", func() {
 			var vm1 *v1.VirtualMachine
 
 			BeforeEach(func() {

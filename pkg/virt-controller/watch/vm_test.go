@@ -957,27 +957,59 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			Context("target VM", func() {
-				var vm *v1.VirtualMachine
+				var (
+					vm *v1.VirtualMachine
+					oldVM *v1.VirtualMachine
+				)
 
 				BeforeEach(func() {
 					vm, _ = DefaultVirtualMachineWithNames(false, "test", "")
+					oldVM, _ = DefaultVirtualMachineWithNames(false, "oldtest", "")
 					virtcontroller.SetLatestApiVersionAnnotation(vm)
-					vm.Annotations[v1.RenameFromAnnotation] = "oldtest"
+					vm.Annotations[v1.RenameFromAnnotation] = oldVM.Name
+				})
+
+				It("should fail if annotations on both VMs don't match", func() {
+					get := vmInterface.EXPECT().
+						Get(oldVM.Name, gomock.Any()).
+						Return(oldVM, nil)
+
+					vmInterface.EXPECT().
+						Patch(vm.Name, types.MergePatchType, gomock.Any()).
+						Return(nil, nil).
+						After(get)
+
+					addVirtualMachine(vm)
+					controller.Execute()
 				})
 
 				It("should fail if removal of old VM failed", func() {
+					oldVM.Annotations[v1.RenameToAnnotation] = vm.Name
+
+					get := vmInterface.EXPECT().
+						Get(oldVM.Name, gomock.Any()).
+						Return(oldVM, nil)
+
 					vmInterface.EXPECT().
-						Delete(vm.Annotations[v1.RenameFromAnnotation], gomock.Any()).
-						Return(fmt.Errorf("something"))
+						Delete(oldVM.Name, gomock.Any()).
+						Return(fmt.Errorf("something")).
+						After(get)
 
 					addVirtualMachine(vm)
 					controller.Execute()
 				})
 
 				It("should delete the old VM and patch the new VM", func() {
+					oldVM.Annotations[v1.RenameToAnnotation] = vm.Name
+
+					get := vmInterface.EXPECT().
+						Get(oldVM.Name, gomock.Any()).
+						Return(oldVM, nil)
+
 					delete := vmInterface.EXPECT().
 						Delete(vm.Annotations[v1.RenameFromAnnotation], gomock.Any()).
-						Return(nil)
+						Return(nil).
+						After(get)
 
 					vmInterface.EXPECT().
 						Patch(vm.Name, types.MergePatchType, gomock.Any()).
