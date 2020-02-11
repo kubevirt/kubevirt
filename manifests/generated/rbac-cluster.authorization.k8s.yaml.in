@@ -52,6 +52,7 @@ rules:
   - virtualmachineinstances/vnc
   - virtualmachineinstances/pause
   - virtualmachineinstances/unpause
+  - virtualmachineinstances/guestosinfo
   verbs:
   - get
 - apiGroups:
@@ -95,6 +96,7 @@ rules:
   - virtualmachineinstances/vnc
   - virtualmachineinstances/pause
   - virtualmachineinstances/unpause
+  - virtualmachineinstances/guestosinfo
   verbs:
   - get
 - apiGroups:

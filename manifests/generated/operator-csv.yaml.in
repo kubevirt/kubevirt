@@ -569,6 +569,7 @@ spec:
           - virtualmachineinstances/vnc
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
+          - virtualmachineinstances/guestosinfo
           verbs:
           - get
         - apiGroups:
@@ -603,6 +604,7 @@ spec:
           - virtualmachineinstances/vnc
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
+          - virtualmachineinstances/guestosinfo
           verbs:
           - get
         - apiGroups:
