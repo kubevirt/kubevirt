@@ -958,7 +958,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("target VM", func() {
 				var (
-					vm *v1.VirtualMachine
+					vm    *v1.VirtualMachine
 					oldVM *v1.VirtualMachine
 				)
 
