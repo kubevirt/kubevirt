@@ -22,10 +22,9 @@ echo "checking configuration location"
 echo "KUBECONFIG: ${KUBECONFIG}"
 # enable nested-virt
 oc get machineset -n openshift-machine-api -o json >/tmp/machinesets.json
-MACHINE_IMAGE=$(jq .items[0].spec.template.spec.providerSpec.value.disks[0].image /tmp/machinesets.json)
-NESTED_VIRT_IMAGE="sotest-rhcos-nested-virt"
-sed -i "s/$MACHINE_IMAGE/$NESTED_VIRT_IMAGE/g" /tmp/machinesets.json
-sed -i 's/sotest-rhcos-nested-virt/"sotest-rhcos-nested-virt"/g' /tmp/machinesets.json
+MACHINE_IMAGE=$(jq -r .items[0].spec.template.spec.providerSpec.value.disks[0].image /tmp/machinesets.json)
+NESTED_VIRT_IMAGE="rhcos43-nested-virt"
+sed -i 's/'"$MACHINE_IMAGE"'/'"$NESTED_VIRT_IMAGE"'/g'
 oc apply -f /tmp/machinesets.json
 oc scale --replicas=0 machineset --all -n openshift-machine-api
 oc get machines -n openshift-machine-api -o json >/tmp/machines.json
