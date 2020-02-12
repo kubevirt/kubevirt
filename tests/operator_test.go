@@ -1449,10 +1449,13 @@ spec:
 			superPrivilegedType := "spc_t"
 
 			By("Starting a VMI")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Ensuring VMI is running by logging in")
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
 
 			By("Fetching virt-launcher Pod")
 			pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -1479,10 +1482,13 @@ spec:
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting a New VMI")
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Ensuring VMI is running by logging in")
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
 
 			By("Fetching virt-launcher Pod")
 			pod = tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
