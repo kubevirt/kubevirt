@@ -335,10 +335,9 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				tests.WaitForVMCondition(virtClient, vm, v1.VirtualMachinePaused, 30)
 
 				By("Trying to console into the VM")
-				_, err = virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, 30*time.Second)
+				_, err = virtClient.VirtualMachineInstance(vm.ObjectMeta.Namespace).SerialConsole(vm.ObjectMeta.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("VMI is paused"))
-
 			})
 
 			It("[test_id:3084]should gracefully handle vnc connection", func() {

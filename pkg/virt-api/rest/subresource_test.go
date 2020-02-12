@@ -105,6 +105,44 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		)
 	}
 
+	expectVMI := func(running, paused bool) {
+		request.PathParameters()["name"] = "testvmi"
+		request.PathParameters()["namespace"] = "default"
+
+		phase := v1.Running
+		if !running {
+			phase = v1.Failed
+		}
+
+		vmi := v1.VirtualMachineInstance{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Name:      "testvmi",
+				Namespace: "default",
+			},
+			Status: v1.VirtualMachineInstanceStatus{
+				Phase: phase,
+			},
+		}
+
+		if paused {
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstancePaused,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+		}
+
+		server.AppendHandlers(
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi"),
+				ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+			),
+		)
+
+		expectHandlerPod()
+	}
+
 	Context("Subresource api", func() {
 		It("should find matching pod for running VirtualMachineInstance", func(done Done) {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -226,7 +264,19 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			close(done)
 		}, 5)
 
-		It("should fail with no graphics device at VNC connections", func(done Done) {
+		It("should fail to connect to VNC if the VMI is paused", func(done Done) {
+
+			request.PathParameters()["name"] = "testvmi"
+			request.PathParameters()["namespace"] = "default"
+
+			expectVMI(true, true)
+
+			app.VNCRequestHandler(request, response)
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			close(done)
+		}, 5)
+
+		It("should fail with no serial console at console connections", func(done Done) {
 
 			request.PathParameters()["name"] = "testvmi"
 			request.PathParameters()["namespace"] = "default"
@@ -235,7 +285,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
-			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &flag
+			vmi.Spec.Domain.Devices.AutoattachSerialConsole = &flag
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -244,8 +294,20 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				),
 			)
 
-			app.VNCRequestHandler(request, response)
+			app.ConsoleRequestHandler(request, response)
 			ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			close(done)
+		}, 5)
+
+		It("should fail to connect to the serial console if the VMI is paused", func(done Done) {
+
+			request.PathParameters()["name"] = "testvmi"
+			request.PathParameters()["namespace"] = "default"
+
+			expectVMI(true, true)
+
+			app.ConsoleRequestHandler(request, response)
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			close(done)
 		}, 5)
 
@@ -1032,45 +1094,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
-
-	expectVMI := func(running, paused bool) {
-		request.PathParameters()["name"] = "testvmi"
-		request.PathParameters()["namespace"] = "default"
-
-		phase := v1.Running
-		if !running {
-			phase = v1.Failed
-		}
-
-		vmi := v1.VirtualMachineInstance{
-			ObjectMeta: k8smetav1.ObjectMeta{
-				Name:      "testvmi",
-				Namespace: "default",
-			},
-			Status: v1.VirtualMachineInstanceStatus{
-				Phase: phase,
-			},
-		}
-
-		if paused {
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
-				{
-					Type:   v1.VirtualMachineInstancePaused,
-					Status: k8sv1.ConditionTrue,
-				},
-			}
-		}
-
-		server.AppendHandlers(
-			ghttp.CombineHandlers(
-				ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi"),
-				ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-			),
-		)
-
-		expectHandlerPod()
-
-	}
 
 	Context("Pausing", func() {
 		It("Should pause a running, not paused VMI", func() {

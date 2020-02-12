@@ -736,6 +736,13 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
+					"autoattachSerialConsole": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"rng": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Whether to have random number generator from host",

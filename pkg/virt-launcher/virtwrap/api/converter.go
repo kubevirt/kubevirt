@@ -1011,30 +1011,32 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel
 	}
 
-	// Add mandatory console device
-	var serialPort uint = 0
-	var serialType string = "serial"
-	domain.Spec.Devices.Consoles = []Console{
-		{
-			Type: "pty",
-			Target: &ConsoleTarget{
-				Type: &serialType,
-				Port: &serialPort,
+	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole == true {
+		// Add mandatory console device
+		var serialPort uint = 0
+		var serialType string = "serial"
+		domain.Spec.Devices.Consoles = []Console{
+			{
+				Type: "pty",
+				Target: &ConsoleTarget{
+					Type: &serialType,
+					Port: &serialPort,
+				},
 			},
-		},
-	}
+		}
 
-	domain.Spec.Devices.Serials = []Serial{
-		{
-			Type: "unix",
-			Target: &SerialTarget{
-				Port: &serialPort,
+		domain.Spec.Devices.Serials = []Serial{
+			{
+				Type: "unix",
+				Target: &SerialTarget{
+					Port: &serialPort,
+				},
+				Source: &SerialSource{
+					Mode: "bind",
+					Path: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-serial%d", vmi.ObjectMeta.UID, serialPort),
+				},
 			},
-			Source: &SerialSource{
-				Mode: "bind",
-				Path: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-serial%d", vmi.ObjectMeta.UID, serialPort),
-			},
-		},
+		}
 	}
 
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == true {

@@ -183,43 +183,51 @@ type connectionStruct struct {
 	err error
 }
 
-func (v *vmis) SerialConsole(name string, timeout time.Duration) (StreamInterface, error) {
-	timeoutChan := time.Tick(timeout)
-	connectionChan := make(chan connectionStruct)
+type SerialConsoleOptions struct {
+	ConnectionTimeout time.Duration
+}
 
-	go func() {
-		for {
+func (v *vmis) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
 
-			select {
-			case <-timeoutChan:
-				connectionChan <- connectionStruct{
-					con: nil,
-					err: fmt.Errorf("Timeout trying to connect to the virtual machine instance"),
-				}
-				return
-			default:
-			}
+	if options != nil && options.ConnectionTimeout != 0 {
+		timeoutChan := time.Tick(options.ConnectionTimeout)
+		connectionChan := make(chan connectionStruct)
 
-			con, err := v.asyncSubresourceHelper(name, "console")
-			if err != nil {
-				asyncSubresourceError, ok := err.(*AsyncSubresourceError)
-				// return if response status code does not equal to 400
-				if !ok || asyncSubresourceError.GetStatusCode() != http.StatusBadRequest {
-					connectionChan <- connectionStruct{con: nil, err: err}
+		go func() {
+			for {
+
+				select {
+				case <-timeoutChan:
+					connectionChan <- connectionStruct{
+						con: nil,
+						err: fmt.Errorf("Timeout trying to connect to the virtual machine instance"),
+					}
 					return
+				default:
 				}
 
-				time.Sleep(1 * time.Second)
-				continue
+				con, err := v.asyncSubresourceHelper(name, "console")
+				if err != nil {
+					asyncSubresourceError, ok := err.(*AsyncSubresourceError)
+					// return if response status code does not equal to 400
+					if !ok || asyncSubresourceError.GetStatusCode() != http.StatusBadRequest {
+						connectionChan <- connectionStruct{con: nil, err: err}
+						return
+					}
+
+					time.Sleep(1 * time.Second)
+					continue
+				}
+
+				connectionChan <- connectionStruct{con: con, err: nil}
+				return
 			}
-
-			connectionChan <- connectionStruct{con: con, err: nil}
-			return
-		}
-	}()
-
-	conStruct := <-connectionChan
-	return conStruct.con, conStruct.err
+		}()
+		conStruct := <-connectionChan
+		return conStruct.con, conStruct.err
+	} else {
+		return v.asyncSubresourceHelper(name, "console")
+	}
 }
 
 type AsyncSubresourceError struct {

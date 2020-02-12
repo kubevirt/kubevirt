@@ -399,6 +399,11 @@ func (in *Devices) DeepCopyInto(out *Devices) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.AutoattachSerialConsole != nil {
+		in, out := &in.AutoattachSerialConsole, &out.AutoattachSerialConsole
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Rng != nil {
 		in, out := &in.Rng, &out.Rng
 		*out = new(Rng)
