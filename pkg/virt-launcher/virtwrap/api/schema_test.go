@@ -21,6 +21,7 @@ package api
 
 import (
 	"encoding/xml"
+	"runtime"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -31,6 +32,79 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
   <memory unit="MB">9</memory>
   <os>
     <type arch="x86_64" machine="q35">hvm</type>
+  </os>
+  <sysinfo type="smbios">
+    <system>
+      <entry name="uuid">e4686d2c-6e8d-4335-b8fd-81bee22f4814</entry>
+    </system>
+    <bios></bios>
+    <baseBoard></baseBoard>
+    <chassis></chassis>
+  </sysinfo>
+  <devices>
+    <controller type="raw" index="0" model="none"></controller>
+    <video>
+      <model type="vga" heads="1" vram="16384"></model>
+    </video>
+    <memballoon model="none"></memballoon>
+    <disk device="disk" type="network">
+      <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
+        <host name="example.com" port="3260"></host>
+      </source>
+      <target dev="vda"></target>
+      <driver name="qemu" type="raw"></driver>
+      <alias name="ua-mydisk"></alias>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
+      <target dev="vdb"></target>
+      <driver name="qemu" type="raw"></driver>
+      <alias name="ua-mydisk1"></alias>
+    </disk>
+    <disk device="disk" type="block">
+      <source dev="/dev/testdev"></source>
+      <target dev="vdc"></target>
+      <driver name="qemu" type="raw"></driver>
+      <alias name="ua-mydisk2"></alias>
+    </disk>
+    <input type="tablet" bus="virtio">
+      <alias name="ua-tablet0"></alias>
+    </input>
+    <console type="pty"></console>
+    <watchdog model="i6300esb" action="poweroff">
+      <alias name="ua-mywatchdog"></alias>
+    </watchdog>
+    <rng model="virtio">
+      <backend model="random">/dev/urandom</backend>
+    </rng>
+  </devices>
+  <metadata>
+    <kubevirt xmlns="http://kubevirt.io">
+      <uid>f4686d2c-6e8d-4335-b8fd-81bee22f4814</uid>
+      <graceperiod>
+        <deletionGracePeriodSeconds>5</deletionGracePeriodSeconds>
+      </graceperiod>
+    </kubevirt>
+  </metadata>
+  <features>
+    <acpi></acpi>
+    <smm></smm>
+  </features>
+  <cpu mode="custom">
+    <model>Conroe</model>
+    <feature name="pcid" policy="require"></feature>
+    <feature name="monitor" policy="disable"></feature>
+    <topology sockets="1" cores="2" threads="1"></topology>
+  </cpu>
+  <vcpu placement="static">2</vcpu>
+  <iothreads>2</iothreads>
+</domain>`
+
+var exampleXMLppc64le = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+  <name>mynamespace_testvmi</name>
+  <memory unit="MB">9</memory>
+  <os>
+    <type arch="ppc64le" machine="pseries">hvm</type>
   </os>
   <sysinfo type="smbios">
     <system>
@@ -230,8 +304,13 @@ var _ = Describe("Schema", func() {
 	})
 	Context("With example schema", func() {
 		It("Unmarshal into struct", func() {
+			var err error
 			newDomain := DomainSpec{}
-			err := xml.Unmarshal([]byte(exampleXML), &newDomain)
+			if runtime.GOARCH == "ppc64le" {
+				err = xml.Unmarshal([]byte(exampleXMLppc64le), &newDomain)
+			} else {
+				err = xml.Unmarshal([]byte(exampleXML), &newDomain)
+			}
 			newDomain.XMLName.Local = ""
 			newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
 			Expect(err).To(BeNil())
@@ -241,7 +320,11 @@ var _ = Describe("Schema", func() {
 		It("Marshal into xml", func() {
 			buf, err := xml.MarshalIndent(exampleDomain.Spec, "", "  ")
 			Expect(err).To(BeNil())
-			Expect(string(buf)).To(Equal(exampleXML))
+			if runtime.GOARCH == "ppc64le" {
+				Expect(string(buf)).To(Equal(exampleXMLppc64le))
+			} else {
+				Expect(string(buf)).To(Equal(exampleXML))
+			}
 		})
 	})
 	Context("With cpu pinning", func() {

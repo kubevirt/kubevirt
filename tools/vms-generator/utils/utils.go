@@ -513,7 +513,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 					Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
 				},
 			},
-			Machine: v1.Machine{Type: "q35"},
+			Machine: v1.Machine{Type: ""},
 			Clock: &v1.Clock{
 				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
 				Timer: &v1.Timer{

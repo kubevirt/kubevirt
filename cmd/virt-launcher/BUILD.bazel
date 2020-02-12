@@ -48,7 +48,10 @@ load(
 
 container_image(
     name = "version-container",
-    base = "@libvirt//image",
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@libvirt_ppc64le//image",
+        "//conditions:default": "@libvirt//image",
+    }),
     directory = "/",
     files = ["//:get-version"],
 )

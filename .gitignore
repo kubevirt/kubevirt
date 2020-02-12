@@ -35,7 +35,7 @@ tools/vms-generator/vms-generator
 coverage.html
 manifests/**/*.tmp
 /bazel-*
-/.bazelrc
+/ci.bazelrc
 _ci-configs/
 .history
 hack/builder/manifests/

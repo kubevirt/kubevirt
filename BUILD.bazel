@@ -93,17 +93,27 @@ genrule(
 
 genrule(
     name = "libvirt-shared-libs",
-    srcs = ["@libvirt_libs//file"],
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@libvirt_libs_ppc64le//file"],
+        "//conditions:default": ["@libvirt_libs//file"],
+    }),
     outs = [
         "libvirt.so.0.5000.0",
         "libvirt-lxc.so.0.5000.0",
         "libvirt-qemu.so.0.5000.0",
     ],
-    cmd = "\n".join([
-        "rpm2archive $(location @libvirt_libs//file)",
-        "tar -xzf $(location @libvirt_libs//file).tgz",
-        "cp -R usr/lib64/*.so.0.5000.0 $(@D)",
-    ]),
+    cmd = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "\n".join([
+            "rpm2archive $(location @libvirt_libs_ppc64le//file)",
+            "tar -xzf $(location @libvirt_libs_ppc64le//file).tgz",
+            "cp -R usr/lib64/*.so.0.5000.0 $(@D)",
+        ]),
+        "//conditions:default": "\n".join([
+            "rpm2archive $(location @libvirt_libs//file)",
+            "tar -xzf $(location @libvirt_libs//file).tgz",
+            "cp -R usr/lib64/*.so.0.5000.0 $(@D)",
+        ]),
+    }),
 )
 
 cc_library(
@@ -117,7 +127,10 @@ cc_library(
 
 genrule(
     name = "libvirt-devel-headers",
-    srcs = ["@libvirt_devel//file"],
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@libvirt_devel_ppc64le//file"],
+        "//conditions:default": ["@libvirt_devel//file"],
+    }),
     outs = [
         "libvirt/libvirt-admin.h",
         "libvirt/libvirt-common.h",
@@ -137,11 +150,18 @@ genrule(
         "libvirt/libvirt-stream.h",
         "libvirt/virterror.h",
     ],
-    cmd = "\n".join([
-        "rpm2archive $(location @libvirt_devel//file)",
-        "tar -xzf $(location @libvirt_devel//file).tgz",
-        "cp -R usr/include/libvirt $(@D)",
-    ]),
+    cmd = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "\n".join([
+            "rpm2archive $(location @libvirt_devel_ppc64le//file)",
+            "tar -xzf $(location @libvirt_devel_ppc64le//file).tgz",
+            "cp -R usr/include/libvirt $(@D)",
+        ]),
+        "//conditions:default": "\n".join([
+            "rpm2archive $(location @libvirt_devel//file)",
+            "tar -xzf $(location @libvirt_devel//file).tgz",
+            "cp -R usr/include/libvirt $(@D)",
+        ]),
+    }),
 )
 
 cc_library(
@@ -188,7 +208,10 @@ load(
 
 container_image(
     name = "passwd-image",
-    base = "@fedora//image",
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_ppc64le//image",
+        "//conditions:default": "@fedora//image",
+    }),
     tars = [":passwd-tar"],
     user = "1001",
     visibility = ["//visibility:public"],

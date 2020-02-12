@@ -26,6 +26,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -722,8 +723,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	// Take SMBios values from the VirtualMachineOptions
-	domain.Spec.OS.SMBios = &SMBios{
-		Mode: "sysinfo",
+	// SMBios option does not work in Power, attempting to set it will result in the following error message:
+	// "Option not supported for this target" issued by qemu-system-ppc64, so don't set it in case GOARCH is ppc64le
+	if runtime.GOARCH != "ppc64le" {
+		domain.Spec.OS.SMBios = &SMBios{
+			Mode: "sysinfo",
+		}
 	}
 
 	if vmi.Spec.Domain.Chassis != nil {
@@ -911,7 +916,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 	//usb controller is turned on, only when user specify input device with usb bus,
 	//otherwise it is turned off
-	if !isUSBDevicePresent {
+	//In ppc64le usb devices like mouse / keyboard are set by default,
+	//so we can't disable the controller otherwise we run into the following error:
+	//"unsupported configuration: USB is disabled for this domain, but USB devices are present in the domain XML"
+	if !isUSBDevicePresent && runtime.GOARCH != "ppc64le" {
 		// disable usb controller
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
 			Type:  "usb",

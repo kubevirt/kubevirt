@@ -22,6 +22,7 @@ package admitters
 import (
 	"encoding/json"
 	"fmt"
+	rt "runtime"
 	"strconv"
 	"strings"
 
@@ -376,7 +377,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with VirtualMachineInstance spec", func() {
 		It("should accept valid machine type", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Machine.Type = "q35"
+			if rt.GOARCH == "ppc64le" {
+				vmi.Spec.Domain.Machine.Type = "pseries"
+			} else {
+				vmi.Spec.Domain.Machine.Type = "q35"
+			}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))

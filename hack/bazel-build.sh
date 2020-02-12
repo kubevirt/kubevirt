@@ -28,48 +28,36 @@ mkdir -p ${CMD_OUT_DIR}/dump
 
 # Build all binaries for amd64
 bazel build \
-    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo \
+    --config=${ARCHITECTURE} \
     --stamp \
-    --workspace_status_command=./hack/print-workspace-status.sh \
-    --host_force_python=${bazel_py} \
     //tools/csv-generator/... //cmd/... //staging/src/kubevirt.io/client-go/examples/...
 
 # Copy dump binary to a reachable place outside of the build container
 bazel run \
     --stamp \
-    --workspace_status_command=./hack/print-workspace-status.sh \
-    --host_force_python=${bazel_py} \
     :build-dump -- ${CMD_OUT_DIR}/dump/dump
 
 # build platform native virtctl explicitly
 bazel run \
     --stamp \
-    --workspace_status_command=./hack/print-workspace-status.sh \
-    --host_force_python=${bazel_py} \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl
 
 # cross-compile virtctl for
 
 # linux
 bazel run \
-    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo \
+    --config=${ARCHITECTURE} \
     --stamp \
-    --workspace_status_command=./hack/print-workspace-status.sh \
-    --host_force_python=${bazel_py} \
-    :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-amd64
+    :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-${ARCHITECTURE}
 
 # darwin
 bazel run \
     --platforms=@io_bazel_rules_go//go/toolchain:darwin_amd64 \
     --stamp \
-    --workspace_status_command=./hack/print-workspace-status.sh \
-    --host_force_python=${bazel_py} \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-amd64
 
 # windows
 bazel run \
     --platforms=@io_bazel_rules_go//go/toolchain:windows_amd64 \
     --stamp \
-    --workspace_status_command=./hack/print-workspace-status.sh \
-    --host_force_python=${bazel_py} \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-windows-amd64.exe

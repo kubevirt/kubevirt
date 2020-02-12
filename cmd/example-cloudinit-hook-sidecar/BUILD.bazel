@@ -29,7 +29,10 @@ load(
 
 container_image(
     name = "example-cloudinit-hook-sidecar-image",
-    base = "@fedora//image",
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_ppc64le//image",
+        "//conditions:default": "@fedora//image",
+    }),
     directory = "/",
     entrypoint = ["/example-cloudinit-hook-sidecar"],
     files = [":example-cloudinit-hook-sidecar"],

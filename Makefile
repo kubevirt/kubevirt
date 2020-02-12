@@ -138,7 +138,7 @@ bump-kubevirtci:
 	bazel-build \
 	bazel-build-images \
 	bazel-push-images \
-	bazel-tests \
+	bazel-test \
 	functest-image-build \
 	functest-image-push \
 	test \
