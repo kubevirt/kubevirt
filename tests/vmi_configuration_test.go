@@ -2361,4 +2361,27 @@ var _ = Describe("Configurations", func() {
 			table.Entry("[test_id:3808] Should be rejected when using ide", "ide", "IDE bus is not supported"),
 		)
 	})
+
+	It("VMI with masquerade binding and guest agent should expose Pod IP as its public address", func() {
+		vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+
+		By("Starting a VirtualMachineInstance")
+		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+		Expect(err).ToNot(HaveOccurred(), "Should successfully create VMI")
+		tests.WaitForSuccessfulVMIStart(vmi)
+
+		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "Should successfully get VMI")
+
+		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+
+		tests.WaitAgentConnected(virtClient, vmi)
+
+		// Ensure that VMI IP Stays equal to PodIP even after Guest-Agent kicks in
+		Consistently(func() bool {
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "Should successfully get VMI")
+			return vmi.Status.Interfaces[0].IP == vmiPod.Status.PodIP
+		}, 180*time.Second, 1*time.Second).Should(BeTrue(), "VMI status IP should match VMI Pod IP")
+	})
 })

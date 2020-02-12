@@ -344,10 +344,20 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				domainInterfaceStatusByMac[domainInterfaceStatus.Mac] = domainInterfaceStatus
 			}
 
+			existingInterfacesSpecByName := map[string]v1.Interface{}
+			for _, existingInterfaceSpec := range vmi.Spec.Domain.Devices.Interfaces {
+				existingInterfacesSpecByName[existingInterfaceSpec.Name] = existingInterfaceSpec
+			}
+
 			// Iterate through all domain.Spec interfaces
 			for _, domainInterface := range domain.Spec.Devices.Interfaces {
 				interfaceMAC := domainInterface.MAC.MAC
 				var newInterface v1.VirtualMachineInstanceNetworkInterface
+				var isForwardingBindingInterface bool = false
+
+				if existingInterfacesSpecByName[domainInterface.Alias.Name].Masquerade != nil || existingInterfacesSpecByName[domainInterface.Alias.Name].Slirp != nil {
+					isForwardingBindingInterface = true
+				}
 
 				if existingInterface, exists := existingInterfaceStatusByName[domainInterface.Alias.Name]; exists {
 					// Reuse previously calculated interface from vmi.Status.Interfaces, updating the MAC from domain.Spec
@@ -365,9 +375,13 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				// Update IP info based on information from domain.Status.Interfaces (Qemu guest)
 				// Remove the interface from domainInterfaceStatusByMac to mark it as handled
 				if interfaceStatus, exists := domainInterfaceStatusByMac[interfaceMAC]; exists {
-					newInterface.IP = interfaceStatus.Ip
-					newInterface.IPs = interfaceStatus.IPs
 					newInterface.InterfaceName = interfaceStatus.InterfaceName
+					// Do not update if interface has Masquerede binding
+					// virt-controller should update VMI status interface with Pod IP instead
+					if !isForwardingBindingInterface {
+						newInterface.IP = interfaceStatus.Ip
+						newInterface.IPs = interfaceStatus.IPs
+					}
 					delete(domainInterfaceStatusByMac, interfaceMAC)
 				}
 				newInterfaces = append(newInterfaces, newInterface)
