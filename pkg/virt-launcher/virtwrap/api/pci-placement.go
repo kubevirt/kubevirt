@@ -20,6 +20,10 @@ func PlacePCIDevicesOnRootComplex(spec *DomainSpec) (err error) {
 		}
 	}
 	for i, controller := range spec.Devices.Controllers {
+		// pci-root and pcie-root devices can by definition hot have a pci address on its own
+		if controller.Model == "pci-root" || controller.Model == "pcie-root" {
+			continue
+		}
 		spec.Devices.Controllers[i].Address, err = assigner.PlacePCIDeviceAtNextSlot(controller.Address)
 		if err != nil {
 			return err
