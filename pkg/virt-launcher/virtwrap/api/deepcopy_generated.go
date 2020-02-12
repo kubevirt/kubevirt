@@ -538,6 +538,16 @@ func (in *Controller) DeepCopyInto(out *Controller) {
 		*out = new(ControllerDriver)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Alias != nil {
+		in, out := &in.Alias, &out.Alias
+		*out = new(Alias)
+		**out = **in
+	}
+	if in.Address != nil {
+		in, out := &in.Address, &out.Address
+		*out = new(Address)
+		**out = **in
+	}
 	return
 }
 
@@ -1377,6 +1387,11 @@ func (in *HostDevice) DeepCopyInto(out *HostDevice) {
 		*out = new(BootOrder)
 		**out = **in
 	}
+	if in.Address != nil {
+		in, out := &in.Address, &out.Address
+		*out = new(Address)
+		**out = **in
+	}
 	return
 }
 
@@ -1470,6 +1485,11 @@ func (in *Input) DeepCopyInto(out *Input) {
 	if in.Alias != nil {
 		in, out := &in.Alias, &out.Alias
 		*out = new(Alias)
+		**out = **in
+	}
+	if in.Address != nil {
+		in, out := &in.Address, &out.Address
+		*out = new(Address)
 		**out = **in
 	}
 	return
@@ -1939,6 +1959,11 @@ func (in *Rng) DeepCopyInto(out *Rng) {
 		*out = new(RngBackend)
 		**out = **in
 	}
+	if in.Address != nil {
+		in, out := &in.Address, &out.Address
+		*out = new(Address)
+		**out = **in
+	}
 	return
 }
 
@@ -2277,6 +2302,11 @@ func (in *Watchdog) DeepCopyInto(out *Watchdog) {
 	if in.Alias != nil {
 		in, out := &in.Alias, &out.Alias
 		*out = new(Alias)
+		**out = **in
+	}
+	if in.Address != nil {
+		in, out := &in.Address, &out.Address
+		*out = new(Address)
 		**out = **in
 	}
 	return

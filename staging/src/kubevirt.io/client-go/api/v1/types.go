@@ -468,7 +468,8 @@ const (
 	CPUManager                               string = "cpumanager"
 	// This annotation is used to inject ignition data
 	// Used on VirtualMachineInstance.
-	IgnitionAnnotation string = "kubevirt.io/ignitiondata"
+	IgnitionAnnotation           string = "kubevirt.io/ignitiondata"
+	PlacePCIDevicesOnRootComplex string = "kubevirt.io/placePCIDevicesOnRootComplex"
 
 	VirtualMachineLabel = AppLabel + "/vm"
 )

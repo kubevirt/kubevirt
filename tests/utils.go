@@ -3952,7 +3952,7 @@ func AppendEmptyDisk(vmi *v1.VirtualMachineInstance, diskName, busName, diskSize
 	})
 }
 
-func GetRunningVMISpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
+func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
 	runningVMISpec := launcherApi.DomainSpec{}
 	cli, err := kubecli.GetKubevirtClient()
 	if err != nil {
