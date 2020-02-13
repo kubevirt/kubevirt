@@ -73,7 +73,7 @@ function get_operator_json() {
         # if present: extract APPLICATION_AVAILABLE value : check that it has a valid value (either True or False)
         RECONCILE_COMPLETED=`printf '%s' "$HCO_DATA" | sed -e 's/.*ReconcileComplete: "\([^"]*\)".*$/\1/'`
         RECONCILE_COMPLETED_DATA=`printf '%s'  "$HCO_DATA" | sed -e 's/.*ReconcileComplete: "\([^"]*\)" "\([^"]*\)" "\([^"]*\)".*$/Status: \1 Reason: \2 Message: \3/'`
-        if [ "$RECONCILE_COMPLETED" != 'True' ] && [ "$RECONCILE_COMPLETED" != 'False' ]; then
+        if [ "$RECONCILE_COMPLETED" != 'True' ] && [ "$RECONCILE_COMPLETED" != 'False' ] && [ "$RECONCILE_COMPLETED" != 'Unknown' ]  ; then
             echo "Error: ReconcileComplete not valid: $RECONCILE_COMPLETED_DATA"
             echo "Error: ReconcileComplete not valid: '${RECONCILE_COMPLETED}'"
             echo "HCO_DATA: $HCO_DATA"
@@ -142,7 +142,7 @@ EOF
       # if reconcile status available: check that it is True (as a precondition for other checks)
       HAS_RECONCILE=""
       if [ "$has_reconcile" != "0" ]; then
-         if [ "$RECONCILE_COMPLETED" == 'False' ] || [ "$RECONCILE_COMPLETED" == 'Unkown' ]; then
+         if [ "$RECONCILE_COMPLETED" == 'False' ] || [ "$RECONCILE_COMPLETED" == 'Unknown' ]; then
             ((retry_count=retry_count+1))
             echo "Waiting. Operator $kind :: reconcile not yet complete... status: $RECONCILE_COMPLETED (Retry ${retry_count}) "
             sleep 10
