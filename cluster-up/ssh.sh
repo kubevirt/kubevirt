@@ -8,6 +8,8 @@ if [ -z "$KUBEVIRTCI_PATH" ]; then
     )"
 fi
 
+test -t 1 && USE_TTY="-it"
+
 source ${KUBEVIRTCI_PATH}/hack/common.sh
 
 source ${KUBEVIRTCI_CLUSTER_PATH}/$KUBEVIRT_PROVIDER/provider.sh

@@ -52,9 +52,6 @@ function up() {
         params=" --container-registry= $params"
     fi
 
-    # Free some cached/buffered mem
-    sync; echo 3 > /proc/sys/vm/drop_caches
-
     ${_cli} run okd ${params} --container-registry-user $user --container-registry-password $password
 
     # Copy k8s config and kubectl
