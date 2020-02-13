@@ -455,6 +455,13 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 
+	for _, req := range vm.Status.StateChangeRequests {
+		if req.Action == v1.RenameCreateRequest {
+			writeError(errors.NewBadRequest("Restarting a VM during a rename process is not allowed"), response)
+			return
+		}
+	}
+
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
 		writeError(errors.NewInternalError(err), response)
@@ -545,12 +552,12 @@ func (app *SubresourceAPIApp) RenameVMRequestHandler(request *restful.Request, r
 	request.Request.Body.Close()
 
 	if newName == "" {
-		writeError(errors.NewBadRequest("The new name is empty"), response)
+		writeError(errors.NewBadRequest("Please provide a new name for the VM"), response)
 		return
 	}
 
 	if name == newName {
-		writeError(errors.NewBadRequest("The new name cannot be identical to the old name"), response)
+		writeError(errors.NewBadRequest("The VM's new name cannot be identical to the current name"), response)
 		return
 	}
 
@@ -562,29 +569,19 @@ func (app *SubresourceAPIApp) RenameVMRequestHandler(request *restful.Request, r
 		return
 	}
 
-	// Check for renaming annotation on vm
-	if vm.Annotations != nil {
-		_, isScheduledForRenaming := vm.Annotations[v1.RenameToAnnotation]
-
-		if isScheduledForRenaming {
+	// Check for rename request on VM
+	for _, changeRequest := range vm.Status.StateChangeRequests {
+		if changeRequest.Action == v1.RenameCreateRequest {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"),
-				name, fmt.Errorf("VM is already scheduled for renaming")), response)
+				name, fmt.Errorf("VM is already scheduled to rename")), response)
 			return
 		}
 	}
 
 	// Make sure VM is stopped
-	if vm.Spec.Running == nil {
-		if vm.Spec.RunStrategy == nil {
-			writeError(errors.NewInternalError(fmt.Errorf("Could not determine the running status of the vm")),
-				response)
-			return
-		} else if *vm.Spec.RunStrategy != v1.RunStrategyHalted {
-			writeError(errors.NewBadRequest("Renaming a VM is only allowed if 'Halted' run strategy is applied"),
-				response)
-			return
-		}
-	} else if *vm.Spec.Running {
+	runningStatus, _ := vm.RunStrategy()
+
+	if runningStatus != v1.RunStrategyHalted {
 		writeError(errors.NewBadRequest("Renaming a running VM is not allowed"), response)
 		return
 	}
@@ -600,13 +597,22 @@ func (app *SubresourceAPIApp) RenameVMRequestHandler(request *restful.Request, r
 		return
 	}
 
-	patchString := fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%s"}}}`,
-		v1.RenameToAnnotation, newName)
-	vm, err = app.virtCli.VirtualMachine(namespace).Patch(name, types.MergePatchType, []byte(patchString))
+	renameRequestJson, err := getChangeRequestJson(vm, v1.VirtualMachineStateChangeRequest{
+		Action: v1.RenameCreateRequest,
+		Data: map[string]string{
+			"newName": newName,
+		},
+	})
 
 	if err != nil {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"),
-			name, err), response)
+		writeError(errors.NewInternalError(err), response)
+		return
+	}
+
+	_, err = app.virtCli.VirtualMachine(namespace).Patch(name, types.JSONPatchType, []byte(renameRequestJson))
+
+	if err != nil {
+		writeError(errors.NewInternalError(err), response)
 		return
 	}
 
@@ -652,6 +658,13 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	if statusErr != nil {
 		writeError(statusErr, response)
 		return
+	}
+
+	for _, req := range vm.Status.StateChangeRequests {
+		if req.Action == v1.RenameCreateRequest {
+			writeError(errors.NewBadRequest("Starting a VM during a rename process is not allowed"), response)
+			return
+		}
 	}
 
 	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})

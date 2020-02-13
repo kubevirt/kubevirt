@@ -280,151 +280,90 @@ func (c *VMController) execute(key string) error {
 		return createErr
 	}
 
-	err = c.handleVMRenaming(vm, logger)
-
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
-func (c *VMController) handleVMRenaming(vm *virtv1.VirtualMachine, logger *log.FilteredLogger) error {
-	// Check if renameTo annotation exists
-	renameTo, hasRenameToAnnotation := vm.ObjectMeta.Annotations[virtv1.RenameToAnnotation]
+// Handles VM rename create requests
+// First return value is a boolean indicating if the controller should retry the request
+func (c *VMController) handleVMRenameCreateRequest(vm *virtv1.VirtualMachine, newName string) (bool, error) {
+	// Check if a VM named 'newName' exists
+	_, err := c.clientset.VirtualMachine(vm.Namespace).Get(newName, &v1.GetOptions{})
 
-	// Handle source VM
-	if hasRenameToAnnotation {
-		// We don't need to check for the running status of the VM,
-		// it was already verified in the admission webhook
+	if err != nil {
+		// If the VM existence could not be determined, retry
+		if !strings.Contains(err.Error(), "not found") {
+			return true, err
+		} else {
+			// If the VM was not found, we can create it
+			newVM := vm.DeepCopy()
 
-		// If a VM with the new name exists, remove annotation
-		// TODO can I check for the existence of a vm using c.vmiVMInformer.GetStore().GetByKey()
-		// TODO and be 100% sure its consistent with the cluster?
-		// TODO If its possible, tests should be fixed
-		_, err := c.clientset.VirtualMachine(vm.Namespace).Get(renameTo, &v1.GetOptions{})
+			newVM.ResourceVersion = ""
+			newVM.Name = newName
 
-		if err != nil {
-			if !strings.Contains(err.Error(), "not found") {
-				errMsg :=
-					fmt.Sprintf("Could not determine if the name '%s' for VM '%s' is available.",
-						renameTo, vm.Name)
-				logger.Reason(err).Error(errMsg)
-				return err
-			} else {
-				// New vm is not found, create it
-				newVM := vm.DeepCopy()
+			// Update the VM label if it exists
+			if newVM.Labels != nil {
+				_, hasVMLabel := newVM.Labels[virtv1.VirtualMachineLabel]
 
-				// Clear unwanted members
-				newVM.ResourceVersion = ""
-
-				newVM.Name = renameTo
-
-				// Update the VM label if it exists
-				if newVM.Labels != nil {
-					_, hasVMLabel := newVM.Labels[virtv1.VirtualMachineLabel]
-
-					if hasVMLabel {
-						newVM.Labels[virtv1.VirtualMachineLabel] = renameTo
-					}
-				}
-
-				delete(newVM.Annotations, virtv1.RenameToAnnotation)
-				newVM.Annotations[virtv1.RenameFromAnnotation] = vm.Name
-
-				// Update the VMI spec VM label if it exists
-				if newVM.Spec.Template.ObjectMeta.Labels != nil {
-					_, hasVMLabel := newVM.Spec.Template.ObjectMeta.Labels[virtv1.VirtualMachineLabel]
-
-					if hasVMLabel {
-						newVM.Spec.Template.ObjectMeta.Labels[virtv1.VirtualMachineLabel] = renameTo
-					}
-				}
-
-				_, err = c.clientset.VirtualMachine(vm.Namespace).Create(newVM)
-
-				if err != nil {
-					errMsg := fmt.Sprintf("Could not reserve the name '%s' for VM '%s'", renameTo, vm.Name)
-					logger.Reason(err).Error(errMsg)
-					return err
+				if hasVMLabel {
+					newVM.Labels[virtv1.VirtualMachineLabel] = newName
 				}
 			}
-		} else {
-			errMsg := fmt.Sprintf("a VM with the name '%s' exists", renameTo)
-			logger.Error(errMsg)
+
+			// Update the VMI spec VM label if it exists
+			if newVM.Spec.Template.ObjectMeta.Labels != nil {
+				_, hasVMLabel := newVM.Spec.Template.ObjectMeta.Labels[virtv1.VirtualMachineLabel]
+
+				if hasVMLabel {
+					newVM.Spec.Template.ObjectMeta.Labels[virtv1.VirtualMachineLabel] = newName
+				}
+			}
+
+			// Clear VM status
+			newVM.Status = virtv1.VirtualMachineStatus{}
+
+			// Add a condition to the new VM to tell the controller it was renamed
+			newVM.Status.Conditions = []virtv1.VirtualMachineCondition{
+				{
+					Type:    virtv1.RenameConditionType,
+					Status:  "Successful",
+					Reason:  vm.Name,
+					Message: fmt.Sprintf("This VM was renamed, the old name was %s", vm.Name),
+				},
+			}
+
+			// Add a RenameDeleteRequest to the new VM to remove the VM with the old Name
+			newVM.Status.StateChangeRequests = []virtv1.VirtualMachineStateChangeRequest{
+				{
+					Action: virtv1.RenameDeleteRequest,
+					Data: map[string]string{
+						"oldName": vm.Name,
+					},
+				},
+			}
+
+			// Attempt creation of the new VM
+			_, err = c.clientset.VirtualMachine(vm.Namespace).Create(newVM)
+
+			if err != nil {
+				return true, err
+			}
 		}
-
-		// New VM already exists or was created, remove renameTo annotation
-		patchString := fmt.Sprintf(`{"metadata":{"annotations":{"%s":null}}}`,
-			virtv1.RenameToAnnotation)
-		_, err = c.clientset.VirtualMachine(vm.Namespace).Patch(vm.Name, types.MergePatchType, []byte(patchString))
-
-		if err != nil && !strings.Contains(err.Error(), "not found") {
-			errMsg := fmt.Sprintf("Failed removing 'renameTo' annotation from vm: %s", vm.Name)
-			logger.Reason(err).Error(errMsg)
-			return err
-		}
-
-		return nil
 	}
 
-	// Check if renameFrom annotation exists
-	renameFrom, hasRenameFromAnnotation := vm.ObjectMeta.Annotations[virtv1.RenameFromAnnotation]
+	return false, nil
+}
 
-	// Handle destination VM
-	if hasRenameFromAnnotation {
-		// Attempt to delete the old vm
-		// TODO can I delete the old vm using c.vmiVMInformer.GetStore().Delete()
-		// TODO and be 100% sure it will be removed from the cluster?
-		// TODO If its possible, tests should be fixed
-		// Check if the old VM still exists
-		oldVM, err := c.clientset.VirtualMachine(vm.Namespace).
-			Get(vm.Annotations[virtv1.RenameFromAnnotation], &v1.GetOptions{})
+// Handles VM rename delete requests
+// First return value is a boolean indicating if the controller should retry the request
+func (c *VMController) handleVMRenameDeleteRequest(vm *virtv1.VirtualMachine, oldName string) (bool, error) {
+	// Attempt deletion of the VM with the old name
+	err := c.clientset.VirtualMachine(vm.Namespace).Delete(oldName, &v1.DeleteOptions{})
 
-		if err != nil {
-			if !strings.Contains(err.Error(), "not found") {
-				errMsg := fmt.Sprintf("Could not determine if the old name was made available: %s", vm.Name)
-				logger.Reason(err).Error(errMsg)
-				return err
-			}
-		} else {
-			// Check if rename annotations match
-			if oldVM.Annotations != nil {
-				oldVMRenameTo, oldVMHasRenameToAnnotation := oldVM.Annotations[virtv1.RenameToAnnotation]
-
-				if oldVMHasRenameToAnnotation && oldVMRenameTo == vm.Name {
-					err := c.clientset.VirtualMachine(vm.Namespace).Delete(renameFrom, &v1.DeleteOptions{})
-
-					if err != nil {
-						if !strings.Contains(err.Error(), "not found") {
-							errMsg :=
-								fmt.Sprintf("Could not release VM name '%s' after renaming to '%s'",
-									renameFrom, vm.Name)
-							logger.Reason(err).Error(errMsg)
-							return err
-						}
-					}
-
-				}
-			}
-		}
-
-		// Remove renameFrom annotation
-		patchString := fmt.Sprintf(`{"metadata":{"annotations":{"%s":null}}}`,
-			virtv1.RenameFromAnnotation)
-		_, err = c.clientset.VirtualMachine(vm.Namespace).Patch(vm.Name, types.MergePatchType, []byte(patchString))
-
-		if err != nil {
-			errMsg := fmt.Sprintf("Failed removing 'renameFrom' annotation from vm: %s", vm.Name)
-			logger.Reason(err).Error(errMsg)
-			return err
-		}
-
-		return nil
+	if err != nil && !strings.Contains(err.Error(), "not found") {
+		return true, err
 	}
 
-	// VM has no rename annotations, nothing to do
-	return nil
+	return false, nil
 }
 
 func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
@@ -1245,7 +1184,6 @@ func (c *VMController) removeCondition(vm *virtv1.VirtualMachine, cond virtv1.Vi
 }
 
 func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) error {
-
 	vm := vmOrig.DeepCopy()
 
 	created := vmi != nil
@@ -1303,6 +1241,45 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 				log.Log.Object(vm).Errorf("Start request shouldn't be honored for RunStrategyHalted.")
 				clearChangeRequest = true
 			}
+		case virtv1.RenameCreateRequest:
+			runningStatus, _ := vm.RunStrategy()
+
+			if runningStatus != virtv1.RunStrategyHalted {
+				log.Log.Object(vm).V(4).Errorf("Renaming a running VM is prohibited")
+				clearChangeRequest = true
+			}
+
+			newName, hasNewName := stateChange.Data["newName"]
+
+			if !hasNewName {
+				log.Log.Object(vm).V(4).Errorf("Rename create request is missing 'newName' field")
+				clearChangeRequest = true
+			} else {
+				retry, err := c.handleVMRenameCreateRequest(vm, newName)
+
+				if err != nil {
+					log.Log.Object(vm).V(4).
+						Errorf("Rename creation request for vm %s failed: %v", vm.Name, err)
+				}
+
+				clearChangeRequest = !retry
+			}
+		case virtv1.RenameDeleteRequest:
+			oldName, hasOldName := stateChange.Data["oldName"]
+
+			if !hasOldName {
+				log.Log.Object(vm).V(4).Errorf("Rename delete request is missing 'oldName' field")
+				clearChangeRequest = true
+			}
+
+			retry, err := c.handleVMRenameDeleteRequest(vm, oldName)
+
+			if err != nil {
+				log.Log.Object(vm).V(4).
+					Errorf("Rename deletion request for vm %s failed: %v", vm.Name, err)
+			}
+
+			clearChangeRequest = !retry
 		}
 	}
 

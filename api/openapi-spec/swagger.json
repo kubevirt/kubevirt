@@ -6972,9 +6972,14 @@
    },
    "v1.VirtualMachineStateChangeRequest": {
     "required": [
-     "action"
+     "action",
+     "Data"
     ],
     "properties": {
+     "Data": {
+      "description": "Provides additional data in order to perform the Action",
+      "type": "object"
+     },
      "action": {
       "description": "Indicates the type of action that is requested. e.g. Start or Stop",
       "type": "string"

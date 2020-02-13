@@ -232,9 +232,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			vmi := v1.NewMinimalVMI(vmName)
 			vm = &v1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        vmName,
-					Namespace:   metav1.NamespaceDefault,
-					Annotations: map[string]string{},
+					Name:      vmName,
+					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1.VirtualMachineSpec{
 					Running:     &running,
@@ -251,8 +250,18 @@ var _ = Describe("Validating VM Admitter", func() {
 				ar.Request.Operation = v1beta1.Create
 			})
 
-			It("should reject a VM with renameTo annotation", func() {
-				vm.Annotations[v1.RenameToAnnotation] = vm.Name + "new"
+			It("should reject a VM with rename create request", func() {
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameCreateRequest,
+							Data: map[string]string{
+								"newName": "newName",
+							},
+						},
+					},
+				}
+
 				rawObject, err := json.Marshal(vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -262,11 +271,21 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 				Expect(resp.Result.Details.Causes[0].Field).
-					To(Equal(fmt.Sprintf("metadata.annotations.%s", v1.RenameToAnnotation)))
+					To(Equal("Status.stateChangeRequests"))
 			})
 
-			It("should accept a VM with renameFrom annotation", func() {
-				vm.Annotations[v1.RenameFromAnnotation] = vm.Name + "old"
+			It("should accept a VM with rename delete request", func() {
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameDeleteRequest,
+							Data: map[string]string{
+								"oldName": "oldName",
+							},
+						},
+					},
+				}
+
 				rawObject, err := json.Marshal(vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -276,7 +295,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
-			It("should accept a VM with no rename annotations", func() {
+			It("should accept a VM with no rename requests", func() {
 				rawObject, err := json.Marshal(vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -292,8 +311,18 @@ var _ = Describe("Validating VM Admitter", func() {
 				ar.Request.Operation = v1beta1.Update
 			})
 
-			It("should reject a VM with renameFrom annotation", func() {
-				vm.Annotations[v1.RenameFromAnnotation] = vm.Name + "old"
+			It("should reject a VM with rename delete request", func() {
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameDeleteRequest,
+							Data: map[string]string{
+								"oldName": "oldName",
+							},
+						},
+					},
+				}
+
 				rawObject, err := json.Marshal(vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -303,11 +332,21 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 				Expect(resp.Result.Details.Causes[0].Field).
-					To(Equal(fmt.Sprintf("metadata.annotations.%s", v1.RenameFromAnnotation)))
+					To(Equal("Status.stateChangeRequests"))
 			})
 
-			It("should accept a VM with renameTo annotation", func() {
-				vm.Annotations[v1.RenameToAnnotation] = vm.Name + "new"
+			It("should accept a VM with rename create request", func() {
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameCreateRequest,
+							Data: map[string]string{
+								"newName": "newName",
+							},
+						},
+					},
+				}
+
 				rawObject, err := json.Marshal(vm)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -317,8 +356,18 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
-			It("should reject a running VM with renameTo annotation", func() {
-				vm.Annotations[v1.RenameToAnnotation] = vm.Name + "new"
+			It("should reject a running VM with rename create request", func() {
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameCreateRequest,
+							Data: map[string]string{
+								"newName": "newName",
+							},
+						},
+					},
+				}
+
 				*vm.Spec.Running = true
 				rawObject, err := json.Marshal(vm)
 				Expect(err).ToNot(HaveOccurred())
@@ -332,9 +381,20 @@ var _ = Describe("Validating VM Admitter", func() {
 					To(Equal("spec.running"))
 			})
 
-			It("should reject a VM with an active runStrategy and renameTo annotation", func() {
+			It("should reject a VM with an active runStrategy and rename create request", func() {
 				runStrat := v1.RunStrategyManual
-				vm.Annotations[v1.RenameToAnnotation] = vm.Name + "new"
+
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameCreateRequest,
+							Data: map[string]string{
+								"newName": "newName",
+							},
+						},
+					},
+				}
+
 				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = &runStrat
 				rawObject, err := json.Marshal(vm)
@@ -346,10 +406,10 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 				Expect(resp.Result.Details.Causes[0].Field).
-					To(Equal("spec.runStrategy"))
+					To(Equal("spec.running"))
 			})
 
-			It("should accept a VM with no rename annotations", func() {
+			It("should accept a VM with no rename requests", func() {
 				rawObject, err := json.Marshal(vm)
 				Expect(err).ToNot(HaveOccurred())
 

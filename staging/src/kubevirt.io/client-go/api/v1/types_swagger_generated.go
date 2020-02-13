@@ -227,6 +227,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"action": "Indicates the type of action that is requested. e.g. Start or Stop",
+		"Data":   "Provides additional data in order to perform the Action",
 		"uid":    "Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable",
 	}
 }

@@ -464,10 +464,10 @@ const (
 	// Used on VirtualMachineInstance.
 	IgnitionAnnotation string = "kubevirt.io/ignitiondata"
 
-	// This annotation indicates that this VM is in the process of renaming
-	RenameToAnnotation   = AppLabel + "/renameTo"
-	RenameFromAnnotation = AppLabel + "/renameFrom"
-	VirtualMachineLabel  = AppLabel + "/vm"
+	// This condition indicates that the VM was renamed
+	RenameConditionType = "Rename Operation"
+
+	VirtualMachineLabel = AppLabel + "/vm"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -886,8 +886,10 @@ type StateChangeRequestAction string
 
 // These are the currently defined state change requests
 const (
-	StartRequest StateChangeRequestAction = "Start"
-	StopRequest  StateChangeRequestAction = "Stop"
+	StartRequest        StateChangeRequestAction = "Start"
+	StopRequest         StateChangeRequestAction = "Stop"
+	RenameCreateRequest                          = "RenameCreate"
+	RenameDeleteRequest                          = "RenameDelete"
 )
 
 // VirtualMachineStatus represents the status returned by the
@@ -909,6 +911,8 @@ type VirtualMachineStatus struct {
 type VirtualMachineStateChangeRequest struct {
 	// Indicates the type of action that is requested. e.g. Start or Stop
 	Action StateChangeRequestAction `json:"action"`
+	// Provides additional data in order to perform the Action
+	Data map[string]string
 	// Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable
 	UID *types.UID `json:"uid,omitempty" optional:"true" protobuf:"bytes,5,opt,name=uid,casttype=k8s.io/kubernetes/pkg/types.UID"`
 }

@@ -632,7 +632,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					app.RenameVMRequestHandler(request, response)
 
 					status := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-					Expect(status.Error()).To(ContainSubstring("empty"))
+					Expect(status.Error()).To(ContainSubstring("Please provide a new name for the VM"))
 					close(done)
 				})
 
@@ -661,16 +661,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					)
 				})
 
-				Context("With no running/runStrategy applied", func() {
-					It("should fail if no running state or runStrategy are applied", func(done Done) {
-						app.RenameVMRequestHandler(request, response)
-						status := ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-						Expect(status.Error()).To(ContainSubstring("Could not determine"))
-
-						close(done)
-					})
-				})
-
 				Context("With invalid source VM running status", func() {
 					BeforeEach(func() {
 						running := true
@@ -697,7 +687,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 						app.RenameVMRequestHandler(request, response)
 
 						status := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
-						Expect(status.Error()).To(ContainSubstring("'Halted' run strategy"))
+						Expect(status.Error()).To(ContainSubstring("Renaming a running VM is not allowed"))
 
 						close(done)
 					})
@@ -762,7 +752,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 								It("should fail due to failed patch", func(done Done) {
 									app.RenameVMRequestHandler(request, response)
 
-									ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+									ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
 
 									close(done)
 								})
@@ -773,8 +763,15 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 									vmPatchStatus := http.StatusOK
 
 									patchedVM := vm.DeepCopy()
-									patchedVM.Annotations = map[string]string{
-										v1.RenameToAnnotation: newName,
+									patchedVM.Status = v1.VirtualMachineStatus{
+										StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+											{
+												Action: v1.RenameCreateRequest,
+												Data: map[string]string{
+													"newName": newName,
+												},
+											},
+										},
 									}
 
 									server.AppendHandlers(
@@ -887,6 +884,30 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			table.Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure, "VM is not running"),
 			table.Entry("Halted", v1.RunStrategyHalted, "Halted does not support manual restart requests"),
 		)
+
+		It("should fail on a VM that is scheduled to be renamed", func() {
+			vm := newMinimalVM(request.PathParameter("name"))
+			vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
+				{
+					Action: v1.RenameCreateRequest,
+					Data: map[string]string{
+						"newName": "newvm",
+					},
+				},
+			}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", getVMPath("v1alpha3", k8sv1.NamespaceDefault, vm.Name)),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			app.RestartVMRequestHandler(request, response)
+			status := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			// check the msg string that would be presented to virtctl output
+			Expect(status.Error()).To(ContainSubstring("rename"))
+		})
 	})
 
 	Context("Subresource api - error handling for StartVMRequestHandler", func() {
@@ -965,6 +986,30 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			table.Entry("Manual with VMI in state Succeeded", v1.RunStrategyManual, v1.Succeeded, http.StatusOK),
 			table.Entry("Manual with VMI in state Failed", v1.RunStrategyManual, v1.Failed, http.StatusOK),
 		)
+
+		It("should fail on a VM that is scheduled to be renamed", func() {
+			vm := newMinimalVM(request.PathParameter("name"))
+			vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
+				{
+					Action: v1.RenameCreateRequest,
+					Data: map[string]string{
+						"newName": "newvm",
+					},
+				},
+			}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", getVMPath("v1alpha3", k8sv1.NamespaceDefault, vm.Name)),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			app.StartVMRequestHandler(request, response)
+			status := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			// check the msg string that would be presented to virtctl output
+			Expect(status.Error()).To(ContainSubstring("rename"))
+		})
 	})
 
 	Context("Subresource api - error handling for StopVMRequestHandler", func() {

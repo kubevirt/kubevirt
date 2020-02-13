@@ -1583,19 +1583,28 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		Context("VM creation", func() {
-			It("should fail if a VM is created with renameTo annotation", func() {
-				vm.Annotations = map[string]string{
-					v1.RenameToAnnotation: "somethingnew",
+			It("should fail if a VM is created with a rename create request", func() {
+				vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
+					{
+						Action: v1.RenameCreateRequest,
+						Data: map[string]string{
+							"newName": "somethingNew",
+						},
+					},
 				}
-
 				_, err := cli.Create(vm)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("Creating a VM with renameTo annotation is prohibited"))
+				Expect(err.Error()).To(ContainSubstring("Creating a VM with a rename request is not allowed"))
 			})
 
-			It("should succeed if a VM is created with renameFrom annotation", func() {
-				vm.Annotations = map[string]string{
-					v1.RenameFromAnnotation: "somethingold",
+			It("should succeed if a VM is created with rename delete request", func() {
+				vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
+					{
+						Action: v1.RenameDeleteRequest,
+						Data: map[string]string{
+							"oldName": "somethingOld",
+						},
+					},
 				}
 
 				_, err := cli.Create(vm)
@@ -1625,7 +1634,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("should fail if the new name is empty", func() {
 				err := cli.Rename(vm1.Name, "")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("new name is empty"))
+				Expect(err.Error()).To(ContainSubstring("Please provide a new name for the VM"))
 			})
 
 			It("should fail if the new name is identical to the current name", func() {
@@ -1655,7 +1664,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				err = cli.Rename(vm1.Name, vm1.Name+"new")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).
-					To(ContainSubstring("Renaming a VM is only allowed if 'Halted' run strategy is applied"))
+					To(ContainSubstring("Renaming a running VM is not allowed"))
 			})
 
 			It("should succeed", func() {
