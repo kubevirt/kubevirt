@@ -1,0 +1,19 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+aliases:
+  approvers:
+      - djzager
+      - nunnatsa
+      - orenc1
+      - rthallisey
+      - rwsu
+      - tiraboschi
+      - yuvalturg
+  code-reviewers:
+      - djzager
+      - nunnatsa
+      - orenc1
+      - rthallisey
+      - rwsu
+      - tiraboschi
+      - yuvalturg
