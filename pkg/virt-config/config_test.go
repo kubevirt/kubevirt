@@ -288,4 +288,16 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when values set, should equal to result", `{"Family":"test","Product":"test", "Manufacturer":"None"}`, cmdv1.SMBios{Family: "test", Product: "test", Manufacturer: "None"}),
 		table.Entry("When an invalid smbios value is set, should return default values", `{"invalid":"invalid"}`, cmdv1.SMBios{Family: "KubeVirt", Product: "None", Manufacturer: "KubeVirt"}),
 	)
+
+	table.DescribeTable(" when SELinuxLauncherType", func(value string, result string) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.SELinuxLauncherTypeKey: value},
+		})
+		selinuxLauncherType := clusterConfig.GetSELinuxLauncherType()
+		Expect(selinuxLauncherType).To(Equal(result))
+	},
+		table.Entry("when set, GetSELinuxLauncherType should return the value", "spc_t", "spc_t"),
+		table.Entry("when unset, GetSELinuxLauncherType should return the default", virtconfig.DefaultSELinuxLauncherType, virtconfig.DefaultSELinuxLauncherType),
+	)
+
 })

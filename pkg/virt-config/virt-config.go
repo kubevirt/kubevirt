@@ -56,6 +56,7 @@ const (
 	SmbiosConfigDefaultManufacturer                 = "KubeVirt"
 	SmbiosConfigDefaultProduct                      = "None"
 	DefaultPermitBridgeInterfaceOnPodNetwork        = true
+	DefaultSELinuxLauncherType                      = ""
 )
 
 // Set default machine type and supported emulated machines based on architecture
@@ -122,4 +123,8 @@ func (c *ClusterConfig) GetSMBIOS() *cmdv1.SMBios {
 
 func (c *ClusterConfig) IsBridgeInterfaceOnPodNetworkEnabled() bool {
 	return c.getConfig().PermitBridgeInterfaceOnPodNetwork
+}
+
+func (c *ClusterConfig) GetSELinuxLauncherType() string {
+	return c.getConfig().SELinuxLauncherType
 }

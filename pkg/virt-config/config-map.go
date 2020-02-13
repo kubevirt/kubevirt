@@ -60,6 +60,7 @@ const (
 	PermitBridgeInterfaceOnPodNetwork = "permitBridgeInterfaceOnPodNetwork"
 	NodeDrainTaintDefaultKey          = "kubevirt.io/drain"
 	SmbiosConfigKey                   = "smbios"
+	SELinuxLauncherTypeKey            = "selinuxLauncherType"
 )
 
 type ConfigModifiedFn func()
@@ -213,6 +214,7 @@ func defaultClusterConfig() *Config {
 		PermitSlirpInterface:              DefaultPermitSlirpInterface,
 		PermitBridgeInterfaceOnPodNetwork: DefaultPermitBridgeInterfaceOnPodNetwork,
 		SmbiosConfig:                      SmbiosDefaultConfig,
+		SELinuxLauncherType:               DefaultSELinuxLauncherType,
 	}
 }
 
@@ -233,6 +235,7 @@ type Config struct {
 	PermitSlirpInterface              bool
 	PermitBridgeInterfaceOnPodNetwork bool
 	SmbiosConfig                      *cmdv1.SMBios
+	SELinuxLauncherType               string
 }
 
 type MigrationConfig struct {
@@ -265,7 +268,7 @@ func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
 }
 
 // setConfig parses the provided config map and updates the provided config.
-// Default values in the provided config stay in tact.
+// Default values in the provided config stay intact.
 func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 
 	// set revision
@@ -404,6 +407,11 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	default:
 		return fmt.Errorf("invalid default-network-interface in config: %v", iface)
 	}
+
+	if selinuxLauncherType := strings.TrimSpace(configMap.Data[SELinuxLauncherTypeKey]); selinuxLauncherType != "" {
+		config.SELinuxLauncherType = selinuxLauncherType
+	}
+
 	return nil
 }
 

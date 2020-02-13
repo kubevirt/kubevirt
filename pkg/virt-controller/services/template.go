@@ -953,6 +953,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		annotationsList[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
 
+	// If an SELinux type was specified, use that--otherwise default to the one KubeVirt Defines
+	selinuxLauncherType := t.clusterConfig.GetSELinuxLauncherType()
+	if selinuxLauncherType == virtconfig.DefaultSELinuxLauncherType {
+		selinuxLauncherType = "virt_launcher.process"
+	}
+
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -969,7 +975,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			SecurityContext: &k8sv1.PodSecurityContext{
 				RunAsUser: &userId,
 				SELinuxOptions: &k8sv1.SELinuxOptions{
-					Type: "virt_launcher.process",
+					Type: selinuxLauncherType,
 				},
 			},
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
