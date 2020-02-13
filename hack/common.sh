@@ -20,7 +20,7 @@ ARCHITECTURE=$(uname -m)
 
 function build_func_tests() {
     mkdir -p ${TESTS_OUT_DIR}/
-    ginkgo build ${KUBEVIRT_DIR}/tests
+    GOPROXY=off GOFLAGS=-mod=vendor ginkgo build ${KUBEVIRT_DIR}/tests
     mv ${KUBEVIRT_DIR}/tests/tests.test ${TESTS_OUT_DIR}/
 }
 

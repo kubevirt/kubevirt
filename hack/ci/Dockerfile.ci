@@ -83,13 +83,6 @@ RUN pip3 install j2cli && pip3 install operator-courier==1.3.0
 WORKDIR /tmp/kubevirt
 COPY . .
 
-# update git
-COPY hack/ci/wandisco-git.repo /etc/yum.repos.d/wandisco-git.repo
-RUN yum remove -y git && \
-    rpm --import http://opensource.wandisco.com/RPM-GPG-KEY-WANdisco && \
-    yum install -y git && \
-    yum clean all && rm -rf /var/cache/yum/*
-
 # TODO: remove patching of external provider, after kubevirtci#199 has been merged and kubevirt updates
 RUN \
     export DOCKER_PREFIX='dhiller' && \
@@ -127,4 +120,4 @@ ENV PATH="$PATH:/usr/local/go/bin/"
 COPY --from=builder /gimme /gimme
 RUN chmod 777 /gimme
 COPY --from=builder /tmp/kubevirt /go/src/kubevirt.io/kubevirt
-COPY --from=builder /tmp/kubevirt/hack/kubevirt-builder/rsyncd.conf /etc/rsyncd.conf
+COPY --from=builder /tmp/kubevirt/hack/builder/rsyncd.conf /etc/rsyncd.conf
