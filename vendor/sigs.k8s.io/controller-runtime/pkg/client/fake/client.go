@@ -20,11 +20,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/labels"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -33,15 +33,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/internal/objectutil"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
-var (
-	log = logf.KBLog.WithName("fake-client")
-)
+type versionedTracker struct {
+	testing.ObjectTracker
+}
 
 type fakeClient struct {
-	tracker testing.ObjectTracker
+	tracker versionedTracker
 	scheme  *runtime.Scheme
 }
 
@@ -49,6 +48,8 @@ var _ client.Client = &fakeClient{}
 
 // NewFakeClient creates a new fake client for testing.
 // You can choose to initialize it with a slice of runtime.Object.
+// Deprecated: use NewFakeClientWithScheme.  You should always be
+// passing an explicit Scheme.
 func NewFakeClient(initObjs ...runtime.Object) client.Client {
 	return NewFakeClientWithScheme(scheme.Scheme, initObjs...)
 }
@@ -61,15 +62,39 @@ func NewFakeClientWithScheme(clientScheme *runtime.Scheme, initObjs ...runtime.O
 	for _, obj := range initObjs {
 		err := tracker.Add(obj)
 		if err != nil {
-			log.Error(err, "failed to add object to fake client", "object", obj)
-			os.Exit(1)
-			return nil
+			panic(fmt.Errorf("failed to add object %v to fake client: %v", obj, err))
 		}
 	}
 	return &fakeClient{
-		tracker: tracker,
+		tracker: versionedTracker{tracker},
 		scheme:  clientScheme,
 	}
+}
+
+func (t versionedTracker) Create(gvr schema.GroupVersionResource, obj runtime.Object, ns string) error {
+	if accessor, err := meta.Accessor(obj); err == nil {
+		if accessor.GetResourceVersion() == "" {
+			accessor.SetResourceVersion("1")
+		}
+	} else {
+		return err
+	}
+	return t.ObjectTracker.Create(gvr, obj, ns)
+}
+
+func (t versionedTracker) Update(gvr schema.GroupVersionResource, obj runtime.Object, ns string) error {
+	if accessor, err := meta.Accessor(obj); err == nil {
+		version := 0
+		if rv := accessor.GetResourceVersion(); rv != "" {
+			version, err = strconv.Atoi(rv)
+		}
+		if err == nil {
+			accessor.SetResourceVersion(strconv.Itoa(version + 1))
+		}
+	} else {
+		return err
+	}
+	return t.ObjectTracker.Update(gvr, obj, ns)
 }
 
 func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj runtime.Object) error {
@@ -81,6 +106,18 @@ func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj runtime.
 	if err != nil {
 		return err
 	}
+
+	gvk, err := apiutil.GVKForObject(obj, c.scheme)
+	if err != nil {
+		return err
+	}
+	ta, err := meta.TypeAccessor(o)
+	if err != nil {
+		return err
+	}
+	ta.SetKind(gvk.Kind)
+	ta.SetAPIVersion(gvk.GroupVersion().String())
+
 	j, err := json.Marshal(o)
 	if err != nil {
 		return err
@@ -90,55 +127,73 @@ func (c *fakeClient) Get(ctx context.Context, key client.ObjectKey, obj runtime.
 	return err
 }
 
-func (c *fakeClient) List(ctx context.Context, opts *client.ListOptions, list runtime.Object) error {
-	gvk, err := getGVKFromList(list, c.scheme)
-	if err != nil {
-		// The old fake client required GVK info in Raw.TypeMeta, so check there
-		// before giving up
-		if opts.Raw == nil || opts.Raw.TypeMeta.APIVersion == "" || opts.Raw.TypeMeta.Kind == "" {
-			return err
-		}
-		gvk = opts.Raw.TypeMeta.GroupVersionKind()
-	}
-
-	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
-	o, err := c.tracker.List(gvr, gvk, opts.Namespace)
+func (c *fakeClient) List(ctx context.Context, obj runtime.Object, opts ...client.ListOption) error {
+	gvk, err := apiutil.GVKForObject(obj, c.scheme)
 	if err != nil {
 		return err
 	}
+
+	OriginalKind := gvk.Kind
+
+	if !strings.HasSuffix(gvk.Kind, "List") {
+		return fmt.Errorf("non-list type %T (kind %q) passed as output", obj, gvk)
+	}
+	// we need the non-list GVK, so chop off the "List" from the end of the kind
+	gvk.Kind = gvk.Kind[:len(gvk.Kind)-4]
+
+	listOpts := client.ListOptions{}
+	listOpts.ApplyOptions(opts)
+
+	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+	o, err := c.tracker.List(gvr, gvk, listOpts.Namespace)
+	if err != nil {
+		return err
+	}
+
+	ta, err := meta.TypeAccessor(o)
+	if err != nil {
+		return err
+	}
+	ta.SetKind(OriginalKind)
+	ta.SetAPIVersion(gvk.GroupVersion().String())
+
 	j, err := json.Marshal(o)
 	if err != nil {
 		return err
 	}
 	decoder := scheme.Codecs.UniversalDecoder()
-	_, _, err = decoder.Decode(j, nil, list)
+	_, _, err = decoder.Decode(j, nil, obj)
 	if err != nil {
 		return err
 	}
 
-	if opts.LabelSelector != nil {
-		return filterListItems(list, opts.LabelSelector)
+	if listOpts.LabelSelector != nil {
+		objs, err := meta.ExtractList(obj)
+		if err != nil {
+			return err
+		}
+		filteredObjs, err := objectutil.FilterWithLabels(objs, listOpts.LabelSelector)
+		if err != nil {
+			return err
+		}
+		err = meta.SetList(obj, filteredObjs)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func filterListItems(list runtime.Object, labSel labels.Selector) error {
-	objs, err := meta.ExtractList(list)
-	if err != nil {
-		return err
-	}
-	filteredObjs, err := objectutil.FilterWithLabels(objs, labSel)
-	if err != nil {
-		return err
-	}
-	err = meta.SetList(list, filteredObjs)
-	if err != nil {
-		return err
-	}
-	return nil
-}
+func (c *fakeClient) Create(ctx context.Context, obj runtime.Object, opts ...client.CreateOption) error {
+	createOptions := &client.CreateOptions{}
+	createOptions.ApplyOptions(opts)
 
-func (c *fakeClient) Create(ctx context.Context, obj runtime.Object) error {
+	for _, dryRunOpt := range createOptions.DryRun {
+		if dryRunOpt == metav1.DryRunAll {
+			return nil
+		}
+	}
+
 	gvr, err := getGVRFromObject(obj, c.scheme)
 	if err != nil {
 		return err
@@ -150,7 +205,7 @@ func (c *fakeClient) Create(ctx context.Context, obj runtime.Object) error {
 	return c.tracker.Create(gvr, obj, accessor.GetNamespace())
 }
 
-func (c *fakeClient) Delete(ctx context.Context, obj runtime.Object, opts ...client.DeleteOptionFunc) error {
+func (c *fakeClient) Delete(ctx context.Context, obj runtime.Object, opts ...client.DeleteOption) error {
 	gvr, err := getGVRFromObject(obj, c.scheme)
 	if err != nil {
 		return err
@@ -159,11 +214,59 @@ func (c *fakeClient) Delete(ctx context.Context, obj runtime.Object, opts ...cli
 	if err != nil {
 		return err
 	}
+	delOptions := client.DeleteOptions{}
+	delOptions.ApplyOptions(opts)
+
 	//TODO: implement propagation
 	return c.tracker.Delete(gvr, accessor.GetNamespace(), accessor.GetName())
 }
 
-func (c *fakeClient) Update(ctx context.Context, obj runtime.Object) error {
+func (c *fakeClient) DeleteAllOf(ctx context.Context, obj runtime.Object, opts ...client.DeleteAllOfOption) error {
+	gvk, err := apiutil.GVKForObject(obj, scheme.Scheme)
+	if err != nil {
+		return err
+	}
+
+	dcOptions := client.DeleteAllOfOptions{}
+	dcOptions.ApplyOptions(opts)
+
+	gvr, _ := meta.UnsafeGuessKindToResource(gvk)
+	o, err := c.tracker.List(gvr, gvk, dcOptions.Namespace)
+	if err != nil {
+		return err
+	}
+
+	objs, err := meta.ExtractList(o)
+	if err != nil {
+		return err
+	}
+	filteredObjs, err := objectutil.FilterWithLabels(objs, dcOptions.LabelSelector)
+	if err != nil {
+		return err
+	}
+	for _, o := range filteredObjs {
+		accessor, err := meta.Accessor(o)
+		if err != nil {
+			return err
+		}
+		err = c.tracker.Delete(gvr, accessor.GetNamespace(), accessor.GetName())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *fakeClient) Update(ctx context.Context, obj runtime.Object, opts ...client.UpdateOption) error {
+	updateOptions := &client.UpdateOptions{}
+	updateOptions.ApplyOptions(opts)
+
+	for _, dryRunOpt := range updateOptions.DryRun {
+		if dryRunOpt == metav1.DryRunAll {
+			return nil
+		}
+	}
+
 	gvr, err := getGVRFromObject(obj, c.scheme)
 	if err != nil {
 		return err
@@ -173,6 +276,58 @@ func (c *fakeClient) Update(ctx context.Context, obj runtime.Object) error {
 		return err
 	}
 	return c.tracker.Update(gvr, obj, accessor.GetNamespace())
+}
+
+func (c *fakeClient) Patch(ctx context.Context, obj runtime.Object, patch client.Patch, opts ...client.PatchOption) error {
+	patchOptions := &client.PatchOptions{}
+	patchOptions.ApplyOptions(opts)
+
+	for _, dryRunOpt := range patchOptions.DryRun {
+		if dryRunOpt == metav1.DryRunAll {
+			return nil
+		}
+	}
+
+	gvr, err := getGVRFromObject(obj, c.scheme)
+	if err != nil {
+		return err
+	}
+	accessor, err := meta.Accessor(obj)
+	if err != nil {
+		return err
+	}
+	data, err := patch.Data(obj)
+	if err != nil {
+		return err
+	}
+
+	reaction := testing.ObjectReaction(c.tracker)
+	handled, o, err := reaction(testing.NewPatchAction(gvr, accessor.GetNamespace(), accessor.GetName(), patch.Type(), data))
+	if err != nil {
+		return err
+	}
+	if !handled {
+		panic("tracker could not handle patch method")
+	}
+
+	gvk, err := apiutil.GVKForObject(obj, c.scheme)
+	if err != nil {
+		return err
+	}
+	ta, err := meta.TypeAccessor(o)
+	if err != nil {
+		return err
+	}
+	ta.SetKind(gvk.Kind)
+	ta.SetAPIVersion(gvk.GroupVersion().String())
+
+	j, err := json.Marshal(o)
+	if err != nil {
+		return err
+	}
+	decoder := scheme.Codecs.UniversalDecoder()
+	_, _, err = decoder.Decode(j, nil, obj)
+	return err
 }
 
 func (c *fakeClient) Status() client.StatusWriter {
@@ -188,30 +343,18 @@ func getGVRFromObject(obj runtime.Object, scheme *runtime.Scheme) (schema.GroupV
 	return gvr, nil
 }
 
-func getGVKFromList(list runtime.Object, scheme *runtime.Scheme) (schema.GroupVersionKind, error) {
-	gvk, err := apiutil.GVKForObject(list, scheme)
-	if err != nil {
-		return schema.GroupVersionKind{}, err
-	}
-
-	if gvk.Kind == "List" {
-		return schema.GroupVersionKind{}, fmt.Errorf("cannot derive GVK for generic List type %T (kind %q)", list, gvk)
-	}
-
-	if !strings.HasSuffix(gvk.Kind, "List") {
-		return schema.GroupVersionKind{}, fmt.Errorf("non-list type %T (kind %q) passed as output", list, gvk)
-	}
-	// we need the non-list GVK, so chop off the "List" from the end of the kind
-	gvk.Kind = gvk.Kind[:len(gvk.Kind)-4]
-	return gvk, nil
-}
-
 type fakeStatusWriter struct {
 	client *fakeClient
 }
 
-func (sw *fakeStatusWriter) Update(ctx context.Context, obj runtime.Object) error {
+func (sw *fakeStatusWriter) Update(ctx context.Context, obj runtime.Object, opts ...client.UpdateOption) error {
 	// TODO(droot): This results in full update of the obj (spec + status). Need
 	// a way to update status field only.
-	return sw.client.Update(ctx, obj)
+	return sw.client.Update(ctx, obj, opts...)
+}
+
+func (sw *fakeStatusWriter) Patch(ctx context.Context, obj runtime.Object, patch client.Patch, opts ...client.PatchOption) error {
+	// TODO(droot): This results in full update of the obj (spec + status). Need
+	// a way to update status field only.
+	return sw.client.Patch(ctx, obj, patch, opts...)
 }

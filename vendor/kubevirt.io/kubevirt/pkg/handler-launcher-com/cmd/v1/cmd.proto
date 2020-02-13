@@ -5,6 +5,8 @@ option go_package = "v1";
 
 service Cmd {
   rpc SyncVirtualMachine(VMIRequest) returns (Response) {}
+  rpc PauseVirtualMachine(VMIRequest) returns (Response) {}
+  rpc UnpauseVirtualMachine(VMIRequest) returns (Response) {}
   rpc ShutdownVirtualMachine(VMIRequest) returns (Response) {}
   rpc KillVirtualMachine(VMIRequest) returns (Response) {}
   rpc DeleteVirtualMachine(VMIRequest) returns (Response) {}

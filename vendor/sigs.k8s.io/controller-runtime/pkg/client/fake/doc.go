@@ -15,6 +15,8 @@ limitations under the License.
 */
 
 /*
+Deprecated: please use pkg/envtest for testing. This package will be dropped
+before the v1.0.0 release.
 Package fake provides a fake client for testing.
 
 An fake client is backed by its simple object store indexed by GroupVersionResource.
@@ -23,5 +25,8 @@ You can create a fake client with optional objects.
 	client := NewFakeClient(initObjs...) // initObjs is a slice of runtime.Object
 
 You can invoke the methods defined in the Client interface.
+
+When it doubt, it's almost always better not to use this package and instead use
+envtest.Environment with a real client and API server.
 */
 package fake

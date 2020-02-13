@@ -128,6 +128,12 @@ type InterfaceStatus struct {
 	InterfaceName string
 }
 
+// DomainGuestInfo represent guest agent info for specific domain
+type DomainGuestInfo struct {
+	Interfaces []InterfaceStatus
+	OSInfo     *GuestOSInfo
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type DomainList struct {
 	metav1.TypeMeta
@@ -163,6 +169,7 @@ type DomainSpec struct {
 type CPUTune struct {
 	VCPUPin     []CPUTuneVCPUPin     `xml:"vcpupin"`
 	IOThreadPin []CPUTuneIOThreadPin `xml:"iothreadpin,omitempty"`
+	EmulatorPin *CPUEmulatorPin      `xml:"emulatorpin"`
 }
 
 type CPUTuneVCPUPin struct {
@@ -173,6 +180,10 @@ type CPUTuneVCPUPin struct {
 type CPUTuneIOThreadPin struct {
 	IOThread uint   `xml:"iothread,attr"`
 	CPUSet   string `xml:"cpuset,attr"`
+}
+
+type CPUEmulatorPin struct {
+	CPUSet string `xml:"cpuset,attr"`
 }
 
 type VCPU struct {

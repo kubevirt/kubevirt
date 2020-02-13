@@ -209,3 +209,24 @@ func IsServiceMonitorEnabled(clientset kubecli.KubevirtClient) (bool, error) {
 
 	return false, nil
 }
+
+// IsPrometheusRuleEnabled returns true if prometheusrules cr is defined
+// and false otherwise.
+func IsPrometheusRuleEnabled(clientset kubecli.KubevirtClient) (bool, error) {
+	apis, err := clientset.DiscoveryClient().ServerResources()
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+		return false, err
+	}
+
+	for _, api := range apis {
+		if api.GroupVersion == promv1.SchemeGroupVersion.String() {
+			for _, resource := range api.APIResources {
+				if resource.Name == "prometheusrules" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
+}

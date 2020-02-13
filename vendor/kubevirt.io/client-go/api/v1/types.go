@@ -221,6 +221,9 @@ const (
 	// this is reported as false.
 	VirtualMachineInstanceSynchronized VirtualMachineInstanceConditionType = "Synchronized"
 
+	// If the VMI was paused by the user, this is reported as true.
+	VirtualMachineInstancePaused VirtualMachineInstanceConditionType = "Paused"
+
 	// Reflects whether the QEMU guest agent is connected through the channel
 	VirtualMachineInstanceAgentConnected VirtualMachineInstanceConditionType = "AgentConnected"
 
@@ -926,6 +929,10 @@ const (
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	VirtualMachineFailure VirtualMachineConditionType = "Failure"
+
+	// VirtualMachinePaused is added in a virtual machine when its vmi
+	// signals with its own condition that it is paused.
+	VirtualMachinePaused VirtualMachineConditionType = "Paused"
 )
 
 // ---
@@ -1047,7 +1054,18 @@ type KubeVirtSpec struct {
 	// The name of the Prometheus service account that needs read-access to KubeVirt endpoints
 	// Defaults to prometheus-k8s
 	MonitorAccount string `json:"monitorAccount,omitempty"`
+
+	// Specifies if kubevirt can be deleted if workloads are still present.
+	// This is mainly a precaution to avoid accidental data loss
+	UninstallStrategy KubeVirtUninstallStrategy `json:"uninstallStrategy,omitempty"`
 }
+
+type KubeVirtUninstallStrategy string
+
+const (
+	KubeVirtUninstallStrategyRemoveWorkloads                KubeVirtUninstallStrategy = "RemoveWorkloads"
+	KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist KubeVirtUninstallStrategy = "BlockUninstallIfWorkloadsExist"
+)
 
 // KubeVirtStatus represents information pertaining to a KubeVirt deployment.
 // ---
@@ -1118,3 +1136,18 @@ const (
 const (
 	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
 )
+
+// RestartOptions may be provided when deleting an API object.
+// ---
+// +k8s:openapi-gen=true
+type RestartOptions struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// The duration in seconds before the object should be force-restared. Value must be non-negative integer.
+	// The value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the
+	// specified type will be used to determine on how much time to give the VMI to restart.
+	// Defaults to a per object value if not specified. zero means restart immediately.
+	// Allowed Values: nil and 0
+	// +optional
+	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty" protobuf:"varint,1,opt,name=gracePeriodSeconds"`
+}

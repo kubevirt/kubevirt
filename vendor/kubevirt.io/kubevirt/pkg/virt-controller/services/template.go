@@ -504,6 +504,40 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		if volume.ServiceAccount != nil {
 			serviceAccountName = volume.ServiceAccount.ServiceAccountName
 		}
+
+		if volume.CloudInitNoCloud != nil && volume.CloudInitNoCloud.UserDataSecretRef != nil {
+			// attach a secret referenced by the user
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					Secret: &k8sv1.SecretVolumeSource{
+						SecretName: volume.CloudInitNoCloud.UserDataSecretRef.Name,
+					},
+				},
+			})
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
+				ReadOnly:  true,
+			})
+		}
+
+		if volume.CloudInitConfigDrive != nil && volume.CloudInitConfigDrive.UserDataSecretRef != nil {
+			// attach a secret referenced by the user
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					Secret: &k8sv1.SecretVolumeSource{
+						SecretName: volume.CloudInitConfigDrive.UserDataSecretRef.Name,
+					},
+				},
+			})
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
+				ReadOnly:  true,
+			})
+		}
 	}
 
 	if t.imagePullSecret != "" {
@@ -613,6 +647,18 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				resources.Limits[k8sv1.ResourceCPU] = cpuRequest
 			}
 		}
+		// allocate 1 more pcpu if IsolateEmulatorThread request
+		if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+			emulatorThreadCpu := resource.NewQuantity(1, resource.BinarySI)
+			limits := resources.Limits[k8sv1.ResourceCPU]
+			limits.Add(*emulatorThreadCpu)
+			resources.Limits[k8sv1.ResourceCPU] = limits
+			if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+				cpuRequest.Add(*emulatorThreadCpu)
+				resources.Requests[k8sv1.ResourceCPU] = cpuRequest
+			}
+		}
+
 		resources.Limits[k8sv1.ResourceMemory] = *resources.Requests.Memory()
 	}
 
@@ -858,7 +904,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			Resources: k8sv1.ResourceRequirements{
 				Limits: map[k8sv1.ResourceName]resource.Quantity{
 					k8sv1.ResourceCPU:    resource.MustParse("1m"),
-					k8sv1.ResourceMemory: resource.MustParse("12Mi"), // this is the minimum memory limit for cri-o!
+					k8sv1.ResourceMemory: resource.MustParse("40Mi"),
 				},
 			},
 			Command:        []string{"/usr/bin/tail", "-f", "/dev/null"},

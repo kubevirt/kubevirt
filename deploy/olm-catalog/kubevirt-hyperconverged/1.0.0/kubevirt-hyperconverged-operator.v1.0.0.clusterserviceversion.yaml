@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:latest
-    createdAt: "2020-01-16 17:24:40"
+    createdAt: "2020-02-11 19:49:42"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -479,10 +479,13 @@ spec:
           - watch
           - create
           - delete
+          - update
+          - patch
         - apiGroups:
           - monitoring.coreos.com
           resources:
           - servicemonitors
+          - prometheusrules
           verbs:
           - get
           - list
@@ -505,6 +508,9 @@ spec:
           - namespaces
           verbs:
           - get
+          - list
+          - watch
+          - patch
         - apiGroups:
           - admissionregistration.k8s.io
           resources:
@@ -529,6 +535,8 @@ spec:
           verbs:
           - get
           - list
+          - delete
+          - patch
         - apiGroups:
           - kubevirt.io
           resources:
@@ -698,7 +706,6 @@ spec:
         - apiGroups:
           - ""
           resources:
-          - secrets
           - persistentvolumeclaims
           verbs:
           - get
@@ -737,6 +744,7 @@ spec:
           - secrets
           verbs:
           - create
+          - get
         - apiGroups:
           - subresources.kubevirt.io
           resources:
@@ -1366,17 +1374,20 @@ spec:
                 - "2"
                 env:
                 - name: OPERATOR_IMAGE
-                  value: docker.io/kubevirt/virt-operator:v0.24.0
+                  value: docker.io/kubevirt/virt-operator:v0.26.0
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: docker.io/kubevirt/virt-operator:v0.24.0
+                image: docker.io/kubevirt/virt-operator:v0.26.0
                 imagePullPolicy: IfNotPresent
                 name: virt-operator
                 ports:
                 - containerPort: 8443
                   name: metrics
+                  protocol: TCP
+                - containerPort: 8444
+                  name: webhooks
                   protocol: TCP
                 readinessProbe:
                   httpGet:

@@ -19,7 +19,7 @@ import (
 	"net"
 	"net/http"
 
-	kcollector "k8s.io/kube-state-metrics/pkg/collector"
+	metricsstore "k8s.io/kube-state-metrics/pkg/metrics_store"
 )
 
 const (
@@ -27,19 +27,20 @@ const (
 	healthzPath = "/healthz"
 )
 
-func ServeMetrics(collectors [][]kcollector.Collector, host string, port int32) {
+func ServeMetrics(stores [][]*metricsstore.MetricsStore, host string, port int32) {
 	listenAddress := net.JoinHostPort(host, fmt.Sprint(port))
 	mux := http.NewServeMux()
 	// Add metricsPath
-	mux.Handle(metricsPath, &metricHandler{collectors})
+	mux.Handle(metricsPath, &metricHandler{stores})
 	// Add healthzPath
 	mux.HandleFunc(healthzPath, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
-		w.Write([]byte("ok"))
+		_, err := w.Write([]byte("ok"))
+		log.Error(err, "Unable to write to serve custom metrics")
 	})
 	// Add index
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
+		_, err := w.Write([]byte(`<html>
              <head><title>Operator SDK Metrics</title></head>
              <body>
              <h1>kube-metrics</h1>
@@ -49,13 +50,14 @@ func ServeMetrics(collectors [][]kcollector.Collector, host string, port int32) 
 			 </ul>
              </body>
              </html>`))
+		log.Error(err, "Unable to write to serve custom metrics")
 	})
 	err := http.ListenAndServe(listenAddress, mux)
 	log.Error(err, "Failed to serve custom metrics")
 }
 
 type metricHandler struct {
-	collectors [][]kcollector.Collector
+	stores [][]*metricsstore.MetricsStore
 }
 
 func (m *metricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -63,9 +65,9 @@ func (m *metricHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 0.0.4 is the exposition format version of prometheus
 	// https://prometheus.io/docs/instrumenting/exposition_formats/#text-based-format
 	resHeader.Set("Content-Type", `text/plain; version=`+"0.0.4")
-	for _, collectors := range m.collectors {
-		for _, c := range collectors {
-			c.Collect(w)
+	for _, stores := range m.stores {
+		for _, s := range stores {
+			s.WriteAll(w)
 		}
 	}
 }

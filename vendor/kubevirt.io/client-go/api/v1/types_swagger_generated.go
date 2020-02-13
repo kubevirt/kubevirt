@@ -270,11 +270,12 @@ func (KubeVirtList) SwaggerDoc() map[string]string {
 
 func (KubeVirtSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"imageTag":         "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
-		"imageRegistry":    "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
-		"imagePullPolicy":  "The ImagePullPolicy to use.",
-		"monitorNamespace": "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
-		"monitorAccount":   "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
+		"imageTag":          "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
+		"imageRegistry":     "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
+		"imagePullPolicy":   "The ImagePullPolicy to use.",
+		"monitorNamespace":  "The namespace Prometheus is deployed in\nDefaults to openshift-monitor",
+		"monitorAccount":    "The name of the Prometheus service account that needs read-access to KubeVirt endpoints\nDefaults to prometheus-k8s",
+		"uninstallStrategy": "Specifies if kubevirt can be deleted if workloads are still present.\nThis is mainly a precaution to avoid accidental data loss",
 	}
 }
 
@@ -287,5 +288,12 @@ func (KubeVirtStatus) SwaggerDoc() map[string]string {
 func (KubeVirtCondition) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "KubeVirtCondition represents a condition of a KubeVirt deployment",
+	}
+}
+
+func (RestartOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                   "RestartOptions may be provided when deleting an API object.",
+		"gracePeriodSeconds": "The duration in seconds before the object should be force-restared. Value must be non-negative integer.\nThe value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the\nspecified type will be used to determine on how much time to give the VMI to restart.\nDefaults to a per object value if not specified. zero means restart immediately.\nAllowed Values: nil and 0\n+optional",
 	}
 }

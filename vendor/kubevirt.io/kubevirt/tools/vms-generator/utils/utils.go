@@ -83,9 +83,10 @@ const (
 	imageCirros = "cirros-container-disk-demo"
 	imageFedora = "fedora-cloud-container-disk-demo"
 )
-
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 const defaultInterfaceName = "default"
+const enableNetworkInterfaceMultiqueueForTemplate = true
+const EthernetAdaptorModelToEnableMultiqueue = "virtio"
 
 var DockerPrefix = "registry:5000/kubevirt"
 var DockerTag = "devel"
@@ -124,15 +125,18 @@ func getBaseVMI(name string) *v1.VirtualMachineInstance {
 func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
 	addContainerDisk(spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
-
 	return spec
+}
+func enableNetworkInterfaceMultiqueue(spec *v1.VirtualMachineInstanceSpec, enable bool) {
+	spec.Domain.Devices.NetworkInterfaceMultiQueue = &enable
 }
 
 func setDefaultNetworkAndInterface(spec *v1.VirtualMachineInstanceSpec, bindingMethod v1.InterfaceBindingMethod, networkSource v1.NetworkSource) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Interfaces = []v1.Interface{
 		v1.Interface{
 			Name:                   defaultInterfaceName,
-			InterfaceBindingMethod: bindingMethod},
+			InterfaceBindingMethod: bindingMethod,
+			Model:                  EthernetAdaptorModelToEnableMultiqueue},
 	}
 	spec.Networks = []v1.Network{
 		v1.Network{
@@ -587,6 +591,8 @@ func GetTemplateFedora() *Template {
 			Pod: &v1.PodNetwork{},
 		})
 
+	enableNetworkInterfaceMultiqueue(spec, enableNetworkInterfaceMultiqueueForTemplate)
+
 	template := getBaseTemplate(vm, "4096Mi", "4")
 	template.ObjectMeta = metav1.ObjectMeta{
 		Name: VmTemplateFedora,
@@ -613,6 +619,8 @@ func GetTemplateRHEL7() *Template {
 			Pod: &v1.PodNetwork{},
 		})
 
+	enableNetworkInterfaceMultiqueue(spec, enableNetworkInterfaceMultiqueueForTemplate)
+
 	addPVCDisk(spec, "linux-vm-pvc-${NAME}", busVirtio, "disk0")
 	pvc := getPVCForTemplate("linux-vm-pvc-${NAME}")
 	template := newTemplateForRHEL7VM(vm)
@@ -630,6 +638,8 @@ func GetTestTemplateRHEL7() *Template {
 		v1.NetworkSource{
 			Pod: &v1.PodNetwork{},
 		})
+
+	enableNetworkInterfaceMultiqueue(spec, enableNetworkInterfaceMultiqueueForTemplate)
 
 	return newTemplateForRHEL7VM(vm)
 }

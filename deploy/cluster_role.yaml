@@ -324,10 +324,13 @@ rules:
   - watch
   - create
   - delete
+  - update
+  - patch
 - apiGroups:
   - monitoring.coreos.com
   resources:
   - servicemonitors
+  - prometheusrules
   verbs:
   - get
   - list
@@ -350,6 +353,9 @@ rules:
   - namespaces
   verbs:
   - get
+  - list
+  - watch
+  - patch
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
@@ -374,6 +380,8 @@ rules:
   verbs:
   - get
   - list
+  - delete
+  - patch
 - apiGroups:
   - kubevirt.io
   resources:
@@ -543,7 +551,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secrets
   - persistentvolumeclaims
   verbs:
   - get
@@ -582,6 +589,7 @@ rules:
   - secrets
   verbs:
   - create
+  - get
 - apiGroups:
   - subresources.kubevirt.io
   resources:

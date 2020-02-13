@@ -37,6 +37,11 @@ const (
 	COMMAND_MIGRATE = "migrate"
 )
 
+var (
+	forceRestart bool
+	gracePeriod  int = -1
+)
+
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start (VM)",
@@ -78,6 +83,8 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(cmd, args)
 		},
 	}
+	cmd.Flags().BoolVar(&forceRestart, "force", forceRestart, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
+	cmd.Flags().IntVar(&gracePeriod, "grace-period", gracePeriod, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -100,10 +107,6 @@ func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 type Command struct {
 	clientConfig clientcmd.ClientConfig
 	command      string
-}
-
-func NewCommand(command string) *Command {
-	return &Command{command: command}
 }
 
 func usage(cmd string) string {
@@ -138,6 +141,20 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("Error stopping VirtualMachine %v", err)
 		}
 	case COMMAND_RESTART:
+		if gracePeriod != -1 && forceRestart == false {
+			return fmt.Errorf("Can not set gracePeriod without --force=true")
+		}
+		if forceRestart {
+			if gracePeriod != -1 {
+				err = virtClient.VirtualMachine(namespace).ForceRestart(vmiName, gracePeriod)
+				if err != nil {
+					return fmt.Errorf("Error restarting VirtualMachine, %v", err)
+				}
+			} else if gracePeriod == -1 {
+				return fmt.Errorf("Can not force restart without gracePeriod")
+			}
+			break
+		}
 		err = virtClient.VirtualMachine(namespace).Restart(vmiName)
 		if err != nil {
 			return fmt.Errorf("Error restarting VirtualMachine %v", err)

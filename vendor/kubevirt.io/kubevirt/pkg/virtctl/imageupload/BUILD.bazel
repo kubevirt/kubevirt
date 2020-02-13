@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virtctl/templates:go_default_library",
+        "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/gopkg.in/cheggaaa/pb.v1:go_default_library",
@@ -17,8 +18,8 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned:go_default_library",
     ],
 )
 
@@ -30,6 +31,7 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
@@ -43,6 +45,5 @@ go_test(
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake:go_default_library",
     ],
 )

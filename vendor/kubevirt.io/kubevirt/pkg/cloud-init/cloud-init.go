@@ -25,13 +25,10 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -72,7 +69,7 @@ func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
 
 // ReadCloudInitVolumeDataSource scans the given VMI for CloudInit volumes and
 // reads their content into a CloudInitData struct. Does not resolve secret refs.
-// To ensure that secrets are read correctly, call InjectCloudInitSecrets beforehand.
+// To ensure that secrets are read correctly, call ResolveNoCloudSecrets beforehand.
 func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance) (cloudInitData *CloudInitData, err error) {
 	precond.MustNotBeNil(vmi)
 	hostname := dns.SanitizeHostname(vmi)
@@ -90,6 +87,101 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance) (cloudInitDat
 		}
 	}
 	return nil, nil
+}
+
+// ResolveNoCloudSecrets is looking for CloudInitNoCloud volumes with UserDataSecretRef
+// requests. It reads the `userdata` secret the corresponds to the given CloudInitNoCloud
+// volume and sets the UserData field on that volume.
+//
+// Note: when using this function, make sure that your code can access the secret volumes.
+func ResolveNoCloudSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir string) error {
+	volume := findCloudInitNoCloudSecretVolume(vmi.Spec.Volumes)
+	if volume == nil {
+		return nil
+	}
+
+	baseDir := filepath.Join(secretSourceDir, volume.Name)
+	userData, userDataError := readFileFromDir(baseDir, "userdata")
+	networkData, networkDataError := readFileFromDir(baseDir, "networkdata")
+	if userDataError != nil && networkDataError != nil {
+		return fmt.Errorf("no cloud-init data-source found at volume: %s", volume.Name)
+	}
+
+	if userData != "" {
+		volume.CloudInitNoCloud.UserData = userData
+	}
+	if networkData != "" {
+		volume.CloudInitNoCloud.NetworkData = networkData
+	}
+
+	return nil
+}
+
+// ResolveConfigDriveSecrets is looking for CloudInitConfigDriveSource volume source with
+// UserDataSecretRef and NetworkDataSecretRef and resolves the secret from the corresponding
+// VolumeMount.
+//
+// Note: when using this function, make sure that your code can access the secret volumes.
+func ResolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir string) error {
+	volume := findCloudInitConfigDriveSecretVolume(vmi.Spec.Volumes)
+	if volume == nil {
+		return nil
+	}
+
+	baseDir := filepath.Join(secretSourceDir, volume.Name)
+	userData, userDataError := readFileFromDir(baseDir, "userdata")
+	networkData, networkDataError := readFileFromDir(baseDir, "networkdata")
+	if userDataError != nil && networkDataError != nil {
+		return fmt.Errorf("no cloud-init data-source found at volume: %s", volume.Name)
+	}
+
+	if userData != "" {
+		volume.CloudInitConfigDrive.UserData = userData
+	}
+	if networkData != "" {
+		volume.CloudInitConfigDrive.NetworkData = networkData
+	}
+
+	return nil
+}
+
+// findCloudInitConfigDriveSecretVolume loops over a given list of volumes and return a pointer
+// to the first volume with a CloudInitConfigDrive source and UserDataSecretRef field set.
+func findCloudInitConfigDriveSecretVolume(volumes []v1.Volume) *v1.Volume {
+	for _, volume := range volumes {
+		if volume.CloudInitConfigDrive == nil {
+			continue
+		}
+		if volume.CloudInitConfigDrive.UserDataSecretRef != nil ||
+			volume.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+			return &volume
+		}
+	}
+
+	return nil
+}
+
+func readFileFromDir(basedir, secretFile string) (string, error) {
+	userDataSecretFile := filepath.Join(basedir, secretFile)
+	userDataSecret, err := ioutil.ReadFile(userDataSecretFile)
+	if err != nil {
+		log.Log.V(2).Reason(err).
+			Errorf("could not read secret data from source: %s", userDataSecretFile)
+		return "", err
+	}
+	return string(userDataSecret), nil
+}
+
+// findCloudInitNoCloudSecretVolume loops over a given list of volumes and return a pointer
+// to the first CloudInitNoCloud volume with a UserDataSecretRef field set.
+func findCloudInitNoCloudSecretVolume(volumes []v1.Volume) *v1.Volume {
+	for _, volume := range volumes {
+		if volume.CloudInitNoCloud != nil && volume.CloudInitNoCloud.UserDataSecretRef != nil {
+			return &volume
+		}
+	}
+
+	return nil
 }
 
 func readRawOrBase64Data(rawData, base64Data string) (string, error) {
@@ -240,93 +332,6 @@ func removeLocalData(domain string, namespace string) error {
 		return nil
 	}
 	return err
-}
-
-// InjectCloudInitSecrets inspects cloud-init volumes in the given VMI and
-// resolves any userdata and networkdata secret refs it may find. The resolved
-// cloud-init secrets are then injected into the VMI.
-func InjectCloudInitSecrets(vmi *v1.VirtualMachineInstance, clientset kubecli.KubevirtClient) error {
-	precond.MustNotBeNil(vmi)
-	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-
-	var err error
-	for _, volume := range vmi.Spec.Volumes {
-		if volume.CloudInitNoCloud != nil {
-			err = resolveNoCloudSecrets(volume.CloudInitNoCloud, namespace, clientset)
-			break
-		}
-		if volume.CloudInitConfigDrive != nil {
-			err = resolveConfigDriveSecrets(volume.CloudInitConfigDrive, namespace, clientset)
-			break
-		}
-	}
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func resolveNoCloudSecrets(source *v1.CloudInitNoCloudSource, namespace string, clientset kubecli.KubevirtClient) error {
-	precond.CheckNotNil(source)
-
-	secretRefs := []*corev1.LocalObjectReference{source.UserDataSecretRef, source.NetworkDataSecretRef}
-	dataKeys := []string{"userdata", "networkdata"}
-	resolvedData, err := resolveSecrets(secretRefs, dataKeys, namespace, clientset)
-	if err != nil {
-		return err
-	}
-
-	if userData, ok := resolvedData["userdata"]; ok {
-		source.UserData = userData
-	}
-	if networkData, ok := resolvedData["networkdata"]; ok {
-		source.NetworkData = networkData
-	}
-	return nil
-}
-
-func resolveConfigDriveSecrets(source *v1.CloudInitConfigDriveSource, namespace string, clientset kubecli.KubevirtClient) error {
-	precond.CheckNotNil(source)
-
-	secretRefs := []*corev1.LocalObjectReference{source.UserDataSecretRef, source.NetworkDataSecretRef}
-	dataKeys := []string{"userdata", "networkdata"}
-	resolvedData, err := resolveSecrets(secretRefs, dataKeys, namespace, clientset)
-	if err != nil {
-		return err
-	}
-
-	if userData, ok := resolvedData["userdata"]; ok {
-		source.UserData = userData
-	}
-	if networkData, ok := resolvedData["networkdata"]; ok {
-		source.NetworkData = networkData
-	}
-	return nil
-}
-
-func resolveSecrets(secretRefs []*corev1.LocalObjectReference, dataKeys []string, namespace string, clientset kubecli.KubevirtClient) (map[string]string, error) {
-	precond.CheckNotEmpty(namespace)
-	precond.CheckNotNil(clientset)
-	resolvedData := make(map[string]string, len(secretRefs))
-
-	for i, secretRef := range secretRefs {
-		if secretRef == nil {
-			continue
-		}
-
-		secretID := secretRef.Name
-		secret, err := clientset.CoreV1().Secrets(namespace).Get(secretID, metav1.GetOptions{})
-		if err != nil {
-			return resolvedData, err
-		}
-		data, ok := secret.Data[dataKeys[i]]
-		if !ok {
-			return resolvedData, fmt.Errorf("%s key not found in k8s secret %s %v", dataKeys[i], secretID, err)
-		}
-		resolvedData[dataKeys[i]] = string(data)
-	}
-
-	return resolvedData, nil
 }
 
 func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) error {

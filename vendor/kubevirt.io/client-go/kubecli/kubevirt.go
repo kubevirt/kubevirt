@@ -38,12 +38,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	networkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
-
-	promclient "github.com/coreos/prometheus-operator/pkg/client/versioned"
+	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	cdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
+	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
+	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
 )
 
 type KubevirtClient interface {
@@ -129,6 +128,8 @@ type VirtualMachineInstanceInterface interface {
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error)
 	SerialConsole(name string, timeout time.Duration) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
+	Pause(name string) error
+	Unpause(name string) error
 }
 
 type ReplicaSetInterface interface {
@@ -161,6 +162,7 @@ type VirtualMachineInterface interface {
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error)
 	Restart(name string) error
+	ForceRestart(name string, graceperiod int) error
 	Start(name string) error
 	Stop(name string) error
 	Migrate(name string) error

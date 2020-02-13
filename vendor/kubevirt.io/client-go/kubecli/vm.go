@@ -20,6 +20,7 @@
 package kubecli
 
 import (
+	"encoding/json"
 	"fmt"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,11 +48,11 @@ type vm struct {
 }
 
 // Create new VirtualMachine in the cluster to specified namespace
-func (o *vm) Create(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+func (v *vm) Create(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	newVm := &v1.VirtualMachine{}
-	err := o.restClient.Post().
-		Resource(o.resource).
-		Namespace(o.namespace).
+	err := v.restClient.Post().
+		Resource(v.resource).
+		Namespace(v.namespace).
 		Body(vm).
 		Do().
 		Into(newVm)
@@ -62,11 +63,11 @@ func (o *vm) Create(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 }
 
 // Get the Virtual machine from the cluster by its name and namespace
-func (o *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
+func (v *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
 	newVm := &v1.VirtualMachine{}
-	err := o.restClient.Get().
-		Resource(o.resource).
-		Namespace(o.namespace).
+	err := v.restClient.Get().
+		Resource(v.resource).
+		Namespace(v.namespace).
 		Name(name).
 		VersionedParams(options, scheme.ParameterCodec).
 		Do().
@@ -78,11 +79,11 @@ func (o *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine
 }
 
 // Update the VirtualMachine instance in the cluster in given namespace
-func (o *vm) Update(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+func (v *vm) Update(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	updatedVm := &v1.VirtualMachine{}
-	err := o.restClient.Put().
-		Resource(o.resource).
-		Namespace(o.namespace).
+	err := v.restClient.Put().
+		Resource(v.resource).
+		Namespace(v.namespace).
 		Name(vm.Name).
 		Body(vm).
 		Do().
@@ -94,10 +95,10 @@ func (o *vm) Update(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 }
 
 // Delete the defined VirtualMachine in the cluster in defined namespace
-func (o *vm) Delete(name string, options *k8smetav1.DeleteOptions) error {
-	err := o.restClient.Delete().
-		Resource(o.resource).
-		Namespace(o.namespace).
+func (v *vm) Delete(name string, options *k8smetav1.DeleteOptions) error {
+	err := v.restClient.Delete().
+		Resource(v.resource).
+		Namespace(v.namespace).
 		Name(name).
 		Body(options).
 		Do().
@@ -107,11 +108,11 @@ func (o *vm) Delete(name string, options *k8smetav1.DeleteOptions) error {
 }
 
 // List all VirtualMachines in given namespace
-func (o *vm) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
+func (v *vm) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
 	newVmList := &v1.VirtualMachineList{}
-	err := o.restClient.Get().
-		Resource(o.resource).
-		Namespace(o.namespace).
+	err := v.restClient.Get().
+		Resource(v.resource).
+		Namespace(v.namespace).
 		VersionedParams(options, scheme.ParameterCodec).
 		Do().
 		Into(newVmList)
@@ -139,6 +140,16 @@ func (v *vm) Patch(name string, pt types.PatchType, data []byte, subresources ..
 func (v *vm) Restart(name string) error {
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restart")
 	return v.restClient.Put().RequestURI(uri).Do().Error()
+}
+
+func (v *vm) ForceRestart(name string, graceperiod int) error {
+	data := map[string]int{"gracePeriodSeconds": graceperiod}
+	body, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("Cannot Marshal to json: %s", err)
+	}
+	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restart")
+	return v.restClient.Put().RequestURI(uri).Body(body).Do().Error()
 }
 
 func (v *vm) Start(name string) error {

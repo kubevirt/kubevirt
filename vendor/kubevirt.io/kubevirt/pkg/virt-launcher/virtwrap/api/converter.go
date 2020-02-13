@@ -58,17 +58,18 @@ const (
 
 // +k8s:deepcopy-gen=false
 type ConverterContext struct {
-	UseEmulation   bool
-	Secrets        map[string]*k8sv1.Secret
-	VirtualMachine *v1.VirtualMachineInstance
-	CPUSet         []int
-	IsBlockPVC     map[string]bool
-	IsBlockDV      map[string]bool
-	DiskType       map[string]*containerdisk.DiskInfo
-	SRIOVDevices   map[string][]string
-	SMBios         *cmdv1.SMBios
-	GpuDevices     []string
-	VgpuDevices    []string
+	UseEmulation      bool
+	Secrets           map[string]*k8sv1.Secret
+	VirtualMachine    *v1.VirtualMachineInstance
+	CPUSet            []int
+	IsBlockPVC        map[string]bool
+	IsBlockDV         map[string]bool
+	DiskType          map[string]*containerdisk.DiskInfo
+	SRIOVDevices      map[string][]string
+	SMBios            *cmdv1.SMBios
+	GpuDevices        []string
+	VgpuDevices       []string
+	EmulatorThreadCpu *int
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -969,6 +970,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				log.Log.Reason(err).Error("failed to format domain cputune.")
 				return err
 			}
+			if vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+				if c.EmulatorThreadCpu == nil {
+					err := fmt.Errorf("no CPUs allocated for the emulation thread")
+					log.Log.Reason(err).Error("failed to format emulation thread pin")
+					return err
+
+				}
+				appendDomainEmulatorThreadPin(domain, *c.EmulatorThreadCpu)
+			}
 			if useIOThreads {
 				if err := formatDomainIOThreadPin(vmi, domain, c); err != nil {
 					log.Log.Reason(err).Error("failed to format domain iothread pinning.")
@@ -1303,6 +1313,13 @@ func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *Conv
 	}
 	domain.Spec.CPUTune = &cpuTune
 	return nil
+}
+
+func appendDomainEmulatorThreadPin(domain *Domain, allocatedCpu int) {
+	emulatorThread := CPUEmulatorPin{
+		CPUSet: strconv.Itoa(allocatedCpu),
+	}
+	domain.Spec.CPUTune.EmulatorPin = &emulatorThread
 }
 
 func appendDomainIOThreadPin(domain *Domain, thread uint, cpuset string) {

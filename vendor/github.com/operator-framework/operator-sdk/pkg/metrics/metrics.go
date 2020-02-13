@@ -27,12 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var log = logf.Log.WithName("metrics")
-
-var trueVar = true
 
 const (
 	// OperatorPortName defines the default operator metrics port name used in the metrics Service.
@@ -49,7 +47,7 @@ func CreateMetricsService(ctx context.Context, cfg *rest.Config, servicePorts []
 	}
 	client, err := crclient.New(cfg, crclient.Options{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new client: %v", err)
+		return nil, fmt.Errorf("failed to create new client: %w", err)
 	}
 	s, err := initOperatorService(ctx, client, servicePorts)
 	if err != nil {
@@ -57,11 +55,11 @@ func CreateMetricsService(ctx context.Context, cfg *rest.Config, servicePorts []
 			log.Info("Skipping metrics Service creation; not running in a cluster.")
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to initialize service object for metrics: %v", err)
+		return nil, fmt.Errorf("failed to initialize service object for metrics: %w", err)
 	}
 	service, err := createOrUpdateService(ctx, client, s)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create or get service for metrics: %v", err)
+		return nil, fmt.Errorf("failed to create or get service for metrics: %w", err)
 	}
 
 	return service, nil
@@ -79,6 +77,9 @@ func createOrUpdateService(ctx context.Context, client crclient.Client, s *v1.Se
 			Name:      s.Name,
 			Namespace: s.Namespace,
 		}, existingService)
+		if err != nil {
+			return nil, err
+		}
 
 		s.ResourceVersion = existingService.ResourceVersion
 		if existingService.Spec.Type == v1.ServiceTypeClusterIP {
@@ -88,8 +89,8 @@ func createOrUpdateService(ctx context.Context, client crclient.Client, s *v1.Se
 		if err != nil {
 			return nil, err
 		}
-		log.V(1).Info("Metrics Service object updated", "Service.Name", s.Name, "Service.Namespace", s.Namespace)
-		return existingService, nil
+		log.Info("Metrics Service object updated", "Service.Name", s.Name, "Service.Namespace", s.Namespace)
+		return s, nil
 	}
 
 	log.Info("Metrics Service object created", "Service.Name", s.Name, "Service.Namespace", s.Namespace)

@@ -13,6 +13,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
+	"kubevirt.io/kubevirt/pkg/virtctl/pause"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/version"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
@@ -36,11 +37,21 @@ func NewVirtctlCommand() *cobra.Command {
 	}
 
 	// used in cobra templates to display either `kubectl virt` or `virtctl`
-	cobra.AddTemplateFunc("ProgramName", func() string { return programName })
+	cobra.AddTemplateFunc(
+		"ProgramName", func() string {
+			return programName
+		},
+	)
 
 	// used to enable replacement of `ProgramName` placeholder for cobra.Example, which has no template support
 	cobra.AddTemplateFunc(
-		"prepare", func(s string) string { return strings.Replace(s, "{{ProgramName}}", programName, -1) })
+		"prepare", func(s string) string {
+			// order matters!
+			result := strings.Replace(s, "kubectl", "kubectl virt", -1)
+			result = strings.Replace(result, "{{ProgramName}}", programName, -1)
+			return result
+		},
+	)
 
 	rootCmd := &cobra.Command{
 		Use:           programName,
@@ -71,6 +82,8 @@ func NewVirtctlCommand() *cobra.Command {
 		vm.NewStopCommand(clientConfig),
 		vm.NewRestartCommand(clientConfig),
 		vm.NewMigrateCommand(clientConfig),
+		pause.NewPauseCommand(clientConfig),
+		pause.NewUnpauseCommand(clientConfig),
 		expose.NewExposeCommand(clientConfig),
 		version.VersionCommand(clientConfig),
 		imageupload.NewImageUploadCommand(clientConfig),

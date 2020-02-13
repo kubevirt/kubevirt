@@ -143,17 +143,20 @@ spec:
         - "2"
         env:
         - name: OPERATOR_IMAGE
-          value: docker.io/kubevirt/virt-operator:v0.24.0
+          value: docker.io/kubevirt/virt-operator:v0.26.0
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.targetNamespaces']
-        image: docker.io/kubevirt/virt-operator:v0.24.0
+        image: docker.io/kubevirt/virt-operator:v0.26.0
         imagePullPolicy: IfNotPresent
         name: virt-operator
         ports:
         - containerPort: 8443
           name: metrics
+          protocol: TCP
+        - containerPort: 8444
+          name: webhooks
           protocol: TCP
         readinessProbe:
           httpGet:

@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -49,8 +50,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
+	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	k8sextv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -423,12 +424,12 @@ func DoScaleDeployment(namespace string, name string, desired int32) (error, int
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	deployment, err := virtCli.ExtensionsV1beta1().Deployments(namespace).Get(name, metav1.GetOptions{})
+	deployment, err := virtCli.AppsV1().Deployments(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return err, -1
 	}
-	scale := &k8sextv1beta1.Scale{Spec: k8sextv1beta1.ScaleSpec{Replicas: desired}, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
-	scale, err = virtCli.ExtensionsV1beta1().Deployments(namespace).UpdateScale(name, scale)
+	scale := &autoscalingv1.Scale{Spec: autoscalingv1.ScaleSpec{Replicas: desired}, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+	scale, err = virtCli.AppsV1().Deployments(namespace).UpdateScale(name, scale)
 	if err != nil {
 		return err, -1
 	}
@@ -439,14 +440,14 @@ func DoScaleVirtHandler(namespace string, name string, selector map[string]strin
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	d, err := virtCli.ExtensionsV1beta1().DaemonSets(namespace).Get(name, metav1.GetOptions{})
+	d, err := virtCli.AppsV1().DaemonSets(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return 0, nil, 0, err
 	}
 	sel := d.Spec.Template.Spec.NodeSelector
 	ready := d.Status.DesiredNumberScheduled
 	d.Spec.Template.Spec.NodeSelector = selector
-	d, err = virtCli.ExtensionsV1beta1().DaemonSets(namespace).Update(d)
+	d, err = virtCli.AppsV1().DaemonSets(namespace).Update(d)
 	if err != nil {
 		return 0, nil, 0, err
 	}
@@ -479,7 +480,7 @@ func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 		}
 		return podsNotReady
 	}
-	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeEmpty(), "The are pods in system which are not ready.")
+	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeEmpty(), "There are pods in system which are not ready.")
 }
 
 func GenerateRESTReport() error {
@@ -1020,6 +1021,21 @@ func ServiceMonitorEnabled() bool {
 	return serviceMonitorEnabled
 }
 
+// PrometheusRuleEnabled returns true if the PrometheusRule CRD is enabled
+// and false otherwise.
+func PrometheusRuleEnabled() bool {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	prometheusRuleEnabled, err := util.IsPrometheusRuleEnabled(virtClient)
+	if err != nil {
+		fmt.Printf("ERROR: Can't verify PrometheusRule CRD %v\n", err)
+		panic(err)
+	}
+
+	return prometheusRuleEnabled
+}
+
 func composeResourceURI(object unstructured.Unstructured) string {
 	uri := "/api"
 	if object.GetAPIVersion() != "v1" {
@@ -1097,25 +1113,25 @@ func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructu
 	PanicOnError(err)
 
 	Eventually(func() int32 {
-		d, err := virtCli.ExtensionsV1beta1().Deployments(KubeVirtInstallNamespace).Get("virt-api", metav1.GetOptions{})
+		d, err := virtCli.AppsV1().Deployments(KubeVirtInstallNamespace).Get("virt-api", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return d.Status.ReadyReplicas
 	}, 3*time.Minute, 2*time.Second).Should(Equal(replicasApi), "virt-api is not ready")
 
 	Eventually(func() int32 {
-		d, err := virtCli.ExtensionsV1beta1().Deployments(KubeVirtInstallNamespace).Get("virt-controller", metav1.GetOptions{})
+		d, err := virtCli.AppsV1().Deployments(KubeVirtInstallNamespace).Get("virt-controller", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return d.Status.ReadyReplicas
 	}, 3*time.Minute, 2*time.Second).Should(Equal(replicasController), "virt-controller is not ready")
 
 	Eventually(func() int64 {
-		d, err := virtCli.ExtensionsV1beta1().DaemonSets(KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+		d, err := virtCli.AppsV1().DaemonSets(KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return d.Status.ObservedGeneration
 	}, 1*time.Minute, 2*time.Second).Should(Equal(newGeneration), "virt-handler did not bump the generation")
 
 	Eventually(func() int32 {
-		d, err := virtCli.ExtensionsV1beta1().DaemonSets(KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+		d, err := virtCli.AppsV1().DaemonSets(KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return d.Status.NumberAvailable
 	}, 1*time.Minute, 2*time.Second).Should(Equal(daemonInstances), "virt-handler is not ready")
@@ -2548,6 +2564,7 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 		})
 	}()
 
+	opts = append(opts, expect.SendTimeout(timeout))
 	return expect.SpawnGeneric(&expect.GenOptions{
 		In:  vmiWriter,
 		Out: expecterReader,
@@ -2874,7 +2891,7 @@ func SkipIfNotUseNetworkPolicy(virtClient kubecli.KubevirtClient) {
 func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
 	var cpus int64
 
-	nodes, err := virtClient.Core().Nodes().List(metav1.ListOptions{})
+	nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	for _, node := range nodes.Items {
@@ -3537,7 +3554,7 @@ func NewHelloWorldJobHttp(host string, port string) *k8sv1.Pod {
 }
 
 func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.ResourceName) *k8sv1.Node {
-	nodes, err := virtClient.Core().Nodes().List(metav1.ListOptions{})
+	nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	for _, node := range nodes.Items {
@@ -4000,30 +4017,79 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 
 // UpdateClusterConfigValueAndWait updates the given configuration in the kubevirt config map and then waits
 // to allow the configuration events to be propagated to the consumers.
-func UpdateClusterConfigValueAndWait(key string, value string) {
+func UpdateClusterConfigValueAndWait(key string, value string) string {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	oldValue := cfgMap.Data[key]
 	cfgMap.Data[key] = value
 	_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Update(cfgMap)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	time.Sleep(2 * time.Second)
+	return oldValue
 }
 
 func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
 	By("Waiting for guest agent connection")
+	WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceAgentConnected, 12*60)
+}
+
+func WaitForVMICondition(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType, timeoutSec int) {
+	By(fmt.Sprintf("Waiting for %s condition", conditionType))
 	EventuallyWithOffset(1, func() bool {
 		updatedVmi, err := virtClient.VirtualMachineInstance(NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		for _, condition := range updatedVmi.Status.Conditions {
-			if condition.Type == v1.VirtualMachineInstanceAgentConnected && condition.Status == k8sv1.ConditionTrue {
+			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
 				return true
 			}
 		}
 		return false
-	}, 12*time.Minute, 2).Should(BeTrue(), "Should have agent connected condition")
+	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeTrue(), fmt.Sprintf("Should have %s condition", conditionType))
+}
+
+func WaitForVMIConditionRemovedOrFalse(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType, timeoutSec int) {
+	By(fmt.Sprintf("Waiting for %s condition removed or false", conditionType))
+	EventuallyWithOffset(1, func() bool {
+		updatedVmi, err := virtClient.VirtualMachineInstance(NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, condition := range updatedVmi.Status.Conditions {
+			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
+				return true
+			}
+		}
+		return false
+	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeFalse(), fmt.Sprintf("Should have no or false %s condition", conditionType))
+}
+
+func WaitForVMCondition(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, conditionType v1.VirtualMachineConditionType, timeoutSec int) {
+	By(fmt.Sprintf("Waiting for %s condition", conditionType))
+	EventuallyWithOffset(1, func() bool {
+		updatedVm, err := virtClient.VirtualMachine(NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, condition := range updatedVm.Status.Conditions {
+			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
+				return true
+			}
+		}
+		return false
+	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeTrue(), fmt.Sprintf("Should have %s condition", conditionType))
+}
+
+func WaitForVMConditionRemovedOrFalse(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, conditionType v1.VirtualMachineConditionType, timeoutSec int) {
+	By(fmt.Sprintf("Waiting for %s condition removed or false", conditionType))
+	EventuallyWithOffset(1, func() bool {
+		updatedVm, err := virtClient.VirtualMachine(NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, condition := range updatedVm.Status.Conditions {
+			if condition.Type == conditionType && condition.Status == k8sv1.ConditionTrue {
+				return true
+			}
+		}
+		return false
+	}, time.Duration(timeoutSec)*time.Second, 2).Should(BeFalse(), fmt.Sprintf("Should have no or false %s condition", conditionType))
 }
 
 // GeneratePrivateKey creates a RSA Private Key of specified byte size
@@ -4095,4 +4161,14 @@ func RetryIfModified(do func() error) (err error) {
 		log.DefaultLogger().Reason(err).Infof("Object got modified, will retry.")
 	}
 	return err
+}
+
+func GenerateRandomMac() (net.HardwareAddr, error) {
+	prefix := []byte{0x02, 0x00, 0x00} // local unicast prefix
+	suffix := make([]byte, 3)
+	_, err := cryptorand.Read(suffix)
+	if err != nil {
+		return nil, err
+	}
+	return net.HardwareAddr(append(prefix, suffix...)), nil
 }
