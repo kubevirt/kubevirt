@@ -350,7 +350,7 @@ func (c *VMController) handleVMRenameCreateRequest(vm *virtv1.VirtualMachine, ne
 		}
 	}
 
-	return false, nil
+	return false, fmt.Errorf("a VM with the new name was found, rejecting rename request")
 }
 
 // Handles VM rename delete requests
@@ -1242,13 +1242,6 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 				clearChangeRequest = true
 			}
 		case virtv1.RenameCreateRequest:
-			runningStatus, _ := vm.RunStrategy()
-
-			if runningStatus != virtv1.RunStrategyHalted {
-				log.Log.Object(vm).V(4).Errorf("Renaming a running VM is prohibited")
-				clearChangeRequest = true
-			}
-
 			newName, hasNewName := stateChange.Data["newName"]
 
 			if !hasNewName {

@@ -235,7 +235,6 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	return causes
 }
 
-// This function rejects VM patches/edits if the VM has a rename annotation (renaming process is in progress)
 func validateNoModificationsDuringRename(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
@@ -278,8 +277,8 @@ func validateNoModificationsDuringRename(ar *v1beta1.AdmissionRequest, vm *v1.Vi
 }
 
 func hasRenameCreationRequest(vm *v1.VirtualMachine) bool {
-	for i := 0; i < len(vm.Status.StateChangeRequests); i++ {
-		if vm.Status.StateChangeRequests[i].Action == v1.RenameCreateRequest {
+	for _, req := range vm.Status.StateChangeRequests {
+		if req.Action == v1.RenameCreateRequest {
 			return true
 		}
 	}
@@ -288,8 +287,8 @@ func hasRenameCreationRequest(vm *v1.VirtualMachine) bool {
 }
 
 func hasRenameDeletionRequest(vm *v1.VirtualMachine) bool {
-	for i := 0; i < len(vm.Status.StateChangeRequests); i++ {
-		if vm.Status.StateChangeRequests[i].Action == v1.RenameDeleteRequest {
+	for _, req := range vm.Status.StateChangeRequests {
+		if req.Action == v1.RenameDeleteRequest {
 			return true
 		}
 	}

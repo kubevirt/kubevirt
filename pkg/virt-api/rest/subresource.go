@@ -539,6 +539,7 @@ func (app *SubresourceAPIApp) RenameVMRequestHandler(request *restful.Request, r
 	}
 
 	// Read the new name of the VM
+	defer request.Request.Body.Close()
 	newNameBuf, err := ioutil.ReadAll(request.Request.Body)
 
 	if err != nil {
@@ -548,8 +549,6 @@ func (app *SubresourceAPIApp) RenameVMRequestHandler(request *restful.Request, r
 	}
 
 	newName := string(newNameBuf)
-
-	request.Request.Body.Close()
 
 	if newName == "" {
 		writeError(errors.NewBadRequest("Please provide a new name for the VM"), response)
