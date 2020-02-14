@@ -3,6 +3,8 @@
 set -e
 
 export CLUSTER_NAME="sriov"
+export KIND_NODE_IMAGE="kindest/node:v1.17.0"
+
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
 
 function up() {
