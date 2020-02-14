@@ -21,9 +21,9 @@ package api
 
 import (
 	"encoding/xml"
-	"runtime"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -175,118 +175,121 @@ var exampleXMLppc64le = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schem
 
 var _ = Describe("Schema", func() {
 	//The example domain should stay in sync to the xml above
-	var exampleDomain = NewMinimalDomainWithNS("mynamespace", "testvmi")
-	SetObjectDefaults_Domain(exampleDomain)
-	exampleDomain.Spec.Devices.Disks = []Disk{
-		{Type: "network",
-			Device: "disk",
-			Driver: &DiskDriver{Name: "qemu",
-				Type: "raw"},
-			Source: DiskSource{Protocol: "iscsi",
-				Name: "iqn.2013-07.com.example:iscsi-nopool/2",
-				Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
-			Target: DiskTarget{Device: "vda"},
-			Alias: &Alias{
-				Name: "mydisk",
-			},
-		},
-		{Type: "file",
-			Device: "disk",
-			Driver: &DiskDriver{Name: "qemu",
-				Type: "raw"},
-			Source: DiskSource{
-				File: "/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso",
-			},
-			Target: DiskTarget{Device: "vdb"},
-			Alias: &Alias{
-				Name: "mydisk1",
-			},
-		},
-		{Type: "block",
-			Device: "disk",
-			Driver: &DiskDriver{Name: "qemu",
-				Type: "raw"},
-			Source: DiskSource{
-				Dev: "/dev/testdev",
-			},
-			Target: DiskTarget{Device: "vdc"},
-			Alias: &Alias{
-				Name: "mydisk2",
-			},
-		},
-	}
+	var exampleDomain *Domain
 
-	exampleDomain.Spec.Devices.Inputs = []Input{
-		{
-			Type: "tablet",
-			Bus:  "virtio",
-			Alias: &Alias{
-				Name: "tablet0",
+	BeforeEach(func() {
+		exampleDomain = NewMinimalDomainWithNS("mynamespace", "testvmi")
+		exampleDomain.Spec.Devices.Disks = []Disk{
+			{Type: "network",
+				Device: "disk",
+				Driver: &DiskDriver{Name: "qemu",
+					Type: "raw"},
+				Source: DiskSource{Protocol: "iscsi",
+					Name: "iqn.2013-07.com.example:iscsi-nopool/2",
+					Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
+				Target: DiskTarget{Device: "vda"},
+				Alias: &Alias{
+					Name: "mydisk",
+				},
 			},
-		},
-	}
+			{Type: "file",
+				Device: "disk",
+				Driver: &DiskDriver{Name: "qemu",
+					Type: "raw"},
+				Source: DiskSource{
+					File: "/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso",
+				},
+				Target: DiskTarget{Device: "vdb"},
+				Alias: &Alias{
+					Name: "mydisk1",
+				},
+			},
+			{Type: "block",
+				Device: "disk",
+				Driver: &DiskDriver{Name: "qemu",
+					Type: "raw"},
+				Source: DiskSource{
+					Dev: "/dev/testdev",
+				},
+				Target: DiskTarget{Device: "vdc"},
+				Alias: &Alias{
+					Name: "mydisk2",
+				},
+			},
+		}
 
-	var heads uint = 1
-	var vram uint = 16384
-	exampleDomain.Spec.Devices.Video = []Video{
-		{Model: VideoModel{Type: "vga", Heads: &heads, VRam: &vram}},
-	}
-	exampleDomain.Spec.Devices.Consoles = []Console{
-		{Type: "pty"},
-	}
-	exampleDomain.Spec.Devices.Watchdog = &Watchdog{
-		Model:  "i6300esb",
-		Action: "poweroff",
-		Alias: &Alias{
-			Name: "mywatchdog",
-		},
-	}
-	exampleDomain.Spec.Devices.Rng = &Rng{
-		Model:   "virtio",
-		Backend: &RngBackend{Source: "/dev/urandom", Model: "random"},
-	}
-	exampleDomain.Spec.Devices.Controllers = []Controller{
-		{
-			Type:  "raw",
-			Model: "none",
-			Index: "0",
-		},
-	}
-	exampleDomain.Spec.Features = &Features{
-		ACPI: &FeatureEnabled{},
-		SMM:  &FeatureEnabled{},
-	}
-	exampleDomain.Spec.SysInfo = &SysInfo{
-		Type: "smbios",
-		System: []Entry{
-			{Name: "uuid", Value: "e4686d2c-6e8d-4335-b8fd-81bee22f4814"},
-		},
-	}
-	exampleDomain.Spec.CPU.Topology = &CPUTopology{
-		Sockets: 1,
-		Cores:   2,
-		Threads: 1,
-	}
-	exampleDomain.Spec.VCPU = &VCPU{
-		Placement: "static",
-		CPUs:      2,
-	}
-	exampleDomain.Spec.CPU.Mode = "custom"
-	exampleDomain.Spec.CPU.Model = "Conroe"
-	exampleDomain.Spec.CPU.Features = []CPUFeature{
-		{
-			Name:   "pcid",
-			Policy: "require",
-		},
-		{
-			Name:   "monitor",
-			Policy: "disable",
-		},
-	}
-	exampleDomain.Spec.Metadata.KubeVirt.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
-	exampleDomain.Spec.Metadata.KubeVirt.GracePeriod = &GracePeriodMetadata{}
-	exampleDomain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = 5
-	exampleDomain.Spec.IOThreads = &IOThreads{IOThreads: 2}
+		exampleDomain.Spec.Devices.Inputs = []Input{
+			{
+				Type: "tablet",
+				Bus:  "virtio",
+				Alias: &Alias{
+					Name: "tablet0",
+				},
+			},
+		}
+
+		var heads uint = 1
+		var vram uint = 16384
+		exampleDomain.Spec.Devices.Video = []Video{
+			{Model: VideoModel{Type: "vga", Heads: &heads, VRam: &vram}},
+		}
+		exampleDomain.Spec.Devices.Consoles = []Console{
+			{Type: "pty"},
+		}
+		exampleDomain.Spec.Devices.Watchdog = &Watchdog{
+			Model:  "i6300esb",
+			Action: "poweroff",
+			Alias: &Alias{
+				Name: "mywatchdog",
+			},
+		}
+		exampleDomain.Spec.Devices.Rng = &Rng{
+			Model:   "virtio",
+			Backend: &RngBackend{Source: "/dev/urandom", Model: "random"},
+		}
+		exampleDomain.Spec.Devices.Controllers = []Controller{
+			{
+				Type:  "raw",
+				Model: "none",
+				Index: "0",
+			},
+		}
+		exampleDomain.Spec.Features = &Features{
+			ACPI: &FeatureEnabled{},
+			SMM:  &FeatureEnabled{},
+		}
+		exampleDomain.Spec.SysInfo = &SysInfo{
+			Type: "smbios",
+			System: []Entry{
+				{Name: "uuid", Value: "e4686d2c-6e8d-4335-b8fd-81bee22f4814"},
+			},
+		}
+		exampleDomain.Spec.CPU.Topology = &CPUTopology{
+			Sockets: 1,
+			Cores:   2,
+			Threads: 1,
+		}
+		exampleDomain.Spec.VCPU = &VCPU{
+			Placement: "static",
+			CPUs:      2,
+		}
+		exampleDomain.Spec.CPU.Mode = "custom"
+		exampleDomain.Spec.CPU.Model = "Conroe"
+		exampleDomain.Spec.CPU.Features = []CPUFeature{
+			{
+				Name:   "pcid",
+				Policy: "require",
+			},
+			{
+				Name:   "monitor",
+				Policy: "disable",
+			},
+		}
+		exampleDomain.Spec.Metadata.KubeVirt.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
+		exampleDomain.Spec.Metadata.KubeVirt.GracePeriod = &GracePeriodMetadata{}
+		exampleDomain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = 5
+		exampleDomain.Spec.IOThreads = &IOThreads{IOThreads: 2}
+	})
 
 	Context("With schema", func() {
 		It("Generate expected libvirt xml", func() {
@@ -303,29 +306,29 @@ var _ = Describe("Schema", func() {
 		})
 	})
 	Context("With example schema", func() {
-		It("Unmarshal into struct", func() {
+		table.DescribeTable("Unmarshal into struct", func(arch string, domainStr string) {
+			NewDefaulter(arch).SetObjectDefaults_Domain(exampleDomain)
 			var err error
 			newDomain := DomainSpec{}
-			if runtime.GOARCH == "ppc64le" {
-				err = xml.Unmarshal([]byte(exampleXMLppc64le), &newDomain)
-			} else {
-				err = xml.Unmarshal([]byte(exampleXML), &newDomain)
-			}
+			err = xml.Unmarshal([]byte(domainStr), &newDomain)
 			newDomain.XMLName.Local = ""
 			newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
 			Expect(err).To(BeNil())
 
 			Expect(newDomain).To(Equal(exampleDomain.Spec))
-		})
-		It("Marshal into xml", func() {
+		},
+			table.Entry("for ppc64le", "ppc64le", exampleXMLppc64le),
+			table.Entry("for amd64", "amd64", exampleXML),
+		)
+		table.DescribeTable("Marshal into xml", func(arch string, domainStr string) {
+			NewDefaulter(arch).SetObjectDefaults_Domain(exampleDomain)
 			buf, err := xml.MarshalIndent(exampleDomain.Spec, "", "  ")
 			Expect(err).To(BeNil())
-			if runtime.GOARCH == "ppc64le" {
-				Expect(string(buf)).To(Equal(exampleXMLppc64le))
-			} else {
-				Expect(string(buf)).To(Equal(exampleXML))
-			}
-		})
+			Expect(string(buf)).To(Equal(domainStr))
+		},
+			table.Entry("for ppc64le", "ppc64le", exampleXMLppc64le),
+			table.Entry("for amd64", "amd64", exampleXML),
+		)
 	})
 	Context("With cpu pinning", func() {
 		var testXML = `<cputune>

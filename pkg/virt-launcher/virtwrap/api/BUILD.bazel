@@ -9,7 +9,6 @@ go_library(
         "doc.go",
         "pci-placement.go",
         "schema.go",
-        "zz_generated.defaults.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api",
     visibility = ["//visibility:public"],

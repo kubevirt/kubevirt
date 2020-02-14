@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"runtime"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -204,7 +205,7 @@ var _ = Describe("Pod Network", func() {
 			domain := NewDomainWithBridgeInterface()
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
-			api.SetObjectDefaults_Domain(domain)
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			TestPodInterfaceIPBinding(vm, domain)
 		})
 		It("phase1 should panic if pod networking fails to setup", func() {
@@ -212,7 +213,7 @@ var _ = Describe("Pod Network", func() {
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
-				api.SetObjectDefaults_Domain(domain)
+				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 				mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 				mockNetwork.EXPECT().LinkSetDown(dummy).Return(nil)
@@ -239,7 +240,7 @@ var _ = Describe("Pod Network", func() {
 			domain := NewDomainWithBridgeInterface()
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
-			api.SetObjectDefaults_Domain(domain)
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 			mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
@@ -272,7 +273,7 @@ var _ = Describe("Pod Network", func() {
 			testDhcpPanic := func() {
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIBridgeInterface("testnamespace", "testVmName")
-				api.SetObjectDefaults_Domain(domain)
+				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				mockNetwork.EXPECT().StartDHCP(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("failed to open file"))
 				SetupPodNetworkPhase2(vm, domain)
 			}
@@ -326,7 +327,7 @@ var _ = Describe("Pod Network", func() {
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 
-				api.SetObjectDefaults_Domain(domain)
+				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
 			It("should define a new VIF bind to a bridge and create a specific nat rule using iptables", func() {
@@ -355,7 +356,7 @@ var _ = Describe("Pod Network", func() {
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 				vm.Spec.Domain.Devices.Interfaces[0].Ports = []v1.Port{{Name: "test", Port: 80, Protocol: "TCP"}}
 
-				api.SetObjectDefaults_Domain(domain)
+				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
 			It("should define a new VIF bind to a bridge and create a default nat rule using nftables", func() {
@@ -370,7 +371,7 @@ var _ = Describe("Pod Network", func() {
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 
-				api.SetObjectDefaults_Domain(domain)
+				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
 			It("should define a new VIF bind to a bridge and create a specific nat rule using nftables", func() {
@@ -399,7 +400,7 @@ var _ = Describe("Pod Network", func() {
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 				vm.Spec.Domain.Devices.Interfaces[0].Ports = []v1.Port{{Name: "test", Port: 80, Protocol: "TCP"}}
 
-				api.SetObjectDefaults_Domain(domain)
+				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
 			})
 
@@ -409,7 +410,7 @@ var _ = Describe("Pod Network", func() {
 				domain := NewDomainWithSlirpInterface()
 				vmi := newVMISlirpInterface("testnamespace", "testVmName")
 
-				api.SetObjectDefaults_Domain(domain)
+				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 				driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 				Expect(err).ToNot(HaveOccurred())
@@ -423,7 +424,7 @@ var _ = Describe("Pod Network", func() {
 				domain := NewDomainWithSlirpInterface()
 				vmi := newVMISlirpInterface("testnamespace", "testVmName")
 
-				api.SetObjectDefaults_Domain(domain)
+				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
 
 				driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
@@ -438,7 +439,7 @@ var _ = Describe("Pod Network", func() {
 				domain := NewDomainWithSlirpInterface()
 				vmi := newVMISlirpInterface("testnamespace", "testVmName")
 
-				api.SetObjectDefaults_Domain(domain)
+				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 				domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, api.Interface{
 					Model: &api.Model{
@@ -467,7 +468,7 @@ var _ = Describe("Pod Network", func() {
 		It("should succeed when DHCP server started", func() {
 			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
 			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 			Expect(err).ToNot(HaveOccurred())
@@ -483,7 +484,7 @@ var _ = Describe("Pod Network", func() {
 		It("should fail when DHCP server failed", func() {
 			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIMasqueradeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
 			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 			Expect(err).ToNot(HaveOccurred())
@@ -503,7 +504,7 @@ var _ = Describe("Pod Network", func() {
 		It("should succeed when DHCP server started", func() {
 			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
 			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 			Expect(err).ToNot(HaveOccurred())
@@ -518,7 +519,7 @@ var _ = Describe("Pod Network", func() {
 		It("should fail when DHCP server failed", func() {
 			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
 			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 			Expect(err).ToNot(HaveOccurred())
@@ -534,7 +535,7 @@ var _ = Describe("Pod Network", func() {
 		It("should succeed when DHCP server started and isLayer2 = true", func() {
 			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
 			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 			Expect(err).ToNot(HaveOccurred())
@@ -553,7 +554,7 @@ var _ = Describe("Pod Network", func() {
 		It("should succeed when DHCP server started", func() {
 			domain := NewDomainWithSlirpInterface()
 			vmi := newVMISlirpInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 			driver, err := getPhase2Binding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 			Expect(err).ToNot(HaveOccurred())

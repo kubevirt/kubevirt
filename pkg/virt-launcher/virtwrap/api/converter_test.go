@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"runtime"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -596,6 +595,8 @@ var _ = Describe("Converter", func() {
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
     </channel>
+    <controller type="usb" index="0" model="qemu-xhci"></controller>
+    <controller type="virtio-serial" index="0"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
@@ -969,15 +970,15 @@ var _ = Describe("Converter", func() {
 			}
 		})
 
-		It("should be converted to a libvirt Domain with vmi defaults set", func() {
+		table.DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			if runtime.GOARCH == "ppc64le" {
-				Expect(vmiToDomainXML(vmi, c)).To(Equal(convertedDomainppc64le))
-			} else {
-				Expect(vmiToDomainXML(vmi, c)).To(Equal(convertedDomain))
-			}
-		})
+			c.Architecture = arch
+			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
+		},
+			table.Entry("for amd64", "amd64", convertedDomain),
+			table.Entry("for ppc64le", "ppc64le", convertedDomainppc64le),
+		)
 
 		It("should use kvm if present", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -2330,7 +2331,7 @@ func vmiToDomainXML(vmi *v1.VirtualMachineInstance, c *ConverterContext) string 
 func vmiToDomain(vmi *v1.VirtualMachineInstance, c *ConverterContext) *Domain {
 	domain := &Domain{}
 	Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
-	SetObjectDefaults_Domain(domain)
+	NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
 	return domain
 }
 
