@@ -50,6 +50,8 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
@@ -104,7 +106,28 @@ type VirtOperatorApp struct {
 	aggregatorClient aggregatorclient.Interface
 }
 
-var _ service.Service = &VirtOperatorApp{}
+var (
+	_ service.Service = &VirtOperatorApp{}
+
+	leaderGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "leading_virt_operator",
+			Help: "Indication for an operating virt-operator.",
+		},
+	)
+
+	readyGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "ready_virt_operator",
+			Help: "Indication for a virt-operator that is ready to take the lead.",
+		},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(leaderGauge)
+	prometheus.MustRegister(readyGauge)
+}
 
 func Execute() {
 	var err error
@@ -347,11 +370,13 @@ func (app *VirtOperatorApp) Run() {
 			RetryPeriod:   app.LeaderElection.RetryPeriod.Duration,
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(ctx context.Context) {
+					leaderGauge.Set(1)
 					log.Log.Infof("Started leading")
 					// run app
 					go app.kubeVirtController.Run(controllerThreads, stop)
 				},
 				OnStoppedLeading: func() {
+					leaderGauge.Set(0)
 					golog.Fatal("leaderelection lost")
 				},
 			},
@@ -360,6 +385,7 @@ func (app *VirtOperatorApp) Run() {
 		golog.Fatal(err)
 	}
 
+	readyGauge.Set(1)
 	log.Log.Infof("Attempting to aquire leader status")
 	leaderElector.Run(ctx)
 	panic("unreachable")

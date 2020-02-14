@@ -216,6 +216,47 @@ var _ = Describe("Infrastructure", func() {
 			Expect(foundMetrics["leading"]).To(Equal(1), "expected 1 leading virt-controller")
 		})
 
+		It("should find one leading virt-operator and two ready", func() {
+			endpoint, err := virtClient.CoreV1().
+				Endpoints(tests.KubeVirtInstallNamespace).
+				Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			foundMetrics := map[string]int{
+				"ready":   0,
+				"leading": 0,
+			}
+			By("scraping the metrics endpoint on virt-operator pods")
+			for _, ep := range endpoint.Subsets[0].Addresses {
+				if !strings.HasPrefix(ep.TargetRef.Name, "virt-operator") {
+					continue
+				}
+				stdout, _, err := tests.ExecuteCommandOnPodV2(
+					virtClient,
+					pod,
+					"virt-handler",
+					[]string{
+						"curl", "-L", "-k",
+						fmt.Sprintf("https://%s:8443/metrics", ep.IP),
+					})
+				Expect(err).ToNot(HaveOccurred())
+				scrapedData := strings.Split(stdout, "\n")
+				for _, data := range scrapedData {
+					if strings.HasPrefix(data, "#") {
+						continue
+					}
+					switch data {
+					case "leading_virt_operator 1":
+						foundMetrics["leading"]++
+					case "ready_virt_operator 1":
+						foundMetrics["ready"]++
+					}
+				}
+			}
+
+			Expect(foundMetrics["ready"]).To(Equal(2), "expected 2 ready virt-operators")
+			Expect(foundMetrics["leading"]).To(Equal(1), "expected 1 leading virt-operator")
+		})
+
 		It("should be exposed and registered on the metrics endpoint", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
