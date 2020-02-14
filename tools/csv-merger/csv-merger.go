@@ -74,10 +74,11 @@ var (
 	metadataDescription = flag.String("metadata-description", "", "Metadata")
 	specDescription     = flag.String("spec-description", "", "Description")
 	specDisplayName     = flag.String("spec-displayname", "", "Display Name")
-	relatedImagesList   = flag.String("related-images-list", "", "Comma separated list of all the images referred in the CSV")
 	namespace           = flag.String("namespace", "kubevirt-hyperconverged", "Namespace")
 	crdDisplay          = flag.String("crd-display", "KubeVirt HyperConverged Cluster", "Label show in OLM UI about the primary CRD")
 	csvOverrides        = flag.String("csv-overrides", "", "CSV like string with punctual changes that will be recursively applied (if possible)")
+	relatedImagesList   = flag.String("related-images-list", "",
+		"Comma separated list of all the images referred in the CSV (just the image pull URLs or eventually a set of 'image|name' collations)")
 )
 
 func main() {
@@ -129,8 +130,15 @@ func main() {
 
 	for _, image := range strings.Split(*relatedImagesList, ",") {
 		if image != "" {
-			names := strings.Split(strings.Split(image, "@")[0], "/")
-			name := names[len(names)-1]
+			name := ""
+			if strings.Contains(image, "|") {
+				image_s := strings.Split(image, "|")
+				image = image_s[0]
+				name = image_s[1]
+			} else {
+				names := strings.Split(strings.Split(image, "@")[0], "/")
+				name = names[len(names)-1]
+			}
 			csvExtended.Spec.RelatedImages = append(
 				csvExtended.Spec.RelatedImages,
 				relatedImage{
