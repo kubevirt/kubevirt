@@ -1458,6 +1458,42 @@ var _ = Describe("Converter", func() {
 		)
 	})
 
+	Context("serial console", func() {
+
+		table.DescribeTable("should check autoAttachSerialConsole", func(autoAttach *bool, devices int) {
+
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{Cores: 3},
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceCPU:    resource.MustParse("1m"),
+								k8sv1.ResourceMemory: resource.MustParse("64M"),
+							},
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices = v1.Devices{
+				AutoattachSerialConsole: autoAttach,
+			}
+			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true})
+			Expect(domain.Spec.Devices.Serials).To(HaveLen(devices))
+			Expect(domain.Spec.Devices.Consoles).To(HaveLen(devices))
+
+		},
+			table.Entry("and add the serial console if it is not set", nil, 1),
+			table.Entry("and add the serial console if it is set to true", True(), 1),
+			table.Entry("and not add the serial console if it is set to false", False(), 0),
+		)
+	})
+
 	Context("IOThreads", func() {
 		_false := false
 		_true := true

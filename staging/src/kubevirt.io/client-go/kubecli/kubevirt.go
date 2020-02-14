@@ -27,7 +27,6 @@ package kubecli
 
 import (
 	"io"
-	"time"
 
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	autov1 "k8s.io/api/autoscaling/v1"
@@ -126,7 +125,7 @@ type VirtualMachineInstanceInterface interface {
 	Update(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error)
-	SerialConsole(name string, timeout time.Duration) (StreamInterface, error)
+	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
 	Pause(name string) error
 	Unpause(name string) error

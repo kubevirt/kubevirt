@@ -4,8 +4,6 @@
 package kubecli
 
 import (
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
 	v1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	v10 "k8s.io/api/autoscaling/v1"
@@ -742,8 +740,8 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Patch(arg0, arg1, arg2 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) SerialConsole(name string, timeout time.Duration) (StreamInterface, error) {
-	ret := _m.ctrl.Call(_m, "SerialConsole", name, timeout)
+func (_m *MockVirtualMachineInstanceInterface) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
+	ret := _m.ctrl.Call(_m, "SerialConsole", name, options)
 	ret0, _ := ret[0].(StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
