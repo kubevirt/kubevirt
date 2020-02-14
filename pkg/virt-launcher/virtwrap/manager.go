@@ -1279,6 +1279,9 @@ func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
 }
 
 func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error {
+	// Try to set guest time after this commands execution.
+	// This operation is not disruptive.
+	defer l.SetGuestTime(vmi)
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 

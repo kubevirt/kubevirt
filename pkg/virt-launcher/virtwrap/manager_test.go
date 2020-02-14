@@ -267,9 +267,10 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
 
-			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).MaxTimes(2).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
 			mockDomain.EXPECT().Resume().Return(nil)
+			mockDomain.EXPECT().SetTime(gomock.Any(), gomock.Any(), gomock.Any())
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil)
 
 			err := manager.UnpauseVMI(vmi)
@@ -280,8 +281,9 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
 
-			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).MaxTimes(2).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockDomain.EXPECT().SetTime(gomock.Any(), gomock.Any(), gomock.Any())
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil)
 			// no call to unpause
 
