@@ -80,7 +80,10 @@ RUN \
     # Install protoc-gen-go
     cd $GOPATH/src/github.com/golang/protobuf/protoc-gen-go && \
     git checkout 1643683e1b54a9e88ad26d98f81400c8c9d9f4f9 && \
-    go install
+    go install && \
+    cd /go && \
+    go clean -cache -modcache -r && \
+    rm -rf /go && mkdir /go
 
 RUN \
     mkdir -p /go && \
@@ -89,7 +92,28 @@ RUN \
     go get -u github.com/golang/mock/gomock && \
     go get -u github.com/rmohr/mock/mockgen && \
     go get -u github.com/rmohr/go-swagger-utils/swagger-doc && \
-    go get -u github.com/onsi/ginkgo/ginkgo
+    go get -u github.com/onsi/ginkgo/ginkgo && \
+    cd /go && \
+    go clean -cache -modcache -r && \
+    rm -rf /go && mkdir /go
+
+RUN \
+    cd / && \
+    export GO111MODULE=on && \
+    source /etc/profile.d/gimme.sh && \
+    git clone https://github.com/kubernetes/test-infra.git && \
+    cd /test-infra && \
+    git checkout fd0699b906b0593a33ba2bddd3b1ae8822f42dd8 && \
+    cd /test-infra/robots/pr-creator && \
+    go install && \
+    cd /test-infra/robots/issue-creator && \
+    go install && \
+    cd /test-infra/robots/pr-labeler && \
+    go install && \
+    cd /go && \
+    go clean -cache -modcache -r && \
+    rm -rf /test-infra && \
+    rm -rf /go && mkdir /go
 
 RUN pip3 install j2cli operator-courier==1.3.0
 
