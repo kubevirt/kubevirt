@@ -481,6 +481,27 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 					Name: name,
 				},
 				Spec: corev1.PodSpec{
+					Affinity: &corev1.Affinity{
+						PodAntiAffinity: &corev1.PodAntiAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+								{
+									Weight: 1,
+									PodAffinityTerm: corev1.PodAffinityTerm{
+										LabelSelector: &metav1.LabelSelector{
+											MatchExpressions: []metav1.LabelSelectorRequirement{
+												{
+													Key:      virtv1.AppLabel,
+													Operator: metav1.LabelSelectorOpIn,
+													Values:   []string{name},
+												},
+											},
+										},
+										TopologyKey: "kubernetes.io/hostname",
+									},
+								},
+							},
+						},
+					},
 					ServiceAccountName: "kubevirt-operator",
 					Containers: []corev1.Container{
 						{
