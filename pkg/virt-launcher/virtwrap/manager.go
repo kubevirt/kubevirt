@@ -481,30 +481,45 @@ func (l *LibvirtDomainManager) SetGuestTime(vmi *v1.VirtualMachineInstance) erro
 		log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
 		return err
 	}
+        // try setting the guest time for 5 seconds. Fail early if agent is not configured.
+	go func(dom cli.VirDomain) {
+		timeout := time.After(5 * time.Second)
+		tick := time.Tick(1 * time.Second)
+		currTime := time.Now()
+		secs := currTime.Unix()
+		nsecs := uint(currTime.Nanosecond())
+		for {
+			select {
+			case <- timeout:
+				log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
+				return
+			case <- tick:
+				err = dom.SetTime(secs, nsecs, libvirt.DOMAIN_TIME_SYNC)
+				if err != nil {
+					libvirtError, ok := err.(libvirt.Error)
+					if !ok {
+						log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
+						return
+					}
 
-	currTime := time.Now()
-	secs := currTime.Unix()
-	nsecs := uint(currTime.Nanosecond())
-	err = dom.SetTime(secs, nsecs, libvirt.DOMAIN_TIME_SYNC)
-	if err != nil {
-		libvirtError, ok := err.(libvirt.Error)
-		if !ok {
-			log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
-			return err
+					switch libvirtError.Code {
+					case libvirt.ERR_AGENT_UNRESPONSIVE:
+						log.Log.Object(vmi).Reason(err).Error("failed to set time: QEMU agent unresponsive")
+					case libvirt.ERR_OPERATION_UNSUPPORTED:
+						// no need to retry as this opertaion is not supported
+						log.Log.Object(vmi).Reason(err).Error("failed to set time: not supported")
+						return
+					case libvirt.ERR_ARGUMENT_UNSUPPORTED:
+						// no need to retry as the agent is not configured
+						log.Log.Object(vmi).Reason(err).Error("failed to set time: agent not configured")
+						return
+					default:
+						log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
+					}
+				}
+			}
 		}
-
-		switch libvirtError.Code {
-		case libvirt.ERR_AGENT_UNRESPONSIVE:
-			log.Log.Object(vmi).Reason(err).Error("failed to set time: QEMU agent unresponsive")
-		case libvirt.ERR_OPERATION_UNSUPPORTED:
-			log.Log.Object(vmi).Reason(err).Error("failed to set time: not supported")
-		case libvirt.ERR_ARGUMENT_UNSUPPORTED:
-			log.Log.Object(vmi).Reason(err).Error("failed to set time: agent not configured")
-		default:
-			log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
-		}
-		return err
-	}
+	}(dom)
 	return nil
 }
 

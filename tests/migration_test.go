@@ -807,21 +807,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				// Is agent connected after migration
 				tests.WaitAgentConnected(virtClient, vmi)
 
-				By("Waiting for the GuestTimeSyncRequired to disappear")
-				Eventually(func() bool {
-					migratingVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					if migratingVMI.Status.MigrationState == nil {
-						return false
-					}
-
-					if migratingVMI.Status.MigrationState.GuestTimeSyncRequired == true {
-						return false
-					}
-					vmi = migratingVMI
-					return true
-				}, 60*time.Second, 1*time.Second).Should(BeTrue())
-
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
 				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 60)
 				defer expecter.Close()
