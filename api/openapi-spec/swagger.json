@@ -6972,17 +6972,16 @@
    },
    "v1.VirtualMachineStateChangeRequest": {
     "required": [
-     "action",
-     "Data"
+     "action"
     ],
     "properties": {
-     "Data": {
-      "description": "Provides additional data in order to perform the Action",
-      "type": "object"
-     },
      "action": {
       "description": "Indicates the type of action that is requested. e.g. Start or Stop",
       "type": "string"
+     },
+     "data": {
+      "description": "Provides additional data in order to perform the Action",
+      "type": "object"
      },
      "uid": {
       "description": "Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable",
