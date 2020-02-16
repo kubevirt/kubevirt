@@ -912,7 +912,7 @@ type VirtualMachineStateChangeRequest struct {
 	// Indicates the type of action that is requested. e.g. Start or Stop
 	Action StateChangeRequestAction `json:"action"`
 	// Provides additional data in order to perform the Action
-	Data map[string]string
+	Data map[string]string `json:"data,omitempty"`
 	// Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable
 	UID *types.UID `json:"uid,omitempty" optional:"true" protobuf:"bytes,5,opt,name=uid,casttype=k8s.io/kubernetes/pkg/types.UID"`
 }
