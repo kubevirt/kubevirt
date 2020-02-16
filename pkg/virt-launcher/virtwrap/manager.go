@@ -481,46 +481,49 @@ func (l *LibvirtDomainManager) SetGuestTime(vmi *v1.VirtualMachineInstance) erro
 		log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
 		return err
 	}
-        // try setting the guest time for 5 seconds. Fail early if agent is not configured.
-	go func(dom cli.VirDomain) {
-		timeout := time.After(5 * time.Second)
-		tick := time.Tick(1 * time.Second)
-		currTime := time.Now()
-		secs := currTime.Unix()
-		nsecs := uint(currTime.Nanosecond())
-		for {
-			select {
-			case <- timeout:
-				log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
-				return
-			case <- tick:
-				err = dom.SetTime(secs, nsecs, libvirt.DOMAIN_TIME_SYNC)
-				if err != nil {
-					libvirtError, ok := err.(libvirt.Error)
-					if !ok {
-						log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
-						return
-					}
+	// try setting the guest time for 5 seconds. Fail early if agent is not configured.
+	go l.setGuestTime(vmi, dom)
+	return nil
+}
 
-					switch libvirtError.Code {
-					case libvirt.ERR_AGENT_UNRESPONSIVE:
-						log.Log.Object(vmi).Reason(err).Error("failed to set time: QEMU agent unresponsive")
-					case libvirt.ERR_OPERATION_UNSUPPORTED:
-						// no need to retry as this opertaion is not supported
-						log.Log.Object(vmi).Reason(err).Error("failed to set time: not supported")
-						return
-					case libvirt.ERR_ARGUMENT_UNSUPPORTED:
-						// no need to retry as the agent is not configured
-						log.Log.Object(vmi).Reason(err).Error("failed to set time: agent not configured")
-						return
-					default:
-						log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
-					}
+func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) {
+	timeout := time.After(5 * time.Second)
+	tick := time.Tick(1 * time.Second)
+	for {
+		select {
+		case <-timeout:
+			log.Log.Object(vmi).Error("failed to sync guest time")
+			return
+		case <-tick:
+			currTime := time.Now()
+			secs := currTime.Unix()
+			nsecs := uint(currTime.Nanosecond())
+			err := dom.SetTime(secs, nsecs, libvirt.DOMAIN_TIME_SYNC)
+			if err != nil {
+				libvirtError, ok := err.(libvirt.Error)
+				if !ok {
+					log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
+					return
+				}
+
+				switch libvirtError.Code {
+				case libvirt.ERR_AGENT_UNRESPONSIVE:
+					log.Log.Object(vmi).Reason(err).Error("failed to set time: QEMU agent unresponsive")
+				case libvirt.ERR_OPERATION_UNSUPPORTED:
+					// no need to retry as this opertaion is not supported
+					log.Log.Object(vmi).Reason(err).Error("failed to set time: not supported")
+					return
+				case libvirt.ERR_ARGUMENT_UNSUPPORTED:
+					// no need to retry as the agent is not configured
+					log.Log.Object(vmi).Reason(err).Error("failed to set time: agent not configured")
+					return
+				default:
+					log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
 				}
 			}
+			return
 		}
-	}(dom)
-	return nil
+	}
 }
 
 func getVMIEphemeralDisksTotalSize() *resource.Quantity {
@@ -1294,9 +1297,6 @@ func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
 }
 
 func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error {
-	// Try to set guest time after this commands execution.
-	// This operation is not disruptive.
-	defer l.SetGuestTime(vmi)
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
@@ -1329,6 +1329,9 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 		}
 		logger.Infof("Signaled unpause for %s", vmi.GetObjectMeta().GetName())
 		l.paused.remove(vmi.UID)
+		// Try to set guest time after this commands execution.
+		// This operation is not disruptive.
+		go l.setGuestTime(vmi, dom)
 
 	} else {
 		logger.Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())

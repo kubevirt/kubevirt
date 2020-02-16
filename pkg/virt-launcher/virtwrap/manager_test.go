@@ -263,6 +263,9 @@ var _ = Describe("Manager", func() {
 			Expect(err).To(BeNil())
 		})
 		It("should unpause a VirtualMachineInstance", func() {
+			isSetTimeCalled := make(chan bool, 1)
+			defer close(isSetTimeCalled)
+
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
@@ -270,25 +273,34 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).MaxTimes(2).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
 			mockDomain.EXPECT().Resume().Return(nil)
-			mockDomain.EXPECT().SetTime(gomock.Any(), gomock.Any(), gomock.Any())
+			mockDomain.EXPECT().SetTime(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(interface{}, interface{}, interface{}) {
+				isSetTimeCalled <- true
+			})
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil)
 
 			err := manager.UnpauseVMI(vmi)
 			Expect(err).To(BeNil())
+			Eventually(func() bool {
+				select {
+				case isCalled := <-isSetTimeCalled:
+					return isCalled
+				default:
+				}
+				return false
+			}, 20*time.Second, 1).Should(BeTrue(), "SetTime wasn't called")
 		})
 		It("should not try to unpause a running VirtualMachineInstance", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
 
-			mockConn.EXPECT().LookupDomainByName(testDomainName).MaxTimes(2).Return(mockDomain, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-			mockDomain.EXPECT().SetTime(gomock.Any(), gomock.Any(), gomock.Any())
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0, nil)
 			// no call to unpause
-
 			err := manager.UnpauseVMI(vmi)
 			Expect(err).To(BeNil())
+
 		})
 	})
 	Context("test migration monitor", func() {

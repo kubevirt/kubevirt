@@ -862,7 +862,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				SourceNode:               "othernode",
 				MigrationUID:             "123",
 				TargetNodeDomainDetected: false,
-				StartTimestamp:           pastTime,
+				StartTimestamp:           &pastTime,
 			}
 
 			mockWatchdog.CreateFile(vmi)
@@ -879,7 +879,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			vmiUpdated := vmi.DeepCopy()
 			vmiUpdated.Status.MigrationState.TargetNodeDomainDetected = true
-			client.EXPECT().Ping()
+			client.EXPECT().Ping().AnyTimes()
 			client.EXPECT().SetVirtualMachineGuestTime(vmi)
 			vmiInterface.EXPECT().Update(vmiUpdated)
 
