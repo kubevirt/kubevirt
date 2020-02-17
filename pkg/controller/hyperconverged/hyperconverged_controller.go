@@ -367,8 +367,9 @@ func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *c
 			Namespace: namespace,
 		},
 		Data: map[string]string{
-			"feature-gates": "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar",
-			"migrations":    `{"nodeDrainTaintKey" : "node.kubernetes.io/unschedulable"}`,
+			"feature-gates":       "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar",
+			"migrations":          `{"nodeDrainTaintKey" : "node.kubernetes.io/unschedulable"}`,
+			"selinuxLauncherType": "spc_t",
 		},
 	}
 }
