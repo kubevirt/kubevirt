@@ -962,6 +962,9 @@ type Interface struct {
 	// If specified the network interface will pass additional DHCP options to the VMI
 	// +optional
 	DHCPOptions *DHCPOptions `json:"dhcpOptions,omitempty"`
+	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
+	// +optional
+	Tag string `json:"tag,omitempty"`
 }
 
 // Extra DHCP options to use in the interface.
