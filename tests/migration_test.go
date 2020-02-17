@@ -411,6 +411,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("checking that we really migrated a VMI with only the root bus")
 				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
 				rootPortController := []api.Controller{}
 				for _, c := range domSpec.Devices.Controllers {
 					if c.Model == "pcie-root-port" {
