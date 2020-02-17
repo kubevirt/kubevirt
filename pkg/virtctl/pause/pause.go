@@ -95,7 +95,6 @@ type VirtCommand struct {
 }
 
 func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
-
 	resourceType := strings.ToLower(args[0])
 	resourceName := args[1]
 	namespace, _, err := vc.clientConfig.Namespace()
@@ -122,7 +121,13 @@ func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
 			}
 			err = virtClient.VirtualMachineInstance(namespace).Pause(vmiName)
 			if err != nil {
-				return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", vmiName, err)
+				if vm.Spec.Running != nil && !*vm.Spec.Running {
+					return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v. VirtualMachine %s is not set to running", vmiName, err, vmiName)
+				} else if vm.Spec.Running != nil && *vm.Spec.Running {
+					return fmt.Errorf("Error pausing VirutalMachineInstance %s: %v", vmiName, err)
+				}
+				return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v, check if VirtualMachine is running", vmiName, err)
+
 			}
 			fmt.Printf("VMI %s was scheduled to %s\n", vmiName, vc.command)
 		case ARG_VMI_LONG, ARG_VMI_SHORT:
