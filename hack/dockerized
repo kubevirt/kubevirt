@@ -3,7 +3,7 @@ set -e
 
 source $(dirname "$0")/common.sh
 
-KUBEVIRT_BUILDER_IMAGE="kubevirt/builder@sha256:62169456ad8bc2f3dcc7de18d1abc96d64393b359672d605da28bdfcf5d3121e"
+KUBEVIRT_BUILDER_IMAGE="kubevirt/builder@sha256:7585e27b5a5a019f5749eaa1ef29da3278878eefc862b45d6e1c2e343d9f8859"
 
 DOCKER_DIR=${KUBEVIRT_DIR}/hack/kubevirt-builder
 

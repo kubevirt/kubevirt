@@ -5,13 +5,15 @@ COPY qemu-ppc64le-static /usr/bin/qemu-ppc64le-static
 
 ENV LIBVIRT_VERSION 5.1.0
 
+ENV BAZEL_VERSION 1.2.1
+
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
     dnf copr enable -y @virtmaint-sig/virt-preview && \
     dnf copr enable -y vbatts/bazel && \
     dnf -y install \
         libvirt-devel-${LIBVIRT_VERSION} \
-        bazel \
+        bazel-${BAZEL_VERSION} \
         cpio \
         patch \
         make \
