@@ -368,18 +368,3 @@ func SetupLibvirt() error {
 
 	return nil
 }
-
-func GetInterfaceType(iface *v1.Interface) string {
-	if iface.Slirp != nil {
-		// Slirp configuration works only with e1000 or rtl8139
-		if iface.Model != "e1000" && iface.Model != "rtl8139" {
-			log.Log.Infof("The network interface type of %s was changed to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
-			return "e1000"
-		}
-		return iface.Model
-	}
-	if iface.Model != "" {
-		return iface.Model
-	}
-	return "virtio"
-}
