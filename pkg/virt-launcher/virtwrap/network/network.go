@@ -52,7 +52,8 @@ type plugFunction func(vif NetworkInterface, vmi *v1.VirtualMachineInstance, ifa
 // context yet. This is a temporary limitation and the split is expected to go
 // once the final gap is closed. Moving all configuration steps into virt-handler
 // will also allow to downgrade privileges for virt-launcher, specifically, to
-// remove NET_ADMIN capability. Future patches should address that.
+// remove NET_ADMIN capability. Future patches should address that. See:
+// https://github.com/kubevirt/kubevirt/issues/3085
 type NetworkInterface interface {
 	PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error
 	PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
