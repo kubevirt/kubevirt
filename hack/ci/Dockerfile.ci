@@ -120,4 +120,5 @@ ENV PATH="$PATH:/usr/local/go/bin/"
 COPY --from=builder /gimme /gimme
 RUN chmod 777 /gimme
 COPY --from=builder /tmp/kubevirt /go/src/kubevirt.io/kubevirt
+RUN chmod -R 777 /go/src/kubevirt.io/kubevirt
 COPY --from=builder /tmp/kubevirt/hack/builder/rsyncd.conf /etc/rsyncd.conf
