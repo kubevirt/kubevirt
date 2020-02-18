@@ -1469,24 +1469,24 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
 				return err
 			}
-		}
 
-		// configure network
-		res, err := d.podIsolationDetector.Detect(vmi)
-		if err != nil {
-			return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
-		}
+			// configure network
+			res, err := d.podIsolationDetector.Detect(vmi)
+			if err != nil {
+				return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+			}
 
-		if err := res.DoNetNS(func() error {
-			return network.SetupPodNetworkPhase1(vmi, res.Pid())
-		}); err != nil {
-			return fmt.Errorf("failed to configure vmi network: %v", err)
-		}
+			if err := res.DoNetNS(func() error {
+				return network.SetupPodNetworkPhase1(vmi, res.Pid())
+			}); err != nil {
+				return fmt.Errorf("failed to configure vmi network: %v", err)
+			}
 
-		// set runtime limits as needed
-		err = d.podIsolationDetector.AdjustResources(vmi)
-		if err != nil {
-			return fmt.Errorf("failed to adjust resources: %v", err)
+			// set runtime limits as needed
+			err = d.podIsolationDetector.AdjustResources(vmi)
+			if err != nil {
+				return fmt.Errorf("failed to adjust resources: %v", err)
+			}
 		}
 
 		options := &cmdv1.VirtualMachineOptions{
