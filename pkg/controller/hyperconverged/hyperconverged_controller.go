@@ -418,6 +418,9 @@ func newKubeVirtForCR(cr *hcov1alpha1.HyperConverged, namespace string) *kubevir
 			Labels:    labels,
 			Namespace: namespace,
 		},
+		Spec: kubevirtv1.KubeVirtSpec{
+			UninstallStrategy: kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
+		},
 	}
 }
 
@@ -444,6 +447,14 @@ func (r *ReconcileHyperConverged) ensureKubeVirt(instance *hcov1alpha1.HyperConv
 	}
 
 	logger.Info("KubeVirt already exists", "KubeVirt.Namespace", found.Namespace, "KubeVirt.Name", found.Name)
+
+	if !reflect.DeepEqual(found.Spec, virt.Spec) {
+		if found.Spec.UninstallStrategy == "" {
+			logger.Info("Updating UninstallStrategy on existing KubeVirt to its default value")
+			found.Spec.UninstallStrategy = virt.Spec.UninstallStrategy
+		}
+		return r.client.Update(context.TODO(), found)
+	}
 
 	// Add it to the list of RelatedObjects if found
 	objectRef, err := reference.GetReference(r.scheme, found)
