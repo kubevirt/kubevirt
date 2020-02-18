@@ -878,6 +878,10 @@ func (s *SlirpPodInterface) decorateConfig() error {
 		}
 	}
 
+	if foundIface == nil {
+		return fmt.Errorf("failed to find interface %s in vmi spec", s.iface.Name)
+	}
+
 	qemuArg := fmt.Sprintf("%s,netdev=%s,id=%s", foundIface.Model.Type, s.iface.Name, s.iface.Name)
 	if s.iface.MacAddress != "" {
 		// We assume address was already validated in API layer so just pass it to libvirt as-is.
