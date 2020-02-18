@@ -34,6 +34,44 @@ rules:
   - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    name: cdi-operator
+  name: cdi-operator
+rules:
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  - configmaps
+  - events
+  - secrets
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - deployments/finalizers
+  verbs:
+  - '*'
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  - routes/custom-host
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
@@ -817,10 +855,10 @@ rules:
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
-  - roles
-  - rolebindings
   - clusterrolebindings
   - clusterroles
+  - rolebindings
+  - roles
   verbs:
   - '*'
 - apiGroups:
@@ -831,31 +869,141 @@ rules:
   - get
   - list
   - watch
-  - patch
   - update
 - apiGroups:
   - ""
   resources:
-  - serviceaccounts
+  - pods
   - services
-  verbs:
-  - '*'
-- apiGroups:
-  - ""
-  resources:
-  - nodes
   verbs:
   - get
   - list
   - watch
-  - update
-  - patch
+  - delete
 - apiGroups:
-  - extensions
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+- apiGroups:
+  - cdi.kubevirt.io
+  - upload.cdi.kubevirt.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
   resources:
   - deployments
   verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+- apiGroups:
+  - apiregistration.k8s.io
+  resources:
+  - apiservices
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
   - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  - volumesnapshots
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims/finalizers
+  - pods/finalizers
+  - volumesnapshots/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
 - apiGroups:
   - extensions
   resources:
@@ -869,76 +1017,7 @@ rules:
   resources:
   - configmaps
   verbs:
-  - watch
-  - create
-  - delete
   - get
-  - update
-  - patch
-  - list
-- apiGroups:
-  - batch
-  resources:
-  - jobs
-  verbs:
-  - create
-  - delete
-  - get
-  - update
-  - patch
-  - list
-- apiGroups:
-  - apiextensions.k8s.io
-  resources:
-  - customresourcedefinitions
-  verbs:
-  - create
-  - delete
-  - get
-  - update
-  - patch
-  - list
-  - watch
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - deployments/finalizers
-  - daemonstes
-  verbs:
-  - create
-  - get
-  - list
-  - delete
-  - watch
-  - update
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - validatingwebhookconfigurations
-  - mutatingwebhookconfigurations
-  verbs:
-  - get
-  - create
-  - update
-- apiGroups:
-  - apiregistration.k8s.io
-  resources:
-  - apiservices
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
-- apiGroups:
-  - cdi.kubevirt.io
-  - upload.cdi.kubevirt.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
 - apiGroups:
   - storage.k8s.io
   resources:
@@ -946,62 +1025,7 @@ rules:
   verbs:
   - get
   - list
-- apiGroups:
-  - ""
-  resources:
-  - events
-  verbs:
-  - create
-  - update
-  - patch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  - persistentvolumeclaims
-  - volumesnapshots
-  verbs:
-  - get
-  - list
   - watch
-  - create
-  - update
-  - patch
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - persistentvolumeclaims/finalizers
-  - pods/finalizers
-  - volumesnapshots/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
-  - list
 - apiGroups:
   - route.openshift.io
   resources:
@@ -1010,16 +1034,12 @@ rules:
   - get
   - list
   - watch
-  - create
-  - update
-  - patch
 - apiGroups:
-  - route.openshift.io
+  - cdi.kubevirt.io
   resources:
-  - routes/custom-host
+  - '*'
   verbs:
-  - create
-  - update
+  - '*'
 - apiGroups:
   - snapshot.storage.k8s.io
   resources:
@@ -1031,7 +1051,15 @@ rules:
   resources:
   - customresourcedefinitions
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

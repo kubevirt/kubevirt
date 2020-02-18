@@ -23,7 +23,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
 	kubevirt.io/client-go v0.26.0
-	kubevirt.io/containerized-data-importer v1.11.0
+	kubevirt.io/containerized-data-importer v1.13.0
 	kubevirt.io/kubevirt v0.26.0
 	sigs.k8s.io/controller-runtime v0.4.0
 
@@ -70,6 +70,14 @@ replace (
 	kubevirt.io/kubevirt => kubevirt.io/kubevirt v0.26.0
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.4.0
 	sigs.k8s.io/controller-tools => sigs.k8s.io/controller-tools v0.1.11-0.20190411181648-9d55346c2bde
+)
+
+// Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.13/go.mod
+replace (
+	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
+	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
+	github.com/openshift/library-go => github.com/mhenriks/library-go v0.0.0-20200116194830-9fcc1a687a9d
+	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v0.0.0-20190302045857-e85c7b244fd2
 )
 
 replace github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309 // Required by Helm
