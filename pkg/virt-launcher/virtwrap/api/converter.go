@@ -612,6 +612,21 @@ func popSRIOVPCIAddress(networkName string, addrsMap map[string][]string) (strin
 	return "", addrsMap, fmt.Errorf("no more SR-IOV PCI addresses to allocate")
 }
 
+func getInterfaceType(iface *v1.Interface) string {
+	if iface.Slirp != nil {
+		// Slirp configuration works only with e1000 or rtl8139
+		if iface.Model != "e1000" && iface.Model != "rtl8139" {
+			log.Log.Infof("The network interface type of %s was changed to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
+			return "e1000"
+		}
+		return iface.Model
+	}
+	if iface.Model != "" {
+		return iface.Model
+	}
+	return "virtio"
+}
+
 func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) (err error) {
 	precond.MustNotBeNil(vmi)
 	precond.MustNotBeNil(domain)
@@ -1142,7 +1157,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			log.Log.Infof("SR-IOV PCI device allocated: %s", pciAddr)
 			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDev)
 		} else {
-			ifaceType := GetInterfaceType(&iface)
+			ifaceType := getInterfaceType(&iface)
 			domainIface := Interface{
 				Model: &Model{
 					Type: ifaceType,
