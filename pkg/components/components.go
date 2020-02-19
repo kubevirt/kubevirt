@@ -529,6 +529,7 @@ func GetCSVBase(name, hcCRNamespace, displayName, description, image, replaces s
 				"description":    description,
 				"repository":     "https://github.com/kubevirt/hyperconverged-cluster-operator",
 				"support":        "false",
+				"operatorframework.io/suggested-namespace": hcCRNamespace,
 			},
 		},
 		Spec: csvv1alpha1.ClusterServiceVersionSpec{
