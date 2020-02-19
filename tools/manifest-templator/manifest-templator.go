@@ -275,9 +275,9 @@ func main() {
 	}
 
 	// Write out CRDs and CR
+	util.MarshallObject(components.GetOperatorCR(), operatorCr)
 	util.MarshallObject(components.GetOperatorCRD(), operatorCrd)
 	util.MarshallObject(components.GetV2VCRD(), v2vCrd)
-	util.MarshallObject(components.GetOperatorCR(), operatorCr)
 
 	// Write out deployments
 	for _, deployment := range deployments {

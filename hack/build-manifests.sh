@@ -206,10 +206,21 @@ spec:
   provider:
     name: KubeVirt project
 EOM
+
+# Write HCO CRDs
+(cd ${PROJECT_ROOT}/tools/csv-merger/ && go build)
+hco_crds=${TEMPDIR}/hco.crds.yaml
+${PROJECT_ROOT}/tools/csv-merger/csv-merger --output-mode=CRDs > $hco_crds
+csplit --digits=2 --quiet --elide-empty-files \
+  --prefix=hco \
+  --suffix-format="%02d.${CRD_EXT}" \
+  $hco_crds \
+  "/---/" "{*}"
+
 popd
 
 mkdir -p "${CSV_DIR}"
-cp -f ${TEMPDIR}/*.${CRD_EXT} ${CRD_DIR}
+rm -f ${CSV_DIR}/*
 
 # Build and write deploy dir
 (cd ${PROJECT_ROOT}/tools/manifest-templator/ && go build)
@@ -225,11 +236,7 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --operator-image="${OPERATOR_IMAGE}"
 (cd ${PROJECT_ROOT}/tools/manifest-templator/ && go clean)
 
-# Copy all CRDs into the CSV direcotry
-cp -f ${CRD_DIR}/*.${CRD_EXT} ${CSV_DIR}
-
 # Build and merge CSVs
-(cd ${PROJECT_ROOT}/tools/csv-merger/ && go build)
 ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --cna-csv="$(<${cnaCsv})" \
   --virt-csv="$(<${virtCsv})" \
@@ -246,6 +253,12 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --csv-overrides="$(<${csvOverrides})" \
   --operator-image-name="${OPERATOR_IMAGE}" > "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}"
 (cd ${PROJECT_ROOT}/tools/csv-merger/ && go clean)
+
+# Copy all CRDs into the CRD and CSV directories
+rm -f ${CRD_DIR}/*
+cp -f ${TEMPDIR}/*.${CRD_EXT} ${CRD_DIR}
+cp -f ${TEMPDIR}/*.${CRD_EXT} ${CSV_DIR}
+
 
 # Intentionally removing last so failure leaves around the templates
 rm -rf ${TEMPDIR}

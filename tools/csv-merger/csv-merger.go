@@ -39,6 +39,11 @@ import (
 
 const operatorName = "kubevirt-hyperconverged-operator"
 
+const CSVMode = "CSV"
+const CRDMode = "CRDs"
+
+var validOutputModes = []string{CSVMode, CRDMode}
+
 // TODO: get rid of this once RelatedImages officially
 // appears in github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators
 type relatedImage struct {
@@ -60,6 +65,7 @@ type ClusterServiceVersionExtended struct {
 }
 
 var (
+	outputMode          = flag.String("output-mode", CSVMode, "Working mode: "+strings.Join(validOutputModes, "|"))
 	cnaCsv              = flag.String("cna-csv", "", "Cluster Network Addons CSV string")
 	virtCsv             = flag.String("virt-csv", "", "KubeVirt CSV string")
 	sspCsv              = flag.String("ssp-csv", "", "Scheduling Scale Performance CSV string")
@@ -81,199 +87,208 @@ var (
 		"Comma separated list of all the images referred in the CSV (just the image pull URLs or eventually a set of 'image|name' collations)")
 )
 
+func gen_hco_crds() {
+	// Write out CRDs and CR
+	util.MarshallObject(components.GetOperatorCRD(), os.Stdout)
+	util.MarshallObject(components.GetV2VCRD(), os.Stdout)
+}
+
 func main() {
 	flag.Parse()
 
-	if *specDisplayName == "" || *specDescription == "" {
-		panic(errors.New("Must specify spec-displayname and spec-description"))
-	}
-
-	csvs := []string{
-		*cnaCsv,
-		*virtCsv,
-		*sspCsv,
-		*cdiCsv,
-		*nmoCsv,
-		*hppCsv,
-	}
-
-	version := semver.MustParse(*csvVersion)
-	var replaces string
-	if *replacesCsvVersion != "" {
-		replaces = fmt.Sprintf("%v.v%v", operatorName, semver.MustParse(*replacesCsvVersion).String())
-	}
-
-	// This is the basic CSV without an InstallStrategy defined
-	csvBase := components.GetCSVBase(
-		operatorName,
-		*namespace,
-		*specDisplayName,
-		*specDescription,
-		*operatorImage,
-		replaces,
-		version,
-		*crdDisplay,
-	)
-	csvExtended := ClusterServiceVersionExtended{
-		TypeMeta:   csvBase.TypeMeta,
-		ObjectMeta: csvBase.ObjectMeta,
-		Spec:       ClusterServiceVersionSpecExtended{ClusterServiceVersionSpec: csvBase.Spec},
-		Status:     csvBase.Status}
-
-	// This is the base deployment + rbac for the HCO CSV
-	installStrategyBase := components.GetInstallStrategyBase(
-		*operatorImage,
-		"IfNotPresent",
-		*imsConversionImage,
-		*imsVMWareImage,
-	)
-
-	for _, image := range strings.Split(*relatedImagesList, ",") {
-		if image != "" {
-			name := ""
-			if strings.Contains(image, "|") {
-				image_s := strings.Split(image, "|")
-				image = image_s[0]
-				name = image_s[1]
-			} else {
-				names := strings.Split(strings.Split(image, "@")[0], "/")
-				name = names[len(names)-1]
-			}
-			csvExtended.Spec.RelatedImages = append(
-				csvExtended.Spec.RelatedImages,
-				relatedImage{
-					Name: name,
-					Ref:  image,
-				})
+	switch *outputMode {
+	case CRDMode:
+		gen_hco_crds()
+	case CSVMode:
+		if *specDisplayName == "" || *specDescription == "" {
+			panic(errors.New("Must specify spec-displayname and spec-description"))
 		}
-	}
 
-	for _, csvStr := range csvs {
-		if csvStr != "" {
-			csvBytes := []byte(csvStr)
+		csvs := []string{
+			*cnaCsv,
+			*virtCsv,
+			*sspCsv,
+			*cdiCsv,
+			*nmoCsv,
+			*hppCsv,
+		}
 
-			csvStruct := &csvv1alpha1.ClusterServiceVersion{}
+		version := semver.MustParse(*csvVersion)
+		var replaces string
+		if *replacesCsvVersion != "" {
+			replaces = fmt.Sprintf("%v.v%v", operatorName, semver.MustParse(*replacesCsvVersion).String())
+		}
 
-			err := yaml.Unmarshal(csvBytes, csvStruct)
+		// This is the basic CSV without an InstallStrategy defined
+		csvBase := components.GetCSVBase(
+			operatorName,
+			*namespace,
+			*specDisplayName,
+			*specDescription,
+			*operatorImage,
+			replaces,
+			version,
+			*crdDisplay,
+		)
+		csvExtended := ClusterServiceVersionExtended{
+			TypeMeta:   csvBase.TypeMeta,
+			ObjectMeta: csvBase.ObjectMeta,
+			Spec:       ClusterServiceVersionSpecExtended{ClusterServiceVersionSpec: csvBase.Spec},
+			Status:     csvBase.Status}
+
+		// This is the base deployment + rbac for the HCO CSV
+		installStrategyBase := components.GetInstallStrategyBase(
+			*operatorImage,
+			"IfNotPresent",
+			*imsConversionImage,
+			*imsVMWareImage,
+		)
+
+		for _, image := range strings.Split(*relatedImagesList, ",") {
+			if image != "" {
+				name := ""
+				if strings.Contains(image, "|") {
+					image_s := strings.Split(image, "|")
+					image = image_s[0]
+					name = image_s[1]
+				} else {
+					names := strings.Split(strings.Split(image, "@")[0], "/")
+					name = names[len(names)-1]
+				}
+				csvExtended.Spec.RelatedImages = append(
+					csvExtended.Spec.RelatedImages,
+					relatedImage{
+						Name: name,
+						Ref:  image,
+					})
+			}
+		}
+
+		for _, csvStr := range csvs {
+			if csvStr != "" {
+				csvBytes := []byte(csvStr)
+
+				csvStruct := &csvv1alpha1.ClusterServiceVersion{}
+
+				err := yaml.Unmarshal(csvBytes, csvStruct)
+				if err != nil {
+					panic(err)
+				}
+
+				strategySpec := &components.StrategyDetailsDeployment{}
+				json.Unmarshal(csvStruct.Spec.InstallStrategy.StrategySpecRaw, strategySpec)
+
+				installStrategyBase.DeploymentSpecs = append(installStrategyBase.DeploymentSpecs, strategySpec.DeploymentSpecs...)
+				installStrategyBase.ClusterPermissions = append(installStrategyBase.ClusterPermissions, strategySpec.ClusterPermissions...)
+				installStrategyBase.Permissions = append(installStrategyBase.Permissions, strategySpec.Permissions...)
+
+				for _, owned := range csvStruct.Spec.CustomResourceDefinitions.Owned {
+					csvExtended.Spec.CustomResourceDefinitions.Owned = append(
+						csvExtended.Spec.CustomResourceDefinitions.Owned,
+						csvv1alpha1.CRDDescription{
+							Name:        owned.Name,
+							Version:     owned.Version,
+							Kind:        owned.Kind,
+							Description: owned.Description,
+							DisplayName: owned.DisplayName,
+						},
+					)
+				}
+
+				csv_base_alm_string := csvExtended.Annotations["alm-examples"]
+				csv_struct_alm_string := csvStruct.Annotations["alm-examples"]
+				var base_almcrs []interface{}
+				var struct_almcrs []interface{}
+				if err = json.Unmarshal([]byte(csv_base_alm_string), &base_almcrs); err != nil {
+					panic(err)
+				}
+				if err = json.Unmarshal([]byte(csv_struct_alm_string), &struct_almcrs); err != nil {
+					panic(err)
+				}
+				for _, cr := range struct_almcrs {
+					base_almcrs = append(
+						base_almcrs,
+						cr,
+					)
+				}
+				alm_b, err := json.Marshal(base_almcrs)
+				if err != nil {
+					panic(err)
+				}
+				csvExtended.Annotations["alm-examples"] = string(alm_b)
+
+			}
+		}
+
+		dfound := false
+		efound := false
+		for _, deployment := range installStrategyBase.DeploymentSpecs {
+			if deployment.Name == "hco-operator" {
+				dfound = true
+				deployment.Spec.Template.Spec.Containers[0].Image = *operatorImage
+				for i, env := range deployment.Spec.Template.Spec.Containers[0].Env {
+					if env.Name == "OPERATOR_IMAGE" {
+						efound = true
+						deployment.Spec.Template.Spec.Containers[0].Env[i].Value = *operatorImage
+					}
+					if env.Name == "CONVERSION_CONTAINER" {
+						efound = true
+						deployment.Spec.Template.Spec.Containers[0].Env[i].Value = *imsConversionImage
+					}
+					if env.Name == "VMWARE_CONTAINER" {
+						efound = true
+						deployment.Spec.Template.Spec.Containers[0].Env[i].Value = *imsVMWareImage
+					}
+				}
+			}
+		}
+
+		if !dfound {
+			panic("Failed identifying hco-operator deployment")
+		}
+		if !efound {
+			panic("Failed identifying OPERATOR_IMAGE env value for hco-operator")
+		}
+
+		// Re-serialize deployments and permissions into csv strategy.
+		updatedStrat, err := json.Marshal(installStrategyBase)
+		if err != nil {
+			panic(err)
+		}
+		csvExtended.Spec.InstallStrategy.StrategyName = "deployment"
+		csvExtended.Spec.InstallStrategy.StrategySpecRaw = updatedStrat
+
+		if *metadataDescription != "" {
+			csvExtended.Annotations["description"] = *metadataDescription
+		}
+		if *specDescription != "" {
+			csvExtended.Spec.Description = *specDescription
+		}
+		if *specDisplayName != "" {
+			csvExtended.Spec.DisplayName = *specDisplayName
+		}
+
+		if *csvOverrides != "" {
+			csvOBytes := []byte(*csvOverrides)
+
+			csvO := &ClusterServiceVersionExtended{}
+
+			err := yaml.Unmarshal(csvOBytes, csvO)
 			if err != nil {
 				panic(err)
 			}
 
-			strategySpec := &components.StrategyDetailsDeployment{}
-			json.Unmarshal(csvStruct.Spec.InstallStrategy.StrategySpecRaw, strategySpec)
-
-			installStrategyBase.DeploymentSpecs = append(installStrategyBase.DeploymentSpecs, strategySpec.DeploymentSpecs...)
-			installStrategyBase.ClusterPermissions = append(installStrategyBase.ClusterPermissions, strategySpec.ClusterPermissions...)
-			installStrategyBase.Permissions = append(installStrategyBase.Permissions, strategySpec.Permissions...)
-
-			for _, owned := range csvStruct.Spec.CustomResourceDefinitions.Owned {
-				csvExtended.Spec.CustomResourceDefinitions.Owned = append(
-					csvExtended.Spec.CustomResourceDefinitions.Owned,
-					csvv1alpha1.CRDDescription{
-						Name:        owned.Name,
-						Version:     owned.Version,
-						Kind:        owned.Kind,
-						Description: owned.Description,
-						DisplayName: owned.DisplayName,
-					},
-				)
-			}
-
-			csv_base_alm_string := csvExtended.Annotations["alm-examples"]
-			csv_struct_alm_string := csvStruct.Annotations["alm-examples"]
-			var base_almcrs []interface{}
-			var struct_almcrs []interface{}
-			if err = json.Unmarshal([]byte(csv_base_alm_string), &base_almcrs); err != nil {
-				panic(err)
-			}
-			if err = json.Unmarshal([]byte(csv_struct_alm_string), &struct_almcrs); err != nil {
-				panic(err)
-			}
-			for _, cr := range struct_almcrs {
-				base_almcrs = append(
-					base_almcrs,
-					cr,
-				)
-			}
-			alm_b, err := json.Marshal(base_almcrs)
+			err = mergo.Merge(&csvExtended, csvO, mergo.WithOverride)
 			if err != nil {
 				panic(err)
 			}
-			csvExtended.Annotations["alm-examples"] = string(alm_b)
 
 		}
+
+		util.MarshallObject(csvExtended, os.Stdout)
+
+	default:
+		panic("Unsupported output mode: " + *outputMode)
 	}
 
-	dfound := false
-	efound := false
-	for _, deployment := range installStrategyBase.DeploymentSpecs {
-		if deployment.Name == "hco-operator" {
-			dfound = true
-			deployment.Spec.Template.Spec.Containers[0].Image = *operatorImage
-			for i, env := range deployment.Spec.Template.Spec.Containers[0].Env {
-				if env.Name == "OPERATOR_IMAGE" {
-					efound = true
-					deployment.Spec.Template.Spec.Containers[0].Env[i].Value = *operatorImage
-				}
-				if env.Name == "CONVERSION_CONTAINER" {
-					efound = true
-					deployment.Spec.Template.Spec.Containers[0].Env[i].Value = *imsConversionImage
-				}
-				if env.Name == "VMWARE_CONTAINER" {
-					efound = true
-					deployment.Spec.Template.Spec.Containers[0].Env[i].Value = *imsVMWareImage
-				}
-			}
-		}
-	}
-
-	if !dfound {
-		panic("Failed identifying hco-operator deployment")
-	}
-	if !efound {
-		panic("Failed identifying OPERATOR_IMAGE env value for hco-operator")
-	}
-
-	// Re-serialize deployments and permissions into csv strategy.
-	updatedStrat, err := json.Marshal(installStrategyBase)
-	if err != nil {
-		panic(err)
-	}
-	csvExtended.Spec.InstallStrategy.StrategyName = "deployment"
-	csvExtended.Spec.InstallStrategy.StrategySpecRaw = updatedStrat
-
-	// These shouldn't be needed because it's in the csvExtended already
-	// csvExtended.Annotations["createdAt"] = time.Now().Format("2006-01-02 15:04:05")
-	// csvExtended.Annotations["containerImage"] = *operatorImage
-	// csvExtended.Name = "kubevirt-hyperconverged-operator.v" + *csvVersion
-	// csvExtended.Spec.Version = csvversion.OperatorVersion{semver.MustParse(*csvVersion)}
-
-	if *metadataDescription != "" {
-		csvExtended.Annotations["description"] = *metadataDescription
-	}
-	if *specDescription != "" {
-		csvExtended.Spec.Description = *specDescription
-	}
-	if *specDisplayName != "" {
-		csvExtended.Spec.DisplayName = *specDisplayName
-	}
-
-	if *csvOverrides != "" {
-		csvOBytes := []byte(*csvOverrides)
-
-		csvO := &ClusterServiceVersionExtended{}
-
-		err := yaml.Unmarshal(csvOBytes, csvO)
-		if err != nil {
-			panic(err)
-		}
-
-		err = mergo.Merge(&csvExtended, csvO, mergo.WithOverride)
-		if err != nil {
-			panic(err)
-		}
-
-	}
-
-	util.MarshallObject(csvExtended, os.Stdout)
 }
