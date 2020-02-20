@@ -1571,7 +1571,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 	})
 
-	FContext("VM rename", func() {
+	Context("VM rename", func() {
 		var (
 			vm  *v1.VirtualMachine
 			cli kubecli.VirtualMachineInterface
