@@ -437,6 +437,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
 	virtHandlerShaEnv string, virtLauncherShaEnv string) (*appsv1.Deployment, error) {
 
+	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-operator"})
 	name := "virt-operator"
 	version = AddVersionSeparatorPrefix(version)
 	image := fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, name, version)
@@ -481,6 +482,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 					Name: name,
 				},
 				Spec: corev1.PodSpec{
+					Affinity:           podAntiAffinity,
 					ServiceAccountName: "kubevirt-operator",
 					Containers: []corev1.Container{
 						{
