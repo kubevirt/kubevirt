@@ -163,7 +163,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.
 				EXPECT().
-				Rename(vm.Name, vm.Name+"new").
+				Rename(vm.Name, &v1.RenameOptions{NewName: vm.Name + "new"}).
 				Return(nil).
 				Times(1)
 

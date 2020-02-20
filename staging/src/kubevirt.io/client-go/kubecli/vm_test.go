@@ -195,7 +195,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			),
 		)
 
-		err := client.VirtualMachine(k8sv1.NamespaceDefault).Rename("testvm", "testvmnew")
+		err := client.VirtualMachine(k8sv1.NamespaceDefault).Rename("testvm", &virtv1.RenameOptions{NewName: "testvmnew"})
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())

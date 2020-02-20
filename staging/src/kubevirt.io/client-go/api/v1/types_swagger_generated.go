@@ -328,3 +328,9 @@ func (VirtualMachineInstanceFileSystem) SwaggerDoc() map[string]string {
 		"": "VirtualMachineInstanceFileSystem represents guest os disk",
 	}
 }
+
+func (RenameOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Options for a rename operation",
+	}
+}

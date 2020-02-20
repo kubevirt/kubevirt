@@ -1138,8 +1138,8 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Migrate(arg0 interface{}) *gomo
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migrate", arg0)
 }
 
-func (_m *MockVirtualMachineInterface) Rename(name string, newName string) error {
-	ret := _m.ctrl.Call(_m, "Rename", name, newName)
+func (_m *MockVirtualMachineInterface) Rename(name string, options *v114.RenameOptions) error {
+	ret := _m.ctrl.Call(_m, "Rename", name, options)
 	ret0, _ := ret[0].(error)
 	return ret0
 }

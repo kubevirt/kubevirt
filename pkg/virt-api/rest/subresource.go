@@ -25,7 +25,6 @@ import (
 	goerror "errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strings"
@@ -532,30 +531,31 @@ func (app *SubresourceAPIApp) RenameVMRequestHandler(request *restful.Request, r
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
-	if request.Request.Body == nil {
+	opts := &v1.RenameOptions{}
+
+	if request.Request.Body != nil {
+		defer request.Request.Body.Close()
+		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			writeError(errors.NewBadRequest(fmt.Sprintf("Can not unmarshal Request body to struct, error: %s",
+				err)), response)
+			return
+		}
+	} else {
 		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"),
 			response)
 		return
 	}
 
-	// Read the new name of the VM
-	defer request.Request.Body.Close()
-	newNameBuf, err := ioutil.ReadAll(request.Request.Body)
-
-	if err != nil {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"),
-			name, err), response)
-		return
-	}
-
-	newName := string(newNameBuf)
-
-	if newName == "" {
+	if opts.NewName == "" {
 		writeError(errors.NewBadRequest("Please provide a new name for the VM"), response)
 		return
 	}
 
-	if name == newName {
+	if name == opts.NewName {
 		writeError(errors.NewBadRequest("The VM's new name cannot be identical to the current name"), response)
 		return
 	}
@@ -586,7 +586,7 @@ func (app *SubresourceAPIApp) RenameVMRequestHandler(request *restful.Request, r
 	}
 
 	// Make sure a VM with the newName doesn't exist
-	_, statusErr = app.fetchVirtualMachine(newName, namespace)
+	_, statusErr = app.fetchVirtualMachine(opts.NewName, namespace)
 
 	if statusErr == nil {
 		writeError(errors.NewBadRequest("A VM with the new name already exists"), response)
@@ -599,7 +599,7 @@ func (app *SubresourceAPIApp) RenameVMRequestHandler(request *restful.Request, r
 	renameRequestJson, err := getChangeRequestJson(vm, v1.VirtualMachineStateChangeRequest{
 		Action: v1.RenameCreateRequest,
 		Data: map[string]string{
-			"newName": newName,
+			"newName": opts.NewName,
 		},
 	})
 

@@ -602,8 +602,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			)
 
 			newRenameBody := func(newName string) io.ReadCloser {
-				newNameBytes := []byte(newName)
-				return &readCloserWrapper{bytes.NewReader(newNameBytes)}
+				renameOpts := &v1.RenameOptions{NewName: newName}
+
+				optsJson, _ := json.Marshal(renameOpts)
+
+				return &readCloserWrapper{bytes.NewReader(optsJson)}
 			}
 
 			BeforeEach(func() {

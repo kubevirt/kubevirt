@@ -166,7 +166,7 @@ type VirtualMachineInterface interface {
 	Start(name string) error
 	Stop(name string) error
 	Migrate(name string) error
-	Rename(name, newName string) error
+	Rename(name string, options *v1.RenameOptions) error
 }
 
 type VirtualMachineInstanceMigrationInterface interface {

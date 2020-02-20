@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strings"
 
+	v1 "kubevirt.io/client-go/api/v1"
+
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -187,7 +189,7 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("Error migrating VirtualMachine %v", err)
 		}
 	case COMMAND_RENAME:
-		err = virtClient.VirtualMachine(namespace).Rename(vmiName, args[1])
+		err = virtClient.VirtualMachine(namespace).Rename(vmiName, &v1.RenameOptions{NewName: args[1]})
 		if err != nil {
 			return fmt.Errorf("Error renaming VirtualMachine %v", err)
 		}
