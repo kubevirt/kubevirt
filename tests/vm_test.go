@@ -1571,7 +1571,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 	})
 
-	Context("VM rename", func() {
+	FContext("VM rename", func() {
 		var (
 			vm  *v1.VirtualMachine
 			cli kubecli.VirtualMachineInterface
@@ -1626,19 +1626,19 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vm2 := tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 				cli.Create(vm2)
 
-				err := cli.Rename(vm1.Name, vm2.Name)
+				err := cli.Rename(vm1.Name, &v1.RenameOptions{NewName: vm2.Name})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("name already exists"))
 			})
 
 			It("should fail if the new name is empty", func() {
-				err := cli.Rename(vm1.Name, "")
+				err := cli.Rename(vm1.Name, &v1.RenameOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("Please provide a new name for the VM"))
 			})
 
 			It("should fail if the new name is identical to the current name", func() {
-				err := cli.Rename(vm1.Name, vm1.Name)
+				err := cli.Rename(vm1.Name, &v1.RenameOptions{NewName: vm1.Name})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("identical"))
 			})
@@ -1647,7 +1647,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				err := cli.Start(vm1.Name)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = cli.Rename(vm1.Name, vm1.Name+"new")
+				err = cli.Rename(vm1.Name, &v1.RenameOptions{NewName: vm1.Name + "new"})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("running"))
 			})
@@ -1661,14 +1661,14 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				_, err := cli.Create(vm1)
 				Expect(err).ToNot(HaveOccurred())
 
-				err = cli.Rename(vm1.Name, vm1.Name+"new")
+				err = cli.Rename(vm1.Name, &v1.RenameOptions{NewName: vm1.Name + "new"})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).
 					To(ContainSubstring("Renaming a running VM is not allowed"))
 			})
 
 			It("should succeed", func() {
-				err := cli.Rename(vm1.Name, vm1.Name+"new")
+				err := cli.Rename(vm1.Name, &v1.RenameOptions{NewName: vm1.Name + "new"})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() error {
