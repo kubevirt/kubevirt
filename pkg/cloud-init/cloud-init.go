@@ -407,11 +407,16 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 	}
 
 	var metaData []byte
-	if data.MetaData == "" {
+	if data.MetaData == nil {
 		log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
-		metaData = []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\" }\n", vmiName, namespace))
-	} else {
-		metaData = []byte(data.MetaData)
+		data.MetaData = &Metadata{
+			InstanceID: fmt.Sprintf("%s.%s", vmiName, namespace),
+		}
+	}
+	data.MetaData.Devices = data.DevicesData
+	metaData, err = json.Marshal(data.MetaData)
+	if err != nil {
+		return err
 	}
 
 	diskutils.RemoveFile(userFile)
