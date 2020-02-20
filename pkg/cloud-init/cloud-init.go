@@ -263,12 +263,19 @@ func readCloudInitConfigDriveSource(source *v1.CloudInitConfigDriveSource) (*Clo
 	}, nil
 }
 
-func readCloudInitNoCloudMetaData(name, hostname, namespace string) string {
-	return fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", name, namespace, hostname)
+func readCloudInitNoCloudMetaData(name, hostname, namespace string) *Metadata {
+	return &Metadata{
+		InstanceID:    fmt.Sprintf("%s.%s", name, namespace),
+		LocalHostname: hostname,
+	}
 }
 
-func readCloudInitConfigDriveMetaData(uid, name, hostname, namespace string) string {
-	return fmt.Sprintf("{ \"uuid\": \"%s\", \"instance-id\": \"%s.%s\", \"hostname\": \"%s\" }\n", uid, name, namespace, hostname)
+func readCloudInitConfigDriveMetaData(uid, name, hostname, namespace string) *Metadata {
+	return &Metadata{
+		UUID:       uid,
+		InstanceID: fmt.Sprintf("%s.%s", name, namespace),
+		Hostname:   hostname,
+	}
 }
 
 func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
