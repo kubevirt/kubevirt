@@ -399,6 +399,9 @@ type Disk struct {
 	// Cache specifies which kvm disk cache mode should be used.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
+	// If specified, disk address and its tag will be provided to the guest via config drive metadata
+	// +optional
+	Tag string `json:"tag,omitempty"`
 }
 
 // Represents the target of a volume to mount.

@@ -850,6 +850,13 @@ func schema_kubevirtio_client_go_api_v1_Disk(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
+					"tag": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, disk address and its tag will be provided to the guest via config drive metadata",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
@@ -1642,6 +1649,13 @@ func schema_kubevirtio_client_go_api_v1_Interface(ref common.ReferenceCallback) 
 						SchemaProps: spec.SchemaProps{
 							Description: "If specified the network interface will pass additional DHCP options to the VMI",
 							Ref:         ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.DHCPOptions"),
+						},
+					},
+					"tag": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
