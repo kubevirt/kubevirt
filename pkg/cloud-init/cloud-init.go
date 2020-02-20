@@ -21,6 +21,7 @@ package cloudinit
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -47,24 +48,45 @@ const (
 )
 
 type DataSourceType string
+type DeviceMetadataType string
 
 const (
-	DataSourceNoCloud     DataSourceType = "noCloud"
-	DataSourceConfigDrive DataSourceType = "configDrive"
+	DataSourceNoCloud     DataSourceType     = "noCloud"
+	DataSourceConfigDrive DataSourceType     = "configDrive"
+	NICMetadataType       DeviceMetadataType = "nic"
+	DiskMetadataType      DeviceMetadataType = "disk"
 )
 
 // CloudInitData is a data source independent struct that
 // holds cloud-init user and network data
 type CloudInitData struct {
 	DataSource  DataSourceType
-	MetaData    string
+	MetaData    *Metadata
 	UserData    string
 	NetworkData string
+	DevicesData *[]DeviceData
+}
+
+type Metadata struct {
+	InstanceID    string        `json:"instance-id"`
+	LocalHostname string        `json:"local-hostname,omitempty"`
+	Hostname      string        `json:"hostname,omitempty"`
+	UUID          string        `json:"uuid,omitempty"`
+	Devices       *[]DeviceData `json:"devices,omitempty"`
+}
+
+type DeviceData struct {
+	Type    DeviceMetadataType `json:"type"`
+	Bus     string             `json:"bus"`
+	Address string             `json:"address"`
+	MAC     string             `json:"mac,omitempty"`
+	Serial  string             `json:"serial,omitempty"`
+	Tag     []string           `json:"tag"`
 }
 
 // IsValidCloudInitData checks if the given CloudInitData object is valid in the sense that GenerateLocalData can be called with it.
 func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
-	return cloudInitData != nil && cloudInitData.UserData != "" && cloudInitData.MetaData != ""
+	return cloudInitData != nil && cloudInitData.UserData != "" && cloudInitData.MetaData != nil
 }
 
 // ReadCloudInitVolumeDataSource scans the given VMI for CloudInit volumes and
