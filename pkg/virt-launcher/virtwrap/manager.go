@@ -71,6 +71,8 @@ const LibvirtLocalConnectionPort = 22222
 const gpuEnvPrefix = "GPU_PASSTHROUGH_DEVICES"
 const vgpuEnvPrefix = "VGPU_PASSTHROUGH_DEVICES"
 
+var cloudInitDataStore *cloudinit.CloudInitData
+
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
 	PauseVMI(*v1.VirtualMachineInstance) error
@@ -332,18 +334,27 @@ func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks
 	return disks
 }
 
-func getAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
+func getAllDomainDevices(dom cli.VirDomain) (api.Devices, error) {
 	xmlstr, err := dom.GetXMLDesc(0)
 	if err != nil {
-		return nil, err
+		return api.Devices{}, err
 	}
 	var newSpec api.DomainSpec
 	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
 	if err != nil {
+		return api.Devices{}, err
+	}
+
+	return newSpec.Devices, nil
+}
+
+func getAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
+	devices, err := getAllDomainDevices(dom)
+	if err != nil {
 		return nil, err
 	}
 
-	return newSpec.Devices.Disks, nil
+	return devices.Disks, nil
 }
 
 func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) []string {
@@ -804,6 +815,8 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		if err != nil {
 			return domain, fmt.Errorf("generating local cloud-init data failed: %v", err)
 		}
+		// store the generated cloud init metadata in case we will beed to rebuild the config drive.
+		cloudInitDataStore = cloudInitData
 	}
 
 	// generate ignition data
@@ -1052,6 +1065,13 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 				return nil, err
 			}
 			logger.Info("Domain defined.")
+			// this is the point where we need to build the devices metadata if it was requested.
+			// This metadata maps the user provided tag to the hypervisor assigned device address.
+			err = buildDevicesMetadata(vmi, dom)
+			if err != nil {
+				dom.Free()
+				return nil, err
+			}
 		} else {
 			logger.Reason(err).Error("Getting the domain failed.")
 			return nil, err
@@ -1395,6 +1415,53 @@ func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING
 
 	return l.virConn.GetDomainStats(statsTypes, flags)
+}
+
+func buildDevicesMetadata(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) error {
+	taggedInterfaces := make(map[string]v1.Interface)
+	devicesMetadata := []cloudinit.DeviceData{}
+
+	// Get all tagged interfaces for lookup
+	for _, vif := range vmi.Spec.Domain.Devices.Interfaces {
+		if vif.Tag != "" {
+			taggedInterfaces[vif.Name] = vif
+		}
+	}
+
+	devices, err := getAllDomainDevices(dom)
+	if err != nil {
+		return err
+	}
+	interfaces := devices.Interfaces
+	for _, nic := range interfaces {
+		if data, exist := taggedInterfaces[nic.Alias.Name]; exist {
+			address := nic.Address
+			var mac string
+			if nic.MAC != nil {
+				mac = nic.MAC.MAC
+			}
+			pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+			deviceData := cloudinit.DeviceData{
+				Type:    cloudinit.NICMetadataType,
+				Bus:     nic.Address.Type,
+				Address: pciAddrStr,
+				MAC:     mac,
+				Tag:     []string{data.Tag},
+			}
+			devicesMetadata = append(devicesMetadata, deviceData)
+		}
+	}
+
+	// rebuild the config drive with the devices metadata
+	if cloudInitDataStore != nil {
+		cloudInitDataStore.DevicesData = &devicesMetadata
+		err = cloudinit.GenerateLocalData(vmi.Name, vmi.Namespace, cloudInitDataStore)
+		if err != nil {
+			return fmt.Errorf("re-generating local cloud-init data failed: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
