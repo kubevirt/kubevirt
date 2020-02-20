@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/controller"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/tests"
@@ -1433,72 +1432,6 @@ spec:
 			monitoringLabel, exists := namespace.ObjectMeta.Labels["openshift.io/cluster-monitoring"]
 			Expect(exists).To(BeTrue())
 			Expect(monitoringLabel).To(Equal("true"))
-		})
-	})
-
-	// This test isn't technically testing anything with virt-operator, but all the framework
-	// is in place to tear down and re-set the environment when it's been modified,
-	// and this test does modify significant components.
-	Context("With selinuxLauncherType defined", func() {
-		It("Should honor custom SELinux type for virt-launcher", func() {
-			cfgMap, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-			// Update KubeVirt's ConfigMap
-			if err != nil && !errors.IsNotFound(err) {
-				Expect(err).ToNot(HaveOccurred())
-			}
-			superPrivilegedType := "spc_t"
-
-			By("Starting a VMI")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
-
-			By("Ensuring VMI is running by logging in")
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
-
-			By("Fetching virt-launcher Pod")
-			pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-
-			By("Verifying SELinux context contains default type")
-			Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).ToNot(Equal(superPrivilegedType))
-
-			By("Deleting the VMI")
-			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Updating ConfigMap")
-			cfgMap.Data[virtconfig.SELinuxLauncherTypeKey] = superPrivilegedType
-
-			newData, err := json.Marshal(cfgMap.Data)
-			Expect(err).ToNot(HaveOccurred())
-			data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
-
-			cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Deleting virt-controller deployment")
-			err = virtClient.AppsV1().Deployments(tests.KubeVirtInstallNamespace).Delete("virt-controller", &metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Starting a New VMI")
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStart(vmi)
-
-			By("Ensuring VMI is running by logging in")
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
-
-			By("Fetching virt-launcher Pod")
-			pod = tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-
-			By("Verifying SELinux context contains custom type")
-			Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(superPrivilegedType))
-
-			By("Deleting the VMI")
-			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })
