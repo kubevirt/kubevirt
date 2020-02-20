@@ -488,13 +488,14 @@ func (l *LibvirtDomainManager) SetGuestTime(vmi *v1.VirtualMachineInstance) erro
 
 func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) {
 	timeout := time.After(60 * time.Second)
-	tick := time.Tick(1 * time.Second)
+	ticker := time.Ticker(1 * time.Second)
+    defer ticker.Stop()
 	for {
 		select {
 		case <-timeout:
 			log.Log.Object(vmi).Error("failed to sync guest time")
 			return
-		case <-tick:
+		case <-ticker.C:
 			currTime := time.Now()
 			secs := currTime.Unix()
 			nsecs := uint(currTime.Nanosecond())
