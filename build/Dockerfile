@@ -1,5 +1,5 @@
-FROM golang:1.11 AS builder
-ENV GOPATH=/go
+FROM golang:1.13.8 AS builder
+
 WORKDIR /go/src/github.com/kubevirt/hyperconverged-cluster-operator/
 COPY . .
 RUN make build
@@ -11,7 +11,14 @@ ENV OPERATOR=/usr/local/bin/hyperconverged-cluster-operator \
     USER_NAME=hyperconverged-cluster-operator
 
 COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/build/bin/ /usr/local/bin
-RUN /usr/local/bin/user_setup
+
+# ensure $HOME exists and is accessible by group 0 (we don't know what the runtime UID will be)
+RUN mkdir -p ${HOME} && \
+    chown ${USER_UID}:0 ${HOME} && \
+    chmod ug+rwx ${HOME} && \
+    # runtime user will need to be able to self-insert in /etc/passwd
+    chmod g+rw /etc/passwd
+
 COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/_out/hyperconverged-cluster-operator $OPERATOR
 COPY --from=builder /go/src/github.com/kubevirt/hyperconverged-cluster-operator/_out/csv-merger $CSV_MERGER
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
