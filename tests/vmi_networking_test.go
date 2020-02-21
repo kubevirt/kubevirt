@@ -189,29 +189,19 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				virtClient,
 				vmiPod,
 				"compute",
-				[]string{"ip", "address", "show", "k6t-eth0"},
+				[]string{"cat", "/sys/class/net/k6t-eth0/mtu"},
 			)
-			log.Log.Infof("%v", output)
+			log.Log.Infof("k6t-eth0 mtu is %v", output)
 			Expect(err).ToNot(HaveOccurred())
 
-			// The MTU of the Pod network varies, depending on the environment in use. We want to
-			// verify that the actual MTU is from the possible range, which is {1500, 1450}, minus
-			//  50 bytes for vxlan overhead.
-			possibleMtus := []int{1400, 1450}
-			mtuMatch := false
-			expectedMtuString := ""
+			output = strings.TrimSuffix(output, "\n")
+			mtu, err := strconv.Atoi(output)
+			Expect(err).ToNot(HaveOccurred())
 
-			for _, expectedMtu := range possibleMtus {
-				payloadSize = expectedMtu - ipHeaderSize
+			Expect(mtu > 1000).To(BeTrue())
 
-				// the following substring is part of 'ip address show' output
-				expectedMtuString = fmt.Sprintf("mtu %d", expectedMtu)
-				mtuMatch = strings.Contains(output, expectedMtuString)
-				if mtuMatch == true {
-					break
-				}
-			}
-			Expect(mtuMatch).To(BeTrue())
+			payloadSize = mtu - ipHeaderSize
+			expectedMtuString := fmt.Sprintf("mtu %d", mtu)
 
 			By("checking eth0 MTU inside the VirtualMachineInstance")
 			expecter, err := tests.LoggedInCirrosExpecter(outboundVMI)
