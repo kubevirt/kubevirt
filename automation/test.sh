@@ -53,10 +53,13 @@ if [[ $TARGET =~ os-.* ]]; then
 fi
 
 if [[ "$TARGET" =~ .*sriov.* ]]; then
+# TO REMOVE- shortcut for not changing project infra while testing this
+  KUBEVIRT_PROVIDER=kind-k8s-sriov-1.17.0
   export KUBEVIRT_NUM_NODES=1 # to be sure the guest lands on the master node
 else
   export KUBEVIRT_NUM_NODES=2 
 fi
+
 
 export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
 export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_image.lock}
