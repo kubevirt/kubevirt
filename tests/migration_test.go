@@ -531,13 +531,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					}
 					return true
 				}, 240*time.Second, 1*time.Second).Should(BeTrue())
-
-				// delete VMI
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			})
 		})
 		Context("with a shared ISCSI Filesystem PVC", func() {
