@@ -17,4 +17,3 @@ if [[ $(${KUBEVIRTCI_PATH}kubectl.sh get nodes | grep localhost) != "" ]]; then
     echo "The environment has a corrupted host"
     exit 1
 fi
-
