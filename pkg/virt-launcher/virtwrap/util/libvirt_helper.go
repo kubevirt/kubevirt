@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"reflect"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -316,7 +318,15 @@ func SetupLibvirt() error {
 		if !ok {
 			return fmt.Errorf("can't convert file stats to unix/linux stats")
 		}
-		err := os.Chown("/dev/kvm", int(s.Uid), 107)
+		g, err := user.LookupGroup("qemu")
+		if err != nil {
+			return err
+		}
+		gid, err := strconv.Atoi(g.Gid)
+		if err != nil {
+			return err
+		}
+		err = os.Chown("/dev/kvm", int(s.Uid), gid)
 		if err != nil {
 			return err
 		}
