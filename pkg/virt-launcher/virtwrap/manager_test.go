@@ -828,7 +828,7 @@ func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 }
 
 func StubOutNetworkForTest() {
-	network.SetupPodNetwork = func(vm *v1.VirtualMachineInstance, domain *api.Domain) error { return nil }
+	network.SetupPodNetworkPhase2 = func(vm *v1.VirtualMachineInstance, domain *api.Domain) error { return nil }
 }
 
 func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkData string) {

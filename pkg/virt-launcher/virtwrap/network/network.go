@@ -34,19 +34,33 @@ import (
 
 const podInterface = "eth0"
 
-var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache-%s.json"
-var qemuArgCacheFile = "/var/run/kubevirt-private/qemu-arg-%s.json"
+var interfaceCacheFile = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
+var qemuArgCacheFile = "/proc/%s/root/var/run/kubevirt-private/qemu-arg-%s.json"
+var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 var NetworkInterfaceFactory = getNetworkClass
 
 var podInterfaceName = podInterface
 
+type plugFunction func(vif NetworkInterface, vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
+
+// Network configuration is split into two parts, or phases, each executed in a
+// different context. Phase1 is run by virt-handler and heavylifts most
+// configuration steps. Phase2 is run by virt-launcher in the pod context and
+// completes steps left out of virt-handler. The reason to have a separate phase
+// for virt-launcher and not just have all the work done by virt-handler is
+// because there is no ready solution for DHCP server startup in virt-handler
+// context yet. This is a temporary limitation and the split is expected to go
+// once the final gap is closed. Moving all configuration steps into virt-handler
+// will also allow to downgrade privileges for virt-launcher, specifically, to
+// remove NET_ADMIN capability. Future patches should address that. See:
+// https://github.com/kubevirt/kubevirt/issues/3085
 type NetworkInterface interface {
-	Plug(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
+	PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error
+	PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 	Unplug()
 }
 
-func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	// prepare networks map
+func getNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.Network, map[string]int) {
 	networks := map[string]*v1.Network{}
 	cniNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
@@ -59,28 +73,58 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			cniNetworks[network.Name] = len(cniNetworks)
 		}
 	}
+	return networks, cniNetworks
+}
 
+func getNetworkInterfaceFactory(networks map[string]*v1.Network, ifaceName string) (NetworkInterface, error) {
+	network, ok := networks[ifaceName]
+	if !ok {
+		return nil, fmt.Errorf("failed to find a network %s", ifaceName)
+	}
+	vif, err := NetworkInterfaceFactory(network)
+	if err != nil {
+		return nil, err
+	}
+	return vif, nil
+}
+
+func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
+	if networks[ifaceName].Multus != nil && !networks[ifaceName].Multus.Default {
+		// multus pod interfaces named netX
+		return fmt.Sprintf("net%d", cniNetworks[ifaceName])
+	} else if networks[ifaceName].Genie != nil {
+		// genie pod interfaces named ethX
+		return fmt.Sprintf("eth%d", cniNetworks[ifaceName])
+	} else {
+		return podInterface
+	}
+}
+
+func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
+	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		network, ok := networks[iface.Name]
-		if !ok {
-			return fmt.Errorf("failed to find a network %s", iface.Name)
-		}
-		vif, err := NetworkInterfaceFactory(network)
+		vif, err := getNetworkInterfaceFactory(networks, iface.Name)
 		if err != nil {
 			return err
 		}
-
-		if networks[iface.Name].Multus != nil && !networks[iface.Name].Multus.Default {
-			// multus pod interfaces named netX
-			podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
-		} else if networks[iface.Name].Genie != nil {
-			// genie pod interfaces named ethX
-			podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
-		} else {
-			podInterfaceName = podInterface
+		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
+		err = NetworkInterface.PlugPhase1(vif, vmi, &iface, networks[iface.Name], podInterfaceName, pid)
+		if err != nil {
+			return err
 		}
+	}
+	return nil
+}
 
-		err = vif.Plug(vmi, &iface, network, domain, podInterfaceName)
+func SetupNetworkInterfacesPhase2(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		vif, err := getNetworkInterfaceFactory(networks, iface.Name)
+		if err != nil {
+			return err
+		}
+		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
+		err = NetworkInterface.PlugPhase2(vif, vmi, &iface, networks[iface.Name], domain, podInterfaceName)
 		if err != nil {
 			return err
 		}

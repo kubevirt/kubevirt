@@ -59,6 +59,7 @@ import (
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -1042,8 +1043,10 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	d.closeLauncherClient(vmi)
 
-	d.migrationProxy.StopTargetListener(string(vmi.UID))
-	d.migrationProxy.StopSourceListener(string(vmi.UID))
+	vmiId := string(vmi.UID)
+
+	d.migrationProxy.StopTargetListener(vmiId)
+	d.migrationProxy.StopSourceListener(vmiId)
 
 	// Unmount container disks and clean up remaining files
 	err = d.containerDiskMounter.Unmount(vmi)
@@ -1414,13 +1417,25 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				return err
 			}
 
+			res, err := d.podIsolationDetector.Detect(vmi)
+			if err != nil {
+				return fmt.Errorf("failed to detect isolation for migration target launcher pod: %v", err)
+			}
+
+			// configure network inside virt-launcher compute container
+			if err := res.DoNetNS(func() error {
+				return network.SetupPodNetworkPhase1(vmi, res.Pid())
+			}); err != nil {
+				return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
+			}
+
 			if err := client.SyncMigrationTarget(vmi); err != nil {
 				return fmt.Errorf("syncing migration target failed: %v", err)
 
 			}
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 
-			err := d.handlePostSyncMigrationProxy(vmi)
+			err = d.handlePostSyncMigrationProxy(vmi)
 			if err != nil {
 				return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
 			}
@@ -1454,11 +1469,24 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
 				return err
 			}
-		}
 
-		err = d.podIsolationDetector.AdjustResources(vmi)
-		if err != nil {
-			return fmt.Errorf("failed to adjust resources: %v", err)
+			// configure network
+			res, err := d.podIsolationDetector.Detect(vmi)
+			if err != nil {
+				return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+			}
+
+			if err := res.DoNetNS(func() error {
+				return network.SetupPodNetworkPhase1(vmi, res.Pid())
+			}); err != nil {
+				return fmt.Errorf("failed to configure vmi network: %v", err)
+			}
+
+			// set runtime limits as needed
+			err = d.podIsolationDetector.AdjustResources(vmi)
+			if err != nil {
+				return fmt.Errorf("failed to adjust resources: %v", err)
+			}
 		}
 
 		options := &cmdv1.VirtualMachineOptions{

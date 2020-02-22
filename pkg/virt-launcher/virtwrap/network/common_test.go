@@ -21,15 +21,18 @@ package network
 
 import (
 	"io/ioutil"
+	"net"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/vishvananda/netlink"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("Common Methods", func() {
+	pid := "self"
 	Context("Functions Read and Write from cache", func() {
 		It("should persist interface payload", func() {
 			tmpDir, _ := ioutil.TempDir("", "commontest")
@@ -37,11 +40,11 @@ var _ = Describe("Common Methods", func() {
 
 			ifaceName := "iface_name"
 			iface := api.Interface{Type: "fake_type", Source: api.InterfaceSource{Bridge: "fake_br"}}
-			err := writeToCachedFile(&iface, interfaceCacheFile, ifaceName)
+			err := writeToCachedFile(&iface, interfaceCacheFile, pid, ifaceName)
 			Expect(err).ToNot(HaveOccurred())
 
 			var cached_iface api.Interface
-			isExist, err := readFromCachedFile(ifaceName, interfaceCacheFile, &cached_iface)
+			isExist, err := readFromCachedFile(pid, ifaceName, interfaceCacheFile, &cached_iface)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(isExist).To(BeTrue())
 
@@ -53,11 +56,11 @@ var _ = Describe("Common Methods", func() {
 
 			qemuArgName := "iface_name"
 			qemuArg := api.Arg{Value: "test_value"}
-			err := writeToCachedFile(&qemuArg, interfaceCacheFile, qemuArgName)
+			err := writeToCachedFile(&qemuArg, interfaceCacheFile, pid, qemuArgName)
 			Expect(err).ToNot(HaveOccurred())
 
 			var cached_qemuArg api.Arg
-			isExist, err := readFromCachedFile(qemuArgName, interfaceCacheFile, &cached_qemuArg)
+			isExist, err := readFromCachedFile(pid, qemuArgName, interfaceCacheFile, &cached_qemuArg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(isExist).To(BeTrue())
 
@@ -84,6 +87,24 @@ var _ = Describe("Common Methods", func() {
 			mac, err := networkHandler.GenerateRandomMac()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.HasPrefix(mac.String(), "02:00:00")).To(BeTrue())
+		})
+	})
+})
+
+var _ = Describe("VIF", func() {
+	Context("String", func() {
+		It("returns correct string representation", func() {
+			addr, _ := netlink.ParseAddr("10.0.0.200/24")
+			mac, _ := net.ParseMAC("de:ad:00:00:be:ef")
+			gw := net.ParseIP("10.0.0.1")
+			vif := &VIF{
+				Name:    "test-vif",
+				IP:      *addr,
+				MAC:     mac,
+				Gateway: gw,
+				Mtu:     1450,
+			}
+			Expect(vif.String()).To(Equal("VIF: { Name: test-vif, IP: 10.0.0.200, Mask: ffffff00, MAC: de:ad:00:00:be:ef, Gateway: 10.0.0.1, MTU: 1450, IPAMDisabled: false}"))
 		})
 	})
 })

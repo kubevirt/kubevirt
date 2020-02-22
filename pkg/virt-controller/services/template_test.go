@@ -1057,11 +1057,11 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty(), "No devices in manifest for 1st container")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Some mounts in manifest for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6), "4 mounts in manifest for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6), "6 mounts in manifest for 1st container")
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(7), "Found 4 volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(7), "Found 7 volumes in manifest")
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
@@ -1108,7 +1108,7 @@ var _ = Describe("Template", func() {
 				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(5), "Found 5 mounts in manifest for 1st container")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(7), "Found 4 volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(7), "Found 7 volumes in manifest")
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
@@ -1256,7 +1256,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
-				// Skip first three mounts that are generic for all launcher pods
+				// Skip first four mounts that are generic for all launcher pods
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
 				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/sys/devices/"))
 			})
@@ -1613,7 +1613,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
-				// Skip first three mounts that are generic for all launcher pods
+				// Skip first four mounts that are generic for all launcher pods
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
 				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/sys/devices/"))
 

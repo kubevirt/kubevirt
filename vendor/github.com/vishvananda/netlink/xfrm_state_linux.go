@@ -184,12 +184,7 @@ func (h *Handle) xfrmStateAllocSpi(state *XfrmState) (*XfrmState, error) {
 		return nil, err
 	}
 
-	s, err := parseXfrmState(msgs[0], FAMILY_ALL)
-	if err != nil {
-		return nil, err
-	}
-
-	return s, err
+	return parseXfrmState(msgs[0], FAMILY_ALL)
 }
 
 // XfrmStateDel will delete an xfrm state from the system. Note that
@@ -394,11 +389,7 @@ func (h *Handle) XfrmStateFlush(proto Proto) error {
 	req.AddData(&nl.XfrmUsersaFlush{Proto: uint8(proto)})
 
 	_, err := req.Execute(unix.NETLINK_XFRM, 0)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func limitsToLft(lmts XfrmStateLimits, lft *nl.XfrmLifetimeCfg) {

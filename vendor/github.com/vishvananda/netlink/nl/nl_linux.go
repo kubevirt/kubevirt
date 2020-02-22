@@ -22,6 +22,10 @@ const (
 	FAMILY_V4   = unix.AF_INET
 	FAMILY_V6   = unix.AF_INET6
 	FAMILY_MPLS = AF_MPLS
+	// Arbitrary set value (greater than default 4k) to allow receiving
+	// from kernel more verbose messages e.g. for statistics,
+	// tc rules or filters, or other more memory requiring data.
+	RECEIVE_BUFFER_SIZE = 65536
 )
 
 // SupportedNlFamilies contains the list of netlink families this netlink package supports
@@ -271,15 +275,22 @@ func NewRtAttr(attrType int, data []byte) *RtAttr {
 	}
 }
 
-// Create a new RtAttr obj anc add it as a child of an existing object
+// NewRtAttrChild adds an RtAttr as a child to the parent and returns the new attribute
+//
+// Deprecated: Use AddRtAttr() on the parent object
 func NewRtAttrChild(parent *RtAttr, attrType int, data []byte) *RtAttr {
+	return parent.AddRtAttr(attrType, data)
+}
+
+// AddRtAttr adds an RtAttr as a child and returns the new attribute
+func (a *RtAttr) AddRtAttr(attrType int, data []byte) *RtAttr {
 	attr := NewRtAttr(attrType, data)
-	parent.children = append(parent.children, attr)
+	a.children = append(a.children, attr)
 	return attr
 }
 
-// AddChild adds an existing RtAttr as a child.
-func (a *RtAttr) AddChild(attr *RtAttr) {
+// AddChild adds an existing NetlinkRequestData as a child.
+func (a *RtAttr) AddChild(attr NetlinkRequestData) {
 	a.children = append(a.children, attr)
 }
 
@@ -360,16 +371,12 @@ func (req *NetlinkRequest) Serialize() []byte {
 }
 
 func (req *NetlinkRequest) AddData(data NetlinkRequestData) {
-	if data != nil {
-		req.Data = append(req.Data, data)
-	}
+	req.Data = append(req.Data, data)
 }
 
 // AddRawData adds raw bytes to the end of the NetlinkRequest object during serialization
 func (req *NetlinkRequest) AddRawData(data []byte) {
-	if data != nil {
-		req.RawData = append(req.RawData, data...)
-	}
+	req.RawData = append(req.RawData, data...)
 }
 
 // Execute the request against a the given sockType.
@@ -615,7 +622,7 @@ func (s *NetlinkSocket) Receive() ([]syscall.NetlinkMessage, error) {
 	if fd < 0 {
 		return nil, fmt.Errorf("Receive called on a closed socket")
 	}
-	rb := make([]byte, unix.Getpagesize())
+	rb := make([]byte, RECEIVE_BUFFER_SIZE)
 	nr, _, err := unix.Recvfrom(fd, rb, 0)
 	if err != nil {
 		return nil, err

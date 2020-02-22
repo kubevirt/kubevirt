@@ -12,7 +12,7 @@ const (
 	QEMUIMGPath = "/usr/bin/qemu-img"
 )
 
-func GetImageInfo(imagePath string, context *IsolationResult) (*containerdisk.DiskInfo, error) {
+func GetImageInfo(imagePath string, context IsolationResult) (*containerdisk.DiskInfo, error) {
 
 	out, err := exec.Command(
 		"/usr/bin/chroot", "--user", "qemu", "--memory", "1000", "--cpu", "10", "--mount", context.MountNamespace(), "exec", "--",
