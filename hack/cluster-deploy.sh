@@ -85,7 +85,12 @@ until _kubectl -n kubevirt get kv kubevirt; do
     sleep 1
 done
 
-# wait until KubeVirt is ready
-_kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 6m || (echo "KubeVirt not ready in time" && dump_kubevirt && exit 1)
+# Wait until KubeVirt is ready
+count=0
+until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 5m; do
+    ((count++)) && ((count == 5)) && echo "KubeVirt not ready in time" && dump_kubevirt && exit 1
+    echo "Error waiting for KubeVirt to be Available, sleeping 1m and retrying"
+    sleep 1m
+done
 
 echo "Done"
