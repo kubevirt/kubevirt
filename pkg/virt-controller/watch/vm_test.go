@@ -997,26 +997,77 @@ var _ = Describe("VirtualMachine", func() {
 					}
 				})
 
-				It("should fail if removal of old VM failed", func() {
-					vmInterface.EXPECT().
-						Delete(oldVM.Name, gomock.Any()).
-						Return(fmt.Errorf("something"))
+				Context("target VM points to a VM that has a matching request", func() {
+					BeforeEach(func() {
+						oldVM.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
+							{
+								Action: v1.RenameCreateRequest,
+								Data: map[string]string{
+									"newName": vm.Name,
+								},
+							},
+						}
 
-					addVirtualMachine(vm)
-					controller.Execute()
+						vmInterface.EXPECT().
+							Get(oldVM.Name, gomock.Any()).
+							Return(oldVM, nil)
+					})
+
+					It("should successfully delete the old VM", func() {
+						vmInterface.EXPECT().
+							Delete(oldVM.Name, gomock.Any())
+
+						vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{}
+
+						vmInterface.EXPECT().
+							Update(vm)
+
+						addVirtualMachine(vm)
+						controller.Execute()
+					})
 				})
 
-				It("should delete the old VM and patch the new VM", func() {
-					delete := vmInterface.EXPECT().
-						Delete(oldVM.Name, gomock.Any()).
-						Return(nil)
+				Context("target VM points to a VM that doesnt have a matching request", func() {
+					BeforeEach(func() {
+						vmInterface.EXPECT().
+							Get(oldVM.Name, gomock.Any()).
+							Return(oldVM, nil)
+					})
 
-					vm.Status = v1.VirtualMachineStatus{}
+					It("should remove request because no matching request exists on the old VM", func() {
+						vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{}
 
+						vmInterface.EXPECT().
+							Update(vm)
+
+						addVirtualMachine(vm)
+						controller.Execute()
+					})
+
+					It("should fail because a request on the old VM doesnt match the request on the new VM", func() {
+						oldVM.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
+							{
+								Action: v1.RenameCreateRequest,
+								Data: map[string]string{
+									"newName": "not" + vm.Name,
+								},
+							},
+						}
+
+						vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{}
+
+						vmInterface.EXPECT().
+							Update(vm)
+
+						addVirtualMachine(vm)
+						controller.Execute()
+					})
+				})
+
+				It("should fail if the status of the source VM is unknown", func() {
 					vmInterface.EXPECT().
-						Update(vm).
-						Return(vm, nil).
-						After(delete)
+						Get(oldVM.Name, gomock.Any()).
+						Return(nil, fmt.Errorf("not not found"))
 
 					addVirtualMachine(vm)
 					controller.Execute()

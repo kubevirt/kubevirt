@@ -291,7 +291,7 @@ func (c *VMController) handleVMRenameCreateRequest(vm *virtv1.VirtualMachine, ne
 
 	if err != nil {
 		// If the VM existence could not be determined, retry
-		if !strings.Contains(err.Error(), "not found") {
+		if !errors.IsNotFound(err) {
 			return true, err
 		} else {
 			// If the VM was not found, we can create it
@@ -356,13 +356,47 @@ func (c *VMController) handleVMRenameCreateRequest(vm *virtv1.VirtualMachine, ne
 // Handles VM rename delete requests
 // First return value is a boolean indicating if the controller should retry the request
 func (c *VMController) handleVMRenameDeleteRequest(vm *virtv1.VirtualMachine, oldName string) (bool, error) {
-	// Attempt deletion of the VM with the old name
-	err := c.clientset.VirtualMachine(vm.Namespace).Delete(oldName, &v1.DeleteOptions{})
+	oldVM, err := c.clientset.VirtualMachine(vm.Namespace).Get(oldName, &v1.GetOptions{})
 
-	if err != nil && !strings.Contains(err.Error(), "not found") {
-		return true, err
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Old VM doesn't exist anymore, delete request
+			return false, nil
+		} else {
+			// Old VM status is unknown, retry
+			return true, err
+		}
 	}
 
+	// Check for a RenameCreateRequest that matches this RenameDeleteRequest
+	for _, stateChange := range oldVM.Status.StateChangeRequests {
+		if stateChange.Action == virtv1.RenameCreateRequest {
+			newName, hasNewName := stateChange.Data["newName"]
+
+			if !hasNewName {
+				// Old VM has no newName defined, delete request
+				errMsg := "A VM that was scheduled to be renamed has no new name specified (newVM: %s, oldVM: %s)"
+				return false, fmt.Errorf(errMsg, vm.Name, oldName)
+			}
+
+			if newName == vm.Name {
+				// Old VM is the source for this VM, remove it
+				err = c.clientset.VirtualMachine(vm.Namespace).Delete(oldName, &v1.DeleteOptions{})
+
+				if err != nil {
+					// Deletion failed, retry
+					errMsg := "Failed deleting the old VM during a rename process (newVM: %s, oldVM: %s)"
+					return true, fmt.Errorf(errMsg, vm.Name, oldName)
+				}
+			} else {
+				// This RenameDeleteRequest doesn't match the RenameCreateRequest on the old VM, delete the request
+				errMsg := "An old VM could not be deleted due to mismatching rename requests (newVM: %s, oldVM: %s)"
+				return false, fmt.Errorf(errMsg, vm.Name, oldName)
+			}
+		}
+	}
+
+	// The old VM has no RenameCreateRequest, delete the request
 	return false, nil
 }
 
