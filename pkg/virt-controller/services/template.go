@@ -317,6 +317,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	var volumeDevices []k8sv1.VolumeDevice
 	var userId int64 = 0
 	var privileged bool = false
+	var qemuUser int64 = 107
 	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
@@ -977,6 +978,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				SELinuxOptions: &k8sv1.SELinuxOptions{
 					Type: selinuxLauncherType,
 				},
+				FSGroup: &qemuUser,
 			},
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
