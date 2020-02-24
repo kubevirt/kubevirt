@@ -118,11 +118,12 @@ done
 
 "${CMD}" create -f _out/hco.cr.yaml
 sleep 10
-# Give 8 minutes to available condition become true
-if ! timeout 8m bash -c -- "until "${CMD}" get -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} -o go-template='{{ range .status.conditions }}{{ if eq .type \"Available\" }}{{ .status }}{{ end }}{{ end }}' | grep True; do sleep 1; done";
+# Give 12 minutes to available condition become true
+if ! timeout 12m bash -c -- "until "${CMD}" get -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} -o go-template='{{ range .status.conditions }}{{ if eq .type \"Available\" }}{{ .status }}{{ end }}{{ end }}' | grep True; do sleep 1; done";
 then
     echo "Available condition never became true"
     "${CMD}" get pods -n "${HCO_NAMESPACE}"
+    "${CMD}" get -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} -o yaml
     exit 1
 fi
 # Show all conditions and their status
