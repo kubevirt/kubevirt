@@ -31,7 +31,7 @@ function deploy_sriov_operator {
     # TODO: right now in CI we need to use upstream sriov cni in order to have this
     # https://github.com/intel/sriov-cni/pull/88 available. This can be removed once the feature will
     # be merged in openshift sriov operator. We need latest since that feature was not tagged yet
-    sed -i '/SRIOV_CNI_IMAGE/!b;n;c\              value: nfvpe\/sriov-cni' ./deploy/operator.yaml
+    sed -i '/SRIOV_CNI_IMAGE/!b;n;c\              value: booxter/sriov-cni:mac-reset' ./deploy/operator.yaml
     sed -i 's#image: quay.io/openshift/origin-sriov-network-operator$#image: quay.io/openshift/origin-sriov-network-operator:4.2#' ./deploy/operator.yaml
     sed -i 's#value: quay.io/openshift/origin-sriov-network-config-daemon$#value: quay.io/openshift/origin-sriov-network-config-daemon:4.2#' ./deploy/operator.yaml
     # on prow nodes the default shell is dash and some commands are not working
