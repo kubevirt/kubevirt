@@ -33,7 +33,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -4181,14 +4180,4 @@ func RetryIfModified(do func() error) (err error) {
 		log.DefaultLogger().Reason(err).Infof("Object got modified, will retry.")
 	}
 	return err
-}
-
-func GenerateRandomMac() (net.HardwareAddr, error) {
-	prefix := []byte{0x02, 0x00, 0x00} // local unicast prefix
-	suffix := make([]byte, 3)
-	_, err := cryptorand.Read(suffix)
-	if err != nil {
-		return nil, err
-	}
-	return net.HardwareAddr(append(prefix, suffix...)), nil
 }
