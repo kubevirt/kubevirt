@@ -20,6 +20,8 @@
 package tests_test
 
 import (
+	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"time"
 
@@ -33,7 +35,9 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -102,6 +106,24 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			&expect.BExp{R: testData},
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
+	}
+	CheckCloudInitMetaData := func(vmi *v1.VirtualMachineInstance, prompt, testFile, testData string) {
+		cmdCheck := "cat /mnt/" + testFile + "\n"
+		virtClient, err := kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
+		Expect(err).ToNot(HaveOccurred())
+		defer expecter.Close()
+
+		res, err := expecter.ExpectBatch([]expect.Batcher{
+			&expect.BSnd{S: "sudo su -\n"},
+			&expect.BExp{R: prompt},
+			&expect.BSnd{S: cmdCheck},
+			&expect.BExp{R: testData},
+		}, 15*time.Second)
+		if err != nil {
+			Expect(res[1].Output).To(ContainSubstring(testData))
+		}
 	}
 
 	BeforeEach(func() {
@@ -383,6 +405,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			It("[test_id:3184]should have cloud-init network-config with NetworkData source", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
 					tests.ContainerDiskFor(tests.ContainerDiskCirros), testUserData, testNetworkData, false)
+
 				LaunchVMI(vmi)
 				tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 
@@ -394,6 +417,54 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("checking cloudinit user-data")
 				CheckCloudInitFile(vmi, "#", "openstack/latest/user_data", testUserData)
+			})
+			It("should have cloud-init meta_data with tagged devices", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
+					tests.ContainerDiskFor(tests.ContainerDiskCirros), testUserData, testNetworkData, false)
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Tag: "specialNet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
+				vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+				LaunchVMI(vmi)
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				domSpec := &api.DomainSpec{}
+				Expect(xml.Unmarshal([]byte(domXml), domSpec)).To(Succeed())
+				nic := domSpec.Devices.Interfaces[0]
+				address := nic.Address
+				pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+				deviceData := []cloudinit.DeviceData{
+					{
+						Type:    cloudinit.NICMetadataType,
+						Bus:     nic.Address.Type,
+						Address: pciAddrStr,
+						MAC:     nic.MAC.MAC,
+						Tag:     []string{"specialNet"},
+					},
+				}
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				metadataStruct := cloudinit.Metadata{
+					InstanceID: fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
+					Hostname:   dns.SanitizeHostname(vmi),
+					UUID:       string(vmi.UID),
+					Devices:    &deviceData,
+				}
+
+				buf, err := json.Marshal(metadataStruct)
+				Expect(err).To(BeNil())
+				By("mouting cloudinit iso")
+				MountCloudInitConfigDrive(vmi, "#")
+
+				By("checking cloudinit network-config")
+				CheckCloudInitFile(vmi, "#", "openstack/latest/network_data.json", testNetworkData)
+
+				By("checking cloudinit user-data")
+				CheckCloudInitFile(vmi, "#", "openstack/latest/user_data", testUserData)
+				By("checking cloudinit meta-data")
+				CheckCloudInitMetaData(vmi, "#", "openstack/latest/meta_data.json", string(buf))
 			})
 			It("[test_id:3185]should have cloud-init network-config with NetworkDataBase64 source", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
