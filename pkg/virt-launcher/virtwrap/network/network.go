@@ -103,12 +103,12 @@ func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string
 func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		vif, err := getNetworkInterfaceFactory(networks, iface.Name)
+		networkInterfaceFactory, err := getNetworkInterfaceFactory(networks, iface.Name)
 		if err != nil {
 			return err
 		}
 		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
-		err = NetworkInterface.PlugPhase1(vif, vmi, &iface, networks[iface.Name], podInterfaceName, pid)
+		err = NetworkInterface.PlugPhase1(networkInterfaceFactory, vmi, &iface, networks[iface.Name], podInterfaceName, pid)
 		if err != nil {
 			return err
 		}
