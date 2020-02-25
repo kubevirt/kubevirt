@@ -31,6 +31,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coreos/go-iptables/iptables"
+
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -234,6 +236,7 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 			domain:              domain,
 			podInterfaceName:    podInterfaceName,
 			vmNetworkCIDR:       network.Pod.VMNetworkCIDR,
+			vmIpv6NetworkCIDR:   "", // TODO add ipv6 cidr to PodNetwork schema
 			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName)}, nil
 	}
 	if iface.Slirp != nil {
@@ -492,7 +495,9 @@ type MasqueradePodInterface struct {
 	podInterfaceName    string
 	bridgeInterfaceName string
 	vmNetworkCIDR       string
+	vmIpv6NetworkCIDR   string
 	gatewayAddr         *netlink.Addr
+	gatewayIpv6Addr     *netlink.Addr
 }
 
 func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
@@ -508,8 +513,21 @@ func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 	}
 
 	// Get interface MTU
-	p.vif.Mtu = uint16(p.podNicLink.Attrs().MTU)
+	p.vif.Mtu = uint16(p.podNicLink.Attrs().MTU) // TODO - why do we override the mtu that was specified in the yaml - iface.MacAddress
 
+	err = configureVifV4Addresses(p, err)
+	if err != nil {
+		return err
+	}
+
+	err = configureVifV6Addresses(p, err)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func configureVifV4Addresses(p *MasqueradePodInterface, err error) error {
 	if p.vmNetworkCIDR == "" {
 		p.vmNetworkCIDR = api.DefaultVMCIDR
 	}
@@ -532,7 +550,32 @@ func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 		return fmt.Errorf("failed to parse vm ip address %s", vm)
 	}
 	p.vif.IP = *vmAddr
+	return nil
+}
 
+func configureVifV6Addresses(p *MasqueradePodInterface, err error) error {
+	if p.vmIpv6NetworkCIDR == "" {
+		p.vmIpv6NetworkCIDR = api.DefaultVMIpv6CIDR
+	}
+
+	defaultGatewayIpv6, vmIpv6, err := Handler.GetHostAndGwAddressesFromCIDR(p.vmIpv6NetworkCIDR)
+	if err != nil {
+		log.Log.Errorf("failed to get gw and vm available ipv6 addresses from CIDR %s", p.vmIpv6NetworkCIDR)
+		return err
+	}
+
+	gatewayIpv6Addr, err := Handler.ParseAddr(defaultGatewayIpv6)
+	if err != nil {
+		return fmt.Errorf("failed to parse gateway ipv6 address %s", gatewayIpv6Addr)
+	}
+	p.vif.GatewayIpv6 = gatewayIpv6Addr.IP.To16()
+	p.gatewayIpv6Addr = gatewayIpv6Addr
+
+	vmAddr, err := Handler.ParseAddr(vmIpv6)
+	if err != nil {
+		return fmt.Errorf("failed to parse vm ipv6 address %s", vmIpv6)
+	}
+	p.vif.IPv6 = *vmAddr
 	return nil
 }
 
@@ -577,10 +620,26 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	err = p.createNatRules()
-	if err != nil {
-		log.Log.Errorf("failed to create nat rules for vm error: %v", err)
-		return err
+	if Handler.Ipv4NatEnabled() {
+		err = p.createNatRules(iptables.ProtocolIPv4)
+		if err != nil {
+			log.Log.Errorf("failed to create ipv4 nat rules for vm error: %v", err)
+			return err
+		}
+	}
+
+	if Handler.Ipv6NatEnabled() {
+		err = Handler.ConfigureIpv6Forwarding()
+		if err != nil {
+			log.Log.Errorf("failed to turn on net.ipv6.conf.all.forwarding")
+			return err
+		}
+
+		err = p.createNatRules(iptables.ProtocolIPv6)
+		if err != nil {
+			log.Log.Errorf("failed to create ipv6 nat rules for vm error: %v", err)
+			return err
+		}
 	}
 
 	p.virtIface.MTU = &api.MTU{Size: strconv.Itoa(p.podNicLink.Attrs().MTU)}
@@ -632,6 +691,7 @@ func (p *MasqueradePodInterface) loadCachedVIF(pid, name string) (bool, error) {
 		return false, err
 	}
 	p.vif.Gateway = p.vif.Gateway.To4()
+	p.vif.GatewayIpv6 = p.vif.GatewayIpv6.To16()
 	return true, nil
 }
 
@@ -681,47 +741,52 @@ func (p *MasqueradePodInterface) createBridge() error {
 		return err
 	}
 
+	if err := Handler.AddrAdd(bridge, p.gatewayIpv6Addr); err != nil {
+		log.Log.Reason(err).Errorf("failed to set bridge IPv6")
+		return err
+	}
+
 	return nil
 }
 
-func (p *MasqueradePodInterface) createNatRules() error {
+func (p *MasqueradePodInterface) createNatRules(protocol iptables.Protocol) error {
 	if Handler.UseIptables() {
-		return p.createNatRulesUsingIptables()
+		return p.createNatRulesUsingIptables(protocol)
 	}
 	return p.createNatRulesUsingNftables()
 }
 
-func (p *MasqueradePodInterface) createNatRulesUsingIptables() error {
-	err := Handler.IptablesNewChain("nat", "KUBEVIRT_PREINBOUND")
+func (p *MasqueradePodInterface) createNatRulesUsingIptables(protocol iptables.Protocol) error {
+	err := Handler.IptablesNewChain(protocol, "nat", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.IptablesNewChain("nat", "KUBEVIRT_POSTINBOUND")
+	err = Handler.IptablesNewChain(protocol, "nat", "KUBEVIRT_POSTINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.IptablesAppendRule("nat", "POSTROUTING", "-s", p.vif.IP.IP.String(), "-j", "MASQUERADE")
+	err = Handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-s", getVifIpByProtocol(p, protocol), "-j", "MASQUERADE")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.IptablesAppendRule("nat", "PREROUTING", "-i", p.podInterfaceName, "-j", "KUBEVIRT_PREINBOUND")
+	err = Handler.IptablesAppendRule(protocol, "nat", "PREROUTING", "-i", p.podInterfaceName, "-j", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.IptablesAppendRule("nat", "POSTROUTING", "-o", p.bridgeInterfaceName, "-j", "KUBEVIRT_POSTINBOUND")
+	err = Handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-o", p.bridgeInterfaceName, "-j", "KUBEVIRT_POSTINBOUND")
 	if err != nil {
 		return err
 	}
 
 	if len(p.iface.Ports) == 0 {
-		err = Handler.IptablesAppendRule("nat", "KUBEVIRT_PREINBOUND",
+		err = Handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_PREINBOUND",
 			"-j",
 			"DNAT",
-			"--to-destination", p.vif.IP.IP.String())
+			"--to-destination", getVifIpByProtocol(p, protocol))
 
 		return err
 	}
@@ -731,45 +796,69 @@ func (p *MasqueradePodInterface) createNatRulesUsingIptables() error {
 			port.Protocol = "tcp"
 		}
 
-		err = Handler.IptablesAppendRule("nat", "KUBEVIRT_POSTINBOUND",
+		err = Handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_POSTINBOUND",
 			"-p",
 			strings.ToLower(port.Protocol),
 			"--dport",
 			strconv.Itoa(int(port.Port)),
 			"-j",
 			"SNAT",
-			"--to-source", p.gatewayAddr.IP.String())
+			"--to-source", getGatewayByProtocol(p, protocol))
 		if err != nil {
 			return err
 		}
 
-		err = Handler.IptablesAppendRule("nat", "KUBEVIRT_PREINBOUND",
+		err = Handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_PREINBOUND",
 			"-p",
 			strings.ToLower(port.Protocol),
 			"--dport",
 			strconv.Itoa(int(port.Port)),
 			"-j",
 			"DNAT",
-			"--to-destination", p.vif.IP.IP.String())
+			"--to-destination", getVifIpByProtocol(p, protocol))
 		if err != nil {
 			return err
 		}
 
-		err = Handler.IptablesAppendRule("nat", "OUTPUT",
+		err = Handler.IptablesAppendRule(protocol, "nat", "OUTPUT",
 			"-p",
 			strings.ToLower(port.Protocol),
 			"--dport",
 			strconv.Itoa(int(port.Port)),
-			"--destination", "127.0.0.1",
+			"--destination", getLoopbackAdrress(protocol),
 			"-j",
 			"DNAT",
-			"--to-destination", p.vif.IP.IP.String())
+			"--to-destination", getVifIpByProtocol(p, protocol))
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func getGatewayByProtocol(p *MasqueradePodInterface, proto iptables.Protocol) string {
+	if proto == iptables.ProtocolIPv4 {
+		return p.gatewayAddr.IP.String()
+	} else {
+		return p.gatewayIpv6Addr.IP.String()
+	}
+}
+
+func getVifIpByProtocol(p *MasqueradePodInterface, proto iptables.Protocol) string {
+	if proto == iptables.ProtocolIPv4 {
+		return p.vif.IP.IP.String()
+	} else {
+		return p.vif.IPv6.IP.String()
+	}
+}
+
+func getLoopbackAdrress(proto iptables.Protocol) string {
+	if proto == iptables.ProtocolIPv4 {
+		return "127.0.0.1"
+	} else {
+		return "::1"
+	}
 }
 
 func (p *MasqueradePodInterface) createNatRulesUsingNftables() error {
