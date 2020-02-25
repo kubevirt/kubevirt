@@ -34,7 +34,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20200204173128-addea2498afe
 	k8s.io/utils v0.0.0-20200124190032-861946025e34 // indirect
 	kubevirt.io/client-go v0.26.0
-	kubevirt.io/containerized-data-importer v1.13.0
+	kubevirt.io/containerized-data-importer v1.13.1
 	kubevirt.io/kubevirt v0.26.0
 	sigs.k8s.io/controller-runtime v0.5.0
 	sigs.k8s.io/yaml v1.2.0 // indirect

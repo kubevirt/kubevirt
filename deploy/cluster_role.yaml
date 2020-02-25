@@ -963,7 +963,19 @@ rules:
 - apiGroups:
   - cdi.kubevirt.io
   resources:
-  - '*'
+  - datavolumes
+  verbs:
+  - list
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - cdis
+  verbs:
+  - get
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - cdis/finalizers
   verbs:
   - '*'
 - apiGroups:

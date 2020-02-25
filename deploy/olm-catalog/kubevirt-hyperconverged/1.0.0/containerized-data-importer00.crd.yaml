@@ -42,6 +42,11 @@ spec:
               - IfNotPresent
               - Never
               type: string
+            uninstallStrategy:
+              enum:
+              - RemoveWorkloads
+              - BlockUninstallIfWorkloadsExist
+              type: string
           type: object
   version: v1alpha1
   versions:

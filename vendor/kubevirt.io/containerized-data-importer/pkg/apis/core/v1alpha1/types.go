@@ -195,7 +195,20 @@ type CDI struct {
 // CDISpec defines our specification for the CDI installation
 type CDISpec struct {
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
+
+	UninstallStrategy *CDIUninstallStrategy `json:"uninstallStrategy,omitempty"`
 }
+
+// CDIUninstallStrategy defines the state to leave CDI on uninstall
+type CDIUninstallStrategy string
+
+const (
+	// CDIUninstallStrategyRemoveWorkloads specifies clean uninstall
+	CDIUninstallStrategyRemoveWorkloads CDIUninstallStrategy = "RemoveWorkloads"
+
+	// CDIUninstallStrategyBlockUninstallIfWorkloadsExist "leaves stuff around"
+	CDIUninstallStrategyBlockUninstallIfWorkloadsExist CDIUninstallStrategy = "BlockUninstallIfWorkloadsExist"
+)
 
 // CDIPhase is the current phase of the CDI deployment
 type CDIPhase string
@@ -227,6 +240,9 @@ const (
 
 	// CDIPhaseUpgrading signals that the CDI resources are being deployed
 	CDIPhaseUpgrading CDIPhase = "Upgrading"
+
+	// CDIPhaseEmpty is an uninitialized phase
+	CDIPhaseEmpty CDIPhase = ""
 )
 
 //CDIList provides the needed parameters to do request a list of CDIs from the system
