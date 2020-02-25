@@ -310,6 +310,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockWatchdog.CreateFile(oldVMI)
 			// the domain is dead because the watchdog is expired
 			mockWatchdog.Expire(oldVMI)
+			controller.phase1NetworkSetupCache[oldVMI.UID] = 1
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
@@ -318,6 +319,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			_, err := os.Stat(mockWatchdog.File(oldVMI))
 			Expect(os.IsNotExist(err)).To(BeTrue())
+			Expect(len(controller.phase1NetworkSetupCache)).To(Equal(0))
 		}, 3)
 
 		It("should attempt force terminate Domain if grace period expires", func() {
@@ -384,6 +386,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
 			controller.Execute()
+			Expect(len(controller.phase1NetworkSetupCache)).To(Equal(1))
 		})
 
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
