@@ -120,7 +120,9 @@ build-prom-spec-dumper:
 	hack/dockerized "go build -o rule-spec-dumper ./hack/prom-rule-ci/rule-spec-dumper.go"
 
 prom-rules-verify: build-prom-spec-dumper
-	./hack/prom-rule-ci/verify-rules.sh ${current-dir}/rule-spec-dumper
+	./hack/prom-rule-ci/verify-rules.sh \
+		"${current-dir}/rule-spec-dumper" \
+		"${current-dir}/hack/prom-rule-ci/prom-rules-tests.yaml"
 
 olm-push:
 	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} CSV_VERSION=${CSV_VERSION} QUAY_USERNAME=${QUAY_USERNAME} \

@@ -314,7 +314,7 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 					{
 						Record: "num_of_running_virt_api_servers",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{namespace='%s', pod='virt-api-.*'})", ns),
+							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-api-.*'})", ns),
 						),
 					},
 					{
@@ -340,7 +340,7 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 					{
 						Record: "num_of_running_virt_controllers",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{pod='virt-controller-.*', namespace='%s'})", ns),
+							fmt.Sprintf("sum(up{pod=~'virt-controller-.*', namespace='%s'})", ns),
 						),
 					},
 					{
@@ -384,25 +384,25 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 					{
 						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod='virt-controller-.*', namespace='%s', code=~'[2][0-9][0-9]'}[60m]))", ns),
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s'}[60m]))", ns),
 						),
 					},
 					{
 						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod='virt-controller-.*', namespace='%s', code=~'[^2][0-9][0-9]'}[60m]))", ns),
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
 						),
 					},
 					{
 						Record: "vec_by_virt_controllers_all_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod='virt-controller-.*', namespace='%s', code=~'[2][0-9][0-9]'}[5m]))", ns),
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s'}[5m]))", ns),
 						),
 					},
 					{
 						Record: "vec_by_virt_controllers_failed_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod='virt-controller-.*', namespace='%s', code=~'[^2][0-9][0-9]'}[5m]))", ns),
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-controller-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
 						),
 					},
 					{
@@ -424,7 +424,7 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 					{
 						Record: "num_of_running_virt_operators",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum(up{namespace='%s', pod='virt-operator-.*'})", ns),
+							fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-operator-.*'})", ns),
 						),
 					},
 					{
@@ -446,25 +446,25 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 					{
 						Record: "vec_by_virt_operators_all_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod='virt-operator-.*', namespace='%s', code=~'[2][0-9][0-9]'}[60m]))", ns),
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s'}[60m]))", ns),
 						),
 					},
 					{
 						Record: "vec_by_virt_operators_failed_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod='virt-operator-.*', namespace='%s', code=~'[^2][0-9][0-9]'}[60m]))", ns),
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
 						),
 					},
 					{
 						Record: "vec_by_virt_operators_all_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod='virt-operator-.*', namespace='%s', code=~'[2][0-9][0-9]'}[5m]))", ns),
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s'}[5m]))", ns),
 						),
 					},
 					{
 						Record: "vec_by_virt_operators_failed_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod='virt-operator-.*', namespace='%s', code=~'[^2][0-9][0-9]'}[5m]))", ns),
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-operator-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
 						),
 					},
 					{
@@ -549,13 +549,13 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 					{
 						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_5m",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s', code=~'[^2][0-9][0-9]'}[5m]))", ns),
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[5m]))", ns),
 						),
 					},
 					{
 						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_hour",
 						Expr: intstr.FromString(
-							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s', code=~'[^2][0-9][0-9]'}[60m]))", ns),
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s', code=~'(4|5)[0-9][0-9]'}[60m]))", ns),
 						),
 					},
 					{
@@ -563,7 +563,7 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_hour / vec_by_virt_handlers_all_client_rest_requests_in_last_hour) >= 0.05"),
 						For:   "5m",
 						Annotations: map[string]string{
-							"summary": "More than 5% of the rest calls failed in virt-operator for the last hour",
+							"summary": "More than 5% of the rest calls failed in virt-handler for the last hour",
 						},
 					},
 					{

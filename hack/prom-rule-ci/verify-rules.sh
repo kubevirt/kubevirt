@@ -1,9 +1,8 @@
-#!/bin/bash -xe
+#!/bin/bash -e
 #
 # This file is part of the KubeVirt project
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
@@ -27,8 +26,28 @@ function cleanup() {
     done
 }
 
+function lint() {
+    local target_file="${1:?}"
+
+    docker run --rm --entrypoint=/bin/promtool \
+        -v "$target_file":/tmp/rules.verify:ro "$PROM_IMAGE" \
+        check rules /tmp/rules.verify
+}
+
+function unit_test() {
+    local target_file="${1:?}"
+    local tests_file="${2:?}"
+
+    docker run --rm --entrypoint=/bin/promtool \
+        -v "$tests_file":/tmp/rules.test:ro \
+        -v "$target_file":/tmp/rules.verify:ro \
+        "$PROM_IMAGE" \
+        test rules /tmp/rules.test
+}
+
 function main() {
     local prom_spec_dumper="${1:?}"
+    local tests_file="${2:?}"
     local target_file
 
     target_file="$(mktemp --tmpdir -u tmp.prom_rules.XXXXX)"
@@ -36,9 +55,12 @@ function main() {
 
     "$prom_spec_dumper" "$target_file"
 
-    docker run --rm --entrypoint=/bin/promtool \
-        -v "$target_file":/tmp/rules.verify:ro "$PROM_IMAGE" \
-        check rules /tmp/rules.verify
+    echo "INFO: Rules file content:"
+    cat "$target_file"
+    echo
+
+    lint "$target_file"
+    unit_test "$target_file" "$tests_file"
 }
 
 main "$@"
