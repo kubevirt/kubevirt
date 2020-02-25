@@ -238,12 +238,11 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 func validateNoModificationsDuringRename(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	hasRenameCreateReq := hasRenameCreationRequest(vm)
-	hasRenameDeleteReq := hasRenameDeletionRequest(vm)
+	hasRenameReq := hasRenameRequest(vm)
 
-	// Prevent creation of VM with rename annotation
+	// Prevent creation of VM with rename request
 	if ar.Operation == v1beta1.Create {
-		if hasRenameCreateReq {
+		if hasRenameReq {
 			return append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "Creating a VM with a rename request is not allowed",
@@ -251,17 +250,27 @@ func validateNoModificationsDuringRename(ar *v1beta1.AdmissionRequest, vm *v1.Vi
 			})
 		}
 	} else if ar.Operation == v1beta1.Update {
-		// Prevent rename deletion requests
-		if hasRenameDeleteReq {
+		existingVM := &v1.VirtualMachine{}
+		err := json.Unmarshal(ar.OldObject.Raw, existingVM)
+
+		if err != nil {
 			return append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Adding Rename deletion request to a VM is not allowed",
-				Field:   k8sfield.NewPath("Status", "stateChangeRequests").String(),
+				Type:    metav1.CauseTypeUnexpectedServerResponse,
+				Message: "Could not fetch old VM",
 			})
 		}
 
-		// Reject rename creation requests if the VM is running
-		if hasRenameCreateReq {
+		existingVMHasRenameReq := hasRenameRequest(existingVM)
+
+		if existingVMHasRenameReq {
+			return append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Modifying a VM during a rename process is not allowed",
+			})
+		}
+
+		// Reject rename requests if the VM is running
+		if hasRenameReq {
 			runningStatus, _ := vm.RunStrategy()
 			if runningStatus != v1.RunStrategyHalted {
 				return append(causes, metav1.StatusCause{
@@ -276,19 +285,9 @@ func validateNoModificationsDuringRename(ar *v1beta1.AdmissionRequest, vm *v1.Vi
 	return causes
 }
 
-func hasRenameCreationRequest(vm *v1.VirtualMachine) bool {
+func hasRenameRequest(vm *v1.VirtualMachine) bool {
 	for _, req := range vm.Status.StateChangeRequests {
-		if req.Action == v1.RenameCreateRequest {
-			return true
-		}
-	}
-
-	return false
-}
-
-func hasRenameDeletionRequest(vm *v1.VirtualMachine) bool {
-	for _, req := range vm.Status.StateChangeRequests {
-		if req.Action == v1.RenameDeleteRequest {
+		if req.Action == v1.RenameRequest {
 			return true
 		}
 	}

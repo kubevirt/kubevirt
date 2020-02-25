@@ -769,7 +769,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 									patchedVM.Status = v1.VirtualMachineStatus{
 										StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
 											{
-												Action: v1.RenameCreateRequest,
+												Action: v1.RenameRequest,
 												Data: map[string]string{
 													"newName": newName,
 												},
@@ -892,7 +892,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vm := newMinimalVM(request.PathParameter("name"))
 			vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
 				{
-					Action: v1.RenameCreateRequest,
+					Action: v1.RenameRequest,
 					Data: map[string]string{
 						"newName": "newvm",
 					},
@@ -994,7 +994,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vm := newMinimalVM(request.PathParameter("name"))
 			vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
 				{
-					Action: v1.RenameCreateRequest,
+					Action: v1.RenameRequest,
 					Data: map[string]string{
 						"newName": "newvm",
 					},

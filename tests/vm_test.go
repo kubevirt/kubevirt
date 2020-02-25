@@ -1583,10 +1583,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		Context("VM creation", func() {
-			It("should fail if a VM is created with a rename create request", func() {
+			It("should fail if a VM is created with a rename request", func() {
 				vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
 					{
-						Action: v1.RenameCreateRequest,
+						Action: v1.RenameRequest,
 						Data: map[string]string{
 							"newName": "somethingNew",
 						},
@@ -1595,20 +1595,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				_, err := cli.Create(vm)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("Creating a VM with a rename request is not allowed"))
-			})
-
-			It("should succeed if a VM is created with rename delete request", func() {
-				vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
-					{
-						Action: v1.RenameDeleteRequest,
-						Data: map[string]string{
-							"oldName": "somethingOld",
-						},
-					},
-				}
-
-				_, err := cli.Create(vm)
-				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 

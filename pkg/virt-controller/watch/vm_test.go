@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-openapi/errors"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -891,20 +893,14 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				Context("a VM with the new name exists", func() {
-					var (
-						newVM              *v1.VirtualMachine
-						checkForExistingVM *gomock.Call
-					)
+					var newVM *v1.VirtualMachine
 
 					BeforeEach(func() {
 						newVM, _ = DefaultVirtualMachineWithNames(false, "newtest", "")
-						checkForExistingVM = vmInterface.EXPECT().
-							Get(newVM.Name, gomock.Any()).
-							Return(newVM, nil)
 						vm.Status = v1.VirtualMachineStatus{
 							StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
 								{
-									Action: v1.RenameCreateRequest,
+									Action: v1.RenameRequest,
 									Data: map[string]string{
 										"newName": newVM.Name,
 									},
@@ -913,12 +909,18 @@ var _ = Describe("VirtualMachine", func() {
 						}
 					})
 
-					It("should remove rename create request if the new name is already taken", func() {
-						vm.Status = virtv1.VirtualMachineStatus{}
+					It("should remove the VM with the new name and create a copy of the source VM", func() {
+						vmInterface.EXPECT().Delete(newVM.Name, gomock.Any())
+						vmInterface.EXPECT().Create(gomock.Any()).
+							Do(func(objs ...interface{}) {
+								vm := objs[0].(*v1.VirtualMachine)
 
-						vmInterface.EXPECT().
-							Update(vm).
-							After(checkForExistingVM)
+								Expect(vm.Name).To(Equal(newVM.Name))
+								Expect(len(vm.Status.Conditions)).To(Equal(1))
+								Expect(vm.Status.Conditions[0].Type).To(Equal(virtv1.RenameConditionType))
+							})
+
+						vmInterface.EXPECT().Delete(vm.Name, gomock.Any())
 
 						addVirtualMachine(vm)
 						controller.Execute()
@@ -926,22 +928,17 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				Context("a VM with the new name does not exist", func() {
-					var (
-						newName            string
-						checkForExistingVM *gomock.Call
-					)
+					var newName string
 
 					BeforeEach(func() {
 						newName = "newtest"
 
-						checkForExistingVM = vmInterface.EXPECT().
-							Get(newName, gomock.Any()).
-							Return(nil, fmt.Errorf("not found"))
+						vmInterface.EXPECT().Delete(newName, gomock.Any()).Return(errors.NotFound("not found"))
 
 						vm.Status = v1.VirtualMachineStatus{
 							StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
 								{
-									Action: v1.RenameCreateRequest,
+									Action: v1.RenameRequest,
 									Data: map[string]string{
 										"newName": newName,
 									},
@@ -950,127 +947,26 @@ var _ = Describe("VirtualMachine", func() {
 						}
 					})
 
-					It("should create a new VM if the new name is available", func() {
+					It("should create a new VM with the new name", func() {
 						newVM := vm.DeepCopy()
 						newVM.Name = newName
 
-						createNew := vmInterface.EXPECT().
+						vmInterface.EXPECT().
 							Create(gomock.Any()).
 							Do(func(objs ...interface{}) {
-								Expect(objs[0].(*v1.VirtualMachine).Name).To(Equal(newName))
+								vm := objs[0].(*v1.VirtualMachine)
+
+								Expect(vm.Name).To(Equal(newName))
+								Expect(len(vm.Status.Conditions)).To(Equal(1))
+								Expect(vm.Status.Conditions[0].Type).To(Equal(virtv1.RenameConditionType))
 							}).
-							Return(newVM, nil).
-							After(checkForExistingVM)
+							Return(newVM, nil)
 
-						vm.Status = v1.VirtualMachineStatus{}
-
-						vmInterface.EXPECT().
-							Update(vm).
-							Return(vm, nil).
-							After(createNew)
+						vmInterface.EXPECT().Delete(vm.Name, gomock.Any())
 
 						addVirtualMachine(vm)
 						controller.Execute()
 					})
-				})
-			})
-
-			Context("target VM", func() {
-				var (
-					vm    *v1.VirtualMachine
-					oldVM *v1.VirtualMachine
-				)
-
-				BeforeEach(func() {
-					vm, _ = DefaultVirtualMachineWithNames(false, "test", "")
-					oldVM, _ = DefaultVirtualMachineWithNames(false, "oldtest", "")
-					virtcontroller.SetLatestApiVersionAnnotation(vm)
-					vm.Status = v1.VirtualMachineStatus{
-						StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
-							{
-								Action: v1.RenameDeleteRequest,
-								Data: map[string]string{
-									"oldName": oldVM.Name,
-								},
-							},
-						},
-					}
-				})
-
-				Context("target VM points to a VM that has a matching request", func() {
-					BeforeEach(func() {
-						oldVM.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
-							{
-								Action: v1.RenameCreateRequest,
-								Data: map[string]string{
-									"newName": vm.Name,
-								},
-							},
-						}
-
-						vmInterface.EXPECT().
-							Get(oldVM.Name, gomock.Any()).
-							Return(oldVM, nil)
-					})
-
-					It("should successfully delete the old VM", func() {
-						vmInterface.EXPECT().
-							Delete(oldVM.Name, gomock.Any())
-
-						vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{}
-
-						vmInterface.EXPECT().
-							Update(vm)
-
-						addVirtualMachine(vm)
-						controller.Execute()
-					})
-				})
-
-				Context("target VM points to a VM that doesnt have a matching request", func() {
-					BeforeEach(func() {
-						vmInterface.EXPECT().
-							Get(oldVM.Name, gomock.Any()).
-							Return(oldVM, nil)
-					})
-
-					It("should remove request because no matching request exists on the old VM", func() {
-						vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{}
-
-						vmInterface.EXPECT().
-							Update(vm)
-
-						addVirtualMachine(vm)
-						controller.Execute()
-					})
-
-					It("should fail because a request on the old VM doesnt match the request on the new VM", func() {
-						oldVM.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
-							{
-								Action: v1.RenameCreateRequest,
-								Data: map[string]string{
-									"newName": "not" + vm.Name,
-								},
-							},
-						}
-
-						vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{}
-
-						vmInterface.EXPECT().
-							Update(vm)
-
-						addVirtualMachine(vm)
-						controller.Execute()
-					})
-				})
-
-				It("should fail if the status of the source VM is unknown", func() {
-					vmInterface.EXPECT().
-						Get(oldVM.Name, gomock.Any()).
-						Return(nil, fmt.Errorf("not not found"))
-
-					addVirtualMachine(vm)
-					controller.Execute()
 				})
 			})
 		})

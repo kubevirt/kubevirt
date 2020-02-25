@@ -464,9 +464,6 @@ const (
 	// Used on VirtualMachineInstance.
 	IgnitionAnnotation string = "kubevirt.io/ignitiondata"
 
-	// This condition indicates that the VM was renamed
-	RenameConditionType = "Rename Operation"
-
 	VirtualMachineLabel = AppLabel + "/vm"
 )
 
@@ -886,10 +883,9 @@ type StateChangeRequestAction string
 
 // These are the currently defined state change requests
 const (
-	StartRequest        StateChangeRequestAction = "Start"
-	StopRequest         StateChangeRequestAction = "Stop"
-	RenameCreateRequest                          = "RenameCreate"
-	RenameDeleteRequest                          = "RenameDelete"
+	StartRequest  StateChangeRequestAction = "Start"
+	StopRequest   StateChangeRequestAction = "Stop"
+	RenameRequest                          = "Rename"
 )
 
 // VirtualMachineStatus represents the status returned by the
@@ -942,6 +938,9 @@ const (
 	// VirtualMachinePaused is added in a virtual machine when its vmi
 	// signals with its own condition that it is paused.
 	VirtualMachinePaused VirtualMachineConditionType = "Paused"
+
+	// This condition indicates that the VM was renamed
+	RenameConditionType VirtualMachineConditionType = "Rename Operation"
 )
 
 // ---

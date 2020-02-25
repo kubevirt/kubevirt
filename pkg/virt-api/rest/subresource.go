@@ -455,7 +455,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	}
 
 	for _, req := range vm.Status.StateChangeRequests {
-		if req.Action == v1.RenameCreateRequest {
+		if req.Action == v1.RenameRequest {
 			writeError(errors.NewBadRequest("Restarting a VM during a rename process is not allowed"), response)
 			return
 		}
@@ -570,9 +570,9 @@ func (app *SubresourceAPIApp) RenameVMRequestHandler(request *restful.Request, r
 
 	// Check for rename request on VM
 	for _, changeRequest := range vm.Status.StateChangeRequests {
-		if changeRequest.Action == v1.RenameCreateRequest {
+		if changeRequest.Action == v1.RenameRequest {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"),
-				name, fmt.Errorf("VM is already scheduled to rename")), response)
+				name, fmt.Errorf("VM is already scheduled to be renamed")), response)
 			return
 		}
 	}
@@ -597,7 +597,7 @@ func (app *SubresourceAPIApp) RenameVMRequestHandler(request *restful.Request, r
 	}
 
 	renameRequestJson, err := getChangeRequestJson(vm, v1.VirtualMachineStateChangeRequest{
-		Action: v1.RenameCreateRequest,
+		Action: v1.RenameRequest,
 		Data: map[string]string{
 			"newName": opts.NewName,
 		},
@@ -660,7 +660,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	}
 
 	for _, req := range vm.Status.StateChangeRequests {
-		if req.Action == v1.RenameCreateRequest {
+		if req.Action == v1.RenameRequest {
 			writeError(errors.NewBadRequest("Starting a VM during a rename process is not allowed"), response)
 			return
 		}
