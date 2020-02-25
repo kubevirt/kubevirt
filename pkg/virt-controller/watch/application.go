@@ -71,6 +71,8 @@ const (
 	ephemeralDiskDir = virtShareDir + "-ephemeral-disks"
 
 	defaultControllerThreads = 3
+
+	defaultLauncherSubGid = 107
 )
 
 var (
@@ -152,6 +154,7 @@ type VirtControllerApp struct {
 	migrationControllerThreads        int
 	evacuationControllerThreads       int
 	disruptionBudgetControllerThreads int
+	launcherSubGid                    int64
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -375,6 +378,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.persistentVolumeClaimCache,
 		virtClient,
 		vca.clusterConfig,
+		vca.launcherSubGid,
 	)
 
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.dataVolumeInformer)
@@ -487,4 +491,7 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.disruptionBudgetControllerThreads, "disruption-budget-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for disruption budget controller")
+
+	flag.Int64Var(&vca.launcherSubGid, "launcher-subgid", defaultLauncherSubGid,
+		"ID of subgroup to virt-launcher")
 }
