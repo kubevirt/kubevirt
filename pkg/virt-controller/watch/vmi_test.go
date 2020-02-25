@@ -70,6 +70,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var dataVolumeSource *framework.FakeControllerSource
 	var dataVolumeInformer cache.SharedIndexInformer
 	var dataVolumeFeeder *testutils.DataVolumeFeeder
+	var qemuGid int64 = 107
 
 	shouldExpectPodCreation := func(uid types.UID) {
 		// Expect pod creation
@@ -165,12 +166,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		controller = NewVMIController(
-			services.NewTemplateService("a", "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config),
+			services.NewTemplateService("a", "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid),
 			vmiInformer,
 			podInformer,
 			recorder,
 			virtClient,
-			dataVolumeInformer)
+			dataVolumeInformer,
+		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue

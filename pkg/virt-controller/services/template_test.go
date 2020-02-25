@@ -48,6 +48,7 @@ import (
 const namespaceKubevirt = "kubevirt"
 
 var _ = Describe("Template", func() {
+	var qemuGid int64 = 107
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -77,6 +78,7 @@ var _ = Describe("Template", func() {
 			pvcCache,
 			virtClient,
 			config,
+			qemuGid,
 		)
 
 		// Set up mock clients
