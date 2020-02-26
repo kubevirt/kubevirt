@@ -523,7 +523,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
 					Disk:  &v1.DiskTarget{},
-					CDRom: &v1.CDRomTarget{},
+					CDRom: &v1.CDRomTarget{Bus: "sata"},
 				},
 			})
 
@@ -2125,6 +2125,29 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
+		})
+		It("should reject cd-roms using virtio bus", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testcdrom",
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{
+						Bus: "virtio",
+					},
+				},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testcdrom",
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: &v1.ContainerDiskSource{Image: "fake"},
+				},
+			})
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].cdrom.bus"))
+			Expect(causes[0].Message).To(Equal("Bus type virtio is invalid for CD-ROM device."))
 		})
 
 		It("should accept a boot order greater than '0'", func() {

@@ -2199,4 +2199,20 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
+
+	Context("With ephemeral CD-ROM", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = tests.NewRandomFedoraVMIWithDmidecode()
+			tests.AddEphemeralCdrom(vmi, "cdrom-0", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
+		})
+
+		It("Should be rejected when using virtio bus", func() {
+			By("Starting a VMI with a virtio CD-ROM")
+			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("Bus type virtio is invalid"))
+		})
+	})
 })
