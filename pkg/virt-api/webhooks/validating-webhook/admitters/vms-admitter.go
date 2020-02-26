@@ -146,6 +146,9 @@ func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *v1beta1.AdmissionRe
 
 	causes = validateNoModificationsDuringRename(ar, vm)
 
+	// Adding this statement here so the next developer won't have to take care
+	// of errors when they add more functionality to this function, they will only have to
+	// add their code below it
 	if len(causes) > 0 {
 		return causes, nil
 	}
