@@ -535,11 +535,15 @@ func newCDIForCR(cr *hcov1alpha1.HyperConverged, namespace string) *cdiv1alpha1.
 	labels := map[string]string{
 		"app": cr.Name,
 	}
+	uninstallStrategy := cdiv1alpha1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
 	return &cdiv1alpha1.CDI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cdi-" + cr.Name,
 			Labels:    labels,
 			Namespace: namespace,
+		},
+		Spec: cdiv1alpha1.CDISpec{
+			UninstallStrategy: &uninstallStrategy,
 		},
 	}
 }
@@ -578,6 +582,15 @@ func (r *ReconcileHyperConverged) ensureCDI(instance *hcov1alpha1.HyperConverged
 		if err != nil {
 			logger.Error(err, "Failed to remove CDI's previous owners")
 		}
+	}
+
+	if !reflect.DeepEqual(found.Spec, cdi.Spec) {
+		if found.Spec.UninstallStrategy == nil {
+			logger.Info("Updating UninstallStrategy on existing CDI to its default value")
+			defaultUninstallStrategy := cdiv1alpha1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
+			found.Spec.UninstallStrategy = &defaultUninstallStrategy
+		}
+		return r.client.Update(context.TODO(), found)
 	}
 
 	// Add it to the list of RelatedObjects if found

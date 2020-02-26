@@ -428,6 +428,34 @@ var _ = Describe("HyperconvergedController", func() {
 				})))
 			})
 
+			It("should set default UninstallStrategy if missing", func() {
+				hco := &hcov1alpha1.HyperConverged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: hcov1alpha1.HyperConvergedSpec{},
+				}
+
+				expectedResource := newCDIForCR(hco, namespace)
+				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+				missingUSResource := newCDIForCR(hco, namespace)
+				missingUSResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", missingUSResource.Namespace, missingUSResource.Name)
+				missingUSResource.Spec.UninstallStrategy = nil
+
+				cl := initClient([]runtime.Object{hco, missingUSResource})
+				r := initReconciler(cl)
+				Expect(r.ensureCDI(hco, log, request)).To(BeNil())
+
+				foundResource := &cdiv1alpha1.CDI{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						foundResource),
+				).To(BeNil())
+				Expect(*foundResource.Spec.UninstallStrategy).To(Equal(*expectedResource.Spec.UninstallStrategy))
+			})
+
 			It("should handle conditions", func() {
 				hco := &hcov1alpha1.HyperConverged{
 					ObjectMeta: metav1.ObjectMeta{
