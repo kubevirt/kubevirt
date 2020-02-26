@@ -74,6 +74,14 @@ until _kubectl get crd kubevirts.kubevirt.io; do
     sleep 1
 done
 
+# Ensure the KubeVirt API is available
+count=0
+until _kubectl api-resources --api-group=kubevirt.io | grep kubevirts; do
+    ((count++)) && ((count == 30)) && echo "KubeVirt API not found" && exit 1
+    echo "waiting for KubeVirt API"
+    sleep 1
+done
+
 # Deploy KubeVirt
 _kubectl create -n ${namespace} -f ${MANIFESTS_OUT_DIR}/release/kubevirt-cr.yaml
 
