@@ -517,6 +517,15 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			}
 			bootOrderMap[order] = true
 		}
+
+		// verify that CD-ROM devices use only SATA
+		if (disk.CDRom != nil) && (disk.CDRom.Bus != "sata") {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Bus type %s is invalid for CD-ROM device.", disk.CDRom.Bus),
+				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("cdrom", "bus").String(),
+			})
+		}
 	}
 
 	multusDefaultCount := 0
