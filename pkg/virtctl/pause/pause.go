@@ -130,7 +130,7 @@ func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
 						return fmt.Errorf("Error pausing VirutalMachineInstance %s: %v", vmiName, err)
 					}
 					if runningStrategy == kubevirtV1.RunStrategyHalted {
-						return fmt.Errorf("Error pausing VirtualMachineInstance %s. VirtualMachine %s is not set to run", vmiName, vmiName)
+						return fmt.Errorf("Error pausing VirtualMachineInstance %s. VirtualMachine %s is not set to run", vmiName, vm.Name)
 					}
 					return fmt.Errorf("Error pausing VirtualMachineInstance %s, it was not found", vmiName)
 
