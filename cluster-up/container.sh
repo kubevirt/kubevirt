@@ -2,16 +2,21 @@
 
 set -e
 
+if [ -z "$KUBEVIRTCI_PATH" ]; then
+    KUBEVIRTCI_PATH="$(
+        cd "$(dirname "$BASH_SOURCE[0]")/"
+        echo "$(pwd)/"
+    )"
+fi
+
+source ${KUBEVIRTCI_PATH}/hack/common.sh
+
 if [[ $KUBEVIRT_PROVIDER =~ (ocp|okd).* ]]; then
-    POSTFIX="cluster"
-    CONTAINER=$(docker ps | grep kubevirt | grep "${KUBEVIRT_PROVIDER}-${POSTFIX}" | awk '{print $1}')
-    if [ -z $CONTAINER ]; then
-        echo "container was not found"
-        exit 0
-    fi
-    docker exec $CONTAINER bash -c "if ! grep "/root/install/auth/kubeconfig" ~/.bashrc > /dev/null; \
-                                    then echo export KUBECONFIG=/root/install/auth/kubeconfig >> ~/.bashrc; fi"
-    docker exec -it $CONTAINER bash
+
+    # If it's terminal make it interactive
+    test -t 1 && USE_TTY="-it"
+
+    docker exec $USE_TTY ${provider_prefix}-cluster $@
 else
     echo "connect is supported only for ocp / okd, (or KUBEVIRT_PROVIDER isnt exported ?)"
 fi

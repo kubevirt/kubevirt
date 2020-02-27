@@ -13,12 +13,12 @@ KUBECTL="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl --kubeconfig=${KU
 REGISTRY_NAME=${CLUSTER_NAME}-registry
 
 function _wait_kind_up {
-    echo "Waiting for kind to be ready ..."  
+    echo "Waiting for kind to be ready ..."
     while [ -z "$(docker exec --privileged ${CLUSTER_NAME}-control-plane kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes --selector=node-role.kubernetes.io/master -o=jsonpath='{.items..status.conditions[-1:].status}' | grep True)" ]; do
-        echo "Waiting for kind to be ready ..."        
+        echo "Waiting for kind to be ready ..."
         sleep 10
     done
-    echo "Waiting for dns to be ready ..."        
+    echo "Waiting for dns to be ready ..."
     _kubectl wait -n kube-system --timeout=12m --for=condition=Ready -l k8s-app=kube-dns pods
 }
 
@@ -29,7 +29,7 @@ function _wait_containers_ready {
 
 function _fetch_kind() {
     if [ ! -f ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind ]; then
-        wget https://github.com/kubernetes-sigs/kind/releases/download/v0.3.0/kind-linux-amd64 -O ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind
+        wget https://github.com/kubernetes-sigs/kind/releases/download/v0.7.0/kind-linux-amd64 -O ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind
         chmod +x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind
     fi
     KIND=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kind
@@ -46,7 +46,7 @@ function _reload-containerd-daemon-cmd() {
 }
 
 function _insecure-registry-config-cmd() {
-    echo "sed -i '/\[plugins.cri.registry.mirrors\]/a\        [plugins.cri.registry.mirrors.\"registry:5000\"]\n\          endpoint = [\"http://registry:5000\"]' /etc/containerd/config.toml"    
+    echo "sed -i '/\[plugins.cri.registry.mirrors\]/a\        [plugins.cri.registry.mirrors.\"registry:5000\"]\n\          endpoint = [\"http://registry:5000\"]' /etc/containerd/config.toml"
 }
 
 # this works since the nodes use the same names as containers
@@ -71,7 +71,11 @@ function _configure_registry_on_node() {
 function prepare_config() {
     BASE_PATH=${KUBEVIRTCI_CONFIG_PATH:-$PWD}
     cat >$BASE_PATH/$KUBEVIRT_PROVIDER/config-provider-$KUBEVIRT_PROVIDER.sh <<EOF
-master_ip="127.0.0.1"
+if [ -z ${IPV6_CNI+x} ]; then
+    master_ip="127.0.0.1"
+else
+    master_ip="::1"
+fi
 kubeconfig=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 kubectl=${BASE_PATH}/$KUBEVIRT_PROVIDER/.kubectl
 docker_prefix=localhost:5000/kubevirt
@@ -79,21 +83,39 @@ manifest_docker_prefix=registry:5000/kubevirt
 EOF
 }
 
+function _configure_network() {
+    # modprobe is present inside kind container but may be missing in the
+    # environment running this script, so load the module from inside kind
+    ${NODE_CMD} $1 modprobe br_netfilter
+    for knob in arp ip ip6; do
+        ${NODE_CMD} $1 sysctl -w sys.net.bridge.bridge-nf-call-${knob}tables=1
+    done
+}
+
 function kind_up() {
     _fetch_kind
-  
+
     # appending eventual workers to the yaml
-    for ((n=0;n<$(($KUBEVIRT_NUM_NODES-1));n++)); do 
+    for ((n=0;n<$(($KUBEVIRT_NUM_NODES-1));n++)); do
         echo "- role: worker" >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
     done
 
     $KIND --loglevel debug create cluster --retain --name=${CLUSTER_NAME} --config=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml --image=$KIND_NODE_IMAGE
-    cp $($KIND get kubeconfig-path --name=${CLUSTER_NAME}) ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
+    $KIND get kubeconfig --name=${CLUSTER_NAME} > ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 
     docker cp ${CLUSTER_NAME}-control-plane:/kind/bin/kubectl ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
     chmod u+x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
-    
-    _kubectl create -f $KIND_MANIFESTS_DIR/kube-flannel.yaml
+
+    echo "ipv6 cni: $IPV6_CNI"
+    if [ -z ${IPV6_CNI+x} ]; then
+        echo "no ipv6, safe to install flannel"
+        _kubectl create -f $KIND_MANIFESTS_DIR/kube-flannel.yaml
+    else
+        echo "ipv6 enabled, using kindnet"
+        # currently kind does not fully support ipv6 or ipv6-DualStack,
+        # when using diffrent CNI's.
+        #_kubectl create -f $KIND_MANIFESTS_DIR/kube-calico.yaml
+    fi
 
     _wait_kind_up
     _kubectl cluster-info
@@ -116,6 +138,7 @@ function kind_up() {
 
     for node in $(_kubectl get nodes --no-headers | awk '{print $1}'); do
         _configure_registry_on_node "$node"
+        _configure_network "$node"
     done
     prepare_config
 }

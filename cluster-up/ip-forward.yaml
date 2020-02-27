@@ -1,0 +1,18 @@
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: sysctl-psp
+spec:
+  allowedUnsafeSysctls:
+  - net.ipv4.conf.all.forwarding
+  - net.ipv4.conf.default.forwarding
+  - net.ipv6.conf.all.forwarding
+  - net.ipv6.conf.default.forwarding
+  runAsUser:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  fsGroup:
+    rule: RunAsAny
