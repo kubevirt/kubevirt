@@ -95,6 +95,7 @@ type templateService struct {
 	persistentVolumeClaimStore cache.Store
 	virtClient                 kubecli.KubevirtClient
 	clusterConfig              *virtconfig.ClusterConfig
+	launcherSubGid             int64
 }
 
 type PvcNotFoundError error
@@ -977,6 +978,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				SELinuxOptions: &k8sv1.SELinuxOptions{
 					Type: selinuxLauncherType,
 				},
+				FSGroup: &t.launcherSubGid,
 			},
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
@@ -1223,7 +1225,8 @@ func NewTemplateService(launcherImage string,
 	imagePullSecret string,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
-	clusterConfig *virtconfig.ClusterConfig) TemplateService {
+	clusterConfig *virtconfig.ClusterConfig,
+	launcherSubGid int64) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
@@ -1236,6 +1239,7 @@ func NewTemplateService(launcherImage string,
 		persistentVolumeClaimStore: persistentVolumeClaimCache,
 		virtClient:                 virtClient,
 		clusterConfig:              clusterConfig,
+		launcherSubGid:             launcherSubGid,
 	}
 	return &svc
 }
