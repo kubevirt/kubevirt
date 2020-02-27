@@ -116,7 +116,7 @@ func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (Is
 	var controller []string
 
 	// Look up the socket of the virt-launcher Pod which was created for that VM, and extract the PID from it
-	socket := cmdclient.SocketFromUID(s.socketDir, string(vm.UID))
+	socket := cmdclient.SocketFromUID(s.socketDir, string(vm.UID), true)
 	if pid, err = s.getPid(socket); err != nil {
 		log.Log.Object(vm).Reason(err).Errorf("Could not get owner Pid of socket %s", socket)
 		return nil, err
