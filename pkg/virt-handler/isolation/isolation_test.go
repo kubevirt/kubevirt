@@ -27,7 +27,7 @@ var _ = Describe("Isolation", func() {
 			os.MkdirAll(tmpDir+"/sockets/", os.ModePerm)
 			socket, err = net.Listen("unix", cmdclient.SocketFromUID(
 				tmpDir,
-				string(vm.UID)),
+				string(vm.UID), true),
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})

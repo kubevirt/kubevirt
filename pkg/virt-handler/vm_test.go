@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -99,7 +100,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
-		shareDir, err = ioutil.TempDir("", "kubevirt-share")
+		shareDir, err = ioutil.TempDir("", "")
 		Expect(err).ToNot(HaveOccurred())
 		certDir, err = ioutil.TempDir("", "migrationproxytest")
 		Expect(err).ToNot(HaveOccurred())
@@ -161,7 +162,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		testUUID = uuid.NewUUID()
 		client = cmdclient.NewMockLauncherClient(ctrl)
-		sockFile := cmdclient.SocketFromUID(shareDir, string(testUUID))
+		sockFile := cmdclient.SocketFromUID(shareDir, string(testUUID), true)
 		controller.addLauncherClient(client, sockFile)
 
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -218,7 +219,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should perform cleanup of local ephemeral data if domain and vmi are deleted", func() {
-			mockSockFile := cmdclient.SocketFromUID(shareDir, "")
+			mockSockFile := cmdclient.SocketFromUID(shareDir, "", true)
 			controller.addLauncherClient(client, mockSockFile)
 
 			mockQueue.Add("default/testvmi")
@@ -725,7 +726,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 				if port != 0 {
 					key += fmt.Sprintf("-%d", port)
 				}
-				socketFile := cmdclient.SocketFromUID(shareDir, key)
+				socketFile := cmdclient.SocketFromUID(shareDir, key, true)
+				os.MkdirAll(filepath.Join(cmdclient.SocketsDirectory(shareDir), key), os.ModePerm)
 				socket, err := net.Listen("unix", socketFile)
 				Expect(err).NotTo(HaveOccurred())
 				defer socket.Close()
