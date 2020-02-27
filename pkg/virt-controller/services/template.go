@@ -343,13 +343,64 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	})
 
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "virt-share-dir",
-		MountPath: t.virtShareDir,
-	})
-
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
+	})
+
+	// virt-handler domain notify socket
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:      "virt-handler-domain-notify",
+		MountPath: filepath.Join(t.virtShareDir, "domain-notify.sock"),
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "virt-handler-domain-notify",
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: filepath.Join(t.virtShareDir, "domain-notify.sock"),
+			},
+		},
+	})
+
+	// graceful shutdown trigger directory
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:      "graceful-shutdown-trigger",
+		MountPath: filepath.Join(t.virtShareDir, "graceful-shutdown-trigger"),
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "graceful-shutdown-trigger",
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: filepath.Join(t.virtShareDir, "graceful-shutdown-trigger"),
+			},
+		},
+	})
+
+	// virt-launcher cmd socket dir
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:      "sockets",
+		MountPath: filepath.Join(t.virtShareDir, "sockets"),
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "sockets",
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: filepath.Join(t.virtShareDir, "sockets"),
+			},
+		},
+	})
+
+	// watchdog files dir
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:      "watchdog-files",
+		MountPath: filepath.Join(t.virtShareDir, "watchdog-files"),
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "watchdog-files",
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: filepath.Join(t.virtShareDir, "watchdog-files"),
+			},
+		},
 	})
 
 	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) {
@@ -824,14 +875,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	containers = append(containers, containersDisks...)
 
 	volumes = append(volumes,
-		k8sv1.Volume{
-			Name: "virt-share-dir",
-			VolumeSource: k8sv1.VolumeSource{
-				HostPath: &k8sv1.HostPathVolumeSource{
-					Path: t.virtShareDir,
-				},
-			},
-		},
 		k8sv1.Volume{
 			Name: "virt-bin-share-dir",
 			VolumeSource: k8sv1.VolumeSource{
