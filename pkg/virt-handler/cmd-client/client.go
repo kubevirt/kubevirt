@@ -102,8 +102,8 @@ const (
 func ListAllSockets(baseDir string) ([]string, error) {
 	var socketFiles []string
 
-	fileDir := filepath.Join(baseDir, "sockets")
-	exists, err := diskutils.FileExists(fileDir)
+	socketsDir := filepath.Join(baseDir, "sockets")
+	exists, err := diskutils.FileExists(socketsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -112,12 +112,22 @@ func ListAllSockets(baseDir string) ([]string, error) {
 		return socketFiles, nil
 	}
 
-	files, err := ioutil.ReadDir(fileDir)
+	directories, err := ioutil.ReadDir(socketsDir)
 	if err != nil {
 		return nil, err
 	}
-	for _, file := range files {
-		socketFiles = append(socketFiles, filepath.Join(fileDir, file.Name()))
+	for _, dir := range directories {
+		if !dir.IsDir() {
+			continue
+		}
+		files, err := ioutil.ReadDir(filepath.Join(socketsDir, dir.Name()))
+		if err != nil {
+			return nil, err
+		}
+
+		for _, file := range files {
+			socketFiles = append(socketFiles, filepath.Join(socketsDir, dir.Name(), file.Name()))
+		}
 	}
 	return socketFiles, nil
 }
@@ -126,9 +136,13 @@ func SocketsDirectory(baseDir string) string {
 	return filepath.Join(baseDir, "sockets")
 }
 
-func SocketFromUID(baseDir string, uid string) string {
-	sockFile := uid + "_sock"
-	return filepath.Join(SocketsDirectory(baseDir), sockFile)
+func SocketFromUID(baseDir string, uid string, isHost bool) string {
+	sockFile := "_sock"
+	if isHost {
+		return filepath.Join(SocketsDirectory(baseDir), uid, sockFile)
+	} else {
+		return filepath.Join(SocketsDirectory(baseDir), sockFile)
+	}
 }
 
 func NewClient(socketPath string) (LauncherClient, error) {

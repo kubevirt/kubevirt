@@ -384,7 +384,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Name: "sockets",
 		VolumeSource: k8sv1.VolumeSource{
 			HostPath: &k8sv1.HostPathVolumeSource{
-				Path: filepath.Join(t.virtShareDir, "sockets"),
+				Path: filepath.Join(t.virtShareDir, "sockets", string(vmi.UID)),
 			},
 		},
 	})

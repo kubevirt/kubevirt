@@ -49,7 +49,7 @@ func (lh *LifecycleHandler) PauseHandler(request *restful.Request, response *res
 		return
 	}
 
-	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()))
+	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()), true)
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
@@ -73,7 +73,7 @@ func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *r
 		return
 	}
 
-	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()))
+	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()), true)
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")

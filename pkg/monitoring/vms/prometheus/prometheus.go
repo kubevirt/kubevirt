@@ -424,7 +424,7 @@ func newvmiSocketMapFromVMIs(baseDir string, vmis []*k6tv1.VirtualMachineInstanc
 
 	ret := make(vmiSocketMap)
 	for _, vmi := range vmis {
-		socketPath := cmdclient.SocketFromUID(baseDir, string(vmi.UID))
+		socketPath := cmdclient.SocketFromUID(baseDir, string(vmi.UID), true)
 		ret[socketPath] = vmi
 	}
 	return ret

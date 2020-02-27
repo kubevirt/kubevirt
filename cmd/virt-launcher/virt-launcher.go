@@ -406,7 +406,7 @@ func main() {
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
 	options := cmdserver.NewServerOptions(*useEmulation)
-	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid)
+	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid, false)
 	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
 
 	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir,
