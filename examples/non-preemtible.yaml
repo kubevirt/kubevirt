@@ -1,0 +1,8 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+globalDefault: false
+description: Priority class for VMs which should not be preemtited.
+metadata:
+  name: non-preemtible
+preemptionPolicy: Never
+value: 999999999
