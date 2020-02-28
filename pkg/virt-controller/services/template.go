@@ -991,6 +991,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		},
 	}
 
+	if vmi.Spec.PriorityClassName != "" {
+		pod.Spec.PriorityClassName = vmi.Spec.PriorityClassName
+	}
+
 	if vmi.Spec.Affinity != nil {
 		pod.Spec.Affinity = vmi.Spec.Affinity.DeepCopy()
 	}

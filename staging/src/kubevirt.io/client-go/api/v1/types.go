@@ -81,6 +81,12 @@ type EvictionStrategy string
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceSpec struct {
+	// If specified, indicates the pod's priority.
+	// If not specified, the pod priority will be default or zero if there is no
+	// default.
+	// +optional
+	PriorityClassName string `json:"priorityClassName,omitempty"`
+
 	// Specification of the desired behavior of the VirtualMachineInstance on the host.
 	Domain DomainSpec `json:"domain"`
 	// NodeSelector is a selector which must be true for the vmi to fit on a node.
