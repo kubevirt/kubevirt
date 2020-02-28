@@ -63,7 +63,7 @@ other stuff.
 2. The K8s API Server validates the input and creates a `VMI` custom resource
    definition (CRD) object.
 3. The `virt-controller` observes the creation of the new `VMI` object
-   and creates a corrsponding pod.
+   and creates a corresponding pod.
 4. Kubernetes is scheduling the pod on a host.
 5. The `virt-controller` observes that a pod for the `VMI` got started and
    updates the `nodeName` field in the`VMI` object.
