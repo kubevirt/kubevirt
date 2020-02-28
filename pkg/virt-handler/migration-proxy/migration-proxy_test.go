@@ -151,10 +151,10 @@ var _ = Describe("MigrationProxy", func() {
 
 				Expect(err).ShouldNot(HaveOccurred())
 
-				manager := NewMigrationProxyManager(tmpDir, tlsConfig, tlsConfig)
+				manager := NewMigrationProxyManager(tlsConfig, tlsConfig)
 				manager.StartTargetListener("mykey", []string{libvirtdSock, directSock})
 				destSrcPortMap := manager.GetTargetListenerPorts("mykey")
-				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap)
+				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap, tmpDir)
 
 				defer manager.StopTargetListener("myKey")
 				defer manager.StopSourceListener("myKey")

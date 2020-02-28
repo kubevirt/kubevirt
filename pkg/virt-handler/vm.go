@@ -97,7 +97,7 @@ func NewController(
 		gracefulShutdownInformer: gracefulShutdownInformer,
 		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
-		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir, serverTLSConfig, clientTLSConfig),
+		migrationProxy:           migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
 		podIsolationDetector:     podIsolationDetector,
 		containerDiskMounter:     &container_disk.Mounter{PodIsolationDetector: podIsolationDetector},
 		clusterConfig:            clusterConfig,
@@ -1400,6 +1400,9 @@ func (d *VirtualMachineController) handlePostSyncMigrationProxy(vmi *v1.VirtualM
 
 	// Get the libvirt connection socket file on the destination pod.
 	socketFile := fmt.Sprintf("/proc/%d/root/var/run/libvirt/libvirt-sock", res.Pid())
+	// the migration-proxy is no longer shared via host mount, so we
+	// pass in the virt-launcher's baseDir to reach the unix sockets.
+	baseDir := fmt.Sprintf("/proc/%d/root/var/run/kubevirt", res.Pid())
 	migrationTargetSockets = append(migrationTargetSockets, socketFile)
 
 	isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
@@ -1407,7 +1410,7 @@ func (d *VirtualMachineController) handlePostSyncMigrationProxy(vmi *v1.VirtualM
 	for _, port := range migrationPortsRange {
 		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 		// a proxy between the target direct qemu channel and the connector in the destination pod
-		destSocketFile := migrationproxy.SourceUnixFile(d.virtShareDir, key)
+		destSocketFile := migrationproxy.SourceUnixFile(baseDir, key)
 		migrationTargetSockets = append(migrationTargetSockets, destSocketFile)
 	}
 	err = d.migrationProxy.StartTargetListener(string(vmi.UID), migrationTargetSockets)
@@ -1422,15 +1425,23 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 	// start the source proxy once we know the target address
 
 	if d.isMigrationSource(vmi) {
+		res, err := d.podIsolationDetector.Detect(vmi)
+		if err != nil {
+			return err
+		}
+		// the migration-proxy is no longer shared via host mount, so we
+		// pass in the virt-launcher's baseDir to reach the unix sockets.
+		baseDir := fmt.Sprintf("/proc/%d/root/var/run/kubevirt", res.Pid())
 		d.migrationProxy.StopTargetListener(string(vmi.UID))
 		if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
 			msg := "No migration proxy has been created for this vmi"
 			return fmt.Errorf("%s", msg)
 		}
-		err := d.migrationProxy.StartSourceListener(
+		err = d.migrationProxy.StartSourceListener(
 			string(vmi.UID),
 			vmi.Status.MigrationState.TargetNodeAddress,
 			vmi.Status.MigrationState.TargetDirectMigrationNodePorts,
+			baseDir,
 		)
 		if err != nil {
 			return err
