@@ -462,9 +462,8 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/var/run/kubevirt/domain-notify.sock"))
 				Expect(pod.Spec.Volumes[1].HostPath.Path).To(Equal("/var/run/kubevirt/graceful-shutdown-trigger"))
-				Expect(pod.Spec.Volumes[2].HostPath.Path).To(Equal("/var/run/kubevirt/sockets"))
+				Expect(pod.Spec.Volumes[2].HostPath.Path).To(Equal("/var/run/kubevirt/sockets/1234"))
 				Expect(pod.Spec.Volumes[3].HostPath.Path).To(Equal("/var/run/kubevirt/watchdog-files"))
-				Expect(pod.Spec.Volumes[4].HostPath.Path).To(Equal("/var/run/kubevirt/sockets/1234"))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts[3].MountPath).To(Equal("/var/run/kubevirt/domain-notify.sock"))
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/var/run/kubevirt/graceful-shutdown-trigger"))

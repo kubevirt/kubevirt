@@ -1138,7 +1138,18 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	delete(d.launcherClients, sockFile)
 
 	os.RemoveAll(sockFile)
-	os.RemoveAll(filepath.Dir(sockFile))
+
+	// With the new socket format, we need to clean up
+	// the entire directory the launcher socket is placed in
+	// this is because we now use a single directory per launcher
+	// socket where previously we put all the sockets into
+	// a single giant directory.
+	//
+	// The new socket format can be detected with the StandardLauncherSocketFileName const
+	// The old format was dynamic, and looks like <uid>_sock
+	if filepath.Base(sockFile) == cmdclient.StandardLauncherSocketFileName {
+		os.RemoveAll(filepath.Dir(sockFile))
+	}
 }
 
 // used by unit tests to add mock clients

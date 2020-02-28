@@ -61,6 +61,8 @@ var (
 	supportedCmdVersions = []uint32{1}
 )
 
+const StandardLauncherSocketFileName = "launcher-sock"
+
 type MigrationOptions struct {
 	Bandwidth               resource.Quantity
 	ProgressTimeout         int64
@@ -118,6 +120,12 @@ func ListAllSockets(baseDir string) ([]string, error) {
 	}
 	for _, dir := range directories {
 		if !dir.IsDir() {
+			// legacy support.
+			// The old way of handling launcher sockets was to
+			// dump them all in the same directory. So if we encounter
+			// a legacy socket, still process it. This is necessary
+			// for update support.
+			socketFiles = append(socketFiles, filepath.Join(socketsDir, dir.Name()))
 			continue
 		}
 		files, err := ioutil.ReadDir(filepath.Join(socketsDir, dir.Name()))
@@ -137,8 +145,20 @@ func SocketsDirectory(baseDir string) string {
 }
 
 func SocketFromUID(baseDir string, uid string, isHost bool) string {
-	sockFile := "_sock"
+	sockFile := StandardLauncherSocketFileName
+	legacySockFile := uid + "_sock"
 	if isHost {
+		// legacy support.
+		// The old way of handling launcher sockets was to
+		// dump them all in the same directory. So if we encounter
+		// a legacy socket, still process it. This is necessary
+		// for update support.
+		legacySock := filepath.Join(SocketsDirectory(baseDir), legacySockFile)
+		exists, _ := diskutils.FileExists(legacySock)
+		if exists {
+			return legacySock
+		}
+
 		return filepath.Join(SocketsDirectory(baseDir), uid, sockFile)
 	} else {
 		return filepath.Join(SocketsDirectory(baseDir), sockFile)
