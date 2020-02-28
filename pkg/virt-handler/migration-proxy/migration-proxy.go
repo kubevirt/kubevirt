@@ -44,13 +44,12 @@ type ProxyManager interface {
 	GetTargetListenerPorts(key string) map[int]int
 	StopTargetListener(key string)
 
-	StartSourceListener(key string, targetAddress string, destSrcPortMap map[int]int) error
+	StartSourceListener(key string, targetAddress string, destSrcPortMap map[int]int, baseDir string) error
 	GetSourceListenerFiles(key string) []string
 	StopSourceListener(key string)
 }
 
 type migrationProxyManager struct {
-	virtShareDir  string
 	sourceProxies map[string][]*migrationProxy
 	targetProxies map[string][]*migrationProxy
 	managerLock   sync.Mutex
@@ -79,17 +78,16 @@ func GetMigrationPortsList(isBlockMigration bool) (ports []int) {
 	return
 }
 
-func NewMigrationProxyManager(virtShareDir string, tlsConfig *tls.Config) ProxyManager {
+func NewMigrationProxyManager(tlsConfig *tls.Config) ProxyManager {
 	return &migrationProxyManager{
-		virtShareDir:  virtShareDir,
 		sourceProxies: make(map[string][]*migrationProxy),
 		targetProxies: make(map[string][]*migrationProxy),
 		tlsConfig:     tlsConfig,
 	}
 }
 
-func SourceUnixFile(virtShareDir string, key string) string {
-	return filepath.Join(virtShareDir, "migrationproxy", key+"-source.sock")
+func SourceUnixFile(baseDir string, key string) string {
+	return filepath.Join(baseDir, "migrationproxy", key+"-source.sock")
 }
 
 func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles []string) error {
@@ -207,7 +205,7 @@ func (m *migrationProxyManager) StopTargetListener(key string) {
 	}
 }
 
-func (m *migrationProxyManager) StartSourceListener(key string, targetAddress string, destSrcPortMap map[int]int) error {
+func (m *migrationProxyManager) StartSourceListener(key string, targetAddress string, destSrcPortMap map[int]int, baseDir string) error {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
 
@@ -246,7 +244,7 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 	for destPort, srcPort := range destSrcPortMap {
 		proxyKey := ConstructProxyKey(key, srcPort)
 		targetFullAddr := fmt.Sprintf("%s:%d", targetAddress, destPort)
-		filePath := SourceUnixFile(m.virtShareDir, proxyKey)
+		filePath := SourceUnixFile(baseDir, proxyKey)
 
 		os.RemoveAll(filePath)
 		proxy := NewSourceProxy(filePath, targetFullAddr, m.tlsConfig)
@@ -279,8 +277,6 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 		}
 		delete(m.sourceProxies, key)
 	}
-	filePath := SourceUnixFile(m.virtShareDir, key)
-	os.RemoveAll(filePath)
 }
 
 // SRC POD ENV(migration unix socket) <-> HOST ENV (tcp client) <-----> HOST ENV (tcp server) <-> TARGET POD ENV (libvirtd unix socket)
