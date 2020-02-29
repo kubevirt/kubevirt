@@ -587,11 +587,11 @@ func GetCSVBase(name, hcCRNamespace, displayName, description, image, replaces s
 				},
 				csvv1alpha1.InstallMode{
 					Type:      csvv1alpha1.InstallModeTypeMultiNamespace,
-					Supported: true,
+					Supported: false,
 				},
 				csvv1alpha1.InstallMode{
 					Type:      csvv1alpha1.InstallModeTypeAllNamespaces,
-					Supported: true,
+					Supported: false,
 				},
 			},
 			// Skip this in favor of having a separate function to get

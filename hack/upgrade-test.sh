@@ -105,8 +105,12 @@ fi
 
 Msg "create catalogsource and subscription to install HCO"
 
-${CMD} create ns kubevirt-hyperconverged | true
-${CMD} get pods -n kubevirt-hyperconverged 
+HCO_NAMESPACE="kubevirt-hyperconverged"
+HCO_KIND="hyperconvergeds"
+HCO_RESOURCE_NAME="kubevirt-hyperconverged"
+
+${CMD} create ns ${HCO_NAMESPACE} | true
+${CMD} get pods -n ${HCO_NAMESPACE}
 
 cat <<EOF | ${CMD} create -f -
 apiVersion: operators.coreos.com/v1
@@ -114,6 +118,9 @@ kind: OperatorGroup
 metadata:
   name: hco-operatorgroup
   namespace: kubevirt-hyperconverged
+spec:
+  targetNamespaces:
+  - ${HCO_NAMESPACE}
 EOF
 
 # TODO: The catalog source image here should point to the latest version in quay.io
@@ -170,10 +177,6 @@ EOF
 
 HCO_OPERATOR_POD=`${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator | head -1 | awk '{ print $1 }'`
 ${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverged --timeout="600s"
-
-HCO_NAMESPACE="kubevirt-hyperconverged"
-HCO_KIND="hyperconvergeds"
-HCO_RESOURCE_NAME="kubevirt-hyperconverged"
 
 ${CMD} create -f ./deploy/hco.cr.yaml -n kubevirt-hyperconverged
 

@@ -64,6 +64,16 @@ done
 
 cat <<EOF
 
+==============
+OperatorGroups
+==============
+
+RunCmd "${CMD} get operatorgroups -n kubevirt-hyperconverged -o yaml"
+
+EOF
+
+cat <<EOF
+
 ========================
 HCO operator related CRD
 ========================
