@@ -797,15 +797,21 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		useIOThreads = true
 
 		if (*vmi.Spec.Domain.IOThreadsPolicy) == v1.IOThreadsPolicyAuto {
-			numCPUs := 1
-			// Requested CPU's is guaranteed to be no greater than the limit
-			if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
-				numCPUs = int(cpuRequests.Value())
-			} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
-				numCPUs = int(cpuLimit.Value())
-			}
+			// When IOThreads policy is set to auto and we've allocated a dedicated
+			// pCPU for the emulator thread, we can place IOThread and Emulator thread in the same pCPU
+			if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+				threadPoolLimit = 1
+			} else {
+				numCPUs := 1
+				// Requested CPU's is guaranteed to be no greater than the limit
+				if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+					numCPUs = int(cpuRequests.Value())
+				} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+					numCPUs = int(cpuLimit.Value())
+				}
 
-			threadPoolLimit = numCPUs * 2
+				threadPoolLimit = numCPUs * 2
+			}
 		}
 	}
 	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
@@ -1343,7 +1349,11 @@ func formatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *Domain, c *
 	iothreads := int(domain.Spec.IOThreads.IOThreads)
 	vcpus := int(calculateRequestedVCPUs(domain.Spec.CPU.Topology))
 
-	if iothreads >= vcpus {
+	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+		// pin the IOThread on the same pCPU as the emulator thread
+		cpuset := fmt.Sprintf("%d", *c.EmulatorThreadCpu)
+		appendDomainIOThreadPin(domain, uint(1), cpuset)
+	} else if iothreads >= vcpus {
 		// pin an IOThread on a CPU
 		for thread := 1; thread <= iothreads; thread++ {
 			cpuset := fmt.Sprintf("%d", c.CPUSet[thread%vcpus])

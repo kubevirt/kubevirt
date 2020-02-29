@@ -218,6 +218,68 @@ var _ = Describe("IOThreads", func() {
 			// though the limit would have supported 8.
 			table.Entry("[test_id:3096]for four CPUs", 4, 6),
 		)
+
+		// IOThread with Emulator Thread
+
+		It("Should place io and emulator threads on the same pcpu with auto ioThreadsPolicy", func() {
+			policy := v1.IOThreadsPolicyAuto
+			vmi.Spec.Domain.IOThreadsPolicy = &policy
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 1,
+				DedicatedCPUPlacement: true,
+				IsolateEmulatorThread: true,
+			}
+			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceMemory: resource.MustParse("64M"),
+				},
+			}
+
+			tests.AddEphemeralDisk(vmi, "disk1", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ded2", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			vmi.Spec.Domain.Devices.Disks[2].DedicatedIOThread = &dedicated
+
+			By("Starting a VirtualMachineInstance")
+			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			getOptions := metav1.GetOptions{}
+			var newVMI *v1.VirtualMachineInstance
+
+			By("Fetching the VMI from the cluster")
+			newVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Fetching the domain XML from the running pod")
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			domSpec := &api.DomainSpec{}
+			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
+
+			By("Verifying the total number of ioThreads")
+			// This will create 1 thread for all disks w/o dedicated iothread and 1 for a disk with a dedicated iothread
+			expectedIOThreads := 2
+			Expect(int(domSpec.IOThreads.IOThreads)).To(Equal(expectedIOThreads))
+
+			By("Ensuring there are the expected number of disks")
+			Expect(len(newVMI.Spec.Domain.Devices.Disks)).To(Equal(len(vmi.Spec.Domain.Devices.Disks)))
+
+			By("Verifying the ioThread mapping for disks")
+			disk0, err := getDiskByName(domSpec, "disk0")
+			Expect(err).ToNot(HaveOccurred())
+			disk1, err := getDiskByName(domSpec, "disk1")
+			Expect(err).ToNot(HaveOccurred())
+			ded2, err := getDiskByName(domSpec, "ded2")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*disk0.Driver.IOThread).To(Equal(*disk1.Driver.IOThread), "disk0 , disk1 should share the same ioThread")
+			Expect(*disk0.Driver.IOThread).ToNot(Equal(*ded2.Driver.IOThread), "disk with dedicated iothread should not share the same ioThread with disk1,2")
+
+			By("Ensuring that ioThread and Emulator threads are pinned to the same pCPU")
+			for _, iothreadPin := range domSpec.CPUTune.IOThreadPin {
+				Expect(domSpec.CPUTune.EmulatorPin.CPUSet).To(Equal(iothreadPin.CPUSet), "iothread should be placed on the same pcpu as the emulator thread")
+			}
+		})
 	})
 })
 
