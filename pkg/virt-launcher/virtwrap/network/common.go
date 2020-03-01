@@ -92,10 +92,10 @@ type NetworkHandler interface {
 	ConfigureIpv6Forwarding() error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
 	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
-	NftablesNewChain(table, chain string) error
-	NftablesAppendRule(table, chain string, rulespec ...string) error
-	NftablesNewTable(table string) error
+	NftablesNewChain(proto iptables.Protocol, table, chain string) error
+	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesLoad(fnName string) error
+	GetNftIpString(proto iptables.Protocol) string
 }
 
 type NetworkUtilsHandler struct{}
@@ -192,16 +192,17 @@ func (h *NetworkUtilsHandler) IptablesAppendRule(proto iptables.Protocol, table,
 	return iptablesObject.Append(table, chain, rulespec...)
 }
 
-func (h *NetworkUtilsHandler) NftablesNewChain(table, chain string) error {
-	output, err := exec.Command("nft", "add", "chain", "ip", table, chain).CombinedOutput()
+func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, chain string) error {
+	output, err := exec.Command("nft", "add", "chain", Handler.GetNftIpString(proto), table, chain).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s", string(output))
 	}
 
 	return nil
 }
-func (h *NetworkUtilsHandler) NftablesAppendRule(table, chain string, rulespec ...string) error {
-	cmd := append([]string{"add", "rule", "ip", table, chain}, rulespec...)
+
+func (h *NetworkUtilsHandler) NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error {
+	cmd := append([]string{"add", "rule", Handler.GetNftIpString(proto), table, chain}, rulespec...)
 	output, err := exec.Command("nft", cmd...).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to apped new nfrule error %s", string(output))
@@ -209,14 +210,15 @@ func (h *NetworkUtilsHandler) NftablesAppendRule(table, chain string, rulespec .
 
 	return nil
 }
-func (h *NetworkUtilsHandler) NftablesNewTable(table string) error {
-	output, err := exec.Command("nft", "add", "table", table).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to create new nftable error %s", string(output))
-	}
 
-	return nil
+func (h *NetworkUtilsHandler) GetNftIpString(proto iptables.Protocol) string {
+	ipString := "ip"
+	if proto == iptables.ProtocolIPv6 {
+		ipString = "ip6"
+	}
+	return ipString
 }
+
 func (h *NetworkUtilsHandler) NftablesLoad(fnName string) error {
 	output, err := exec.Command("nft", "-f", fmt.Sprintf("/etc/nftables/%s.nft", fnName)).CombinedOutput()
 	if err != nil {
