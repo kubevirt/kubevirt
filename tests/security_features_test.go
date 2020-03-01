@@ -157,7 +157,7 @@ var _ = Describe("SecurityFeatures", func() {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			})
 
-			It("Should honor custom SELinux type for virt-launcher", func() {
+			It("[test_id:3738]Should honor custom SELinux type for virt-launcher", func() {
 				By("Starting a New VMI")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
