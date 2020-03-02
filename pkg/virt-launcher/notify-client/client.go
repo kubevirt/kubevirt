@@ -197,6 +197,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 				events <- event
 			}
 		}
+		log.Log.Infof("7) OSINFO IN EVENT CALLBACK: %v", osInfo)
 		if interfaceStatus != nil {
 			domain.Status.Interfaces = interfaceStatus
 		}
@@ -212,7 +213,17 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 	}
 }
 
-func (n *Notifier) StartDomainNotifier(domainConn cli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, domainName string, agentStore *agentpoller.AsyncAgentStore, qemuAgentPollerInterval time.Duration) error {
+func (n *Notifier) StartDomainNotifier(
+	domainConn cli.Connection,
+	deleteNotificationSent chan watch.Event,
+	vmiUID types.UID,
+	domainName string,
+	agentStore *agentpoller.AsyncAgentStore,
+	qemuAgentSysInterval time.Duration,
+	qemuAgentFileInterval time.Duration,
+	qemuAgentUserInterval time.Duration,
+	qemuAgentVersionInterval time.Duration,
+) error {
 	eventChan := make(chan libvirtEvent, 10)
 
 	reconnectChan := make(chan bool, 10)
@@ -221,7 +232,16 @@ func (n *Notifier) StartDomainNotifier(domainConn cli.Connection, deleteNotifica
 
 	domainConn.SetReconnectChan(reconnectChan)
 
-	agentPoller := agentpoller.CreatePoller(domainConn, vmiUID, domainName, agentStore, qemuAgentPollerInterval)
+	agentPoller := agentpoller.CreatePoller(
+		domainConn,
+		vmiUID,
+		domainName,
+		agentStore,
+		qemuAgentSysInterval,
+		qemuAgentFileInterval,
+		qemuAgentUserInterval,
+		qemuAgentVersionInterval,
+	)
 
 	// Run the event process logic in a separate go-routine to not block libvirt
 	go func() {
@@ -232,6 +252,7 @@ func (n *Notifier) StartDomainNotifier(domainConn cli.Connection, deleteNotifica
 			case event := <-eventChan:
 				domainCache = util.NewDomainFromName(event.Domain, vmiUID)
 				eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo)
+				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 				if event.AgentEvent != nil {
 					if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
 						agentPoller.Start()

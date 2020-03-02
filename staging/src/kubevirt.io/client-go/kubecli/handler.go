@@ -3,6 +3,7 @@ package kubecli
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -16,10 +17,11 @@ import (
 )
 
 const (
-	consoleTemplateURI = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
-	vncTemplateURI     = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
-	pauseTemplateURI   = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
-	unpauseTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
+	consoleTemplateURI   = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
+	vncTemplateURI       = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
+	pauseTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
+	unpauseTemplateURI   = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
+	guestInfoTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
 )
 
 func NewVirtHandlerClient(client KubevirtClient) VirtHandlerClient {
@@ -44,6 +46,8 @@ type VirtHandlerConn interface {
 	UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	Pod() (pod *v1.Pod, err error)
 	Put(url string, tlsConfig *tls.Config) error
+	Get(url string, tlsConfig *tls.Config) (string, error)
+	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 }
 
 type virtHandler struct {
@@ -195,4 +199,47 @@ func (v *virtHandlerConn) Put(url string, tlsConfig *tls.Config) error {
 	}
 
 	return nil
+}
+
+func (v *virtHandlerConn) Get(url string, tlsConfig *tls.Config) (string, error) {
+
+	client := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+		Timeout: 10 * time.Second,
+	}
+
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Add("Accept", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return "", fmt.Errorf("unexpected return code %s", resp.Status)
+	}
+
+	defer resp.Body.Close()
+	responseData, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("cannot read get body %s", resp.Status)
+	}
+
+	responseString := string(responseData)
+
+	return responseString, nil
+}
+
+func (v *virtHandlerConn) GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	ip, port, err := v.ConnectionDetails()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(guestInfoTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }

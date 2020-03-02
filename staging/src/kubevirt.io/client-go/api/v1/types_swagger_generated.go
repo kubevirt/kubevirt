@@ -297,3 +297,33 @@ func (RestartOptions) SwaggerDoc() map[string]string {
 		"gracePeriodSeconds": "The duration in seconds before the object should be force-restared. Value must be non-negative integer.\nThe value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the\nspecified type will be used to determine on how much time to give the VMI to restart.\nDefaults to a per object value if not specified. zero means restart immediately.\nAllowed Values: nil and 0\n+optional",
 	}
 }
+
+func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent",
+		"guestAgentVersion": "GAVersion is a version of currently installed guest agent",
+		"hostname":          "Hostname represents FQDN of a guest",
+		"os":                "OS contains the guest operating system information",
+		"timezone":          "Timezone is guest os current timezone",
+		"userList":          "UserList is a list of active guest OS users",
+		"fsInfo":            "FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage",
+	}
+}
+
+func (VirtualMachineInstanceGuestOSUser) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceGuestOSUser is the single user of the guest os",
+	}
+}
+
+func (VirtualMachineInstanceFileSystemInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceFileSystemInfo represents information regarding single guest os filesystem",
+	}
+}
+
+func (VirtualMachineInstanceFileSystem) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceFileSystem represents guest os disk",
+	}
+}

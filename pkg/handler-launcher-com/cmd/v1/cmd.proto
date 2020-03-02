@@ -15,6 +15,7 @@ service Cmd {
   rpc CancelVirtualMachineMigration(VMIRequest) returns (Response) {}
   rpc GetDomain(EmptyRequest) returns (DomainResponse) {}
   rpc GetDomainStats(EmptyRequest) returns (DomainStatsResponse) {}
+  rpc GetGuestInfo(EmptyRequest) returns (GuestInfoResponse) {}
   rpc Ping(EmptyRequest) returns (Response) {}
 }
 
@@ -59,4 +60,9 @@ message DomainResponse {
 message DomainStatsResponse {
   Response response = 1;
   string domainStats = 2;
+}
+
+message GuestInfoResponse {
+  Response response = 1;
+  string guestInfoResponse = 2;
 }

@@ -3716,6 +3716,50 @@
      }
     }
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/guestosinfo": {
+    "get": {
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Get guest agent os information",
+     "operationId": "guestosinfo",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineInstanceGuestAgentInfo"
+       }
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineInstanceGuestAgentInfo"
+       }
+      }
+     }
+    }
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/pause": {
     "put": {
      "summary": "Pause a VirtualMachineInstance object.",
@@ -6159,6 +6203,89 @@
      }
     }
    },
+   "v1.VirtualMachineInstanceFileSystem": {
+    "description": "VirtualMachineInstanceFileSystem represents guest os disk",
+    "required": [
+     "diskName",
+     "mountPoint",
+     "fileSystemType",
+     "usedBytes",
+     "totalBytes"
+    ],
+    "properties": {
+     "diskName": {
+      "type": "string"
+     },
+     "fileSystemType": {
+      "type": "string"
+     },
+     "mountPoint": {
+      "type": "string"
+     },
+     "totalBytes": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "usedBytes": {
+      "type": "integer",
+      "format": "int32"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceFileSystemInfo": {
+    "description": "VirtualMachineInstanceFileSystemInfo represents information regarding single guest os filesystem",
+    "required": [
+     "disks"
+    ],
+    "properties": {
+     "disks": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystem"
+      }
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceGuestAgentInfo": {
+    "description": "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent",
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "fsInfo": {
+      "description": "FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystemInfo"
+     },
+     "guestAgentVersion": {
+      "description": "GAVersion is a version of currently installed guest agent",
+      "type": "string"
+     },
+     "hostname": {
+      "description": "Hostname represents FQDN of a guest",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "os": {
+      "description": "OS contains the guest operating system information",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSInfo"
+     },
+     "timezone": {
+      "description": "Timezone is guest os current timezone",
+      "type": "string"
+     },
+     "userList": {
+      "description": "UserList is a list of active guest OS users",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSUser"
+      }
+     }
+    }
+   },
    "v1.VirtualMachineInstanceGuestOSInfo": {
     "properties": {
      "id": {
@@ -6191,6 +6318,24 @@
      },
      "versionId": {
       "description": "Version ID of the Guest OS",
+      "type": "string"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceGuestOSUser": {
+    "description": "VirtualMachineInstanceGuestOSUser is the single user of the guest os",
+    "required": [
+     "userName"
+    ],
+    "properties": {
+     "domain": {
+      "type": "string"
+     },
+     "loginTime": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "userName": {
       "type": "string"
      }
     }

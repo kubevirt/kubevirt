@@ -129,6 +129,7 @@ type VirtualMachineInstanceInterface interface {
 	VNC(name string) (StreamInterface, error)
 	Pause(name string) error
 	Unpause(name string) error
+	GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
 }
 
 type ReplicaSetInterface interface {

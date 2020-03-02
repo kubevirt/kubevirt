@@ -775,3 +775,44 @@ func writeError(error *errors.StatusError, response *restful.Response) {
 		log.Log.Reason(err).Error("Failed to write http response.")
 	}
 }
+
+// GuestOSInfo handles the subresource for providing VM guest agent information
+func (app *SubresourceAPIApp) GuestOSInfo(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi == nil || vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is not running"))
+		}
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI does not have guest agent connected"))
+		}
+		return nil
+	}
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.GuestInfoURI(vmi)
+	}
+
+	log.Log.Infof("Calling get url on handler for")
+	_, url, conn, err := app.prepareConnection(request, validate, getURL)
+	if err != nil {
+		response.WriteError(http.StatusInternalServerError, err)
+		log.Log.Errorf("Cannot prepare connection %s", err.Error())
+		return
+	}
+
+	resp, conErr := conn.Get(url, app.handlerTLSConfiguration)
+	if conErr != nil {
+		log.Log.Errorf("Cannot GET request %s", conErr.Error())
+		response.WriteError(http.StatusInternalServerError, conErr)
+		return
+	}
+
+	guestInfo := v1.VirtualMachineInstanceGuestAgentInfo{}
+	if err := json.Unmarshal([]byte(resp), &guestInfo); err != nil {
+		log.Log.Reason(err).Error("error unmarshalling guest agent response")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteEntity(guestInfo)
+}

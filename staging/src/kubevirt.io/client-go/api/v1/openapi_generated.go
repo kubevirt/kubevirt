@@ -100,6 +100,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineCondition":                   schema_kubevirtio_client_go_api_v1_VirtualMachineCondition(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstance":                    schema_kubevirtio_client_go_api_v1_VirtualMachineInstance(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceCondition":           schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceCondition(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestAgentInfo":      schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceGuestAgentInfo(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceList":                schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceList(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigration":           schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigration(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationCondition":  schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigrationCondition(ref),
@@ -2673,6 +2674,81 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceCondition(ref comm
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceGuestAgentInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"guestAgentVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GAVersion is a version of currently installed guest agent",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hostname represents FQDN of a guest",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"os": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OS contains the guest operating system information",
+							Ref:         ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSInfo"),
+						},
+					},
+					"timezone": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timezone is guest os current timezone",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"userList": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserList is a list of active guest OS users",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSUser"),
+									},
+								},
+							},
+						},
+					},
+					"fsInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage",
+							Ref:         ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceFileSystemInfo"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceFileSystemInfo", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSUser"},
 	}
 }
 
