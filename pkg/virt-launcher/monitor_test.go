@@ -60,6 +60,8 @@ var _ = Describe("VirtLauncher", func() {
 
 	processStarted := false
 
+	gracefulShutdownCallbackTriggered := false
+
 	StartProcess := func() {
 		cmdLock.Lock()
 		defer cmdLock.Unlock()
@@ -117,15 +119,20 @@ var _ = Describe("VirtLauncher", func() {
 
 	BeforeEach(func() {
 		InitializeSharedDirectories(tmpDir)
+		gracefulShutdownCallbackTriggered = false
 		triggerFile := GracefulShutdownTriggerFromNamespaceName(tmpDir, "fakenamespace", "fakedomain")
 		shutdownCallback := func(pid int) {
 			syscall.Kill(pid, syscall.SIGTERM)
+		}
+		gracefulShutdownCallback := func() {
+			gracefulShutdownCallbackTriggered = true
 		}
 		mon = &monitor{
 			cmdlineMatchStr:             uuid,
 			gracePeriod:                 30,
 			gracefulShutdownTriggerFile: triggerFile,
-			shutdownCallback:            shutdownCallback,
+			finalShutdownCallback:       shutdownCallback,
+			gracefulShutdownCallback:    gracefulShutdownCallback,
 		}
 	})
 
@@ -210,6 +217,7 @@ var _ = Describe("VirtLauncher", func() {
 				exists, err := hasGracefulShutdownTrigger(tmpDir, "fakenamespace", "fakedomain")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(exists).To(BeFalse())
+				Expect(gracefulShutdownCallbackTriggered).To(BeFalse())
 
 				close(stopChan)
 
@@ -218,6 +226,7 @@ var _ = Describe("VirtLauncher", func() {
 				exists, err = hasGracefulShutdownTrigger(tmpDir, "fakenamespace", "fakedomain")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(exists).To(BeTrue())
+				Expect(gracefulShutdownCallbackTriggered).To(BeTrue())
 			})
 
 			It("verify grace period works", func() {
