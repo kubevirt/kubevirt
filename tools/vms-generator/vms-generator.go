@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/kubevirt/tools/util"
 
 	k8sv1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -52,11 +53,16 @@ func main() {
 			virtconfig.PermitBridgeInterfaceOnPodNetwork: "true",
 		},
 	})
+	var priorityClasses = map[string]*schedulingv1.PriorityClass{
+		utils.Preemtible:    utils.GetPreemtible(),
+		utils.NonPreemtible: utils.GetNonPreemtible(),
+	}
 
 	var vms = map[string]*v1.VirtualMachine{
 		utils.VmCirros:           utils.GetVMCirros(),
 		utils.VmAlpineMultiPvc:   utils.GetVMMultiPvc(),
 		utils.VmAlpineDataVolume: utils.GetVMDataVolume(),
+		utils.VMPriorityClass:    utils.GetVMPriorityClass(),
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{
@@ -166,6 +172,10 @@ func main() {
 
 	// TODO:(ihar) how to validate templates?
 	for name, obj := range templates {
+		handleError(dumpObject(name, *obj))
+	}
+
+	for name, obj := range priorityClasses {
 		handleError(dumpObject(name, *obj))
 	}
 }
