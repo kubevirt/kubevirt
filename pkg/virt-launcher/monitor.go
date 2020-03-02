@@ -37,6 +37,7 @@ import (
 )
 
 type OnShutdownCallback func(pid int)
+type OnGracefulShutdownCallback func()
 
 type monitor struct {
 	timeout                     time.Duration
@@ -47,7 +48,8 @@ type monitor struct {
 	gracePeriod                 int
 	gracePeriodStartTime        int64
 	gracefulShutdownTriggerFile string
-	shutdownCallback            OnShutdownCallback
+	finalShutdownCallback       OnShutdownCallback
+	gracefulShutdownCallback    OnGracefulShutdownCallback
 }
 
 type ProcessMonitor interface {
@@ -154,12 +156,14 @@ func InitializeSharedDirectories(baseDir string) error {
 func NewProcessMonitor(cmdlineMatchStr string,
 	gracefulShutdownTriggerFile string,
 	gracePeriod int,
-	shutdownCallback OnShutdownCallback) ProcessMonitor {
+	finalShutdownCallback OnShutdownCallback,
+	gracefulShutdownCallback OnGracefulShutdownCallback) ProcessMonitor {
 	return &monitor{
 		cmdlineMatchStr:             cmdlineMatchStr,
 		gracePeriod:                 gracePeriod,
 		gracefulShutdownTriggerFile: gracefulShutdownTriggerFile,
-		shutdownCallback:            shutdownCallback,
+		finalShutdownCallback:       finalShutdownCallback,
+		gracefulShutdownCallback:    gracefulShutdownCallback,
 	}
 }
 
@@ -220,7 +224,7 @@ func (mon *monitor) refresh() {
 
 	if expired {
 		log.Log.Infof("Grace Period expired, shutting down.")
-		mon.shutdownCallback(mon.pid)
+		mon.finalShutdownCallback(mon.pid)
 	}
 
 	return
@@ -255,6 +259,8 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan 
 			if err != nil {
 				log.Log.Reason(err).Errorf("Error detected attempting to initialize graceful shutdown using trigger file %s.", mon.gracefulShutdownTriggerFile)
 			}
+
+			mon.gracefulShutdownCallback()
 			mon.gracePeriodStartTime = time.Now().UTC().Unix()
 		}
 	}
