@@ -83,17 +83,24 @@ RUN pip3 install j2cli && pip3 install operator-courier==1.3.0
 WORKDIR /tmp/kubevirt
 COPY . .
 
-# TODO: remove patching of external provider, after kubevirtci#199 has been merged and kubevirt updates
+# write poor mans replacement of PULL_PULL_SHA to output folder
 RUN \
+    echo ${BUILD} | jq '.metadata.annotations' | jq -r '.["ci.openshift.io/job-spec"]' | jq -r '.refs.pulls[0].sha') \
+        > _out/PULL_PULL_SHA
+
+RUN \
+    export PULL_PULL_SHA=$(cat _out/PULL_PULL_SHA) && \
     export DOCKER_PREFIX='dhiller' && \
-    export DOCKER_TAG="latest" && \
+    export DOCKER_TAG="${PULL_PULL_SHA}" && \
     export KUBEVIRT_PROVIDER=external && \
     export GIMME_GO_VERSION=1.12.8 && \
     export GOPATH="/go" && \
     export GOBIN="/usr/bin" && \
     source /etc/profile.d/gimme.sh && \
-    (cd cluster-up/cluster/external && curl -L -O -o provider.sh https://raw.githubusercontent.com/dhiller/kubevirtci/fix-external-provider/cluster-up/cluster/external/provider.sh) && \
     bash -x ./hack/build-manifests.sh && \
+    export CMD_OUT_DIR="$(pwd)/_out/cmd" && \
+    mkdir -p _out/cmd/dump/ && \
+    GOPROXY=off GOFLAGS=-mod=vendor go build -o "$CMD_OUT_DIR/dump/dump" ./cmd/dump && \
     bash -x ./hack/build-func-tests.sh && \
     curl -L -O -o kvm-ds.yaml https://raw.githubusercontent.com/kubevirt/kubernetes-device-plugins/master/manifests/kvm-ds.yml
 FROM centos:7
