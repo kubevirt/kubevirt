@@ -12,8 +12,6 @@ spec:
       labels:
         kubevirt.io/vm: vm-cirros
     spec:
-    // deploy priorityClass first
-      priorityClassName: non-preemtible
       domain:
         devices:
           disks:
@@ -28,6 +26,7 @@ spec:
         resources:
           requests:
             memory: 64M
+      priorityClassName: non-preemtible
       terminationGracePeriodSeconds: 0
       volumes:
       - containerDisk:
