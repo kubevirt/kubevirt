@@ -1328,6 +1328,11 @@ func (in *GracePeriodMetadata) DeepCopyInto(out *GracePeriodMetadata) {
 		in, out := &in.DeletionTimestamp, &out.DeletionTimestamp
 		*out = (*in).DeepCopy()
 	}
+	if in.MarkedForGracefulShutdown != nil {
+		in, out := &in.MarkedForGracefulShutdown, &out.MarkedForGracefulShutdown
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

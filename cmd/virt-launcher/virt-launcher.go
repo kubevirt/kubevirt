@@ -418,7 +418,14 @@ func main() {
 		panic(err)
 	}
 
-	shutdownCallback := func(pid int) {
+	gracefulShutdownCallback := func() {
+		err := domainManager.MarkGracefulShutdownVMI(vm)
+		if err != nil {
+			log.Log.Reason(err).Errorf("Unable to signal graceful shutdown")
+		}
+	}
+
+	finalShutdownCallback := func(pid int) {
 		err := domainManager.KillVMI(vm)
 		if err != nil {
 			log.Log.Reason(err).Errorf("Unable to stop qemu with libvirt, falling back to SIGTERM")
@@ -455,7 +462,8 @@ func main() {
 		mon := virtlauncher.NewProcessMonitor(domain.Spec.UUID,
 			gracefulShutdownTriggerFile,
 			*gracePeriodSeconds,
-			shutdownCallback)
+			finalShutdownCallback,
+			gracefulShutdownCallback)
 
 		// This is a wait loop that monitors the qemu pid. When the pid
 		// exits, the wait loop breaks.

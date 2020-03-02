@@ -361,20 +361,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		},
 	})
 
-	// graceful shutdown trigger directory
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "graceful-shutdown-trigger",
-		MountPath: filepath.Join(t.virtShareDir, "graceful-shutdown-trigger"),
-	})
-	volumes = append(volumes, k8sv1.Volume{
-		Name: "graceful-shutdown-trigger",
-		VolumeSource: k8sv1.VolumeSource{
-			HostPath: &k8sv1.HostPathVolumeSource{
-				Path: filepath.Join(t.virtShareDir, "graceful-shutdown-trigger"),
-			},
-		},
-	})
-
 	// virt-launcher cmd socket dir
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "sockets",

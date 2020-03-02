@@ -842,6 +842,22 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 	return nil
 }
 
+// Determine if gracefulShutdown has been triggered by virt-launcher
+func (d *VirtualMachineController) hasGracefulShutdownTrigger(vmi *v1.VirtualMachineInstance, domain *api.Domain) (bool, error) {
+
+	// This is the new way of reporting GracefulShutdown, via domain metadata.
+	if domain != nil &&
+		domain.Spec.Metadata.KubeVirt.GracePeriod != nil &&
+		domain.Spec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown != nil &&
+		*domain.Spec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown == true {
+		return true, nil
+	}
+
+	// Fallback to detecting the old way of reporting gracefulshutdown, via file.
+	// We keep this around in order to ensure backwards compatibility
+	return virtlauncher.VmHasGracefulShutdownTrigger(d.virtShareDir, vmi)
+}
+
 func (d *VirtualMachineController) defaultExecute(key string,
 	vmi *v1.VirtualMachineInstance,
 	vmiExists bool,
@@ -878,8 +894,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	domainMigrated := domainExists && domainMigrated(domain)
 
-	// Determine if gracefulShutdown has been triggered by virt-launcher
-	gracefulShutdown, err := virtlauncher.VmHasGracefulShutdownTrigger(d.virtShareDir, vmi)
+	gracefulShutdown, err := d.hasGracefulShutdownTrigger(vmi, domain)
 	if err != nil {
 		return err
 	} else if gracefulShutdown && vmi.IsRunning() {
@@ -1093,14 +1108,17 @@ func (d *VirtualMachineController) execute(key string) error {
 }
 
 func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstance) error {
-	err := virtlauncher.VmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
-	if err != nil {
-		return err
-	}
 
 	d.closeLauncherClient(vmi)
 
 	vmiId := string(vmi.UID)
+
+	// If the VMI is using the old graceful shutdown trigger on
+	// a hostmount, make sure to clear that file still.
+	err := virtlauncher.VmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
+	if err != nil {
+		return err
+	}
 
 	d.migrationProxy.StopTargetListener(vmiId)
 	d.migrationProxy.StopSourceListener(vmiId)
