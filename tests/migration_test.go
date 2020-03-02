@@ -1327,7 +1327,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				expecter, expecterErr := tests.LoggedInFedoraExpecterWithTimeout(vmi, 240)
 				Expect(expecterErr).ToNot(HaveOccurred())
 				defer expecter.Close()
 
