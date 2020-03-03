@@ -21,20 +21,18 @@
 # make cluster-up
 # make upgrade-test
 #
-# Deploys the HCO cluster using the latest version in the git repo.
-# This latest version deploys the hco-operator using the :latest tag 
-# on quay.io.
+# Start deploying the HCO cluster using the latest images shipped
+# in quay.io with latest tag:
+# - quay.io/kubevirt/hyperconverged-cluster-operator:latest
+# - quay.io/kubevirt/hco-container-registry:latest
 #
-# A new version, named 100.0.0, is then created. A new hco-operator
-# image is created based off of the code in the current checkout.  
-# A CSV and registry image is created for this version. The CSV
-# uses the new hco-operator image in the hco deployment.
+# A new bundle, named 100.0.0, is then created with the content of
+# the open PR (this can include new dependent images, new CRDs...).
+# A new hco-operator image is created based off of the code in the
+# current checkout.  
 #
 # Both the hco-operator image and new registry image is pushed
 # to the local registry.
-#
-# The hco-catalogsource pod is then patched to use the new registry
-# image.
 #
 # The subscription is checked to verify that it progresses
 # to the new version. 
@@ -123,8 +121,6 @@ spec:
   - ${HCO_NAMESPACE}
 EOF
 
-# TODO: The catalog source image here should point to the latest version in quay.io
-# once that is published.
 cat <<EOF | ${CMD} create -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
@@ -168,6 +164,7 @@ spec:
   name: kubevirt-hyperconverged
   source: hco-catalogsource-example
   sourceNamespace: ${HCO_CATALOG_NAMESPACE}
+${SUBSCRIPTION_CONFIG}
 EOF
 
 # Allow time for the install plan to be created a for the
@@ -180,8 +177,10 @@ ${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverg
 
 ${CMD} create -f ./deploy/hco.cr.yaml -n kubevirt-hyperconverged
 
-HCO_OPERATOR_POD=`${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator | head -1 | awk '{ print $1 }'`
-${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverged --timeout="600s"
+HCO_OPERATOR_POD=`${CMD} get pods -n ${HCO_NAMESPACE} | grep hco-operator | head -1 | awk '{ print $1 }'`
+
+${CMD} wait -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} --for condition=Available --timeout=15m
+${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n ${HCO_NAMESPACE} --timeout=15m
 
 Msg "check that cluster is operational before upgrade"
 timeout 10m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh' 
@@ -206,7 +205,7 @@ ${CMD} patch catalogsource hco-catalogsource-example -n ${HCO_CATALOG_NAMESPACE}
 sleep 5
 ./hack/retry.sh 20 30 "${CMD} get pods -n ${HCO_CATALOG_NAMESPACE} | grep hco-catalogsource | grep -v Terminating"
 HCO_CATALOGSOURCE_POD=`${CMD} get pods -n ${HCO_CATALOG_NAMESPACE} | grep hco-catalogsource | grep -v Terminating | head -1 | awk '{ print $1 }'`
-${CMD} wait pod $HCO_CATALOGSOURCE_POD --for condition=Ready -n ${HCO_CATALOG_NAMESPACE} --timeout="120s"
+${CMD} wait pod $HCO_CATALOGSOURCE_POD --for condition=Ready -n ${HCO_CATALOG_NAMESPACE} --timeout="1800s"
 
 sleep 15
 CATALOG_OPERATOR_POD=`${CMD} get pods -n openshift-operator-lifecycle-manager | grep catalog-operator | head -1 | awk '{ print $1 }'`

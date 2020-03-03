@@ -13,7 +13,7 @@ CS_SOURCE="${CS_SOURCE:-hco-catalogsource}"
 
 TARGET_NAMESPACE="${TARGET_NAMESPACE:-kubevirt-hyperconverged}"
 MARKETPLACE_NAMESPACE="${MARKETPLACE_NAMESPACE:-openshift-marketplace}"
-HCO_REGISTRY_IMAGE="${HCO_REGISTRY_IMAGE:-quay.io/kubevirt-hyperconverged/kubevirt-hyperconverged-registry-image:1.0.0}"
+HCO_REGISTRY_IMAGE="${HCO_REGISTRY_IMAGE:-quay.io/kubevirt/hco-container-registry:latest}"
 POD_TIMEOUT="${POD_TIMEOUT:-360s}"
 HCO_VERSION="${HCO_VERSION:-1.0.0}"
 HCO_CHANNEL="${HCO_CHANNEL:-1.0.0}"

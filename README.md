@@ -91,7 +91,7 @@ metadata:
   namespace: openshift-marketplace
 spec:
   sourceType: grpc
-  image: docker.io/$REGISTRY_NAMESPACE/hco-registry:$TAG
+  image: docker.io/$REGISTRY_NAMESPACE/hco-container-registry:$TAG
   displayName: KubeVirt HyperConverged
   publisher: Red Hat
 EOF

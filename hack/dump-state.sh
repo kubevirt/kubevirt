@@ -67,10 +67,10 @@ cat <<EOF
 ==============
 OperatorGroups
 ==============
+EOF
 
 RunCmd "${CMD} get operatorgroups -n kubevirt-hyperconverged -o yaml"
 
-EOF
 
 cat <<EOF
 
@@ -107,7 +107,17 @@ RunCmd "$CMD get pods -n kubevirt-hyperconverged -o json"
 
 cat <<EOF
 
-a===============
+============
+HCO pod logs
+============
+EOF
+
+namespace=kubevirt-hyperconverged
+RunCmd "$CMD logs -n $namespace $($CMD get pods -n $namespace -l name=hyperconverged-cluster-operator -o name)"
+
+cat <<EOF
+
+===============
 HCO Deployments
 ===============
 
