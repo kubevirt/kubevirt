@@ -22,6 +22,7 @@ package cache
 import (
 	"encoding/xml"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -170,6 +171,81 @@ var _ = Describe("Domain informer", func() {
 			Expect(timedOut).To(BeFalse())
 
 		}, 5)
+
+		It("should detect unresponsive sockets.", func() {
+			socketPath := filepath.Join(socketsDir, "1234", cmdclient.StandardLauncherSocketFileName)
+			f, err := os.Create(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+
+			cmdclient.SetSocketInfo(socketPath, "1234", "test", "test")
+
+			d := &DomainWatcher{
+				backgroundWatcherStarted: false,
+				virtShareDir:             shareDir,
+				watchdogTimeout:          1,
+				unresponsiveSockets:      make(map[string]int64),
+			}
+
+			err = d.startBackground()
+			Expect(err).ToNot(HaveOccurred())
+			defer d.Stop()
+
+			timedOut := false
+			timeout := time.After(5 * time.Second)
+			select {
+			case event := <-d.eventChan:
+				Expect(event.Type).To(Equal(watch.Deleted))
+			case <-timeout:
+				timedOut = true
+			}
+
+			Expect(timedOut).To(BeFalse())
+
+		}, 6)
+
+		It("should detect responsive sockets and not mark for deletion.", func() {
+			socketPath := filepath.Join(socketsDir, "1234", cmdclient.StandardLauncherSocketFileName)
+
+			l, err := net.Listen("unix", socketPath)
+			Expect(err).ToNot(HaveOccurred())
+			defer l.Close()
+
+			go func() {
+				for {
+					conn, err := l.Accept()
+					if err != nil {
+						// closes when socket listener is closed
+						return
+					}
+					conn.Close()
+				}
+			}()
+
+			cmdclient.SetSocketInfo(socketPath, "1234", "test", "test")
+
+			d := &DomainWatcher{
+				backgroundWatcherStarted: false,
+				virtShareDir:             shareDir,
+				watchdogTimeout:          1,
+				unresponsiveSockets:      make(map[string]int64),
+			}
+
+			err = d.startBackground()
+			Expect(err).ToNot(HaveOccurred())
+			defer d.Stop()
+
+			timedOut := false
+			timeout := time.After(5 * time.Second)
+			select {
+			case event := <-d.eventChan:
+				Expect(event.Type).To(Equal(watch.Deleted))
+			case <-timeout:
+				timedOut = true
+			}
+
+			Expect(timedOut).To(BeTrue())
+		}, 6)
 
 		It("should not return errors when encountering disconnected clients at startup.", func() {
 			var list []*api.Domain

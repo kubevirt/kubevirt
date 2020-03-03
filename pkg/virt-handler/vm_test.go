@@ -219,6 +219,68 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
+		It("should handle cleanup of legacy graceful shutdown and watchdog files", func() {
+
+			name := "testvmi"
+			namespace := "default"
+			uid := "1234"
+
+			mockSockFile := filepath.Join(shareDir, "sockets", uid+"_sock")
+			controller.addLauncherClient(client, mockSockFile)
+			os.MkdirAll(filepath.Dir(mockSockFile), 0755)
+			os.MkdirAll(filepath.Join(shareDir, "watchdog-files"), 0755)
+			os.MkdirAll(filepath.Join(shareDir, "graceful-shutdown-trigger"), 0755)
+
+			watchdogFile := filepath.Join(shareDir, "watchdog-files", namespace+"_"+name)
+			gracefulTrigger := filepath.Join(shareDir, "graceful-shutdown-trigger", namespace+"_"+name)
+
+			f, err := os.Create(mockSockFile)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+
+			f, err = os.Create(watchdogFile)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = f.WriteString(uid)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+
+			f, err = os.Create(gracefulTrigger)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+
+			exists, err := diskutils.FileExists(filepath.Join(shareDir, "sockets"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			mockQueue.Add(namespace + "/" + name)
+			client.EXPECT().Close()
+			controller.Execute()
+
+			exists, err = diskutils.FileExists(filepath.Join(shareDir, "sockets"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			exists, err = diskutils.FileExists(filepath.Join(shareDir, "graceful-shutdown-trigger"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			exists, err = diskutils.FileExists(filepath.Join(shareDir, "watchdog-files"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			exists, err = diskutils.FileExists(mockSockFile)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+
+			exists, err = diskutils.FileExists(watchdogFile)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+
+			exists, err = diskutils.FileExists(gracefulTrigger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+		})
+
 		It("should perform cleanup of local ephemeral data if domain and vmi are deleted", func() {
 			mockSockFile := cmdclient.SocketFromUID(shareDir, "1234", true)
 

@@ -225,6 +225,9 @@ func MarkSocketUnresponsive(socket string) error {
 	return nil
 }
 
+// Sets metadata about socket that can out live the socket's
+// connectivity. This way we can match a socket with the correct
+// VM in the event that the virt-launcher cmd server dies
 func SetSocketInfo(socket string, uid string, name string, namespace string) error {
 	file := filepath.Join(filepath.Dir(socket), StandardLauncherInfoFileName)
 
@@ -252,6 +255,9 @@ func SetSocketInfo(socket string, uid string, name string, namespace string) err
 	return nil
 }
 
+// Gets metadata about socket that can out live the socket's
+// connectivity. This way we can match a socket with the correct
+// VM in the event that the virt-launcher cmd server dies
 func GetSocketInfo(socket string) (*SocketInfo, error) {
 
 	infoFile := filepath.Join(filepath.Dir(socket), StandardLauncherInfoFileName)

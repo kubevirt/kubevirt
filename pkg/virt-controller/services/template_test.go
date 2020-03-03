@@ -462,13 +462,11 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/var/run/kubevirt/domain-notify.sock"))
 				Expect(pod.Spec.Volumes[1].HostPath.Path).To(Equal("/var/run/kubevirt/sockets/1234"))
-				Expect(pod.Spec.Volumes[2].HostPath.Path).To(Equal("/var/run/kubevirt/watchdog-files"))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts[3].MountPath).To(Equal("/var/run/kubevirt/domain-notify.sock"))
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/var/run/kubevirt/sockets"))
-				Expect(pod.Spec.Containers[0].VolumeMounts[5].MountPath).To(Equal("/var/run/kubevirt/watchdog-files"))
 
-				Expect(pod.Spec.Volumes[3].EmptyDir.Medium).To(Equal(kubev1.StorageMedium("")))
+				Expect(pod.Spec.Volumes[2].EmptyDir.Medium).To(Equal(kubev1.StorageMedium("")))
 
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 			})
@@ -1054,12 +1052,12 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
-				Expect(len(pod.Spec.Volumes)).To(Equal(9))
-				Expect(pod.Spec.Volumes[3].EmptyDir).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[3].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
+				Expect(len(pod.Spec.Volumes)).To(Equal(8))
+				Expect(pod.Spec.Volumes[2].EmptyDir).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[2].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
 
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(8))
-				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal("/dev/hugepages"))
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(7))
+				Expect(pod.Spec.Containers[0].VolumeMounts[5].MountPath).To(Equal("/dev/hugepages"))
 			},
 				table.Entry("hugepages-2Mi", "2Mi"),
 				table.Entry("hugepages-1Gi", "1Gi"),
@@ -1148,13 +1146,13 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty(), "No devices in manifest for 1st container")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Some mounts in manifest for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(8), "8 mounts in manifest for 1st container")
-				Expect(pod.Spec.Containers[0].VolumeMounts[6].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(7), "7 mounts in manifest for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeMounts[5].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(9), "Found 10 volumes in manifest")
-				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
-				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
+				Expect(len(pod.Spec.Volumes)).To(Equal(8), "Found 8 volumes in manifest")
+				Expect(pod.Spec.Volumes[2].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
+				Expect(pod.Spec.Volumes[2].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
 		})
 
@@ -1196,12 +1194,12 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName), "Found device for 1st container with correct name")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(7), "Found 7 mounts in manifest for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6), "Found 6 mounts in manifest for 1st container")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(9), "Found 9 volumes in manifest")
-				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
-				Expect(pod.Spec.Volumes[3].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
+				Expect(len(pod.Spec.Volumes)).To(Equal(8), "Found 8 volumes in manifest")
+				Expect(pod.Spec.Volumes[2].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
+				Expect(pod.Spec.Volumes[2].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
 		})
 
@@ -1348,8 +1346,8 @@ var _ = Describe("Template", func() {
 
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				// Skip first four mounts that are generic for all launcher pods
-				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal("/sys/devices/"))
-				Expect(pod.Spec.Volumes[3].HostPath.Path).To(Equal("/sys/devices/"))
+				Expect(pod.Spec.Containers[0].VolumeMounts[5].MountPath).To(Equal("/sys/devices/"))
+				Expect(pod.Spec.Volumes[2].HostPath.Path).To(Equal("/sys/devices/"))
 			})
 			It("should add 1G of memory overhead", func() {
 				sriovInterface := v1.InterfaceSRIOV{}
@@ -1564,9 +1562,9 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(9))
-				Expect(pod.Spec.Volumes[3].ConfigMap).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[3].ConfigMap.LocalObjectReference.Name).To(Equal("test-configmap"))
+				Expect(len(pod.Spec.Volumes)).To(Equal(8))
+				Expect(pod.Spec.Volumes[2].ConfigMap).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[2].ConfigMap.LocalObjectReference.Name).To(Equal("test-configmap"))
 			})
 		})
 
@@ -1593,9 +1591,9 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(9))
-				Expect(pod.Spec.Volumes[3].Secret).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[3].Secret.SecretName).To(Equal("test-secret"))
+				Expect(len(pod.Spec.Volumes)).To(Equal(8))
+				Expect(pod.Spec.Volumes[2].Secret).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[2].Secret.SecretName).To(Equal("test-secret"))
 			})
 		})
 		Context("with probes", func() {
@@ -1729,8 +1727,8 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				// Skip first four mounts that are generic for all launcher pods
-				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal("/sys/devices/"))
-				Expect(pod.Spec.Volumes[3].HostPath.Path).To(Equal("/sys/devices/"))
+				Expect(pod.Spec.Containers[0].VolumeMounts[5].MountPath).To(Equal("/sys/devices/"))
+				Expect(pod.Spec.Volumes[2].HostPath.Path).To(Equal("/sys/devices/"))
 
 				resources := pod.Spec.Containers[0].Resources
 				val, ok := resources.Requests["vendor.com/gpu_name"]
