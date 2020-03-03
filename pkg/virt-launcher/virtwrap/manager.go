@@ -1446,7 +1446,7 @@ func buildDevicesMetadata(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) err
 				Bus:     nic.Address.Type,
 				Address: pciAddrStr,
 				MAC:     mac,
-				Tag:     []string{data.Tag},
+				Tags:    []string{data.Tag},
 			}
 			devicesMetadata = append(devicesMetadata, deviceData)
 		}

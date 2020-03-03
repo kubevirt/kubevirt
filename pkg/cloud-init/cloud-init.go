@@ -81,7 +81,7 @@ type DeviceData struct {
 	Address string             `json:"address"`
 	MAC     string             `json:"mac,omitempty"`
 	Serial  string             `json:"serial,omitempty"`
-	Tag     []string           `json:"tag"`
+	Tags    []string           `json:"tags"`
 }
 
 // IsValidCloudInitData checks if the given CloudInitData object is valid in the sense that GenerateLocalData can be called with it.

@@ -108,7 +108,7 @@ var _ = Describe("CloudInit", func() {
       "bus": "pci",
       "address": "0000:01:00:0",
       "mac": "02:00:00:84:e9:58",
-      "tag": [
+      "tags": [
         "testtag"
       ]
     }
@@ -120,7 +120,7 @@ var _ = Describe("CloudInit", func() {
 						Bus:     "pci",
 						Address: "0000:01:00:0",
 						MAC:     "02:00:00:84:e9:58",
-						Tag:     []string{"testtag"},
+						Tags:    []string{"testtag"},
 					},
 				}
 

@@ -440,7 +440,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						Bus:     nic.Address.Type,
 						Address: pciAddrStr,
 						MAC:     nic.MAC.MAC,
-						Tag:     []string{"specialNet"},
+						Tags:     []string{"specialNet"},
 					},
 				}
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
