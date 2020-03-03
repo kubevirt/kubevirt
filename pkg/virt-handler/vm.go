@@ -1049,18 +1049,21 @@ func (d *VirtualMachineController) execute(key string) error {
 	}
 
 	// As a last effort, if the UID still can't be determined attempt
-	// to retrieve it from the watchdog file
+	// to retrieve it from the cmdclient socket information cache
 	if string(vmi.UID) == "" {
-		uid := watchdog.WatchdogFileGetUid(d.virtShareDir, vmi)
+		uid, err := cmdclient.FindLastKnownUIDForKey(d.virtShareDir, vmi.Name, vmi.Namespace)
+		if err != nil {
+			return err
+		}
 		if uid != "" {
-			log.Log.Object(vmi).V(3).Infof("Watchdog file provided %s as UID", uid)
+			log.Log.Object(vmi).V(3).Infof("cmdclient cache provided %s as UID", uid)
 			vmi.UID = types.UID(uid)
 		}
 	}
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
 		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
 		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
-		expired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, oldVMI)
+		expired, err := d.isLauncherClientUnresponsive(oldVMI)
 		if err != nil {
 			return err
 		}
@@ -1068,7 +1071,7 @@ func (d *VirtualMachineController) execute(key string) error {
 		if expired {
 			return d.processVmCleanup(oldVMI)
 		}
-		// if the watchdog still gets updated, we are not allowed to clean up
+		// if the command server is still responsive, we are not allowed to clean up
 		return nil
 	}
 
@@ -1109,8 +1112,6 @@ func (d *VirtualMachineController) execute(key string) error {
 
 func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstance) error {
 
-	d.closeLauncherClient(vmi)
-
 	vmiId := string(vmi.UID)
 
 	// If the VMI is using the old graceful shutdown trigger on
@@ -1131,16 +1132,17 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	d.clearPodNetworkPhase1(vmi)
 
-	// Watch dog file must be the last thing removed here
-	err = watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	// Watch dog file and command client must be the last things removed here
+	return d.closeLauncherClient(vmi)
 }
 
-func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineInstance) {
+func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineInstance) error {
+
+	// UID is required in order to close socket
+	if string(vmi.GetUID()) == "" {
+		return nil
+	}
+
 	// maps require locks for concurrent access
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
@@ -1148,12 +1150,10 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	sockFile := cmdclient.SocketFromUID(d.virtShareDir, string(vmi.GetUID()), true)
 
 	client, ok := d.launcherClients[sockFile]
-	if ok == false {
-		return
+	if ok {
+		client.Close()
+		delete(d.launcherClients, sockFile)
 	}
-
-	client.Close()
-	delete(d.launcherClients, sockFile)
 
 	os.RemoveAll(sockFile)
 
@@ -1165,9 +1165,18 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	//
 	// The new socket format can be detected with the StandardLauncherSocketFileName const
 	// The old format was dynamic, and looks like <uid>_sock
-	if filepath.Base(sockFile) == cmdclient.StandardLauncherSocketFileName {
+	if cmdclient.SocketMonitoringEnabled(sockFile) {
 		os.RemoveAll(filepath.Dir(sockFile))
 	}
+
+	// for legacy support, ensure watchdog is removed when client is removed
+	// in the event that watchdog VMIs are still in use
+	err := watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // used by unit tests to add mock clients
@@ -1179,6 +1188,23 @@ func (d *VirtualMachineController) addLauncherClient(client cmdclient.LauncherCl
 	d.launcherClients[sockFile] = client
 
 	return nil
+}
+
+func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (bool, error) {
+
+	sockFile := cmdclient.SocketFromUID(d.virtShareDir, string(vmi.GetUID()), true)
+
+	// The new way of detecting unresponsive VMIs monitors the
+	// cmd socket. This requires an updated VMI image. Old VMIs
+	// still use the watchdog method.
+	watchDogExists, _ := watchdog.WatchdogFileExists(d.virtShareDir, vmi)
+	if cmdclient.SocketMonitoringEnabled(sockFile) && !watchDogExists {
+		isUnresponsive := cmdclient.IsSocketUnresponsive(sockFile)
+		return isUnresponsive, nil
+	}
+
+	// fall back to legacy watchdog support for backwards compatiblity
+	return watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
 }
 
 func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
@@ -1485,12 +1511,12 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
 	vmi := origVMI.DeepCopy()
 
-	isExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
-
+	isUnresponsive, err := d.isLauncherClientUnresponsive(vmi)
 	if err != nil {
 		return err
-	} else if isExpired {
-		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with expired watchdog."))
+	}
+	if isUnresponsive {
+		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
 	}
 
 	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
@@ -1609,13 +1635,13 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 	if domain == nil {
 		switch {
 		case vmi.IsScheduled():
-			isExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
+			isUnresponsive, err := d.isLauncherClientUnresponsive(vmi)
 
 			if err != nil {
 				return vmi.Status.Phase, err
 			}
 
-			if isExpired {
+			if isUnresponsive {
 				// virt-launcher is gone and VirtualMachineInstance never transitioned
 				// from scheduled to Running.
 				return v1.Failed, nil

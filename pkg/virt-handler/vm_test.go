@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -219,12 +220,40 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should perform cleanup of local ephemeral data if domain and vmi are deleted", func() {
-			mockSockFile := cmdclient.SocketFromUID(shareDir, "", true)
+			mockSockFile := cmdclient.SocketFromUID(shareDir, "1234", true)
+
 			controller.addLauncherClient(client, mockSockFile)
+			os.MkdirAll(filepath.Dir(mockSockFile), 0755)
+			f, err := os.Create(mockSockFile)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+
+			exists, err := diskutils.FileExists(filepath.Join(shareDir, "sockets"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			err = cmdclient.SetSocketInfo(mockSockFile, "1234", "testvmi", "default")
+			Expect(err).ToNot(HaveOccurred())
 
 			mockQueue.Add("default/testvmi")
 			client.EXPECT().Close()
 			controller.Execute()
+
+			exists, err = diskutils.FileExists(filepath.Join(shareDir, "sockets"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			exists, err = diskutils.FileExists(mockSockFile)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+
+			exists, err = diskutils.FileExists(filepath.Dir(mockSockFile))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+
+			exists, err = diskutils.FileExists(filepath.Join(shareDir, "sockets"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
 		})
 
 		It("should not attempt graceful shutdown of Domain if domain is already down.", func() {

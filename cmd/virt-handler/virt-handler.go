@@ -65,7 +65,7 @@ import (
 )
 
 const (
-	defaultWatchdogTimeout = 15 * time.Second
+	defaultWatchdogTimeout = 30 * time.Second
 
 	// Default port that virt-handler listens on.
 	defaultPort = 8185

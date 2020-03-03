@@ -409,6 +409,13 @@ func main() {
 	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid, false)
 	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
 
+	// Set socket info file after starting server
+	err = cmdclient.SetSocketInfo(socketPath, *uid, *name, *namespace)
+	if err != nil {
+		log.Log.Reason(err).Errorf("Unable to write server info file.")
+		panic(err)
+	}
+
 	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir,
 		*namespace,
 		*name)

@@ -20,6 +20,8 @@
 package cache
 
 import (
+	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -27,6 +29,7 @@ import (
 
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
@@ -44,6 +47,7 @@ func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder r
 		watchdogTimeout:          watchdogTimeout,
 		recorder:                 recorder,
 		vmiStore:                 vmiStore,
+		unresponsiveSockets:      make(map[string]int64),
 	}
 
 	return d
@@ -59,6 +63,9 @@ type DomainWatcher struct {
 	watchdogTimeout          int
 	recorder                 record.EventRecorder
 	vmiStore                 cache.Store
+
+	watchDogLock        sync.Mutex
+	unresponsiveSockets map[string]int64
 }
 
 func (d *DomainWatcher) startBackground() error {
@@ -76,7 +83,10 @@ func (d *DomainWatcher) startBackground() error {
 	go func() {
 		defer d.wg.Done()
 
-		expiredWatchdogTicker := time.NewTicker(time.Duration(d.watchdogTimeout) * time.Second).C
+		// Divide the watchdogTimeout by 3 for our ticker.
+		// This ensures we always have at least 2 response failures
+		// in a row before we mark the socket as unavailable (which results in shutdown of VMI)
+		expiredWatchdogTicker := time.NewTicker(time.Duration((d.watchdogTimeout/3)+1) * time.Second).C
 		srvErr := make(chan error)
 		go func() {
 			defer close(srvErr)
@@ -88,6 +98,7 @@ func (d *DomainWatcher) startBackground() error {
 			select {
 			case <-expiredWatchdogTicker:
 				d.handleStaleWatchdogFiles()
+				d.handleStaleSocketConnections()
 			case err := <-srvErr:
 				if err != nil {
 					log.Log.Reason(err).Errorf("Unexpected err encountered with Domain Notify aggregation server")
@@ -103,6 +114,8 @@ func (d *DomainWatcher) startBackground() error {
 	return nil
 }
 
+// TODO remove watchdog file usage eventually and only rely on detecting stale socket connections
+// for now we have to keep watchdog files around for backwards compatiblity with old VMIs
 func (d *DomainWatcher) handleStaleWatchdogFiles() error {
 	domains, err := watchdog.GetExpiredDomains(d.watchdogTimeout, d.virtShareDir)
 	if err != nil {
@@ -114,6 +127,86 @@ func (d *DomainWatcher) handleStaleWatchdogFiles() error {
 		log.Log.Object(domain).Warning("detected expired watchdog for domain")
 		d.eventChan <- watch.Event{Type: watch.Deleted, Object: domain}
 	}
+	return nil
+}
+
+func (d *DomainWatcher) handleStaleSocketConnections() error {
+	var unresponsive []string
+
+	socketFiles, err := cmdclient.ListAllSockets(d.virtShareDir)
+	if err != nil {
+		log.Log.Reason(err).Error("failed to list sockets")
+		return err
+	}
+
+	for _, socket := range socketFiles {
+		if !cmdclient.SocketMonitoringEnabled(socket) {
+			// don't process legacy sockets here. They still use the
+			// old watchdog file method
+			continue
+		}
+
+		sock, err := net.DialTimeout("unix", socket, 3*time.Second)
+		if err == nil {
+			// socket is alive still
+			sock.Close()
+			continue
+		}
+		unresponsive = append(unresponsive, socket)
+	}
+
+	d.watchDogLock.Lock()
+	defer d.watchDogLock.Unlock()
+
+	now := time.Now().UTC().Unix()
+
+	// Add new unresponsive sockets
+	for _, socket := range unresponsive {
+		_, ok := d.unresponsiveSockets[socket]
+		if !ok {
+			d.unresponsiveSockets[socket] = now
+		}
+	}
+
+	for key, timeStamp := range d.unresponsiveSockets {
+		found := false
+		for _, socket := range unresponsive {
+			if socket == key {
+				found = true
+				break
+			}
+		}
+		// reap old unresponsive sockets
+		// remove from unresponsive list if not found unresponsive this iteration
+		if !found {
+			delete(d.unresponsiveSockets, key)
+			break
+		}
+
+		diff := now - timeStamp
+
+		if diff > int64(d.watchdogTimeout) {
+			socketInfo, err := cmdclient.GetSocketInfo(key)
+			if err != nil && os.IsNotExist(err) {
+				// ignore if info file doesn't exist
+				// this is possible with legacy VMIs that haven't
+				// been updated. The watchdog file will catch these.
+			} else if err != nil {
+				log.Log.Reason(err).Errorf("Unable to retrieve info about unresponsive vmi with socket %s", key)
+			} else {
+				domain := api.NewMinimalDomainWithNS(socketInfo.Namespace, socketInfo.Name)
+				domain.ObjectMeta.UID = types.UID(socketInfo.UID)
+				log.Log.Object(domain).Warning("detected unresponsive virt-launcher command socket for domain")
+				d.eventChan <- watch.Event{Type: watch.Deleted, Object: domain}
+
+				err := cmdclient.MarkSocketUnresponsive(key)
+				if err != nil {
+					log.Log.Reason(err).Errorf("Unable to mark vmi as unresponsive socket %s", key)
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
