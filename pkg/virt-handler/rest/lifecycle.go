@@ -100,7 +100,7 @@ func (lh *LifecycleHandler) GetGuestInfo(request *restful.Request, response *res
 
 	log.Log.Object(vmi).Infof("Retreiving guestinfo from %s", vmi.Name)
 
-	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()))
+	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()), true)
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
