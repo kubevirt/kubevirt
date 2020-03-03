@@ -375,20 +375,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		},
 	})
 
-	// watchdog files dir
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "watchdog-files",
-		MountPath: filepath.Join(t.virtShareDir, "watchdog-files"),
-	})
-	volumes = append(volumes, k8sv1.Volume{
-		Name: "watchdog-files",
-		VolumeSource: k8sv1.VolumeSource{
-			HostPath: &k8sv1.HostPathVolumeSource{
-				Path: filepath.Join(t.virtShareDir, "watchdog-files"),
-			},
-		},
-	})
-
 	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) {
 		// libvirt needs this volume to access PCI device config;
 		// note that the volume should not be read-only because libvirt
