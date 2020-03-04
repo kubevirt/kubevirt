@@ -25,6 +25,7 @@ import (
 	"os"
 
 	k8sv1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -62,9 +63,15 @@ const (
 )
 
 const (
+	Preemtible    = "preemtible"
+	NonPreemtible = "non-preemtible"
+)
+
+const (
 	VmCirros           = "vm-cirros"
 	VmAlpineMultiPvc   = "vm-alpine-multipvc"
 	VmAlpineDataVolume = "vm-alpine-datavolume"
+	VMPriorityClass    = "vm-priorityclass"
 )
 
 const VmiReplicaSetCirros = "vmi-replicaset-cirros"
@@ -566,6 +573,45 @@ func getBaseVM(name string, labels map[string]string) *v1.VirtualMachine {
 			},
 		},
 	}
+}
+
+func GetPreemtible() *schedulingv1.PriorityClass {
+	preemtionPolicy := k8sv1.PreemptLowerPriority
+	pc := schedulingv1.PriorityClass{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: schedulingv1.SchemeGroupVersion.String(),
+			Kind:       "PriorityClass",
+		},
+		GlobalDefault:    false,
+		Description:      "Priority class for VMs which are allowed to be preemtited.",
+		PreemptionPolicy: &preemtionPolicy,
+		Value:            1000000,
+	}
+	pc.ObjectMeta.Name = "preemtible"
+	return &pc
+}
+
+func GetNonPreemtible() *schedulingv1.PriorityClass {
+	preemtionPolicy := k8sv1.PreemptNever
+	pc := schedulingv1.PriorityClass{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: schedulingv1.SchemeGroupVersion.String(),
+			Kind:       "PriorityClass",
+		},
+		GlobalDefault:    false,
+		Description:      "Priority class for VMs which should not be preemtited.",
+		PreemptionPolicy: &preemtionPolicy,
+		Value:            999999999,
+	}
+	pc.ObjectMeta.Name = "non-preemtible"
+	return &pc
+}
+
+func GetVMPriorityClass() *v1.VirtualMachine {
+	vm := GetVMCirros()
+	vm.Spec.Template.Spec.PriorityClassName = "non-preemtible"
+	vm.ObjectMeta.Name = "vm-non-preemtible"
+	return vm
 }
 
 func GetVMCirros() *v1.VirtualMachine {

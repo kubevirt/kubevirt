@@ -1645,6 +1645,26 @@ var _ = Describe("Template", func() {
 			Expect(pod.Spec.Containers[0].Command).To(ContainElement("42"), "command arg value should be correct")
 		})
 
+		Context("with specified priorityClass", func() {
+			It("should add priorityClass", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "namespace",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						PriorityClassName: "test",
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.PriorityClassName).To(Equal("test"))
+			})
+
+		})
+
 	})
 
 	Describe("ServiceAccountName", func() {
