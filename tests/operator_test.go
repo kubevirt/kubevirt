@@ -898,8 +898,8 @@ spec:
 			sanityCheckDeploymentsExist()
 		})
 
-		Describe("deleting with BlockUninstallIfWorkloadsExist", func() {
-			It("should be blocked if a workload exists", func() {
+		Describe("[rfe_id:3578][crit:high][vendor:cnv-qe@redhat.com][level:component] deleting with BlockUninstallIfWorkloadsExist", func() {
+			It("[test_id:3683]should be blocked if a workload exists", func() {
 				allPodsAreReady(originalKv)
 				sanityCheckDeploymentsExist()
 
