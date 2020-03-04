@@ -596,3 +596,31 @@ func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy) *virtv1.KubeV
 		},
 	}
 }
+
+// VMIService CRD defination
+func NewVMIServiceCrd() *extv1beta1.CustomResourceDefinition {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = "vmiservices." + virtv1.VMIServiceGroupVersionKind.Group
+	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+		Group:    virtv1.VMIServiceGroupVersionKind.Group,
+		Version:  virtv1.ApiSupportedVersions[0].Name,
+		Versions: virtv1.ApiSupportedVersions,
+		Scope:    "Namespaced",
+
+		Names: extv1beta1.CustomResourceDefinitionNames{
+			Plural:     "vmiservices",
+			Singular:   "vmiservice",
+			Kind:       virtv1.VMIServiceGroupVersionKind.Kind,
+			ShortNames: []string{"vmiss"},
+			Categories: []string{
+				"all",
+			},
+		},
+		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
+			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+		},
+	}
+
+	return crd
+}

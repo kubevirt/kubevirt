@@ -60,6 +60,8 @@ func main() {
 		util.MarshallObject(components.NewVirtualMachineInstanceMigrationCrd(), os.Stdout)
 	case "kv":
 		util.MarshallObject(components.NewKubeVirtCrd(), os.Stdout)
+	case "vmiservice":
+		util.MarshallObject(components.NewVMIServiceCrd(), os.Stdout)
 	case "kv-cr":
 		util.MarshallObject(components.NewKubeVirtCR(*namespace, imagePullPolicy), os.Stdout)
 	case "kubevirt-rbac":

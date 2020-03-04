@@ -432,6 +432,7 @@ spec:
           - pods
           - configmaps
           - endpoints
+          - services
           verbs:
           - get
           - list
