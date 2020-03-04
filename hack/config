@@ -3,7 +3,7 @@
 KUBEVIRT_VERSION="v0.17.0"
 CDI_VERSION="v1.13.1"
 NETWORK_ADDONS_VERSION="0.27.2"
-SSP_VERSION="v1.0.19"
+SSP_VERSION="v1.0.23"
 
 CONTAINER_REGISTRY="docker.io/kubevirt"
 #CONTAINER_REGISTRY="brew-pulp-docker01.web.prod.ext.phx2.redhat.com:8888"

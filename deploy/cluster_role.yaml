@@ -97,6 +97,12 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - ssp.kubevirt.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
   - networkaddonsoperator.network.kubevirt.io
   resources:
   - '*'
@@ -736,6 +742,7 @@ metadata:
 rules:
 - apiGroups:
   - kubevirt.io
+  - ssp.kubevirt.io
   - template.openshift.io
   resources:
   - '*'
