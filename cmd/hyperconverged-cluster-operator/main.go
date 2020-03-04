@@ -24,6 +24,7 @@ import (
 
 	sspopv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	corev1 "k8s.io/api/core/v1"
@@ -70,16 +71,33 @@ func main() {
 
 	printVersion()
 
-	namespace, err := k8sutil.GetWatchNamespace()
+	watchNamespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
 		log.Error(err, "Failed to get watch namespace")
 		os.Exit(1)
 	}
 
 	// Get the namespace the operator is currently deployed in.
-	operatorNs, err := k8sutil.GetOperatorNamespace()
+	depOperatorNs, err := k8sutil.GetOperatorNamespace()
 	if err != nil {
-		log.Error(err, "")
+		log.Error(err, "Failed to get operator namespace")
+		os.Exit(1)
+	}
+
+	// Get the namespace the operator should be deployed in.
+	operatorNsEnv, err := hcoutil.GetOperatorNamespaceFromEnv()
+	if err != nil {
+		log.Error(err, "Failed to get operator namespace from the environment")
+		os.Exit(1)
+	}
+
+	if depOperatorNs != operatorNsEnv {
+		log.Error(
+			fmt.Errorf("Operator running in different namespace than expected"),
+			fmt.Sprintf("Please re-deploy this operator into %v namespace", operatorNsEnv),
+			"Expected.Namespace", operatorNsEnv,
+			"Deployed.Namespace", depOperatorNs,
+		)
 		os.Exit(1)
 	}
 
@@ -110,7 +128,7 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:          namespace,
+		Namespace:          watchNamespace,
 		MapperProvider:     restmapper.NewDynamicRESTMapper,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 	})
@@ -158,7 +176,7 @@ func main() {
 	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
 	// necessary to configure Prometheus to scrape metrics from this operator.
 	services := []*corev1.Service{service}
-	_, err = metrics.CreateServiceMonitors(cfg, operatorNs, services)
+	_, err = metrics.CreateServiceMonitors(cfg, depOperatorNs, services)
 	if err != nil {
 		log.Info("Could not create ServiceMonitor object", "error", err.Error())
 		// If this operator is deployed to a cluster without the prometheus-operator running, it will return

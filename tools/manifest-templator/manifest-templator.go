@@ -107,6 +107,7 @@ func main() {
 	// same service account multiple times.
 	deployments := []appsv1.Deployment{
 		components.GetDeployment(
+			*operatorNamespace,
 			*operatorImage,
 			"IfNotPresent",
 			*imsConversionImage,
@@ -276,7 +277,7 @@ func main() {
 
 	// Write out CRDs and CR
 	util.MarshallObject(components.GetOperatorCR(), operatorCr)
-	util.MarshallObject(components.GetOperatorCRD(), operatorCrd)
+	util.MarshallObject(components.GetOperatorCRD(*operatorNamespace), operatorCrd)
 	util.MarshallObject(components.GetV2VCRD(), v2vCrd)
 
 	// Write out deployments

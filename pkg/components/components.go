@@ -41,7 +41,7 @@ type StrategyDetailsDeployment struct {
 
 const hcoName = "hyperconverged-cluster-operator"
 
-func GetDeployment(image, imagePullPolicy, conversionContainer, vmwareContainerString string) appsv1.Deployment {
+func GetDeployment(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString string) appsv1.Deployment {
 	return appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -53,11 +53,11 @@ func GetDeployment(image, imagePullPolicy, conversionContainer, vmwareContainerS
 				"name": hcoName,
 			},
 		},
-		Spec: GetDeploymentSpec(image, imagePullPolicy, conversionContainer, vmwareContainerString),
+		Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString),
 	}
 }
 
-func GetDeploymentSpec(image, imagePullPolicy, conversionContainer, vmwareContainer string) appsv1.DeploymentSpec {
+func GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer string) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
 		Replicas: int32Ptr(1),
 		Selector: &metav1.LabelSelector{
@@ -107,12 +107,8 @@ func GetDeploymentSpec(image, imagePullPolicy, conversionContainer, vmwareContai
 								Value: hcoName,
 							},
 							{
-								Name: "OPERATOR_NAMESPACE",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "metadata.namespace",
-									},
-								},
+								Name:  "OPERATOR_NAMESPACE",
+								Value: namespace,
 							},
 							{
 								Name: "POD_NAME",
@@ -402,7 +398,7 @@ func GetClusterRoleBinding(namespace string) rbacv1.ClusterRoleBinding {
 	}
 }
 
-func GetOperatorCRD() *extv1beta1.CustomResourceDefinition {
+func GetOperatorCRD(namespace string) *extv1beta1.CustomResourceDefinition {
 	return &extv1beta1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apiextensions.k8s.io/v1beta1",
@@ -436,6 +432,25 @@ func GetOperatorCRD() *extv1beta1.CustomResourceDefinition {
 
 			Subresources: &extv1beta1.CustomResourceSubresources{
 				Status: &extv1beta1.CustomResourceSubresourceStatus{},
+			},
+
+			Validation: &extv1beta1.CustomResourceValidation{
+				OpenAPIV3Schema: &extv1beta1.JSONSchemaProps{
+					Properties: map[string]extv1beta1.JSONSchemaProps{
+						"metadata": {
+							Properties: map[string]extv1beta1.JSONSchemaProps{
+								"name": extv1beta1.JSONSchemaProps{
+									Type:    "string",
+									Pattern: hcov1alpha1.HyperConvergedName,
+								},
+								"namespace": extv1beta1.JSONSchemaProps{
+									Type:    "string",
+									Pattern: namespace,
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -488,12 +503,12 @@ func GetOperatorCR() *hcov1alpha1.HyperConverged {
 }
 
 // GetInstallStrategyBase returns the basics of an HCO InstallStrategy
-func GetInstallStrategyBase(image, imagePullPolicy, conversionContainer, vmwareContainer string) *StrategyDetailsDeployment {
+func GetInstallStrategyBase(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer string) *StrategyDetailsDeployment {
 	return &StrategyDetailsDeployment{
 		DeploymentSpecs: []StrategyDeploymentSpec{
 			StrategyDeploymentSpec{
 				Name: "hco-operator",
-				Spec: GetDeploymentSpec(image, imagePullPolicy, conversionContainer, vmwareContainer),
+				Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer),
 			},
 		},
 		Permissions: []StrategyDeploymentPermissions{},
@@ -507,14 +522,14 @@ func GetInstallStrategyBase(image, imagePullPolicy, conversionContainer, vmwareC
 }
 
 // GetCSVBase returns a base HCO CSV without an InstallStrategy
-func GetCSVBase(name, hcCRNamespace, displayName, description, image, replaces string, version semver.Version, crdDisplay string) *csvv1alpha1.ClusterServiceVersion {
+func GetCSVBase(name, namespace, displayName, description, image, replaces string, version semver.Version, crdDisplay string) *csvv1alpha1.ClusterServiceVersion {
 	almExamples, _ := json.Marshal([]interface{}{
 		map[string]interface{}{
 			"apiVersion": "hco.kubevirt.io/v1alpha1",
 			"kind":       "HyperConverged",
 			"metadata": map[string]string{
 				"name":      "kubevirt-hyperconverged",
-				"namespace": hcCRNamespace,
+				"namespace": namespace,
 			},
 			"spec": map[string]interface{}{
 				"BareMetalPlatform": false,
@@ -540,7 +555,7 @@ func GetCSVBase(name, hcCRNamespace, displayName, description, image, replaces s
 				"description":    description,
 				"repository":     "https://github.com/kubevirt/hyperconverged-cluster-operator",
 				"support":        "false",
-				"operatorframework.io/suggested-namespace": hcCRNamespace,
+				"operatorframework.io/suggested-namespace": namespace,
 			},
 		},
 		Spec: csvv1alpha1.ClusterServiceVersionSpec{

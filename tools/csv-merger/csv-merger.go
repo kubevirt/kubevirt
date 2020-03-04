@@ -89,7 +89,7 @@ var (
 
 func gen_hco_crds() {
 	// Write out CRDs and CR
-	util.MarshallObject(components.GetOperatorCRD(), os.Stdout)
+	util.MarshallObject(components.GetOperatorCRD(*namespace), os.Stdout)
 	util.MarshallObject(components.GetV2VCRD(), os.Stdout)
 }
 
@@ -138,6 +138,7 @@ func main() {
 
 		// This is the base deployment + rbac for the HCO CSV
 		installStrategyBase := components.GetInstallStrategyBase(
+			*namespace,
 			*operatorImage,
 			"IfNotPresent",
 			*imsConversionImage,

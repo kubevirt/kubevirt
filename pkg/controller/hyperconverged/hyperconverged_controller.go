@@ -28,6 +28,7 @@ import (
 	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 
@@ -45,9 +46,6 @@ const (
 	// We cannot set owner reference of cluster-wide resources to namespaced HyperConverged object. Therefore,
 	// use finalizers to manage the cleanup.
 	FinalizerName = "hyperconvergeds.hco.kubevirt.io"
-
-	HyperConvergedName   = "kubevirt-hyperconverged"
-	OperatorNamespaceEnv = "OPERATOR_NAMESPACE"
 
 	// UndefinedNamespace is for cluster scoped resources
 	UndefinedNamespace string = ""
@@ -1206,14 +1204,14 @@ func isKVMAvailable() bool {
 // getHyperconverged returns the name/namespace of the HyperConverged resource
 func getHyperconverged() (types.NamespacedName, error) {
 	hco := types.NamespacedName{
-		Name: HyperConvergedName,
+		Name: hcov1alpha1.HyperConvergedName,
 	}
 
-	if namespace, ok := os.LookupEnv(OperatorNamespaceEnv); ok {
-		hco.Namespace = namespace
-	} else {
-		return hco, fmt.Errorf("%s unset or empty in environment", OperatorNamespaceEnv)
+	namespace, err := hcoutil.GetOperatorNamespaceFromEnv()
+	if err != nil {
+		return hco, err
 	}
+	hco.Namespace = namespace
 
 	return hco, nil
 }

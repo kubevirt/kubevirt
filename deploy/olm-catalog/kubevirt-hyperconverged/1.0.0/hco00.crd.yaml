@@ -19,6 +19,17 @@ spec:
   scope: Namespaced
   subresources:
     status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        metadata:
+          properties:
+            name:
+              pattern: kubevirt-hyperconverged
+              type: string
+            namespace:
+              pattern: kubevirt-hyperconverged
+              type: string
   version: v1alpha1
   versions:
   - name: v1alpha1

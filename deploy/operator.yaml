@@ -26,9 +26,7 @@ spec:
         - name: OPERATOR_NAME
           value: hyperconverged-cluster-operator
         - name: OPERATOR_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
+          value: kubevirt-hyperconverged
         - name: POD_NAME
           valueFrom:
             fieldRef:
