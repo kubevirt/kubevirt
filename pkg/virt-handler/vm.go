@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
@@ -58,7 +59,6 @@ import (
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -842,6 +842,27 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 	return nil
 }
 
+// Legacy, remove once we're certain we are no longer supporting
+// VMIs running with the old graceful shutdown trigger logic
+func gracefulShutdownTriggerFromNamespaceName(baseDir string, namespace string, name string) string {
+	triggerFile := namespace + "_" + name
+	return filepath.Join(baseDir, "graceful-shutdown-trigger", triggerFile)
+}
+
+// Legacy, remove once we're certain we are no longer supporting
+// VMIs running with the old graceful shutdown trigger logic
+func vmGracefulShutdownTriggerClear(baseDir string, vmi *v1.VirtualMachineInstance) error {
+	triggerFile := gracefulShutdownTriggerFromNamespaceName(baseDir, vmi.Namespace, vmi.Name)
+	return diskutils.RemoveFile(triggerFile)
+}
+
+// Legacy, remove once we're certain we are no longer supporting
+// VMIs running with the old graceful shutdown trigger logic
+func vmHasGracefulShutdownTrigger(baseDir string, vmi *v1.VirtualMachineInstance) (bool, error) {
+	triggerFile := gracefulShutdownTriggerFromNamespaceName(baseDir, vmi.Namespace, vmi.Name)
+	return diskutils.FileExists(triggerFile)
+}
+
 // Determine if gracefulShutdown has been triggered by virt-launcher
 func (d *VirtualMachineController) hasGracefulShutdownTrigger(vmi *v1.VirtualMachineInstance, domain *api.Domain) (bool, error) {
 
@@ -855,7 +876,7 @@ func (d *VirtualMachineController) hasGracefulShutdownTrigger(vmi *v1.VirtualMac
 
 	// Fallback to detecting the old way of reporting gracefulshutdown, via file.
 	// We keep this around in order to ensure backwards compatibility
-	return virtlauncher.VmHasGracefulShutdownTrigger(d.virtShareDir, vmi)
+	return vmHasGracefulShutdownTrigger(d.virtShareDir, vmi)
 }
 
 func (d *VirtualMachineController) defaultExecute(key string,
@@ -1116,7 +1137,7 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	// If the VMI is using the old graceful shutdown trigger on
 	// a hostmount, make sure to clear that file still.
-	err := virtlauncher.VmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
+	err := vmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
 	if err != nil {
 		return err
 	}

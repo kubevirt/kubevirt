@@ -57,11 +57,12 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 const (
@@ -184,7 +185,22 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	virtlauncher.InitializeSharedDirectories(app.VirtShareDir)
+	// Legacy directory for watchdog files
+	err = os.MkdirAll(watchdog.WatchdogFileDirectory(app.VirtShareDir), 0755)
+	if err != nil {
+		panic(err)
+	}
+
+	// Legacy Directory for graceful shutdown trigger files.
+	err = os.MkdirAll(filepath.Join(app.VirtShareDir, "graceful-shutdown-trigger"), 0755)
+	if err != nil {
+		panic(err)
+	}
+
+	err = os.MkdirAll(cmdclient.SocketsDirectory(app.VirtShareDir), 0755)
+	if err != nil {
+		panic(err)
+	}
 
 	app.namespace, err = clientutil.GetNamespace()
 	if err != nil {
@@ -201,9 +217,10 @@ func (app *virtHandlerApp) Run() {
 		glog.Fatalf("Error constructing migration tls config: %v", err)
 	}
 
+	// Legacy support, Remove this informer once we no longer support
+	// VMIs with graceful shutdown trigger
 	gracefulShutdownInformer := cache.NewSharedIndexInformer(
-		inotifyinformer.NewFileListWatchFromClient(
-			virtlauncher.GracefulShutdownTriggerDir(app.VirtShareDir)),
+		inotifyinformer.NewFileListWatchFromClient(filepath.Join(app.VirtShareDir, "graceful-shutdown-trigger")),
 		&virt_api.Domain{},
 		0,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})

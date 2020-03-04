@@ -54,7 +54,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -1618,13 +1617,14 @@ type MockGracefulShutdown struct {
 }
 
 func (m *MockGracefulShutdown) TriggerShutdown(vmi *v1.VirtualMachineInstance) {
-	Expect(os.MkdirAll(virtlauncher.GracefulShutdownTriggerDir(m.baseDir), os.ModePerm)).To(Succeed())
+	Expect(os.MkdirAll(filepath.Join(m.baseDir, "graceful-shutdown-trigger"), os.ModePerm)).To(Succeed())
 
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
-	triggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(m.baseDir, namespace, domain)
-	err := virtlauncher.GracefulShutdownTriggerInitiate(triggerFile)
+	triggerFile := gracefulShutdownTriggerFromNamespaceName(m.baseDir, namespace, domain)
+	f, err := os.Create(triggerFile)
 	Expect(err).NotTo(HaveOccurred())
+	f.Close()
 }
 
 type MockWatchdog struct {
