@@ -121,6 +121,9 @@ type VirtControllerApp struct {
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
 
+	vmisrvController *VMIServiceController
+	vmisrvInformer   cache.SharedIndexInformer
+
 	dataVolumeInformer cache.SharedIndexInformer
 
 	migrationController *MigrationController
@@ -226,6 +229,8 @@ func Execute() {
 	app.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
+	//FIXME(kunal): what to do with this?
+	app.vmisrvInformer = app.informerFactory.VMIService()
 
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
 
@@ -243,6 +248,7 @@ func Execute() {
 	app.initCommon()
 	app.initReplicaSet()
 	app.initVirtualMachines()
+	app.initVMIService()
 	app.initDisruptionBudgetController()
 	app.initEvacuationController()
 	go app.Run()
@@ -335,6 +341,7 @@ func (vca *VirtControllerApp) Run() {
 					go vca.vmiController.Run(vca.vmiControllerThreads, stop)
 					go vca.rsController.Run(vca.rsControllerThreads, stop)
 					go vca.vmController.Run(vca.vmControllerThreads, stop)
+					go vca.vmisrvController.Run(vca.vmControllerThreads, stop)
 					go vca.migrationController.Run(vca.migrationControllerThreads, stop)
 					cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 					close(vca.readyChan)
@@ -385,8 +392,6 @@ func (vca *VirtControllerApp) initCommon() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
 	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
-	//TODO (Kunal):
-	// Create VMIService controler.
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -400,6 +405,17 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 	vca.vmController = NewVMController(
 		vca.vmiInformer,
 		vca.vmInformer,
+		vca.dataVolumeInformer,
+		recorder,
+		vca.clientSet)
+}
+
+func (vca *VirtControllerApp) initVMIService() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "vmiservice-controller")
+
+	vca.vmisrvController = NewVMIServiceController(
+		vca.vmiInformer,
+		vca.vmisrvInformer,
 		vca.dataVolumeInformer,
 		recorder,
 		vca.clientSet)
