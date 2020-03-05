@@ -11,6 +11,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	netutils "k8s.io/utils/net"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/util"
@@ -144,7 +145,8 @@ func (v *virtHandlerConn) ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(consoleTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	return fmt.Sprintf(consoleTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
@@ -152,7 +154,8 @@ func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance) (string, er
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(vncTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	return fmt.Sprintf(vncTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) PauseURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
@@ -160,7 +163,8 @@ func (v *virtHandlerConn) PauseURI(vmi *virtv1.VirtualMachineInstance) (string, 
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(pauseTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	return fmt.Sprintf(pauseTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
@@ -168,7 +172,8 @@ func (v *virtHandlerConn) UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(unpauseTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	return fmt.Sprintf(unpauseTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) Pod() (pod *v1.Pod, err error) {
@@ -245,7 +250,15 @@ func (v *virtHandlerConn) GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (stri
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(guestInfoTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	return fmt.Sprintf(guestInfoTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+}
+
+func formatIpForUri(ip string) string {
+	if netutils.IsIPv6String(ip) {
+		return "[" + ip + "]"
+	}
+	return ip
 }
 
 func (v *virtHandlerConn) UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
