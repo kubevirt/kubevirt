@@ -3,6 +3,7 @@
 set -e
 
 source ${KUBEVIRTCI_PATH}/cluster/ephemeral-provider-common.sh
+source ${KUBEVIRTCI_PATH}/cluster/openshift-provider-common.sh
 
 function _port() {
     ${_cli} ports --prefix $provider_prefix --container-name cluster "$@"
@@ -53,4 +54,6 @@ function up() {
 
     # Make sure that local config is correct
     prepare_config
+
+    ln_kubeconfig
 }
