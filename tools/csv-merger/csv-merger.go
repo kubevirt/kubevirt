@@ -83,7 +83,9 @@ var (
 	namespace           = flag.String("namespace", "kubevirt-hyperconverged", "Namespace")
 	crdDisplay          = flag.String("crd-display", "KubeVirt HyperConverged Cluster", "Label show in OLM UI about the primary CRD")
 	csvOverrides        = flag.String("csv-overrides", "", "CSV like string with punctual changes that will be recursively applied (if possible)")
-	relatedImagesList   = flag.String("related-images-list", "",
+	visibleCRDList      = flag.String("visible-crds-list", "hyperconvergeds.hco.kubevirt.io,v2vvmwares.kubevirt.io,hostpathprovisioners.hostpathprovisioner.kubevirt.io",
+		"Comma separated list of all the CRDs that should be visible in OLM console")
+	relatedImagesList = flag.String("related-images-list", "",
 		"Comma separated list of all the images referred in the CSV (just the image pull URLs or eventually a set of 'image|name' collations)")
 )
 
@@ -220,6 +222,29 @@ func main() {
 
 			}
 		}
+
+		hidden_crds := []string{}
+		visible_crds := strings.Split(*visibleCRDList, ",")
+		for _, owned := range csvExtended.Spec.CustomResourceDefinitions.Owned {
+			found := false
+			for _, name := range visible_crds {
+				if owned.Name == name {
+					found = true
+				}
+			}
+			if !found {
+				hidden_crds = append(
+					hidden_crds,
+					owned.Name,
+				)
+			}
+		}
+
+		hidden_crds_j, err := json.Marshal(hidden_crds)
+		if err != nil {
+			panic(err)
+		}
+		csvExtended.Annotations["operators.operatorframework.io/internal-objects"] = string(hidden_crds_j)
 
 		dfound := false
 		efound := false
