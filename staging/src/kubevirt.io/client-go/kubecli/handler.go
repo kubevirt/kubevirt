@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -17,11 +18,16 @@ import (
 )
 
 const (
-	consoleTemplateURI   = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
-	vncTemplateURI       = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
-	pauseTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
-	unpauseTemplateURI   = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
-	guestInfoTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
+	consoleTemplateURI       = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
+	consoleTemplateIpv6URI   = "wss://[%s]:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
+	vncTemplateURI           = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
+	vncTemplateIpv6URI       = "wss://[%s]:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
+	pauseTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
+	pauseTemplateIpv6URI     = "https://[%s]:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
+	unpauseTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
+	unpauseTemplateIpv6URI   = "https://[%s]:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
+	guestInfoTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
+	guestInfoTemplateIpv6URI = "https://[%s]:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
 )
 
 func NewVirtHandlerClient(client KubevirtClient) VirtHandlerClient {
@@ -140,7 +146,12 @@ func (v *virtHandlerConn) ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(consoleTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	templateUri := consoleTemplateURI
+	if isIpv6(ip) {
+		templateUri = consoleTemplateIpv6URI
+	}
+	return fmt.Sprintf(templateUri, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
@@ -148,7 +159,12 @@ func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance) (string, er
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(vncTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	templateUri := vncTemplateURI
+	if isIpv6(ip) {
+		templateUri = vncTemplateIpv6URI
+	}
+	return fmt.Sprintf(templateUri, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) PauseURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
@@ -156,7 +172,12 @@ func (v *virtHandlerConn) PauseURI(vmi *virtv1.VirtualMachineInstance) (string, 
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(pauseTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	templateUri := pauseTemplateURI
+	if isIpv6(ip) {
+		templateUri = pauseTemplateIpv6URI
+	}
+	return fmt.Sprintf(templateUri, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
@@ -164,7 +185,12 @@ func (v *virtHandlerConn) UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(unpauseTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	templateUri := unpauseTemplateURI
+	if isIpv6(ip) {
+		templateUri = unpauseTemplateIpv6URI
+	}
+	return fmt.Sprintf(templateUri, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) Pod() (pod *v1.Pod, err error) {
@@ -241,5 +267,14 @@ func (v *virtHandlerConn) GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (stri
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(guestInfoTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	templateUri := guestInfoTemplateURI
+	if isIpv6(ip) {
+		templateUri = guestInfoTemplateIpv6URI
+	}
+	return fmt.Sprintf(templateUri, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+}
+
+func isIpv6(ip string) bool {
+	return strings.Contains(ip, ":")
 }
