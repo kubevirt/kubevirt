@@ -228,6 +228,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"action": "Indicates the type of action that is requested. e.g. Start or Stop",
+		"data":   "Provides additional data in order to perform the Action",
 		"uid":    "Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable",
 	}
 }
@@ -326,5 +327,11 @@ func (VirtualMachineInstanceFileSystemInfo) SwaggerDoc() map[string]string {
 func (VirtualMachineInstanceFileSystem) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "VirtualMachineInstanceFileSystem represents guest os disk",
+	}
+}
+
+func (RenameOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Options for a rename operation",
 	}
 }

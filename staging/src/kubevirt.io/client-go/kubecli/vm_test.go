@@ -187,6 +187,20 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	It("should rename a VM", func() {
+		server.AppendHandlers(
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("PUT", subVMIPath+"/rename"),
+				ghttp.RespondWith(http.StatusAccepted, nil),
+			),
+		)
+
+		err := client.VirtualMachine(k8sv1.NamespaceDefault).Rename("testvm", &virtv1.RenameOptions{NewName: "testvmnew"})
+
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+		Expect(err).ToNot(HaveOccurred())
+	})
+
 	AfterEach(func() {
 		server.Close()
 	})

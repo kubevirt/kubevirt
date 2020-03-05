@@ -140,6 +140,19 @@ func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *v1beta1.AdmissionRe
 		}
 	}
 
+	if len(causes) > 0 {
+		return causes, nil
+	}
+
+	causes = validateNoModificationsDuringRename(ar, vm)
+
+	// Adding this statement here so the next developer won't have to take care
+	// of errors when they add more functionality to this function, they will only have to
+	// add their code below it
+	if len(causes) > 0 {
+		return causes, nil
+	}
+
 	return causes, nil
 }
 
@@ -223,4 +236,64 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	}
 
 	return causes
+}
+
+func validateNoModificationsDuringRename(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	hasRenameReq := hasRenameRequest(vm)
+
+	// Prevent creation of VM with rename request
+	if ar.Operation == v1beta1.Create {
+		if hasRenameReq {
+			return append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Creating a VM with a rename request is not allowed",
+				Field:   k8sfield.NewPath("Status", "stateChangeRequests").String(),
+			})
+		}
+	} else if ar.Operation == v1beta1.Update {
+		existingVM := &v1.VirtualMachine{}
+		err := json.Unmarshal(ar.OldObject.Raw, existingVM)
+
+		if err != nil {
+			return append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeUnexpectedServerResponse,
+				Message: "Could not fetch old VM",
+			})
+		}
+
+		existingVMHasRenameReq := hasRenameRequest(existingVM)
+
+		if existingVMHasRenameReq {
+			return append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Modifying a VM during a rename process is not allowed",
+			})
+		}
+
+		// Reject rename requests if the VM is running
+		if hasRenameReq {
+			runningStatus, _ := vm.RunStrategy()
+			if runningStatus != v1.RunStrategyHalted {
+				return append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "Cannot rename a running VM",
+					Field:   k8sfield.NewPath("spec", "running").String(),
+				})
+			}
+		}
+	}
+
+	return causes
+}
+
+func hasRenameRequest(vm *v1.VirtualMachine) bool {
+	for _, req := range vm.Status.StateChangeRequests {
+		if req.Action == v1.RenameRequest {
+			return true
+		}
+	}
+
+	return false
 }

@@ -166,3 +166,15 @@ func (v *vm) Migrate(name string) error {
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "migrate")
 	return v.restClient.Put().RequestURI(uri).Do().Error()
 }
+
+func (v *vm) Rename(name string, options *v1.RenameOptions) error {
+	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "rename")
+
+	optsJson, err := json.Marshal(options)
+
+	if err != nil {
+		return err
+	}
+
+	return v.restClient.Put().RequestURI(uri).Body([]byte(optsJson)).Do().Error()
+}

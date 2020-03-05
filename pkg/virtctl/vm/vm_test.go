@@ -150,6 +150,28 @@ var _ = Describe("VirtualMachine", func() {
 		})
 	})
 
+	Context("rename", func() {
+		// All validations are done server-side
+		It("should initiate rename api call", func() {
+			vm := kubecli.NewMinimalVM(vmName)
+
+			kubecli.MockKubevirtClientInstance.
+				EXPECT().
+				VirtualMachine(k8smetav1.NamespaceDefault).
+				Return(vmInterface).
+				Times(1)
+
+			vmInterface.
+				EXPECT().
+				Rename(vm.Name, &v1.RenameOptions{NewName: vm.Name + "new"}).
+				Return(nil).
+				Times(1)
+
+			cmd := tests.NewVirtctlCommand("rename", vm.Name, vm.Name+"new")
+			Expect(cmd.Execute()).To(BeNil())
+		})
+	})
+
 	AfterEach(func() {
 		ctrl.Finish()
 	})

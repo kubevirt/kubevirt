@@ -86,6 +86,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].name"))
 	})
+
 	It("should accept valid vmi spec", func() {
 		vmi := v1.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -211,6 +212,196 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
+	})
+
+	Context("VM rename", func() {
+		var (
+			vm         *v1.VirtualMachine
+			ar         *v1beta1.AdmissionReview
+			running    bool
+			notRunning bool
+		)
+
+		BeforeEach(func() {
+			running = true
+			notRunning = false
+			vmName := "testvm"
+			vmi := v1.NewMinimalVMI(vmName)
+			vm = &v1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      vmName,
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: nil,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: vmi.Spec,
+					},
+				},
+			}
+		})
+
+		Context("vm creation", func() {
+			BeforeEach(func() {
+				ar = &v1beta1.AdmissionReview{
+					Request: &v1beta1.AdmissionRequest{
+						Operation: v1beta1.Create,
+						Resource:  webhooks.VirtualMachineGroupVersionResource,
+					},
+				}
+			})
+
+			It("should reject a VM with rename request", func() {
+				vm.Spec.Running = &notRunning
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameRequest,
+							Data: map[string]string{
+								"newName": "newName",
+							},
+						},
+					},
+				}
+
+				rawObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				ar.Request.Object.Raw = rawObject
+
+				resp := vmsAdmitter.Admit(ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes[0].Field).
+					To(Equal("Status.stateChangeRequests"))
+			})
+
+			It("should accept a VM with no rename requests", func() {
+				vm.Spec.Running = &notRunning
+				rawObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				ar.Request.Object.Raw = rawObject
+
+				resp := vmsAdmitter.Admit(ar)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+		})
+
+		Context("vm update/patch", func() {
+			BeforeEach(func() {
+				ar = &v1beta1.AdmissionReview{
+					Request: &v1beta1.AdmissionRequest{
+						Operation: v1beta1.Update,
+						Resource:  webhooks.VirtualMachineGroupVersionResource,
+					},
+				}
+			})
+
+			It("should accept a VM with rename request", func() {
+				rawOldObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				ar.Request.OldObject.Raw = rawOldObject
+
+				vm.Spec.Running = &notRunning
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameRequest,
+							Data: map[string]string{
+								"newName": "newName",
+							},
+						},
+					},
+				}
+
+				rawObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				ar.Request.Object.Raw = rawObject
+
+				resp := vmsAdmitter.Admit(ar)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+
+			It("should reject a running VM with rename request", func() {
+				vm.Spec.Running = &running
+
+				rawOldObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				ar.Request.OldObject.Raw = rawOldObject
+
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameRequest,
+							Data: map[string]string{
+								"newName": "newName",
+							},
+						},
+					},
+				}
+
+				rawObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				ar.Request.Object.Raw = rawObject
+
+				resp := vmsAdmitter.Admit(ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes[0].Field).
+					To(Equal("spec.running"))
+			})
+
+			It("should reject a VM with an active runStrategy and rename request", func() {
+				rawOldObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+				ar.Request.OldObject.Raw = rawOldObject
+
+				vm.Status = v1.VirtualMachineStatus{
+					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
+						{
+							Action: v1.RenameRequest,
+							Data: map[string]string{
+								"newName": "newName",
+							},
+						},
+					},
+				}
+
+				vm.Spec.Running = nil
+				runStrat := v1.RunStrategyManual
+				vm.Spec.RunStrategy = &runStrat
+				rawObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				ar.Request.Object.Raw = rawObject
+
+				resp := vmsAdmitter.Admit(ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+				Expect(resp.Result.Details.Causes[0].Field).
+					To(Equal("spec.running"))
+			})
+
+			It("should accept a VM with no rename requests", func() {
+				rawOldObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+				ar.Request.OldObject.Raw = rawOldObject
+
+				vm.Spec.Running = &notRunning
+				rawObject, err := json.Marshal(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				ar.Request.Object.Raw = rawObject
+
+				resp := vmsAdmitter.Admit(ar)
+				Expect(resp.Allowed).To(BeTrue())
+			})
+		})
 	})
 
 	Context("with Volume", func() {
