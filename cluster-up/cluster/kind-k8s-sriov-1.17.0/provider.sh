@@ -8,7 +8,7 @@ export KIND_NODE_IMAGE="kindest/node:v1.17.0"
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
 
 function up() {
-    cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+    cp $KIND_MANIFESTS_DIR/kind-sriov.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
     _fetch_kind
     prepare_workers
     # adding mounts to control plane, need them for sriov
