@@ -30,6 +30,17 @@ var _ = Describe("Isolation", func() {
 				string(vm.UID), true),
 			)
 			Expect(err).ToNot(HaveOccurred())
+			go func() {
+				for {
+					conn, err := socket.Accept()
+					if err != nil {
+						// closes when socket listener is closed
+						return
+					}
+					conn.Close()
+				}
+			}()
+
 		})
 
 		It("Should detect the PID of the test suite", func() {

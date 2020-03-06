@@ -35,6 +35,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -65,6 +66,8 @@ type PodIsolationDetector interface {
 	// Adjust system resources to run the passed VM
 	AdjustResources(vm *v1.VirtualMachineInstance) error
 }
+
+const isolationDialTimeout = 5
 
 type MountInfo struct {
 	DeviceContainingFile string
@@ -403,7 +406,7 @@ func (r *realIsolationResult) Controller() []string {
 }
 
 func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
-	sock, err := net.Dial("unix", socket)
+	sock, err := net.DialTimeout("unix", socket, time.Duration(isolationDialTimeout)*time.Second)
 	if err != nil {
 		return -1, err
 	}
