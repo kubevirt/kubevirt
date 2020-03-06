@@ -1,5 +1,5 @@
-#!/bin/bash -e
-set -x
+#!/usr/bin/env bash
+set -xe
 
 source ${KUBEVIRTCI_PATH}/cluster/kind/common.sh
 

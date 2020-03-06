@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -xe
 
 NODE_CMD="docker exec -it -d "
 export KIND_MANIFESTS_DIR="${KUBEVIRTCI_PATH}/cluster/kind/manifests"
@@ -151,7 +151,7 @@ function kind_up() {
     _fetch_kind
     prepare_workers
     setup_kind
-} 
+}
 
 function _kubectl() {
     ${KUBECTL} "$@"

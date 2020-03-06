@@ -1,4 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -xe
 
 get_sriov_pci_root_addresses() {
   for dir in $(find /sys/devices/ -name sriov_totalvfs -exec dirname {} \;); do

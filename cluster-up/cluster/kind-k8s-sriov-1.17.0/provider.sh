@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -xe
 
 export CLUSTER_NAME="sriov"
 export KIND_NODE_IMAGE="kindest/node:v1.17.0"
@@ -12,7 +12,7 @@ function up() {
     _fetch_kind
     prepare_workers
     # adding mounts to control plane, need them for sriov
-    cat >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml << EOF 
+    cat >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml << EOF
   extraMounts:
   - containerPath: /lib/modules
     hostPath: /lib/modules
