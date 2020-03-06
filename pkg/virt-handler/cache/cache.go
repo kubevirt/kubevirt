@@ -40,6 +40,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+const socketDialTimeout = 5
+
 func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store) cache.ListerWatcher {
 	d := &DomainWatcher{
 		backgroundWatcherStarted: false,
@@ -146,7 +148,7 @@ func (d *DomainWatcher) handleStaleSocketConnections() error {
 			continue
 		}
 
-		sock, err := net.DialTimeout("unix", socket, 3*time.Second)
+		sock, err := net.DialTimeout("unix", socket, time.Duration(socketDialTimeout)*time.Second)
 		if err == nil {
 			// socket is alive still
 			sock.Close()
