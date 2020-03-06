@@ -55,7 +55,7 @@ fi
 if [[ "$TARGET" =~ .*sriov.* ]]; then
   export KUBEVIRT_NUM_NODES=1 # to be sure the guest lands on the master node
 else
-  export KUBEVIRT_NUM_NODES=2 
+  export KUBEVIRT_NUM_NODES=2
 fi
 
 export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
@@ -280,9 +280,11 @@ elif [[ $TARGET =~ genie.* ]]; then
 elif [[ $TARGET =~ sriov.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=SRIOV"
 elif [[ $TARGET =~ gpu.* ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=GPU" 
+  ginko_params="$ginko_params --ginkgo.focus=GPU"
 elif [[ $TARGET =~ (okd|ocp).* ]]; then
   ginko_params="$ginko_params --ginkgo.skip=Genie|SRIOV|GPU"
+elif [[ $TARGET =~ ipv6.* ]]; then
+  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|GPU|.*slirp.*|.*bridge.*"
 else
   ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|GPU"
 fi
