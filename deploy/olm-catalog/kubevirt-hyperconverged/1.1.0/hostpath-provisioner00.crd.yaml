@@ -1,0 +1,55 @@
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    operator.hostpathprovisioner.kubevirt.io: ""
+  name: hostpathprovisioners.hostpathprovisioner.kubevirt.io
+spec:
+  group: hostpathprovisioner.kubevirt.io
+  names:
+    kind: HostPathProvisioner
+    listKind: HostPathProvisionerList
+    plural: hostpathprovisioners
+    shortNames:
+    - hpp
+    - hpps
+    singular: hostpathprovisioner
+  scope: Cluster
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            imagePullPolicy:
+              enum:
+              - Always
+              - IfNotPresent
+              - Never
+              type: string
+            imageRegistry:
+              type: string
+            imageTag:
+              type: string
+            pathConfig:
+              properties:
+                path:
+                  type: string
+                useNamingPrefix:
+                  enum:
+                  - "true"
+                  - "false"
+                  type: string
+              type: object
+          type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true

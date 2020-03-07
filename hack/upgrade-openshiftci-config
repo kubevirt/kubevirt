@@ -3,7 +3,7 @@
 HCO_OPERATOR_IMAGE=`eval echo ${IMAGE_FORMAT}`
 CI_IMAGE_URL_PREFIX=$(echo $HCO_OPERATOR_IMAGE | cut -d ":" -f 1)
 echo "CI_IMAGE_URL_PREFIX: $CI_IMAGE_URL_PREFIX"
-REGISTRY_IMAGE="quay.io/kubevirt/hco-container-registry:latest"
+REGISTRY_IMAGE="quay.io/kubevirt/hco-container-registry:latest" # TODO: handle a complex upgrade matrix
 REGISTRY_IMAGE_UPGRADE="${CI_IMAGE_URL_PREFIX}:hco-registry-upgrade"
 REGISTRY_IMAGE_URL_PREFIX=$CI_IMAGE_URL_PREFIX
 HCO_CATALOG_NAMESPACE="openshift-marketplace"

@@ -3,13 +3,13 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1alpha1","kind":"HyperConverged","metadata":{"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{"BareMetalPlatform":false}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1alpha1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"multus":{},"nmstate":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1alpha3","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"kubevirt.io/v1","kind":"KubevirtTemplateValidator","metadata":{"name":"kubevirt-template-validator","namespace":"kubevirt"},"spec":{"templateValidatorReplicas":2,"version":"v0.6.2"}},{"apiVersion":"kubevirt.io/v1","kind":"KubevirtCommonTemplatesBundle","metadata":{"name":"kubevirt-common-template-bundle"},"spec":{"version":"v0.7.0"}},{"apiVersion":"kubevirt.io/v1","kind":"KubevirtMetricsAggregation","metadata":{"name":"kubevirt-metrics-aggregation"},"spec":{"version":"v0.0.1"}},{"apiVersion":"kubevirt.io/v1","kind":"KubevirtNodeLabellerBundle","metadata":{"name":"kubevirt-node-labeller-bundle"},"spec":{"version":"v0.1.1"}},{"apiVersion":"cdi.kubevirt.io/v1alpha1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"kubevirt.io/v1alpha1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-xyz"},"spec":{"nodeName":"node02","reason":"Test
+    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1alpha1","kind":"HyperConverged","metadata":{"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{"BareMetalPlatform":false}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1alpha1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"multus":{},"nmstate":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1alpha3","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtCommonTemplatesBundle","metadata":{"name":"kubevirt-common-template-bundle"},"spec":{"version":"v0.7.0"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtMetricsAggregation","metadata":{"name":"kubevirt-metrics-aggregation"},"spec":{"version":"v0.0.1"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtNodeLabellerBundle","metadata":{"name":"kubevirt-node-labeller-bundle"},"spec":{"version":"v0.1.1"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtTemplateValidator","metadata":{"name":"kubevirt-template-validator","namespace":"kubevirt"},"spec":{"templateValidatorReplicas":2,"version":"v0.6.2"}},{"apiVersion":"cdi.kubevirt.io/v1alpha1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"kubevirt.io/v1alpha1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-xyz"},"spec":{"nodeName":"node02","reason":"Test
       node maintenance"}}]'
     capabilities: Full Lifecycle
     categories: OpenShift Optional
     certified: "false"
-    containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.0.0
-    createdAt: "2020-03-05 10:38:55"
+    containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.1.0
+    createdAt: "2020-03-05 13:43:05"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -76,10 +76,10 @@ metadata:
       KubeVirt is distributed under the
       [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.txt).
     operatorframework.io/suggested-namespace: kubevirt-hyperconverged
-    operators.operatorframework.io/internal-objects: '["networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","kubevirtcommontemplatesbundles.kubevirt.io","kubevirtmetricsaggregations.kubevirt.io","kubevirtnodelabellerbundles.kubevirt.io","kubevirttemplatevalidators.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.kubevirt.io"]'
+    operators.operatorframework.io/internal-objects: '["networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","kubevirtcommontemplatesbundles.ssp.kubevirt.io","kubevirtmetricsaggregations.ssp.kubevirt.io","kubevirtnodelabellerbundles.ssp.kubevirt.io","kubevirttemplatevalidators.ssp.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.kubevirt.io"]'
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: "false"
-  name: kubevirt-hyperconverged-operator.v1.0.0
+  name: kubevirt-hyperconverged-operator.v1.1.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -108,23 +108,23 @@ spec:
     - description: Represents a deployment of the predefined VM templates
       displayName: KubeVirt common templates
       kind: KubevirtCommonTemplatesBundle
-      name: kubevirtcommontemplatesbundles.kubevirt.io
+      name: kubevirtcommontemplatesbundles.ssp.kubevirt.io
       version: v1
     - description: Provide aggregation rules for core kubevirt metrics
       displayName: KubeVirt Metric Aggregation
       kind: KubevirtMetricsAggregation
-      name: kubevirtmetricsaggregations.kubevirt.io
+      name: kubevirtmetricsaggregations.ssp.kubevirt.io
       version: v1
     - description: Represents a deployment of Node labeller component
       displayName: KubeVirt Node labeller
       kind: KubevirtNodeLabellerBundle
-      name: kubevirtnodelabellerbundles.kubevirt.io
+      name: kubevirtnodelabellerbundles.ssp.kubevirt.io
       version: v1
     - description: Represents a deployment of admission control webhook to validate
         the KubeVirt templates
       displayName: KubeVirt Template Validator admission webhook
       kind: KubevirtTemplateValidator
-      name: kubevirttemplatevalidators.kubevirt.io
+      name: kubevirttemplatevalidators.ssp.kubevirt.io
       version: v1
     - description: Represents a CDI deployment
       displayName: CDI deployment
@@ -223,6 +223,12 @@ spec:
           - '*'
         - apiGroups:
           - cdi.kubevirt.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - ssp.kubevirt.io
           resources:
           - '*'
           verbs:
@@ -849,6 +855,7 @@ spec:
       - rules:
         - apiGroups:
           - kubevirt.io
+          - ssp.kubevirt.io
           - template.openshift.io
           resources:
           - '*'
@@ -1269,7 +1276,7 @@ spec:
                 env:
                 - name: KVM_EMULATION
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/hyperconverged-cluster-operator:1.0.0
+                  value: quay.io/kubevirt/hyperconverged-cluster-operator:1.1.0
                 - name: OPERATOR_NAME
                   value: hyperconverged-cluster-operator
                 - name: OPERATOR_NAMESPACE
@@ -1283,7 +1290,7 @@ spec:
                   value: quay.io/kubevirt/kubevirt-v2v-conversion:v2.0.0
                 - name: VMWARE_CONTAINER
                   value: quay.io/kubevirt/kubevirt-vmware:v2.0.0
-                image: quay.io/kubevirt/hyperconverged-cluster-operator:1.0.0
+                image: quay.io/kubevirt/hyperconverged-cluster-operator:1.1.0
                 imagePullPolicy: IfNotPresent
                 name: hyperconverged-cluster-operator
                 readinessProbe:
@@ -1421,7 +1428,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: IMAGE_REFERENCE
-                  value: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.19
+                  value: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.23
                 - name: WATCH_NAMESPACE
                 - name: KVM_INFO_TAG
                 - name: VALIDATOR_TAG
@@ -1431,7 +1438,7 @@ spec:
                 - name: IMAGE_NAME_PREFIX
                 - name: OPERATOR_NAME
                   value: kubevirt-ssp-operator
-                image: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.19
+                image: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.23
                 imagePullPolicy: Always
                 name: kubevirt-ssp-operator
                 ports:
@@ -1614,4 +1621,4 @@ spec:
     matchLabels:
       alm-owner-kubevirt: kubevirt-hyperconverged
       operated-by: kubevirt-hyperconverged
-  version: 1.0.0
+  version: 1.1.0

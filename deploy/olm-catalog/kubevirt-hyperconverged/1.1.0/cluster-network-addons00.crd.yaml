@@ -1,0 +1,33 @@
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io
+spec:
+  group: networkaddonsoperator.network.kubevirt.io
+  names:
+    kind: NetworkAddonsConfig
+    listKind: NetworkAddonsConfigList
+    plural: networkaddonsconfigs
+    singular: networkaddonsconfig
+  scope: Cluster
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          type: object
+        status:
+          type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true

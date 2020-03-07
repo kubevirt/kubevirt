@@ -1,0 +1,55 @@
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    operator.cdi.kubevirt.io: ""
+  name: cdis.cdi.kubevirt.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.phase
+    name: Phase
+    type: string
+  group: cdi.kubevirt.io
+  names:
+    categories:
+    - all
+    kind: CDI
+    listKind: CDIList
+    plural: cdis
+    shortNames:
+    - cdi
+    - cdis
+    singular: cdi
+  scope: Cluster
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            imagePullPolicy:
+              enum:
+              - Always
+              - IfNotPresent
+              - Never
+              type: string
+            uninstallStrategy:
+              enum:
+              - RemoveWorkloads
+              - BlockUninstallIfWorkloadsExist
+              type: string
+          type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
