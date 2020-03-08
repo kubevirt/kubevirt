@@ -725,9 +725,11 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(serverVMI.Status.Interfaces)).To(Equal(1))
 
-			By("checking ping to google")
-			pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
-			pingVirtualMachine(clientVMI, "google.com", "\\$ ")
+			if !strings.Contains(serverVMI.Status.Interfaces[0].IP, ":") { // TODO enable the check for ipv6
+				By("checking ping to google")
+				pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
+				pingVirtualMachine(clientVMI, "google.com", "\\$ ")
+			}
 
 			By("starting a tcp server")
 			err = tests.CheckForTextExpecter(serverVMI, []expect.Batcher{
