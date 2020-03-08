@@ -519,6 +519,21 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 							"summary": "No leading virt-operator was detected for the last 5 min.",
 						},
 					},
+					{
+						Record: "num_of_running_virt_handlers",
+						Expr:   intstr.FromString(fmt.Sprintf("sum(up{pod=~'virt-handler-.*', namespace='%s'})", ns)),
+					},
+					{
+						Alert: "VirtHandlerDaemonSetRolloutFailing",
+						Expr: intstr.FromString(
+							fmt.Sprintf("(%s - %s) != 0",
+								fmt.Sprintf("kube_daemonset_status_number_ready{namespace='%s', daemonset='virt-handler'}", ns),
+								fmt.Sprintf("kube_daemonset_status_desired_number_scheduled{namespace='%s', daemonset='virt-handler'}", ns))),
+						For: "15m",
+						Annotations: map[string]string{
+							"summary": "Some virt-handlers failed to roll out",
+						},
+					},
 				},
 			},
 		},
