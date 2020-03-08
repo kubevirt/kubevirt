@@ -44,6 +44,8 @@ import (
 	"strings"
 	"time"
 
+	netutils "k8s.io/utils/net"
+
 	expect "github.com/google/goexpect"
 	covreport "github.com/mfranczy/crd-rest-coverage/pkg/report"
 	. "github.com/onsi/ginkgo"
@@ -2640,6 +2642,46 @@ func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batc
 	return err
 }
 
+func configureIpv6OnVmi(vmi *v1.VirtualMachineInstance, expecter expect.Expecter) error {
+	eth0Exist := func(vmi *v1.VirtualMachineInstance) bool {
+		eth0Batch := append([]expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: "\\$ "},
+			&expect.BSnd{S: "ip a | grep -q eth0\n"},
+			&expect.BExp{R: "\\$ "},
+			&expect.BSnd{S: "echo $?\n"},
+			&expect.BExp{R: "0"}})
+		_, err := expecter.ExpectBatch(eth0Batch, 30*time.Second)
+		return err == nil
+	}
+
+	if (vmi.Status.Interfaces == nil || len(vmi.Status.Interfaces) == 0 || !netutils.IsIPv6String(vmi.Status.Interfaces[0].IP)) ||
+		(vmi.Spec.Domain.Devices.Interfaces == nil || len(vmi.Spec.Domain.Devices.Interfaces) == 0 || vmi.Spec.Domain.Devices.Interfaces[0].InterfaceBindingMethod.Masquerade == nil) ||
+		(vmi.Spec.Domain.Devices.AutoattachPodInterface != nil && !*vmi.Spec.Domain.Devices.AutoattachPodInterface) ||
+		!eth0Exist(vmi) {
+		return nil
+	}
+
+	ipv6Batch := append([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "sudo ip -6 addr add fd2e:f1fe:9490:a8ff::2/120 dev eth0\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "sleep 5\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "sudo ip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"}})
+	resp, err := expecter.ExpectBatch(ipv6Batch, 30*time.Second)
+
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("Configure ipv6: %v", resp)
+		expecter.Close()
+	}
+	return err
+}
+
 func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -2671,12 +2713,14 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		&expect.BSnd{S: "gocubsgo\n"},
 		&expect.BExp{R: "\\$"}})
 	resp, err := expecter.ExpectBatch(b, 180*time.Second)
+
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
 		expecter.Close()
 		return nil, err
 	}
-	return expecter, nil
+
+	return expecter, configureIpv6OnVmi(vmi, expecter)
 }
 
 func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
@@ -2686,6 +2730,7 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	if err != nil {
 		return nil, err
 	}
+
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},
@@ -2725,7 +2770,7 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		expecter.Close()
 		return expecter, err
 	}
-	return expecter, err
+	return expecter, configureIpv6OnVmi(vmi, expecter)
 }
 
 // ReLoggedInFedoraExpecter return prepared and ready to use console expecter for
