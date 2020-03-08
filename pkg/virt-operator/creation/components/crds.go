@@ -327,7 +327,9 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 					},
 					{
 						Record: "num_of_allocatable_nodes",
-						Expr:   intstr.FromString("count(count (kube_node_status_allocatable) by (node))"),
+						// Since we don't set any specific node label selector, any node with at least 1 NoSchedule
+						// effect will prevent our workloads from being scheduled on that node.
+						Expr: intstr.FromString("count(count (kube_node_status_allocatable) by (node)) - count(kube_node_spec_taint{effect='NoSchedule'})"),
 					},
 					{
 						Alert: "LowVirtAPICount",
