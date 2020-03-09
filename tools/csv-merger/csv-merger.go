@@ -83,7 +83,7 @@ var (
 	namespace           = flag.String("namespace", "kubevirt-hyperconverged", "Namespace")
 	crdDisplay          = flag.String("crd-display", "KubeVirt HyperConverged Cluster", "Label show in OLM UI about the primary CRD")
 	csvOverrides        = flag.String("csv-overrides", "", "CSV like string with punctual changes that will be recursively applied (if possible)")
-	visibleCRDList      = flag.String("visible-crds-list", "hyperconvergeds.hco.kubevirt.io,v2vvmwares.kubevirt.io,hostpathprovisioners.hostpathprovisioner.kubevirt.io",
+	visibleCRDList      = flag.String("visible-crds-list", "hyperconvergeds.hco.kubevirt.io,hostpathprovisioners.hostpathprovisioner.kubevirt.io",
 		"Comma separated list of all the CRDs that should be visible in OLM console")
 	relatedImagesList = flag.String("related-images-list", "",
 		"Comma separated list of all the images referred in the CSV (just the image pull URLs or eventually a set of 'image|name' collations)")

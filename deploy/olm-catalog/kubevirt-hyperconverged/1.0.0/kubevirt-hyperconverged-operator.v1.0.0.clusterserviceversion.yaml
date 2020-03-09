@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.0.0
-    createdAt: "2020-03-05 10:38:55"
+    createdAt: "2020-03-09 14:34:54"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -76,7 +76,7 @@ metadata:
       KubeVirt is distributed under the
       [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.txt).
     operatorframework.io/suggested-namespace: kubevirt-hyperconverged
-    operators.operatorframework.io/internal-objects: '["networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","kubevirtcommontemplatesbundles.kubevirt.io","kubevirtmetricsaggregations.kubevirt.io","kubevirtnodelabellerbundles.kubevirt.io","kubevirttemplatevalidators.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.kubevirt.io"]'
+    operators.operatorframework.io/internal-objects: '["v2vvmwares.kubevirt.io","networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","kubevirtcommontemplatesbundles.kubevirt.io","kubevirtmetricsaggregations.kubevirt.io","kubevirtnodelabellerbundles.kubevirt.io","kubevirttemplatevalidators.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.kubevirt.io"]'
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: "false"
   name: kubevirt-hyperconverged-operator.v1.0.0
