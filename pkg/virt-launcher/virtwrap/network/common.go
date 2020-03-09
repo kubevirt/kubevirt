@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"io/ioutil"
 	"net"
@@ -47,8 +48,10 @@ const randomMacGenerationAttempts = 10
 type VIF struct {
 	Name    string
 	IP      netlink.Addr
+	IPv6    netlink.Addr
 	MAC     net.HardwareAddr
 	Gateway net.IP
+	GatewayIpv6 net.IP
 	Routes  *[]netlink.Route
 	Mtu     uint16
 }
@@ -83,8 +86,11 @@ type NetworkHandler interface {
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions)
 	UseIptables() bool
-	IptablesNewChain(table, chain string) error
-	IptablesAppendRule(table, chain string, rulespec ...string) error
+	Ipv4NatEnabled() bool
+	Ipv6NatEnabled() bool
+	ConfigureIpv6Forwarding() error
+	IptablesNewChain(proto iptables.Protocol, table, chain string) error
+	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesNewChain(table, chain string) error
 	NftablesAppendRule(table, chain string, rulespec ...string) error
 	NftablesNewTable(table string) error
@@ -141,22 +147,50 @@ func (h *NetworkUtilsHandler) UseIptables() bool {
 
 	return true
 }
-func (h *NetworkUtilsHandler) IptablesNewChain(table, chain string) error {
-	iptablesObject, err := iptables.New()
+
+func (h *NetworkUtilsHandler) ConfigureIpv6Forwarding() error {
+	_, err := exec.Command("sysctl", "net.ipv6.conf.all.forwarding=1").CombinedOutput()
+	return err
+}
+
+func (h *NetworkUtilsHandler) Ipv4NatEnabled() bool {
+	lsmod, _ := exec.Command("lsmod").CombinedOutput()
+	lsmodString := string(lsmod)
+	if !strings.Contains(lsmodString, "iptable_nat") && !strings.Contains(lsmodString, "nf_nat_ipv4") {
+		log.Log.Errorf("no ipv4 support")
+		return false
+	}
+	return true
+}
+
+func (h *NetworkUtilsHandler) Ipv6NatEnabled() bool {
+	lsmod, _ := exec.Command("lsmod").CombinedOutput()
+	lsmodString := string(lsmod)
+	if !strings.Contains(lsmodString, "iptable_nat") && !strings.Contains(lsmodString, "nf_nat_ipv6") {
+		log.Log.Errorf("no ipv6 support")
+		return false
+	}
+	return true
+}
+
+func (h *NetworkUtilsHandler) IptablesNewChain(proto iptables.Protocol, table, chain string) error {
+	iptablesObject, err := iptables.NewWithProtocol(proto)
 	if err != nil {
 		return err
 	}
 
 	return iptablesObject.NewChain(table, chain)
 }
-func (h *NetworkUtilsHandler) IptablesAppendRule(table, chain string, rulespec ...string) error {
-	iptablesObject, err := iptables.New()
+
+func (h *NetworkUtilsHandler) IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error {
+	iptablesObject, err := iptables.NewWithProtocol(proto)
 	if err != nil {
 		return err
 	}
 
 	return iptablesObject.Append(table, chain, rulespec...)
 }
+
 func (h *NetworkUtilsHandler) NftablesNewChain(table, chain string) error {
 	output, err := exec.Command("nft", "add", "chain", "ip", table, chain).CombinedOutput()
 	if err != nil {
