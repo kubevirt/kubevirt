@@ -27,6 +27,7 @@ import (
 	"net"
 	"os"
 
+	"github.com/coreos/go-iptables/iptables"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -57,8 +58,16 @@ var _ = Describe("Pod Network", func() {
 	var masqueradeDummy *netlink.Dummy
 	var masqueradeGwStr string
 	var masqueradeGwAddr *netlink.Addr
+	var masqueradeGwIp string
 	var masqueradeVmStr string
 	var masqueradeVmAddr *netlink.Addr
+	var masqueradeVmIp string
+	var masqueradeIpv6GwStr string
+	var masqueradeIpv6GwAddr *netlink.Addr
+	var masqueradeGwIpv6 string
+	var masqueradeIpv6VmStr string
+	var masqueradeIpv6VmAddr *netlink.Addr
+	var masqueradeVmIpv6 string
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
@@ -97,20 +106,52 @@ var _ = Describe("Pod Network", func() {
 
 		masqueradeGwStr = "10.0.2.1/30"
 		masqueradeGwAddr, _ = netlink.ParseAddr(masqueradeGwStr)
+		masqueradeGwIp = masqueradeGwAddr.IP.String()
 		masqueradeVmStr = "10.0.2.2/30"
 		masqueradeVmAddr, _ = netlink.ParseAddr(masqueradeVmStr)
+		masqueradeVmIp = masqueradeVmAddr.IP.String()
+		masqueradeIpv6GwStr = "fd2e:f1fe:9490:a8ff::1/120"
+		masqueradeIpv6GwAddr, _ = netlink.ParseAddr(masqueradeIpv6GwStr)
+		masqueradeGwIpv6 = masqueradeIpv6GwAddr.IP.String()
+		masqueradeIpv6VmStr = "fd2e:f1fe:9490:a8ff::2/120"
+		masqueradeIpv6VmAddr, _ = netlink.ParseAddr(masqueradeIpv6VmStr)
+		masqueradeVmIpv6 = masqueradeIpv6VmAddr.IP.String()
 		masqueradeDummyName = fmt.Sprintf("%s-nic", api.DefaultBridgeName)
 		masqueradeDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: masqueradeDummyName}}
 		masqueradeTestNic = &VIF{Name: podInterface,
-			IP:      *masqueradeVmAddr,
-			MAC:     fakeMac,
-			Mtu:     1410,
-			Gateway: masqueradeGwAddr.IP.To4()}
+			IP:          *masqueradeVmAddr,
+			IPv6:        *masqueradeIpv6VmAddr,
+			MAC:         fakeMac,
+			Mtu:         1410,
+			Gateway:     masqueradeGwAddr.IP.To4(),
+			GatewayIpv6: masqueradeIpv6GwAddr.IP.To16()}
 	})
 
 	AfterEach(func() {
 		os.RemoveAll(tmpDir)
 	})
+
+	GetMasqueradeVmIp := func(protocol iptables.Protocol) string {
+		if protocol == iptables.ProtocolIPv4 {
+			return masqueradeVmIp
+		}
+		return masqueradeVmIpv6
+	}
+
+	GetMasqueradeGwIp := func(protocol iptables.Protocol) string {
+		if protocol == iptables.ProtocolIPv4 {
+			return masqueradeGwIp
+		}
+		return masqueradeGwIpv6
+	}
+
+	GetNftIpString := func(proto iptables.Protocol) string {
+		ipString := "ip"
+		if proto == iptables.ProtocolIPv6 {
+			ipString = "ip6"
+		}
+		return ipString
+	}
 
 	TestPodInterfaceIPBinding := func(vm *v1.VirtualMachineInstance, domain *api.Domain) {
 
@@ -134,48 +175,63 @@ var _ = Describe("Pod Network", func() {
 
 		// For masquerade tests
 		mockNetwork.EXPECT().ParseAddr(masqueradeGwStr).Return(masqueradeGwAddr, nil)
+		mockNetwork.EXPECT().ParseAddr(masqueradeIpv6GwStr).Return(masqueradeIpv6GwAddr, nil)
 		mockNetwork.EXPECT().ParseAddr(masqueradeVmStr).Return(masqueradeVmAddr, nil)
+		mockNetwork.EXPECT().ParseAddr(masqueradeIpv6VmStr).Return(masqueradeIpv6VmAddr, nil)
 		mockNetwork.EXPECT().LinkAdd(masqueradeDummy).Return(nil)
 		mockNetwork.EXPECT().LinkByName(masqueradeDummyName).Return(masqueradeDummy, nil)
 		mockNetwork.EXPECT().LinkSetUp(masqueradeDummy).Return(nil)
 		mockNetwork.EXPECT().GenerateRandomMac().Return(fakeMac, nil)
 		mockNetwork.EXPECT().LinkSetMaster(masqueradeDummy, bridgeTest).Return(nil)
 		mockNetwork.EXPECT().AddrAdd(bridgeTest, masqueradeGwAddr).Return(nil)
+		mockNetwork.EXPECT().AddrAdd(bridgeTest, masqueradeIpv6GwAddr).Return(nil)
 		mockNetwork.EXPECT().StartDHCP(masqueradeTestNic, masqueradeGwAddr, api.DefaultBridgeName, nil)
 		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMCIDR).Return("10.0.2.1/30", "10.0.2.2/30", nil)
+		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMIpv6CIDR).Return("fd2e:f1fe:9490:a8ff::1/120", "fd2e:f1fe:9490:a8ff::2/120", nil)
 		// Global nat rules using iptables
-		mockNetwork.EXPECT().IptablesNewChain("nat", gomock.Any()).Return(nil).AnyTimes()
-		mockNetwork.EXPECT().IptablesAppendRule("nat",
-			"POSTROUTING",
-			"-s",
-			"10.0.2.2",
-			"-j",
-			"MASQUERADE").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().IptablesAppendRule("nat",
-			"PREROUTING",
-			"-i",
-			"eth0",
-			"-j",
-			"KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().IptablesAppendRule("nat",
-			"POSTROUTING",
-			"-o",
-			"k6t-eth0",
-			"-j",
-			"KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().IptablesAppendRule("nat",
-			"KUBEVIRT_PREINBOUND",
-			"-j",
-			"DNAT",
-			"--to-destination",
-			"10.0.2.2").Return(nil).AnyTimes()
-		//Global net rules using nftable
-		mockNetwork.EXPECT().NftablesLoad("ipv4-nat").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().NftablesNewChain("nat", "KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().NftablesNewChain("nat", "KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().NftablesAppendRule("nat", "postrouting", "ip", "saddr", "10.0.2.2", "counter", "masquerade").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().NftablesAppendRule("nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
-		mockNetwork.EXPECT().NftablesAppendRule("nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
+		mockNetwork.EXPECT().ConfigureIpv6Forwarding().Return(nil)
+		mockNetwork.EXPECT().GetNftIpString(iptables.ProtocolIPv4).Return("ip").AnyTimes()
+		mockNetwork.EXPECT().GetNftIpString(iptables.ProtocolIPv6).Return("ip6").AnyTimes()
+		for _, proto := range ipProtocols() {
+			mockNetwork.EXPECT().IptablesNewChain(proto, "nat", gomock.Any()).Return(nil).AnyTimes()
+			mockNetwork.EXPECT().IptablesAppendRule(proto, "nat",
+				"POSTROUTING",
+				"-s",
+				GetMasqueradeVmIp(proto),
+				"-j",
+				"MASQUERADE").Return(nil).AnyTimes()
+			mockNetwork.EXPECT().IptablesAppendRule(proto, "nat",
+				"PREROUTING",
+				"-i",
+				"eth0",
+				"-j",
+				"KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
+			mockNetwork.EXPECT().IptablesAppendRule(proto, "nat",
+				"POSTROUTING",
+				"-o",
+				"k6t-eth0",
+				"-j",
+				"KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
+			mockNetwork.EXPECT().IptablesAppendRule(proto, "nat",
+				"KUBEVIRT_PREINBOUND",
+				"-j",
+				"DNAT",
+				"--to-destination",
+				GetMasqueradeVmIp(proto)).Return(nil).AnyTimes()
+			//Global net rules using nftable
+			ipVersionNum := "4"
+			if proto == iptables.ProtocolIPv6 {
+				ipVersionNum = "6"
+			}
+			mockNetwork.EXPECT().NftablesLoad(fmt.Sprintf("ipv%s-nat", ipVersionNum)).Return(nil).AnyTimes()
+			mockNetwork.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
+			mockNetwork.EXPECT().NftablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
+			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "postrouting", GetNftIpString(proto), "saddr", GetMasqueradeVmIp(proto), "counter", "masquerade").Return(nil).AnyTimes()
+			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "prerouting", "iifname", "eth0", "counter", "jump", "KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
+			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "postrouting", "oifname", "k6t-eth0", "counter", "jump", "KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
+			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND", "counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil)
+
+		}
 
 		err := SetupPodNetwork(vm, domain)
 		Expect(err).To(BeNil())
@@ -393,12 +449,9 @@ var _ = Describe("Pod Network", func() {
 		Context("Masquerade Plug", func() {
 			It("should define a new VIF bind to a bridge and create a default nat rule using iptables", func() {
 				// forward all the traffic
-				mockNetwork.EXPECT().UseIptables().Return(true).AnyTimes()
-				mockNetwork.EXPECT().IptablesAppendRule("nat",
-					"KUBEVIRT_PREINBOUND",
-					"-j",
-					"DNAT",
-					"--to-destination").Return(nil).AnyTimes()
+				mockNetwork.EXPECT().UseIptables().Return(true).Times(2)
+				mockNetwork.EXPECT().Ipv4NatEnabled().Return(true)
+				mockNetwork.EXPECT().Ipv6NatEnabled().Return(true)
 
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -408,26 +461,32 @@ var _ = Describe("Pod Network", func() {
 			})
 			It("should define a new VIF bind to a bridge and create a specific nat rule using iptables", func() {
 				// Forward a specific port
-				mockNetwork.EXPECT().UseIptables().Return(true).AnyTimes()
-				mockNetwork.EXPECT().IptablesAppendRule("nat",
-					"KUBEVIRT_POSTINBOUND",
-					"-p",
-					"tcp",
-					"--dport",
-					"80", "-j", "SNAT", "--to-source", "10.0.2.1").Return(nil).AnyTimes()
-				mockNetwork.EXPECT().IptablesAppendRule("nat",
-					"KUBEVIRT_PREINBOUND",
-					"-p",
-					"tcp",
-					"--dport",
-					"80", "-j", "DNAT", "--to-destination", "10.0.2.2").Return(nil).AnyTimes()
-				mockNetwork.EXPECT().IptablesAppendRule("nat",
-					"OUTPUT",
-					"-p",
-					"tcp",
-					"--dport",
-					"80", "--destination", "127.0.0.1",
-					"-j", "DNAT", "--to-destination", "10.0.2.2").Return(nil).AnyTimes()
+				mockNetwork.EXPECT().UseIptables().Return(true).Times(2)
+				mockNetwork.EXPECT().Ipv4NatEnabled().Return(true)
+				mockNetwork.EXPECT().Ipv6NatEnabled().Return(true)
+
+				for _, proto := range ipProtocols() {
+					mockNetwork.EXPECT().IptablesAppendRule("nat",
+						"KUBEVIRT_POSTINBOUND",
+						"-p",
+						"tcp",
+						"--dport",
+						"80", "-j", "SNAT", "--to-source", GetMasqueradeGwIp(proto)).Return(nil).AnyTimes()
+					mockNetwork.EXPECT().IptablesAppendRule("nat",
+						"KUBEVIRT_PREINBOUND",
+						"-p",
+						"tcp",
+						"--dport",
+						"80", "-j", "DNAT", "--to-destination", GetMasqueradeVmIp(proto)).Return(nil).AnyTimes()
+					mockNetwork.EXPECT().IptablesAppendRule("nat",
+						"OUTPUT",
+						"-p",
+						"tcp",
+						"--dport",
+						"80", "--destination", getLoopbackAdrress(proto),
+						"-j", "DNAT", "--to-destination", GetMasqueradeVmIp(proto)).Return(nil).AnyTimes()
+				}
+
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 				vm.Spec.Domain.Devices.Interfaces[0].Ports = []v1.Port{{Name: "test", Port: 80, Protocol: "TCP"}}
@@ -437,12 +496,9 @@ var _ = Describe("Pod Network", func() {
 			})
 			It("should define a new VIF bind to a bridge and create a default nat rule using nftables", func() {
 				// forward all the traffic
-				mockNetwork.EXPECT().UseIptables().Return(false).AnyTimes()
-				mockNetwork.EXPECT().NftablesAppendRule("nat",
-					"KUBEVIRT_PREINBOUND",
-					"counter",
-					"dnat",
-					"to", "10.0.2.2").Return(nil).AnyTimes()
+				mockNetwork.EXPECT().UseIptables().Return(false).Times(2)
+				mockNetwork.EXPECT().Ipv4NatEnabled().Return(true)
+				mockNetwork.EXPECT().Ipv6NatEnabled().Return(true)
 
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -452,26 +508,32 @@ var _ = Describe("Pod Network", func() {
 			})
 			It("should define a new VIF bind to a bridge and create a specific nat rule using nftables", func() {
 				// Forward a specific port
-				mockNetwork.EXPECT().UseIptables().Return(false).AnyTimes()
-				mockNetwork.EXPECT().NftablesAppendRule("nat",
-					"KUBEVIRT_POSTINBOUND",
-					"tcp",
-					"dport",
-					"80",
-					"counter", "snat", "to", "10.0.2.1").Return(nil).AnyTimes()
-				mockNetwork.EXPECT().NftablesAppendRule("nat",
-					"KUBEVIRT_PREINBOUND",
-					"tcp",
-					"dport",
-					"80",
-					"counter", "dnat", "to", "10.0.2.2").Return(nil).AnyTimes()
-				mockNetwork.EXPECT().NftablesAppendRule("nat",
-					"output",
-					"ip", "daddr", "127.0.0.1",
-					"tcp",
-					"dport",
-					"80",
-					"counter", "dnat", "to", "10.0.2.2").Return(nil).AnyTimes()
+				mockNetwork.EXPECT().UseIptables().Return(false).Times(2)
+				mockNetwork.EXPECT().Ipv4NatEnabled().Return(true)
+				mockNetwork.EXPECT().Ipv6NatEnabled().Return(true)
+
+				for _, proto := range ipProtocols() {
+					mockNetwork.EXPECT().NftablesAppendRule("nat",
+						"KUBEVIRT_POSTINBOUND",
+						"tcp",
+						"dport",
+						"80",
+						"counter", "snat", "to", GetMasqueradeGwIp(proto)).Return(nil).AnyTimes()
+					mockNetwork.EXPECT().NftablesAppendRule("nat",
+						"KUBEVIRT_PREINBOUND",
+						"tcp",
+						"dport",
+						"80",
+						"counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil).AnyTimes()
+					mockNetwork.EXPECT().NftablesAppendRule("nat",
+						"output",
+						GetNftIpString(proto), "daddr", getLoopbackAdrress(proto),
+						"tcp",
+						"dport",
+						"80",
+						"counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil).AnyTimes()
+				}
+
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 				vm.Spec.Domain.Devices.Interfaces[0].Ports = []v1.Port{{Name: "test", Port: 80, Protocol: "TCP"}}
@@ -540,6 +602,10 @@ var _ = Describe("Pod Network", func() {
 		})
 	})
 })
+
+func ipProtocols() [2]iptables.Protocol {
+	return [2]iptables.Protocol{iptables.ProtocolIPv4, iptables.ProtocolIPv6}
+}
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMIWithNS(namespace, name)
