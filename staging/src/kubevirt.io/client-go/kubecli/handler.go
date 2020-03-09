@@ -10,16 +10,23 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	netutils "k8s.io/utils/net"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/util"
 )
 
 const (
-	consoleTemplateURI = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
-	vncTemplateURI     = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
-	pauseTemplateURI   = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
-	unpauseTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
+	consoleTemplateURI       = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
+	consoleTemplateIpv6URI   = "wss://[%s]:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
+	vncTemplateURI           = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
+	vncTemplateIpv6URI       = "wss://[%s]:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
+	pauseTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
+	pauseTemplateIpv6URI     = "https://[%s]:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
+	unpauseTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
+	unpauseTemplateIpv6URI   = "https://[%s]:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
+	guestInfoTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
+	guestInfoTemplateIpv6URI = "https://[%s]:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
 )
 
 func NewVirtHandlerClient(client KubevirtClient) VirtHandlerClient {
@@ -44,6 +51,7 @@ type VirtHandlerConn interface {
 	UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	Pod() (pod *v1.Pod, err error)
 	Put(url string, tlsConfig *tls.Config) error
+	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 }
 
 type virtHandler struct {
@@ -136,7 +144,8 @@ func (v *virtHandlerConn) ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(consoleTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	return fmt.Sprintf(consoleTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
@@ -144,7 +153,8 @@ func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance) (string, er
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(vncTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	return fmt.Sprintf(vncTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) PauseURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
@@ -152,7 +162,8 @@ func (v *virtHandlerConn) PauseURI(vmi *virtv1.VirtualMachineInstance) (string, 
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(pauseTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	return fmt.Sprintf(pauseTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
@@ -160,7 +171,8 @@ func (v *virtHandlerConn) UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(unpauseTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+
+	return fmt.Sprintf(unpauseTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) Pod() (pod *v1.Pod, err error) {
@@ -195,4 +207,20 @@ func (v *virtHandlerConn) Put(url string, tlsConfig *tls.Config) error {
 	}
 
 	return nil
+}
+
+func (v *virtHandlerConn) GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	ip, port, err := v.ConnectionDetails()
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf(guestInfoTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+}
+
+func formatIpForUri(ip string) string {
+	if netutils.IsIPv6String(ip) {
+		return "[" + ip + "]"
+	}
+	return ip
 }
