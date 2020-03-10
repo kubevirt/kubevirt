@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
-# This file is part of the KubeVirt project
+# Copyright 2018-2019 Red Hat, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,23 +13,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# Copyright 2019 Red Hat, Inc.
-#
 
-set -e
+set -ex
 
-if [ -z "$KUBEVIRTCI_PATH" ]; then
-    KUBEVIRTCI_PATH="$(
-        cd "$(dirname "$BASH_SOURCE[0]")/"
-        echo "$(pwd)/"
-    )"
-fi
+source ./cluster/kubevirtci.sh
+kubevirtci::install
 
-source ${KUBEVIRTCI_PATH}/hack/common.sh
-
-test -t 1 && USE_TTY="-it"
-source ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/provider.sh
-source ${KUBEVIRTCI_PATH}/hack/config.sh
-
-${_cli} --prefix $provider_prefix "$@"
+$(kubevirtci::path)/cluster-up/up.sh

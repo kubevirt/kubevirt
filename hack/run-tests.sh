@@ -3,11 +3,12 @@
 set -euo pipefail
 
 source hack/common.sh
+source cluster/kubevirtci.sh
 
 CSV_FILE=
 
 if [ "${JOB_TYPE}" == "stdci" ]; then
-    KUBECONFIG=${KUBEVIRTCI_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
+    KUBECONFIG=$(kubevirtci::kubeconfig)
     source ./hack/upgrade-stdci-config
 
     # check if CSV test is requested (if this is run right after upgrade-test.sh)
@@ -22,7 +23,7 @@ fi
 if [[ ${JOB_TYPE} = "prow" ]]; then
     export KUBECTL_BINARY="oc"
 else
-    export KUBECTL_BINARY="cluster-up/kubectl.sh"
+    export KUBECTL_BINARY="cluster/kubectl.sh"
 fi
 ./${TEST_OUT_PATH}/func-tests.test -ginkgo.v -test.timeout 120m -kubeconfig="${KUBECONFIG}" -installed-namespace=kubevirt-hyperconverged -cdi-namespace=kubevirt-hyperconverged
 

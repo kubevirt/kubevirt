@@ -14,14 +14,14 @@ cp -r deploy _out/
 # Sed from docker.io to local registry
 sed -i "s/image: quay\.io\/kubevirt\/hyperconverged-cluster-operator:latest/image: registry:5000\/kubevirt\/hyperconverged-cluster-operator:latest/g" _out/operator.yaml
 
-CMD="./cluster-up/kubectl.sh" ./hack/clean.sh
+CMD="./cluster/kubectl.sh" ./hack/clean.sh
 
 IMAGE_REGISTRY=$registry make container-build-operator container-push-operator
 
 nodes=()
 if [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
     for okd_node in "master-0" "worker-0"; do
-        node=$(./cluster-up/kubectl.sh get nodes | grep -o '[^ ]*'${okd_node}'[^ ]*')
+        node=$(./cluster/kubectl.sh get nodes | grep -o '[^ ]*'${okd_node}'[^ ]*')
         nodes+=(${node})
     done
     pull_command="podman"
@@ -35,11 +35,11 @@ fi
 docker ps -a
 
 for node in ${nodes[@]}; do
-    ./cluster-up/ssh.sh ${node} "echo registry:5000/kubevirt/hyperconverged-cluster-operator | xargs \-\-max-args=1 sudo ${pull_command} pull"
+    ./cluster/ssh.sh ${node} "echo registry:5000/kubevirt/hyperconverged-cluster-operator | xargs \-\-max-args=1 sudo ${pull_command} pull"
     # Temporary until image is updated with provisioner that sets this field
     # This field is required by buildah tool
-    ./cluster-up/ssh.sh ${node} "echo user.max_user_namespaces=1024 | xargs \-\-max-args=1 sudo sysctl -w"
+    ./cluster/ssh.sh ${node} "echo user.max_user_namespaces=1024 | xargs \-\-max-args=1 sudo sysctl -w"
 done
 
 # Deploy the HCO
-CMD="./cluster-up/kubectl.sh" HCO_IMAGE="registry:5000/kubevirt/hyperconverged-cluster-operator:latest" ./hack/deploy.sh
+CMD="./cluster/kubectl.sh" HCO_IMAGE="registry:5000/kubevirt/hyperconverged-cluster-operator:latest" ./hack/deploy.sh

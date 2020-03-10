@@ -31,12 +31,12 @@ export CONTAINER_TAG=latest
 make container-build-operator container-push-operator
 
 # check images are accessible
-CLUSTER_NODES=$(./cluster-up/kubectl.sh get nodes | grep Ready | cut -d ' ' -f 1)
+CLUSTER_NODES=$(./cluster/kubectl.sh get nodes | grep Ready | cut -d ' ' -f 1)
 for NODE in $CLUSTER_NODES; do
-    ./cluster-up/ssh.sh $NODE 'sudo podman pull registry:5000/kubevirt/hyperconverged-cluster-operator'
+    ./cluster/ssh.sh $NODE 'sudo podman pull registry:5000/kubevirt/hyperconverged-cluster-operator'
     # Temporary until image is updated with provisioner that sets this field
     # This field is required by buildah tool
-    ./cluster-up/ssh.sh $NODE 'sudo sysctl -w user.max_user_namespaces=1024'
+    ./cluster/ssh.sh $NODE 'sudo sysctl -w user.max_user_namespaces=1024'
 done
 
 # Build upgrade registry image
@@ -52,8 +52,8 @@ ls -al ./test-out
 
 
 # check images are accessible
-CLUSTER_NODES=$(./cluster-up/kubectl.sh get nodes | grep Ready | cut -d ' ' -f 1)
+CLUSTER_NODES=$(./cluster/kubectl.sh get nodes | grep Ready | cut -d ' ' -f 1)
 for NODE in $CLUSTER_NODES; do
-    ./cluster-up/ssh.sh $NODE 'sudo podman pull registry:5000/kubevirt/hco-registry-upgrade:latest'
+    ./cluster/ssh.sh $NODE 'sudo podman pull registry:5000/kubevirt/hco-registry-upgrade:latest'
 done
 

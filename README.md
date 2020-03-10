@@ -12,7 +12,7 @@ A unified operator combining the following projects:
 - [Cluster Network Addons](https://github.com/kubevirt/cluster-network-addons-operator)
 - [Node Maintenance](https://github.com/kubevirt/node-maintenance-operator)
 
-This operator doesn't replace or interfere with Operator Lifecycle Manager (OLM).    
+This operator doesn't replace or interfere with Operator Lifecycle Manager (OLM).
 It only creates operator CustomResources (CRs), which is a user functionality.
 
 ![](images/HCO-design.jpg)
@@ -120,10 +120,10 @@ kubectl create -f deploy/hco.cr.yaml -n kubevirt-hyperconverged
 ```
 
 ## Create a Cluster & Launch the HCO
-1. Choose the provider  
+1. Choose the provider
 ```bash
-#For k8s cluster:  
-$ export KUBEVIRT_PROVIDER="k8s-1.15.1"
+#For k8s cluster:
+$ export KUBEVIRT_PROVIDER="k8s-1.17"
 ```
 ```bash
 #For okd cluster:
@@ -147,8 +147,8 @@ $ make cluster-up
 $ make cluster-sync
 ```
 ### Command-Line Tool
-Use `./cluster-up/kubectl.sh` as the command-line tool.  
+Use `./cluster/kubectl.sh` as the command-line tool.
 For example:
 ```bash
-$ ./cluster-up/kubectl.sh get pods --all-namespaces
+$ ./cluster/kubectl.sh get pods --all-namespaces
 ```

@@ -58,16 +58,16 @@ container-push-operator:
 	docker push $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG)
 
 cluster-up:
-	./cluster-up/up.sh
+	./cluster/up.sh
 
 cluster-down:
-	./cluster-up/down.sh
+	./cluster/down.sh
 
 cluster-sync:
-	./cluster-up/sync.sh
+	./cluster/sync.sh
 
 cluster-clean:
-	CMD="./cluster-up/kubectl.sh" ./hack/clean.sh
+	CMD="./cluster/kubectl.sh" ./hack/clean.sh
 
 ci-functest: build-functest test-functional
 
@@ -98,6 +98,10 @@ upgrade-test:
 
 dump-state:
 	./hack/dump-state.sh 
+
+bump-kubevirtci:
+	rm -rf _kubevirtci
+	./hack/bump-kubevirtci.sh
 
 help: ## Show this help screen
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'

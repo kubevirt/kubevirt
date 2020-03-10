@@ -20,6 +20,7 @@
 set -e
 
 source hack/defaults
+source cluster/kubevirtci.sh
 
 CDI_OPERATOR_URL="https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator.yaml"
 KUBEVIRT_OPERATOR_URL="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-operator.yaml"
@@ -27,22 +28,14 @@ CNA_URL_PREFIX="https://github.com/kubevirt/cluster-network-addons-operator/rele
 
 mem_size=${KUBEVIRT_MEMORY_SIZE:-5120M}
 num_nodes=${KUBEVIRT_NUM_NODES:-1}
-KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.15.1}
+KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.17}
 BASE_PATH=${KUBEVIRTCI_CONFIG_PATH:-$PWD}
-KUBEVIRTCI_PATH=${KUBEVIRTCI_PATH:-}
+KUBEVIRTCI_PATH=$(kubevirtci::path)
 CMD=${CMD:-}
 KUBECTL=${KUBECTL:-}
 TEST_PATH="tests/func-tests"
 TEST_OUT_PATH=${TEST_PATH}/_out
 JOB_TYPE=${JOB_TYPE:-}
-
-
-if [ -z "${KUBEVIRTCI_PATH}" ]; then
-    KUBEVIRTCI_PATH="$(
-        cd "$(dirname "$BASH_SOURCE[0]")/../"
-        echo "$(pwd)/_ci-configs"
-    )"
-fi
 
 SSP_URL_PREFIX="https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_MANIFEST_VERSION}"
 

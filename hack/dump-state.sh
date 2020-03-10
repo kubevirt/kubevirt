@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CMD=${CMD:-./cluster-up/kubectl.sh}
+CMD=${CMD:-./cluster/kubectl.sh}
 
 function RunCmd {
     cmd=$@
@@ -114,6 +114,17 @@ EOF
 
 namespace=kubevirt-hyperconverged
 RunCmd "$CMD logs -n $namespace $($CMD get pods -n $namespace -l name=hyperconverged-cluster-operator -o name)"
+
+cat <<EOF
+
+============
+Catalog logs
+============
+EOF
+
+catalog_namespace=openshift-operator-lifecycle-manager
+RunCmd "$CMD logs -n $catalog_namespace $($CMD get pods -n $catalog_namespace | grep catalog-operator | head -1 | awk '{ print $1 }')"
+
 
 cat <<EOF
 

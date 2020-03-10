@@ -216,9 +216,10 @@ ${CMD} wait pod $CATALOG_OPERATOR_POD --for condition=Ready -n openshift-operato
 #  installedCSV: kubevirt-hyperconverged-operator.v100.0.0
 Msg "verify the subscription's currentCSV and installedCSV have moved to the new version"
 
-sleep 10
+sleep 60
 HCO_OPERATOR_POD=`${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator | head -1 | awk '{ print $1 }'`
 ${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverged --timeout="600s"
+
 ./hack/retry.sh 30 60 "${CMD} get subscriptions -n kubevirt-hyperconverged -o yaml | grep currentCSV | grep v100.0.0"
 ./hack/retry.sh 2 30 "${CMD} get subscriptions -n kubevirt-hyperconverged -o yaml | grep installedCSV | grep v100.0.0"
 
