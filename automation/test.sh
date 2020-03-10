@@ -34,7 +34,7 @@ readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
 if [[ $TARGET =~ windows.* ]]; then
-  export KUBEVIRT_PROVIDER="k8s-1.11.0"
+  echo "picking the default provider for windows tests"
 else
   export KUBEVIRT_PROVIDER=$TARGET
 fi
