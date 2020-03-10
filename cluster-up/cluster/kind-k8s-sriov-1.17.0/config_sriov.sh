@@ -37,11 +37,11 @@ function deploy_sriov_operator {
     export SRIOV_CNI_IMAGE=quay.io/openshift/origin-sriov-cni:${RELEASE_VERSION}
     export SRIOV_DEVICE_PLUGIN_IMAGE=quay.io/openshift/origin-sriov-network-device-plugin:${RELEASE_VERSION}
     export OPERATOR_EXEC=${KUBECTL}
-    export SHELL=/bin/bash  # on prow nodes the default shell is dash and some commands are not working
-    make deploy-setup-k8s
+    # on prow nodes the default shell is dash and some commands are not working
+    make SHELL=/bin/bash deploy-setup-k8s
   popd
 
-  pushd "${CSRCREATORPATH}" 
+  pushd "${CSRCREATORPATH}"
     go run . -namespace sriov-network-operator -secret operator-webhook-service -hook operator-webhook -kubeconfig $KUBECONFIG_PATH
     go run . -namespace sriov-network-operator -secret network-resources-injector-secret -hook network-resources-injector -kubeconfig $KUBECONFIG_PATH
   popd
