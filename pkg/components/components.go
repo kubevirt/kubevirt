@@ -352,6 +352,19 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 				"create",
 			},
 		},
+		{
+			APIGroups: []string{
+				"operators.coreos.com",
+			},
+			Resources: []string{
+				"clusterserviceversions",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
+			},
+		},
 	}
 }
 

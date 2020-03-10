@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/tools/reference"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -60,6 +61,13 @@ const (
 	reconcileCompletedMessage   = "Reconcile completed successfully"
 	invalidRequestReason        = "InvalidRequest"
 	invalidRequestMessageFormat = "Request does not match expected name (%v) and namespace (%v)"
+
+	ErrCDIUninstall       = "ErrCDIUninstall"
+	uninstallCDIErrorMsg  = "The uninstall request failed on CDI component: "
+	ErrVirtUninstall      = "ErrVirtUninstall"
+	uninstallVirtErrorMsg = "The uninstall request failed on virt component: "
+	ErrHCOUninstall       = "ErrHCOUninstall"
+	uninstallHCOErrorMsg  = "The uninstall request failed on dependent components, please check their logs."
 )
 
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -70,7 +78,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileHyperConverged{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileHyperConverged{client: mgr.GetClient(), scheme: mgr.GetScheme(), recorder: mgr.GetEventRecorderFor(hcov1alpha1.HyperConvergedName)}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -127,6 +135,7 @@ type ReconcileHyperConverged struct {
 	// that reads objects from the cache and writes to the apiserver
 	client     client.Client
 	scheme     *runtime.Scheme
+	recorder   record.EventRecorder
 	conditions []conditionsv1.Condition
 }
 
@@ -228,7 +237,10 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		}
 	} else {
 		if contains(instance.ObjectMeta.Finalizers, FinalizerName) {
-			for _, f := range []func(c client.Client, cr *hcov1alpha1.HyperConverged) error{
+			for i, f := range []func(c client.Client, cr *hcov1alpha1.HyperConverged) error{
+				// Keep ensuring that we are trying to delete
+				// protected resources first
+				ensureKubeVirtDeleted,
 				ensureCDIDeleted,
 				ensureNetworkAddonsDeleted,
 				ensureKubeVirtCommonTemplateBundleDeleted,
@@ -236,6 +248,33 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 				err = f(r.client, instance)
 				if err != nil {
 					reqLogger.Error(err, "Failed to manually delete objects")
+
+					// TODO: ask to other components to expose something like
+					// func IsDeleteRefused(err error) bool
+					// to be able to clearly distinguish between an explicit
+					// refuse from other operator and any other kind of error that
+					// could potentially happen in the process
+					errT := ErrHCOUninstall
+					errMsg := uninstallHCOErrorMsg
+					switch i {
+					case 0:
+						errT = ErrVirtUninstall
+						errMsg = uninstallVirtErrorMsg + err.Error()
+					case 1:
+						errT = ErrCDIUninstall
+						errMsg = uninstallCDIErrorMsg + err.Error()
+					}
+
+					errE := r.emitEvent(instance, reqLogger, corev1.EventTypeWarning, errT, errMsg)
+					if errE != nil {
+						reqLogger.Error(errE, "Failed emitting uninstall error event")
+					}
+
+					// TODO: implement a validating webhook to try to delete virt and CDI CRs
+					// in dry run mode before really accepting the deletion request.
+					// This event should still stay here because no strategy can ensure we are
+					// 100% race conditions free
+
 					return reconcile.Result{}, err
 				}
 			}
@@ -351,6 +390,32 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		}
 	}
 	return reconcile.Result{}, r.client.Status().Update(context.TODO(), instance)
+}
+
+func (r *ReconcileHyperConverged) emitEvent(instance *hcov1alpha1.HyperConverged, logger logr.Logger, kind string, errT string, errMsg string) error {
+	r.recorder.Event(instance, kind, errT, errMsg)
+
+	pod, pod_err := hcoutil.GetPod(r.client, logger)
+	if pod_err != nil {
+		if logger != nil {
+			logger.Error(pod_err, "Failed to identify HCO POD, emitting warning event only on hyperconverged instance")
+		}
+		return pod_err
+	}
+
+	r.recorder.Event(pod, kind, errT, errMsg)
+
+	csv, csv_err := hcoutil.GetCSVfromPod(pod, r.client, logger)
+	if csv_err != nil {
+		if logger != nil {
+			logger.Error(csv_err, "Failed to identify HCO CSV, emitting warning event only on HCO pod and hyperconverged instance")
+		}
+		return csv_err
+	}
+
+	r.recorder.Event(csv, kind, errT, errMsg)
+	return nil
+
 }
 
 func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
@@ -1275,17 +1340,46 @@ func componentResourceRemoval(o interface{}, c client.Client, cr *hcov1alpha1.Hy
 	return err
 }
 
+func ensureKubeVirtDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) error {
+	virt := newKubeVirtForCR(instance, instance.Namespace)
+	key, err := client.ObjectKeyFromObject(virt)
+	if err != nil {
+		log.Error(err, "Failed to get object key for KubeVirt")
+		return err
+	}
+
+	found := &kubevirtv1.KubeVirt{}
+	err = c.Get(context.TODO(), key, found)
+
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Info("KubeVirt resource doesn't exist, there is nothing to remove")
+			return nil
+		}
+		log.Error(err, "Failed to get KubeVirt from kubernetes")
+		return err
+	}
+
+	return componentResourceRemoval(found, c, instance)
+
+}
+
 func ensureCDIDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) error {
 	cdi := newCDIForCR(instance, UndefinedNamespace)
 	key, err := client.ObjectKeyFromObject(cdi)
 	if err != nil {
 		log.Error(err, "Failed to get object key for CDI")
+		return err
 	}
 
 	found := &cdiv1alpha1.CDI{}
 	err = c.Get(context.TODO(), key, found)
 
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Info("CDI resource doesn't exist, there is nothing to remove")
+			return nil
+		}
 		log.Error(err, "Failed to get CDI from kubernetes")
 		return err
 	}
@@ -1298,12 +1392,17 @@ func ensureNetworkAddonsDeleted(c client.Client, instance *hcov1alpha1.HyperConv
 	key, err := client.ObjectKeyFromObject(networkAddons)
 	if err != nil {
 		log.Error(err, "Failed to get object key for Network Addons")
+		return err
 	}
 
 	found := &networkaddonsv1alpha1.NetworkAddonsConfig{}
 	err = c.Get(context.TODO(), key, found)
 
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Info("NetworkAddonsConfig doesn't exist, there is nothing to remove")
+			return nil
+		}
 		log.Error(err, "Failed to get NetworkAddonsConfig from kubernetes")
 		return err
 	}
@@ -1317,12 +1416,17 @@ func ensureKubeVirtCommonTemplateBundleDeleted(c client.Client, instance *hcov1a
 	key, err := client.ObjectKeyFromObject(kvCTB)
 	if err != nil {
 		log.Error(err, "Failed to get object key for KubeVirt Common Templates Bundle")
+		return err
 	}
 
 	found := &sspv1.KubevirtCommonTemplatesBundle{}
 	err = c.Get(context.TODO(), key, found)
 
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Info("KubevirtCommonTemplatesBundle doesn't exist, there is nothing to remove")
+			return nil
+		}
 		log.Error(err, "Failed to get KubeVirt Common Templates Bundle from kubernetes")
 		return err
 	}

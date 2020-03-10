@@ -25,6 +25,7 @@ import (
 	sspopv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	csvv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	corev1 "k8s.io/api/core/v1"
@@ -145,6 +146,7 @@ func main() {
 		cdiv1alpha1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspopv1.AddToScheme,
+		csvv1alpha1.AddToScheme,
 	} {
 		if err := f(mgr.GetScheme()); err != nil {
 			log.Error(err, "Failed to add to scheme")

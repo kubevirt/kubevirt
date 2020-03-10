@@ -334,6 +334,14 @@ spec:
           verbs:
           - get
           - create
+        - apiGroups:
+          - operators.coreos.com
+          resources:
+          - clusterserviceversions
+          verbs:
+          - get
+          - list
+          - watch
         serviceAccountName: hyperconverged-cluster-operator
       - rules:
         - apiGroups:
