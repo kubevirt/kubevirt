@@ -41,11 +41,12 @@ var NetworkInterfaceFactory = getNetworkClass
 var podInterfaceName = podInterface
 
 type NetworkInterface interface {
+	PlugInitial(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, pid int, podInterfaceName string) error
 	Plug(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 	Unplug()
 }
 
-func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func getNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.Network, map[string]int) {
 	// prepare networks map
 	networks := map[string]*v1.Network{}
 	cniNetworks := map[string]int{}
@@ -59,32 +60,66 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			cniNetworks[network.Name] = len(cniNetworks)
 		}
 	}
+	return networks, cniNetworks
+}
 
+func getNetworkInterfaceFactory(networks map[string]*v1.Network, ifaceName string) (NetworkInterface, *v1.Network, error) {
+	network, ok := networks[ifaceName]
+	if !ok {
+		return nil, nil, fmt.Errorf("failed to find a network %s", ifaceName)
+	}
+	vif, err := NetworkInterfaceFactory(network)
+	if err != nil {
+		return nil, network, err
+	}
+	return vif, network, nil
+}
+
+func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
+	if networks[ifaceName].Multus != nil && !networks[ifaceName].Multus.Default {
+		// multus pod interfaces named netX
+		return fmt.Sprintf("net%d", cniNetworks[ifaceName])
+	} else if networks[ifaceName].Genie != nil {
+		// genie pod interfaces named ethX
+		return fmt.Sprintf("eth%d", cniNetworks[ifaceName])
+	} else {
+		return podInterface
+	}
+}
+
+func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		network, ok := networks[iface.Name]
-		if !ok {
-			return fmt.Errorf("failed to find a network %s", iface.Name)
-		}
-		networkInterfaceFactory, err := NetworkInterfaceFactory(network)
+		networkInterfaceFactory, network, err := getNetworkInterfaceFactory(networks, iface.Name)
 		if err != nil {
 			return err
 		}
 
-		if networks[iface.Name].Multus != nil && !networks[iface.Name].Multus.Default {
-			// multus pod interfaces named netX
-			podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
-		} else if networks[iface.Name].Genie != nil {
-			// genie pod interfaces named ethX
-			podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
-		} else {
-			podInterfaceName = podInterface
-		}
-
+		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
 		err = networkInterfaceFactory.Plug(vmi, &iface, network, domain, podInterfaceName)
 		if err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+// This method will be called from virt-handler, and will perform actions that require permissions that virt-launcher is lacking.
+func SetInitialNetworkConfig(vmi *v1.VirtualMachineInstance, pid int) error {
+	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		networkInterfaceFactory, network, err := getNetworkInterfaceFactory(networks, iface.Name)
+		if err != nil {
+			return err
+		}
+
+		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
+		err = networkInterfaceFactory.PlugInitial(vmi, &iface, network, pid, podInterfaceName)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

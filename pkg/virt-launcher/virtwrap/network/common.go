@@ -46,14 +46,14 @@ import (
 const randomMacGenerationAttempts = 10
 
 type VIF struct {
-	Name    string
-	IP      netlink.Addr
-	IPv6    netlink.Addr
-	MAC     net.HardwareAddr
-	Gateway net.IP
+	Name        string
+	IP          netlink.Addr
+	IPv6        netlink.Addr
+	MAC         net.HardwareAddr
+	Gateway     net.IP
 	GatewayIpv6 net.IP
-	Routes  *[]netlink.Route
-	Mtu     uint16
+	Routes      *[]netlink.Route
+	Mtu         uint16
 }
 
 func (vif VIF) String() string {
@@ -343,6 +343,7 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 }
 
 // Allow mocking for tests
+var SetupInitialNetworkConfig = SetInitialNetworkConfig
 var SetupPodNetwork = SetupNetworkInterfaces
 var DHCPServer = dhcp.SingleClientDHCPServer
 

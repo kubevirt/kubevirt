@@ -39,6 +39,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"github.com/containernetworking/plugins/pkg/ns"
 	ps "github.com/mitchellh/go-ps"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -223,6 +224,16 @@ type IsolationResult struct {
 	pid        int
 	slice      string
 	controller []string
+}
+
+func (r *IsolationResult) DoNetNS(f func() error) error {
+	netns, err := ns.GetNS(r.NetNamespace())
+	if err != nil {
+		return fmt.Errorf("failed to get launcher pod network namespace: %v", err)
+	}
+	return netns.Do(func(_ ns.NetNS) error {
+		return f()
+	})
 }
 
 func (r *IsolationResult) Slice() string {

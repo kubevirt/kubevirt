@@ -40,6 +40,7 @@ var bridgeFakeIP = "169.254.75.1%d/32"
 
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
+	SetInitialPodNetworkConfig() error
 	preparePodNetworkInterfaces() error
 	decorateConfig() error
 	loadCachedInterface(name string) (bool, error)
@@ -57,6 +58,24 @@ func findInterfaceByName(ifaces []api.Interface, name string) (int, error) {
 		}
 	}
 	return 0, fmt.Errorf("failed to find interface with alias set to %s", name)
+}
+
+// Plug connect a Pod network device to the virtual machine
+func (l *PodInterface) PlugInitial(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, pid int, podInterfaceName string) error {
+	initHandler()
+
+	// There is nothing to plug for SR-IOV devices
+	if iface.SRIOV != nil {
+		return nil
+	}
+
+	driver, err := getBinding(vmi, iface, network, nil, podInterfaceName)
+	if err != nil {
+		return err
+	}
+
+	return driver.SetInitialPodNetworkConfig()
+
 }
 
 // Plug connect a Pod network device to the virtual machine
@@ -109,9 +128,13 @@ func (l *PodInterface) Plug(vmi *v1.VirtualMachineInstance, iface *v1.Interface,
 }
 
 func getBinding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
-	podInterfaceNum, err := findInterfaceByName(domain.Spec.Devices.Interfaces, iface.Name)
-	if err != nil {
-		return nil, err
+	podInterfaceNum := 0
+	var err error = nil
+	if domain != nil {
+		podInterfaceNum, err = findInterfaceByName(domain.Spec.Devices.Interfaces, iface.Name)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	populateMacAddress := func(vif *VIF, iface *v1.Interface) error {
@@ -165,6 +188,10 @@ type BridgePodInterface struct {
 	podInterfaceNum     int
 	podInterfaceName    string
 	bridgeInterfaceName string
+}
+
+func (b *BridgePodInterface) SetInitialPodNetworkConfig() error {
+	return nil
 }
 
 func (b *BridgePodInterface) discoverPodNetworkInterface() error {
@@ -361,6 +388,19 @@ type MasqueradePodInterface struct {
 	gatewayIpv6Addr     *netlink.Addr
 }
 
+func (b *MasqueradePodInterface) SetInitialPodNetworkConfig() error {
+	//if Handler.Ipv6NatEnabled() {
+	err := Handler.ConfigureIpv6Forwarding()
+
+	if err != nil {
+		log.Log.Errorf("failed to turn on net.ipv6.conf.all.forwarding")
+		return err
+	}
+	//}
+
+	return nil
+}
+
 func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 	link, err := Handler.LinkByName(p.podInterfaceName)
 	if err != nil {
@@ -482,12 +522,6 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 	}
 
 	if Handler.Ipv6NatEnabled() {
-		err = Handler.ConfigureIpv6Forwarding()
-		if err != nil {
-			log.Log.Errorf("failed to turn on net.ipv6.conf.all.forwarding")
-			return err
-		}
-
 		err = p.createNatRules(iptables.ProtocolIPv6)
 		if err != nil {
 			log.Log.Errorf("failed to create ipv6 nat rules for vm error: %v", err)
@@ -775,6 +809,10 @@ type SlirpPodInterface struct {
 	iface           *v1.Interface
 	domain          *api.Domain
 	podInterfaceNum int
+}
+
+func (b *SlirpPodInterface) SetInitialPodNetworkConfig() error {
+	return nil
 }
 
 func (s *SlirpPodInterface) discoverPodNetworkInterface() error {

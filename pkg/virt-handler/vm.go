@@ -59,6 +59,7 @@ import (
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
@@ -125,6 +126,7 @@ func NewController(
 	})
 
 	c.launcherClients = make(map[string]cmdclient.LauncherClient)
+	c.InitialNetworkConfigCache = make(map[types.UID]int)
 
 	c.kvmController = device_manager.NewDeviceController(c.host, maxDevices)
 
@@ -151,6 +153,13 @@ type VirtualMachineController struct {
 	podIsolationDetector     isolation.PodIsolationDetector
 	containerDiskMounter     *container_disk.Mounter
 	clusterConfig            *virtconfig.ClusterConfig
+
+	// records if pod network initial-config has completed
+	// initial-config involves cycling an entire posix thread
+	// so for performance, knowing phase1 is complete
+	// prevents cycling an unncessary posix thread.
+	InitialNetworkConfigCache     map[types.UID]int
+	InitialNetworkConfigCacheLock sync.Mutex
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -232,6 +241,50 @@ func (d *VirtualMachineController) hasTargetDetectedDomain(vmi *v1.VirtualMachin
 	d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Duration(enqueueTime)*time.Second)
 
 	return false, timeLeft
+}
+
+// Reaching into the network namespace of the VMI's pod is expensive because
+// it results in killing/spawning a posix thread. Only do this if it
+// is absolutely necessary. The cache informs us if this action has
+// already taken place or not for a VMI
+func (d *VirtualMachineController) setInitialPodNetwork(vmi *v1.VirtualMachineInstance) error {
+
+	// configure network
+	res, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+	}
+
+	pid := res.Pid()
+
+	// check to see if we've already completed phase1 for this vmi
+	d.InitialNetworkConfigCacheLock.Lock()
+	cachedPid, ok := d.InitialNetworkConfigCache[vmi.UID]
+	d.InitialNetworkConfigCacheLock.Unlock()
+
+	if ok && cachedPid == pid {
+		// already completed phase1
+		return nil
+	}
+
+	err = res.DoNetNS(func() error { return network.SetupInitialNetworkConfig(vmi, pid) })
+	if err != nil {
+		return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
+	}
+
+	// cache that phase 1 has completed for this vmi.
+	d.InitialNetworkConfigCacheLock.Lock()
+	d.InitialNetworkConfigCache[vmi.UID] = pid
+	d.InitialNetworkConfigCacheLock.Unlock()
+
+	return nil
+}
+
+func (d *VirtualMachineController) clearInitialPodNetworkConfig(vmi *v1.VirtualMachineInstance) {
+	d.InitialNetworkConfigCacheLock.Lock()
+	defer d.InitialNetworkConfigCacheLock.Unlock()
+
+	delete(d.InitialNetworkConfigCache, vmi.UID)
 }
 
 func domainMigrated(domain *api.Domain) bool {
@@ -1051,6 +1104,8 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 		return err
 	}
 
+	d.clearInitialPodNetworkConfig(vmi)
+
 	// Watch dog file must be the last thing removed here
 	err = watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
 	if err != nil {
@@ -1414,6 +1469,11 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				return err
 			}
 
+			err = d.setInitialPodNetwork(vmi)
+			if err != nil {
+				return fmt.Errorf("failed to configure vmi network: %v", err)
+			}
+
 			if err := client.SyncMigrationTarget(vmi); err != nil {
 				return fmt.Errorf("syncing migration target failed: %v", err)
 
@@ -1454,6 +1514,12 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
 				return err
 			}
+
+			err = d.setInitialPodNetwork(vmi)
+			if err != nil {
+				return fmt.Errorf("failed to configure vmi network: %v", err)
+			}
+
 		}
 
 		err = d.podIsolationDetector.AdjustResources(vmi)
