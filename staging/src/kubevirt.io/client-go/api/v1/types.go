@@ -983,6 +983,8 @@ const (
 	CacheNone DriverCache = "none"
 	// CacheWriteThrough - I/O from the guest is cached on the host but written through to the physical medium.
 	CacheWriteThrough DriverCache = "writethrough"
+	// CacheWriteBack - I/O from the guest is cached on the host.
+	CacheWriteBack DriverCache = "writeback"
 )
 
 // Handler defines a specific action that should be taken
