@@ -15,13 +15,13 @@ github.com/Azure/go-autorest/tracing
 github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 github.com/PuerkitoBio/urlesc
-# github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
+# github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496
 github.com/asaskevich/govalidator
 # github.com/beorn7/perks v1.0.0
 github.com/beorn7/perks/quantile
 # github.com/blang/semver v3.5.1+incompatible
 github.com/blang/semver
-# github.com/coreos/go-iptables v0.4.3
+# github.com/coreos/go-iptables v0.4.5
 github.com/coreos/go-iptables/iptables
 # github.com/coreos/go-semver v0.3.0
 github.com/coreos/go-semver/semver
@@ -150,7 +150,7 @@ github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
 github.com/kr/logfmt
-# github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
+# github.com/krolaw/dhcp4 v0.0.0-20190909130307-a50d88189771
 github.com/krolaw/dhcp4
 github.com/krolaw/dhcp4/conn
 # github.com/libvirt/libvirt-go v5.0.0+incompatible
@@ -255,7 +255,7 @@ github.com/spf13/cobra
 github.com/spf13/pflag
 # github.com/subgraph/libmacouflage v0.0.1
 github.com/subgraph/libmacouflage
-# github.com/vishvananda/netlink v0.0.0-20180206203732-d35d6b58e1cb
+# github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc
@@ -556,7 +556,6 @@ k8s.io/client-go/plugin/pkg/client/auth/azure
 k8s.io/client-go/plugin/pkg/client/auth/gcp
 k8s.io/client-go/plugin/pkg/client/auth/oidc
 k8s.io/client-go/plugin/pkg/client/auth/openstack
-k8s.io/client-go/kubernetes/fake
 k8s.io/client-go/informers/admissionregistration
 k8s.io/client-go/informers/apps
 k8s.io/client-go/informers/auditregistration
@@ -576,6 +575,7 @@ k8s.io/client-go/informers/rbac
 k8s.io/client-go/informers/scheduling
 k8s.io/client-go/informers/settings
 k8s.io/client-go/informers/storage
+k8s.io/client-go/kubernetes/fake
 k8s.io/client-go/discovery/fake
 k8s.io/client-go/testing
 k8s.io/client-go/tools/auth
@@ -588,6 +588,40 @@ k8s.io/client-go/pkg/apis/clientauthentication/v1beta1
 k8s.io/client-go/util/connrotation
 k8s.io/client-go/tools/watch
 k8s.io/client-go/util/jsonpath
+k8s.io/client-go/informers/admissionregistration/v1
+k8s.io/client-go/informers/admissionregistration/v1beta1
+k8s.io/client-go/informers/apps/v1
+k8s.io/client-go/informers/apps/v1beta1
+k8s.io/client-go/informers/apps/v1beta2
+k8s.io/client-go/informers/auditregistration/v1alpha1
+k8s.io/client-go/informers/autoscaling/v1
+k8s.io/client-go/informers/autoscaling/v2beta1
+k8s.io/client-go/informers/autoscaling/v2beta2
+k8s.io/client-go/informers/batch/v1
+k8s.io/client-go/informers/batch/v1beta1
+k8s.io/client-go/informers/batch/v2alpha1
+k8s.io/client-go/informers/certificates/v1beta1
+k8s.io/client-go/informers/coordination/v1
+k8s.io/client-go/informers/coordination/v1beta1
+k8s.io/client-go/informers/core/v1
+k8s.io/client-go/informers/discovery/v1alpha1
+k8s.io/client-go/informers/events/v1beta1
+k8s.io/client-go/informers/extensions/v1beta1
+k8s.io/client-go/informers/networking/v1
+k8s.io/client-go/informers/networking/v1beta1
+k8s.io/client-go/informers/node/v1alpha1
+k8s.io/client-go/informers/node/v1beta1
+k8s.io/client-go/informers/policy/v1beta1
+k8s.io/client-go/informers/rbac/v1
+k8s.io/client-go/informers/rbac/v1alpha1
+k8s.io/client-go/informers/rbac/v1beta1
+k8s.io/client-go/informers/scheduling/v1
+k8s.io/client-go/informers/scheduling/v1alpha1
+k8s.io/client-go/informers/scheduling/v1beta1
+k8s.io/client-go/informers/settings/v1alpha1
+k8s.io/client-go/informers/storage/v1
+k8s.io/client-go/informers/storage/v1alpha1
+k8s.io/client-go/informers/storage/v1beta1
 k8s.io/client-go/kubernetes/typed/admissionregistration/v1/fake
 k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1/fake
 k8s.io/client-go/kubernetes/typed/apps/v1/fake
@@ -626,40 +660,6 @@ k8s.io/client-go/kubernetes/typed/settings/v1alpha1/fake
 k8s.io/client-go/kubernetes/typed/storage/v1/fake
 k8s.io/client-go/kubernetes/typed/storage/v1alpha1/fake
 k8s.io/client-go/kubernetes/typed/storage/v1beta1/fake
-k8s.io/client-go/informers/admissionregistration/v1
-k8s.io/client-go/informers/admissionregistration/v1beta1
-k8s.io/client-go/informers/apps/v1
-k8s.io/client-go/informers/apps/v1beta1
-k8s.io/client-go/informers/apps/v1beta2
-k8s.io/client-go/informers/auditregistration/v1alpha1
-k8s.io/client-go/informers/autoscaling/v1
-k8s.io/client-go/informers/autoscaling/v2beta1
-k8s.io/client-go/informers/autoscaling/v2beta2
-k8s.io/client-go/informers/batch/v1
-k8s.io/client-go/informers/batch/v1beta1
-k8s.io/client-go/informers/batch/v2alpha1
-k8s.io/client-go/informers/certificates/v1beta1
-k8s.io/client-go/informers/coordination/v1
-k8s.io/client-go/informers/coordination/v1beta1
-k8s.io/client-go/informers/core/v1
-k8s.io/client-go/informers/discovery/v1alpha1
-k8s.io/client-go/informers/events/v1beta1
-k8s.io/client-go/informers/extensions/v1beta1
-k8s.io/client-go/informers/networking/v1
-k8s.io/client-go/informers/networking/v1beta1
-k8s.io/client-go/informers/node/v1alpha1
-k8s.io/client-go/informers/node/v1beta1
-k8s.io/client-go/informers/policy/v1beta1
-k8s.io/client-go/informers/rbac/v1
-k8s.io/client-go/informers/rbac/v1alpha1
-k8s.io/client-go/informers/rbac/v1beta1
-k8s.io/client-go/informers/scheduling/v1
-k8s.io/client-go/informers/scheduling/v1alpha1
-k8s.io/client-go/informers/scheduling/v1beta1
-k8s.io/client-go/informers/settings/v1alpha1
-k8s.io/client-go/informers/storage/v1
-k8s.io/client-go/informers/storage/v1alpha1
-k8s.io/client-go/informers/storage/v1beta1
 k8s.io/client-go/tools/clientcmd/api/v1
 k8s.io/client-go/third_party/forked/golang/template
 k8s.io/client-go/listers/admissionregistration/v1
@@ -710,6 +710,7 @@ k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/scheme
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/util/proto
 # k8s.io/utils v0.0.0-20190801114015-581e00157fb1
+k8s.io/utils/net
 k8s.io/utils/buffer
 k8s.io/utils/trace
 k8s.io/utils/pointer
