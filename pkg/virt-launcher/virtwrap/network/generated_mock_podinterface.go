@@ -38,6 +38,16 @@ func (_mr *_MockBindMechanismRecorder) discoverPodNetworkInterface() *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "discoverPodNetworkInterface")
 }
 
+func (_m *MockBindMechanism) SetInitialPodNetworkConfig() error {
+	ret := _m.ctrl.Call(_m, "SetInitialPodNetworkConfig")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) SetInitialPodNetworkConfig() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetInitialPodNetworkConfig")
+}
+
 func (_m *MockBindMechanism) preparePodNetworkInterfaces() error {
 	ret := _m.ctrl.Call(_m, "preparePodNetworkInterfaces")
 	ret0, _ := ret[0].(error)
