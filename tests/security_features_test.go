@@ -22,6 +22,7 @@ package tests_test
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -76,6 +77,9 @@ var _ = Describe("SecurityFeatures", func() {
 
 			originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
 			Expect(err).ToNot(HaveOccurred())
+
+			// Allow time for virt-controller's ConfigMap cache to sync
+			time.Sleep(3 * time.Second)
 		}
 
 	})
@@ -100,6 +104,9 @@ var _ = Describe("SecurityFeatures", func() {
 
 					kubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
 					Expect(err).ToNot(HaveOccurred())
+
+					// Allow time for virt-controller's ConfigMap cache to sync
+					time.Sleep(3 * time.Second)
 				}
 
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
@@ -152,6 +159,9 @@ var _ = Describe("SecurityFeatures", func() {
 
 					kubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
 					Expect(err).ToNot(HaveOccurred())
+
+					// Allow time for virt-controller's ConfigMap cache to sync
+					time.Sleep(3 * time.Second)
 				}
 
 				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
