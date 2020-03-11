@@ -3,9 +3,9 @@ module kubevirt.io/kubevirt
 require (
 	github.com/Azure/go-autorest/autorest v0.9.1 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.6.0 // indirect
-	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
+	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/coreos/go-iptables v0.4.3
+	github.com/coreos/go-iptables v0.4.5
 	github.com/coreos/go-semver v0.3.0
 	github.com/coreos/prometheus-operator v0.35.0
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
@@ -33,7 +33,7 @@ require (
 	github.com/gorilla/websocket v1.4.0
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
-	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
+	github.com/krolaw/dhcp4 v0.0.0-20190909130307-a50d88189771
 	github.com/libvirt/libvirt-go v5.0.0+incompatible
 	github.com/mattn/go-colorable v0.1.1 // indirect
 	github.com/mattn/go-runewidth v0.0.0-20181218000649-703b5e6b11ae // indirect
@@ -52,7 +52,7 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/subgraph/libmacouflage v0.0.1
-	github.com/vishvananda/netlink v0.0.0-20180206203732-d35d6b58e1cb
+	github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
 	github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc // indirect
 	golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
 	golang.org/x/net v0.0.0-20190930134127-c5a3c61f89f3
