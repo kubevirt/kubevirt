@@ -1589,7 +1589,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueInvalid,
 						Message: fmt.Sprintf("Bus type %s is invalid for CD-ROM device", bus),
-						Field:   field.Child("domain", "devices", "disks").Index(idx).Child("cdrom", "bus").String(),
+						Field:   field.Index(idx).Child("cdrom", "bus").String(),
 					})
 
 				}

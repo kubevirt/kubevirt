@@ -2147,7 +2147,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].cdrom.bus"))
-			Expect(causes[0].Message).To(Equal("Bus type virtio is invalid for CD-ROM device."))
+			Expect(causes[0].Message).To(Equal("Bus type virtio is invalid for CD-ROM device"))
 		})
 
 		It("should accept a boot order greater than '0'", func() {
