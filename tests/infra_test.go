@@ -44,6 +44,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -53,6 +54,121 @@ var _ = Describe("Infrastructure", func() {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
+
+	// start a VMI, wait for it to run and return the node it runs on
+	startVMI := func(vmi *v1.VirtualMachineInstance) string {
+		By("Starting a new VirtualMachineInstance")
+		obj, err := virtClient.
+			RestClient().
+			Post().
+			Resource("virtualmachineinstances").
+			Namespace(tests.NamespaceTestDefault).
+			Body(vmi).
+			Do().Get()
+		Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+		By("Waiting until the VM is ready")
+		return tests.WaitForSuccessfulVMIStart(obj)
+	}
+
+	Describe("Prometheus scraped metrics", func() {
+
+		/*
+			This test is querying the metrics from Prometheus *after* they were
+			scraped and processed by the different components on the way.
+		*/
+
+		tests.BeforeAll(func() {
+			onOCP, err := clusterutil.IsOnOpenShift(virtClient)
+			Expect(err).ToNot(HaveOccurred(), "failed to detect cluster type")
+
+			if !onOCP {
+				Skip("test is verifying integration with OCP's cluster monitoring stack")
+			}
+		})
+
+		It("should find VMI namespace on namespace label of the metric", func() {
+
+			/*
+				This test is required because in cases of misconfigurations on
+				monitoring objects (such for the ServiceMonitor), our rules will
+				still be picked up by the monitoring-operator, but Prometheus
+				will fail to load it.
+			*/
+
+			By("creating a VMI in a user defined namespace")
+			vmi := tests.NewRandomVMIWithEphemeralDisk(
+				tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			startVMI(vmi)
+
+			By("finding virt-operator pod")
+			ops, err := virtClient.CoreV1().Pods("kubevirt").
+				List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-operator"})
+			Expect(err).ToNot(HaveOccurred(), "failed to list virt-operators")
+			Expect(ops.Size).ToNot(Equal(0), "no virt-operators found")
+			op := ops.Items[0]
+			Expect(op).ToNot(BeNil(), "virt-operator pod should not be nil")
+
+			By("finding Prometheus endpoint")
+			ep, err := virtClient.CoreV1().Endpoints("openshift-monitoring").
+				Get("prometheus-k8s", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint")
+			promIP := ep.Subsets[0].Addresses[0].IP
+			Expect(promIP).ToNot(Equal(0), "could not get Prometheus IP from endpoint")
+			var promPort int32
+			for _, port := range ep.Subsets[0].Ports {
+				if port.Name == "web" {
+					promPort = port.Port
+				}
+			}
+			Expect(promPort).ToNot(Equal(0), "could not get Prometheus port from endpoint")
+
+			// We need a token from a service account that can view all namespaces in the cluster
+			By("extracting virt-operator sa token")
+			token, _, err := tests.ExecuteCommandOnPodV2(virtClient,
+				&op,
+				"virt-operator",
+				[]string{
+					"cat",
+					"/var/run/secrets/kubernetes.io/serviceaccount/token",
+				})
+			Expect(err).ToNot(HaveOccurred(), "failed executing command on virt-operator")
+			Expect(token).ToNot(BeEmpty(), "virt-operator sa token returned empty")
+
+			By("querying Prometheus API endpoint for a VMI exported metric")
+			stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
+				&op,
+				"virt-operator",
+				[]string{
+					"curl",
+					"-L",
+					"-k",
+					fmt.Sprintf("https://%s:%d/api/v1/query", promIP, promPort),
+					"-H",
+					fmt.Sprintf("Authorization: Bearer %s", token),
+					"--data-urlencode",
+					fmt.Sprintf(
+						`query=kubevirt_vmi_memory_resident_bytes{namespace="%s",name="%s"}`,
+						vmi.Namespace,
+						vmi.Name,
+					),
+				})
+			Expect(err).ToNot(HaveOccurred(), "failed to execute query")
+
+			// the Prometheus go-client does not export queryResult, and
+			// using an HTTP client for queries would require a port-forwarding
+			// since the cluster is running in a different network.
+			var queryResult map[string]json.RawMessage
+
+			err = json.Unmarshal([]byte(stdout), &queryResult)
+			Expect(err).ToNot(HaveOccurred(), "failed to unmarshal query result")
+
+			var status string
+			err = json.Unmarshal(queryResult["status"], &status)
+			Expect(err).ToNot(HaveOccurred(), "failed to unmarshal query status")
+			Expect(status).To(Equal("success"))
+		})
+	})
 
 	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component] Prometheus Endpoints", func() {
 		var preparedVMIs []*v1.VirtualMachineInstance
@@ -68,16 +184,6 @@ var _ = Describe("Infrastructure", func() {
 			}
 			vmi.Spec.NodeSelector["kubernetes.io/hostname"] = nodeName
 			return vmi
-		}
-
-		// start a VMI, wait for it to run and return the node it runs on
-		startVMI := func(vmi *v1.VirtualMachineInstance) string {
-			By("Starting a new VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
-			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-
-			By("Waiting until the VM is ready")
-			return tests.WaitForSuccessfulVMIStart(obj)
 		}
 
 		// returns metrics from the node the VMI(s) runs on
