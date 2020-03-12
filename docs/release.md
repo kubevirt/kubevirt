@@ -149,3 +149,7 @@ The release itself is only a evsigned tag as it's used for minor releases as wel
    `https://github.com/kubevirt/kubevirt/releases/tag/$TAG`
 6. Sent a friendly announcement email to <kubevirt-dev@googlegroups.com>
 
+Random change
+-------------
+
+Some random change
