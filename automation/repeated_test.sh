@@ -10,9 +10,10 @@ usage: [NUM_TESTS=x] [NEW_TESTS=test1_test|...|testn_test] $0 [kubevirtci_provid
     changed or added since last merge commit, set NEW_TESTS to explicitly name the tests to run)
 
     options:
-        NUM_TESTS - how often each test lane is run, default is 3
-        NEW_TESTS - what set of tests to run, defaults to all test files added or changed since
-                    last merge commit
+        NUM_TESTS       how often each test lane is run, default is 3
+        NEW_TESTS       what set of tests to run, defaults to all test files added or changed since
+                        last merge commit
+        TARGET_COMMIT   the commit id to use when fetching the changed test files
 
     example:
 
@@ -30,14 +31,25 @@ if (( $# > 0 )); then
     fi
 fi
 
-SCRIPT_PATH="$(
-    cd "$(dirname "${BASH_SOURCE[0]}")/" || exit
-    echo "$(pwd)/"
-)"
-
 NUM_TESTS=${NUM_TESTS-3}
 if [[ -z ${NEW_TESTS-} ]]; then
-    NEW_TESTS=$("${SCRIPT_PATH}"/new_tests.sh)
+    if [[ -z ${TARGET_COMMIT-} ]]; then
+        # if there's no commit provided default to the latest merge commit
+        TARGET_COMMIT=$(git log -1 --format=%H --merges)
+    fi
+
+    NEW_TESTS=$(
+        # 1. fetch the changed file names from within the tests/ directory
+        # 2. grep all files ending with '_test.go'
+        # 3. remove `tests/` and `.go` to only have the test name
+        # 4. replace newline with `|`
+        # 5. remove last `|`
+        git diff --name-only "${TARGET_COMMIT}".. -- tests/ \
+            | grep -E '_test\.go$' \
+            | sed -E 's/tests\/(.*_test)\.go/\1/' \
+            | tr '\n' '|' \
+            | sed -E 's/\|$//'
+    )
     # skip certain tests for now, as we don't have a strategy currently
     NEW_TESTS=$(echo "$NEW_TESTS" | sed -E 's/\|?[^\|]*(sriov|multus|windows|genie|gpu)[^\|]*//g')
 fi
