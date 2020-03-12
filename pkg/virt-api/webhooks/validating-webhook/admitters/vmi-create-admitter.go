@@ -1583,6 +1583,16 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 						Field:   field.Index(idx).Child(diskType, "bus").String(),
 					})
 				}
+
+				// special case. virtio is incompatible with CD-ROM for q35 machine types
+				if diskType == "cdrom" && bus == "virtio" {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("Bus type %s is invalid for CD-ROM device", bus),
+						Field:   field.Index(idx).Child("cdrom", "bus").String(),
+					})
+
+				}
 			}
 		}
 
