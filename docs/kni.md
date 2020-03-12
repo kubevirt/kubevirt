@@ -19,7 +19,7 @@ data:
   local-sc.volumeMode: Filesystem
 ```
 
-# Config BareMetal platfrom
+# Config BareMetal platform
 Use 'BareMetalPlatform' spec when creating HyperConverged to enable BareMetal infrastructure.
 This will result in 'volumeMode: Block' in storage ConfigMap.
 
