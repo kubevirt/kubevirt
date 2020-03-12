@@ -8,39 +8,36 @@ if [ -z "$KUBEVIRTCI_PATH" ]; then
     )"
 fi
 
+test -t 1 && USE_TTY="-it"
+
 source ${KUBEVIRTCI_PATH}/hack/common.sh
 
-test -t 1 && USE_TTY="-it"
 source ${KUBEVIRTCI_CLUSTER_PATH}/$KUBEVIRT_PROVIDER/provider.sh
 source ${KUBEVIRTCI_PATH}/hack/config.sh
-
-ssh_key=${KUBEVIRTCI_PATH}/hack/common.key
-chmod 600 $ssh_key
 
 node=$1
 
 if [ -z "$node" ]; then
     echo "node name required as argument"
-    echo "okd example: ./ssh master-0"
+    echo "okd/ocp example: ./ssh master-0"
     echo "k8s example: ./ssh node01"
     exit 1
 fi
 
 if [[ $KUBEVIRT_PROVIDER =~ (ocp|okd).* ]]; then
-    ports=$(${KUBEVIRTCI_PATH}cli.sh --prefix $provider_prefix ports --container-name cluster)
 
-    if [[ $node =~ worker-0.* ]]; then
-        port=$(echo "$ports" | grep 2202 | awk -F':' '{print $2}')
-    elif [[ $node =~ master-0.* ]]; then
-        port=$(echo "$ports" | grep 2201 | awk -F':' '{print $2}')
-    fi
+    # Get the exact virsh domain name
+    domain=$($KUBEVIRTCI_PATH/container.sh virsh list  |grep $node |awk '{print $2}')
 
-    if [ -z "$port" ]; then
-        echo "no ssh port found for $node"
-        exit 1
-    fi
+    # Get the virsh address for the node
+    ip=$($KUBEVIRTCI_PATH/container.sh virsh domifaddr $domain |grep vnet |head -n 1 | awk '{print $4}' | sed "s/\/.*//g")
+
+    # Ignore the node argument
     shift
-    ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -q -lcore -p $port core@127.0.0.1 -i ${ssh_key} $@
+
+    # Run the passed arguments into the oc node
+    $KUBEVIRTCI_PATH/container.sh ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -q -lcore core@$ip -i /vagrant.key $@
+
 elif [[ $KUBEVIRT_PROVIDER =~ kind.* ]]; then
     _ssh_into_node "$@"
 else
