@@ -692,6 +692,10 @@ func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.D
 
 	if exists {
 		domain = obj.(*api.Domain)
+		if domain.ObjectMeta.DeletionTimestamp != nil {
+			exists = false
+			domain = nil
+		}
 	}
 	return domain, exists, nil
 }
@@ -1168,26 +1172,13 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 		return err
 	}
 
-	key, err := controller.KeyFunc(vmi)
-	if err != nil {
-		return err
-	}
-
-	domain, domainExists, err := d.getDomainFromCache(key)
-	if err != nil {
-		return err
-	}
-
 	// Remove the domain from cache in the event that we're performing
 	// a final cleanup and never received the "DELETE" event. This is
 	// possible if the VMI pod goes away before we receive the final domain
 	// "DELETE"
-	if domainExists {
-		log.Log.Object(domain).Infof("Removing domain from cache during final cleanup")
-		return d.domainInformer.GetStore().Delete(domain)
-	}
-
-	return nil
+	domain := api.NewDomainReferenceFromName(vmi.Namespace, vmi.Name)
+	log.Log.Object(domain).Infof("Removing domain from cache during final cleanup")
+	return d.domainInformer.GetStore().Delete(domain)
 }
 
 func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineInstance) error {
@@ -1796,6 +1787,11 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 	if oldDomain.Status.Status != newDomain.Status.Status || oldDomain.Status.Reason != newDomain.Status.Reason {
 		log.Log.Object(newDomain).Infof("Domain is in state %s reason %s", newDomain.Status.Status, newDomain.Status.Reason)
 	}
+
+	if newDomain.ObjectMeta.DeletionTimestamp != nil {
+		log.Log.Object(newDomain).Info("Domain is marked for deletion")
+	}
+
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		d.Queue.Add(key)

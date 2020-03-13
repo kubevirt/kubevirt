@@ -182,7 +182,9 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 
 	switch domain.Status.Reason {
 	case api.ReasonNonExistent:
-		watchEvent := watch.Event{Type: watch.Deleted, Object: domain}
+		now := metav1.Now()
+		domain.ObjectMeta.DeletionTimestamp = &now
+		watchEvent := watch.Event{Type: watch.Modified, Object: domain}
 		client.SendDomainEvent(watchEvent)
 		events <- watchEvent
 	default:

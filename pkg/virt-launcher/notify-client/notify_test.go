@@ -145,7 +145,9 @@ var _ = Describe("Notify", func() {
 					timedOut = true
 				case e := <-eventChan:
 					Expect(e.Object.(*api.Domain).Status.Status).To(Equal(api.NoState))
-					Expect(e.Type).To(Equal(watch.Deleted))
+					Expect(e.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
+					Expect(e.Type).To(Equal(watch.Modified))
+
 				}
 				Expect(timedOut).To(BeFalse())
 

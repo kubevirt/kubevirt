@@ -208,14 +208,15 @@ func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan
 	case <-ticker:
 		panic(fmt.Errorf("timed out waiting for domain to be defined"))
 	case e := <-events:
-		if e.Type == watch.Deleted {
-			// we are done already
-			return nil
-		}
 		if e.Object != nil && e.Type == watch.Added {
 			domain := e.Object.(*api.Domain)
 			log.Log.Infof("Detected domain with UUID %s", domain.Spec.UUID)
 			return domain
+		} else if e.Type == watch.Modified {
+			domain, ok := e.Object.(*api.Domain)
+			if ok && domain.ObjectMeta.DeletionTimestamp != nil {
+				return nil
+			}
 		}
 	case <-stop:
 		return nil
@@ -239,9 +240,12 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	for timedOut == false {
 		select {
 		case e := <-deleteNotificationSent:
-			if e.Type == watch.Deleted {
-				log.Log.Info("Final Delete notification sent")
-				return
+			if e.Object != nil && e.Type == watch.Modified {
+				domain, ok := e.Object.(*api.Domain)
+				if ok && domain.ObjectMeta.DeletionTimestamp != nil {
+					log.Log.Info("Final Delete notification sent")
+					return
+				}
 			}
 		case <-killTimeout:
 			log.Log.Info("Timed out waiting for final delete notification. Attempting to kill domain")
@@ -264,9 +268,12 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	for {
 		select {
 		case e := <-deleteNotificationSent:
-			if e.Type == watch.Deleted {
-				log.Log.Info("Final Delete notification sent after calling kill.")
-				return
+			if e.Object != nil && e.Type == watch.Modified {
+				domain, ok := e.Object.(*api.Domain)
+				if ok && domain.ObjectMeta.DeletionTimestamp != nil {
+					log.Log.Info("Final Delete notification sent after calling kill.")
+					return
+				}
 			}
 			return
 		case <-finalTimeout:

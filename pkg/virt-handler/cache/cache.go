@@ -127,7 +127,9 @@ func (d *DomainWatcher) handleStaleWatchdogFiles() error {
 
 	for _, domain := range domains {
 		log.Log.Object(domain).Warning("detected expired watchdog for domain")
-		d.eventChan <- watch.Event{Type: watch.Deleted, Object: domain}
+		now := k8sv1.Now()
+		domain.ObjectMeta.DeletionTimestamp = &now
+		d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
 	}
 	return nil
 }
@@ -198,8 +200,10 @@ func (d *DomainWatcher) handleStaleSocketConnections() error {
 			} else {
 				domain := api.NewMinimalDomainWithNS(socketInfo.Namespace, socketInfo.Name)
 				domain.ObjectMeta.UID = types.UID(socketInfo.UID)
+				now := k8sv1.Now()
+				domain.ObjectMeta.DeletionTimestamp = &now
 				log.Log.Object(domain).Warning("detected unresponsive virt-launcher command socket for domain")
-				d.eventChan <- watch.Event{Type: watch.Deleted, Object: domain}
+				d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
 
 				err := cmdclient.MarkSocketUnresponsive(key)
 				if err != nil {
