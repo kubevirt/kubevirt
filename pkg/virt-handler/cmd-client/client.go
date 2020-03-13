@@ -33,6 +33,7 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -165,7 +166,11 @@ func ListAllSockets(baseDir string) ([]string, error) {
 		return nil, err
 	}
 	for _, dir := range directories {
-		if !dir.IsDir() {
+		if dir.IsDir() {
+			// append the socket file for each VMI directory even if
+			// that socket file has technically already been deleted.
+			socketFiles = append(socketFiles, filepath.Join(socketsDir, dir.Name(), StandardLauncherSocketFileName))
+		} else if !dir.IsDir() && strings.Contains(dir.Name(), "_sock") {
 			// legacy support.
 			// The old way of handling launcher sockets was to
 			// dump them all in the same directory. So if we encounter
@@ -173,14 +178,6 @@ func ListAllSockets(baseDir string) ([]string, error) {
 			// for update support.
 			socketFiles = append(socketFiles, filepath.Join(socketsDir, dir.Name()))
 			continue
-		}
-		files, err := ioutil.ReadDir(filepath.Join(socketsDir, dir.Name()))
-		if err != nil {
-			return nil, err
-		}
-
-		for _, file := range files {
-			socketFiles = append(socketFiles, filepath.Join(socketsDir, dir.Name(), file.Name()))
 		}
 	}
 	return socketFiles, nil

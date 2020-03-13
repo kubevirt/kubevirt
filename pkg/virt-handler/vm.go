@@ -1090,9 +1090,17 @@ func (d *VirtualMachineController) execute(key string) error {
 		}
 		// If we found an outdated domain which is also not alive anymore, clean up
 		if expired {
-			return d.processVmCleanup(oldVMI)
+			log.Log.Object(oldVMI).Infof("Detected stale vmi %s that still needs cleanup before new vmi %s with identical name/namespace can be processed", oldVMI.UID, vmi.UID)
+			err = d.processVmCleanup(oldVMI)
+			if err != nil {
+				return err
+			}
 		}
-		// if the command server is still responsive, we are not allowed to clean up
+
+		// Make sure we re-enqueue the key to ensure this new VMI is processed
+		// after the stale domain is removed
+		d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*5)
+
 		return nil
 	}
 
@@ -1135,6 +1143,7 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	vmiId := string(vmi.UID)
 
+	log.Log.Object(vmi).Infof("Performing final local cleanup for vmi with uid %s", vmiId)
 	// If the VMI is using the old graceful shutdown trigger on
 	// a hostmount, make sure to clear that file still.
 	err := vmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
@@ -1154,7 +1163,31 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	d.clearPodNetworkPhase1(vmi)
 
 	// Watch dog file and command client must be the last things removed here
-	return d.closeLauncherClient(vmi)
+	err = d.closeLauncherClient(vmi)
+	if err != nil {
+		return err
+	}
+
+	key, err := controller.KeyFunc(vmi)
+	if err != nil {
+		return err
+	}
+
+	domain, domainExists, err := d.getDomainFromCache(key)
+	if err != nil {
+		return err
+	}
+
+	// Remove the domain from cache in the event that we're performing
+	// a final cleanup and never received the "DELETE" event. This is
+	// possible if the VMI pod goes away before we receive the final domain
+	// "DELETE"
+	if domainExists {
+		log.Log.Object(domain).Infof("Removing domain from cache during final cleanup")
+		return d.domainInformer.GetStore().Delete(domain)
+	}
+
+	return nil
 }
 
 func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineInstance) error {
@@ -1173,10 +1206,7 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	client, ok := d.launcherClients[sockFile]
 	if ok {
 		client.Close()
-		delete(d.launcherClients, sockFile)
 	}
-
-	os.RemoveAll(sockFile)
 
 	// With the new socket format, we need to clean up
 	// the entire directory the launcher socket is placed in
@@ -1187,7 +1217,15 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	// The new socket format can be detected with the StandardLauncherSocketFileName const
 	// The old format was dynamic, and looks like <uid>_sock
 	if cmdclient.SocketMonitoringEnabled(sockFile) {
-		os.RemoveAll(filepath.Dir(sockFile))
+		err := os.RemoveAll(filepath.Dir(sockFile))
+		if err != nil {
+			return err
+		}
+	} else {
+		err := os.RemoveAll(sockFile)
+		if err != nil {
+			return err
+		}
 	}
 
 	// for legacy support, ensure watchdog is removed when client is removed
@@ -1197,6 +1235,7 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 		return err
 	}
 
+	delete(d.launcherClients, sockFile)
 	return nil
 }
 

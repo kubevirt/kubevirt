@@ -97,7 +97,7 @@ var _ = Describe("Domain informer", func() {
 
 			list = append(list, api.NewMinimalDomain("testvmi1"))
 
-			socketPath := filepath.Join(socketsDir, "1234", "default_testvmi1_sock")
+			socketPath := filepath.Join(socketsDir, "1234", cmdclient.StandardLauncherSocketFileName)
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
 			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
@@ -123,7 +123,7 @@ var _ = Describe("Domain informer", func() {
 			domain := api.NewMinimalDomain("test")
 			list = append(list, domain)
 
-			socketPath := filepath.Join(socketsDir, "1234", "default_test_sock")
+			socketPath := filepath.Join(socketsDir, "1234", cmdclient.StandardLauncherSocketFileName)
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
 			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
@@ -140,7 +140,7 @@ var _ = Describe("Domain informer", func() {
 		})
 
 		It("should detect expired watchdog file.", func() {
-			socketPath := filepath.Join(socketsDir, "1234", "default_test_sock")
+			socketPath := filepath.Join(socketsDir, "default_test_sock")
 			f, err := os.Create(socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()
@@ -149,6 +149,7 @@ var _ = Describe("Domain informer", func() {
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
+				unresponsiveSockets:      make(map[string]int64),
 			}
 
 			watchdogFile := watchdog.WatchdogFileFromNamespaceName(shareDir, "default", "test")
@@ -253,7 +254,7 @@ var _ = Describe("Domain informer", func() {
 			domain := api.NewMinimalDomain("test")
 			list = append(list, domain)
 
-			socketPath := filepath.Join(socketsDir, "1234", "default_test_sock")
+			socketPath := filepath.Join(socketsDir, "1234", cmdclient.StandardLauncherSocketFileName)
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
 			// This file doesn't have a unix sock server behind it
