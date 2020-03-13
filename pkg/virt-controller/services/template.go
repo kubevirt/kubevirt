@@ -1080,7 +1080,8 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	// overhead per vcpu in MiB
 	coresMemory := resource.MustParse("8Mi")
 	if domain.CPU != nil {
-		value := coresMemory.Value() * int64(domain.CPU.Cores)
+		vcpus := hardware.GetNumberOfVCPUs(domain.CPU)
+		value := coresMemory.Value() * vcpus
 		coresMemory = *resource.NewQuantity(value, coresMemory.Format)
 	}
 	overhead.Add(coresMemory)

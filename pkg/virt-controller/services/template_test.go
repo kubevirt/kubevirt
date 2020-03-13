@@ -973,6 +973,37 @@ var _ = Describe("Template", func() {
 				table.Entry("and consider graphics overhead if it is set to true", True(), 243),
 				table.Entry("and not consider graphics overhead if it is set to false", False(), 226),
 			)
+			It("should calculate vcpus overhead based on guest toplogy", func() {
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+
+							CPU: &v1.CPU{Cores: 3},
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceCPU:    resource.MustParse("1m"),
+									kubev1.ResourceMemory: resource.MustParse("64M"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				coresMemVal := pod.Spec.Containers[0].Resources.Requests.Memory()
+				vmi.Spec.Domain.CPU = &v1.CPU{Sockets: 3}
+				pod, err = svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				socketsMemVal := pod.Spec.Containers[0].Resources.Requests.Memory()
+				Expect(coresMemVal.Cmp(*socketsMemVal)).To(Equal(0))
+			})
 		})
 
 		Context("with hugepages constraints", func() {
