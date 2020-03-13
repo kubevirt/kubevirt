@@ -972,7 +972,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						Skip("Migration tests require at least 2 nodes")
 					}
 					By("creating a VM with RunStrategyAlways")
-					vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
+					vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 					template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 
 					var virtualMachine *v1.VirtualMachine

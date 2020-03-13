@@ -175,8 +175,8 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 
 	})
 
-	newMigratableVMI := func(name tests.ContainerDisk) *v1.VirtualMachineInstance {
-		vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(name))
+	newMigratableVMI := func(name cd.ContainerDisk) *v1.VirtualMachineInstance {
+		vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(name))
 		vmi.Spec.Domain.CPU = &v1.CPU{
 			Model: "Penryn",
 		}
@@ -190,25 +190,6 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			Model: "Penryn",
 		}
 
-		return vmi
-	}
-
-	runVMIAndExpectLaunchWithIgnoreWarningArg := func(vmi *v1.VirtualMachineInstance, timeout int, ignoreWarnings bool) *v1.VirtualMachineInstance {
-		By("Starting a VirtualMachineInstance")
-		var obj *v1.VirtualMachineInstance
-		var err error
-		Eventually(func() error {
-			obj, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			return err
-		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
-		By("Waiting until the VirtualMachineInstance starts")
-		if ignoreWarnings {
-			tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(obj, timeout)
-		} else {
-			tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
-		}
-		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
 		return vmi
 	}
 
@@ -445,7 +426,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 	Describe("Starting a VirtualMachineInstance ", func() {
 		Context("with a bridge network interface", func() {
 			It("[test_id:3226]should reject a migration of a vmi with a bridge interface", func() {
-				vmi := newMigratableVMI(tests.ContainerDiskAlpine)
+				vmi := newMigratableVMI(cd.ContainerDiskAlpine)
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{
 						Name: "default",
@@ -529,7 +510,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 			})
 
 			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", func() {
-				vmi := newMigratableVMI(tests.ContainerDiskCirros)
+				vmi := newMigratableVMI(cd.ContainerDiskCirros)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
 				By("Starting the VirtualMachineInstance")
@@ -980,7 +961,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Hostname = fmt.Sprintf("%s", tests.ContainerDiskCirros)
+				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
 				vmi = makeMigratableVMI(vmi)
 
 				vmi = runVMIAndExpectLaunch(vmi, 180)
@@ -1422,7 +1403,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Hostname = fmt.Sprintf("%s", tests.ContainerDiskCirros)
+				vmi.Spec.Hostname = fmt.Sprintf("%s", cd.ContainerDiskCirros)
 				vmi = makeMigratableVMI(vmi)
 
 				vmi = runVMIAndExpectLaunch(vmi, 180)
@@ -1571,7 +1552,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 		Context("without CPU properly set", func() {
 
 			prepareMigration := func(cpuModel string) (*v1.VirtualMachineInstance, *v1.VirtualMachineInstanceMigration) {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Model: cpuModel,
 				}
@@ -1928,7 +1909,7 @@ var _ = Describe("[Serial][rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][leve
 					vmi_evict1 = makeMigratableVMI(vmi_evict1)
 					vmi_evict2 := cirrosVMIWithEvictionStrategy()
 					vmi_evict2 = makeMigratableVMI(vmi_evict2)
-					vmi_noevict := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+					vmi_noevict := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					vmi_noevict = makeMigratableVMI(vmi_noevict)
 
 					labelKey := "testkey"
