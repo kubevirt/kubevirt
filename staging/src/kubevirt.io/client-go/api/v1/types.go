@@ -947,7 +947,7 @@ const (
 	VirtualMachinePaused VirtualMachineConditionType = "Paused"
 
 	// This condition indicates that the VM was renamed
-	RenameConditionType VirtualMachineConditionType = "Rename Operation"
+	RenameConditionType VirtualMachineConditionType = "RenameOperation"
 )
 
 // ---
