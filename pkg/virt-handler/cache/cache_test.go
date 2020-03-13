@@ -164,7 +164,8 @@ var _ = Describe("Domain informer", func() {
 			timeout := time.After(3 * time.Second)
 			select {
 			case event := <-d.eventChan:
-				Expect(event.Type).To(Equal(watch.Deleted))
+				Expect(event.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
+				Expect(event.Type).To(Equal(watch.Modified))
 			case <-timeout:
 				timedOut = true
 			}
@@ -196,7 +197,8 @@ var _ = Describe("Domain informer", func() {
 			timeout := time.After(5 * time.Second)
 			select {
 			case event := <-d.eventChan:
-				Expect(event.Type).To(Equal(watch.Deleted))
+				Expect(event.Type).To(Equal(watch.Modified))
+				Expect(event.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
 			case <-timeout:
 				timedOut = true
 			}
