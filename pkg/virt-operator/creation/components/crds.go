@@ -519,6 +519,61 @@ func NewPrometheusRuleSpec(ns string) *promv1.PrometheusRuleSpec {
 							"summary": "No leading virt-operator was detected for the last 5 min.",
 						},
 					},
+					{
+						Record: "num_of_running_virt_handlers",
+						Expr:   intstr.FromString(fmt.Sprintf("sum(up{pod=~'virt-handler-.*', namespace='%s'})", ns)),
+					},
+					{
+						Alert: "VirtHandlerDaemonSetRolloutFailing",
+						Expr: intstr.FromString(
+							fmt.Sprintf("(%s - %s) != 0",
+								fmt.Sprintf("kube_daemonset_status_number_ready{namespace='%s', daemonset='virt-handler'}", ns),
+								fmt.Sprintf("kube_daemonset_status_desired_number_scheduled{namespace='%s', daemonset='virt-handler'}", ns))),
+						For: "15m",
+						Annotations: map[string]string{
+							"summary": "Some virt-handlers failed to roll out",
+						},
+					},
+					{
+						Record: "vec_by_virt_handlers_all_client_rest_requests_in_last_5m",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s'}[5m]))", ns),
+						),
+					},
+					{
+						Record: "vec_by_virt_handlers_all_client_rest_requests_in_last_hour",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s'}[60m]))", ns),
+						),
+					},
+					{
+						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_5m",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s', code=~'[^2][0-9][0-9]'}[5m]))", ns),
+						),
+					},
+					{
+						Record: "vec_by_virt_handlers_failed_client_rest_requests_in_last_hour",
+						Expr: intstr.FromString(
+							fmt.Sprintf("sum by (pod) (sum_over_time(rest_client_requests_total{pod=~'virt-handler-.*', namespace='%s', code=~'[^2][0-9][0-9]'}[60m]))", ns),
+						),
+					},
+					{
+						Alert: "VirtHandlerRESTErrorsHigh",
+						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_hour / vec_by_virt_handlers_all_client_rest_requests_in_last_hour) >= 0.05"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "More than 5% of the rest calls failed in virt-operator for the last hour",
+						},
+					},
+					{
+						Alert: "VirtHandlerRESTErrorsBurst",
+						Expr:  intstr.FromString("(vec_by_virt_handlers_failed_client_rest_requests_in_last_5m / vec_by_virt_handlers_all_client_rest_requests_in_last_5m) >= 0.8"),
+						For:   "5m",
+						Annotations: map[string]string{
+							"summary": "More than 80% of the rest calls failed in virt-handler for the last 5 minutes",
+						},
+					},
 				},
 			},
 		},
