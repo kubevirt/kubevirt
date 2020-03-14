@@ -793,6 +793,28 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) GuestOsInfo(arg0 interf
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GuestOsInfo", arg0)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) UserList(name string) (v114.VirtualMachineInstanceGuestOSUserList, error) {
+	ret := _m.ctrl.Call(_m, "UserList", name)
+	ret0, _ := ret[0].(v114.VirtualMachineInstanceGuestOSUserList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) UserList(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UserList", arg0)
+}
+
+func (_m *MockVirtualMachineInstanceInterface) FilesystemList(name string) (v114.VirtualMachineInstanceFileSystemList, error) {
+	ret := _m.ctrl.Call(_m, "FilesystemList", name)
+	ret0, _ := ret[0].(v114.VirtualMachineInstanceFileSystemList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) FilesystemList(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FilesystemList", arg0)
+}
+
 // Mock of ReplicaSetInterface interface
 type MockReplicaSetInterface struct {
 	ctrl     *gomock.Controller

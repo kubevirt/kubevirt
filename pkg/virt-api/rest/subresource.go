@@ -897,11 +897,10 @@ func (app *SubresourceAPIApp) GuestOSInfo(request *restful.Request, response *re
 		return conn.GuestInfoURI(vmi)
 	}
 
-	log.Log.Infof("Calling get url on handler for")
 	_, url, conn, err := app.prepareConnection(request, validate, getURL)
 	if err != nil {
-		response.WriteError(http.StatusInternalServerError, err)
 		log.Log.Errorf("Cannot prepare connection %s", err.Error())
+		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
 
@@ -920,4 +919,84 @@ func (app *SubresourceAPIApp) GuestOSInfo(request *restful.Request, response *re
 	}
 
 	response.WriteEntity(guestInfo)
+}
+
+// UserList handles the subresource for providing VM guest user list
+func (app *SubresourceAPIApp) UserList(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi == nil || vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is not running"))
+		}
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI does not have guest agent connected"))
+		}
+		return nil
+	}
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.UserListURI(vmi)
+	}
+
+	_, url, conn, err := app.prepareConnection(request, validate, getURL)
+	if err != nil {
+		log.Log.Errorf("Cannot prepare connection %s", err.Error())
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	resp, conErr := conn.Get(url, app.handlerTLSConfiguration)
+	if conErr != nil {
+		log.Log.Errorf("Cannot GET request %s", conErr.Error())
+		response.WriteError(http.StatusInternalServerError, conErr)
+		return
+	}
+
+	userList := v1.VirtualMachineInstanceGuestOSUserList{}
+	if err := json.Unmarshal([]byte(resp), &userList); err != nil {
+		log.Log.Reason(err).Error("error unmarshalling user list response")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteEntity(userList)
+}
+
+// FilesystemList handles the subresource for providing guest filesystem list
+func (app *SubresourceAPIApp) FilesystemList(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi == nil || vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is not running"))
+		}
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI does not have guest agent connected"))
+		}
+		return nil
+	}
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.FilesystemListURI(vmi)
+	}
+
+	_, url, conn, err := app.prepareConnection(request, validate, getURL)
+	if err != nil {
+		log.Log.Errorf("Cannot prepare connection %s", err.Error())
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	resp, conErr := conn.Get(url, app.handlerTLSConfiguration)
+	if conErr != nil {
+		log.Log.Errorf("Cannot GET request %s", conErr.Error())
+		response.WriteError(http.StatusInternalServerError, conErr)
+		return
+	}
+
+	filesystemList := v1.VirtualMachineInstanceFileSystemList{}
+	if err := json.Unmarshal([]byte(resp), &filesystemList); err != nil {
+		log.Log.Reason(err).Error("error unmarshalling file system list response")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteEntity(filesystemList)
 }

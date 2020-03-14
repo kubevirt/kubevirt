@@ -130,6 +130,8 @@ type VirtualMachineInstanceInterface interface {
 	Pause(name string) error
 	Unpause(name string) error
 	GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
+	UserList(name string) (v1.VirtualMachineInstanceGuestOSUserList, error)
+	FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemList, error)
 }
 
 type ReplicaSetInterface interface {

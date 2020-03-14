@@ -312,15 +312,27 @@ func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineInstanceGuestOSUserList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceGuestOSUserList comprises the list of all active users on guest machine",
+	}
+}
+
 func (VirtualMachineInstanceGuestOSUser) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineInstanceGuestOSUser is the single user of the guest os",
+		"": "VirtualMachineGuestOSUser is the single user of the guest os",
 	}
 }
 
 func (VirtualMachineInstanceFileSystemInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "VirtualMachineInstanceFileSystemInfo represents information regarding single guest os filesystem",
+	}
+}
+
+func (VirtualMachineInstanceFileSystemList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceFileSystemList comprises the list of all filesystems on guest machine",
 	}
 }
 

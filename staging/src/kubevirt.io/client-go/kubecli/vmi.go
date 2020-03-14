@@ -457,3 +457,17 @@ func (v *vmis) GuestOsInfo(name string) (v1.VirtualMachineInstanceGuestAgentInfo
 
 	return guestInfo, err
 }
+
+func (v *vmis) UserList(name string) (v1.VirtualMachineInstanceGuestOSUserList, error) {
+	userList := v1.VirtualMachineInstanceGuestOSUserList{}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "userlist")
+	err := v.restClient.Get().RequestURI(uri).Do().Into(&userList)
+	return userList, err
+}
+
+func (v *vmis) FilesystemList(name string) (v1.VirtualMachineInstanceFileSystemList, error) {
+	fsList := v1.VirtualMachineInstanceFileSystemList{}
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "filesystemlist")
+	err := v.restClient.Get().RequestURI(uri).Do().Into(&fsList)
+	return fsList, err
+}

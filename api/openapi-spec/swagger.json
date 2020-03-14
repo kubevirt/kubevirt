@@ -3716,6 +3716,32 @@
      }
     }
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/filesystemlist": {
+    "get": {
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Get list of active filesystems on guest machine via guest agent",
+     "operationId": "filesystemlist",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystemList"
+       }
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystemList"
+       }
+      }
+     }
+    }
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/guestosinfo": {
     "get": {
      "consumes": [
@@ -3861,6 +3887,32 @@
       },
       "default": {
        "description": "OK"
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/userlist": {
+    "get": {
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Get list of active users via guest agent",
+     "operationId": "userlist",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSUserList"
+       }
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSUserList"
+       }
       }
      }
     }
@@ -6287,6 +6339,31 @@
      }
     }
    },
+   "v1.VirtualMachineInstanceFileSystemList": {
+    "description": "VirtualMachineInstanceFileSystemList comprises the list of all filesystems on guest machine",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstanceFileSystem"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ListMeta"
+     }
+    }
+   },
    "v1.VirtualMachineInstanceGuestAgentInfo": {
     "description": "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent",
     "properties": {
@@ -6364,7 +6441,7 @@
     }
    },
    "v1.VirtualMachineInstanceGuestOSUser": {
-    "description": "VirtualMachineInstanceGuestOSUser is the single user of the guest os",
+    "description": "VirtualMachineGuestOSUser is the single user of the guest os",
     "required": [
      "userName"
     ],
@@ -6373,11 +6450,36 @@
       "type": "string"
      },
      "loginTime": {
-      "type": "integer",
-      "format": "int32"
+      "type": "number",
+      "format": "double"
      },
      "userName": {
       "type": "string"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceGuestOSUserList": {
+    "description": "VirtualMachineInstanceGuestOSUserList comprises the list of all active users on guest machine",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSUser"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ListMeta"
      }
     }
    },

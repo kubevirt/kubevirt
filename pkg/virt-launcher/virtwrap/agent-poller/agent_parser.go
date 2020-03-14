@@ -56,9 +56,9 @@ type Timezone struct {
 
 // User on the guest host
 type User struct {
-	Name      string `json:"user"`
-	Domain    string `json:"domain"`
-	LoginTime int    `json:"login-time"`
+	Name      string  `json:"user"`
+	Domain    string  `json:"domain"`
+	LoginTime float64 `json:"login-time"`
 }
 
 // Filesystem of the host

@@ -1213,7 +1213,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	})
 
 	Context("Subresource api - Guest OS Info", func() {
-		It("should fail when the VMI does not exist", func(done Done) {
+		type subRes func(request *restful.Request, response *restful.Response)
+
+		table.DescribeTable("should fail when the VMI does not exist", func(fn subRes) {
 			request.PathParameters()["name"] = "testvm"
 			request.PathParameters()["namespace"] = "default"
 
@@ -1224,14 +1226,18 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				),
 			)
 
-			app.GuestOSInfo(request, response)
+			fn(request, response)
 
 			Expect(response.Error()).To(HaveOccurred(), "Response should indicate VM not found")
 			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
-			close(done)
-		})
 
-		It("should fail when the VMI is not running", func(done Done) {
+		},
+			table.Entry("for GuestOSInfo", app.GuestOSInfo),
+			table.Entry("for UserList", app.UserList),
+			table.Entry("for Filesystem", app.FilesystemList),
+		)
+
+		table.DescribeTable("should fail when the VMI is not running", func(fn subRes) {
 			request.PathParameters()["name"] = "testvm"
 			request.PathParameters()["namespace"] = "default"
 
@@ -1244,15 +1250,18 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				),
 			)
 
-			app.GuestOSInfo(request, response)
+			fn(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
 			Expect(response.Error().Error()).To(ContainSubstring("VMI is not running"))
-			close(done)
-		})
+		},
+			table.Entry("for GuestOSInfo", app.GuestOSInfo),
+			table.Entry("for UserList", app.UserList),
+			table.Entry("for FilesystemList", app.FilesystemList),
+		)
 
-		It("should fail when VMI does not have agent connected", func(done Done) {
+		table.DescribeTable("should fail when VMI does not have agent connected", func(fn subRes) {
 			request.PathParameters()["name"] = "testvm"
 			request.PathParameters()["namespace"] = "default"
 
@@ -1270,13 +1279,16 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				),
 			)
 
-			app.GuestOSInfo(request, response)
+			fn(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
 			Expect(response.Error().Error()).To(ContainSubstring("VMI does not have guest agent connected"))
-			close(done)
-		})
+		},
+			table.Entry("for GuestOSInfo", app.GuestOSInfo),
+			table.Entry("for UserList", app.UserList),
+			table.Entry("for FilesystemList", app.FilesystemList),
+		)
 	})
 
 	Context("StateChange JSON", func() {

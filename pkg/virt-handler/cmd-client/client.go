@@ -82,6 +82,8 @@ type LauncherClient interface {
 	GetDomain() (*api.Domain, bool, error)
 	GetDomainStats() (*stats.DomainStats, bool, error)
 	GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgentInfo, error)
+	GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error)
+	GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error)
 	Ping() error
 	Close()
 }
@@ -395,4 +397,68 @@ func (c *VirtLauncherClient) GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgen
 		}
 	}
 	return guestInfo, nil
+}
+
+// GetUsers returns the list of the active users on the guest machine
+func (c *VirtLauncherClient) GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error) {
+	userList := []v1.VirtualMachineInstanceGuestOSUser{}
+
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	uResponse, err := c.v1client.GetUsers(ctx, request)
+	var response *cmdv1.Response
+	if uResponse != nil {
+		response = uResponse.Response
+	}
+
+	if err = handleError(err, "GetUsers", response); err != nil {
+		return v1.VirtualMachineInstanceGuestOSUserList{}, err
+	}
+
+	if uResponse.GetGuestUserListResponse() != "" {
+		if err := json.Unmarshal([]byte(uResponse.GetGuestUserListResponse()), &userList); err != nil {
+			log.Log.Reason(err).Error("error unmarshalling guest user list response")
+			return v1.VirtualMachineInstanceGuestOSUserList{}, err
+		}
+	}
+
+	guestUserList := v1.VirtualMachineInstanceGuestOSUserList{
+		Items: userList,
+	}
+
+	return guestUserList, nil
+}
+
+// GetFilesystems returns the list of active filesystems on the guest machine
+func (c *VirtLauncherClient) GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error) {
+	fsList := []v1.VirtualMachineInstanceFileSystem{}
+
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	fsResponse, err := c.v1client.GetFilesystems(ctx, request)
+	var response *cmdv1.Response
+	if fsResponse != nil {
+		response = fsResponse.Response
+	}
+
+	if err = handleError(err, "GetFilesystems", response); err != nil {
+		return v1.VirtualMachineInstanceFileSystemList{}, err
+	}
+
+	if fsResponse.GetGuestFilesystemsResponse() != "" {
+		if err := json.Unmarshal([]byte(fsResponse.GetGuestFilesystemsResponse()), &fsList); err != nil {
+			log.Log.Reason(err).Error("error unmarshalling guest filesystem list response")
+			return v1.VirtualMachineInstanceFileSystemList{}, err
+		}
+	}
+
+	filesystemList := v1.VirtualMachineInstanceFileSystemList{
+		Items: fsList,
+	}
+
+	return filesystemList, nil
 }

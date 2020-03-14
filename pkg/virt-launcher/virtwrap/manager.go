@@ -84,6 +84,8 @@ type DomainManager interface {
 	GetDomainStats() ([]*stats.DomainStats, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance) error
 	GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error)
+	GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error)
+	GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error)
 }
 
 type LibvirtDomainManager struct {
@@ -1454,4 +1456,38 @@ func (l *LibvirtDomainManager) GetGuestInfo() (v1.VirtualMachineInstanceGuestAge
 	}
 
 	return guestInfo, nil
+}
+
+// GetUsers return the full list of users on the guest machine
+func (l *LibvirtDomainManager) GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error) {
+	userInfo := l.agentData.GetUsers(-1)
+	userList := []v1.VirtualMachineInstanceGuestOSUser{}
+
+	for _, user := range userInfo {
+		userList = append(userList, v1.VirtualMachineInstanceGuestOSUser{
+			UserName:  user.Name,
+			Domain:    user.Domain,
+			LoginTime: user.LoginTime,
+		})
+	}
+
+	return userList, nil
+}
+
+// GetFilesystems return the full list of filesystems on the guest machine
+func (l *LibvirtDomainManager) GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error) {
+	fsInfo := l.agentData.GetFS(-1)
+	fsList := []v1.VirtualMachineInstanceFileSystem{}
+
+	for _, fs := range fsInfo {
+		fsList = append(fsList, v1.VirtualMachineInstanceFileSystem{
+			DiskName:       fs.Name,
+			MountPoint:     fs.Mountpoint,
+			FileSystemType: fs.Type,
+			UsedBytes:      fs.UsedBytes,
+			TotalBytes:     fs.TotalBytes,
+		})
+	}
+
+	return fsList, nil
 }
