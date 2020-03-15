@@ -38,6 +38,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	schedulingv1 "k8s.io/api/scheduling/v1"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -73,6 +75,8 @@ type InstallStrategy struct {
 	roleBindings []*rbacv1.RoleBinding
 
 	crds []*extv1beta1.CustomResourceDefinition
+
+	priorityClass *schedulingv1.PriorityClass
 
 	services                        []*corev1.Service
 	deployments                     []*appsv1.Deployment
@@ -196,6 +200,7 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	for _, entry := range strategy.prometheusRules {
 		marshalutil.MarshallObject(entry, writer)
 	}
+	marshalutil.MarshallObject(strategy.priorityClass, writer)
 	writer.Flush()
 
 	return b.Bytes()
@@ -204,6 +209,8 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool, operatorNamespace string) (*InstallStrategy, error) {
 
 	strategy := &InstallStrategy{}
+
+	strategy.priorityClass = components.NewVirtPriorityClass()
 
 	strategy.crds = append(strategy.crds, components.NewVirtualMachineInstanceCrd())
 	strategy.crds = append(strategy.crds, components.NewPresetCrd())
@@ -460,6 +467,12 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.prometheusRules = append(strategy.prometheusRules, pr)
+		case "PriorityClass":
+			pClass := &schedulingv1.PriorityClass{}
+			if err := yaml.Unmarshal([]byte(entry), pClass); err != nil {
+				return nil, err
+			}
+			strategy.priorityClass = pClass
 		default:
 			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
 

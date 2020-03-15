@@ -15,6 +15,16 @@ metadata:
   name: kubevirt-operator
 rules:
 - apiGroups:
+  - scheduling.k8s.io
+  resources:
+  - priorityclasses
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+- apiGroups:
   - kubevirt.io
   resources:
   - kubevirts

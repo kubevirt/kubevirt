@@ -30,8 +30,6 @@ spec:
   strategy: {}
   template:
     metadata:
-      annotations:
-        scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
         kubevirt.io: virt-api
         prometheus.kubevirt.io: ""
@@ -77,6 +75,7 @@ spec:
           initialDelaySeconds: 15
           periodSeconds: 10
         resources: {}
+      priorityClassName: kubevirt-cluster-critical
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kubevirt-apiserver

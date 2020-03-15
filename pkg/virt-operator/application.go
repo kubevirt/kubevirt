@@ -197,6 +197,7 @@ func Execute() {
 		InfrastructurePod:        app.informerFactory.OperatorPod(),
 		PodDisruptionBudget:      app.informerFactory.OperatorPodDisruptionBudget(),
 		Namespace:                app.informerFactory.Namespace(),
+		PriorityClass:            app.informerFactory.PriorityClass(),
 	}
 
 	app.stores = util.Stores{
@@ -217,6 +218,7 @@ func Execute() {
 		InfrastructurePodCache:        app.informerFactory.OperatorPod().GetStore(),
 		PodDisruptionBudgetCache:      app.informerFactory.OperatorPodDisruptionBudget().GetStore(),
 		NamespaceCache:                app.informerFactory.Namespace().GetStore(),
+		PriorityClassCache:            app.informerFactory.PriorityClass().GetStore(),
 	}
 
 	onOpenShift, err := clusterutil.IsOnOpenShift(app.clientSet)

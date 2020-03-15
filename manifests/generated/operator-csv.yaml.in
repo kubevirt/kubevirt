@@ -160,6 +160,16 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - scheduling.k8s.io
+          resources:
+          - priorityclasses
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+        - apiGroups:
           - kubevirt.io
           resources:
           - kubevirts
@@ -665,8 +675,6 @@ spec:
             type: RollingUpdate
           template:
             metadata:
-              annotations:
-                scheduler.alpha.kubernetes.io/critical-pod: ""
               labels:
                 kubevirt.io: virt-operator
                 prometheus.kubevirt.io: ""

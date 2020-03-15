@@ -102,6 +102,8 @@ type VirtControllerApp struct {
 	informerFactory controller.KubeInformerFactory
 	podInformer     cache.SharedIndexInformer
 
+	priorityClassInformer cache.SharedIndexInformer
+
 	nodeInformer   cache.SharedIndexInformer
 	nodeController *NodeController
 
@@ -239,6 +241,8 @@ func Execute() {
 		app.dataVolumeInformer = app.informerFactory.DummyDataVolume()
 		log.Log.Infof("CDI not detected, DataVolume integration disabled")
 	}
+
+	app.priorityClassInformer = app.informerFactory.PriorityClass()
 
 	app.initCommon()
 	app.initReplicaSet()

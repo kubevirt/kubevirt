@@ -12,8 +12,6 @@ spec:
       kubevirt.io: virt-handler
   template:
     metadata:
-      annotations:
-        scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
         kubevirt.io: virt-handler
         prometheus.kubevirt.io: ""
@@ -66,6 +64,7 @@ spec:
         - mountPath: /var/lib/kubelet/device-plugins
           name: device-plugin
       hostPID: true
+      priorityClassName: kubevirt-cluster-critical
       serviceAccountName: kubevirt-handler
       tolerations:
       - key: CriticalAddonsOnly

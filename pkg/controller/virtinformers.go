@@ -45,10 +45,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	schedulingv1 "k8s.io/api/scheduling/v1"
+
 	kubev1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -171,6 +174,9 @@ type KubeInformerFactory interface {
 	// The namespace where kubevirt is deployed in
 	Namespace() cache.SharedIndexInformer
 
+	// The PriorityClass for all core kubevirt components
+	PriorityClass() cache.SharedIndexInformer
+
 	// PrometheusRules created/managed by virt operator
 	OperatorPrometheusRule() cache.SharedIndexInformer
 
@@ -269,6 +275,16 @@ func (f *kubeInformerFactory) VMI() cache.SharedIndexInformer {
 				return []string{obj.(*kubev1.VirtualMachineInstance).Status.NodeName}, nil
 			},
 		})
+	})
+}
+
+func (f *kubeInformerFactory) PriorityClass() cache.SharedIndexInformer {
+	return f.getInformer("priorityClass", func() cache.SharedIndexInformer {
+		//
+		nameSelector := fields.OneTermEqualSelector("metadata.name", "kubevirt-cluster-critical")
+		lw := cache.NewListWatchFromClient(
+			f.clientSet.SchedulingV1().RESTClient(), "priorityclasses", k8sv1.NamespaceAll, nameSelector)
+		return cache.NewSharedIndexInformer(lw, &schedulingv1.PriorityClass{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

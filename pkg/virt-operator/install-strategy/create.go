@@ -25,6 +25,8 @@ import (
 	"reflect"
 	"strings"
 
+	schedulingv1 "k8s.io/api/scheduling/v1"
+
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -1063,6 +1065,80 @@ func backupRbac(kv *v1.KubeVirt,
 	return nil
 }
 
+// patchOperatorPriorityClass patches the operator deployment with a priority class
+func patchOperatorPriorityClass(stores util.Stores, clientset kubecli.KubevirtClient) {
+}
+
+// createOrReplacePriorityClass creates a new priority class for core kubevirt components.
+// If the priority class already exists, it will replace the old one.
+func createOrReplacePriorityClass(kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	// priority classes are GA since K8s 1.14
+	_, err := clientset.SchedulingV1().PriorityClasses().Get("system-cluster-critical", metav1.GetOptions{})
+	if err != nil {
+		log.Log.V(4).Info("priority classes does not exist - skipping deployment")
+		return nil
+	}
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	version := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+
+	priorityClass := targetStrategy.priorityClass.DeepCopy()
+	injectOperatorMetadata(kv, &priorityClass.ObjectMeta, version, imageRegistry, id)
+	obj, exists, _ := stores.PriorityClassCache.Get(priorityClass)
+	if exists {
+		cachedPriorityClass := obj.(*schedulingv1.PriorityClass)
+
+		if objectMatchesVersion(&cachedPriorityClass.ObjectMeta, version, imageRegistry, id) {
+			log.Log.V(4).
+				Infof("priority class %v already exists and is up-to-date", priorityClass.GetName())
+			return nil
+		}
+
+		log.Log.V(4).Infof("priority class needs to be replaced with a newer version")
+
+		// since we can't patch the value on a priority class, remove the old version
+		// and let the next sync loop to handle the creation.
+		key, err := controller.KeyFunc(cachedPriorityClass)
+		if err != nil {
+			return err
+		}
+		expectations.PriorityClass.AddExpectedDeletion(kvkey, key)
+		err = clientset.
+			SchedulingV1().
+			PriorityClasses().
+			Delete(priorityClass.GetName(), &metav1.DeleteOptions{})
+		if err != nil {
+			expectations.PriorityClass.DeletionObserved(kvkey, key)
+			return err
+		}
+
+		return nil
+	}
+
+	log.Log.V(4).Infof("creating kubevirt priority class")
+
+	// create a new priority class
+	expectations.PriorityClass.RaiseExpectations(kvkey, 1, 0)
+	_, err = clientset.SchedulingV1().PriorityClasses().Create(priorityClass)
+	if err != nil {
+		expectations.PriorityClass.LowerExpectations(kvkey, 1, 0)
+		return err
+	}
+
+	return nil
+}
+
 func createOrUpdateRbac(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
@@ -1874,6 +1950,10 @@ func SyncAll(kv *v1.KubeVirt,
 
 	// -------- CREATE AND ROLE OUT UPDATED OBJECTS --------
 
+	if err := createOrReplacePriorityClass(kv, targetStrategy, stores, clientset, expectations); err != nil {
+		return false, err
+	}
+
 	// creates a blocking webhook for any new CRDs that don't exist previously.
 	// this webhook is removed once the new apiserver is online.
 	if !apiDeploymentsRolledOver {
@@ -2380,6 +2460,34 @@ func SyncAll(kv *v1.KubeVirt,
 					if err != nil {
 						expectations.PrometheusRule.DeletionObserved(kvkey, key)
 						log.Log.Errorf("Failed to delete prometheusrule %+v: %v", cachePromRule, err)
+						return false, err
+					}
+				}
+			}
+		}
+	}
+
+	// removed unused priority class
+	objects = stores.PriorityClassCache.List()
+	for _, obj := range objects {
+		if cachedPriorityClass, ok := obj.(*promv1.PrometheusRule); ok && cachedPriorityClass.DeletionTimestamp == nil {
+			found := false
+			for _, targetPromRule := range targetStrategy.prometheusRules {
+				if targetPromRule.Name == cachedPriorityClass.Name && targetPromRule.Namespace == cachedPriorityClass.Namespace {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if key, err := controller.KeyFunc(cachedPriorityClass); err == nil {
+					expectations.PriorityClass.AddExpectedDeletion(kvkey, key)
+					err := clientset.
+						SchedulingV1().
+						PriorityClasses().
+						Delete(cachedPriorityClass.Name, deleteOptions)
+					if err != nil {
+						expectations.PriorityClass.DeletionObserved(kvkey, key)
+						log.Log.Errorf("Failed to delete priority class %+v: %v", cachedPriorityClass, err)
 						return false, err
 					}
 				}

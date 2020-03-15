@@ -109,14 +109,12 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 				virtv1.AppLabel:          podName,
 				"prometheus.kubevirt.io": "",
 			},
-			Annotations: map[string]string{
-				"scheduler.alpha.kubernetes.io/critical-pod": "",
-			},
 			Name: podName,
 		},
 		Spec: corev1.PodSpec{
-			Affinity:    podAffinity,
-			Tolerations: criticalAddonsToleration(),
+			Affinity:          podAffinity,
+			PriorityClassName: "kubevirt-cluster-critical",
+			Tolerations:       criticalAddonsToleration(),
 			Containers: []corev1.Container{
 				{
 					Name:            podName,
@@ -463,9 +461,6 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 					Labels: map[string]string{
 						virtv1.AppLabel:          name,
 						"prometheus.kubevirt.io": "",
-					},
-					Annotations: map[string]string{
-						"scheduler.alpha.kubernetes.io/critical-pod": "",
 					},
 					Name: name,
 				},

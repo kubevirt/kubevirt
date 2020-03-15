@@ -14,8 +14,6 @@ spec:
   strategy: {}
   template:
     metadata:
-      annotations:
-        scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
         kubevirt.io: virt-controller
         prometheus.kubevirt.io: ""
@@ -65,6 +63,7 @@ spec:
           initialDelaySeconds: 15
           timeoutSeconds: 10
         resources: {}
+      priorityClassName: kubevirt-cluster-critical
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kubevirt-controller

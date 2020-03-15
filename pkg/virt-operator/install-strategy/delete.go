@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"strings"
 
+	schedulingv1 "k8s.io/api/scheduling/v1"
+
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -291,6 +293,25 @@ func DeleteAll(kv *v1.KubeVirt,
 				if err != nil {
 					log.Log.Errorf("Failed to delete prometheusRule %+v: %v", prometheusRule, err)
 					expectations.PrometheusRule.DeletionObserved(kvkey, key)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	// delete PriorityClass
+	objects = stores.PriorityClassCache.List()
+	for _, obj := range objects {
+		if priorityClass, ok := obj.(*schedulingv1.PriorityClass); ok && priorityClass.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(priorityClass); err == nil {
+				expectations.PriorityClass.AddExpectedDeletion(kvkey, key)
+				err := clientset.SchedulingV1().PriorityClasses().Delete(priorityClass.Name, deleteOptions)
+				if err != nil {
+					expectations.PriorityClass.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete priority class %+v: %v", priorityClass, err)
 					return err
 				}
 			}
