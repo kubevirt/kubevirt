@@ -32,7 +32,6 @@ spec:
     metadata:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
-        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly","operator":"Exists"}]'
       labels:
         kubevirt.io: virt-api
         prometheus.kubevirt.io: ""
@@ -81,3 +80,6 @@ spec:
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kubevirt-apiserver
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists

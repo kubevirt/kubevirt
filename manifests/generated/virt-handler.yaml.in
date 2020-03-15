@@ -14,7 +14,6 @@ spec:
     metadata:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
-        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly","operator":"Exists"}]'
       labels:
         kubevirt.io: virt-handler
         prometheus.kubevirt.io: ""
@@ -68,6 +67,9 @@ spec:
           name: device-plugin
       hostPID: true
       serviceAccountName: kubevirt-handler
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
       volumes:
       - hostPath:
           path: /var/run/kubevirt-libvirt-runtimes
