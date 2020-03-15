@@ -256,7 +256,7 @@ if [[ $TARGET =~ windows.* ]]; then
   kubectl create -f - <<EOF
 ---
 apiVersion: v1
-kind: PersistentVolume
+kind: PersistentVolumeFUNC_TEST_ARGS=$ginko_params make functest
 metadata:
   name: disk-windows
   labels:
@@ -315,4 +315,5 @@ fi
 
 
 # Run functional tests
+ginko_params="$ginko_params --ginkgo.focus=test_id:1780"
 FUNC_TEST_ARGS=$ginko_params make functest
