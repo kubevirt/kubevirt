@@ -85,6 +85,17 @@ And a simplified version:
     * VMI Foo
     * VMI Bar
     * …
+  * KubeVirt Custom Resources
+    * VirtualMachine (VM) Foo
+        -> VirtualMachineInstance (VMI) Foo
+    * VirtualMachineInstanceReplicaSet (VMIRS) Bar
+        -> VirtualMachineInstance (VMI) Bar
+
+VirtualMachineInstance (VMI) are the custom resource that represents the basic ephemeral building block of an instance.
+In a lot of cases this object won't be created directly by the user but by a high level resource.
+High level resources fot VMI can be:
+* VirtualMachine (VM) - StateFul VM that can be stopped and started while keeping the VM data and state.
+* VirtualMachineInstanceReplicaSet (VMIRS) - Similar to pods ReplicaSet, a group of ephemeral VMIs with similar configuration defined in a template.
 
 ## Native Workloads
 
