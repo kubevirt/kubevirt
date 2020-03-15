@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -841,7 +842,11 @@ func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 }
 
 func pingVirtualMachine(vmi *v1.VirtualMachineInstance, ipAddr, prompt string) {
-	cmdCheck := fmt.Sprintf("ping %s -c 1 -w 5\n", ipAddr)
+	pingVirtualMachineWithTimeout(vmi, ipAddr, prompt, 5)
+}
+
+func pingVirtualMachineWithTimeout(vmi *v1.VirtualMachineInstance, ipAddr, prompt string, timeout int) {
+	cmdCheck := fmt.Sprintf("ping %s -c 1 -w %s\n", ipAddr, strconv.Itoa(timeout))
 	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},

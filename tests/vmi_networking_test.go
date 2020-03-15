@@ -715,6 +715,10 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
 			}
 
+			// Cluster nodes subnet (docker network gateway)
+			// Docker network subnet cidr definition https://bit.ly/2wZTgMK
+			clusterNodesGateway := "2001:db8:1::1"
+
 			serverVMI = masqueradeVMI(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 			serverVMI.Labels = map[string]string{"expose": "server"}
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
@@ -726,10 +730,14 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(serverVMI.Status.Interfaces)).To(Equal(1))
 
-			if !netutils.IsIPv6String(serverVMI.Status.Interfaces[0].IP) { // TODO enable the check for ipv6
-				By("checking ping to google")
+			if netutils.IsIPv6String(serverVMI.Status.Interfaces[0].IP) {
+				By("Checking ping to cluster nodes gateway")
+				pingVirtualMachineWithTimeout(serverVMI, clusterNodesGateway, "\\$ ", 10)
+				pingVirtualMachineWithTimeout(clientVMI, clusterNodesGateway, "\\$ ", 10)
+			} else {
+				By("Checking ping to google")
 				pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
-				pingVirtualMachine(clientVMI, "google.com", "\\$ ")
+				pingVirtualMachine(clientVMI, "www.google.com", "\\$ ")
 			}
 
 			By("starting a tcp server")
