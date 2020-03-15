@@ -8,14 +8,15 @@ go_library(
         "upload_client.go",
         "uploadtokenrequest.go",
     ],
+    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1alpha1",
     importpath = "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1alpha1",
     visibility = ["//visibility:public"],
     deps = [
-        "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1:go_default_library",
     ],
 )

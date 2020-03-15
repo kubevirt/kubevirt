@@ -6,6 +6,7 @@ go_library(
         "doc.go",
         "register.go",
     ],
+    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/scheme",
     importpath = "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/scheme",
     visibility = ["//visibility:public"],
     deps = [

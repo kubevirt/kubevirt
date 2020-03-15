@@ -11,14 +11,15 @@ go_library(
         "prometheusrule.go",
         "servicemonitor.go",
     ],
+    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1",
     importpath = "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1",
     visibility = ["//visibility:public"],
     deps = [
-        "//staging/src/kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/scheme:go_default_library",
         "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/scheme:go_default_library",
     ],
 )

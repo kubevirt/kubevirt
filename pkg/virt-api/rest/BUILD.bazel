@@ -13,10 +13,6 @@ go_library(
     deps = [
         "//pkg/controller:go_default_library",
         "//pkg/rest:go_default_library",
-        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//staging/src/kubevirt.io/client-go/util:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/k8s.io/api/authorization/v1beta1:go_default_library",
@@ -33,6 +29,10 @@ go_library(
         "//vendor/k8s.io/client-go/kubernetes/typed/authorization/v1beta1:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
         "//vendor/k8s.io/client-go/util/cert:go_default_library",
+        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/kubevirt.io/client-go/util:go_default_library",
     ],
 )
 
@@ -45,9 +45,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
@@ -59,5 +56,8 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/util/uuid:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/typed/authorization/v1beta1:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
+        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
     ],
 )

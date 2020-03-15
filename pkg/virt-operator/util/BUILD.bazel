@@ -12,11 +12,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
-        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//staging/src/kubevirt.io/client-go/util:go_default_library",
-        "//staging/src/kubevirt.io/client-go/version:go_default_library",
         "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/github.com/openshift/api/security/v1:go_default_library",
         "//vendor/k8s.io/api/apps/v1:go_default_library",
@@ -24,6 +19,11 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/client-go/discovery:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/kubevirt.io/client-go/util:go_default_library",
+        "//vendor/kubevirt.io/client-go/version:go_default_library",
     ],
 )
 
@@ -36,12 +36,12 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
     ],
 )

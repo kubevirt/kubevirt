@@ -12,7 +12,6 @@ go_library(
     deps = [
         "//pkg/middleware:go_default_library",
         "//pkg/rest:go_default_library",
-        "//staging/src/kubevirt.io/client-go/precond:go_default_library",
         "//vendor/github.com/asaskevich/govalidator:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/ghodss/yaml:go_default_library",
@@ -22,6 +21,7 @@ go_library(
         "//vendor/gopkg.in/ini.v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/kubevirt.io/client-go/precond:go_default_library",
     ],
 )
 
@@ -39,7 +39,6 @@ go_test(
     deps = [
         "//pkg/middleware:go_default_library",
         "//pkg/rest:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",
         "//vendor/github.com/ghodss/yaml:go_default_library",
@@ -49,5 +48,6 @@ go_test(
         "//vendor/golang.org/x/net/context:go_default_library",
         "//vendor/gopkg.in/ini.v1:go_default_library",
         "//vendor/gopkg.in/yaml.v2:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
     ],
 )

@@ -13,7 +13,6 @@ go_library(
     deps = [
         "//pkg/virt-operator/creation/rbac:go_default_library",
         "//pkg/virt-operator/util:go_default_library",
-        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring:go_default_library",
         "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/github.com/openshift/api/security/v1:go_default_library",
@@ -25,5 +24,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/json:go_default_library",
+        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
     ],
 )
