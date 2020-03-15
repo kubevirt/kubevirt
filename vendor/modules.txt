@@ -21,6 +21,8 @@ github.com/asaskevich/govalidator
 github.com/beorn7/perks/quantile
 # github.com/blang/semver v3.5.1+incompatible
 github.com/blang/semver
+# github.com/containernetworking/plugins v0.8.5
+github.com/containernetworking/plugins/pkg/ns
 # github.com/coreos/go-iptables v0.4.5
 github.com/coreos/go-iptables/iptables
 # github.com/coreos/go-semver v0.3.0
