@@ -732,8 +732,13 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			if netutils.IsIPv6String(serverVMI.Status.Interfaces[0].IP) {
 				By("Checking ping to cluster nodes gateway")
+<<<<<<< HEAD
 				pingVirtualMachine(serverVMI, clusterNodesGateway, "\\$ ")
 				pingVirtualMachine(clientVMI, clusterNodesGateway, "\\$ ")
+=======
+				pingVirtualMachineWithTimeout(serverVMI, clusterNodesGateway, "\\$ ", 10)
+				pingVirtualMachineWithTimeout(clientVMI, clusterNodesGateway, "\\$ ", 10)
+>>>>>>> Change ping destination to IPv6 supported
 			} else {
 				By("Checking ping to google")
 				pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
