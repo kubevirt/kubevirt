@@ -36,6 +36,12 @@ spec:
           value: quay.io/kubevirt/kubevirt-v2v-conversion:v2.0.0
         - name: VMWARE_CONTAINER
           value: quay.io/kubevirt/kubevirt-vmware:v2.0.0
+        - name: SMBIOS
+          value: |-
+            Family: KubeVirt
+            Manufacturer: KubeVirt
+            Product: None
+        - name: MACHINETYPE
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.1.0
         imagePullPolicy: IfNotPresent
         name: hyperconverged-cluster-operator

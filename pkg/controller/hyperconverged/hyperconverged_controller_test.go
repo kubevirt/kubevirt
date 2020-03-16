@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 // name and namespace of our primary resource
@@ -50,6 +51,12 @@ var _ = Describe("HyperconvergedController", func() {
 
 	Describe("HyperConverged Components", func() {
 		Context("KubeVirt Config", func() {
+
+			BeforeEach(func() {
+				os.Setenv("SMBIOS", "new-smbios-value-that-we-have-to-set")
+				os.Setenv("MACHINETYPE", "new-machinetype-value-that-we-have-to-set")
+			})
+
 			It("should create if not present", func() {
 				hco := &hcov1alpha1.HyperConverged{
 					ObjectMeta: metav1.ObjectMeta{
@@ -97,6 +104,37 @@ var _ = Describe("HyperconvergedController", func() {
 				// ObjectReference should have been added
 				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			})
+
+			It("should update if outdated", func() {
+				hco := &hcov1alpha1.HyperConverged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: hcov1alpha1.HyperConvergedSpec{},
+				}
+
+				expectedResource := newKubeVirtConfigForCR(hco, namespace)
+				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+				outdatedResource := newKubeVirtConfigForCR(hco, namespace)
+				outdatedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", outdatedResource.Namespace, outdatedResource.Name)
+				outdatedResource.Data[virtconfig.SmbiosConfigKey] = "old-smbios-value-that-we-have-to-update"
+				outdatedResource.Data[virtconfig.MachineTypeKey] = "old-machinetype-value-that-we-have-to-update"
+
+				cl := initClient([]runtime.Object{hco, outdatedResource})
+				r := initReconciler(cl)
+				Expect(r.ensureKubeVirtConfig(hco, log, request)).To(BeNil())
+
+				foundResource := &corev1.ConfigMap{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						foundResource),
+				).To(BeNil())
+				Expect(foundResource.Data).To(Not(Equal(outdatedResource.Data)))
+				Expect(foundResource.Data).To(Equal(expectedResource.Data))
+			})
+
 		})
 
 		Context("KubeVirt Storage Config", func() {

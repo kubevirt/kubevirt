@@ -32,6 +32,7 @@ import (
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -422,7 +423,7 @@ func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *c
 	labels := map[string]string{
 		"app": cr.Name,
 	}
-	return &corev1.ConfigMap{
+	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt-config",
 			Labels:    labels,
@@ -434,6 +435,15 @@ func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *c
 			"selinuxLauncherType": "spc_t",
 		},
 	}
+	val, ok := os.LookupEnv("SMBIOS")
+	if ok && val != "" {
+		cm.Data[virtconfig.SmbiosConfigKey] = val
+	}
+	val, ok = os.LookupEnv("MACHINETYPE")
+	if ok && val != "" {
+		cm.Data[virtconfig.MachineTypeKey] = val
+	}
+	return cm
 }
 
 func (r *ReconcileHyperConverged) ensureKubeVirtConfig(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
@@ -465,6 +475,16 @@ func (r *ReconcileHyperConverged) ensureKubeVirtConfig(instance *hcov1alpha1.Hyp
 		return err
 	}
 	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+
+	if !reflect.DeepEqual(found.Data, kubevirtConfig.Data) {
+		logger.Info("Updating existing KubeVirt config")
+		found.Data = kubevirtConfig.Data
+		err = r.client.Update(context.TODO(), found)
+		if err != nil {
+			logger.Error(err, "Failed updating an existing kubevirt config")
+			return err
+		}
+	}
 
 	return r.client.Status().Update(context.TODO(), instance)
 }

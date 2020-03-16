@@ -75,6 +75,8 @@ var (
 	operatorImage       = flag.String("operator-image-name", "", "HyperConverged Cluster Operator image")
 	imsConversionImage  = flag.String("ims-conversion-image-name", "", "IMS conversion image")
 	imsVMWareImage      = flag.String("ims-vmware-image-name", "", "IMS VMWare image")
+	smbios              = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
+	machinetype         = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap")
 	csvVersion          = flag.String("csv-version", "", "CSV version")
 	replacesCsvVersion  = flag.String("replaces-csv-version", "", "CSV version to replace")
 	metadataDescription = flag.String("metadata-description", "", "Metadata")
@@ -145,6 +147,8 @@ func main() {
 			"IfNotPresent",
 			*imsConversionImage,
 			*imsVMWareImage,
+			*smbios,
+			*machinetype,
 		)
 
 		for _, image := range strings.Split(*relatedImagesList, ",") {
@@ -245,36 +249,6 @@ func main() {
 			panic(err)
 		}
 		csvExtended.Annotations["operators.operatorframework.io/internal-objects"] = string(hidden_crds_j)
-
-		dfound := false
-		efound := false
-		for _, deployment := range installStrategyBase.DeploymentSpecs {
-			if deployment.Name == "hco-operator" {
-				dfound = true
-				deployment.Spec.Template.Spec.Containers[0].Image = *operatorImage
-				for i, env := range deployment.Spec.Template.Spec.Containers[0].Env {
-					if env.Name == "OPERATOR_IMAGE" {
-						efound = true
-						deployment.Spec.Template.Spec.Containers[0].Env[i].Value = *operatorImage
-					}
-					if env.Name == "CONVERSION_CONTAINER" {
-						efound = true
-						deployment.Spec.Template.Spec.Containers[0].Env[i].Value = *imsConversionImage
-					}
-					if env.Name == "VMWARE_CONTAINER" {
-						efound = true
-						deployment.Spec.Template.Spec.Containers[0].Env[i].Value = *imsVMWareImage
-					}
-				}
-			}
-		}
-
-		if !dfound {
-			panic("Failed identifying hco-operator deployment")
-		}
-		if !efound {
-			panic("Failed identifying OPERATOR_IMAGE env value for hco-operator")
-		}
 
 		// Re-serialize deployments and permissions into csv strategy.
 		updatedStrat, err := json.Marshal(installStrategyBase)

@@ -222,6 +222,13 @@ popd
 mkdir -p "${CSV_DIR}"
 rm -f ${CSV_DIR}/*
 
+SMBIOS=$(cat <<- EOM
+Family: KubeVirt
+Manufacturer: KubeVirt
+Product: None
+EOM
+)
+
 # Build and write deploy dir
 (cd ${PROJECT_ROOT}/tools/manifest-templator/ && go build)
 ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
@@ -233,6 +240,7 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --ims-conversion-image-name="${CONVERSION_CONTAINER}" \
   --ims-vmware-image-name="${VMWARE_CONTAINER}" \
   --operator-namespace="${OPERATOR_NAMESPACE}" \
+  --smbios="${SMBIOS}" \
   --operator-image="${OPERATOR_IMAGE}"
 (cd ${PROJECT_ROOT}/tools/manifest-templator/ && go clean)
 
@@ -250,6 +258,7 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --spec-displayname="KubeVirt HyperConverged Cluster Operator" \
   --spec-description="$(<${PROJECT_ROOT}/docs/operator_description.md)" \
   --crd-display="HyperConverged Cluster Operator" \
+  --smbios="${SMBIOS}" \
   --csv-overrides="$(<${csvOverrides})" \
   --operator-image-name="${OPERATOR_IMAGE}" > "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}"
 (cd ${PROJECT_ROOT}/tools/csv-merger/ && go clean)
