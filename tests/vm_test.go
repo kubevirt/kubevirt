@@ -1303,6 +1303,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(renameCommand()).ToNot(Succeed())
 			})
 
+			It("should reject renaming a VM with invalid name", func() {
+				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm1.Name, "invalid name <>?:;",
+					"--namespace", vm1.Namespace)
+				Expect(renameCommand()).ToNot(Succeed())
+			})
+
 			It("should reject renaming a VM if the new name is taken", func() {
 				vm2 := newVirtualMachine(true)
 
@@ -1588,7 +1594,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					{
 						Action: v1.RenameRequest,
 						Data: map[string]string{
-							"newName": "somethingNew",
+							"newName": "something-new",
 						},
 					},
 				}
@@ -1623,6 +1629,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err.Error()).To(ContainSubstring("Please provide a new name for the VM"))
 			})
 
+			It("should fail if the new name is invalid", func() {
+				err := cli.Rename(vm1.Name, &v1.RenameOptions{NewName: "invalid name <>?:;"})
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("The VM's new name is not valid"))
+			})
+
 			It("should fail if the new name is identical to the current name", func() {
 				err := cli.Rename(vm1.Name, &v1.RenameOptions{NewName: vm1.Name})
 				Expect(err).To(HaveOccurred())
@@ -1636,21 +1648,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				err = cli.Rename(vm1.Name, &v1.RenameOptions{NewName: vm1.Name + "new"})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("running"))
-			})
-
-			It("should fail if the VM has an active runStrategy", func() {
-				vm1 = tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
-				rs := v1.RunStrategyManual
-				vm1.Spec.RunStrategy = &rs
-				vm1.Spec.Running = nil
-
-				_, err := cli.Create(vm1)
-				Expect(err).ToNot(HaveOccurred())
-
-				err = cli.Rename(vm1.Name, &v1.RenameOptions{NewName: vm1.Name + "new"})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).
-					To(ContainSubstring("Renaming a running VM is not allowed"))
 			})
 
 			It("should succeed", func() {
