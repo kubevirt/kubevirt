@@ -46,3 +46,5 @@ echo "from .v1_interface_slirp import V1InterfaceSlirp" >>"${PYTHON_CLIENT_OUT_D
 
 echo "from .models.v1_interface_bridge import V1InterfaceBridge" >>"${PYTHON_CLIENT_OUT_DIR}"/kubevirt/__init__.py
 echo "from .models.v1_interface_slirp import V1InterfaceSlirp" >>"${PYTHON_CLIENT_OUT_DIR}"/kubevirt/__init__.py
+
+cp LICENSE ${PYTHON_CLIENT_OUT_DIR}/LICENSE
