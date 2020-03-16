@@ -127,7 +127,7 @@ func (lh *LifecycleHandler) GetUsers(request *restful.Request, response *restful
 
 	log.Log.Object(vmi).Infof("Retreiving userlist from %s", vmi.Name)
 
-	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()))
+	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()), true)
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
@@ -153,7 +153,7 @@ func (lh *LifecycleHandler) GetFilesystems(request *restful.Request, response *r
 
 	log.Log.Object(vmi).Infof("Retreiving filesystem list from %s", vmi.Name)
 
-	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()))
+	sockFile := cmdclient.SocketFromUID(lh.virtShareDir, string(vmi.GetUID()), true)
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
