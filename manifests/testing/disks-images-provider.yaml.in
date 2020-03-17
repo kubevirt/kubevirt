@@ -114,6 +114,27 @@ spec:
               - /ready
             initialDelaySeconds: 10
             periodSeconds: 5
+        - name: loopdev
+          command:
+          - sh
+          - -c
+          - |
+            while true; do
+              for i in $(seq 0 5); do
+                  losetup -d /dev/loop$i
+                  rm -f /dev/loop$i
+                  mknod /dev/loop$i b 7 $i
+              done
+              sleep 100000000
+            done
+          image: {{.DockerPrefix}}/disks-images-provider:{{.DockerTag}}
+          imagePullPolicy: IfNotPresent
+          resources: {}
+          securityContext:
+            privileged: true
+          volumeMounts:
+          - name: dev
+            mountPath: /dev
       volumes:
         - name: images
           hostPath:
@@ -123,3 +144,6 @@ spec:
           hostPath:
             path: /mnt/local-storage
             type: DirectoryOrCreate
+        - name: dev
+          hostPath:
+            path: /dev
