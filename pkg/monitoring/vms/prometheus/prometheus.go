@@ -424,7 +424,13 @@ func newvmiSocketMapFromVMIs(baseDir string, vmis []*k6tv1.VirtualMachineInstanc
 
 	ret := make(vmiSocketMap)
 	for _, vmi := range vmis {
-		socketPath := cmdclient.SocketFromUID(baseDir, string(vmi.UID), true)
+		socketPath, err := cmdclient.FindSocketOnHost(vmi)
+		if err != nil {
+			// nothing to scrape...
+			// this means there's no socket or the socket
+			// is currently unreachable for this vmi.
+			continue
+		}
 		ret[socketPath] = vmi
 	}
 	return ret

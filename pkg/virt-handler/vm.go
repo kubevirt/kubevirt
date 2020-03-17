@@ -64,6 +64,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+type launcherClientInfo struct {
+	client     cmdclient.LauncherClient
+	socketFile string
+}
+
 func NewController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
@@ -127,7 +132,7 @@ func NewController(
 		UpdateFunc: c.updateFunc,
 	})
 
-	c.launcherClients = make(map[string]cmdclient.LauncherClient)
+	c.launcherClients = make(map[types.UID]*launcherClientInfo)
 	c.phase1NetworkSetupCache = make(map[types.UID]int)
 
 	c.kvmController = device_manager.NewDeviceController(c.host, maxDevices)
@@ -146,7 +151,7 @@ type VirtualMachineController struct {
 	vmiTargetInformer        cache.SharedIndexInformer
 	domainInformer           cache.SharedInformer
 	gracefulShutdownInformer cache.SharedIndexInformer
-	launcherClients          map[string]cmdclient.LauncherClient
+	launcherClients          map[types.UID]*launcherClientInfo
 	launcherClientLock       sync.Mutex
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
@@ -682,22 +687,24 @@ func (d *VirtualMachineController) getVMIFromCache(key string) (vmi *v1.VirtualM
 	return vmi, exists, nil
 }
 
-func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.Domain, exists bool, err error) {
+func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.Domain, exists bool, cachedUID types.UID, err error) {
 
 	obj, exists, err := d.domainInformer.GetStore().GetByKey(key)
 
 	if err != nil {
-		return nil, false, err
+		return nil, false, "", err
 	}
 
 	if exists {
 		domain = obj.(*api.Domain)
+		cachedUID = domain.Spec.Metadata.KubeVirt.UID
+
 		if domain.ObjectMeta.DeletionTimestamp != nil {
 			exists = false
 			domain = nil
 		}
 	}
-	return domain, exists, nil
+	return domain, exists, cachedUID, nil
 }
 
 func (d *VirtualMachineController) migrationOrphanedSourceNodeExecute(key string,
@@ -1064,19 +1071,22 @@ func (d *VirtualMachineController) execute(key string) error {
 		return err
 	}
 
-	domain, domainExists, err := d.getDomainFromCache(key)
+	domain, domainExists, domainCachedUID, err := d.getDomainFromCache(key)
 	if err != nil {
 		return err
 	}
 
-	if !vmiExists && domainExists {
-		vmi.UID = domain.Spec.Metadata.KubeVirt.UID
+	if !vmiExists && string(domainCachedUID) != "" {
+		// it's possible to discover the UID from cache even if the domain
+		// doesn't techincally exist anymore
+		vmi.UID = domainCachedUID
+		log.Log.Object(vmi).Infof("Using cached UID for vmi found in domain cache")
 	}
 
 	// As a last effort, if the UID still can't be determined attempt
 	// to retrieve it from the cmdclient socket information cache
 	if string(vmi.UID) == "" {
-		uid, err := cmdclient.FindLastKnownUIDForKey(d.virtShareDir, vmi.Name, vmi.Namespace)
+		uid, err := cmdclient.FindLastKnownUIDForKey(vmi.Name, vmi.Namespace)
 		if err != nil {
 			return err
 		}
@@ -1099,11 +1109,10 @@ func (d *VirtualMachineController) execute(key string) error {
 			if err != nil {
 				return err
 			}
+			// Make sure we re-enqueue the key to ensure this new VMI is processed
+			// after the stale domain is removed
+			d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*5)
 		}
-
-		// Make sure we re-enqueue the key to ensure this new VMI is processed
-		// after the stale domain is removed
-		d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*5)
 
 		return nil
 	}
@@ -1192,30 +1201,15 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 
-	sockFile := cmdclient.SocketFromUID(d.virtShareDir, string(vmi.GetUID()), true)
-
-	client, ok := d.launcherClients[sockFile]
+	clientInfo, ok := d.launcherClients[vmi.UID]
 	if ok {
-		client.Close()
-	}
-
-	// With the new socket format, we need to clean up
-	// the entire directory the launcher socket is placed in
-	// this is because we now use a single directory per launcher
-	// socket where previously we put all the sockets into
-	// a single giant directory.
-	//
-	// The new socket format can be detected with the StandardLauncherSocketFileName const
-	// The old format was dynamic, and looks like <uid>_sock
-	if cmdclient.SocketMonitoringEnabled(sockFile) {
-		err := os.RemoveAll(filepath.Dir(sockFile))
-		if err != nil {
-			return err
-		}
-	} else {
-		err := os.RemoveAll(sockFile)
-		if err != nil {
-			return err
+		clientInfo.client.Close()
+		// With legacy sockets on hostpaths, we have to cleanup the sockets ourselves.
+		if !cmdclient.SocketMonitoringEnabled(clientInfo.socketFile) {
+			err := os.RemoveAll(clientInfo.socketFile)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1226,31 +1220,49 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 		return err
 	}
 
-	delete(d.launcherClients, sockFile)
+	delete(d.launcherClients, vmi.UID)
 	return nil
 }
 
 // used by unit tests to add mock clients
-func (d *VirtualMachineController) addLauncherClient(client cmdclient.LauncherClient, sockFile string) error {
+func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, client cmdclient.LauncherClient, socketFile string) error {
 	// maps require locks for concurrent access
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 
-	d.launcherClients[sockFile] = client
+	d.launcherClients[vmUID] = &launcherClientInfo{
+		client:     client,
+		socketFile: socketFile,
+	}
 
 	return nil
 }
 
 func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (bool, error) {
+	var socketFile string
+	var err error
 
-	sockFile := cmdclient.SocketFromUID(d.virtShareDir, string(vmi.GetUID()), true)
+	d.launcherClientLock.Lock()
+	defer d.launcherClientLock.Unlock()
 
+	clientInfo, ok := d.launcherClients[vmi.UID]
+	if ok {
+		// use cached socket if we previously established a connection
+		socketFile = clientInfo.socketFile
+	} else {
+		// attempt to find the socket if the established connection doesn't currently exist.
+		socketFile, err = cmdclient.FindSocketOnHost(vmi)
+		// no socket file, no VMI, so it's unresponsive
+		if err != nil {
+			return true, nil
+		}
+	}
 	// The new way of detecting unresponsive VMIs monitors the
 	// cmd socket. This requires an updated VMI image. Old VMIs
 	// still use the watchdog method.
 	watchDogExists, _ := watchdog.WatchdogFileExists(d.virtShareDir, vmi)
-	if cmdclient.SocketMonitoringEnabled(sockFile) && !watchDogExists {
-		isUnresponsive := cmdclient.IsSocketUnresponsive(sockFile)
+	if cmdclient.SocketMonitoringEnabled(socketFile) && !watchDogExists {
+		isUnresponsive := cmdclient.IsSocketUnresponsive(socketFile)
 		return isUnresponsive, nil
 	}
 
@@ -1263,19 +1275,25 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 
-	sockFile := cmdclient.SocketFromUID(d.virtShareDir, string(vmi.GetUID()), true)
-
-	client, ok := d.launcherClients[sockFile]
+	clientInfo, ok := d.launcherClients[vmi.UID]
 	if ok {
-		return client, nil
+		return clientInfo.client, nil
 	}
 
-	client, err := cmdclient.NewClient(sockFile)
+	socketFile, err := cmdclient.FindSocketOnHost(vmi)
 	if err != nil {
 		return nil, err
 	}
 
-	d.launcherClients[sockFile] = client
+	client, err := cmdclient.NewClient(socketFile)
+	if err != nil {
+		return nil, err
+	}
+
+	d.launcherClients[vmi.UID] = &launcherClientInfo{
+		client:     client,
+		socketFile: socketFile,
+	}
 
 	return client, nil
 }
@@ -1385,17 +1403,15 @@ func (d *VirtualMachineController) removeStaleClientConnections(vmi *v1.VirtualM
 	// maps require locks for concurrent access
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
-	sockFile := cmdclient.SocketFromUID(d.virtShareDir, string(vmi.GetUID()), true)
 
-	client, ok := d.launcherClients[sockFile]
+	clientInfo, ok := d.launcherClients[vmi.UID]
 	if !ok {
 		// no client connection to reap
 		return
 	}
 
-	// close the connection but do not delete the file
-	client.Close()
-	delete(d.launcherClients, sockFile)
+	clientInfo.client.Close()
+	delete(d.launcherClients, vmi.UID)
 }
 
 func (d *VirtualMachineController) getVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error) {

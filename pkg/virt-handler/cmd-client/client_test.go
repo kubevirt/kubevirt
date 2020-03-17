@@ -26,7 +26,9 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/types"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 )
 
@@ -36,28 +38,55 @@ var _ = Describe("Virt remote commands", func() {
 	var err error
 	var shareDir string
 	var socketsDir string
+	var podsDir string
+	var vmi *v1.VirtualMachineInstance
+	var podSocketFile string
+
+	host := "myhost"
+	podUID := "poduid123"
 
 	BeforeEach(func() {
+		vmi = v1.NewMinimalVMI("testvmi")
+		vmi.UID = types.UID("1234")
+		vmi.Status = v1.VirtualMachineInstanceStatus{
+			ActivePods: map[types.UID]string{
+				types.UID(podUID): host,
+			},
+		}
+
 		shareDir, err = ioutil.TempDir("", "kubevirt-share")
+		Expect(err).ToNot(HaveOccurred())
+
+		podsDir, err = ioutil.TempDir("", "pods")
 		Expect(err).ToNot(HaveOccurred())
 
 		socketsDir = filepath.Join(shareDir, "sockets")
 		os.Mkdir(socketsDir, 0755)
+
+		SetLegacyBaseDir(shareDir)
+		SetPodsBaseDir(podsDir)
+
+		podSocketFile = SocketFilePathOnHost(podUID)
+
+		os.MkdirAll(filepath.Dir(podSocketFile), 0755)
+		f, err := os.Create(podSocketFile)
+		Expect(err).ToNot(HaveOccurred())
+		f.Close()
+
 	})
 
 	AfterEach(func() {
 		os.RemoveAll(shareDir)
+		os.RemoveAll(podsDir)
 	})
 
 	Context("client", func() {
 		It("socket from UID", func() {
-			// on host, sockets dir is split by uuid directories.
-			// only each uuid dir is shared with the vmi pod
-			sock := SocketFromUID(shareDir, "1234", true)
-			Expect(sock).To(Equal(filepath.Join(shareDir, "sockets", "1234", StandardLauncherSocketFileName)))
+			sock, err := FindSocketOnHost(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sock).To(Equal(podSocketFile))
 
-			// when in VMI pod, the sockets dir isn't separated by UID
-			sock = SocketFromUID(shareDir, "1234", false)
+			sock = SocketOnGuest()
 			Expect(sock).To(Equal(filepath.Join(shareDir, "sockets", StandardLauncherSocketFileName)))
 
 			// falls back to returning a legacy socket name if it exists
@@ -65,26 +94,23 @@ var _ = Describe("Virt remote commands", func() {
 			f, err := os.Create(filepath.Join(socketsDir, "1234_sock"))
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()
-			sock = SocketFromUID(shareDir, "1234", true)
+			sock, err = FindSocketOnHost(vmi)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(sock).To(Equal(filepath.Join(shareDir, "sockets", "1234_sock")))
 
 		})
 
 		It("Find UID from namespace/name using socket info", func() {
-			name := "testvmi"
-			namespace := "default"
-			uid := "1234"
+			name := vmi.Name
+			namespace := vmi.Namespace
+			uid := string(vmi.UID)
 
-			sock := SocketFromUID(shareDir, uid, true)
-			os.MkdirAll(filepath.Dir(sock), 0755)
-			f, err := os.Create(sock)
+			sock, err := FindSocketOnHost(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			f.Close()
-
 			err = SetSocketInfo(sock, uid, name, namespace)
 			Expect(err).ToNot(HaveOccurred())
 
-			foundUid, err := FindLastKnownUIDForKey(shareDir, name, namespace)
+			foundUid, err := FindLastKnownUIDForKey(name, namespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(foundUid).To(Equal(uid))
@@ -110,20 +136,23 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()
 
-			foundUid, err := FindLastKnownUIDForKey(shareDir, name, namespace)
+			foundUid, err := FindLastKnownUIDForKey(name, namespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(foundUid).To(Equal(uid))
 		})
 
 		It("Detect unresponsive socket", func() {
-			sock := SocketFromUID(shareDir, "1234", true)
+			sock, err := FindSocketOnHost(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			os.RemoveAll(sock)
 
 			// unresponsive is true when no socket file exists
 			unresponsive := IsSocketUnresponsive(sock)
 			Expect(unresponsive).To(BeTrue())
 
-			// unresponsive is false when no socket file exists
+			// unresponsive is false when socket file exists
 			os.Mkdir(filepath.Dir(sock), 0755)
 			f, err := os.Create(sock)
 			Expect(err).ToNot(HaveOccurred())
@@ -138,11 +167,10 @@ var _ = Describe("Virt remote commands", func() {
 		})
 
 		It("Set and Get Socket Info Metadata", func() {
-			sock := SocketFromUID(shareDir, "1234", true)
+			sock, err := FindSocketOnHost(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
-			os.Mkdir(filepath.Dir(sock), 0755)
-
-			err := SetSocketInfo(sock, "1234", "myname", "mynamespace")
+			err = SetSocketInfo(sock, "1234", "myname", "mynamespace")
 			Expect(err).ToNot(HaveOccurred())
 
 			info, err := GetSocketInfo(sock)

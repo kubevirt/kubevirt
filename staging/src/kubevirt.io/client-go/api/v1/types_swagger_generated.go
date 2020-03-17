@@ -49,6 +49,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"migrationState":  "Represents the status of a live migration",
 		"migrationMethod": "Represents the method using which the vmi can be migrated: live migration or block migration",
 		"qosClass":        "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements\nSee PodQOSClass type for available QOS classes\nMore info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md\n+optional",
+		"activePods":      "ActivePods is a mapping of pod UID to node name.\nIt is possible for multiple pods to be running for a single VMI during migration.",
 	}
 }
 

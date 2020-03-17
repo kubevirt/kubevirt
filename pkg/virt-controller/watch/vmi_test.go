@@ -331,6 +331,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			// 2 pods are owned by VMI
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.UID = "456-456-456"
 			pod2 := pod.DeepCopy()
 			pod2.UID = "123-123-123"
 			pod2.Name = "test2"
@@ -341,6 +342,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pod3.Name = "test2"
 			pod3.Annotations = make(map[string]string)
 			pod3.Labels = make(map[string]string)
+
+			addActivePods(vmi, pod.UID, "")
+			addActivePods(vmi, pod2.UID, "")
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
@@ -377,6 +381,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
 
 			shouldExpectPodDeletion(pod)
 
@@ -400,6 +405,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
 
 			controller.Execute()
 		},
@@ -536,6 +542,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
 
 			shouldExpectVirtualMachineSchedulingState(vmi)
 
@@ -644,6 +651,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
+			if containerStatus[0].Ready {
+				addActivePods(vmi, pod.UID, "")
+			}
 
 			shouldExpectVirtualMachineScheduledState(vmi)
 
@@ -667,6 +677,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
 
 			controller.Execute()
 		},
@@ -809,6 +820,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
 
 			controller.Execute()
 
@@ -827,6 +839,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
 
 			controller.Execute()
 
@@ -875,6 +888,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
 
 			controller.Execute()
 		},
@@ -892,9 +906,26 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pod.Status.Conditions = []k8sv1.PodCondition{{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue}}
 
 			addVirtualMachine(vmi)
+			addActivePods(vmi, pod.UID, "")
 			podFeeder.Add(pod)
 
 			patch := `[ { "op": "test", "path": "/status/conditions", "value": null }, { "op": "replace", "path": "/status/conditions", "value": [{"type":"Ready","status":"True","lastProbeTime":null,"lastTransitionTime":null}] } ]`
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
+
+			controller.Execute()
+		})
+
+		It("should add active pods to status if VMI is in running state", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Running
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.UID = "someUID"
+			pod.Spec.NodeName = "someHost"
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			patch := `[ { "op": "test", "path": "/status/activePods", "value": {} }, { "op": "replace", "path": "/status/activePods", "value": {"someUID":"someHost"} } ]`
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, []byte(patch)).Return(vmi, nil)
 
 			controller.Execute()
@@ -908,6 +939,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
 
 			controller.Execute()
 		},
@@ -1015,6 +1047,7 @@ func NewPendingVirtualMachine(name string) *v1.VirtualMachineInstance {
 	vmi.UID = "1234"
 	vmi.Status.Phase = v1.Pending
 	controller.SetLatestApiVersionAnnotation(vmi)
+	vmi.Status.ActivePods = make(map[types.UID]string)
 	return vmi
 }
 
@@ -1053,4 +1086,16 @@ func markAsReady(vmi *v1.VirtualMachineInstance) {
 func markAsNonReady(vmi *v1.VirtualMachineInstance) {
 	controller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
 	controller.NewVirtualMachineInstanceConditionManager().AddPodCondition(vmi, &k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse})
+}
+
+func addActivePods(vmi *v1.VirtualMachineInstance, podUID types.UID, hostName string) *v1.VirtualMachineInstance {
+
+	if vmi.Status.ActivePods != nil {
+		vmi.Status.ActivePods[podUID] = hostName
+	} else {
+		vmi.Status.ActivePods = map[types.UID]string{
+			podUID: hostName,
+		}
+	}
+	return vmi
 }

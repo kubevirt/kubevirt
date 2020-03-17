@@ -282,6 +282,11 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	vmiCopy := vmi.DeepCopy()
 	podExists := podExists(pod)
 
+	vmiCopy, err := c.setActivePods(vmiCopy)
+	if err != nil {
+		return fmt.Errorf("Error detecting vmi pods: %v", err)
+	}
+
 	switch {
 
 	case vmi.IsUnprocessed():
@@ -380,8 +385,11 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
 		}
 
+		patchOps := []string{}
+
 		// We don't own the object anymore, so patch instead of update
 		if !reflect.DeepEqual(vmiCopy.Status.Conditions, vmi.Status.Conditions) {
+
 			newConditions, err := json.Marshal(vmiCopy.Status.Conditions)
 			if err != nil {
 				return err
@@ -390,14 +398,44 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			if err != nil {
 				return err
 			}
-			test := fmt.Sprintf(`{ "op": "test", "path": "/status/conditions", "value": %s }`, string(oldConditions))
-			patch := fmt.Sprintf(`{ "op": "replace", "path": "/status/conditions", "value": %s }`, string(newConditions))
+
+			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/conditions", "value": %s }`, string(oldConditions)))
+			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/conditions", "value": %s }`, string(newConditions)))
+
 			log.Log.V(3).Object(vmi).Infof("Patching VMI conditions")
-			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
+		}
+
+		if !reflect.DeepEqual(vmiCopy.Status.ActivePods, vmi.Status.ActivePods) {
+			newPods, err := json.Marshal(vmiCopy.Status.ActivePods)
+			if err != nil {
+				return err
+			}
+			oldPods, err := json.Marshal(vmi.Status.ActivePods)
+			if err != nil {
+				return err
+			}
+
+			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "test", "path": "/status/activePods", "value": %s }`, string(oldPods)))
+			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/status/activePods", "value": %s }`, string(newPods)))
+
+			log.Log.V(3).Object(vmi).Infof("Patching VMI activePods")
+		}
+
+		if len(patchOps) > 0 {
+			patch := "[ "
+			for i, entry := range patchOps {
+				if i == len(patchOps)-1 {
+					patch = patch + entry + " ]"
+				} else {
+					patch = patch + entry + ", "
+				}
+			}
+
+			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(patch))
 			// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
 			// So just retry like with any other errors
 			if err != nil {
-				return fmt.Errorf("patching vmi conditions failed: %v", err)
+				return fmt.Errorf("patching of vmi conditions and activePods failed: %v", err)
 			}
 		}
 		return nil
@@ -892,6 +930,34 @@ func (c *VMIController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, e
 		pods = append(pods, pod)
 	}
 	return pods, nil
+}
+
+func (c *VMIController) setActivePods(vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
+	pods, err := c.listPodsFromNamespace(vmi.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	activePods := make(map[types.UID]string)
+	count := 0
+	for _, pod := range pods {
+		if !controller.IsControlledBy(pod, vmi) {
+			continue
+		} else if isComputeContainerDown(pod) {
+			continue
+		}
+
+		count++
+		activePods[pod.UID] = pod.Spec.NodeName
+	}
+
+	if count == 0 && vmi.Status.ActivePods == nil {
+		return vmi, nil
+	}
+
+	vmi.Status.ActivePods = activePods
+	return vmi, nil
+
 }
 
 func (c *VMIController) currentPod(vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error) {

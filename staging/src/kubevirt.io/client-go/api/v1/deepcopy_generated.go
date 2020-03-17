@@ -2514,6 +2514,13 @@ func (in *VirtualMachineInstanceStatus) DeepCopyInto(out *VirtualMachineInstance
 		*out = new(corev1.PodQOSClass)
 		**out = **in
 	}
+	if in.ActivePods != nil {
+		in, out := &in.ActivePods, &out.ActivePods
+		*out = make(map[types.UID]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

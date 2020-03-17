@@ -5,9 +5,12 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -19,16 +22,31 @@ var _ = Describe("Isolation", func() {
 
 		var socket net.Listener
 		var tmpDir string
+		var podsDir string
+		var podUID string
+
+		podUID = "pid-uid-1234"
 		vm := v1.NewMinimalVMIWithNS("default", "testvm")
+		vm.UID = "1234"
+		vm.Status = v1.VirtualMachineInstanceStatus{
+			ActivePods: map[types.UID]string{
+				types.UID(podUID): "myhost",
+			},
+		}
+		vm.Status.NodeName = "myhost"
 
 		BeforeEach(func() {
 			var err error
 			tmpDir, err = ioutil.TempDir("", "kubevirt")
+			podsDir, err = ioutil.TempDir("", "pods")
+
+			cmdclient.SetLegacyBaseDir(tmpDir)
+			cmdclient.SetPodsBaseDir(tmpDir)
+
 			os.MkdirAll(tmpDir+"/sockets/", os.ModePerm)
-			socket, err = net.Listen("unix", cmdclient.SocketFromUID(
-				tmpDir,
-				string(vm.UID), true),
-			)
+			socketFile := cmdclient.SocketFilePathOnHost(podUID)
+			os.MkdirAll(filepath.Dir(socketFile), os.ModePerm)
+			socket, err = net.Listen("unix", socketFile)
 			Expect(err).ToNot(HaveOccurred())
 			go func() {
 				for {
@@ -81,6 +99,7 @@ var _ = Describe("Isolation", func() {
 		AfterEach(func() {
 			socket.Close()
 			os.RemoveAll(tmpDir)
+			os.RemoveAll(podsDir)
 		})
 	})
 })

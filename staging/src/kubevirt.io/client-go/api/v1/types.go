@@ -174,6 +174,10 @@ type VirtualMachineInstanceStatus struct {
 	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
 	// +optional
 	QOSClass *k8sv1.PodQOSClass `json:"qosClass,omitempty"`
+
+	// ActivePods is a mapping of pod UID to node name.
+	// It is possible for multiple pods to be running for a single VMI during migration.
+	ActivePods map[types.UID]string `json:"activePods,omitempty"`
 }
 
 func (v *VirtualMachineInstance) IsScheduling() bool {

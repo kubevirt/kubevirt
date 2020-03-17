@@ -61,6 +61,8 @@ var (
 	// add older version when supported
 	// don't use the variable in pkg/handler-launcher-com/cmd/v1/version.go in order to detect version mismatches early
 	supportedCmdVersions = []uint32{1}
+	legacyBaseDir        = "/var/run/kubevirt"
+	podsBaseDir          = "/pods"
 )
 
 const StandardLauncherSocketFileName = "launcher-sock"
@@ -111,8 +113,16 @@ const (
 	longTimeout  time.Duration = 20 * time.Second
 )
 
-func FindLastKnownUIDForKey(baseDir string, name string, namespace string) (string, error) {
-	socketFiles, err := ListAllSockets(baseDir)
+func SetLegacyBaseDir(baseDir string) {
+	legacyBaseDir = baseDir
+}
+
+func SetPodsBaseDir(baseDir string) {
+	podsBaseDir = baseDir
+}
+
+func FindLastKnownUIDForKey(name string, namespace string) (string, error) {
+	socketFiles, err := ListAllSockets()
 	if err != nil {
 		return "", err
 	}
@@ -132,7 +142,7 @@ func FindLastKnownUIDForKey(baseDir string, name string, namespace string) (stri
 
 	// Fallback to legacy watchdog file detection.
 	// This works for old VMIs that haven't been updated
-	filePath := watchdog.WatchdogFileFromNamespaceName(baseDir, namespace, name)
+	filePath := watchdog.WatchdogFileFromNamespaceName(legacyBaseDir, namespace, name)
 	watchdogExists, err := diskutils.FileExists(filePath)
 	if err != nil {
 		return "", err
@@ -148,10 +158,10 @@ func FindLastKnownUIDForKey(baseDir string, name string, namespace string) (stri
 	return "", nil
 }
 
-func ListAllSockets(baseDir string) ([]string, error) {
+func ListAllSockets() ([]string, error) {
 	var socketFiles []string
 
-	socketsDir := filepath.Join(baseDir, "sockets")
+	socketsDir := filepath.Join(legacyBaseDir, "sockets")
 	exists, err := diskutils.FileExists(socketsDir)
 	if err != nil {
 		return nil, err
@@ -161,30 +171,48 @@ func ListAllSockets(baseDir string) ([]string, error) {
 		return socketFiles, nil
 	}
 
-	directories, err := ioutil.ReadDir(socketsDir)
+	files, err := ioutil.ReadDir(socketsDir)
 	if err != nil {
 		return nil, err
 	}
-	for _, dir := range directories {
-		if dir.IsDir() {
-			// append the socket file for each VMI directory even if
-			// that socket file has technically already been deleted.
-			socketFiles = append(socketFiles, filepath.Join(socketsDir, dir.Name(), StandardLauncherSocketFileName))
-		} else if !dir.IsDir() && strings.Contains(dir.Name(), "_sock") {
-			// legacy support.
-			// The old way of handling launcher sockets was to
-			// dump them all in the same directory. So if we encounter
-			// a legacy socket, still process it. This is necessary
-			// for update support.
-			socketFiles = append(socketFiles, filepath.Join(socketsDir, dir.Name()))
+	for _, file := range files {
+		if file.IsDir() || !strings.Contains(file.Name(), "_sock") {
 			continue
 		}
+		// legacy support.
+		// The old way of handling launcher sockets was to
+		// dump them all in the same directory. So if we encounter
+		// a legacy socket, still process it. This is necessary
+		// for update support.
+		socketFiles = append(socketFiles, filepath.Join(socketsDir, file.Name()))
 	}
+
+	podsDir := podsBaseDir
+	dirs, err := ioutil.ReadDir(podsDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, dir := range dirs {
+		if !dir.IsDir() {
+			continue
+		}
+
+		socketPath := SocketFilePathOnHost(dir.Name())
+		exists, err = diskutils.FileExists(socketPath)
+		if err != nil {
+			return socketFiles, err
+		}
+
+		if exists {
+			socketFiles = append(socketFiles, socketPath)
+		}
+	}
+
 	return socketFiles, nil
 }
 
-func SocketsDirectory(baseDir string) string {
-	return filepath.Join(baseDir, "sockets")
+func LegacySocketsDirectory() string {
+	return filepath.Join(legacyBaseDir, "sockets")
 }
 
 func SocketMonitoringEnabled(socket string) bool {
@@ -273,25 +301,45 @@ func GetSocketInfo(socket string) (*SocketInfo, error) {
 	return socketInfo, nil
 }
 
-func SocketFromUID(baseDir string, uid string, isHost bool) string {
-	sockFile := StandardLauncherSocketFileName
-	legacySockFile := uid + "_sock"
-	if isHost {
-		// legacy support.
-		// The old way of handling launcher sockets was to
-		// dump them all in the same directory. So if we encounter
-		// a legacy socket, still process it. This is necessary
-		// for update support.
-		legacySock := filepath.Join(SocketsDirectory(baseDir), legacySockFile)
+func SocketDirectoryOnHost(podUID string) string {
+	return fmt.Sprintf("/%s/%s/volumes/kubernetes.io~empty-dir/sockets", podsBaseDir, string(podUID))
+}
+
+func SocketFilePathOnHost(podUID string) string {
+	return fmt.Sprintf("%s/%s", SocketDirectoryOnHost(podUID), StandardLauncherSocketFileName)
+}
+
+// gets the cmd socket for a VMI
+func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
+	if string(vmi.UID) != "" {
+		legacySockFile := string(vmi.UID) + "_sock"
+		legacySock := filepath.Join(LegacySocketsDirectory(), legacySockFile)
 		exists, _ := diskutils.FileExists(legacySock)
 		if exists {
-			return legacySock
+			return legacySock, nil
 		}
-
-		return filepath.Join(SocketsDirectory(baseDir), uid, sockFile)
-	} else {
-		return filepath.Join(SocketsDirectory(baseDir), sockFile)
 	}
+
+	// It is possible for multiple pods to be active on a single VMI
+	// during migrations. This loop will discover the active pod on
+	// this particular local node if it exists. A active pod not
+	// running on this node will not have a kubelet pods directory,
+	// so it will not be found.
+	for podUID, _ := range vmi.Status.ActivePods {
+		socket := SocketFilePathOnHost(string(podUID))
+		exists, _ := diskutils.FileExists(socket)
+		if exists {
+			return socket, nil
+		}
+	}
+
+	return "", fmt.Errorf("No command socket found for vmi %s", vmi.UID)
+
+}
+
+func SocketOnGuest() string {
+	sockFile := StandardLauncherSocketFileName
+	return filepath.Join(LegacySocketsDirectory(), sockFile)
 }
 
 func NewClient(socketPath string) (LauncherClient, error) {

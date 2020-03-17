@@ -46,11 +46,15 @@ import (
 var _ = Describe("Domain informer", func() {
 	var err error
 	var shareDir string
+	var podsDir string
 	var socketsDir string
 	var informer cache.SharedInformer
 	var stopChan chan struct{}
 	var ctrl *gomock.Controller
 	var domainManager *virtwrap.MockDomainManager
+	var socketPath string
+
+	podUID := "1234"
 
 	BeforeEach(func() {
 		stopChan = make(chan struct{})
@@ -58,9 +62,18 @@ var _ = Describe("Domain informer", func() {
 		shareDir, err = ioutil.TempDir("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
 
+		podsDir, err = ioutil.TempDir("", "")
+		Expect(err).ToNot(HaveOccurred())
+
+		cmdclient.SetLegacyBaseDir(shareDir)
+		cmdclient.SetPodsBaseDir(podsDir)
+
 		socketsDir = filepath.Join(shareDir, "sockets")
 		os.Mkdir(socketsDir, 0755)
 		os.Mkdir(filepath.Join(socketsDir, "1234"), 0755)
+
+		socketPath = cmdclient.SocketFilePathOnHost(podUID)
+		os.MkdirAll(filepath.Dir(socketPath), 0755)
 
 		informer, err = NewSharedInformer(shareDir, 10, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
@@ -72,6 +85,7 @@ var _ = Describe("Domain informer", func() {
 	AfterEach(func() {
 		close(stopChan)
 		os.RemoveAll(shareDir)
+		os.RemoveAll(podsDir)
 		ctrl.Finish()
 	})
 
@@ -97,7 +111,6 @@ var _ = Describe("Domain informer", func() {
 
 			list = append(list, api.NewMinimalDomain("testvmi1"))
 
-			socketPath := filepath.Join(socketsDir, "1234", cmdclient.StandardLauncherSocketFileName)
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
 			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
@@ -123,7 +136,6 @@ var _ = Describe("Domain informer", func() {
 			domain := api.NewMinimalDomain("test")
 			list = append(list, domain)
 
-			socketPath := filepath.Join(socketsDir, "1234", cmdclient.StandardLauncherSocketFileName)
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
 			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
@@ -139,8 +151,7 @@ var _ = Describe("Domain informer", func() {
 			verifyObj("default/test", domain)
 		})
 
-		It("should detect expired watchdog file.", func() {
-			socketPath := filepath.Join(socketsDir, "default_test_sock")
+		It("should detect expired legacy watchdog file.", func() {
 			f, err := os.Create(socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()
@@ -175,7 +186,7 @@ var _ = Describe("Domain informer", func() {
 		}, 5)
 
 		It("should detect unresponsive sockets.", func() {
-			socketPath := filepath.Join(socketsDir, "1234", cmdclient.StandardLauncherSocketFileName)
+
 			f, err := os.Create(socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()
@@ -208,7 +219,6 @@ var _ = Describe("Domain informer", func() {
 		}, 6)
 
 		It("should detect responsive sockets and not mark for deletion.", func() {
-			socketPath := filepath.Join(socketsDir, "1234", cmdclient.StandardLauncherSocketFileName)
 
 			l, err := net.Listen("unix", socketPath)
 			Expect(err).ToNot(HaveOccurred())
@@ -256,7 +266,6 @@ var _ = Describe("Domain informer", func() {
 			domain := api.NewMinimalDomain("test")
 			list = append(list, domain)
 
-			socketPath := filepath.Join(socketsDir, "1234", cmdclient.StandardLauncherSocketFileName)
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
 			// This file doesn't have a unix sock server behind it

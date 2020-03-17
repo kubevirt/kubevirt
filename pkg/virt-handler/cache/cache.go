@@ -137,7 +137,7 @@ func (d *DomainWatcher) handleStaleWatchdogFiles() error {
 func (d *DomainWatcher) handleStaleSocketConnections() error {
 	var unresponsive []string
 
-	socketFiles, err := cmdclient.ListAllSockets(d.virtShareDir)
+	socketFiles, err := cmdclient.ListAllSockets()
 	if err != nil {
 		log.Log.Reason(err).Error("failed to list sockets")
 		return err
@@ -219,7 +219,7 @@ func (d *DomainWatcher) handleStaleSocketConnections() error {
 func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 	var domains []*api.Domain
 
-	socketFiles, err := cmdclient.ListAllSockets(d.virtShareDir)
+	socketFiles, err := cmdclient.ListAllSockets()
 	if err != nil {
 		return nil, err
 	}

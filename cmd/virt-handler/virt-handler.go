@@ -197,7 +197,9 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	err = os.MkdirAll(cmdclient.SocketsDirectory(app.VirtShareDir), 0755)
+	cmdclient.SetPodsBaseDir("/pods")
+	cmdclient.SetLegacyBaseDir(app.VirtShareDir)
+	err = os.MkdirAll(cmdclient.LegacySocketsDirectory(), 0755)
 	if err != nil {
 		panic(err)
 	}

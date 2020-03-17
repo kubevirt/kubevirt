@@ -419,6 +419,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	type volume struct {
 		name             string
 		path             string
+		mountPath        string
 		mountPropagation *corev1.MountPropagationMode
 	}
 	attachCertificateSecret(pod, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
@@ -426,17 +427,18 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 
 	bidi := corev1.MountPropagationBidirectional
 	volumes := []volume{
-		{"libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes", nil},
-		{"virt-share-dir", "/var/run/kubevirt", &bidi},
-		{"virt-lib-dir", "/var/lib/kubevirt", nil},
-		{"virt-private-dir", "/var/run/kubevirt-private", nil},
-		{"device-plugin", "/var/lib/kubelet/device-plugins", nil},
+		{"libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes", nil},
+		{"virt-share-dir", "/var/run/kubevirt", "/var/run/kubevirt", &bidi},
+		{"virt-lib-dir", "/var/lib/kubevirt", "/var/lib/kubevirt", nil},
+		{"virt-private-dir", "/var/run/kubevirt-private", "/var/run/kubevirt-private", nil},
+		{"device-plugin", "/var/lib/kubelet/device-plugins", "/var/lib/kubelet/device-plugins", nil},
+		{"kubelet-pods", "/var/lib/kubelet/pods", "/pods", nil},
 	}
 
 	for _, volume := range volumes {
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 			Name:             volume.name,
-			MountPath:        volume.path,
+			MountPath:        volume.mountPath,
 			MountPropagation: volume.mountPropagation,
 		})
 		pod.Volumes = append(pod.Volumes, corev1.Volume{
