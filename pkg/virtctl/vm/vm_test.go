@@ -17,6 +17,7 @@ var _ = Describe("VirtualMachine", func() {
 	const unknownVM = "unknown-vm"
 	const vmName = "testvm"
 	var vmInterface *kubecli.MockVirtualMachineInterface
+	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 	var ctrl *gomock.Controller
 
 	running := true
@@ -30,6 +31,7 @@ var _ = Describe("VirtualMachine", func() {
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
+		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 	})
 
 	Context("should patch VM", func() {
@@ -168,6 +170,71 @@ var _ = Describe("VirtualMachine", func() {
 				Times(1)
 
 			cmd := tests.NewVirtctlCommand("rename", vm.Name, vm.Name+"new")
+			Expect(cmd.Execute()).To(BeNil())
+		})
+	})
+
+	Context("guest agent", func() {
+
+		It("should return guest agent data", func() {
+			vm := kubecli.NewMinimalVM(vmName)
+			guestOSInfo := v1.VirtualMachineInstanceGuestAgentInfo{
+				GAVersion: "3.1.0",
+			}
+
+			kubecli.MockKubevirtClientInstance.
+				EXPECT().
+				VirtualMachineInstance(k8smetav1.NamespaceDefault).
+				Return(vmiInterface).
+				Times(1)
+
+			vmiInterface.EXPECT().GuestOsInfo(vm.Name).Return(guestOSInfo, nil).Times(1)
+
+			cmd := tests.NewVirtctlCommand("guestosinfo", vm.Name)
+			Expect(cmd.Execute()).To(BeNil())
+		})
+
+		It("should return filesystem  data", func() {
+			vm := kubecli.NewMinimalVM(vmName)
+			fsList := v1.VirtualMachineInstanceFileSystemList{
+				Items: []v1.VirtualMachineInstanceFileSystem{
+					v1.VirtualMachineInstanceFileSystem{
+						DiskName: "TEST",
+					},
+				},
+			}
+
+			kubecli.MockKubevirtClientInstance.
+				EXPECT().
+				VirtualMachineInstance(k8smetav1.NamespaceDefault).
+				Return(vmiInterface).
+				Times(1)
+
+			vmiInterface.EXPECT().FilesystemList(vm.Name).Return(fsList, nil).Times(1)
+
+			cmd := tests.NewVirtctlCommand("fslist", vm.Name)
+			Expect(cmd.Execute()).To(BeNil())
+		})
+
+		It("should return userlist  data", func() {
+			vm := kubecli.NewMinimalVM(vmName)
+			userList := v1.VirtualMachineInstanceGuestOSUserList{
+				Items: []v1.VirtualMachineInstanceGuestOSUser{
+					v1.VirtualMachineInstanceGuestOSUser{
+						UserName: "TEST",
+					},
+				},
+			}
+
+			kubecli.MockKubevirtClientInstance.
+				EXPECT().
+				VirtualMachineInstance(k8smetav1.NamespaceDefault).
+				Return(vmiInterface).
+				Times(1)
+
+			vmiInterface.EXPECT().UserList(vm.Name).Return(userList, nil).Times(1)
+
+			cmd := tests.NewVirtctlCommand("userlist", vm.Name)
 			Expect(cmd.Execute()).To(BeNil())
 		})
 	})
