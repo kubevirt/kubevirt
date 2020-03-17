@@ -89,6 +89,7 @@ type NetworkHandler interface {
 	UseIptables() bool
 	Ipv4NatEnabled() bool
 	Ipv6NatEnabled() bool
+	IsIpv6Enabled(link netlink.Link) bool
 	ConfigureIpv6Forwarding() error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
 	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
@@ -172,6 +173,26 @@ func (h *NetworkUtilsHandler) Ipv6NatEnabled() bool {
 		return false
 	}
 	return true
+}
+
+func (h *NetworkUtilsHandler) IsIpv6Enabled(link netlink.Link) bool {
+	linkLog := log.Log.With("link", link.Attrs().Name)
+	addrs, err := h.AddrList(link, netlink.FAMILY_V6)
+	if err != nil {
+		linkLog.Reason(err).Errorf("ipv6 disabled, failed retrieving ipv6 addresses")
+		return false
+	}
+	if len(addrs) == 0 {
+		linkLog.Infof("ipv6 disabled, there is no ipv6 addresses")
+	}
+	for _, addr := range addrs {
+		if !addr.IP.IsLinkLocalUnicast() {
+			linkLog.Infof("ipv6 enabled, there is a non link local ipv6 address")
+			return true
+		}
+	}
+	linkLog.Infof("ipv6 disabled, all the ipv6 addresses are link local")
+	return false
 }
 
 func (h *NetworkUtilsHandler) IptablesNewChain(proto iptables.Protocol, table, chain string) error {
