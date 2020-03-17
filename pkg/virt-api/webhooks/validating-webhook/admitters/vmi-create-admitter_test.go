@@ -723,7 +723,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
-		It("should reject smaller guest memory than requested memory", func() {
+		It("should allow smaller guest memory than requested memory", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			guestMemory := resource.MustParse("1Mi")
 
@@ -733,8 +733,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.memory.guest"))
+			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject bigger guest memory than the memory limit", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
