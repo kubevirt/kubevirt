@@ -69,3 +69,17 @@ ${_kubectl} delete pods --namespace "${namespace}" -l kubevirt.io
 echo "# Rotating SSP certificates ..."
 ${_kubectl} delete secrets --ignore-not-found=true --namespace "${namespace}" virt-template-validator-certs
 ${_kubectl} delete pods --namespace "${namespace}" -l kubevirt.io=virt-template-validator
+
+echo "# Rotating Web UI certificates ..."
+if (${_kubectl} get crd kwebuis.kubevirt.io >/dev/null); then
+  # valid for 1.4.Z only
+  formerVersion=$(${_kubectl} get kwebui kubevirt-web-ui -o yaml | grep '  version: '|sed 's/^.*: *\(.*\)$/\1/g')
+  echo Detected former Web UI version: ${formerVersion}
+  ${_kubectl} patch kwebui kubevirt-web-ui --patch '{"spec": {"version": ""}}' --type=merge # undeploy
+  while (${_kubectl} get deployment console -n ${webui_namespace} --no-headers=true 2>/dev/null); do
+    echo "Waiting for Web UI ..." # to undeploy
+    sleep 5
+  done
+  patch=$(echo '{"spec": {"version": "'${formerVersion}'"}}')
+  ${_kubectl} patch kwebui kubevirt-web-ui --patch "${patch}" --type=merge # deploy
+fi
