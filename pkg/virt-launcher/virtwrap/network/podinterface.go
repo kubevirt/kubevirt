@@ -753,7 +753,7 @@ func (p *MasqueradePodInterface) createNatRules(protocol iptables.Protocol) erro
 	if Handler.UseIptables() {
 		return p.createNatRulesUsingIptables(protocol)
 	}
-	return p.createNatRulesUsingNftables()
+	return p.createNatRulesUsingNftables(protocol)
 }
 
 func (p *MasqueradePodInterface) createNatRulesUsingIptables(protocol iptables.Protocol) error {
@@ -861,40 +861,44 @@ func getLoopbackAdrress(proto iptables.Protocol) string {
 	}
 }
 
-func (p *MasqueradePodInterface) createNatRulesUsingNftables() error {
-	err := Handler.NftablesLoad("ipv4-nat")
+func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Protocol) error {
+	ipVersionNum := "4"
+	if proto == iptables.ProtocolIPv6 {
+		ipVersionNum = "6"
+	}
+	err := Handler.NftablesLoad(fmt.Sprintf("ipv%s-nat", ipVersionNum))
 	if err != nil {
 		return err
 	}
 
-	err = Handler.NftablesNewChain("nat", "KUBEVIRT_PREINBOUND")
+	err = Handler.NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.NftablesNewChain("nat", "KUBEVIRT_POSTINBOUND")
+	err = Handler.NftablesNewChain(proto, "nat", "KUBEVIRT_POSTINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.NftablesAppendRule("nat", "postrouting", "ip", "saddr", p.vif.IP.IP.String(), "counter", "masquerade")
+	err = Handler.NftablesAppendRule(proto, "nat", "postrouting", Handler.GetNftIpString(proto), "saddr", getVifIpByProtocol(p, proto), "counter", "masquerade")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.NftablesAppendRule("nat", "prerouting", "iifname", p.podInterfaceName, "counter", "jump", "KUBEVIRT_PREINBOUND")
+	err = Handler.NftablesAppendRule(proto, "nat", "prerouting", "iifname", p.podInterfaceName, "counter", "jump", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
 	}
 
-	err = Handler.NftablesAppendRule("nat", "postrouting", "oifname", p.bridgeInterfaceName, "counter", "jump", "KUBEVIRT_POSTINBOUND")
+	err = Handler.NftablesAppendRule(proto, "nat", "postrouting", "oifname", p.bridgeInterfaceName, "counter", "jump", "KUBEVIRT_POSTINBOUND")
 	if err != nil {
 		return err
 	}
 
 	if len(p.iface.Ports) == 0 {
-		err = Handler.NftablesAppendRule("nat", "KUBEVIRT_PREINBOUND",
-			"counter", "dnat", "to", p.vif.IP.IP.String())
+		err = Handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
+			"counter", "dnat", "to", getVifIpByProtocol(p, proto))
 
 		return err
 	}
@@ -904,30 +908,30 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables() error {
 			port.Protocol = "tcp"
 		}
 
-		err = Handler.NftablesAppendRule("nat", "KUBEVIRT_POSTINBOUND",
+		err = Handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_POSTINBOUND",
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			"counter", "snat", "to", p.gatewayAddr.IP.String())
+			"counter", "snat", "to", getGatewayByProtocol(p, proto))
 		if err != nil {
 			return err
 		}
 
-		err = Handler.NftablesAppendRule("nat", "KUBEVIRT_PREINBOUND",
+		err = Handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			"counter", "dnat", "to", p.vif.IP.IP.String())
+			"counter", "dnat", "to", getVifIpByProtocol(p, proto))
 		if err != nil {
 			return err
 		}
 
-		err = Handler.NftablesAppendRule("nat", "output",
-			"ip", "daddr", "127.0.0.1",
+		err = Handler.NftablesAppendRule(proto, "nat", "output",
+			Handler.GetNftIpString(proto), "daddr", getLoopbackAdrress(proto),
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			"counter", "dnat", "to", p.vif.IP.IP.String())
+			"counter", "dnat", "to", getVifIpByProtocol(p, proto))
 		if err != nil {
 			return err
 		}
