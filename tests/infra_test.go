@@ -44,7 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
-	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -383,7 +382,7 @@ var _ = Describe("Infrastructure", func() {
 			By("Finding the prometheus endpoint")
 			pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(tests.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
-			metricsURL = fmt.Sprintf("https://%s:%d/metrics", formatIpForCurl(pod.Status.PodIP), 8443)
+			metricsURL = fmt.Sprintf("https://%s:%d/metrics", tests.FormatIpForCurl(pod.Status.PodIP), 8443)
 		})
 
 		It("should find one leading virt-controller and two ready", func() {
@@ -406,7 +405,7 @@ var _ = Describe("Infrastructure", func() {
 					"virt-handler",
 					[]string{
 						"curl", "-L", "-k",
-						fmt.Sprintf("https://%s:8443/metrics", formatIpForCurl(ep.IP)),
+						fmt.Sprintf("https://%s:8443/metrics", tests.FormatIpForCurl(ep.IP)),
 					})
 				Expect(err).ToNot(HaveOccurred())
 				scrapedData := strings.Split(stdout, "\n")
@@ -447,7 +446,7 @@ var _ = Describe("Infrastructure", func() {
 					"virt-handler",
 					[]string{
 						"curl", "-L", "-k",
-						fmt.Sprintf("https://%s:8443/metrics", formatIpForCurl(ep.IP)),
+						fmt.Sprintf("https://%s:8443/metrics", tests.FormatIpForCurl(ep.IP)),
 					})
 				Expect(err).ToNot(HaveOccurred())
 				scrapedData := strings.Split(stdout, "\n")
@@ -505,7 +504,7 @@ var _ = Describe("Infrastructure", func() {
 						"curl",
 						"-L",
 						"-k",
-						fmt.Sprintf("https://%s:%s/metrics", formatIpForCurl(ep.IP), "8443"),
+						fmt.Sprintf("https://%s:%s/metrics", tests.FormatIpForCurl(ep.IP), "8443"),
 					})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(stdout).To(ContainSubstring("go_goroutines"))
@@ -766,11 +765,4 @@ func getKeysFromMetrics(metrics map[string]float64) []string {
 	// we sort keys only to make debug of test failures easier
 	sort.Strings(keys)
 	return keys
-}
-
-func formatIpForCurl(ip string) string {
-	if netutils.IsIPv6String(ip) {
-		return "[" + ip + "]"
-	}
-	return ip
 }
