@@ -172,7 +172,7 @@ var _ = Describe("Infrastructure", func() {
 			By("Finding the prometheus endpoint")
 			pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(tests.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
-			metricsURL = fmt.Sprintf("https://%s:%d/metrics", pod.Status.PodIP, 8443)
+			metricsURL = fmt.Sprintf("https://%s:%d/metrics", tests.FormatIpForCurl(pod.Status.PodIP), 8443)
 		})
 
 		It("should find one leading virt-controller and two ready", func() {
@@ -195,7 +195,7 @@ var _ = Describe("Infrastructure", func() {
 					"virt-handler",
 					[]string{
 						"curl", "-L", "-k",
-						fmt.Sprintf("https://%s:8443/metrics", ep.IP),
+						fmt.Sprintf("https://%s:8443/metrics", tests.FormatIpForCurl(ep.IP)),
 					})
 				Expect(err).ToNot(HaveOccurred())
 				scrapedData := strings.Split(stdout, "\n")
@@ -236,7 +236,7 @@ var _ = Describe("Infrastructure", func() {
 					"virt-handler",
 					[]string{
 						"curl", "-L", "-k",
-						fmt.Sprintf("https://%s:8443/metrics", ep.IP),
+						fmt.Sprintf("https://%s:8443/metrics", tests.FormatIpForCurl(ep.IP)),
 					})
 				Expect(err).ToNot(HaveOccurred())
 				scrapedData := strings.Split(stdout, "\n")
@@ -294,7 +294,7 @@ var _ = Describe("Infrastructure", func() {
 						"curl",
 						"-L",
 						"-k",
-						fmt.Sprintf("https://%s:%s/metrics", ep.IP, "8443"),
+						fmt.Sprintf("https://%s:%s/metrics", tests.FormatIpForCurl(ep.IP), "8443"),
 					})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(stdout).To(ContainSubstring("go_goroutines"))

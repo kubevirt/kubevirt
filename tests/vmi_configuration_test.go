@@ -1541,7 +1541,7 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache settings", func() {
+	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache settings and PVC", func() {
 		BeforeEach(func() {
 			// create a new PV and PVC (PVs can't be reused)
 			tests.CreateBlockVolumePvAndPvc("1Gi")

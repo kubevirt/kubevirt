@@ -36,6 +36,7 @@ import (
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
+	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -714,6 +715,10 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
 			}
 
+			// Cluster nodes subnet (docker network gateway)
+			// Docker network subnet cidr definition https://bit.ly/2wZTgMK
+			clusterNodesGateway := "2001:db8:1::1"
+
 			serverVMI = masqueradeVMI(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 			serverVMI.Labels = map[string]string{"expose": "server"}
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
@@ -725,9 +730,15 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(serverVMI.Status.Interfaces)).To(Equal(1))
 
-			By("checking ping to google")
-			pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
-			pingVirtualMachine(clientVMI, "google.com", "\\$ ")
+			if netutils.IsIPv6String(serverVMI.Status.Interfaces[0].IP) {
+				By("Checking ping to cluster nodes gateway")
+				pingVirtualMachine(serverVMI, clusterNodesGateway, "\\$ ")
+				pingVirtualMachine(clientVMI, clusterNodesGateway, "\\$ ")
+			} else {
+				By("Checking ping to google")
+				pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
+				pingVirtualMachine(clientVMI, "www.google.com", "\\$ ")
+			}
 
 			By("starting a tcp server")
 			err = tests.CheckForTextExpecter(serverVMI, []expect.Batcher{

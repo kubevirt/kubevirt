@@ -52,6 +52,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			vmi.Spec.ReadinessProbe = readinessProbe
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
@@ -81,6 +82,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			vmi.Spec.ReadinessProbe = readinessProbe
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
@@ -131,6 +133,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			vmi.Spec.LivenessProbe = livenessProbe
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
@@ -154,6 +157,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			vmi.Spec.LivenessProbe = livenessProbe
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 

@@ -58,7 +58,7 @@ var _ = Describe("ImageUpload", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Context("Upload an image and start a VMI", func() {
+	Context("Upload an image and start a VMI with PVC", func() {
 		It("Should succeed", func() {
 			By("Setting up port forwarding")
 			portMapping := fmt.Sprintf("%d:%d", localUploadProxyPort, uploadProxyPort)

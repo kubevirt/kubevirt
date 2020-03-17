@@ -50,6 +50,7 @@ go_library(
         "//vendor/k8s.io/client-go/tools/portforward:go_default_library",
         "//vendor/k8s.io/client-go/tools/remotecommand:go_default_library",
         "//vendor/k8s.io/client-go/transport/spdy:go_default_library",
+        "//vendor/k8s.io/utils/net:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
     ],
 )
@@ -166,6 +167,7 @@ go_test(
         "//vendor/k8s.io/client-go/kubernetes/typed/authorization/v1:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
         "//vendor/k8s.io/client-go/tools/leaderelection/resourcelock:go_default_library",
+        "//vendor/k8s.io/utils/net:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
         "//vendor/kubevirt.io/qe-tools/pkg/ginkgo-reporters:go_default_library",
