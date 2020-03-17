@@ -69,10 +69,6 @@ RUN \
     cd $GOPATH/src/k8s.io/code-generator/cmd/defaulter-gen && \
     git checkout v0.16.4 && \
     go install && \
-     # Install client-gen
-    cd $GOPATH/src/k8s.io/code-generator/cmd/client-gen && \
-    git checkout v0.16.4 && \
-    go install && \
     # Install client-gen
     cd $GOPATH/src/k8s.io/code-generator/cmd/client-gen && \
     git checkout v0.16.4 && \

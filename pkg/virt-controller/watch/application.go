@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/emicklei/go-restful"
 	"github.com/prometheus/client_golang/prometheus"
@@ -72,7 +73,8 @@ const (
 
 	defaultControllerThreads = 3
 
-	defaultLauncherSubGid = 107
+	defaultLauncherSubGid                 = 107
+	defaultSnapshotControllerResyncPeriod = 60 * time.Second
 )
 
 var (
@@ -126,6 +128,10 @@ type VirtControllerApp struct {
 	migrationController *MigrationController
 	migrationInformer   cache.SharedIndexInformer
 
+	snapshotController        *SnapshotController
+	vmSnapshotInformer        cache.SharedIndexInformer
+	vmSnapshotContentInformer cache.SharedIndexInformer
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage              string
@@ -155,6 +161,8 @@ type VirtControllerApp struct {
 	evacuationControllerThreads       int
 	disruptionBudgetControllerThreads int
 	launcherSubGid                    int64
+	snapshotControllerThreads         int
+	snapshotControllerResyncPeriod    time.Duration
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -229,6 +237,9 @@ func Execute() {
 
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
 
+	app.vmSnapshotInformer = app.informerFactory.VirtualMachineSnapshot()
+	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
+
 	if app.hasCDI {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
 		log.Log.Infof("CDI detected, DataVolume integration enabled")
@@ -245,6 +256,7 @@ func Execute() {
 	app.initVirtualMachines()
 	app.initDisruptionBudgetController()
 	app.initEvacuationController()
+	app.initSnapshotController()
 	go app.Run()
 
 	select {
@@ -335,6 +347,7 @@ func (vca *VirtControllerApp) Run() {
 					go vca.rsController.Run(vca.rsControllerThreads, stop)
 					go vca.vmController.Run(vca.vmControllerThreads, stop)
 					go vca.migrationController.Run(vca.migrationControllerThreads, stop)
+					go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
 					cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 					close(vca.readyChan)
 				},
@@ -425,6 +438,18 @@ func (vca *VirtControllerApp) initEvacuationController() {
 	)
 }
 
+func (vca *VirtControllerApp) initSnapshotController() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "snapshot-controller")
+	vca.snapshotController = NewSnapshotController(
+		vca.clientSet,
+		vca.vmSnapshotInformer,
+		vca.vmSnapshotContentInformer,
+		vca.vmInformer,
+		recorder,
+		vca.snapshotControllerResyncPeriod,
+	)
+}
+
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {
 	res := map[string]interface{}{}
 
@@ -493,4 +518,10 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.Int64Var(&vca.launcherSubGid, "launcher-subgid", defaultLauncherSubGid,
 		"ID of subgroup to virt-launcher")
+
+	flag.IntVar(&vca.snapshotControllerThreads, "snapshot-controller-threads", 1,
+		"Number of goroutines to run for snapshot controller")
+
+	flag.DurationVar(&vca.snapshotControllerResyncPeriod, "snapshot-controller-resync-period", defaultSnapshotControllerResyncPeriod,
+		"Number of goroutines to run for snapshot controller")
 }

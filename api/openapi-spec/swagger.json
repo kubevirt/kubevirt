@@ -3483,6 +3483,1466 @@
      }
     ]
    },
+   "/apis/snapshot.kubevirt.io": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Get a KubeVirt API group",
+     "operationId": "getAPIGroup",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIGroup"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIGroup"
+       }
+      }
+     }
+    }
+   },
+   "/apis/snapshot.kubevirt.io/v1alpha1": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Get KubeVirt API Resources",
+     "operationId": "getAPIResources",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIResourceList"
+       }
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.APIResourceList"
+       }
+      }
+     }
+    }
+   },
+   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinesnapshotcontents": {
+    "get": {
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "summary": "Get a list of VirtualMachineSnapshotContent objects.",
+     "operationId": "listNamespacedVirtualMachineSnapshotContent",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContentList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContentList"
+       }
+      }
+     }
+    },
+    "post": {
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "summary": "Create a VirtualMachineSnapshotContent object.",
+     "operationId": "createNamespacedVirtualMachineSnapshotContent",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      },
+      "201": {
+       "description": "Created",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      },
+      "202": {
+       "description": "Accepted",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      }
+     }
+    },
+    "delete": {
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "summary": "Delete a collection of VirtualMachineSnapshotContent objects.",
+     "operationId": "deleteCollectionNamespacedVirtualMachineSnapshotContent",
+     "parameters": [
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      }
+     }
+    }
+   },
+   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinesnapshotcontents/{name}": {
+    "get": {
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "summary": "Get a VirtualMachineSnapshotContent object.",
+     "operationId": "readNamespacedVirtualMachineSnapshotContent",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "type": "boolean",
+       "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'.",
+       "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Should this value be exported. Export strips fields that a user can not specify.",
+       "name": "export",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      }
+     }
+    },
+    "put": {
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "summary": "Update a VirtualMachineSnapshotContent object.",
+     "operationId": "replaceNamespacedVirtualMachineSnapshotContent",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      },
+      "201": {
+       "description": "Create",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      }
+     }
+    },
+    "delete": {
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "summary": "Delete a VirtualMachineSnapshotContent object.",
+     "operationId": "deleteNamespacedVirtualMachineSnapshotContent",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.DeleteOptions"
+       }
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      },
+      {
+       "type": "integer",
+       "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
+       "name": "gracePeriodSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both.",
+       "name": "orphanDependents",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy. Acceptable values are: 'Orphan' - orphan the dependents; 'Background' - allow the garbage collector to delete the dependents in the background; 'Foreground' - a cascading policy that deletes all dependents in the foreground.",
+       "name": "propagationPolicy",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      }
+     }
+    },
+    "patch": {
+     "consumes": [
+      "application/json-patch+json",
+      "application/merge-patch+json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Patch a VirtualMachineSnapshotContent object.",
+     "operationId": "patchNamespacedVirtualMachineSnapshotContent",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.Patch"
+       }
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+       }
+      }
+     }
+    }
+   },
+   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinesnapshots": {
+    "get": {
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "summary": "Get a list of VirtualMachineSnapshot objects.",
+     "operationId": "listNamespacedVirtualMachineSnapshot",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotList"
+       }
+      }
+     }
+    },
+    "post": {
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "summary": "Create a VirtualMachineSnapshot object.",
+     "operationId": "createNamespacedVirtualMachineSnapshot",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      },
+      "201": {
+       "description": "Created",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      },
+      "202": {
+       "description": "Accepted",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      }
+     }
+    },
+    "delete": {
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "summary": "Delete a collection of VirtualMachineSnapshot objects.",
+     "operationId": "deleteCollectionNamespacedVirtualMachineSnapshot",
+     "parameters": [
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      }
+     }
+    }
+   },
+   "/apis/snapshot.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinesnapshots/{name}": {
+    "get": {
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "summary": "Get a VirtualMachineSnapshot object.",
+     "operationId": "readNamespacedVirtualMachineSnapshot",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "type": "boolean",
+       "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'.",
+       "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Should this value be exported. Export strips fields that a user can not specify.",
+       "name": "export",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      }
+     }
+    },
+    "put": {
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "summary": "Update a VirtualMachineSnapshot object.",
+     "operationId": "replaceNamespacedVirtualMachineSnapshot",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      },
+      "201": {
+       "description": "Create",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      }
+     }
+    },
+    "delete": {
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "summary": "Delete a VirtualMachineSnapshot object.",
+     "operationId": "deleteNamespacedVirtualMachineSnapshot",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.DeleteOptions"
+       }
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      },
+      {
+       "type": "integer",
+       "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
+       "name": "gracePeriodSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both.",
+       "name": "orphanDependents",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy. Acceptable values are: 'Orphan' - orphan the dependents; 'Background' - allow the garbage collector to delete the dependents in the background; 'Foreground' - a cascading policy that deletes all dependents in the foreground.",
+       "name": "propagationPolicy",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      }
+     }
+    },
+    "patch": {
+     "consumes": [
+      "application/json-patch+json",
+      "application/merge-patch+json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Patch a VirtualMachineSnapshot object.",
+     "operationId": "patchNamespacedVirtualMachineSnapshot",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.Patch"
+       }
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+       }
+      }
+     }
+    }
+   },
+   "/apis/snapshot.kubevirt.io/v1alpha1/virtualmachinesnapshotcontents": {
+    "get": {
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "summary": "Get a list of all VirtualMachineSnapshotContent objects.",
+     "operationId": "listVirtualMachineSnapshotContentForAllNamespaces",
+     "parameters": [
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContentList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContentList"
+       }
+      }
+     }
+    }
+   },
+   "/apis/snapshot.kubevirt.io/v1alpha1/virtualmachinesnapshots": {
+    "get": {
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "summary": "Get a list of all VirtualMachineSnapshot objects.",
+     "operationId": "listVirtualMachineSnapshotForAllNamespaces",
+     "parameters": [
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotList"
+       }
+      }
+     }
+    }
+   },
+   "/apis/snapshot.kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinesnapshotcontents": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Watch a VirtualMachineSnapshotContent object.",
+     "operationId": "watchNamespacedVirtualMachineSnapshotContent",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      }
+     }
+    }
+   },
+   "/apis/snapshot.kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinesnapshots": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Watch a VirtualMachineSnapshot object.",
+     "operationId": "watchNamespacedVirtualMachineSnapshot",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      }
+     }
+    }
+   },
+   "/apis/snapshot.kubevirt.io/v1alpha1/watch/virtualmachinesnapshotcontents": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Watch a VirtualMachineSnapshotContentList object.",
+     "operationId": "watchVirtualMachineSnapshotContentListForAllNamespaces",
+     "parameters": [
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      }
+     }
+    }
+   },
+   "/apis/snapshot.kubevirt.io/v1alpha1/watch/virtualmachinesnapshots": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Watch a VirtualMachineSnapshotList object.",
+     "operationId": "watchVirtualMachineSnapshotListForAllNamespaces",
+     "parameters": [
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      }
+     }
+    }
+   },
    "/apis/subresources.kubevirt.io": {
     "get": {
      "description": "Get a KubeVirt API Group",
@@ -7249,6 +8709,10 @@
       "description": "Ready indicates if the virtual machine is running and ready",
       "type": "boolean"
      },
+     "snapshotInProgress": {
+      "description": "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
+      "type": "string"
+     },
      "stateChangeRequests": {
       "description": "StateChangeRequests indicates a list of actions that should be taken on a VMI e.g. stop a specific VMI then start a new one.",
       "type": "array",
@@ -7520,6 +8984,191 @@
       "type": "string"
      },
      "progress": {
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.SourceSpec": {
+    "description": "SourceSpec contains the specs of the resources being copied",
+    "properties": {
+     "virtualMachineSpec": {
+      "description": "+optional",
+      "$ref": "#/definitions/v1.VirtualMachineSpec"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineSnapshot": {
+    "description": "VirtualMachineSnapshot defines the operation of snapshotting a VM",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ObjectMeta"
+     },
+     "spec": {
+      "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotSpec"
+     },
+     "status": {
+      "description": "+optional",
+      "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotStatus"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineSnapshotContent": {
+    "description": "VirtualMachineSnapshotContent contains the snapshot data",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ObjectMeta"
+     },
+     "spec": {
+      "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContentSpec"
+     },
+     "status": {
+      "description": "+optional",
+      "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContentStatus"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineSnapshotContentList": {
+    "description": "VirtualMachineSnapshotContentList is a list of VirtualMachineSnapshot resources",
+    "required": [
+     "metadata",
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotContent"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ListMeta"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineSnapshotContentSpec": {
+    "description": "VirtualMachineSnapshotContentSpec is the spec for a VirtualMachineSnapshotContent resource",
+    "required": [
+     "source"
+    ],
+    "properties": {
+     "source": {
+      "$ref": "#/definitions/v1alpha1.SourceSpec"
+     },
+     "virtualMachineSnapshotName": {
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineSnapshotContentStatus": {
+    "description": "VirtualMachineSnapshotContentStatus is the status for a VirtualMachineSnapshotStatus resource",
+    "properties": {
+     "creationTime": {
+      "description": "+optional",
+      "type": "string"
+     },
+     "readyToUse": {
+      "description": "+optional",
+      "type": "boolean"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineSnapshotError": {
+    "description": "VirtualMachineSnapshotError is the last error encountered while creating the snapshot",
+    "properties": {
+     "message": {
+      "description": "+optional",
+      "type": "string"
+     },
+     "time": {
+      "description": "+optional",
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineSnapshotList": {
+    "description": "VirtualMachineSnapshotList is a list of VirtualMachineSnapshot resources",
+    "required": [
+     "metadata",
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshot"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ListMeta"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineSnapshotSpec": {
+    "description": "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource",
+    "required": [
+     "source"
+    ],
+    "properties": {
+     "source": {
+      "$ref": "#/definitions/v1.TypedLocalObjectReference"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineSnapshotStatus": {
+    "description": "VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource",
+    "properties": {
+     "creationTime": {
+      "description": "+optional",
+      "type": "string"
+     },
+     "error": {
+      "description": "+optional",
+      "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotError"
+     },
+     "readyToUse": {
+      "description": "+optional",
+      "type": "boolean"
+     },
+     "virtualMachineSnapshotContentName": {
+      "description": "+optional",
       "type": "string"
      }
     }

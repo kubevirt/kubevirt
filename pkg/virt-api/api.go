@@ -37,27 +37,25 @@ import (
 	certificate2 "k8s.io/client-go/util/certificate"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
-
-	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
-	webhooksutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 	virtversion "kubevirt.io/client-go/version"
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
+	webhooksutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	mutating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 )
 
 const (
@@ -568,6 +566,9 @@ func (app *virtAPIApp) registerValidatingWebhooks() {
 	})
 	http.HandleFunc(components.MigrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationUpdate(w, r)
+	})
+	http.HandleFunc(components.VMSnapshotValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMSnapshots(w, r, app.clusterConfig, app.virtCli)
 	})
 }
 

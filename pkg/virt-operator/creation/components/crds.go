@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
+	snapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 )
 
 const (
@@ -236,6 +237,66 @@ func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
 			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
 			{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+		},
+	}
+
+	return crd
+}
+
+func NewVirtualMachineSnapshotCrd() *extv1beta1.CustomResourceDefinition {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = "virtualmachinesnapshots." + snapshotv1alpha1.SchemeGroupVersion.Group
+	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+		Group:   snapshotv1alpha1.SchemeGroupVersion.Group,
+		Version: snapshotv1alpha1.SchemeGroupVersion.Version,
+		Versions: []extv1beta1.CustomResourceDefinitionVersion{
+			{
+				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: "Namespaced",
+
+		Names: extv1beta1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachinesnapshots",
+			Singular:   "virtualmachinesnapshot",
+			Kind:       "VirtualMachineSnapshot",
+			ShortNames: []string{"vmsnapshot", "vmsnapshots"},
+			Categories: []string{
+				"all",
+			},
+		},
+	}
+
+	return crd
+}
+
+func NewVirtualMachineSnapshotContentCrd() *extv1beta1.CustomResourceDefinition {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = "virtualmachinesnapshotcontents." + snapshotv1alpha1.SchemeGroupVersion.Group
+	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+		Group:   snapshotv1alpha1.SchemeGroupVersion.Group,
+		Version: snapshotv1alpha1.SchemeGroupVersion.Version,
+		Versions: []extv1beta1.CustomResourceDefinitionVersion{
+			{
+				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+			},
+		},
+		Scope: "Namespaced",
+
+		Names: extv1beta1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachinesnapshotcontents",
+			Singular:   "virtualmachinesnapshotcontent",
+			Kind:       "VirtualMachineSnapshotContent",
+			ShortNames: []string{"vmsnapshotcontent", "vmsnapshotcontents"},
+			Categories: []string{
+				"all",
+			},
 		},
 	}
 

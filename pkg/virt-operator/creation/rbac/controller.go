@@ -133,6 +133,17 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"snapshot.kubevirt.io",
+				},
+				Resources: []string{
+					"*",
+				},
+				Verbs: []string{
+					"*",
+				},
+			},
+			{
+				APIGroups: []string{
 					"kubevirt.io",
 				},
 				Resources: []string{

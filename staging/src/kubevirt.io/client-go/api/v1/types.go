@@ -918,6 +918,8 @@ const (
 //
 // +k8s:openapi-gen=true
 type VirtualMachineStatus struct {
+	// SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing
+	SnapshotInProgress *string `json:"snapshotInProgress,omitempty"`
 	// Created indicates if the virtual machine is created in the cluster
 	Created bool `json:"created,omitempty"`
 	// Ready indicates if the virtual machine is running and ready

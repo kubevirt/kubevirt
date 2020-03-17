@@ -460,6 +460,12 @@ spec:
           - list
           - watch
         - apiGroups:
+          - snapshot.kubevirt.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
           - kubevirt.io
           resources:
           - '*'
