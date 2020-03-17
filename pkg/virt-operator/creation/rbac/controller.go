@@ -199,6 +199,35 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"create",
 				},
 			},
+			{
+				APIGroups: []string{
+					"snapshot.storage.k8s.io",
+				},
+				Resources: []string{
+					"volumesnapshotclasses",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"snapshot.storage.k8s.io",
+				},
+				Resources: []string{
+					"volumesnapshots",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"create",
+					"update",
+					"delete",
+				},
+			},
 		},
 	}
 }

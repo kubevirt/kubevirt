@@ -26,10 +26,12 @@ import (
 	"time"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	k8ssnapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -43,8 +45,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	v1beta12 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
-
-	corev1 "k8s.io/api/core/v1"
 
 	kubev1 "kubevirt.io/client-go/api/v1"
 	snapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
@@ -193,6 +193,12 @@ type KubeInformerFactory interface {
 
 	// Fake PrometheusRule informer used when Prometheus not installed
 	DummyOperatorPrometheusRule() cache.SharedIndexInformer
+
+	// PVC snapshots created by snapshot controller
+	VolumeSnapshot() cache.SharedIndexInformer
+
+	// PVC snapshots created by snapshot controller
+	VolumeSnapshotClass() cache.SharedIndexInformer
 
 	K8SInformerFactory() informers.SharedInformerFactory
 }
@@ -723,5 +729,21 @@ func (f *kubeInformerFactory) DummyOperatorPrometheusRule() cache.SharedIndexInf
 	return f.getInformer("FakeOperatorPrometheusRuleInformer", func() cache.SharedIndexInformer {
 		informer, _ := testutils.NewFakeInformerFor(&promv1.PrometheusRule{})
 		return informer
+	})
+}
+
+func (f *kubeInformerFactory) VolumeSnapshot() cache.SharedIndexInformer {
+	return f.getInformer("volumeSnapshotInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.KubernetesSnapshotClient().SnapshotV1beta1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "volumesnapshots", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &k8ssnapshotv1beta1.VolumeSnapshot{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) VolumeSnapshotClass() cache.SharedIndexInformer {
+	return f.getInformer("volumeSnapshotClassInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.KubernetesSnapshotClient().SnapshotV1beta1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "volumesnapshotclasses", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &k8ssnapshotv1beta1.VolumeSnapshotClass{}, f.defaultResync, cache.Indexers{})
 	})
 }
