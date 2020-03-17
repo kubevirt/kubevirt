@@ -41,6 +41,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	snapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
+	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
 	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
@@ -64,6 +65,7 @@ type KubevirtClient interface {
 	SecClient() secv1.SecurityV1Interface
 	DiscoveryClient() discovery.DiscoveryInterface
 	PrometheusClient() promclient.Interface
+	KubernetesSnapshotClient() k8ssnapshotclient.Interface
 	kubernetes.Interface
 	Config() *rest.Config
 }
@@ -80,6 +82,7 @@ type kubevirt struct {
 	secClient               *secv1.SecurityV1Client
 	discoveryClient         *discovery.DiscoveryClient
 	prometheusClient        *promclient.Clientset
+	snapshotClient          *k8ssnapshotclient.Clientset
 	*kubernetes.Clientset
 }
 
@@ -125,6 +128,10 @@ func (k kubevirt) VirtualMachineSnapshot(namespace string) VirtualMachineSnapsho
 
 func (k kubevirt) VirtualMachineSnapshotContent(namespace string) VirtualMachineSnapshotContentInterface {
 	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineSnapshotContents(namespace)
+}
+
+func (k kubevirt) KubernetesSnapshotClient() k8ssnapshotclient.Interface {
+	return k.snapshotClient
 }
 
 type StreamOptions struct {

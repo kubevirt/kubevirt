@@ -15,7 +15,7 @@ require (
 	github.com/elazarl/goproxy/ext v0.0.0-20190421051319-9d40249d3c2f // indirect
 	github.com/emicklei/go-restful v2.10.0+incompatible
 	github.com/emicklei/go-restful-openapi v0.10.0
-	github.com/evanphx/json-patch v4.2.0+incompatible
+	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/color v1.7.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/ghodss/yaml v1.0.0
@@ -42,7 +42,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.0-20181218000649-703b5e6b11ae // indirect
 	github.com/mfranczy/crd-rest-coverage v0.1.0
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
-	github.com/onsi/ginkgo v1.10.1
+	github.com/onsi/ginkgo v1.10.2
 	github.com/onsi/gomega v1.7.0
 	github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
@@ -57,15 +57,15 @@ require (
 	github.com/subgraph/libmacouflage v0.0.1
 	github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
 	golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
-	golang.org/x/net v0.0.0-20190930134127-c5a3c61f89f3
-	golang.org/x/sys v0.0.0-20190927073244-c990c680b611
+	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
+	golang.org/x/sys v0.0.0-20191220220014-0732a990476f
 	google.golang.org/grpc v1.27.1
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	gopkg.in/ini.v1 v1.42.0
 	gopkg.in/yaml.v2 v2.2.4
-	k8s.io/api v0.16.4
+	k8s.io/api v0.17.0
 	k8s.io/apiextensions-apiserver v0.16.4
-	k8s.io/apimachinery v0.16.4
+	k8s.io/apimachinery v0.17.1-beta.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-aggregator v0.16.4
 	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
