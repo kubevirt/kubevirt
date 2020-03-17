@@ -174,6 +174,10 @@ do
   make bazel-build-images
 done
 set -e
+
+curl -LO https://patch-diff.githubusercontent.com/raw/kubevirt/kubevirt/pull/3112.diff
+git apply 3112.diff
+
 make bazel-build-images
 
 make cluster-up
@@ -284,7 +288,7 @@ elif [[ $TARGET =~ gpu.* ]]; then
 elif [[ $TARGET =~ (okd|ocp).* ]]; then
   ginko_params="$ginko_params --ginkgo.skip=Genie|SRIOV|GPU"
 else
-  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|GPU"
+  ginko_params="$ginko_params --ginkgo.focus=test_id:1676"
 fi
 
 # Prepare RHEL PV for Template testing
