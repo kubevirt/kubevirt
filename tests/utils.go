@@ -3613,7 +3613,7 @@ func NewHelloWorldJobUDP(host string, port string) *k8sv1.Pod {
 // This pod tries to contact the host on the provided port, over HTTP.
 // On success - it expects to receive "Hello World!".
 func NewHelloWorldJobHttp(host string, port string) *k8sv1.Pod {
-	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)}
+	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, FormatIpForCurl(host), port)}
 	job := RenderJob("curl", []string{"/bin/bash", "-c"}, check)
 
 	return job
@@ -4241,4 +4241,11 @@ func GenerateRandomMac() (net.HardwareAddr, error) {
 		return nil, err
 	}
 	return net.HardwareAddr(append(prefix, suffix...)), nil
+}
+
+func FormatIpForCurl(ip string) string {
+	if netutils.IsIPv6String(ip) {
+		return "[" + ip + "]"
+	}
+	return ip
 }
