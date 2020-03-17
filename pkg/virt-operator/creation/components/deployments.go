@@ -27,7 +27,6 @@ import (
 	"k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/json"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
@@ -104,11 +103,6 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 
 	version = AddVersionSeparatorPrefix(version)
 
-	tolerations, err := criticalAddonsToleration()
-	if err != nil {
-		return nil, fmt.Errorf("unable to create toleration: %v", err)
-	}
-
 	return &corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -117,12 +111,12 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 			},
 			Annotations: map[string]string{
 				"scheduler.alpha.kubernetes.io/critical-pod": "",
-				"scheduler.alpha.kubernetes.io/tolerations":  string(tolerations),
 			},
 			Name: podName,
 		},
 		Spec: corev1.PodSpec{
-			Affinity: podAffinity,
+			Affinity:    podAffinity,
+			Tolerations: criticalAddonsToleration(),
 			Containers: []corev1.Container{
 				{
 					Name:            podName,
@@ -442,11 +436,6 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 	version = AddVersionSeparatorPrefix(version)
 	image := fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, name, version)
 
-	tolerations, err := criticalAddonsToleration()
-	if err != nil {
-		return nil, fmt.Errorf("unable to create toleration: %v", err)
-	}
-
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -477,11 +466,11 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 					},
 					Annotations: map[string]string{
 						"scheduler.alpha.kubernetes.io/critical-pod": "",
-						"scheduler.alpha.kubernetes.io/tolerations":  string(tolerations),
 					},
 					Name: name,
 				},
 				Spec: corev1.PodSpec{
+					Tolerations:        criticalAddonsToleration(),
 					Affinity:           podAntiAffinity,
 					ServiceAccountName: "kubevirt-operator",
 					Containers: []corev1.Container{
@@ -585,15 +574,13 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
-func criticalAddonsToleration() ([]byte, error) {
-	tolerations := []corev1.Toleration{
+func criticalAddonsToleration() []corev1.Toleration {
+	return []corev1.Toleration{
 		{
 			Key:      "CriticalAddonsOnly",
 			Operator: corev1.TolerationOpExists,
 		},
 	}
-	tolerationsStr, err := json.Marshal(tolerations)
-	return tolerationsStr, err
 }
 
 func AddVersionSeparatorPrefix(version string) string {
