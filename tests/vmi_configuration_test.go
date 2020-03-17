@@ -882,7 +882,9 @@ var _ = Describe("Configurations", func() {
 				// Verify that the VM memory equals to a number of consumed hugepages
 				vmHugepagesConsumption := int64(totalHugepages-freeHugepages) * hugepagesSize.Value()
 				vmMemory := hugepagesVmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory]
-
+				if hugepagesVmi.Spec.Domain.Memory != nil && hugepagesVmi.Spec.Domain.Memory.Guest != nil {
+					vmMemory = *hugepagesVmi.Spec.Domain.Memory.Guest
+				}
 				Expect(vmHugepagesConsumption).To(Equal(vmMemory.Value()))
 			}
 
@@ -890,7 +892,7 @@ var _ = Describe("Configurations", func() {
 				hugepagesVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			})
 
-			table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
+			table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string, guestMemory string) {
 				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + hugepageSize)
 
 				nodeWithHugepages := tests.GetNodeWithHugepages(virtClient, hugepageType)
@@ -916,6 +918,10 @@ var _ = Describe("Configurations", func() {
 				hugepagesVmi.Spec.Domain.Memory = &v1.Memory{
 					Hugepages: &v1.Hugepages{PageSize: hugepageSize},
 				}
+				if guestMemory != "None" {
+					guestMemReq := resource.MustParse(guestMemory)
+					hugepagesVmi.Spec.Domain.Memory.Guest = &guestMemReq
+				}
 
 				By("Starting a VM")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(hugepagesVmi)
@@ -925,8 +931,9 @@ var _ = Describe("Configurations", func() {
 				By("Checking that the VM memory equals to a number of consumed hugepages")
 				verifyHugepagesConsumption()
 			},
-				table.Entry("[test_id:1671]hugepages-2Mi", "2Mi", "64Mi"),
-				table.Entry("[test_id:1672]hugepages-1Gi", "1Gi", "1Gi"),
+				table.Entry("[test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None"),
+				table.Entry("[test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None"),
+				table.Entry("[test_id:1672]hugepages-1Gi", "2Mi", "70Mi", "64Mi"),
 			)
 
 			Context("with unsupported page size", func() {
@@ -1813,6 +1820,67 @@ var _ = Describe("Configurations", func() {
 				}, 15*time.Second)
 				log.DefaultLogger().Object(cpuVmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
+			})
+			It("should be able to start a vm with guest memory different from requested and keed guaranteed qos", func() {
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					Sockets:               2,
+					Cores:                 1,
+					DedicatedCPUPlacement: true,
+				}
+				guestMemory := resource.MustParse("64M")
+				cpuVmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("80M"),
+					},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+
+				By("Checking that the VMI QOS is guaranteed")
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(cpuVmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.QOSClass).ToNot(BeNil())
+				Expect(*vmi.Status.QOSClass).To(Equal(kubev1.PodQOSGuaranteed))
+
+				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
+
+				By("Checking that the pod QOS is guaranteed")
+				readyPod := tests.GetRunningPodByVirtualMachineInstance(cpuVmi, tests.NamespaceTestDefault)
+				podQos := readyPod.Status.QOSClass
+				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
+
+				//-------------------------------------------------------------------
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				res, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass' || echo 'fail'\n"},
+					&expect.BExp{R: "pass"},
+					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k; echo $?\n"},
+					&expect.BExp{R: "0"},
+				}, 15*time.Second)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
+
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				podMemoryUsage, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{"/usr/bin/bash", "-c", "cat /sys/fs/cgroup/memory/memory.usage_in_bytes"},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				By("Converting pod memory usage")
+				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
+				Expect(err).ToNot(HaveOccurred())
+				By("Checking if pod memory usage is > 80Mi")
+				Expect(m > 83886080).To(BeTrue(), "83886080 B = 80 Mi")
 			})
 			It("should start a vmi with dedicated cpus and isolated emulator thread", func() {
 
