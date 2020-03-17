@@ -266,7 +266,7 @@ func (v *virtHandlerConn) UserListURI(vmi *virtv1.VirtualMachineInstance) (strin
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(userListTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return fmt.Sprintf(userListTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
 
 func (v *virtHandlerConn) FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
@@ -274,5 +274,5 @@ func (v *virtHandlerConn) FilesystemListURI(vmi *virtv1.VirtualMachineInstance) 
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf(filesystemListTemplateURI, ip, port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
+	return fmt.Sprintf(filesystemListTemplateURI, formatIpForUri(ip), port, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), nil
 }
