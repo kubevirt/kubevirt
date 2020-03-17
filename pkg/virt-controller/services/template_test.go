@@ -1055,6 +1055,55 @@ var _ = Describe("Template", func() {
 				table.Entry("hugepages-2Mi", "2Mi"),
 				table.Entry("hugepages-1Gi", "1Gi"),
 			)
+			It("should account for difference between guest and container requested memory ", func() {
+				guestMem := resource.MustParse("64M")
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Memory: &v1.Memory{
+								Hugepages: &v1.Hugepages{
+									PageSize: "1Gi",
+								},
+								Guest: &guestMem,
+							},
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("70M"),
+								},
+								Limits: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("70M"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				guestRequestMemDiff := vmi.Spec.Domain.Resources.Requests.Memory()
+				guestRequestMemDiff.Sub(guestMem)
+
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(162) + guestRequestMemDiff.ToDec().ScaledValue(resource.Mega)))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(162) + guestRequestMemDiff.ToDec().ScaledValue(resource.Mega)))
+
+				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + "1Gi")
+				hugepagesRequest := pod.Spec.Containers[0].Resources.Requests[hugepageType]
+				hugepagesLimit := pod.Spec.Containers[0].Resources.Limits[hugepageType]
+				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+
+				Expect(len(pod.Spec.Volumes)).To(Equal(7))
+				Expect(pod.Spec.Volumes[0].EmptyDir).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[0].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
+
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6))
+				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/dev/hugepages"))
+			})
 		})
 
 		Context("with file mode pvc source", func() {
