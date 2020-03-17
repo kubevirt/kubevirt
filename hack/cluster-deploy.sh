@@ -61,11 +61,6 @@ if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]] || [[ "$KUBEVIRT_PROVIDER" =~ (okd|ocp)-* 
     _kubectl adm policy add-scc-to-user privileged admin
 fi
 
-if [[ "$KUBEVIRT_PROVIDER" =~ kind.* ]]; then
-    #removing it since it's crashing with dind because loopback devices are shared with the host
-    _kubectl delete -n kubevirt ds disks-images-provider
-fi
-
 # Ensure the KubeVirt CRD is created
 count=0
 until _kubectl get crd kubevirts.kubevirt.io; do
