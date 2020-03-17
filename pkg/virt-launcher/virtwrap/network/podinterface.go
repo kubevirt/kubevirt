@@ -805,7 +805,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingIptables(protocol iptables.P
 			strconv.Itoa(int(port.Port)),
 			"-j",
 			"SNAT",
-			"--to-source", getVifIpByProtocol(p, protocol))
+			"--to-source", getGatewayByProtocol(p, protocol))
 		if err != nil {
 			return err
 		}
