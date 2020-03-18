@@ -45,6 +45,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -633,6 +634,33 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				By("VMI should run the VirtualMachineInstance again")
 			}
+		})
+
+		It("should set the Ready condition on VM", func() {
+			vm := newVirtualMachine(false)
+
+			vmReadyConditionStatus := func() k8sv1.ConditionStatus {
+				updatedVm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				cond := controller.NewVirtualMachineConditionManager().
+					GetCondition(updatedVm, v1.VirtualMachineReady)
+				if cond == nil {
+					return ""
+				}
+				return cond.Status
+			}
+
+			Expect(vmReadyConditionStatus()).To(BeEmpty())
+
+			startVM(vm)
+
+			Eventually(vmReadyConditionStatus, 300*time.Second, 1*time.Second).
+				Should(Equal(k8sv1.ConditionTrue))
+
+			stopVM(vm)
+
+			Eventually(vmReadyConditionStatus, 300*time.Second, 1*time.Second).
+				Should(BeEmpty())
 		})
 
 		Context("Using virtctl interface", func() {

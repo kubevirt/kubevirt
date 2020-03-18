@@ -818,6 +818,27 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
 		})
 
+		table.DescribeTable("should add ready condition", func(setup func(vmi *v1.VirtualMachineInstance), status k8sv1.ConditionStatus) {
+			vm, vmi := DefaultVirtualMachine(true)
+			addVirtualMachine(vm)
+
+			setup(vmi)
+			vmiFeeder.Add(vmi)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objVM := obj.(*v1.VirtualMachine)
+				cond := virtcontroller.NewVirtualMachineConditionManager().
+					GetCondition(objVM, v1.VirtualMachineReady)
+				Expect(cond).ToNot(BeNil())
+				Expect(cond.Status).To(Equal(status))
+			}).Return(vm, nil)
+
+			controller.Execute()
+		},
+			table.Entry("True", markAsReady, k8sv1.ConditionTrue),
+			table.Entry("False", markAsNonReady, k8sv1.ConditionFalse),
+		)
+
 		It("should add paused condition", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			addVirtualMachine(vm)
@@ -831,9 +852,9 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
 				objVM := obj.(*v1.VirtualMachine)
-				Expect(objVM.Status.Conditions).To(HaveLen(1))
-				cond := objVM.Status.Conditions[0]
-				Expect(cond.Type).To(Equal(v1.VirtualMachinePaused))
+				cond := virtcontroller.NewVirtualMachineConditionManager().
+					GetCondition(objVM, v1.VirtualMachinePaused)
+				Expect(cond).ToNot(BeNil())
 				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 			}).Return(vm, nil)
 
@@ -853,7 +874,9 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
 				objVM := obj.(*v1.VirtualMachine)
-				Expect(objVM.Status.Conditions).To(HaveLen(0))
+				cond := virtcontroller.NewVirtualMachineConditionManager().
+					GetCondition(objVM, v1.VirtualMachinePaused)
+				Expect(cond).To(BeNil())
 			}).Return(vm, nil)
 
 			controller.Execute()

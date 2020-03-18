@@ -1144,26 +1144,6 @@ func (c *VMController) enqueueVm(obj interface{}) {
 	c.Queue.Add(key)
 }
 
-func (c *VMController) hasCondition(vm *virtv1.VirtualMachine, cond virtv1.VirtualMachineConditionType) bool {
-	for _, c := range vm.Status.Conditions {
-		if c.Type == cond {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *VMController) removeCondition(vm *virtv1.VirtualMachine, cond virtv1.VirtualMachineConditionType) {
-	var conds []virtv1.VirtualMachineCondition
-	for _, c := range vm.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	vm.Status.Conditions = conds
-}
-
 func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) error {
 	vm := vmOrig.DeepCopy()
 
@@ -1250,8 +1230,11 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 		vm.Status.StateChangeRequests = vm.Status.StateChangeRequests[1:]
 	}
 
+	c.syncReadyConditionFromVMI(vm, vmi)
+
 	// Add/Remove Failure condition if necessary
-	errMatch := (createErr != nil) == c.hasCondition(vm, virtv1.VirtualMachineFailure)
+	vmCondManager := controller.NewVirtualMachineConditionManager()
+	errMatch := (createErr != nil) == vmCondManager.HasCondition(vm, virtv1.VirtualMachineFailure)
 	if !(errMatch) {
 		c.processFailure(vm, vmi, createErr)
 	}
@@ -1259,7 +1242,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	// Add/Remove Paused condition (VMI paused by user)
 	vmiCondManager := controller.NewVirtualMachineInstanceConditionManager()
 	if vmiCondManager.HasCondition(vmi, virtv1.VirtualMachineInstancePaused) {
-		if !c.hasCondition(vm, virtv1.VirtualMachinePaused) {
+		if !vmCondManager.HasCondition(vm, virtv1.VirtualMachinePaused) {
 			log.Log.Object(vm).V(3).Info("Adding paused condition")
 			now := v1.NewTime(time.Now())
 			vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
@@ -1271,9 +1254,9 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 				Message:            "VMI was paused by user",
 			})
 		}
-	} else if c.hasCondition(vm, virtv1.VirtualMachinePaused) {
+	} else if vmCondManager.HasCondition(vm, virtv1.VirtualMachinePaused) {
 		log.Log.Object(vm).V(3).Info("Removing paused condition")
-		c.removeCondition(vm, virtv1.VirtualMachinePaused)
+		vmCondManager.RemoveCondition(vm, virtv1.VirtualMachinePaused)
 	}
 
 	// only update if necessary
@@ -1283,6 +1266,34 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	}
 
 	return err
+}
+
+func (c *VMController) syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	vmReadyCond := controller.NewVirtualMachineConditionManager().
+		GetCondition(vm, virtv1.VirtualMachineReady)
+	vmiReadyCond := controller.NewVirtualMachineInstanceConditionManager().
+		GetCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady))
+
+	if vmReadyCond == nil && vmiReadyCond != nil {
+		log.Log.Object(vm).V(4).Info("Adding ready condition")
+		newCond := virtv1.VirtualMachineCondition{Type: virtv1.VirtualMachineReady}
+		copyConditionDetails(vmiReadyCond, &newCond)
+		vm.Status.Conditions = append(vm.Status.Conditions, newCond)
+	} else if vmReadyCond != nil && vmiReadyCond != nil {
+		log.Log.Object(vm).V(4).Info("Updating ready condition")
+		copyConditionDetails(vmiReadyCond, vmReadyCond)
+	} else if vmReadyCond != nil && vmiReadyCond == nil {
+		log.Log.Object(vm).V(4).Info("Removing ready condition")
+		controller.NewVirtualMachineConditionManager().RemoveCondition(vm, virtv1.VirtualMachineReady)
+	}
+}
+
+func copyConditionDetails(source *virtv1.VirtualMachineInstanceCondition, dest *virtv1.VirtualMachineCondition) {
+	dest.Status = source.Status
+	dest.LastProbeTime = source.LastProbeTime
+	dest.LastTransitionTime = source.LastTransitionTime
+	dest.Reason = source.Reason
+	dest.Message = source.Message
 }
 
 func (c *VMController) getVirtualMachineBaseName(vm *virtv1.VirtualMachine) string {
@@ -1306,6 +1317,7 @@ func (c *VMController) processFailure(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 	}
 	log.Log.Object(vm).V(4).Infof("Processing failure status:: runStrategy: %s; noErr: %t; noVm: %t", runStrategy, createErr != nil, vmi != nil)
 
+	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if createErr != nil {
 		if (vm.Spec.Running != nil && *vm.Spec.Running == true) || (vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy != virtv1.RunStrategyHalted) {
 			reason = "FailedCreate"
@@ -1314,7 +1326,7 @@ func (c *VMController) processFailure(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 		}
 		message = createErr.Error()
 
-		if !c.hasCondition(vm, virtv1.VirtualMachineFailure) {
+		if !vmConditionManager.HasCondition(vm, virtv1.VirtualMachineFailure) {
 			log.Log.Object(vm).Infof("Reason to fail: %s", reason)
 			vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
 				Type:               virtv1.VirtualMachineFailure,
@@ -1329,7 +1341,7 @@ func (c *VMController) processFailure(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 	}
 
 	log.Log.Object(vm).V(4).Info("Removing failure")
-	c.removeCondition(vm, virtv1.VirtualMachineFailure)
+	vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineFailure)
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
