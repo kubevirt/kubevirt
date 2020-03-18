@@ -176,22 +176,23 @@ func (h *NetworkUtilsHandler) Ipv6NatEnabled() bool {
 }
 
 func (h *NetworkUtilsHandler) IsIpv6Enabled(link netlink.Link) bool {
-	linkLog := log.Log.With("link", link.Attrs().Name)
+	linkName := link.Attrs().Name
 	addrs, err := h.AddrList(link, netlink.FAMILY_V6)
 	if err != nil {
-		linkLog.Reason(err).Errorf("ipv6 disabled, failed retrieving ipv6 addresses")
+		log.Log.Reason(err).Errorf("ipv6 disabled, failed retrieving ipv6 addresses from %s", linkName)
 		return false
 	}
 	if len(addrs) == 0 {
-		linkLog.Infof("ipv6 disabled, there is no ipv6 addresses")
+		log.Log.Infof("ipv6 disabled, there is no ipv6 addresses from %s", linkName)
+		return false
 	}
 	for _, addr := range addrs {
 		if !addr.IP.IsLinkLocalUnicast() {
-			linkLog.Infof("ipv6 enabled, there is a non link local ipv6 address")
+			log.Log.Infof("ipv6 enabled, there is a non link local ipv6 address from %s", linkName)
 			return true
 		}
 	}
-	linkLog.Infof("ipv6 disabled, all the ipv6 addresses are link local")
+	log.Log.Infof("ipv6 disabled, all the ipv6 addresses are link local from %s", linkName)
 	return false
 }
 
