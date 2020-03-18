@@ -38,6 +38,7 @@ rm /images/fedora-cloud/disk.qcow2
 echo "copy all images to host mount directory"
 cp -R /images/* /hostImages/
 chmod -R 777 /hostImages
+chcon -Rt svirt_sandbox_file_t /hostImages
 
 # for some reason without sleep, container sometime fails to create the file
 sleep 10
