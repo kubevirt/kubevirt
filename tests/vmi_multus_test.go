@@ -709,6 +709,37 @@ var _ = Describe("SRIOV", func() {
 			// it's hard to match them.
 		})
 
+		It("should create a virtual machine with sriov interface and dedicatedCPUs", func() {
+			// In addition to verifying that we can start a VMI with CPU pinning
+			// this also tests if we've correctly calculated the overhead for VFIO devices.
+			vmi := getSriovVmi([]string{"sriov"})
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 2,
+				DedicatedCPUPlacement: true,
+			}
+			startVmi(vmi)
+			waitVmi(vmi)
+
+			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			out, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				"compute",
+				[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedSriovResourceName := fmt.Sprintf("%s\n", sriovResourceName)
+			Expect(out).To(Equal(expectedSriovResourceName))
+
+			checkDefaultInterfaceInPod(vmi)
+
+			By("checking virtual machine instance has two interfaces")
+			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
+
+		})
+
 		It("should create a virtual machine with sriov interface with custom MAC address", func() {
 			vmi := getSriovVmi([]string{"sriov"})
 			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = "de:ad:00:00:be:ef"
