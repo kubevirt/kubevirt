@@ -12,6 +12,9 @@ KUBECTL="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl --kubeconfig=${KU
 
 REGISTRY_NAME=${CLUSTER_NAME}-registry
 
+MASTER_NODES_PATTERN="control-plane"
+WORKER_NODES_PATTERN="worker"
+
 function _wait_kind_up {
     echo "Waiting for kind to be ready ..."
     while [ -z "$(docker exec --privileged ${CLUSTER_NAME}-control-plane kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes --selector=node-role.kubernetes.io/master -o=jsonpath='{.items..status.conditions[-1:].status}' | grep True)" ]; do
@@ -99,6 +102,25 @@ function prepare_workers() {
     done
 }
 
+function _fix_node_labels() {
+    # Due to inconsistent labels and taints state in multi-nodes clusters,
+    # it is nessecery to remove taint NoSchedule and set role labels manualy:
+    #   Master nodes might lack 'scheduable=true' label and have NoScheduable taint.
+    #   Worker nodes might lack worker role label.
+    master_nodes=$(_kubectl get nodes --no-headers | grep -i $MASTER_NODES_PATTERN | awk '{print $1}')
+    for node in ${master_nodes[@]}; do
+        # removing NoSchedule taint
+        _kubectl taint nodes $node node-role.kubernetes.io/master:NoSchedule-
+        _kubectl label node $node kubevirt.io/schedulable=true
+    done
+
+    worker_nodes=$(_kubectl get nodes --no-headers | grep -i $WORKER_NODES_PATTERN | awk '{print $1}')
+    for node in ${worker_nodes[@]}; do
+        _kubectl label node $node kubevirt.io/schedulable=true
+        _kubectl label node $node node-role.kubernetes.io/worker=""
+    done
+}
+
 function setup_kind() {
     $KIND --loglevel debug create cluster --retain --name=${CLUSTER_NAME} --config=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml --image=$KIND_NODE_IMAGE
     $KIND get kubeconfig --name=${CLUSTER_NAME} > ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
@@ -123,6 +145,8 @@ function setup_kind() {
 
     _wait_kind_up
     _kubectl cluster-info
+
+    _fix_node_labels
 
     until _kubectl get nodes --no-headers
     do
