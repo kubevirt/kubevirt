@@ -513,7 +513,7 @@ func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 	}
 
 	// Get interface MTU
-	p.vif.Mtu = uint16(p.podNicLink.Attrs().MTU) // TODO - why do we override the mtu that was specified in the yaml - iface.MacAddress
+	p.vif.Mtu = uint16(p.podNicLink.Attrs().MTU)
 
 	err = configureVifV4Addresses(p, err)
 	if err != nil {
@@ -562,20 +562,20 @@ func configureVifV6Addresses(p *MasqueradePodInterface, err error) error {
 
 	defaultGatewayIpv6, vmIpv6, err := Handler.GetHostAndGwAddressesFromCIDR(p.vmIpv6NetworkCIDR)
 	if err != nil {
-		log.Log.Errorf("failed to get gw and vm available ipv6 addresses from CIDR %s", p.vmIpv6NetworkCIDR)
+		log.Log.Reason(err).Errorf("failed to get gw and vm available ipv6 addresses from CIDR %s", p.vmIpv6NetworkCIDR)
 		return err
 	}
 
 	gatewayIpv6Addr, err := Handler.ParseAddr(defaultGatewayIpv6)
 	if err != nil {
-		return fmt.Errorf("failed to parse gateway ipv6 address %s", gatewayIpv6Addr)
+		return fmt.Errorf("failed to parse gateway ipv6 address %s err %v", gatewayIpv6Addr, err)
 	}
 	p.vif.GatewayIpv6 = gatewayIpv6Addr.IP.To16()
 	p.gatewayIpv6Addr = gatewayIpv6Addr
 
 	vmAddr, err := Handler.ParseAddr(vmIpv6)
 	if err != nil {
-		return fmt.Errorf("failed to parse vm ipv6 address %s", vmIpv6)
+		return fmt.Errorf("failed to parse vm ipv6 address %s err %v", vmIpv6, err)
 	}
 	p.vif.IPv6 = *vmAddr
 	return nil
@@ -622,23 +622,23 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	if Handler.Ipv4NatEnabled() {
+	if Handler.HasNatIptables(iptables.ProtocolIPv4) || Handler.NftablesLoad("ipv4-nat") == nil {
 		err = p.createNatRules(iptables.ProtocolIPv4)
 		if err != nil {
-			log.Log.Errorf("failed to create ipv4 nat rules for vm error: %v", err)
+			log.Log.Reason(err).Errorf("failed to create ipv4 nat rules for vm error: %v", err)
 			return err
 		}
 	}
-	if Handler.IsIpv6Enabled(p.podNicLink) && Handler.Ipv6NatEnabled() {
+	if Handler.IsIpv6Enabled(p.podNicLink) && (Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil) {
 		err = Handler.ConfigureIpv6Forwarding()
 		if err != nil {
-			log.Log.Errorf("failed to turn on net.ipv6.conf.all.forwarding")
+			log.Log.Reason(err).Errorf("failed to turn on net.ipv6.conf.all.forwarding")
 			return err
 		}
 
 		err = p.createNatRules(iptables.ProtocolIPv6)
 		if err != nil {
-			log.Log.Errorf("failed to create ipv6 nat rules for vm error: %v", err)
+			log.Log.Reason(err).Errorf("failed to create ipv6 nat rules for vm error: %v", err)
 			return err
 		}
 	}
@@ -752,7 +752,7 @@ func (p *MasqueradePodInterface) createBridge() error {
 }
 
 func (p *MasqueradePodInterface) createNatRules(protocol iptables.Protocol) error {
-	if Handler.UseIptables() {
+	if Handler.HasNatIptables(protocol) {
 		return p.createNatRulesUsingIptables(protocol)
 	}
 	return p.createNatRulesUsingNftables(protocol)
@@ -864,16 +864,7 @@ func getLoopbackAdrress(proto iptables.Protocol) string {
 }
 
 func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Protocol) error {
-	ipVersionNum := "4"
-	if proto == iptables.ProtocolIPv6 {
-		ipVersionNum = "6"
-	}
-	err := Handler.NftablesLoad(fmt.Sprintf("ipv%s-nat", ipVersionNum))
-	if err != nil {
-		return err
-	}
-
-	err = Handler.NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND")
+	err := Handler.NftablesNewChain(proto, "nat", "KUBEVIRT_PREINBOUND")
 	if err != nil {
 		return err
 	}
@@ -883,7 +874,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Prot
 		return err
 	}
 
-	err = Handler.NftablesAppendRule(proto, "nat", "postrouting", Handler.GetNftIpString(proto), "saddr", getVifIpByProtocol(p, proto), "counter", "masquerade")
+	err = Handler.NftablesAppendRule(proto, "nat", "postrouting", Handler.GetNFTIPString(proto), "saddr", getVifIpByProtocol(p, proto), "counter", "masquerade")
 	if err != nil {
 		return err
 	}
@@ -929,7 +920,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Prot
 		}
 
 		err = Handler.NftablesAppendRule(proto, "nat", "output",
-			Handler.GetNftIpString(proto), "daddr", getLoopbackAdrress(proto),
+			Handler.GetNFTIPString(proto), "daddr", getLoopbackAdrress(proto),
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
