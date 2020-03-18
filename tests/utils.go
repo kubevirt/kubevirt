@@ -2643,7 +2643,7 @@ func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batc
 	return err
 }
 
-func configureIpv6OnVmi(vmi *v1.VirtualMachineInstance, expecter expect.Expecter) error {
+func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter) error {
 	eth0Exist := func(vmi *v1.VirtualMachineInstance) bool {
 		eth0Batch := append([]expect.Batcher{
 			&expect.BSnd{S: "\n"},
@@ -2721,7 +2721,7 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return nil, err
 	}
 
-	return expecter, configureIpv6OnVmi(vmi, expecter)
+	return expecter, configureIPv6OnVMI(vmi, expecter)
 }
 
 func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
@@ -2771,7 +2771,7 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		expecter.Close()
 		return expecter, err
 	}
-	return expecter, configureIpv6OnVmi(vmi, expecter)
+	return expecter, configureIPv6OnVMI(vmi, expecter)
 }
 
 // ReLoggedInFedoraExpecter return prepared and ready to use console expecter for
@@ -3613,7 +3613,7 @@ func NewHelloWorldJobUDP(host string, port string) *k8sv1.Pod {
 // This pod tries to contact the host on the provided port, over HTTP.
 // On success - it expects to receive "Hello World!".
 func NewHelloWorldJobHttp(host string, port string) *k8sv1.Pod {
-	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, FormatIpForCurl(host), port)}
+	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, FormatIPForURL(host), port)}
 	job := RenderJob("curl", []string{"/bin/bash", "-c"}, check)
 
 	return job
@@ -4243,7 +4243,7 @@ func GenerateRandomMac() (net.HardwareAddr, error) {
 	return net.HardwareAddr(append(prefix, suffix...)), nil
 }
 
-func FormatIpForCurl(ip string) string {
+func FormatIPForURL(ip string) string {
 	if netutils.IsIPv6String(ip) {
 		return "[" + ip + "]"
 	}

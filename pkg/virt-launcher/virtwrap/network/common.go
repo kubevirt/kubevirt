@@ -29,7 +29,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/coreos/go-iptables/iptables"
 
@@ -86,9 +85,7 @@ type NetworkHandler interface {
 	GetMacDetails(iface string) (net.HardwareAddr, error)
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
-	UseIptables() bool
-	Ipv4NatEnabled() bool
-	Ipv6NatEnabled() bool
+	HasNatIptables(proto iptables.Protocol) bool
 	IsIpv6Enabled(link netlink.Link) bool
 	ConfigureIpv6Forwarding() error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
@@ -96,7 +93,7 @@ type NetworkHandler interface {
 	NftablesNewChain(proto iptables.Protocol, table, chain string) error
 	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesLoad(fnName string) error
-	GetNftIpString(proto iptables.Protocol) string
+	GetNFTIPString(proto iptables.Protocol) string
 }
 
 type NetworkUtilsHandler struct{}
@@ -136,8 +133,8 @@ func (h *NetworkUtilsHandler) AddrAdd(link netlink.Link, addr *netlink.Addr) err
 func (h *NetworkUtilsHandler) LinkSetMaster(link netlink.Link, master *netlink.Bridge) error {
 	return netlink.LinkSetMaster(link, master)
 }
-func (h *NetworkUtilsHandler) UseIptables() bool {
-	iptablesObject, err := iptables.New()
+func (h *NetworkUtilsHandler) HasNatIptables(proto iptables.Protocol) bool {
+	iptablesObject, err := iptables.NewWithProtocol(proto)
 	if err != nil {
 		return false
 	}
@@ -153,26 +150,6 @@ func (h *NetworkUtilsHandler) UseIptables() bool {
 func (h *NetworkUtilsHandler) ConfigureIpv6Forwarding() error {
 	_, err := exec.Command("sysctl", "net.ipv6.conf.all.forwarding=1").CombinedOutput()
 	return err
-}
-
-func (h *NetworkUtilsHandler) Ipv4NatEnabled() bool {
-	lsmod, _ := exec.Command("lsmod").CombinedOutput()
-	lsmodString := string(lsmod)
-	if !strings.Contains(lsmodString, "iptable_nat") && !strings.Contains(lsmodString, "nf_nat_ipv4") {
-		log.Log.Errorf("no ipv4 support")
-		return false
-	}
-	return true
-}
-
-func (h *NetworkUtilsHandler) Ipv6NatEnabled() bool {
-	lsmod, _ := exec.Command("lsmod").CombinedOutput()
-	lsmodString := string(lsmod)
-	if !strings.Contains(lsmodString, "iptable_nat") && !strings.Contains(lsmodString, "nf_nat_ipv6") {
-		log.Log.Errorf("no ipv6 support")
-		return false
-	}
-	return true
 }
 
 func (h *NetworkUtilsHandler) IsIpv6Enabled(link netlink.Link) bool {
@@ -215,7 +192,7 @@ func (h *NetworkUtilsHandler) IptablesAppendRule(proto iptables.Protocol, table,
 }
 
 func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, chain string) error {
-	output, err := exec.Command("nft", "add", "chain", Handler.GetNftIpString(proto), table, chain).CombinedOutput()
+	output, err := exec.Command("nft", "add", "chain", Handler.GetNFTIPString(proto), table, chain).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("%s", string(output))
 	}
@@ -224,7 +201,7 @@ func (h *NetworkUtilsHandler) NftablesNewChain(proto iptables.Protocol, table, c
 }
 
 func (h *NetworkUtilsHandler) NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error {
-	cmd := append([]string{"add", "rule", Handler.GetNftIpString(proto), table, chain}, rulespec...)
+	cmd := append([]string{"add", "rule", Handler.GetNFTIPString(proto), table, chain}, rulespec...)
 	output, err := exec.Command("nft", cmd...).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to apped new nfrule error %s", string(output))
@@ -233,12 +210,11 @@ func (h *NetworkUtilsHandler) NftablesAppendRule(proto iptables.Protocol, table,
 	return nil
 }
 
-func (h *NetworkUtilsHandler) GetNftIpString(proto iptables.Protocol) string {
-	ipString := "ip"
+func (h *NetworkUtilsHandler) GetNFTIPString(proto iptables.Protocol) string {
 	if proto == iptables.ProtocolIPv6 {
-		ipString = "ip6"
+		return "ip6"
 	}
-	return ipString
+	return "ip"
 }
 
 func (h *NetworkUtilsHandler) NftablesLoad(fnName string) error {

@@ -203,34 +203,14 @@ func (_mr *_MockNetworkHandlerRecorder) StartDHCP(arg0, arg1, arg2, arg3 interfa
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDHCP", arg0, arg1, arg2, arg3)
 }
 
-func (_m *MockNetworkHandler) UseIptables() bool {
-	ret := _m.ctrl.Call(_m, "UseIptables")
+func (_m *MockNetworkHandler) HasNatIptables(proto iptables.Protocol) bool {
+	ret := _m.ctrl.Call(_m, "HasNatIptables", proto)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-func (_mr *_MockNetworkHandlerRecorder) UseIptables() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UseIptables")
-}
-
-func (_m *MockNetworkHandler) Ipv4NatEnabled() bool {
-	ret := _m.ctrl.Call(_m, "Ipv4NatEnabled")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-func (_mr *_MockNetworkHandlerRecorder) Ipv4NatEnabled() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Ipv4NatEnabled")
-}
-
-func (_m *MockNetworkHandler) Ipv6NatEnabled() bool {
-	ret := _m.ctrl.Call(_m, "Ipv6NatEnabled")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-func (_mr *_MockNetworkHandlerRecorder) Ipv6NatEnabled() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Ipv6NatEnabled")
+func (_mr *_MockNetworkHandlerRecorder) HasNatIptables(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "HasNatIptables", arg0)
 }
 
 func (_m *MockNetworkHandler) IsIpv6Enabled(link netlink.Link) bool {
@@ -313,12 +293,12 @@ func (_mr *_MockNetworkHandlerRecorder) NftablesLoad(arg0 interface{}) *gomock.C
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "NftablesLoad", arg0)
 }
 
-func (_m *MockNetworkHandler) GetNftIpString(proto iptables.Protocol) string {
-	ret := _m.ctrl.Call(_m, "GetNftIpString", proto)
+func (_m *MockNetworkHandler) GetNFTIPString(proto iptables.Protocol) string {
+	ret := _m.ctrl.Call(_m, "GetNFTIPString", proto)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-func (_mr *_MockNetworkHandlerRecorder) GetNftIpString(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetNftIpString", arg0)
+func (_mr *_MockNetworkHandlerRecorder) GetNFTIPString(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetNFTIPString", arg0)
 }
