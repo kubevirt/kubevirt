@@ -1937,6 +1937,9 @@ func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 func GetGuestAgentUserData() string {
 	return fmt.Sprintf(`#!/bin/bash
                 echo "fedora" |passwd fedora --stdin
+                sudo ip -6 addr add fd2e:f1fe:9490:a8ff::2/120 dev eth0
+                sudo ip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2
+                echo "nameserver fd00:10:96::a" >> /etc/resolv.conf
                 mkdir -p /usr/local/bin
                 curl %s > /usr/local/bin/qemu-ga
                 chmod +x /usr/local/bin/qemu-ga
