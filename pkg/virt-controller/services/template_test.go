@@ -1342,6 +1342,27 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
 				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/sys/devices/"))
 			})
+			It("should add 1G of memory overhead", func() {
+				sriovInterface := v1.InterfaceSRIOV{}
+				domain := v1.DomainSpec{
+					Resources: v1.ResourceRequirements{
+						Requests: kubev1.ResourceList{
+							kubev1.ResourceMemory: resource.MustParse("1G"),
+						},
+					},
+				}
+				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &sriovInterface}}}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("2163507557"))
+			})
 		})
 		Context("with slirp interface", func() {
 			It("Should have empty port list in the pod manifest", func() {
