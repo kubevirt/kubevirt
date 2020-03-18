@@ -399,6 +399,9 @@ type Disk struct {
 	// Cache specifies which kvm disk cache mode should be used.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
+	// If specified, disk address and its tag will be provided to the guest via config drive metadata
+	// +optional
+	Tag string `json:"tag,omitempty"`
 }
 
 // Represents the target of a volume to mount.
@@ -962,6 +965,9 @@ type Interface struct {
 	// If specified the network interface will pass additional DHCP options to the VMI
 	// +optional
 	DHCPOptions *DHCPOptions `json:"dhcpOptions,omitempty"`
+	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
+	// +optional
+	Tag string `json:"tag,omitempty"`
 }
 
 // Extra DHCP options to use in the interface.

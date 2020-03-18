@@ -99,6 +99,7 @@ type LibvirtDomainManager struct {
 	lessPVCSpaceToleration int
 	paused                 pausedVMIs
 	agentData              *agentpoller.AsyncAgentStore
+	cloudInitDataStore     *cloudinit.CloudInitData
 }
 
 type migrationDisks struct {
@@ -334,18 +335,27 @@ func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks
 	return disks
 }
 
-func getAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
+func getAllDomainDevices(dom cli.VirDomain) (api.Devices, error) {
 	xmlstr, err := dom.GetXMLDesc(0)
 	if err != nil {
-		return nil, err
+		return api.Devices{}, err
 	}
 	var newSpec api.DomainSpec
 	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
 	if err != nil {
+		return api.Devices{}, err
+	}
+
+	return newSpec.Devices, nil
+}
+
+func getAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
+	devices, err := getAllDomainDevices(dom)
+	if err != nil {
 		return nil, err
 	}
 
-	return newSpec.Devices.Disks, nil
+	return devices.Disks, nil
 }
 
 func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) []string {
@@ -730,6 +740,11 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	if err != nil {
 		return fmt.Errorf("pre-start pod-setup failed: %v", err)
 	}
+
+	err = l.generateCloudInitISO(vmi, nil)
+	if err != nil {
+		return err
+	}
 	// TODO this should probably a OnPrepareMigration hook or something.
 	// Right now we need to call OnDefineDomain, so that additional setup, which might be done
 	// by the hook can also be done for the new target pod
@@ -759,6 +774,35 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		}
 	}
 
+	return nil
+}
+
+func (l *LibvirtDomainManager) generateCloudInitISO(vmi *v1.VirtualMachineInstance, domPtr *cli.VirDomain) error {
+	var devicesMetadata []cloudinit.DeviceData
+	// this is the point where we need to build the devices metadata if it was requested.
+	// This metadata maps the user provided tag to the hypervisor assigned device address.
+	if domPtr != nil {
+		data, err := l.buildDevicesMetadata(vmi, *domPtr)
+		if err != nil {
+			return err
+		}
+		devicesMetadata = data
+	}
+	// build condif drive iso file, that includes devices metadata if available
+	// get stored cloud init data
+	var cloudInitDataStore *cloudinit.CloudInitData
+	cloudInitDataStore = l.cloudInitDataStore
+
+	if cloudInitDataStore != nil {
+		// add devices metedata
+		if devicesMetadata != nil {
+			cloudInitDataStore.DevicesData = &devicesMetadata
+		}
+		err := cloudinit.GenerateLocalData(vmi.Name, vmi.Namespace, cloudInitDataStore)
+		if err != nil {
+			return fmt.Errorf("generating local cloud-init data failed: %v", err)
+		}
+	}
 	return nil
 }
 
@@ -802,10 +846,9 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	if cloudInitData != nil {
-		err := cloudinit.GenerateLocalData(vmi.Name, vmi.Namespace, cloudInitData)
-		if err != nil {
-			return domain, fmt.Errorf("generating local cloud-init data failed: %v", err)
-		}
+		// store the generated cloud init metadata.
+		// cloud init ISO will be generated after the domain definition
+		l.cloudInitDataStore = cloudInitData
 	}
 
 	// generate ignition data
@@ -1079,6 +1122,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal() {
+		err = l.generateCloudInitISO(vmi, &dom)
+		if err != nil {
+			return nil, err
+		}
 		err = dom.Create()
 		if err != nil {
 			logger.Reason(err).Error("Starting the VirtualMachineInstance failed.")
@@ -1397,6 +1444,44 @@ func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING
 
 	return l.virConn.GetDomainStats(statsTypes, flags)
+}
+
+func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) ([]cloudinit.DeviceData, error) {
+	taggedInterfaces := make(map[string]v1.Interface)
+	var devicesMetadata []cloudinit.DeviceData
+
+	// Get all tagged interfaces for lookup
+	for _, vif := range vmi.Spec.Domain.Devices.Interfaces {
+		if vif.Tag != "" {
+			taggedInterfaces[vif.Name] = vif
+		}
+	}
+
+	devices, err := getAllDomainDevices(dom)
+	if err != nil {
+		return nil, err
+	}
+	interfaces := devices.Interfaces
+	for _, nic := range interfaces {
+		if data, exist := taggedInterfaces[nic.Alias.Name]; exist {
+			address := nic.Address
+			var mac string
+			if nic.MAC != nil {
+				mac = nic.MAC.MAC
+			}
+			pciAddrStr := fmt.Sprintf("%s:%s:%s:%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+			deviceData := cloudinit.DeviceData{
+				Type:    cloudinit.NICMetadataType,
+				Bus:     nic.Address.Type,
+				Address: pciAddrStr,
+				MAC:     mac,
+				Tags:    []string{data.Tag},
+			}
+			devicesMetadata = append(devicesMetadata, deviceData)
+		}
+	}
+	return devicesMetadata, nil
+
 }
 
 func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {

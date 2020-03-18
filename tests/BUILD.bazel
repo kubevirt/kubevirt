@@ -106,6 +106,7 @@ go_test(
     deps = [
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
+        "//pkg/cloud-init:go_default_library",
         "//pkg/config:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",

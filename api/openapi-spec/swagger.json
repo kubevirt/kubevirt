@@ -4771,6 +4771,10 @@
      "serial": {
       "description": "Serial provides the ability to specify a serial number for the disk device.\n+optional",
       "type": "string"
+     },
+     "tag": {
+      "description": "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
+      "type": "string"
      }
     }
    },
@@ -5242,6 +5246,10 @@
      },
      "sriov": {
       "$ref": "#/definitions/v1.InterfaceSRIOV"
+     },
+     "tag": {
+      "description": "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
+      "type": "string"
      }
     }
    },

@@ -1171,6 +1171,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			tests.AddConfigMapDisk(vmi, configMapName)
 			tests.AddSecretDisk(vmi, secretName)
 			tests.AddServiceAccountDisk(vmi, "default")
+			vmi.Spec.Domain.Devices = v1.Devices{Interfaces: []v1.Interface{{Name: "default", Tag: "testnic",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Masquerade: &v1.InterfaceMasquerade{}}}}}
 
 			vmi = runVMIAndExpectLaunch(vmi, 180)
 

@@ -21,6 +21,7 @@ package cloudinit
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -94,7 +95,47 @@ var _ = Describe("CloudInit", func() {
 	AfterEach(func() {
 		os.RemoveAll(tmpDir)
 	})
+	Describe("Data Model", func() {
+		Context("verify meta-data model", func() {
+			It("shuold match the generated devices metadata", func() {
+				exampleJSONParsed := `{
+  "instance-id": "fake.fake-namespace",
+  "local-hostname": "fake",
+  "uuid": "5d307ca9-b3ef-428c-8861-06e72d69f223",
+  "devices": [
+    {
+      "type": "nic",
+      "bus": "pci",
+      "address": "0000:01:00:0",
+      "mac": "02:00:00:84:e9:58",
+      "tags": [
+        "testtag"
+      ]
+    }
+  ]
+}`
+				devices := []DeviceData{
+					{
+						Type:    NICMetadataType,
+						Bus:     "pci",
+						Address: "0000:01:00:0",
+						MAC:     "02:00:00:84:e9:58",
+						Tags:    []string{"testtag"},
+					},
+				}
 
+				metadataStruct := Metadata{
+					InstanceID:    "fake.fake-namespace",
+					LocalHostname: "fake",
+					UUID:          "5d307ca9-b3ef-428c-8861-06e72d69f223",
+					Devices:       &devices,
+				}
+				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
+				Expect(err).To(BeNil())
+				Expect(string(buf)).To(Equal(exampleJSONParsed))
+			})
+		})
+	})
 	Describe("Volume-based data source", func() {
 		Context("when ISO generation fails", func() {
 			timedOut := false
