@@ -373,8 +373,10 @@ var _ = Describe("Pod Network", func() {
 		})
 		Context("Masquerade Plug", func() {
 			It("should define a new VIF bind to a bridge and create a default nat rule using iptables", func() {
+
 				// forward all the traffic
 				mockNetwork.EXPECT().UseIptables().Return(true).Times(2)
+				mockNetwork.EXPECT().IsIpv6Enabled(dummy).Return(true).Times(3)
 				mockNetwork.EXPECT().Ipv4NatEnabled().Return(true)
 				mockNetwork.EXPECT().Ipv6NatEnabled().Return(true)
 
@@ -387,6 +389,7 @@ var _ = Describe("Pod Network", func() {
 			It("should define a new VIF bind to a bridge and create a specific nat rule using iptables", func() {
 				// Forward a specific port
 				mockNetwork.EXPECT().UseIptables().Return(true).Times(2)
+				mockNetwork.EXPECT().IsIpv6Enabled(dummy).Return(true).Times(3)
 				mockNetwork.EXPECT().Ipv4NatEnabled().Return(true)
 				mockNetwork.EXPECT().Ipv6NatEnabled().Return(true)
 
@@ -422,6 +425,7 @@ var _ = Describe("Pod Network", func() {
 			It("should define a new VIF bind to a bridge and create a default nat rule using nftables", func() {
 				// forward all the traffic
 				mockNetwork.EXPECT().UseIptables().Return(false).Times(2)
+				mockNetwork.EXPECT().IsIpv6Enabled(dummy).Return(true).Times(3)
 				mockNetwork.EXPECT().Ipv4NatEnabled().Return(true)
 				mockNetwork.EXPECT().Ipv6NatEnabled().Return(true)
 
@@ -434,6 +438,7 @@ var _ = Describe("Pod Network", func() {
 			It("should define a new VIF bind to a bridge and create a specific nat rule using nftables", func() {
 				// Forward a specific port
 				mockNetwork.EXPECT().UseIptables().Return(false).Times(2)
+				mockNetwork.EXPECT().IsIpv6Enabled(dummy).Return(true).Times(3)
 				mockNetwork.EXPECT().Ipv4NatEnabled().Return(true)
 				mockNetwork.EXPECT().Ipv6NatEnabled().Return(true)
 
