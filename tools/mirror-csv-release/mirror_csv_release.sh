@@ -66,6 +66,14 @@ Optional arguments:
     --bundle-registry-tag
         tag of the destination bundle registry image, used only in appregistry mode
         default: 1.0.0
+    
+     --bundle-registry-dest
+         registry location for the bundle registry image
+	 default: DEST_PREFIX
+     
+      --no-mirror
+          skip mirroring the images for CNV to the DEST_PREFIX
+	  default: false
 
 Example:
     ${0##*/}  --version-filter 2.2.0 quay.io/openshift-cnv/container-native-virtualization-hco-bundle-registry:v2.2.0-181 quay.io/tiraboschi/
@@ -95,12 +103,13 @@ main() {
     local packageversion="1.0.0"
     local bundle_registry_name="bundle-registry"
     local bundle_registry_tag="test"
+    local bundle_registry_dest=""
     local options
 
     options=$( \
         getopt \
             -o hs:p:d \
-            --long help,version-filter:,dest-secret:,source-secret:,debug,dry-run,appregistry,baseurl:,appregistry-name:,package-name:,packageversion:,bundle-registry-name:,bundle-registry-tag: \
+            --long help,version-filter:,dest-secret:,source-secret:,debug,dry-run,appregistry,baseurl:,appregistry-name:,package-name:,packageversion:,bundle-registry-name:,bundle-registry-tag:,bundle-registry-dest:,no-mirror \
             -n "$0" \
             -- "$@" \
     )
@@ -164,6 +173,14 @@ main() {
                 bundle_registry_tag="$2"
                 shift 2
                 ;;
+            --bundle-registry-dest)
+                bundle_registry_dest="$2"
+                shift 2
+                ;;
+            --no-mirror)
+                NO_MIRROR=true
+                shift 1
+                ;;
             --)
                 shift
                 break
@@ -193,12 +210,14 @@ main() {
     csv_files=($(get_csv_files $version_filter))
     source_images=($(get_source_images "${csv_files[@]}"))
 
-    mirror "$dest_prefix" "$dest_secret" "${source_images[@]}"
+    if [[ "$NO_MIRROR" != true ]]; then
+    	mirror "$dest_prefix" "$dest_secret" "${source_images[@]}"
+    fi
 
     if [[ "$APPREGISTRY" ]]; then
-        build_and_publish_patched_bundle_image_appregistry "${source_images[0]}" "$dest_prefix" "${bundle_registry_name}" "${bundle_registry_tag}"
+        build_and_publish_patched_bundle_image_appregistry "${source_images[0]}" "$dest_prefix" "${bundle_registry_name}" "${bundle_registry_tag}" "${bundle_registry_dest}"
     else
-        build_and_publish_patched_bundle_image "$bundle_image" "$dest_prefix"
+        build_and_publish_patched_bundle_image "$bundle_image" "$dest_prefix" "${bundle_registry_dest}"
     fi
 }
 
@@ -287,8 +306,9 @@ mirror() {
 build_and_publish_patched_bundle_image() {
     local bundle_image="${1:?}"
     local dest_prefix="${2:?}"
+    local bundle_dest_prefix="${5:-$dest_prefix}"
     local source_registry=${source_image%\/*}/
-    local dest_image=$(get_dest_image "${bundle_image}" "${dest_prefix}")
+    local dest_image=$(get_dest_image "${bundle_image}" "${bundle_dest_prefix}")
     local dry_run
     [[ "$DRY_RUN" ]] && dry_run=echo
 
@@ -309,10 +329,11 @@ build_and_publish_patched_bundle_image() {
 build_and_publish_patched_bundle_image_appregistry() {
     local source_image="${1:?}"
     local dest_prefix="${2:?}"
+    local bundle_dest_prefix="${5:-$dest_prefix}"
     local bundle_registry_name="${3:?}"
     local bundle_registry_tag="${4:?}"
     local source_registry=${source_image%\/*}/
-    local dest_image=${dest_prefix}${bundle_registry_name}:${bundle_registry_tag}
+    local dest_image=${bundle_dest_prefix}${bundle_registry_name}:${bundle_registry_tag}
     local dry_run
     [[ "$DRY_RUN" ]] && dry_run=echo
 
