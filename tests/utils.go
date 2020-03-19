@@ -2665,7 +2665,7 @@ func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batc
 	return err
 }
 
-func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter) error {
+func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, dnsServerIP string) error {
 	eth0Exist := func(vmi *v1.VirtualMachineInstance) bool {
 		eth0Batch := append([]expect.Batcher{
 			&expect.BSnd{S: "\n"},
@@ -2695,7 +2695,12 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BSnd{S: "sudo ip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2\n"},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: "0"}})
+		&expect.BExp{R: "0"},
+		&expect.BSnd{S: fmt.Sprintf("echo \"nameserver %s\" >> /etc/resolv.conf\n", dnsServerIP)},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
+	})
 	resp, err := expecter.ExpectBatch(ipv6Batch, 30*time.Second)
 
 	if err != nil {
@@ -2743,7 +2748,12 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return nil, err
 	}
 
-	return expecter, configureIPv6OnVMI(vmi, expecter)
+	dnsServerIP, err := GetClusterDnsServiceIP(virtClient)
+	if err != nil {
+		return expecter, err
+	}
+
+	return expecter, configureIPv6OnVMI(vmi, expecter, dnsServerIP)
 }
 
 func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
@@ -2793,7 +2803,12 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		expecter.Close()
 		return expecter, err
 	}
-	return expecter, configureIPv6OnVMI(vmi, expecter)
+	dnsServerIP, err := GetClusterDnsServiceIP(virtClient)
+	if err != nil {
+		return expecter, err
+	}
+
+	return expecter, configureIPv6OnVMI(vmi, expecter, dnsServerIP)
 }
 
 // ReLoggedInFedoraExpecter return prepared and ready to use console expecter for
@@ -4270,4 +4285,12 @@ func FormatIPForURL(ip string) string {
 		return "[" + ip + "]"
 	}
 	return ip
+}
+
+func GetClusterDnsServiceIP(virtClient kubecli.KubevirtClient) (string, error) {
+	kubeDNSService, err := virtClient.CoreV1().Services("kube-system").Get("kube-dns", metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	return kubeDNSService.Spec.ClusterIP, nil
 }

@@ -1028,14 +1028,13 @@ var _ = Describe("Configurations", func() {
 			var ipv6Data *tests.IPv6Config
 
 			tests.BeforeAll(func() {
-				kubeDNSService, err := virtClient.CoreV1().Services("kube-system").Get("kube-dns", metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred(), "could not retrieve the kube-dns service")
-				nameServer := kubeDNSService.Spec.ClusterIP
+				dnsServiceIP, err := tests.GetClusterDnsServiceIP(virtClient)
+				Expect(err).NotTo(HaveOccurred())
 				ipv6Data = &tests.IPv6Config{
 					Address:    ipv6Address,
 					Prefix:     strconv.Itoa(ipv6Length),
 					Gateway:    gateway,
-					Nameserver: nameServer,
+					Nameserver: dnsServiceIP,
 				}
 			})
 
