@@ -272,7 +272,7 @@ spec:
 EOF
   # Run only Windows tests
   ginko_params="$ginko_params --ginkgo.focus=Windows"
-elif [[ $TARGET =~ cnao ]]; then
+elif [[ $TARGET =~ (cnao|multus) ]]; then
   ginko_params="$ginko_params --ginkgo.focus=Multus|Networking|VMIlifecycle|Expose"
 elif [[ $TARGET =~ genie.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=Genie|Networking|VMIlifecycle|Expose"
