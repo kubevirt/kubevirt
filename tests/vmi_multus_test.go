@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	netutils "k8s.io/utils/net"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -910,7 +912,11 @@ func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 }
 
 func pingVirtualMachine(vmi *v1.VirtualMachineInstance, ipAddr, prompt string) {
-	cmdCheck := fmt.Sprintf("ping %s -c 1 -w 5\n", ipAddr)
+	pingString := "ping"
+	if netutils.IsIPv6String(ipAddr) {
+		pingString = "ping -6"
+	}
+	cmdCheck := fmt.Sprintf("%s %s -c 1 -w 5\n", pingString, ipAddr)
 	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
