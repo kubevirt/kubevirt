@@ -37,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
@@ -45,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -89,10 +91,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var err error
 	var shareDir string
+	var vmiShareDir string
 	var podsDir string
 	var vmiTestUUID types.UID
 	var podTestUUID types.UID
 	var stop chan struct{}
+	var eventChan chan watch.Event
 
 	var host string
 
@@ -102,12 +106,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
+		eventChan = make(chan watch.Event, 100)
 		shareDir, err = ioutil.TempDir("", "")
 		Expect(err).ToNot(HaveOccurred())
 		podsDir, err = ioutil.TempDir("", "")
 		Expect(err).ToNot(HaveOccurred())
 		certDir, err = ioutil.TempDir("", "migrationproxytest")
 		Expect(err).ToNot(HaveOccurred())
+		vmiShareDir, err = ioutil.TempDir("", "")
+		Expect(err).ToNot(HaveOccurred())
+
+		os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)
 
 		cmdclient.SetLegacyBaseDir(shareDir)
 		cmdclient.SetPodsBaseDir(podsDir)
@@ -145,6 +154,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
 		mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).AnyTimes()
 		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
+		mockIsolationResult.EXPECT().MountRoot().Return(vmiShareDir).AnyTimes()
 
 		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
@@ -174,8 +184,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		f, err := os.Create(sockFile)
 		Expect(err).ToNot(HaveOccurred())
 		f.Close()
-		client = cmdclient.NewMockLauncherClient(ctrl)
-		controller.addLauncherClient(vmiTestUUID, client, sockFile)
 
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
@@ -190,12 +198,24 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
 
 		StubOutNetworkForTest()
+
+		go func() {
+			notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
+		}()
+		time.Sleep(1 * time.Second)
+
+		client = cmdclient.NewMockLauncherClient(ctrl)
+		domainPipe, err := controller.startDomainNotifyPipe(nil)
+		Expect(err).ToNot(HaveOccurred())
+		controller.addLauncherClient(vmiTestUUID, client, sockFile, domainPipe)
+
 	})
 
 	AfterEach(func() {
 		close(stop)
 		ctrl.Finish()
 		os.RemoveAll(shareDir)
+		os.RemoveAll(vmiShareDir)
 		os.RemoveAll(podsDir)
 		os.RemoveAll(certDir)
 	})
@@ -238,7 +258,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			uid := "1234"
 
 			legacyMockSockFile := filepath.Join(shareDir, "sockets", uid+"_sock")
-			controller.addLauncherClient(types.UID(uid), client, legacyMockSockFile)
+
+			controller.addLauncherClient(types.UID(uid), client, legacyMockSockFile, nil)
 			os.MkdirAll(filepath.Dir(legacyMockSockFile), 0755)
 			os.MkdirAll(filepath.Join(shareDir, "watchdog-files"), 0755)
 			os.MkdirAll(filepath.Join(shareDir, "graceful-shutdown-trigger"), 0755)

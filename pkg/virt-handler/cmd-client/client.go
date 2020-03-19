@@ -215,6 +215,14 @@ func LegacySocketsDirectory() string {
 	return filepath.Join(legacyBaseDir, "sockets")
 }
 
+func IsLegacySocket(socket string) bool {
+	if filepath.Base(socket) == StandardLauncherSocketFileName {
+		return false
+	}
+
+	return true
+}
+
 func SocketMonitoringEnabled(socket string) bool {
 	if filepath.Base(socket) == StandardLauncherSocketFileName {
 		return true

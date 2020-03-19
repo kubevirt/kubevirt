@@ -347,20 +347,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		MountPath: "/var/run/libvirt",
 	})
 
-	// virt-handler domain notify socket
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "virt-handler-domain-notify",
-		MountPath: filepath.Join(t.virtShareDir, "domain-notify.sock"),
-	})
-	volumes = append(volumes, k8sv1.Volume{
-		Name: "virt-handler-domain-notify",
-		VolumeSource: k8sv1.VolumeSource{
-			HostPath: &k8sv1.HostPathVolumeSource{
-				Path: filepath.Join(t.virtShareDir, "domain-notify.sock"),
-			},
-		},
-	})
-
 	// virt-launcher cmd socket dir
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "sockets",

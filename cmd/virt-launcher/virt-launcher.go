@@ -356,10 +356,7 @@ func main() {
 
 	var agentStore = agentpoller.NewAsyncAgentStore()
 
-	notifier, err := notifyclient.NewNotifier(*virtShareDir)
-	if err != nil {
-		panic(err)
-	}
+	notifier := notifyclient.NewNotifier(*virtShareDir)
 	defer notifier.Close()
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration, &agentStore)
