@@ -2,7 +2,7 @@
 
 ## Rotating Certificates
 
-To rotate certificates for all CNV components, type:
+To rotate certificates for all components managed by the HyperConverged Operator, type:
 
 ```
 export KUBECONFIG=<wherever>
