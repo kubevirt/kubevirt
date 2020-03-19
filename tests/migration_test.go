@@ -779,7 +779,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					mkdir /mnt/servacc
 					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
 				`, secretDiskSerial)
-				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(), mountSvcAccCommands)
+				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(nil), mountSvcAccCommands)
 				tests.AddUserData(vmi, "cloud-init", userData)
 
 				tests.AddServiceAccountDisk(vmi, "default")
@@ -1066,7 +1066,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulDataVolumeImport(dv, 600)
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)
-				tests.AddUserData(vmi, "disk1", tests.GetGuestAgentUserData())
+				tests.AddUserData(vmi, "disk1", tests.GetGuestAgentUserData(nil))
 				return vmi, dv
 			}
 

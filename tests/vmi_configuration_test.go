@@ -1022,10 +1022,26 @@ var _ = Describe("Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent", func() {
 			var agentVMI *v1.VirtualMachineInstance
+			ipv6Address := "fd2e:f1fe:9490:a8ff::2"
+			gateway := "fd2e:f1fe:9490:a8ff::1"
+			ipv6Length := 120
+			var ipv6Data *tests.IPv6Config
+
+			tests.BeforeAll(func() {
+				kubeDNSService, err := virtClient.CoreV1().Services("kube-system").Get("kube-dns", metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred(), "could not retrieve the kube-dns service")
+				nameServer := kubeDNSService.Spec.ClusterIP
+				ipv6Data = &tests.IPv6Config{
+					Address:    ipv6Address,
+					Prefix:     strconv.Itoa(ipv6Length),
+					Gateway:    gateway,
+					Nameserver: nameServer,
+				}
+			})
 
 			prepareAgentVM := func() *v1.VirtualMachineInstance {
 				// TODO: actually review this once the VM image is present
-				agentVMI := tests.NewRandomFedoraVMIWitGuestAgent()
+				agentVMI := tests.NewRandomFedoraVMIWitIpv6GuestAgent(ipv6Data)
 
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)

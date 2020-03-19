@@ -267,6 +267,17 @@ type ObjectEventWatcher struct {
 	dontFailOnMissingEvent bool
 }
 
+type IPv6Config struct {
+	Address    string
+	Prefix     string
+	Gateway    string
+	Nameserver string
+}
+
+func (config IPv6Config) getIpAddressWithPrefix() string {
+	return fmt.Sprintf("%s/%s", config.Address, config.Prefix)
+}
+
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
 	return &ObjectEventWatcher{object: object, startType: invalidWatch}
 }
@@ -1918,7 +1929,13 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, 
 }
 
 func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
-	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), GetGuestAgentUserData())
+	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), GetGuestAgentUserData(nil))
+	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	return agentVMI
+}
+
+func NewRandomFedoraVMIWitIpv6GuestAgent(ipv6Data *IPv6Config) *v1.VirtualMachineInstance {
+	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), GetGuestAgentUserData(ipv6Data))
 	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return agentVMI
 }
@@ -1934,17 +1951,27 @@ func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func GetGuestAgentUserData() string {
+func GetGuestAgentUserData(ipv6Config *IPv6Config) string {
+	var ipv6UserDataString string
+	if ipv6Config != nil {
+		ipv6UserDataString = fmt.Sprintf(`ip -6 addr add %s dev eth0
+                             sudo ip -6 route add default via %s src %s
+                             echo "nameserver %s" >> /etc/resolv.conf
+                             `, ipv6Config.getIpAddressWithPrefix(), ipv6Config.Gateway, ipv6Config.Address, ipv6Config.Nameserver)
+	} else {
+		ipv6UserDataString = ""
+	}
 	return fmt.Sprintf(`#!/bin/bash
-                echo "fedora" |passwd fedora --stdin
-                mkdir -p /usr/local/bin
-                curl %s > /usr/local/bin/qemu-ga
-                chmod +x /usr/local/bin/qemu-ga
-                curl %s > /usr/local/bin/stress
-                chmod +x /usr/local/bin/stress
-                setenforce 0
-                systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, GuestAgentHttpUrl, StressHttpUrl)
+                 echo "fedora" |passwd fedora --stdin
+                 %s
+                 mkdir -p /usr/local/bin
+                 curl %s > /usr/local/bin/qemu-ga
+                 chmod +x /usr/local/bin/qemu-ga
+                 curl %s > /usr/local/bin/stress
+                 chmod +x /usr/local/bin/stress
+                 setenforce 0
+                 systemd-run --unit=guestagent /usr/local/bin/qemu-ga
+                 `, ipv6UserDataString, GuestAgentHttpUrl, StressHttpUrl)
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
