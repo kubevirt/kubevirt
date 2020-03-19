@@ -1939,8 +1939,21 @@ func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 }
 
 func GetGuestAgentUserData() string {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	dnsServerIP, err := getClusterDnsServiceIP(virtClient)
+	PanicOnError(err)
+
+	ipv6UserDataString := ""
+	if netutils.IsIPv6String(dnsServerIP) {
+		ipv6UserDataString = fmt.Sprintf(`sudo ip -6 addr add fd2e:f1fe:9490:a8ff::2/120 dev eth0
+                             sudo ip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2
+                             echo "nameserver %s" >> /etc/resolv.conf`, dnsServerIP)
+	}
 	return fmt.Sprintf(`#!/bin/bash
                 echo "fedora" |passwd fedora --stdin
+				%s
                 mkdir -p /usr/local/bin
                 curl %s > /usr/local/bin/qemu-ga
                 chmod +x /usr/local/bin/qemu-ga
@@ -1948,7 +1961,7 @@ func GetGuestAgentUserData() string {
                 chmod +x /usr/local/bin/stress
                 setenforce 0
                 systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, GetUrl(GuestAgentHttpUrl), GetUrl(StressHttpUrl))
+                `, ipv6UserDataString, GetUrl(GuestAgentHttpUrl), GetUrl(StressHttpUrl))
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
@@ -2642,23 +2655,34 @@ func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batc
 	return err
 }
 
-func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter) error {
-	eth0Exist := func(vmi *v1.VirtualMachineInstance) bool {
-		eth0Batch := append([]expect.Batcher{
+func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, virtClient kubecli.KubevirtClient) error {
+	shouldConfigureIpv6 := func(vmi *v1.VirtualMachineInstance) bool {
+		shouldConfigureIpv6Batch := append([]expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: "\\$ "},
 			&expect.BSnd{S: "ip a | grep -q eth0\n"},
 			&expect.BExp{R: "\\$ "},
 			&expect.BSnd{S: "echo $?\n"},
-			&expect.BExp{R: "0"}})
-		_, err := expecter.ExpectBatch(eth0Batch, 30*time.Second)
+			&expect.BExp{R: "0"},
+			&expect.BSnd{S: "ip address show dev eth0 scope global | grep -q inet6\n"},
+			&expect.BExp{R: "\\$ "},
+			&expect.BSnd{S: "echo $?\n"},
+			&expect.BExp{R: "1"}})
+		_, err := expecter.ExpectBatch(shouldConfigureIpv6Batch, 30*time.Second)
 		return err == nil
 	}
 
-	if (vmi.Status.Interfaces == nil || len(vmi.Status.Interfaces) == 0 || !netutils.IsIPv6String(vmi.Status.Interfaces[0].IP)) ||
+	dnsServerIP, err := getClusterDnsServiceIP(virtClient)
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("Couldn't get DNS Service IP while configuring ipv6: %v", err)
+		expecter.Close()
+		return err
+	}
+
+	if !netutils.IsIPv6String(dnsServerIP) ||
 		(vmi.Spec.Domain.Devices.Interfaces == nil || len(vmi.Spec.Domain.Devices.Interfaces) == 0 || vmi.Spec.Domain.Devices.Interfaces[0].InterfaceBindingMethod.Masquerade == nil) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface != nil && !*vmi.Spec.Domain.Devices.AutoattachPodInterface) ||
-		!eth0Exist(vmi) {
+		!shouldConfigureIpv6(vmi) {
 		return nil
 	}
 
@@ -2667,19 +2691,26 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "sudo ip -6 addr add fd2e:f1fe:9490:a8ff::2/120 dev eth0\n"},
 		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
 		&expect.BSnd{S: "sleep 5\n"},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "sudo ip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2\n"},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
+		&expect.BSnd{S: fmt.Sprintf(`echo "nameserver %s" >> /etc/resolv.conf\n`, dnsServerIP)},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"}})
-	resp, err := expecter.ExpectBatch(ipv6Batch, 30*time.Second)
+	resp, err := expecter.ExpectBatch(ipv6Batch, 1*time.Minute)
 
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Configure ipv6: %v", resp)
 		expecter.Close()
+		return err
 	}
-	return err
+	return nil
 }
 
 func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
@@ -2720,7 +2751,7 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return nil, err
 	}
 
-	return expecter, configureIPv6OnVMI(vmi, expecter)
+	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient)
 }
 
 func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
@@ -2770,7 +2801,8 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		expecter.Close()
 		return expecter, err
 	}
-	return expecter, configureIPv6OnVMI(vmi, expecter)
+
+	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient)
 }
 
 // ReLoggedInFedoraExpecter return prepared and ready to use console expecter for
@@ -4266,4 +4298,12 @@ func FormatIPForURL(ip string) string {
 		return "[" + ip + "]"
 	}
 	return ip
+}
+
+func getClusterDnsServiceIP(virtClient kubecli.KubevirtClient) (string, error) {
+	kubeDNSService, err := virtClient.CoreV1().Services("kube-system").Get("kube-dns", metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	return kubeDNSService.Spec.ClusterIP, nil
 }
