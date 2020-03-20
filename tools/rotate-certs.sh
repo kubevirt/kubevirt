@@ -3,9 +3,10 @@ set -euo pipefail
 
 namespace=openshift-cnv
 cdi_namespace=""
+webui_namespace="kubevirt-web-ui"
 
 _kubectl="${KUBECTL_BINARY:-oc}"
-if ! options=$(getopt -o n: --long namespace:,cdi-namespace: -- "$@")
+if ! options=$(getopt -o n: --long namespace:,cdi-namespace:,webui-namespace: -- "$@")
 then
     exit 1
 fi
@@ -21,6 +22,10 @@ while true; do
     --cdi-namespace)
         shift;
         cdi_namespace=$1
+        ;;
+    --webui-namespace)
+        shift;
+        webui_namespace=$1
         ;;
     --)
         shift
