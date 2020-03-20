@@ -275,8 +275,8 @@ func NewServiceMonitorCR(namespace string, monitorNamespace string, insecureSkip
 					},
 					RelabelConfigs: []*promv1.RelabelConfig{
 						{
-							SourceLabels: []string{"namespace"},
-							Action:       "labeldrop",
+							Regex:  "namespace",
+							Action: "labeldrop",
 						},
 					},
 				},
