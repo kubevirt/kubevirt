@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -83,12 +84,13 @@ var _ = Describe("Manager", func() {
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
 		domain := &api.Domain{}
 		c := &api.ConverterContext{
+			Architecture:   runtime.GOARCH,
 			VirtualMachine: vmi,
 			UseEmulation:   true,
 			SMBios:         &cmdv1.SMBios{},
 		}
 		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
-		api.SetObjectDefaults_Domain(domain)
+		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 		return &domain.Spec
 	}

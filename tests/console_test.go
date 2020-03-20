@@ -248,7 +248,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 			It("should not have the  serial console in xml", func() {
 				tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				runningVMISpec, err := tests.GetRunningVMISpec(vmi)
+				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
 
 				Expect(len(runningVMISpec.Devices.Serials)).To(Equal(0), "should not have any serial consoles present")

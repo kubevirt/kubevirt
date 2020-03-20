@@ -62,7 +62,7 @@ var _ = Describe("[rfe_id:609]VMIheadless", func() {
 			It("[test_id:714][posneg:positive]should not have vnc graphic device in xml", func() {
 				tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				runningVMISpec, err := tests.GetRunningVMISpec(vmi)
+				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
 
 				Expect(len(runningVMISpec.Devices.Graphics)).To(Equal(0), "should not have any graphics devices present")
@@ -139,7 +139,7 @@ var _ = Describe("[rfe_id:609]VMIheadless", func() {
 			It("[test_id:714][posneg:negative]should have one vnc graphic device in xml", func() {
 				tests.RunVMIAndExpectLaunch(vmi, 30)
 
-				runningVMISpec, err := tests.GetRunningVMISpec(vmi)
+				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
 
 				vncCount := 0

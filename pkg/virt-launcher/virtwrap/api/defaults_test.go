@@ -1,39 +1,38 @@
 package api
 
 import (
-	"runtime"
-
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Defaults", func() {
+var _ = Describe("ArchSpecificDefaults", func() {
 
-	It("should set architecture", func() {
+	table.DescribeTable("should set architecture", func(arch string, targetArch string) {
 		domain := &Domain{}
-		SetDefaults_OSType(&domain.Spec.OS.Type)
-		if runtime.GOARCH == "ppc64le" {
-			Expect(domain.Spec.OS.Type.Arch).To(Equal("ppc64le"))
-		} else {
-			Expect(domain.Spec.OS.Type.Arch).To(Equal("x86_64"))
-		}
-	})
+		NewDefaulter(arch).SetDefaults_OSType(&domain.Spec.OS.Type)
+		Expect(domain.Spec.OS.Type.Arch).To(Equal(targetArch))
+	},
+		table.Entry("to ppc64le", "ppc64le", "ppc64le"),
+		table.Entry("to x86_64", "amd64", "x86_64"),
+	)
 
-	It("should set machine type and hvm domain type", func() {
+	table.DescribeTable("should set machine type and hvm domain type", func(arch string, machineType string) {
 		domain := &Domain{}
-		SetDefaults_OSType(&domain.Spec.OS.Type)
-		if runtime.GOARCH == "ppc64le" {
-			Expect(domain.Spec.OS.Type.Machine).To(Equal("pseries"))
-		} else {
-			Expect(domain.Spec.OS.Type.Machine).To(Equal("q35"))
-		}
-		Expect(domain.Spec.OS.Type.OS).To(Equal("hvm"))
-	})
+		NewDefaulter(arch).SetDefaults_OSType(&domain.Spec.OS.Type)
+		Expect(domain.Spec.OS.Type.Machine).To(Equal(machineType))
+	},
+		table.Entry("to pseries", "ppc64le", "pseries"),
+		table.Entry("to q35", "amd64", "q35"),
+	)
 
-	It("should set libvirt namespace and use QEMU as emulator", func() {
+	table.DescribeTable("should set libvirt namespace and use QEMU as emulator", func(arch string) {
 		domain := &Domain{}
-		SetDefaults_DomainSpec(&domain.Spec)
+		NewDefaulter(arch).SetDefaults_DomainSpec(&domain.Spec)
 		Expect(domain.Spec.XmlNS).To(Equal("http://libvirt.org/schemas/domain/qemu/1.0"))
 		Expect(domain.Spec.Type).To(Equal("kvm"))
-	})
+	},
+		table.Entry("to pseries", "ppc64le"),
+		table.Entry("to q35", "amd64"),
+	)
 })

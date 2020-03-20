@@ -18,7 +18,6 @@
  */
 
 //go:generate deepcopy-gen -i . --go-header-file ../../../../hack/boilerplate/boilerplate.go.txt
-//go:generate defaulter-gen -i . --go-header-file ../../../../hack/boilerplate/boilerplate.go.txt
 
 package api
 
@@ -360,9 +359,10 @@ type Devices struct {
 
 // Input represents input device, e.g. tablet
 type Input struct {
-	Type  string `xml:"type,attr"`
-	Bus   string `xml:"bus,attr"`
-	Alias *Alias `xml:"alias,omitempty"`
+	Type    string   `xml:"type,attr"`
+	Bus     string   `xml:"bus,attr"`
+	Alias   *Alias   `xml:"alias,omitempty"`
+	Address *Address `xml:"address,emitempty"`
 }
 
 // BEGIN HostDevice -----------------------------
@@ -373,6 +373,7 @@ type HostDevice struct {
 	Managed   string           `xml:"managed,attr"`
 	Mode      string           `xml:"mode,attr,omitempty"`
 	Model     string           `xml:"model,attr,omitempty"`
+	Address   *Address         `xml:"address,emitempty"`
 }
 
 type HostDeviceSource struct {
@@ -385,10 +386,12 @@ type HostDeviceSource struct {
 
 // Controller represens libvirt controller element https://libvirt.org/formatdomain.html#elementsControllers
 type Controller struct {
-	Type   string            `xml:"type,attr"`
-	Index  string            `xml:"index,attr"`
-	Model  string            `xml:"model,attr,omitempty"`
-	Driver *ControllerDriver `xml:"driver,omitempty"`
+	Type    string            `xml:"type,attr"`
+	Index   string            `xml:"index,attr"`
+	Model   string            `xml:"model,attr,omitempty"`
+	Driver  *ControllerDriver `xml:"driver,omitempty"`
+	Alias   *Alias            `xml:"alias,omitempty"`
+	Address *Address          `xml:"address,emitempty"`
 }
 
 // END Controller -----------------------------
@@ -760,9 +763,10 @@ type Ballooning struct {
 }
 
 type Watchdog struct {
-	Model  string `xml:"model,attr"`
-	Action string `xml:"action,attr"`
-	Alias  *Alias `xml:"alias,omitempty"`
+	Model   string   `xml:"model,attr"`
+	Action  string   `xml:"action,attr"`
+	Alias   *Alias   `xml:"alias,omitempty"`
+	Address *Address `xml:"address,emitempty"`
 }
 
 // Rng represents the source of entropy from host to VM
@@ -771,6 +775,7 @@ type Rng struct {
 	Model string `xml:"model,attr"`
 	// Backend specifies the source of entropy to be used
 	Backend *RngBackend `xml:"backend,omitempty"`
+	Address *Address    `xml:"address,emitempty"`
 }
 
 // RngRate sets the limiting factor how to read from entropy source

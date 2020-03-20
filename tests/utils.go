@@ -1396,7 +1396,7 @@ func getRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 		return nil, err
 	}
 
-	return GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace)
+	return GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace, vmi.Status.NodeName)
 }
 
 func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) *k8sv1.Pod {
@@ -1405,14 +1405,19 @@ func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, names
 	return pod
 }
 
-func GetRunningPodByLabel(label string, labelType string, namespace string) (*k8sv1.Pod, error) {
+func GetRunningPodByLabel(label string, labelType string, namespace string, node string) (*k8sv1.Pod, error) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		return nil, err
 	}
 
 	labelSelector := fmt.Sprintf("%s=%s", labelType, label)
-	fieldSelector := fmt.Sprintf("status.phase==%s", k8sv1.PodRunning)
+	var fieldSelector string
+	if node != "" {
+		fieldSelector = fmt.Sprintf("status.phase==%s,spec.nodeName==%s", k8sv1.PodRunning, node)
+	} else {
+		fieldSelector = fmt.Sprintf("status.phase==%s", k8sv1.PodRunning)
+	}
 	pods, err := virtCli.CoreV1().Pods(namespace).List(
 		metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector},
 	)
@@ -3952,7 +3957,7 @@ func AppendEmptyDisk(vmi *v1.VirtualMachineInstance, diskName, busName, diskSize
 	})
 }
 
-func GetRunningVMISpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
+func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
 	runningVMISpec := launcherApi.DomainSpec{}
 	cli, err := kubecli.GetKubevirtClient()
 	if err != nil {

@@ -38,6 +38,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -56,6 +58,31 @@ var _ = Describe("Configurations", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+	})
+
+	Context("with all devices on the root PCI bus", func() {
+		It("should start run the guest as usual", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			vmi.Annotations = map[string]string{
+				v1.PlacePCIDevicesOnRootComplex: "true",
+			}
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{Name: "tablet", Bus: "virtio", Type: "tablet"}, {Name: "tablet1", Bus: "usb", Type: "tablet"}}
+			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "watchdog", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff}}}
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
+			expecter, err := tests.LoggedInCirrosExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			rootPortController := []api.Controller{}
+			for _, c := range domSpec.Devices.Controllers {
+				if c.Model == "pcie-root-port" {
+					rootPortController = append(rootPortController, c)
+				}
+			}
+			Expect(rootPortController).To(HaveLen(0), "libvirt should not add additional buses to the root one")
+		})
+
 	})
 
 	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", func() {
@@ -1461,7 +1488,7 @@ var _ = Describe("Configurations", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = "pc"
 			tests.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
@@ -1471,7 +1498,7 @@ var _ = Describe("Configurations", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = ""
 			tests.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
@@ -1483,7 +1510,7 @@ var _ = Describe("Configurations", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = ""
 			tests.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
@@ -1565,7 +1592,7 @@ var _ = Describe("Configurations", func() {
 			tests.AddHostDisk(vmi, "/run/kubevirt-private/vm-disks/test-disk.img", v1.HostDiskExistsOrCreate, "hostdisk")
 			tests.RunVMIAndExpectLaunch(vmi, 60)
 
-			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
+			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			disks := runningVMISpec.Devices.Disks

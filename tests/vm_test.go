@@ -720,7 +720,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				zeroGracePeriod := int64(0)
 				// Checks if the old VMI Pod still exists after force-restart command
 				Eventually(func() string {
-					pod, err := tests.GetRunningPodByLabel(string(oldVMIUuid), v1.CreatedByLabel, newVM.Namespace)
+					pod, err := tests.GetRunningPodByLabel(string(oldVMIUuid), v1.CreatedByLabel, newVM.Namespace, "")
 					if err != nil {
 						return err.Error()
 					}
