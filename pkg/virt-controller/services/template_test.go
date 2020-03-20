@@ -1312,7 +1312,10 @@ var _ = Describe("Template", func() {
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("2163507557"))
+				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
+				expectedMemory.Add(*getMemoryOverhead(&vmi))
+				expectedMemory.Add(*domain.Resources.Requests.Memory())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
 		})
 		Context("with slirp interface", func() {
