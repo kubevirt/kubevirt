@@ -28,6 +28,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -525,6 +526,8 @@ func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 		if err != nil {
 			return err
 		}
+	} else {
+		purgeUserDataIPv6Config(p.vmi)
 	}
 	return nil
 }
@@ -994,4 +997,29 @@ func (b *SlirpPodInterface) setCachedVIF(pid, name string) error {
 
 func (s *SlirpPodInterface) setCachedInterface(pid, name string) error {
 	return nil
+}
+
+func purgeUserDataIPv6Config(vmi *v1.VirtualMachineInstance) {
+	volumes := vmi.Spec.Volumes
+
+	for _, volume := range volumes {
+		if volume.VolumeSource.CloudInitNoCloud != nil {
+			userData := volume.VolumeSource.CloudInitNoCloud.UserData
+
+			if strings.Contains(userData, "ip -6 addr add") {
+				re := regexp.MustCompile(`sudo ip -6 addr add .* dev eth0`)
+				userData = re.ReplaceAllString(userData, "")
+			}
+			if strings.Contains(userData, "ip -6 route add default via") {
+				re := regexp.MustCompile(`sudo ip -6 route add default via .* src .*`)
+				userData = re.ReplaceAllString(userData, "")
+			}
+			if strings.Contains(userData, "nameserver") {
+				re := regexp.MustCompile(`echo "nameserver .*" >> /etc/resolv.conf`)
+				userData = re.ReplaceAllString(userData, "")
+			}
+			volume.VolumeSource.CloudInitNoCloud.UserData = userData
+			return
+		}
+	}
 }
