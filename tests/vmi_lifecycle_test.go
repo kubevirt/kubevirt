@@ -322,13 +322,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Pods(tests.NamespaceTestDefault).
 					List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-launcher"})
 				Expect(err).To(BeNil(), "Should list virt-launchers")
-				var launcher k8sv1.Pod
+				var found bool
 				for _, launcherPod := range launchers.Items {
 					if domain, ok := launcherPod.ObjectMeta.Annotations[v1.DomainAnnotation]; ok && domain == vmi.Name {
 						return &launcherPod
 					}
 				}
-				Expect(launcher).ToNot(BeNil(), "Should find virt-launcher pod for created VMI")
+				Expect(found).To(BeTrue(), fmt.Sprintf("Could not find virt-launcher pod for VMI: %s", vmi.GetName()))
 				return nil
 			}
 
