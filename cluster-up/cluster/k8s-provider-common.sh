@@ -19,4 +19,17 @@ function up() {
 
     # Make sure that local config is correct
     prepare_config
+
+    # Activate cluster-network-addons-operator if flag is passed
+    if [ "$KUBEVIRT_WITH_CNAO" == "true" ]; then
+        kubectl="${_cli} --prefix $provider_prefix ssh node01 -- sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf"
+
+        $kubectl create -f /opt/cnao/namespace.yaml
+        $kubectl create -f /opt/cnao/network-addons-config.crd.yaml
+        $kubectl create -f /opt/cnao/operator.yaml
+        $kubectl wait deployment -n cluster-network-addons cluster-network-addons-operator --for condition=Available --timeout=200s
+
+        $kubectl create -f /opt/cnao/network-addons-config-example.cr.yaml
+        $kubectl wait networkaddonsconfig cluster --for condition=Available --timeout=200s
+    fi
 }
