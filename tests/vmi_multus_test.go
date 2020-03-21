@@ -861,8 +861,12 @@ var _ = Describe("SRIOV", func() {
 			pingVirtualMachine(vmi2, cidrToIP(cidrB), "#")
 		}
 
-		It("should connect to another machine with sriov interface", func() {
+		It("should connect to another machine with sriov interface over IPv4", func() {
 			pingThroughSriov("192.168.1.1/24", "192.168.1.2/24")
+		})
+
+		It("should connect to another machine with sriov interface over IPv6", func() {
+			pingThroughSriov("fc00::1/64", "fc00::2/64")
 		})
 	})
 })
