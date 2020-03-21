@@ -71,6 +71,9 @@ distclean: clean
 	hack/dockerized "rm -rf vendor/ && rm -f go.sum && GO111MODULE=on go clean -modcache"
 	rm -rf vendor/
 
+deps-update-patch:
+	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh -u=patch && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
+
 deps-update:
 	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
 
