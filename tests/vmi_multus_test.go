@@ -22,6 +22,7 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -820,10 +821,12 @@ var _ = Describe("SRIOV", func() {
 			// it's hard to match them.
 		})
 
+		// pingThroughSriov instantiates two VMs connected through SR-IOV and
+		// pings between them.
 		// Note: test case assumes interconnectivity between SR-IOV
 		// interfaces. It can be achieved either by configuring the external switch
-		//properly, or via in-PF switching for VFs (works for some NIC models)
-		It("should connect to another machine with sriov interface", func() {
+		// properly, or via in-PF switching for VFs (works for some NIC models)
+		pingThroughSriov := func(cidrA, cidrB string) {
 			// start peer machines with sriov interfaces from the same resource pool
 			vmi1 := getSriovVmi([]string{"sriov-link-enabled"})
 			vmi2 := getSriovVmi([]string{"sriov-link-enabled"})
@@ -850,15 +853,28 @@ var _ = Describe("SRIOV", func() {
 
 			// manually configure IP/link on sriov interfaces because there is
 			// no DHCP server to serve the address to the guest
-			configInterface(vmi1, "eth1", "192.168.1.1/24", "#")
-			configInterface(vmi2, "eth1", "192.168.1.2/24", "#")
+			configInterface(vmi1, "eth1", cidrA, "#")
+			configInterface(vmi2, "eth1", cidrB, "#")
 
 			// now check ICMP goes both ways
-			pingVirtualMachine(vmi1, "192.168.1.2", "#")
-			pingVirtualMachine(vmi2, "192.168.1.1", "#")
+			pingVirtualMachine(vmi1, cidrToIP(cidrA), "#")
+			pingVirtualMachine(vmi2, cidrToIP(cidrB), "#")
+		}
+
+		It("should connect to another machine with sriov interface", func() {
+			pingThroughSriov("192.168.1.1/24", "192.168.1.2/24")
 		})
 	})
 })
+
+func cidrToIP(cidr string) string {
+	ip, _, err := net.ParseCIDR(cidr)
+	if err != nil {
+		panic(err)
+	}
+
+	return ip.String()
+}
 
 func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress, prompt string) {
 	cmdCheck := fmt.Sprintf("ip addr add %s dev %s\n", interfaceAddress, interfaceName)
