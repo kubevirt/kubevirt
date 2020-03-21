@@ -12,6 +12,9 @@ KUBECTL="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl --kubeconfig=${KU
 
 REGISTRY_NAME=${CLUSTER_NAME}-registry
 
+MASTER_NODES_PATTERN="control-plane"
+WORKER_NODES_PATTERN="worker"
+
 function _wait_kind_up {
     echo "Waiting for kind to be ready ..."
     while [ -z "$(docker exec --privileged ${CLUSTER_NAME}-control-plane kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes --selector=node-role.kubernetes.io/master -o=jsonpath='{.items..status.conditions[-1:].status}' | grep True)" ]; do
@@ -95,7 +98,37 @@ function _configure_network() {
 function prepare_workers() {
     # appending eventual workers to the yaml
     for ((n=0;n<$(($KUBEVIRT_NUM_NODES-1));n++)); do
-        echo "- role: worker" >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+        cat << EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+- role: worker
+  kubeadmConfigPatches:
+  - |
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        "feature-gates": "CPUManager=true"
+        "cpu-manager-policy": "static"
+        "kube-reserved": "cpu=500m"
+        "system-reserved": "cpu=500m"
+EOF
+    done
+}
+
+function _fix_node_labels() {
+    # Due to inconsistent labels and taints state in multi-nodes clusters,
+    # it is nessecery to remove taint NoSchedule and set role labels manualy:
+    #   Master nodes might lack 'scheduable=true' label and have NoScheduable taint.
+    #   Worker nodes might lack worker role label.
+    master_nodes=$(_kubectl get nodes --no-headers | grep -i $MASTER_NODES_PATTERN | awk '{print $1}')
+    for node in ${master_nodes[@]}; do
+        # removing NoSchedule taint
+        _kubectl taint nodes $node node-role.kubernetes.io/master:NoSchedule-
+        _kubectl label node $node kubevirt.io/schedulable=true
+    done
+
+    worker_nodes=$(_kubectl get nodes --no-headers | grep -i $WORKER_NODES_PATTERN | awk '{print $1}')
+    for node in ${worker_nodes[@]}; do
+        _kubectl label node $node kubevirt.io/schedulable=true
+        _kubectl label node $node node-role.kubernetes.io/worker=""
     done
 }
 
@@ -124,6 +157,8 @@ function setup_kind() {
     _wait_kind_up
     _kubectl cluster-info
 
+    _fix_node_labels
+
     until _kubectl get nodes --no-headers
     do
         echo "Waiting for all nodes to become ready ..."
@@ -137,6 +172,9 @@ function setup_kind() {
         sleep 10
     done
 
+    echo "Ready?"
+    _kubectl get nodes --no-headers
+
     _wait_containers_ready
     _run_registry
 
@@ -144,14 +182,18 @@ function setup_kind() {
         _configure_registry_on_node "$node"
         _configure_network "$node"
     done
+    echo "Ready?"
+    _kubectl get nodes --no-headers
     prepare_config
+    echo "Ready?"
+    _kubectl get nodes --no-headers
 }
 
 function kind_up() {
     _fetch_kind
     prepare_workers
     setup_kind
-} 
+}
 
 function _kubectl() {
     ${KUBECTL} "$@"

@@ -23,10 +23,17 @@ function wait_pods_ready {
 }
 
 function deploy_sriov_operator {
+
+    echo "Ready?"
+    _kubectl get nodes --no-headers
+
   operator_path=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/sriov-network-operator-${OPERATOR_GIT_HASH}
   if [ ! -d $operator_path ]; then
     curl -L https://github.com/openshift/sriov-network-operator/archive/${OPERATOR_GIT_HASH}/sriov-network-operator.tar.gz | tar xz -C ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/
   fi
+
+  echo "Ready?"
+  _kubectl get nodes --no-headers
 
   pushd $operator_path
     export RELEASE_VERSION=4.4
@@ -37,15 +44,27 @@ function deploy_sriov_operator {
     export SRIOV_CNI_IMAGE=quay.io/openshift/origin-sriov-cni:${RELEASE_VERSION}
     export SRIOV_DEVICE_PLUGIN_IMAGE=quay.io/openshift/origin-sriov-network-device-plugin:${RELEASE_VERSION}
     export OPERATOR_EXEC=${KUBECTL}
-    export SHELL=/bin/bash  # on prow nodes the default shell is dash and some commands are not working
-    make deploy-setup-k8s
+    make deploy-setup-k8s SHELL=/bin/bash  # on prow nodes the default shell is dash and some commands are not working
   popd
 
-  pushd "${CSRCREATORPATH}" 
+  echo "Ready?"
+  _kubectl get nodes --no-headers
+
+  pushd "${CSRCREATORPATH}"
     go run . -namespace sriov-network-operator -secret operator-webhook-service -hook operator-webhook -kubeconfig $KUBECONFIG_PATH
+
+    echo "Ready?"
+    _kubectl get nodes --no-headers
+
     go run . -namespace sriov-network-operator -secret network-resources-injector-secret -hook network-resources-injector -kubeconfig $KUBECONFIG_PATH
   popd
+
+  echo "Ready?"
+  _kubectl get nodes --no-headers
 }
+
+echo "Ready?"
+_kubectl get nodes --no-headers
 
 # The first worker needs to be handled specially as it has no ending number, and sort will not work
 # We add the 0 to it and we remove it if it's the candidate worker
@@ -69,6 +88,9 @@ ln -sf /proc/$pid/ns/net "/var/run/netns/$SRIOV_NODE"
 sriov_pfs=( /sys/class/net/*/device/sriov_numvfs )
 
 
+echo "Ready?"
+_kubectl get nodes --no-headers
+
 for ifs in "${sriov_pfs[@]}"; do
   ifs_name="${ifs%%/device/*}"
   ifs_name="${ifs_name##*/}"
@@ -91,35 +113,77 @@ for ifs in "${sriov_pfs[@]}"; do
   ip link set "$ifs_name" netns "$SRIOV_NODE"
 done
 
+echo "Ready?"
+_kubectl get nodes --no-headers
 
 # deploy multus
 _kubectl create -f $MANIFESTS_DIR/multus.yaml
 
+echo "Ready?"
+_kubectl get nodes --no-headers
+
 # give them some time to create pods before checking pod status
 sleep 10
 
+echo "Ready?"
+_kubectl get nodes --no-headers
+
 # make sure all containers are ready
 wait_pods_ready
+
+echo "Ready?"
+_kubectl get nodes --no-headers
 
 SRIOV_NODE_CMD="docker exec -it -d ${SRIOV_NODE}"
 
 ${SRIOV_NODE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly when it starts, we need it to be writeable
 
+echo "Ready?"
+_kubectl get nodes --no-headers
+
 deploy_sriov_operator
 
-_kubectl label node $SRIOV_NODE node-role.kubernetes.io/worker=
+echo "Ready?"
+_kubectl get nodes --no-headers
 
 _kubectl label node $SRIOV_NODE sriov=true
-envsubst < $MANIFESTS_DIR/network_config_policy.yaml | _kubectl create -f -
+
+echo "Ready?"
+_kubectl get nodes --no-headers
 
 wait_pods_ready
+
+echo "Ready?"
+_kubectl get nodes --no-headers
 
 # we need to sleep as the configurations below need to appear
 sleep 30
 
+echo "Ready?"
+_kubectl get nodes --no-headers
+
 _kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
 _kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/network-resources-injector.cert)"'" }}]}'
 _kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
+
+echo "Ready?"
+_kubectl get nodes --no-headers
+
+# we need to sleep to wait for the configuration above the be picked up
+sleep 60
+
+echo "Ready?"
+_kubectl get nodes --no-headers
+
+envsubst < $MANIFESTS_DIR/network_config_policy.yaml | _kubectl create -f -
+
+echo "Ready?"
+_kubectl get nodes --no-headers
+
+sleep 60
+
+echo "Ready?"
+_kubectl get nodes --no-headers
 
 
 ${SRIOV_NODE_CMD} chmod 666 /dev/vfio/vfio
