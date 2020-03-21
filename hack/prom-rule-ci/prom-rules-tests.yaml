@@ -1,0 +1,138 @@
+---
+rule_files:
+  - /tmp/rules.verify
+
+group_eval_order:
+  - kubevirt.rules
+
+tests:
+  # All components are down
+  - interval: 1m
+    input_series:
+      - series: 'up{namespace="ci", pod="virt-api-1"}'
+        values: "0 0 0 0 0 0"
+      - series: 'up{namespace="ci", pod="virt-controller-1"}'
+        values: "0 0 0 0 0 0"
+      - series: 'up{namespace="ci", pod="virt-operator-1"}'
+        values: "0 0 0 0 0 0"
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: VirtAPIDown
+        exp_alerts:
+          - exp_annotations:
+              summary: "All virt-api servers are down."
+      - eval_time: 5m
+        alertname: VirtControllerDown
+        exp_alerts:
+          - exp_annotations:
+              summary: "No running virt-controller was detected for the last 5 min."
+      - eval_time: 5m
+        alertname: VirtOperatorDown
+        exp_alerts:
+          - exp_annotations:
+              summary: "All virt-operator servers are down."
+
+  # Some virt controllers are not ready
+  - interval: 1m
+    input_series:
+      - series: 'ready_virt_controller{namespace="ci", pod="virt-controller-1"}'
+        values: "1 1 1 1 1 1"
+      - series: 'ready_virt_controller{namespace="ci", pod="virt-controller-2"}'
+        values: "0 0 0 0 0 0"
+      - series: 'up{namespace="ci", pod="virt-controller-1"}'
+        values: "1 1 1 1 1 1"
+      - series: 'up{namespace="ci", pod="virt-controller-2"}'
+        values: "1 1 1 1 1 1"
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: LowReadyVirtControllersCount
+        exp_alerts:
+          - exp_annotations:
+              summary: "Some virt controllers are running but not ready."
+
+  # All virt controllers are not ready
+  - interval: 1m
+    input_series:
+      - series: 'ready_virt_controller{namespace="ci", pod="virt-controller-1"}'
+        values: "0 0 0 0 0 0"
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: NoReadyVirtController
+        exp_alerts:
+          - exp_annotations:
+              summary: "No ready virt-controller was detected for the last 5 min."
+
+  - interval: 1m
+    input_series:
+      - series: 'ready_virt_controller{namespace="ci", pod="virt-controller-1"}'
+        values: "0 0 0 0 0 0"
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: NoReadyVirtController
+        exp_alerts:
+          - exp_annotations:
+              summary: "No ready virt-controller was detected for the last 5 min."
+
+  # High REST errors
+  - interval: 1m
+    input_series:
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="200"}'
+        values: "2 2 2 2 2 2 2 2 2 2"
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-controller-1", code="400"}'
+        values: "10 10 10 10 10 10 10 10 10 10"
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="200"}'
+        values: "2 2 2 2 2 2 2 2 2 2"
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-operator-1", code="400"}'
+        values: "10 10 10 10 10 10 10 10 10 20"
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="200"}'
+        values: "2 2 2 2 2 2 2 2 2 2"
+      - series: 'rest_client_requests_total{namespace="ci", pod="virt-handler-1", code="500"}'
+        values: "10 10 10 10 10 10 10 10 10 20"
+
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: VirtControllerRESTErrorsHigh
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than 5% of the rest calls failed in virt-controller for the last hour"
+            exp_labels:
+              pod: "virt-controller-1"
+      - eval_time: 5m
+        alertname: VirtControllerRESTErrorsBurst
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than 80% of the rest calls failed in virt-controller for the last 5 minutes"
+            exp_labels:
+              pod: "virt-controller-1"
+      - eval_time: 5m
+        alertname: VirtOperatorRESTErrorsHigh
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than 5% of the rest calls failed in virt-operator for the last hour"
+            exp_labels:
+              pod: "virt-operator-1"
+      - eval_time: 5m
+        alertname: VirtOperatorRESTErrorsBurst
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than 80% of the rest calls failed in virt-operator for the last 5 minutes"
+            exp_labels:
+              pod: "virt-operator-1"
+      - eval_time: 5m
+        alertname: VirtHandlerRESTErrorsHigh
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than 5% of the rest calls failed in virt-handler for the last hour"
+            exp_labels:
+              pod: "virt-handler-1"
+      - eval_time: 5m
+        alertname: VirtHandlerRESTErrorsBurst
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than 80% of the rest calls failed in virt-handler for the last 5 minutes"
+            exp_labels:
+              pod: "virt-handler-1"
