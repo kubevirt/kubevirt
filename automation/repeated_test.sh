@@ -24,6 +24,22 @@ usage: [NUM_TESTS=x] [NEW_TESTS=test1_test|...|testn_test] $0 [kubevirtci_provid
 EOF
 }
 
+function new_tests {
+    local target_commit
+    target_commit="$1"
+    # 1. fetch the changed file names from within the tests/ directory
+    # 2. grep all files ending with '_test.go'
+    # 3. remove `tests/` and `.go` to only have the test name
+    # 4. replace newline with `|`
+    # 5. remove last `|`
+    git diff --name-only "${target_commit}".. -- tests/ \
+        | grep -E '_test\.go$' \
+        | sed -E 's/tests\/(.*_test)\.go/\1/' \
+        | tr '\n' '|' \
+        | sed -E 's/\|$//'
+}
+
+
 if (( $# > 0 )); then
     if [[ "$1" =~ -h ]]; then
         usage
@@ -38,18 +54,10 @@ if [[ -z ${NEW_TESTS-} ]]; then
         TARGET_COMMIT=$(git log -1 --format=%H --merges)
     fi
 
-    NEW_TESTS=$(
-        # 1. fetch the changed file names from within the tests/ directory
-        # 2. grep all files ending with '_test.go'
-        # 3. remove `tests/` and `.go` to only have the test name
-        # 4. replace newline with `|`
-        # 5. remove last `|`
-        git diff --name-only "${TARGET_COMMIT}".. -- tests/ \
-            | grep -E '_test\.go$' \
-            | sed -E 's/tests\/(.*_test)\.go/\1/' \
-            | tr '\n' '|' \
-            | sed -E 's/\|$//'
-    )
+    set +e # required due to grep barking when it does not have any input
+    NEW_TESTS=$(new_tests $TARGET_COMMIT)
+    set -e
+
     # skip certain tests for now, as we don't have a strategy currently
     NEW_TESTS=$(echo "$NEW_TESTS" | sed -E 's/\|?[^\|]*(sriov|multus|windows|genie|gpu)[^\|]*//g')
 fi
@@ -67,7 +75,7 @@ if (( $# > 0 )); then
         shift
     done
 else
-    TEST_LANES=( 'k8s-1.14.6' 'k8s-1.15.1' 'k8s-1.16.2' )
+    TEST_LANES=( 'k8s-1.14' 'k8s-1.15' 'k8s-1.16' )
 fi
 echo "Test lanes: ${TEST_LANES[*]}"
 
