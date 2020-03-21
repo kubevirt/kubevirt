@@ -16,7 +16,7 @@ Just `go get` it by running `go get k8s.io/test-infra/prow/cmd/mkpj`
 Then run the following command from a checkout of the [project-infra repo](https://github.com/kubevirt/project-infra):
 
 ```bash
-mkpj --pull-number $KUBEVIRTPRNUMBER -job pull-kubevirt-e2e-kind-k8s-sriov-1.14.2 -job-config-path github/ci/prow/files/jobs/kubevirt/kubevirt-presubmits.yaml --config-path github/ci/prow/files/config.yaml > debugkind.yaml
+mkpj --pull-number $KUBEVIRTPRNUMBER -job pull-kubevirt-e2e-kind-k8s-sriov-1.17.0 -job-config-path github/ci/prow/files/jobs/kubevirt/kubevirt-presubmits.yaml --config-path github/ci/prow/files/config.yaml > debugkind.yaml
 ```
 
 You will end up having a ProwJob manifest in the `debugkind.yaml` file.
@@ -50,7 +50,7 @@ Once you are in the pod, you'll be able to troubleshoot what's happening in the 
 Run the follow to bring up a [kind](https://github.com/kubernetes-sigs/kind) cluster with a single node setup and the SR-IOV operator already setup to go (if it wasn't already done by the job itself).
 
 ```bash
-KUBEVIRT_PROVIDER=kind-k8s-sriov-1.14.2 make cluster-up
+KUBEVIRT_PROVIDER=kind-k8s-sriov-1.17.0 make cluster-up
 ```
 
 The kubeconfig file will be available under `/root/.kube/kind-config-sriov`.

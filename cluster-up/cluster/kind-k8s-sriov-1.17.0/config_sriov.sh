@@ -37,11 +37,10 @@ function deploy_sriov_operator {
     export SRIOV_CNI_IMAGE=quay.io/openshift/origin-sriov-cni:${RELEASE_VERSION}
     export SRIOV_DEVICE_PLUGIN_IMAGE=quay.io/openshift/origin-sriov-network-device-plugin:${RELEASE_VERSION}
     export OPERATOR_EXEC=${KUBECTL}
-    export SHELL=/bin/bash  # on prow nodes the default shell is dash and some commands are not working
-    make deploy-setup-k8s
+    make deploy-setup-k8s SHELL=/bin/bash  # on prow nodes the default shell is dash and some commands are not working
   popd
 
-  pushd "${CSRCREATORPATH}" 
+  pushd "${CSRCREATORPATH}"
     go run . -namespace sriov-network-operator -secret operator-webhook-service -hook operator-webhook -kubeconfig $KUBECONFIG_PATH
     go run . -namespace sriov-network-operator -secret network-resources-injector-secret -hook network-resources-injector -kubeconfig $KUBECONFIG_PATH
   popd
@@ -107,10 +106,7 @@ ${SRIOV_NODE_CMD} mount -o remount,rw /sys     # kind remounts it as readonly wh
 
 deploy_sriov_operator
 
-_kubectl label node $SRIOV_NODE node-role.kubernetes.io/worker=
-
 _kubectl label node $SRIOV_NODE sriov=true
-envsubst < $MANIFESTS_DIR/network_config_policy.yaml | _kubectl create -f -
 
 wait_pods_ready
 
@@ -120,6 +116,11 @@ sleep 30
 _kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
 _kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/network-resources-injector.cert)"'" }}]}'
 _kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
+
+# we need to sleep to wait for the configuration above the be picked up
+sleep 60
+
+envsubst < $MANIFESTS_DIR/network_config_policy.yaml | _kubectl create -f -
 
 
 ${SRIOV_NODE_CMD} chmod 666 /dev/vfio/vfio
