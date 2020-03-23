@@ -41,7 +41,7 @@ IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 # Component Images
 KUBEVIRT_IMAGE="${KUBEVIRT_IMAGE:-docker.io/kubevirt/virt-operator:v0.26.0}"
 CNA_IMAGE="${CNA_IMAGE:-quay.io/kubevirt/cluster-network-addons-operator:0.27.2}"
-SSP_IMAGE="${SSP_IMAGE:-quay.io/fromani/kubevirt-ssp-operator-container:v1.0.23}"
+SSP_IMAGE="${SSP_IMAGE:-quay.io/fromani/kubevirt-ssp-operator-container:v1.0.26}"
 CDI_IMAGE="${CDI_IMAGE:-docker.io/kubevirt/cdi-operator:v1.13.1}"
 NMO_IMAGE="${NMO_IMAGE:-quay.io/kubevirt/node-maintenance-operator:v0.4.0}"
 HPPO_IMAGE="${HPP_IMAGE:-quay.io/kubevirt/hostpath-provisioner-operator:v0.2.8}"

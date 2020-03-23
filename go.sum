@@ -39,8 +39,8 @@ github.com/GoogleCloudPlatform/k8s-cloud-provider v0.0.0-20190822182118-27a4ced3
 github.com/JeffAshton/win_pdh v0.0.0-20161109143554-76bb4ee9f0ab/go.mod h1:3VYc5hodBMJ5+l/7J4xAyMeuM2PNuepvHlGs8yilUCA=
 github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd/go.mod h1:64YHyfSL2R96J44Nlwm39UHepQbyR5q10x7iYa1ks2E=
 github.com/MakeNowJust/heredoc v0.0.0-20171113091838-e9091a26100e/go.mod h1:64YHyfSL2R96J44Nlwm39UHepQbyR5q10x7iYa1ks2E=
-github.com/MarSik/kubevirt-ssp-operator v1.0.23 h1:7Iho225NlhWy0iCdTCJetuuLK1S5djtISnzkWF4Y6hI=
-github.com/MarSik/kubevirt-ssp-operator v1.0.23/go.mod h1:0bP+DSIkEmEedKp4lyYkIEE4xb4OYVUFTvs83d3cSVw=
+github.com/MarSik/kubevirt-ssp-operator v1.0.26 h1:5Ltm423Pv2Ui6eM07QsIQdtQ9Bl5V8+2r9k0oCCir8Y=
+github.com/MarSik/kubevirt-ssp-operator v1.0.26/go.mod h1:0bP+DSIkEmEedKp4lyYkIEE4xb4OYVUFTvs83d3cSVw=
 github.com/Masterminds/goutils v1.1.0/go.mod h1:8cTjp+g8YejhMuvIA5y2vz3BpJxksy863GQaJW2MFNU=
 github.com/Masterminds/semver v1.5.0/go.mod h1:MB6lktGJrhw8PrUyiEoblNEGEQ+RzHPF078ddwwvV3Y=
 github.com/Masterminds/semver/v3 v3.0.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
