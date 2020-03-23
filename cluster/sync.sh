@@ -19,7 +19,7 @@ CMD="./cluster/kubectl.sh" ./hack/clean.sh
 IMAGE_REGISTRY=$registry make container-build-operator container-push-operator
 
 nodes=()
-if [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
+if [[ $KUBEVIRT_PROVIDER =~ (okd|ocp).* ]]; then
     for okd_node in "master-0" "worker-0"; do
         node=$(./cluster/kubectl.sh get nodes | grep -o '[^ ]*'${okd_node}'[^ ]*')
         nodes+=(${node})
