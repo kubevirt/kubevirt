@@ -943,8 +943,6 @@ func (c *VMIController) setActivePods(vmi *virtv1.VirtualMachineInstance) (*virt
 	for _, pod := range pods {
 		if !controller.IsControlledBy(pod, vmi) {
 			continue
-		} else if isComputeContainerDown(pod) {
-			continue
 		}
 
 		count++

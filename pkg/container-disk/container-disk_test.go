@@ -20,6 +20,7 @@
 package containerdisk
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/user"
@@ -30,6 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 )
@@ -43,12 +45,16 @@ var _ = Describe("ContainerDisk", func() {
 
 	VerifyDiskType := func(diskExtension string) {
 		vmi := v1.NewMinimalVMI("fake-vmi")
+		vmi.UID = "1234"
 		appendContainerDisk(vmi, "r0")
 
+		expectedVolumeMountDir := fmt.Sprintf("%s/%s", tmpDir, string(vmi.UID))
+
 		// create a fake disk file
-		volumeMountDir := GenerateVolumeMountDir(vmi)
+		volumeMountDir := GenerateVolumeMountDirOnGuest(vmi)
 		err = os.MkdirAll(volumeMountDir, 0750)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(expectedVolumeMountDir).To(Equal(volumeMountDir))
 
 		filePath := filepath.Join(volumeMountDir + "/disk_0.img")
 		_, err := os.Create(filePath)
@@ -58,10 +64,10 @@ var _ = Describe("ContainerDisk", func() {
 	BeforeEach(func() {
 		os.MkdirAll(tmpDir, 0755)
 		err := SetLocalDirectory(tmpDir)
-		if err != nil {
-			panic(err)
-		}
-		SetLocalDataOwner(owner.Username)
+		Expect(err).ToNot(HaveOccurred())
+		setLocalDataOwner(owner.Username)
+		err = setPodsDirectory(tmpDir)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
@@ -82,6 +88,27 @@ var _ = Describe("ContainerDisk", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r0")
 			})
+
+			It("by verifying host directory locations", func() {
+				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi.Status.ActivePods = map[types.UID]string{
+					"1234": "myhost",
+				}
+
+				// should not be found if dir doesn't exist
+				path, found, err := GenerateVolumeMountDirOnHost(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(found).To(BeFalse())
+
+				// should be found if dir does exist
+				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
+				os.MkdirAll(expectedPath, 0755)
+				path, found, err = GenerateVolumeMountDirOnHost(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(found).To(BeTrue())
+				Expect(path).To(Equal(expectedPath))
+			})
+
 			It("by verifying that resources are set if the VMI wants the guaranteed QOS class", func() {
 
 				vmi := v1.NewMinimalVMI("fake-vmi")

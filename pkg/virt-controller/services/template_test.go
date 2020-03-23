@@ -276,6 +276,41 @@ var _ = Describe("Template", func() {
 				Expect(cloudInitVolumeMountFound).To(BeTrue(), "could not find cloud init secret volume mount")
 			})
 		})
+		Context("with container disk", func() {
+
+			It("should add init container to inject binary", func() {
+				volumes := []v1.Volume{
+					{
+						Name: "containerdisk1",
+						VolumeSource: v1.VolumeSource{
+							ContainerDisk: &v1.ContainerDiskSource{
+								Image: "my-image-1",
+							},
+						},
+					},
+				}
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(pod.Spec.InitContainers)).To(Equal(1))
+				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].MountPath).To(Equal("/init/usr/bin"))
+				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].Name).To(Equal("virt-bin-share-dir"))
+				Expect(pod.Spec.InitContainers[0].Command).To(Equal([]string{"/usr/bin/cp",
+					"/usr/bin/container-disk",
+					"/init/usr/bin/container-disk",
+				}))
+				Expect(pod.Spec.InitContainers[0].Image).To(Equal("kubevirt/virt-launcher"))
+			})
+
+		})
 		Context("with multus annotation", func() {
 			It("should add multus networks in the pod annotation", func() {
 				vmi := v1.VirtualMachineInstance{
@@ -1103,8 +1138,8 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
 				Expect(len(pod.Spec.Volumes)).To(Equal(7))
-				Expect(pod.Spec.Volumes[0].EmptyDir).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[0].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
+				Expect(pod.Spec.Volumes[1].EmptyDir).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[1].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
 
 				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6))
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/dev/hugepages"))

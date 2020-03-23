@@ -834,9 +834,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		k8sv1.Volume{
 			Name: "virt-bin-share-dir",
 			VolumeSource: k8sv1.VolumeSource{
-				HostPath: &k8sv1.HostPathVolumeSource{
-					Path: filepath.Join(t.virtLibDir, "/init/usr/bin"),
-				},
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 			},
 		},
 	)
@@ -855,9 +853,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "container-disks",
 		VolumeSource: k8sv1.VolumeSource{
-			HostPath: &k8sv1.HostPathVolumeSource{
-				Path: filepath.Join(t.containerDiskDir, string(vmi.UID)),
-			},
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
 	})
 
@@ -981,6 +977,44 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		annotationsList[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
 
+	initContainerVolumeMounts := []k8sv1.VolumeMount{
+		k8sv1.VolumeMount{
+			Name:      "virt-bin-share-dir",
+			MountPath: "/init/usr/bin",
+		},
+	}
+
+	initContainerResources := k8sv1.ResourceRequirements{}
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		initContainerResources.Limits = make(k8sv1.ResourceList)
+		initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("10m")
+		initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
+		initContainerResources.Requests = make(k8sv1.ResourceList)
+		initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
+		initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("40M")
+	} else {
+		initContainerResources.Limits = make(k8sv1.ResourceList)
+		initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("100m")
+		initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
+		initContainerResources.Requests = make(k8sv1.ResourceList)
+		initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
+		initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
+	}
+	initContainerCommand := []string{"/usr/bin/cp",
+		"/usr/bin/container-disk",
+		"/init/usr/bin/container-disk",
+	}
+	initContainers := []k8sv1.Container{
+		{
+			Name:            "container-disk-binary",
+			Image:           t.launcherImage,
+			ImagePullPolicy: imagePullPolicy,
+			Command:         initContainerCommand,
+			VolumeMounts:    initContainerVolumeMounts,
+			Resources:       initContainerResources,
+		},
+	}
+
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1001,6 +1035,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
+			InitContainers:                initContainers,
 			NodeSelector:                  nodeSelector,
 			Volumes:                       volumes,
 			ImagePullSecrets:              imagePullSecrets,

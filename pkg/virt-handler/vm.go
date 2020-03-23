@@ -107,8 +107,10 @@ func NewController(
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
 		podIsolationDetector:     podIsolationDetector,
-		containerDiskMounter:     &container_disk.Mounter{PodIsolationDetector: podIsolationDetector},
-		clusterConfig:            clusterConfig,
+		containerDiskMounter: &container_disk.Mounter{
+			PodIsolationDetector: podIsolationDetector,
+			MountStateDir:        virtShareDir + "-private/container-disk-mount-state"},
+		clusterConfig: clusterConfig,
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{

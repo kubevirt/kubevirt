@@ -60,6 +60,9 @@ container_image(
     base = ":version-container",
     directory = "/usr/bin",
     entrypoint = ["/usr/bin/virt-launcher"],
-    files = [":virt-launcher"],
+    files = [
+        ":virt-launcher",
+        "//cmd/container-disk-v2alpha:container-disk",
+    ],
     visibility = ["//visibility:public"],
 )
