@@ -14,8 +14,8 @@ install:
 - git reset --hard
 
 script:
-# adding a keep-alive to avoid timeouts if there is no output for 10 minutes
-- while sleep 9m; do echo "keep alive"; done & make generate
+# ppc64 has resource issues, only run `make generate` for amd64
+- if [[ $TRAVIS_CPU_ARCH == "amd64" ]]; then make generate; fi
 - if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run
   `make generate`. Please run it and commit the changes"; git status --porcelain; false; fi
 - if diff <(git grep -c '') <(git grep -cI '') | egrep -v -e 'docs/.*\.png|swagger-ui' -e 'vendor/*' -e 'assets/*'
@@ -24,7 +24,7 @@ script:
 - if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run
   `make`. Please run it and commit the changes"; git status --porcelain; false; fi
 - make build-verify # verify that we set version on the packages built by bazel
-# adding a keep-alive to avoid timeouts if there is no output for 10 minutes
+# adding a keep-alive to avoid timeouts if there is no output for 10 minutes on ppc64
 - while sleep 9m; do echo "keep alive"; done & if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" && $TRAVIS_CPU_ARCH == "amd64" ]]; then make goveralls; else make bazel-test; fi
 - make build-verify # verify that we set version on the packages built by go(goveralls depends on go-build target)
 - make apidocs
