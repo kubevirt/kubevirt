@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "conf.go",
+        "types.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/intel/multus-cni/types",
+    importpath = "github.com/intel/multus-cni/types",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/containernetworking/cni/libcni:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/skel:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/types:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/types/current:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/version:go_default_library",
+        "//vendor/github.com/intel/multus-cni/logging:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+    ],
+)

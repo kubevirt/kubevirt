@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["multus.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/app-netutil/pkg/multus",
+    importpath = "github.com/openshift/app-netutil/pkg/multus",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/github.com/golang/glog:go_default_library",
+        "//vendor/github.com/intel/multus-cni/types:go_default_library",
+        "//vendor/github.com/openshift/app-netutil/pkg/types:go_default_library",
+    ],
+)

@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "network.go",
+        "resource.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/app-netutil/lib/v1alpha",
+    importpath = "github.com/openshift/app-netutil/lib/v1alpha",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/github.com/golang/glog:go_default_library",
+        "//vendor/github.com/openshift/app-netutil/pkg/multus:go_default_library",
+        "//vendor/github.com/openshift/app-netutil/pkg/types:go_default_library",
+        "//vendor/github.com/openshift/app-netutil/pkg/userspace:go_default_library",
+    ],
+)

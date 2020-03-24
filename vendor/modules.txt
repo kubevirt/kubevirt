@@ -23,6 +23,14 @@ github.com/asaskevich/govalidator
 github.com/beorn7/perks/quantile
 # github.com/blang/semver v3.5.1+incompatible
 github.com/blang/semver
+# github.com/containernetworking/cni v0.7.1
+github.com/containernetworking/cni/pkg/types
+github.com/containernetworking/cni/libcni
+github.com/containernetworking/cni/pkg/skel
+github.com/containernetworking/cni/pkg/types/current
+github.com/containernetworking/cni/pkg/version
+github.com/containernetworking/cni/pkg/invoke
+github.com/containernetworking/cni/pkg/types/020
 # github.com/containernetworking/plugins v0.8.2
 github.com/containernetworking/plugins/pkg/ns
 # github.com/coreos/go-iptables v0.4.3
@@ -39,7 +47,7 @@ github.com/dgrijalva/jwt-go
 # github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c
 github.com/docker/spdystream
 github.com/docker/spdystream/spdy
-# github.com/emicklei/go-restful v2.10.0+incompatible
+# github.com/emicklei/go-restful v2.11.1+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
 # github.com/emicklei/go-restful-openapi v0.10.0
@@ -79,11 +87,11 @@ github.com/go-openapi/runtime/middleware/denco
 github.com/go-openapi/runtime/middleware/header
 github.com/go-openapi/runtime/middleware/untyped
 github.com/go-openapi/runtime/security
-# github.com/go-openapi/spec v0.19.3
+# github.com/go-openapi/spec v0.19.5
 github.com/go-openapi/spec
 # github.com/go-openapi/strfmt v0.19.0
 github.com/go-openapi/strfmt
-# github.com/go-openapi/swag v0.19.5
+# github.com/go-openapi/swag v0.19.7
 github.com/go-openapi/swag
 # github.com/go-openapi/validate v0.19.2
 github.com/go-openapi/validate
@@ -151,9 +159,17 @@ github.com/hpcloud/tail/winfile
 github.com/imdario/mergo
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
-# github.com/json-iterator/go v1.1.7
+# github.com/intel/multus-cni v0.0.0-20200323144905-7f50f5f17526
+github.com/intel/multus-cni/types
+github.com/intel/multus-cni/logging
+# github.com/intel/userspace-cni-network-plugin v0.0.0-20191104125959-323d722f1046
+github.com/intel/userspace-cni-network-plugin/pkg/annotations
+github.com/intel/userspace-cni-network-plugin/pkg/types
+github.com/intel/userspace-cni-network-plugin/logging
+github.com/intel/userspace-cni-network-plugin/pkg/k8sclient
+# github.com/json-iterator/go v1.1.9
 github.com/json-iterator/go
-# github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
+# github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20200127152046-0ee521d56061
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1
 github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
@@ -223,6 +239,11 @@ github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 # github.com/openshift/api v0.0.0-20191219222812-2987a591a72c => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 github.com/openshift/api/security/v1
+# github.com/openshift/app-netutil v0.0.0-20200304134416-4b0b651d110f
+github.com/openshift/app-netutil/lib/v1alpha
+github.com/openshift/app-netutil/pkg/multus
+github.com/openshift/app-netutil/pkg/types
+github.com/openshift/app-netutil/pkg/userspace
 # github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a => github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
 github.com/openshift/client-go/security/clientset/versioned/typed/security/v1
 github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake
@@ -270,9 +291,9 @@ github.com/subgraph/libmacouflage
 # github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
-# github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc
+# github.com/vishvananda/netns v0.0.0-20190625233234-7109fa855b0f
 github.com/vishvananda/netns
-# golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
+# golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
 golang.org/x/crypto/ssh/terminal
 golang.org/x/crypto/ssh
 golang.org/x/crypto/openpgp
@@ -402,7 +423,7 @@ gopkg.in/inf.v0
 gopkg.in/ini.v1
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 gopkg.in/tomb.v1
-# gopkg.in/yaml.v2 v2.2.4
+# gopkg.in/yaml.v2 v2.2.8
 gopkg.in/yaml.v2
 # k8s.io/api v0.17.0 => k8s.io/api v0.16.4
 k8s.io/api/core/v1

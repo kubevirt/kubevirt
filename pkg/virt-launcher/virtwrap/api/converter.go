@@ -30,6 +30,7 @@ import (
 	"strings"
 	"syscall"
 
+	netutil "github.com/openshift/app-netutil/lib/v1alpha"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -1194,6 +1195,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			log.Log.Infof("SR-IOV PCI device allocated: %s", pciAddr)
 			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDev)
 		} else {
+			// TODO: (skramaja) Test change
+			netutil.GetInterfaces()
 			ifaceType := getInterfaceType(&iface)
 			domainIface := Interface{
 				Model: &Model{

@@ -1,8 +1,8 @@
 package v1
 
 import (
-	"net"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net"
 )
 
 // +genclient
@@ -103,7 +103,9 @@ const (
 	// Pod annotation for network-attachment-definition
 	NetworkAttachmentAnnot = "k8s.v1.cni.cncf.io/networks"
 	// Pod annotation for network status
-	NetworkStatusAnnot = "k8s.v1.cni.cncf.io/networks-status"
+	NetworkStatusAnnot = "k8s.v1.cni.cncf.io/network-status"
+	// Old Pod annotation for network status (which is used before but it will be obsolated)
+	OldNetworkStatusAnnot = "k8s.v1.cni.cncf.io/networks-status"
 )
 
 // NoK8sNetworkError indicates error, no network in kubernetes

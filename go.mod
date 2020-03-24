@@ -13,14 +13,14 @@ require (
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/elazarl/goproxy v0.0.0-20190421051319-9d40249d3c2f // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190421051319-9d40249d3c2f // indirect
-	github.com/emicklei/go-restful v2.10.0+incompatible
+	github.com/emicklei/go-restful v2.11.1+incompatible
 	github.com/emicklei/go-restful-openapi v0.10.0
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-openapi/errors v0.19.2
-	github.com/go-openapi/spec v0.19.3
+	github.com/go-openapi/spec v0.19.5
 	github.com/go-openapi/strfmt v0.19.0
 	github.com/go-openapi/validate v0.19.2
 	github.com/gogo/protobuf v1.3.0
@@ -34,7 +34,10 @@ require (
 	github.com/gophercloud/gophercloud v0.4.0 // indirect
 	github.com/gorilla/websocket v1.4.0
 	github.com/hashicorp/golang-lru v0.5.3 // indirect
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
+	github.com/intel/multus-cni v0.0.0-20200323144905-7f50f5f17526 // indirect
+	github.com/intel/userspace-cni-network-plugin v0.0.0-20191104125959-323d722f1046 // indirect
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20200127152046-0ee521d56061
+	github.com/kr/pty v1.1.5 // indirect
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.0.1
 	github.com/libvirt/libvirt-go v5.0.0+incompatible
@@ -44,6 +47,7 @@ require (
 	github.com/onsi/ginkgo v1.10.2
 	github.com/onsi/gomega v1.7.0
 	github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
+	github.com/openshift/app-netutil v0.0.0-20200304134416-4b0b651d110f
 	github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
 	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
