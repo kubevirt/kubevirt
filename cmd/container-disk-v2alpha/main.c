@@ -12,6 +12,8 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <signal.h>
+#include <fcntl.h>
+
 #include <time.h>
 
 #define LISTEN_BACKLOG 50
@@ -38,6 +40,55 @@ void sig_handler(int signo) {
         free(copy_path);
     }
     exit(0);
+}
+
+static void *socket_check(int fd, void *arg) {
+    struct stat st = {0};
+    char *copy_path;
+    copy_path = (char *)arg;
+    int connfd;
+    bool connReceived = false;
+
+    /*
+     * Periodically check the following:
+     *
+     * First, if the socket file still exists. We use it as an indicator to
+     * shut down the container, in case that we don't receive a signal from
+     * kuberenetes. We had issues with receiving the signal in time on
+     * different container runtime implementations over time and therefore use
+     * this as a precaution.
+     *
+     * Second accept socket connections to avoid filling up the SYN queue. If
+     * ther is a connection, we close it immediatley and immediately try to
+     * read the next connection until there are no more connections in the
+     * queue. Once the queue is empty, we fall back to sleep for a second.
+     *
+     * If within that second more than 50 connections enter the queue, then we
+     * clearly have a bug in virt-handler.
+     */
+    for (;;) {
+        if (!connReceived) {
+            sleep(1);
+        }
+        if (stat(copy_path, &st) == -1) {
+            error_log("socket %s does not exist anymore\n", copy_path);
+            exit(0);
+        }
+        connfd = accept(fd, (struct sockaddr*)NULL, NULL);
+        if (connfd == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                /* nothing to do */
+                connReceived = false;
+                continue;
+            } else {
+                error_log("failed to accept connections on the socket: %d\n", errno);
+                exit(1);
+            }
+        }
+        connReceived = true;
+        /* connection received, the only thing to do is closing the connection */
+        close(connfd);
+    }
 }
 
 int main(int argc, char **argv) {
@@ -128,6 +179,9 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
+    /* make the socket non-blocking */
+    fcntl(fd, F_SETFL, O_NONBLOCK);
+
     if (bind(fd, (struct sockaddr*)(&address), sizeof(struct sockaddr_un)) == -1) {
         error_log("failed to bind socket %s\n", copy_path);
         exit(1);
@@ -147,11 +201,5 @@ int main(int argc, char **argv) {
     }
     fclose(probe);
 
-    for (;;) {
-        sleep(1);
-        if (stat(copy_path, &st) == -1) {
-            error_log("socket %s does not exist anymore, errno %d\n", copy_path, errno);
-            exit(0);
-        }
-    }
+    socket_check(fd, (void *)copy_path);
 }
