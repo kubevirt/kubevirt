@@ -561,7 +561,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	// Get memory overhead
-	memoryOverhead := getMemoryOverhead(vmi.Spec.Domain)
+	memoryOverhead := getMemoryOverhead(vmi)
 
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
@@ -1095,7 +1095,8 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 //
 // Note: This is the best estimation we were able to come up with
 //       and is still not 100% accurate
-func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
+func getMemoryOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
+	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
 	overhead := resource.NewScaledQuantity(0, resource.Kilo)
@@ -1125,6 +1126,13 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	// Add video RAM overhead
 	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice == true {
 		overhead.Add(resource.MustParse("16Mi"))
+	}
+
+	// Additional overhead of 1G for VFIO devices. VFIO requires all guest RAM to be locked
+	// in addition to MMIO memory space to allow DMA. 1G is often the size of reserved MMIO space on x86 systems.
+	// Additial information can be found here: https://www.redhat.com/archives/libvir-list/2015-November/msg00329.html
+	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) {
+		overhead.Add(resource.MustParse("1G"))
 	}
 
 	return overhead
