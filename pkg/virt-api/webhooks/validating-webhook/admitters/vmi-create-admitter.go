@@ -231,21 +231,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 	// Validate hugepages
 	if spec.Domain.Memory != nil && spec.Domain.Memory.Guest != nil {
-		requests := spec.Domain.Resources.Requests.Memory().Value()
 		limits := spec.Domain.Resources.Limits.Memory().Value()
 		guest := spec.Domain.Memory.Guest.Value()
-		if requests > guest {
-			causes = append(causes, metav1.StatusCause{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s '%s' must be equal to or larger than the requested memory %s '%s'",
-					field.Child("domain", "memory", "guest").String(),
-					spec.Domain.Memory.Guest,
-					field.Child("domain", "resources", "requests", "memory").String(),
-					spec.Domain.Resources.Requests.Memory(),
-				),
-				Field: field.Child("domain", "memory", "guest").String(),
-			})
-		}
 		if limits < guest && limits != 0 {
 			causes = append(causes, metav1.StatusCause{
 				Type: metav1.CauseTypeFieldValueInvalid,
