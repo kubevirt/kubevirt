@@ -215,11 +215,24 @@ type VCPU struct {
 	CPUs      uint32 `xml:",chardata"`
 }
 
+type Cell struct {
+	Id        uint32 `xml:"id,attr"`
+	CPUs      string `xml:"cpus,attr"`
+	Memory    uint64 `xml:"memory,attr"`
+	Unit      string `xml:"unit,attr"`
+	MemAccess string `xml:"memAccess,attr,omitempty"`
+}
+
+type NUMA struct {
+	Cell []Cell `xml:"cell"`
+}
+
 type CPU struct {
 	Mode     string       `xml:"mode,attr,omitempty"`
 	Model    string       `xml:"model,omitempty"`
 	Features []CPUFeature `xml:"feature"`
-	Topology *CPUTopology `xml:"topology"`
+	Topology *CPUTopology `xml:"topology,omitempty"`
+	NUMA     *NUMA        `xml:"numa,omitempty"`
 }
 
 type CPUFeature struct {
@@ -538,8 +551,10 @@ type Interface struct {
 }
 
 type InterfaceDriver struct {
-	Name   string `xml:"name,attr"`
-	Queues *uint  `xml:"queues,attr,omitempty"`
+	Name        string  `xml:"name,attr,omitempty"`
+	Queues      *uint   `xml:"queues,attr,omitempty"`
+	RxQueueSize *uint32 `xml:"rx_queue_size,attr,omitempty"`
+	TxQueueSize *uint32 `xml:"tx_queue_size,attr,omitempty"`
 }
 
 type LinkState struct {
@@ -571,6 +586,8 @@ type InterfaceSource struct {
 	Bridge  string   `xml:"bridge,attr,omitempty"`
 	Mode    string   `xml:"mode,attr,omitempty"`
 	Address *Address `xml:"address,omitempty"`
+	Type    string   `xml:"type,attr,omitempty"`
+	Path    string   `xml:"path,attr,omitempty"`
 }
 
 type Model struct {

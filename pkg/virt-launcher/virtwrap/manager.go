@@ -40,6 +40,9 @@ import (
 	"sync"
 	"time"
 
+	netutil "github.com/openshift/app-netutil/lib/v1alpha"
+	netutiltype "github.com/openshift/app-netutil/pkg/types"
+
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 
@@ -1110,6 +1113,19 @@ func parseDeviceAddress(addrString string) []string {
 	}
 	return addrs
 }
+
+// Get the interfaces list from the annotiations file of the pod
+// This info is required for vhostuser interface
+func getPodNetworkInterfaceList(ifaces []v1.Interface) (*netutiltype.InterfaceResponse, error) {
+	for _, iface := range ifaces {
+		if iface.Vhostuser != nil {
+			return netutil.GetInterfaces()
+		}
+	}
+	// When there is no vhostuser interface, pod interface list not required
+	return nil, nil
+}
+
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
@@ -1165,6 +1181,12 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		}
 	}
 
+	podNetInterface, err := getPodNetworkInterfaceList(vmi.Spec.Domain.Devices.Interfaces)
+	if err != nil {
+		logger.Reason(err).Errorf("failed to get pod network infor from annotations")
+		return nil, err
+	}
+
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
 		Architecture:      runtime.GOARCH,
@@ -1179,6 +1201,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		VgpuDevices:       getEnvAddressListByPrefix(vgpuEnvPrefix),
 		EmulatorThreadCpu: emulatorThreadCpu,
 		OVMFPath:          l.ovmfPath,
+		PodNetInterfaces:  podNetInterface,
 	}
 	if options != nil && options.VirtualMachineSMBios != nil {
 		c.SMBios = options.VirtualMachineSMBios

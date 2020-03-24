@@ -357,6 +357,11 @@ func SetupLibvirt() error {
 		return err
 	}
 
+	_, err = qemuConf.WriteString("group = \"hugetlbfs\"\n")
+	if err != nil {
+		err = nil
+	}
+
 	// Let libvirt log to stderr
 	libvirtConf, err := os.OpenFile("/etc/libvirt/libvirtd.conf", os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {

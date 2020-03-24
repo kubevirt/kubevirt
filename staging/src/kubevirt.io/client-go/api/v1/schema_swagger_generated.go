@@ -524,6 +524,10 @@ func (InterfaceSRIOV) SwaggerDoc() map[string]string {
 	}
 }
 
+func (InterfaceVhostuser) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (Port) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nThe port field is mandatory\n\n+k8s:openapi-gen=true",

@@ -21,6 +21,7 @@ package api
 
 import (
 	"encoding/xml"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -369,6 +370,40 @@ var _ = Describe("Schema", func() {
 			err := xml.Unmarshal([]byte(testXML), &newCpuTune)
 			Expect(err).To(BeNil())
 			Expect(newCpuTune).To(Equal(exampleCpuTune))
+		})
+	})
+	Context("With NUMA mapping", func() {
+		var testXML = `<CPU><feature name="a" policy="1"></feature><numa><cell id="0" cpus="0-2" memory="1" unit="KB" memAccess="shared"></cell></numa></CPU>`
+		var exampleCPU = CPU{
+			Features: []CPUFeature{
+				{
+					Name:   "a",
+					Policy: "1",
+				},
+			},
+			NUMA: &NUMA{
+				Cell: []Cell{
+					{
+						Id:        0,
+						CPUs:      "0-2",
+						Memory:    1,
+						Unit:      "KB",
+						MemAccess: "shared",
+					},
+				},
+			},
+		}
+		It("Unmarshal into struct", func() {
+			cpu := CPU{}
+			err := xml.Unmarshal([]byte(testXML), &cpu)
+			Expect(err).To(BeNil())
+			Expect(cpu).To(Equal(exampleCPU))
+		})
+		It("Marshal into xml", func() {
+			buf, err := xml.Marshal(exampleCPU)
+			Expect(err).To(BeNil())
+			fmt.Printf("%s", buf)
+			Expect(string(buf)).To(Equal(testXML))
 		})
 	})
 })

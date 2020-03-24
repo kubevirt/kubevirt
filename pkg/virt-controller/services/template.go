@@ -54,6 +54,9 @@ const configMapName = "kubevirt-config"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
+const VhostuserSocketDir = "/var/lib/cni/usrcni/"
+const OvsRunDirDefault = "/var/run/openvswitch/"
+const PodNetInfoDefault = "/etc/podnetinfo"
 
 const debugLogs = "debugLogs"
 
@@ -302,6 +305,71 @@ func requestResource(resources *k8sv1.ResourceRequirements, resourceName string)
 	}
 }
 
+func addVhostuserVolumes(volumeMounts *[]k8sv1.VolumeMount, volumes *[]k8sv1.Volume) {
+	// "shared-dir" volume name will be used by userspace cni to place the vhostuser socket file`
+	*volumeMounts = append(*volumeMounts, k8sv1.VolumeMount{
+		Name:      "shared-dir",
+		MountPath: VhostuserSocketDir,
+	})
+
+	*volumes = append(*volumes, k8sv1.Volume{
+		Name: "shared-dir",
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{
+				Medium: k8sv1.StorageMediumDefault,
+			},
+		},
+	})
+
+	// Libvirt uses ovs-vsctl commands to get interface stats
+	*volumeMounts = append(*volumeMounts, k8sv1.VolumeMount{
+		Name:      "ovs-run-dir",
+		MountPath: OvsRunDirDefault,
+	})
+	*volumes = append(*volumes, k8sv1.Volume{
+		Name: "ovs-run-dir",
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: OvsRunDirDefault,
+			},
+		},
+	})
+}
+
+func addPodInfoVolumes(volumeMounts *[]k8sv1.VolumeMount, volumes *[]k8sv1.Volume) {
+	// userspace cni will set the vhostuser socket details in annotations, app-netutil helper
+	// will parse annotations from /etc/podnetinfo to get the interface details of
+	// vhostuser socket (which will be added to VM xml)
+	*volumeMounts = append(*volumeMounts, k8sv1.VolumeMount{
+		Name: "podinfo",
+		// TODO: (skramaja): app-netutil expects path to be /etc/podnetinfo, make it customizable
+		MountPath: PodNetInfoDefault,
+	})
+	*volumes = append(*volumes, k8sv1.Volume{
+		Name: "podinfo",
+		VolumeSource: k8sv1.VolumeSource{
+			DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
+				Items: []k8sv1.DownwardAPIVolumeFile{
+					{
+						Path: "labels",
+						FieldRef: &k8sv1.ObjectFieldSelector{
+							APIVersion: "v1",
+							FieldPath:  "metadata.labels",
+						},
+					},
+					{
+						Path: "annotations",
+						FieldRef: &k8sv1.ObjectFieldSelector{
+							APIVersion: "v1",
+							FieldPath:  "metadata.annotations",
+						},
+					},
+				},
+			},
+		},
+	})
+}
+
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -377,6 +445,18 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			},
 		})
 	}
+
+	if util.IsVhostuserVmi(vmi) {
+		if vmi.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory.Hugepages == nil {
+			logger := log.DefaultLogger()
+			err := fmt.Errorf("Hugepages is required for vhostuser interface")
+			logger.Errorf("Hugepages not found: %v", err)
+			return nil, err
+		}
+		addVhostuserVolumes(&volumeMounts, &volumes)
+		addPodInfoVolumes(&volumeMounts, &volumes)
+	}
+
 	serviceAccountName := ""
 
 	for _, volume := range vmi.Spec.Volumes {

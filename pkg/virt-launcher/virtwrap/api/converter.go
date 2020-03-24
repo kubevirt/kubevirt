@@ -30,7 +30,7 @@ import (
 	"strings"
 	"syscall"
 
-	netutil "github.com/openshift/app-netutil/lib/v1alpha"
+	netutiltype "github.com/openshift/app-netutil/pkg/types"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -50,13 +50,14 @@ import (
 )
 
 const (
-	CPUModeHostPassthrough = "host-passthrough"
-	CPUModeHostModel       = "host-model"
-	defaultIOThread        = uint(1)
-	EFICode                = "OVMF_CODE.fd"
-	EFIVars                = "OVMF_VARS.fd"
-	EFICodeSecureBoot      = "OVMF_CODE.secboot.fd"
-	EFIVarsSecureBoot      = "OVMF_VARS.secboot.fd"
+	CPUModeHostPassthrough  = "host-passthrough"
+	CPUModeHostModel        = "host-model"
+	defaultIOThread         = uint(1)
+	EFICode                 = "OVMF_CODE.fd"
+	EFIVars                 = "OVMF_VARS.fd"
+	EFICodeSecureBoot       = "OVMF_CODE.secboot.fd"
+	EFIVarsSecureBoot       = "OVMF_VARS.secboot.fd"
+	PodInterfaceNameDefault = "eth0"
 )
 
 // +k8s:deepcopy-gen=false
@@ -75,6 +76,7 @@ type ConverterContext struct {
 	VgpuDevices       []string
 	EmulatorThreadCpu *int
 	OVMFPath          string
+	PodNetInterfaces  *netutiltype.InterfaceResponse
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -1047,6 +1049,35 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 			}
 		}
+
+		if util.IsVhostuserVmi(vmi) {
+			// Shared memory required for vhostuser interfaces
+			if vmi.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory.Hugepages == nil {
+				return fmt.Errorf("Hugepage is required for vhostuser interface to add NUMA cells %v", vmi.Spec.Domain.Memory)
+			}
+			if domain.Spec.Memory.Value == 0 {
+				return fmt.Errorf("Valid memory is required for vhostuser interface to add NUMA cells")
+			}
+
+			domain.Spec.CPU.NUMA = &NUMA{}
+			sockets := domain.Spec.CPU.Topology.Sockets
+			cellMemory := domain.Spec.Memory.Value / uint64(sockets)
+			nCPUsPerCell := uint32(vcpus) / sockets
+			var idx uint32
+			for idx = 0; idx < sockets; idx++ {
+				start := idx * nCPUsPerCell
+				end := start + nCPUsPerCell - 1
+				cellCPUs := strconv.Itoa(int(start)) + "-" + strconv.Itoa(int(end))
+				cell := Cell{
+					Id:        idx,
+					CPUs:      cellCPUs,
+					Memory:    cellMemory,
+					Unit:      domain.Spec.Memory.Unit,
+					MemAccess: "shared",
+				}
+				domain.Spec.CPU.NUMA.Cell = append(domain.Spec.CPU.NUMA.Cell, cell)
+			}
+		}
 	}
 
 	// Append HostDevices to DomXML if GPU is requested
@@ -1195,8 +1226,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			log.Log.Infof("SR-IOV PCI device allocated: %s", pciAddr)
 			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDev)
 		} else {
-			// TODO: (skramaja) Test change
-			netutil.GetInterfaces()
 			ifaceType := getInterfaceType(&iface)
 			domainIface := Interface{
 				Model: &Model{
@@ -1268,6 +1297,29 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				if err != nil {
 					return err
 				}
+			} else if iface.Vhostuser != nil {
+				domainIface.Type = "vhostuser"
+				interfaceName := GetPodInterfaceName(networks, cniNetworks, iface.Name)
+				vhostPath, vhostMode, err := getVhostuserInfo(interfaceName, c)
+				if err != nil {
+					log.Log.Errorf("Failed to get vhostuser interface info: %v", err)
+					return err
+				}
+				vhostPathParts := strings.Split(vhostPath, "/")
+				vhostDevice := vhostPathParts[len(vhostPathParts)-1]
+				domainIface.Source = InterfaceSource{
+					Type: "unix",
+					Path: vhostPath,
+					Mode: vhostMode,
+				}
+				domainIface.Target = &InterfaceTarget{
+					Device: vhostDevice,
+				}
+				var vhostuserQueueSize uint32 = 1024
+				domainIface.Driver = &InterfaceDriver{
+					RxQueueSize: &vhostuserQueueSize,
+					TxQueueSize: &vhostuserQueueSize,
+				}
 			}
 			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 		}
@@ -1295,6 +1347,29 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	return nil
+}
+
+func getVhostuserInfo(ifaceName string, c *ConverterContext) (string, string, error) {
+	if c.PodNetInterfaces == nil {
+		err := fmt.Errorf("PodNetInterfaces cannot be nil for vhostuser interface")
+		return "", "", err
+	}
+	for _, iface := range c.PodNetInterfaces.Interface {
+		if iface.Type == "vhost" && iface.IfName == ifaceName {
+			return iface.Vhost.Socketpath, iface.Vhost.Mode, nil
+		}
+	}
+	err := fmt.Errorf("Unable to get vhostuser interface info for %s", ifaceName)
+	return "", "", err
+}
+
+func GetPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
+	if networks[ifaceName].Multus != nil && !networks[ifaceName].Multus.Default {
+		// multus pod interfaces named netX
+		return fmt.Sprintf("net%d", cniNetworks[ifaceName])
+	} else {
+		return PodInterfaceNameDefault
+	}
 }
 
 func getVirtualMemory(vmi *v1.VirtualMachineInstance) *resource.Quantity {

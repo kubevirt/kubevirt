@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1983,6 +1984,135 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.PriorityClassName).To(Equal("test"))
 			})
 
+		})
+
+		Context("with vhostuser interface", func() {
+			var (
+				vmi v1.VirtualMachineInstance
+			)
+			BeforeEach(func() {
+				vmi = v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								Interfaces: []v1.Interface{
+									v1.Interface{
+										Name: "test1",
+										InterfaceBindingMethod: v1.InterfaceBindingMethod{
+											Vhostuser: &v1.InterfaceVhostuser{},
+										},
+									},
+								},
+							},
+						},
+						Networks: []v1.Network{
+							{Name: "test1",
+								NetworkSource: v1.NetworkSource{
+									Multus: &v1.MultusNetwork{NetworkName: "test1"},
+								},
+							},
+						},
+					},
+				}
+			})
+			It("should throw error when memory is nil", func() {
+				_, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should throw error when hugepages is nil", func() {
+				vmi.Spec.Domain.Memory = &v1.Memory{}
+				_, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should add volume for vhostuser socket shared directory", func() {
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Hugepages: &v1.Hugepages{
+						PageSize: "1Gi",
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				sharedMount := kubev1.VolumeMount{
+					Name:      "shared-dir",
+					MountPath: VhostuserSocketDir,
+				}
+				sharedVol := kubev1.Volume{
+					Name: "shared-dir",
+					VolumeSource: kubev1.VolumeSource{
+						EmptyDir: &k8sv1.EmptyDirVolumeSource{
+							Medium: k8sv1.StorageMediumDefault,
+						},
+					},
+				}
+				Expect(pod.Spec.Containers[0].VolumeMounts).Should(ContainElement(sharedMount))
+				Expect(pod.Spec.Volumes).Should(ContainElement(sharedVol))
+			})
+			It("should add volume for ovs run directory", func() {
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Hugepages: &v1.Hugepages{
+						PageSize: "1Gi",
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				runMount := kubev1.VolumeMount{
+					Name:      "ovs-run-dir",
+					MountPath: OvsRunDirDefault,
+				}
+				runVol := kubev1.Volume{
+					Name: "ovs-run-dir",
+					VolumeSource: kubev1.VolumeSource{
+						HostPath: &k8sv1.HostPathVolumeSource{
+							Path: OvsRunDirDefault,
+						},
+					},
+				}
+				Expect(pod.Spec.Containers[0].VolumeMounts).Should(ContainElement(runMount))
+				Expect(pod.Spec.Volumes).Should(ContainElement(runVol))
+			})
+			It("should add volume for pod info", func() {
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Hugepages: &v1.Hugepages{
+						PageSize: "1Gi",
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				podinfoMount := kubev1.VolumeMount{
+					Name:      "podinfo",
+					MountPath: PodNetInfoDefault,
+				}
+				podinfoVol := kubev1.Volume{
+					Name: "podinfo",
+					VolumeSource: k8sv1.VolumeSource{
+						DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
+							Items: []k8sv1.DownwardAPIVolumeFile{
+								{
+									Path: "labels",
+									FieldRef: &k8sv1.ObjectFieldSelector{
+										APIVersion: "v1",
+										FieldPath:  "metadata.labels",
+									},
+								},
+								{
+									Path: "annotations",
+									FieldRef: &k8sv1.ObjectFieldSelector{
+										APIVersion: "v1",
+										FieldPath:  "metadata.annotations",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(pod.Spec.Containers[0].VolumeMounts).Should(ContainElement(podinfoMount))
+				Expect(pod.Spec.Volumes).Should(ContainElement(podinfoVol))
+			})
 		})
 
 	})

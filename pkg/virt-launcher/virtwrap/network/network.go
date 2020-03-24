@@ -32,14 +32,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const podInterface = "eth0"
-
 var interfaceCacheFile = "/proc/%s/root/var/run/kubevirt-private/interface-cache-%s.json"
 var qemuArgCacheFile = "/proc/%s/root/var/run/kubevirt-private/qemu-arg-%s.json"
 var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 var NetworkInterfaceFactory = getNetworkClass
 
-var podInterfaceName = podInterface
+var podInterfaceName = api.PodInterfaceNameDefault
 
 type plugFunction func(vif NetworkInterface, vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 
@@ -85,15 +83,6 @@ func getNetworkInterfaceFactory(networks map[string]*v1.Network, ifaceName strin
 	return vif, nil
 }
 
-func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string]int, ifaceName string) string {
-	if networks[ifaceName].Multus != nil && !networks[ifaceName].Multus.Default {
-		// multus pod interfaces named netX
-		return fmt.Sprintf("net%d", cniNetworks[ifaceName])
-	} else {
-		return podInterface
-	}
-}
-
 func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
@@ -101,7 +90,7 @@ func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error
 		if err != nil {
 			return err
 		}
-		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
+		podInterfaceName = api.GetPodInterfaceName(networks, cniNetworks, iface.Name)
 		err = NetworkInterface.PlugPhase1(networkInterfaceFactory, vmi, &iface, networks[iface.Name], podInterfaceName, pid)
 		if err != nil {
 			return err
@@ -117,7 +106,7 @@ func SetupNetworkInterfacesPhase2(vmi *v1.VirtualMachineInstance, domain *api.Do
 		if err != nil {
 			return err
 		}
-		podInterfaceName = getPodInterfaceName(networks, cniNetworks, iface.Name)
+		podInterfaceName = api.GetPodInterfaceName(networks, cniNetworks, iface.Name)
 		err = NetworkInterface.PlugPhase2(vif, vmi, &iface, networks[iface.Name], domain, podInterfaceName)
 		if err != nil {
 			return err
