@@ -37,7 +37,6 @@ void error_log(const char *format, ...)
 void sig_handler(int signo) {
     if (copy_path != NULL) {
         unlink(copy_path);
-        free(copy_path);
     }
     exit(0);
 }
