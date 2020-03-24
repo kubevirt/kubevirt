@@ -74,7 +74,7 @@ var _ = Describe("DataVolume Integration", func() {
 		return obj
 	}
 
-	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
+	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source using PVC", func() {
 		Context("using Alpine import", func() {
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 
@@ -137,7 +137,7 @@ var _ = Describe("DataVolume Integration", func() {
 		})
 	})
 
-	Describe("[rfe_id:896][crit:high][vendor:cnv-qe@redhat.com][level:system] with oc/kubectl", func() {
+	Describe("[rfe_id:896][crit:high][vendor:cnv-qe@redhat.com][level:system] with oc/kubectl. Requires PVC", func() {
 		var vm *v1.VirtualMachine
 		var err error
 		var workDir string
@@ -410,7 +410,7 @@ var _ = Describe("DataVolume Integration", func() {
 
 	})
 
-	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume", func() {
+	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume using PVC", func() {
 		Context("using Alpine import", func() {
 			It("[test_id:3191]should be successfully started and stopped multiple times", func() {
 				vm := tests.NewRandomVMWithDataVolume(tests.AlpineHttpUrl, tests.NamespaceTestDefault)
@@ -474,7 +474,7 @@ var _ = Describe("DataVolume Integration", func() {
 		})
 	})
 
-	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] DataVolume clone permission checking", func() {
+	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] DataVolume clone permission checking using PVC", func() {
 		Context("using Alpine import/clone", func() {
 			var dataVolume *cdiv1.DataVolume
 			var createdVirtualMachine *v1.VirtualMachine
