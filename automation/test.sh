@@ -283,7 +283,7 @@ elif [[ $TARGET =~ gpu.* ]]; then
 elif [[ $TARGET =~ (okd|ocp).* ]]; then
   ginko_params="$ginko_params --ginkgo.skip=Genie|SRIOV|GPU"
 elif [[ $TARGET =~ ipv6.* ]]; then
-  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|GPU|.*slirp.*|.*bridge.*|.*PVC.*"
+  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|GPU|.*slirp.*|.*bridge.*"
 else
   ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|GPU"
 fi
