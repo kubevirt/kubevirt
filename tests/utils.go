@@ -154,11 +154,11 @@ const (
 )
 
 const (
-	AlpineHttpUrl     = "http://cdi-http-import-server.kubevirt/images/alpine.iso"
-	FedoraHttpUrl     = "http://cdi-http-import-server.kubevirt/images/fedora.img"
-	GuestAgentHttpUrl = "http://cdi-http-import-server.kubevirt/qemu-ga"
-	StressHttpUrl     = "http://cdi-http-import-server.kubevirt/stress"
-	DmidecodeHttpUrl  = "http://cdi-http-import-server.kubevirt/dmidecode"
+	AlpineHttpUrl = iota
+	FedoraHttpUrl
+	GuestAgentHttpUrl
+	StressHttpUrl
+	DmidecodeHttpUrl
 )
 
 const (
@@ -4196,4 +4196,24 @@ func GenerateRandomMac() (net.HardwareAddr, error) {
 		return nil, err
 	}
 	return net.HardwareAddr(append(prefix, suffix...)), nil
+}
+func GetUrl(urlIndex int) string {
+	var str string
+
+	switch urlIndex {
+	case AlpineHttpUrl:
+		str = fmt.sprintf("http://cdi-http-import-server.%s/images/alpine.iso", KubeVirtInstallNamespace)
+	case FedoraHttpUrl:
+		str = fmt.sprintf("http://cdi-http-import-server.%s/images/fedora.img", KubeVirtInstallNamespace)
+	case GuestAgentHttpUrl:
+		str = fmt.sprintf("http://cdi-http-import-server.%s/qemu-ga", KubeVirtInstallNamespace)
+	case StressHttpUrl:
+		str = fmt.sprintf("http://cdi-http-import-server.%s/stress", KubeVirtInstallNamespace)
+	case DmidecodeHttpUrl:
+		str = fmt.sprintf("http://cdi-http-import-server.%s/dmidecode", KubeVirtInstallNamespace)
+	default:
+		str = ""
+	}
+
+	return str
 }
