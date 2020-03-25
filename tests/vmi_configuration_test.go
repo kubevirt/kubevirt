@@ -2110,4 +2110,30 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
+
+	Context("With ephemeral CD-ROM", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = tests.NewRandomFedoraVMIWithDmidecode()
+		})
+
+		table.DescribeTable("For various bus types", func(bus string, errMsg string) {
+			tests.AddEphemeralCdrom(vmi, "cdrom-0", bus, tests.ContainerDiskFor(tests.ContainerDiskCirros))
+
+			By(fmt.Sprintf("Starting a VMI with a %s CD-ROM", bus))
+			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			if errMsg == "" {
+				Expect(err).ToNot(HaveOccurred())
+			} else {
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring(errMsg))
+			}
+		},
+			table.Entry("Should be accepted when using sata", "sata", ""),
+			table.Entry("Should be accepted when using scsi", "scsi", ""),
+			table.Entry("Should be rejected when using virtio", "virtio", "Bus type virtio is invalid"),
+			table.Entry("Should be rejected when using ide", "ide", "IDE bus is not supported"),
+		)
+	})
 })
