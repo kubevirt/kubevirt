@@ -508,7 +508,7 @@ var _ = Describe("Multus", func() {
                     curl %s > /usr/local/bin/qemu-ga
                     chmod +x /usr/local/bin/qemu-ga
                     systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, ep1Ip, ep2Ip, ep1IpV6, ep2IpV6, tests.GuestAgentHttpUrl)
+                `, ep1Ip, ep2Ip, ep1IpV6, ep2IpV6, tests.GetUrl(tests.GuestAgentHttpUrl))
 				agentVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userdata)
 
 				agentVMI.Spec.Domain.Devices.Interfaces = interfaces
@@ -622,7 +622,7 @@ var _ = Describe("SRIOV", func() {
 			    mkdir -p /usr/local/bin
 			    curl %s > /usr/local/bin/qemu-ga
 			    chmod +x /usr/local/bin/qemu-ga
-			    systemd-run --unit=guestagent /usr/local/bin/qemu-ga`, tests.GuestAgentHttpUrl)
+			    systemd-run --unit=guestagent /usr/local/bin/qemu-ga`, tests.GetUrl(tests.GuestAgentHttpUrl))
 
 			ports := []v1.Port{}
 			vmi = tests.NewRandomVMIWithMasqueradeInterfaceEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData, ports)

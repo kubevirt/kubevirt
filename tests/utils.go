@@ -1921,7 +1921,7 @@ func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 	    mkdir -p /usr/local/bin
 	    curl %s > /usr/local/bin/dmidecode
 	    chmod +x /usr/local/bin/dmidecode
-	`, DmidecodeHttpUrl)
+	`, GetUrl(DmidecodeHttpUrl))
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(ContainerDiskFor(ContainerDiskFedora), dmidecodeUserData)
 	return vmi
 }
@@ -1936,7 +1936,7 @@ func GetGuestAgentUserData() string {
                 chmod +x /usr/local/bin/stress
                 setenforce 0
                 systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, GuestAgentHttpUrl, StressHttpUrl)
+                `, GetUrl(GuestAgentHttpUrl), GetUrl(StressHttpUrl))
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
@@ -4178,13 +4178,13 @@ func GetUrl(urlIndex int) string {
 
 	switch urlIndex {
 	case AlpineHttpUrl:
-		str = fmt.sprintf("http://cdi-http-import-server.%s/images/alpine.iso", KubeVirtInstallNamespace)
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/alpine.iso", KubeVirtInstallNamespace)
 	case GuestAgentHttpUrl:
-		str = fmt.sprintf("http://cdi-http-import-server.%s/qemu-ga", KubeVirtInstallNamespace)
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/qemu-ga", KubeVirtInstallNamespace)
 	case StressHttpUrl:
-		str = fmt.sprintf("http://cdi-http-import-server.%s/stress", KubeVirtInstallNamespace)
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/stress", KubeVirtInstallNamespace)
 	case DmidecodeHttpUrl:
-		str = fmt.sprintf("http://cdi-http-import-server.%s/dmidecode", KubeVirtInstallNamespace)
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/dmidecode", KubeVirtInstallNamespace)
 	default:
 		str = ""
 	}
