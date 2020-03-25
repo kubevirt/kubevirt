@@ -137,24 +137,5 @@ var _ = Describe("Network", func() {
 			err := SetupNetworkInterfacesPhase1(vm, pid)
 			Expect(err).To(BeNil())
 		})
-		It("should configure networking with genie", func() {
-			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
-				return mockNetworkInterface, nil
-			}
-			const genieInterfaceName = "eth0"
-			vm := newVMIBridgeInterface("testnamespace", "testVmName")
-			iface := v1.DefaultBridgeNetworkInterface()
-			cniNet := &v1.Network{
-				Name: "default",
-				NetworkSource: v1.NetworkSource{
-					Genie: &v1.GenieNetwork{NetworkName: "default"},
-				},
-			}
-			vm.Spec.Networks = []v1.Network{*cniNet}
-
-			mockNetworkInterface.EXPECT().PlugPhase1(vm, iface, cniNet, genieInterfaceName, pid)
-			err := SetupNetworkInterfacesPhase1(vm, pid)
-			Expect(err).To(BeNil())
-		})
 	})
 })

@@ -68,9 +68,6 @@ func getNetworksAndCniNetworks(vmi *v1.VirtualMachineInstance) (map[string]*v1.N
 		if networks[network.Name].Multus != nil && !networks[network.Name].Multus.Default {
 			// multus pod interfaces start from 1
 			cniNetworks[network.Name] = len(cniNetworks) + 1
-		} else if networks[network.Name].Genie != nil {
-			// genie pod interfaces start from 0
-			cniNetworks[network.Name] = len(cniNetworks)
 		}
 	}
 	return networks, cniNetworks
@@ -92,9 +89,6 @@ func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string
 	if networks[ifaceName].Multus != nil && !networks[ifaceName].Multus.Default {
 		// multus pod interfaces named netX
 		return fmt.Sprintf("net%d", cniNetworks[ifaceName])
-	} else if networks[ifaceName].Genie != nil {
-		// genie pod interfaces named ethX
-		return fmt.Sprintf("eth%d", cniNetworks[ifaceName])
 	} else {
 		return podInterface
 	}
@@ -134,7 +128,7 @@ func SetupNetworkInterfacesPhase2(vmi *v1.VirtualMachineInstance, domain *api.Do
 
 // a factory to get suitable network interface
 func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
-	if network.Pod != nil || network.Multus != nil || network.Genie != nil {
+	if network.Pod != nil || network.Multus != nil {
 		return new(PodInterface), nil
 	}
 	return nil, fmt.Errorf("Network not implemented")

@@ -81,8 +81,6 @@ func main() {
 		utils.VmiWithHookSidecar:   utils.GetVMIWithHookSidecar(),
 		utils.VmiMultusPtp:         utils.GetVMIMultusPtp(),
 		utils.VmiMultusMultipleNet: utils.GetVMIMultusMultipleNet(),
-		utils.VmiGeniePtp:          utils.GetVMIGeniePtp(),
-		utils.VmiGenieMultipleNet:  utils.GetVMIGenieMultipleNet(),
 		utils.VmiMasquerade:        utils.GetVMIMasquerade(),
 		utils.VmiHostDisk:          utils.GetVMIHostDisk(),
 		utils.VmiGPU:               utils.GetVMIGPU(),

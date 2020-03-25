@@ -274,18 +274,16 @@ EOF
   ginko_params="$ginko_params --ginkgo.focus=Windows"
 elif [[ $TARGET =~ (cnao|multus) ]]; then
   ginko_params="$ginko_params --ginkgo.focus=Multus|Networking|VMIlifecycle|Expose"
-elif [[ $TARGET =~ genie.* ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=Genie|Networking|VMIlifecycle|Expose"
 elif [[ $TARGET =~ sriov.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=SRIOV"
 elif [[ $TARGET =~ gpu.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=GPU"
 elif [[ $TARGET =~ (okd|ocp).* ]]; then
-  ginko_params="$ginko_params --ginkgo.skip=Genie|SRIOV|GPU"
+  ginko_params="$ginko_params --ginkgo.skip=SRIOV|GPU"
 elif [[ $TARGET =~ ipv6.* ]]; then
-  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|GPU|.*slirp.*|.*bridge.*"
+  ginko_params="$ginko_params --ginkgo.skip=Multus|SRIOV|GPU|.*slirp.*|.*bridge.*"
 else
-  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV|GPU"
+  ginko_params="$ginko_params --ginkgo.skip=Multus|SRIOV|GPU"
 fi
 
 # Prepare RHEL PV for Template testing

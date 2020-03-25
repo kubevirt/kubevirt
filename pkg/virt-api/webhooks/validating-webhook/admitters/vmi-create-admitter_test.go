@@ -1115,21 +1115,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should accept networks with a genie network source and bridge interface", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vm.Spec.Networks = []v1.Network{
-				v1.Network{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Genie: &v1.GenieNetwork{NetworkName: "default"},
-					},
-				},
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(BeEmpty())
-		})
 		It("should reject when multiple types defined for a CNI network", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
@@ -1138,7 +1123,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "default1"},
-						Genie:  &v1.GenieNetwork{NetworkName: "default2"},
+						Pod:    &v1.PodNetwork{NetworkName: "default2"},
 					},
 				},
 			}
@@ -1263,7 +1248,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				*v1.DefaultBridgeNetworkInterface(),
 			}
 			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus"
-			vm.Spec.Domain.Devices.Interfaces[1].Name = "genie"
+			vm.Spec.Domain.Devices.Interfaces[1].Name = "pod"
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
 					Name: "multus",
@@ -1272,36 +1257,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 				v1.Network{
-					Name: "genie",
+					Name: "pod",
 					NetworkSource: v1.NetworkSource{
-						Genie: &v1.GenieNetwork{NetworkName: "default2"},
-					},
-				},
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.networks[1]"))
-		})
-		It("should reject pod and Genie CNI networks combination", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultBridgeNetworkInterface(),
-				*v1.DefaultBridgeNetworkInterface(),
-			}
-			// 1st network is the default pod network, name is "default"
-			vm.Spec.Domain.Devices.Interfaces[1].Name = "genie"
-			vm.Spec.Networks = []v1.Network{
-				v1.Network{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{},
-					},
-				},
-				v1.Network{
-					Name: "genie",
-					NetworkSource: v1.NetworkSource{
-						Genie: &v1.GenieNetwork{NetworkName: "genie-net"},
+						Pod: &v1.PodNetwork{NetworkName: "default2"},
 					},
 				},
 			}

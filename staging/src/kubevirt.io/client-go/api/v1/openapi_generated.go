@@ -61,7 +61,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Firmware":                                  schema_kubevirtio_client_go_api_v1_Firmware(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.FloppyTarget":                              schema_kubevirtio_client_go_api_v1_FloppyTarget(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GPU":                                       schema_kubevirtio_client_go_api_v1_GPU(ref),
-		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GenieNetwork":                              schema_kubevirtio_client_go_api_v1_GenieNetwork(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.HPETTimer":                                 schema_kubevirtio_client_go_api_v1_HPETTimer(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.HostDisk":                                  schema_kubevirtio_client_go_api_v1_HostDisk(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Hugepages":                                 schema_kubevirtio_client_go_api_v1_Hugepages(ref),
@@ -1390,27 +1389,6 @@ func schema_kubevirtio_client_go_api_v1_GPU(ref common.ReferenceCallback) common
 	}
 }
 
-func schema_kubevirtio_client_go_api_v1_GenieNetwork(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Represents the genie cni network.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"networkName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "References the CNI plugin name.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"networkName"},
-			},
-		},
-	}
-}
-
 func schema_kubevirtio_client_go_api_v1_HPETTimer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2166,17 +2144,12 @@ func schema_kubevirtio_client_go_api_v1_Network(ref common.ReferenceCallback) co
 							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork"),
 						},
 					},
-					"genie": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GenieNetwork"),
-						},
-					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GenieNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.PodNetwork"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.PodNetwork"},
 	}
 }
 
@@ -2197,16 +2170,11 @@ func schema_kubevirtio_client_go_api_v1_NetworkSource(ref common.ReferenceCallba
 							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork"),
 						},
 					},
-					"genie": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GenieNetwork"),
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GenieNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.PodNetwork"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.PodNetwork"},
 	}
 }
 
