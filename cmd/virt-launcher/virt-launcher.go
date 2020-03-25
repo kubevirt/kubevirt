@@ -179,6 +179,10 @@ func initializeDirs(virtShareDir string,
 	containerDiskDir string,
 	uid string) {
 
+	// Resolve permission mismatch when system default mask is set more restrictive than 022.
+	mask := syscall.Umask(0)
+	defer syscall.Umask(mask)
+
 	err := virtlauncher.InitializeSharedDirectories(virtShareDir)
 	if err != nil {
 		panic(err)
