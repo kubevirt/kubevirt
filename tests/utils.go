@@ -155,7 +155,6 @@ const (
 
 const (
 	AlpineHttpUrl = iota
-	FedoraHttpUrl
 	GuestAgentHttpUrl
 	StressHttpUrl
 	DmidecodeHttpUrl
@@ -4180,8 +4179,6 @@ func GetUrl(urlIndex int) string {
 	switch urlIndex {
 	case AlpineHttpUrl:
 		str = fmt.sprintf("http://cdi-http-import-server.%s/images/alpine.iso", KubeVirtInstallNamespace)
-	case FedoraHttpUrl:
-		str = fmt.sprintf("http://cdi-http-import-server.%s/images/fedora.img", KubeVirtInstallNamespace)
 	case GuestAgentHttpUrl:
 		str = fmt.sprintf("http://cdi-http-import-server.%s/qemu-ga", KubeVirtInstallNamespace)
 	case StressHttpUrl:
