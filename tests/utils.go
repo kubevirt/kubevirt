@@ -1379,6 +1379,13 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.Virt
 	return obj
 }
 
+func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+	obj := RunVMI(vmi, timeout)
+	By("Waiting until the VirtualMachineInstance will start")
+	WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(obj, timeout)
+	return obj
+}
+
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will be scheduled")
@@ -4306,4 +4313,9 @@ func getClusterDnsServiceIP(virtClient kubecli.KubevirtClient) (string, error) {
 		return "", err
 	}
 	return kubeDNSService.Spec.ClusterIP, nil
+}
+
+func IsRunningOnKindInfra() bool {
+	provider := os.Getenv("KUBEVIRT_PROVIDER")
+	return strings.HasPrefix(provider, "kind")
 }

@@ -195,11 +195,19 @@ var _ = Describe("Storage", func() {
 
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ephemeral alpine PVC", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
+			var isRunOnKindInfra bool
+			tests.BeforeAll(func() {
+				isRunOnKindInfra = tests.IsRunningOnKindInfra()
+			})
+
 			It("[test_id:3136]should be successfully started", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
-				tests.RunVMIAndExpectLaunch(vmi, 90)
-
+				if isRunOnKindInfra {
+					tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
+				} else {
+					tests.RunVMIAndExpectLaunch(vmi, 90)
+				}
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -210,7 +218,12 @@ var _ = Describe("Storage", func() {
 				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 
 				By("Starting the VirtualMachineInstance")
-				createdVMI := tests.RunVMIAndExpectLaunch(vmi, 90)
+				var createdVMI *v1.VirtualMachineInstance
+				if isRunOnKindInfra {
+					createdVMI = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
+				} else {
+					createdVMI = tests.RunVMIAndExpectLaunch(vmi, 90)
+				}
 
 				By("Writing an arbitrary file to it's EFI partition")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
@@ -234,7 +247,11 @@ var _ = Describe("Storage", func() {
 				tests.WaitForVirtualMachineToDisappearWithTimeout(createdVMI, 120)
 
 				By("Starting the VirtualMachineInstance again")
-				tests.RunVMIAndExpectLaunch(vmi, 90)
+				if isRunOnKindInfra {
+					createdVMI = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
+				} else {
+					createdVMI = tests.RunVMIAndExpectLaunch(vmi, 90)
+				}
 
 				By("Making sure that the previously written file is not present")
 				expecter, err = tests.LoggedInAlpineExpecter(vmi)
