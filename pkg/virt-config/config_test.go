@@ -170,6 +170,17 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when unset, GetEmulatedMachines should return the defaults", "", strings.Split(virtconfig.DefaultEmulatedMachines, ",")),
 	)
 
+	table.DescribeTable(" when supportedGuestAgentVersions", func(value string, result []string) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.SupportedGuestAgentVersionsKey: value},
+		})
+		supportedGuestAgentVersions := clusterConfig.GetSupportedAgentVersions()
+		Expect(supportedGuestAgentVersions).To(ConsistOf(result))
+	},
+		table.Entry("when set, GetSupportedAgentVersions should return the value", "5.*,6.*", []string{"5.*", "6.*"}),
+		table.Entry("when unset, GetSupportedAgentVersions should return the defaults", "", strings.Split(virtconfig.SupportedGuestAgentVersions, ",")),
+	)
+
 	It("Should return migration config values if specified as json", func() {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi", "progressTimeout" : 5, "completionTimeoutPerGiB": 5, "unsafeMigrationOverride": true, "allowAutoConverge": true}`},
