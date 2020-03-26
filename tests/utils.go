@@ -154,11 +154,10 @@ const (
 )
 
 const (
-	AlpineHttpUrl     = "http://cdi-http-import-server.kubevirt/images/alpine.iso"
-	FedoraHttpUrl     = "http://cdi-http-import-server.kubevirt/images/fedora.img"
-	GuestAgentHttpUrl = "http://cdi-http-import-server.kubevirt/qemu-ga"
-	StressHttpUrl     = "http://cdi-http-import-server.kubevirt/stress"
-	DmidecodeHttpUrl  = "http://cdi-http-import-server.kubevirt/dmidecode"
+	AlpineHttpUrl = iota
+	GuestAgentHttpUrl
+	StressHttpUrl
+	DmidecodeHttpUrl
 )
 
 const (
@@ -1922,7 +1921,7 @@ func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 	    mkdir -p /usr/local/bin
 	    curl %s > /usr/local/bin/dmidecode
 	    chmod +x /usr/local/bin/dmidecode
-	`, DmidecodeHttpUrl)
+	`, GetUrl(DmidecodeHttpUrl))
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(ContainerDiskFor(ContainerDiskFedora), dmidecodeUserData)
 	return vmi
 }
@@ -1937,7 +1936,7 @@ func GetGuestAgentUserData() string {
                 chmod +x /usr/local/bin/stress
                 setenforce 0
                 systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, GuestAgentHttpUrl, StressHttpUrl)
+                `, GetUrl(GuestAgentHttpUrl), GetUrl(StressHttpUrl))
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
@@ -4173,4 +4172,22 @@ func GenerateRandomMac() (net.HardwareAddr, error) {
 		return nil, err
 	}
 	return net.HardwareAddr(append(prefix, suffix...)), nil
+}
+func GetUrl(urlIndex int) string {
+	var str string
+
+	switch urlIndex {
+	case AlpineHttpUrl:
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/images/alpine.iso", KubeVirtInstallNamespace)
+	case GuestAgentHttpUrl:
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/qemu-ga", KubeVirtInstallNamespace)
+	case StressHttpUrl:
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/stress", KubeVirtInstallNamespace)
+	case DmidecodeHttpUrl:
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/dmidecode", KubeVirtInstallNamespace)
+	default:
+		str = ""
+	}
+
+	return str
 }
