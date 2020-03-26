@@ -1627,7 +1627,13 @@ var _ = Describe("Configurations", func() {
 
 			By("checking if default cache 'none' has been set to pvc disk")
 			Expect(disks[4].Alias.Name).To(Equal("hostpath-pvc"))
-			Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
+			// PVC is mounted as tmpfs on kind, which does not support direct I/O.
+			// As such, it behaves as plugging in a hostDisk - check disks[6].
+			if tests.IsRunningOnKindInfra() {
+				Expect(disks[4].Driver.Cache).To(Equal(cacheWritethrough))
+			} else {
+				Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
+			}
 
 			By("checking if default cache 'none' has been set to block pvc")
 			Expect(disks[5].Alias.Name).To(Equal("block-pvc"))
