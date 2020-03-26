@@ -68,11 +68,21 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			serverStarter(vmi, 1500)
 
 			By("Checking that the VMI and the pod will be marked as ready to receive traffic")
+			// Not sure who's slowing this down, if ipv6, or if kind, but, the
+			// HTTP readiness probes are taking a lot longer.
+			var timeoutMultipler = 1
+			if tests.IsRunningOnKindInfra() {
+				timeoutMultipler = 2
+				// we just need to get one request through, so sending them more often helps
+				httpProbe.InitialDelaySeconds = 10
+				httpProbe.TimeoutSeconds = 2
+				httpProbe.FailureThreshold = 5
+			}
 			Eventually(func() v1.ConditionStatus {
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmiReady(vmi)
-			}, 60, 1).Should(Equal(v1.ConditionTrue))
+			}, timeoutMultipler*60, 1).Should(Equal(v1.ConditionTrue))
 			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionTrue))
 		},
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
