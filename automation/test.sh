@@ -35,8 +35,11 @@ readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluste
 
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
+elif [[ $TARGET =~ cnao ]]; then
+  export KUBEVIRT_WITH_CNAO=true
+  export KUBEVIRT_PROVIDER=${TARGET/-cnao/}
 else
-  export KUBEVIRT_PROVIDER=$TARGET
+  export KUBEVIRT_PROVIDER=${TARGET}
 fi
 
 if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
@@ -269,14 +272,14 @@ spec:
 EOF
   # Run only Windows tests
   ginko_params="$ginko_params --ginkgo.focus=Windows"
-elif [[ $TARGET =~ multus.* ]]; then
+elif [[ $TARGET =~ (cnao|multus) ]]; then
   ginko_params="$ginko_params --ginkgo.focus=Multus|Networking|VMIlifecycle|Expose"
 elif [[ $TARGET =~ genie.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=Genie|Networking|VMIlifecycle|Expose"
 elif [[ $TARGET =~ sriov.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=SRIOV"
 elif [[ $TARGET =~ gpu.* ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=GPU" 
+  ginko_params="$ginko_params --ginkgo.focus=GPU"
 elif [[ $TARGET =~ (okd|ocp).* ]]; then
   ginko_params="$ginko_params --ginkgo.skip=Genie|SRIOV|GPU"
 else
