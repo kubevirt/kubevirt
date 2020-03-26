@@ -715,10 +715,6 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
 			}
 
-			// Cluster nodes subnet (docker network gateway)
-			// Docker network subnet cidr definition https://bit.ly/2wZTgMK
-			clusterNodesGateway := "2001:db8:1::1"
-
 			serverVMI = masqueradeVMI(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 			serverVMI.Labels = map[string]string{"expose": "server"}
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
@@ -731,10 +727,21 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(len(serverVMI.Status.Interfaces)).To(Equal(1))
 
 			if netutils.IsIPv6String(serverVMI.Status.Interfaces[0].IP) {
-				By("Checking ping from server vmi to cluster nodes gateway")
-				pingVirtualMachine(serverVMI, clusterNodesGateway, "\\$ ")
-				By("Checking ping from client vmi to cluster nodes gateway")
-				pingVirtualMachine(clientVMI, clusterNodesGateway, "\\$ ")
+				By("Checking traceroute from vmi to cluster nodes gateway")
+				// Cluster nodes subnet (docker network gateway)
+				// Docker network subnet cidr definition https://bit.ly/2wZTgMK
+				err := tests.CheckForTextExpecter(serverVMI, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: "traceroute -6 2001:db8:1::1 -w1 > tr\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: "cat tr | grep -q \"*\\|!\"\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "1"},
+				}, 180)
+
+				Expect(err).ToNot(HaveOccurred(), "Failed to traceroute to VMI %s within the given timeout", serverVMI.Name)
 			} else {
 				By("Checking ping to google")
 				pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
