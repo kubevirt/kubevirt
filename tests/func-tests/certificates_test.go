@@ -219,7 +219,7 @@ var _ = Describe("Certificates", func() {
 					return fmt.Errorf("UploadImage Error: %+v\n", err)
 				}
 				return nil
-			}, 40*time.Second, 5*time.Second).Should(Succeed())
+			}, 60*time.Second, 5*time.Second).Should(Succeed())
 
 			By("Start VM")
 			vm := NewRandomVMWithPVC(pvcName)
@@ -233,7 +233,7 @@ var _ = Describe("Certificates", func() {
 				}
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.Status.Phase
-			}, 5*time.Minute, 2*time.Second).Should(Equal(v1.Running))
+			}, 8*time.Minute, 2*time.Second).Should(Equal(v1.Running))
 		})
 		AfterEach(func() {
 			err = os.Remove(imagePath)
@@ -259,7 +259,7 @@ func GetCertForPod(labelSelector string, namespace string, port string) ([]byte,
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)
-	err = testscore.ForwardPorts(&pods.Items[0], []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 10*time.Second)
+	err = testscore.ForwardPorts(&pods.Items[0], []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 15*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +282,7 @@ func ForwardPortsForService(name string, namespace string, stopChan chan struct{
 	testscore.PanicOnError(err)
 	service, err := client.CoreV1().Services(namespace).Get(name, k8smetav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	return tests.ForwardPortsFromService(service, ports, stopChan, 10*time.Second)
+	return tests.ForwardPortsFromService(service, ports, stopChan, 15*time.Second)
 }
 
 func WaitForAllPodsToBecomeReady() {
@@ -318,7 +318,7 @@ func WaitForPodsToBecomeReady(namespace string) {
 			return fmt.Errorf("Not ready Pods: %v", notReady)
 		}
 		return nil
-	}, 20*time.Minute, 1*time.Second).Should(Succeed())
+	}, 30*time.Minute, 1*time.Second).Should(Succeed())
 }
 
 func GetCert(port string) []byte {
@@ -347,7 +347,7 @@ func GetCert(port string) []byte {
 		cert = make([]byte, len(rawCert))
 		copy(cert, rawCert)
 		return cert
-	}, 40*time.Second, 1*time.Second).Should(Not(BeEmpty()))
+	}, 60*time.Second, 1*time.Second).Should(Not(BeEmpty()))
 
 	return cert
 }

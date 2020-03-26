@@ -25,7 +25,7 @@ if [[ ${JOB_TYPE} = "prow" ]]; then
 else
     export KUBECTL_BINARY="cluster/kubectl.sh"
 fi
-./${TEST_OUT_PATH}/func-tests.test -ginkgo.v -test.timeout 120m -kubeconfig="${KUBECONFIG}" -installed-namespace=kubevirt-hyperconverged -cdi-namespace=kubevirt-hyperconverged
+./${TEST_OUT_PATH}/func-tests.test -ginkgo.v -test.timeout 180m -kubeconfig="${KUBECONFIG}" -installed-namespace=kubevirt-hyperconverged -cdi-namespace=kubevirt-hyperconverged
 
 if [ -f ${CSV_FILE} ]; then
   rm -f ${CSV_FILE}

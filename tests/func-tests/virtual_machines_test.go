@@ -14,7 +14,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-const timeout = 240 * time.Second
+const timeout = 360 * time.Second
 const pollingInterval = 5 * time.Second
 
 var _ = Describe("Virtual Machines", func() {
