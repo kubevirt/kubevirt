@@ -22,6 +22,8 @@ RUN dnf install -y dnf-plugins-core && \
         sudo \
         gcc \
         gcc-c++ \
+        glibc-static \
+        libstdc++-static \
         glibc-devel \
         findutils \
         gradle \
