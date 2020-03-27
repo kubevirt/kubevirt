@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -707,6 +708,51 @@ var _ = Describe("SRIOV", func() {
 			// there is little we can do beyond just checking two devices are present: PCI slots are different inside
 			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
 			// it's hard to match them.
+		})
+
+		It("should create a virtual machine with sriov interface and dedicatedCPUs", func() {
+			// In addition to verifying that we can start a VMI with CPU pinning
+			// this also tests if we've correctly calculated the overhead for VFIO devices.
+			vmi := getSriovVmi([]string{"sriov"})
+			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+				Requests: kubev1.ResourceList{},
+				Limits: k8sv1.ResourceList{
+					k8sv1.ResourceCPU:    resource.MustParse("2"),
+					k8sv1.ResourceMemory: resource.MustParse("1024M"),
+				},
+			}
+			startVmi(vmi)
+			waitVmi(vmi)
+
+			By("checking that vmi got the guaranteed QOS class")
+			Eventually(func() k8sv1.PodQOSClass {
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.IsFinal()).To(BeFalse())
+				if vmi.Status.QOSClass == nil {
+					return ""
+				}
+				return *vmi.Status.QOSClass
+			}, 10*time.Second, 1*time.Second).Should(Equal(k8sv1.PodQOSGuaranteed))
+
+			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			out, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				"compute",
+				[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedSriovResourceName := fmt.Sprintf("%s\n", sriovResourceName)
+			Expect(out).To(Equal(expectedSriovResourceName))
+
+			checkDefaultInterfaceInPod(vmi)
+
+			By("checking virtual machine instance has two interfaces")
+			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
+
 		})
 
 		It("should create a virtual machine with sriov interface with custom MAC address", func() {

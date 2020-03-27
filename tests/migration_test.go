@@ -328,6 +328,9 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 1600s&\n"},
 		}, 15*time.Second)
 		Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+		// give stress tool some time to trash more memory pages before returning control to next steps
+		time.Sleep(15 * time.Second)
+
 	}
 
 	deleteDataVolume := func(dv *cdiv1.DataVolume) {
