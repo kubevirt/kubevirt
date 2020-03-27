@@ -100,48 +100,6 @@ var _ = Describe("Virt remote commands", func() {
 
 		})
 
-		It("Find UID from namespace/name using socket info", func() {
-			name := vmi.Name
-			namespace := vmi.Namespace
-			uid := string(vmi.UID)
-
-			sock, err := FindSocketOnHost(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			err = SetSocketInfo(sock, uid, name, namespace)
-			Expect(err).ToNot(HaveOccurred())
-
-			foundUid, err := FindLastKnownUIDForKey(name, namespace)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(foundUid).To(Equal(uid))
-		})
-
-		It("Find UID from namespace/name using legacy watchdog file", func() {
-			name := "testvmi"
-			namespace := "default"
-			uid := "1234"
-
-			watchdogFile := filepath.Join(shareDir, "watchdog-files", namespace+"_"+name)
-			os.MkdirAll(filepath.Join(shareDir, "watchdog-files"), 0755)
-
-			sock := filepath.Join(shareDir, "sockets", uid+"_sock")
-			os.MkdirAll(filepath.Dir(sock), 0755)
-			f, err := os.Create(sock)
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
-
-			f, err = os.Create(watchdogFile)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = f.WriteString(uid)
-			Expect(err).ToNot(HaveOccurred())
-			f.Close()
-
-			foundUid, err := FindLastKnownUIDForKey(name, namespace)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(foundUid).To(Equal(uid))
-		})
-
 		It("Detect unresponsive socket", func() {
 			sock, err := FindSocketOnHost(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -164,22 +122,6 @@ var _ = Describe("Virt remote commands", func() {
 			MarkSocketUnresponsive(sock)
 			unresponsive = IsSocketUnresponsive(sock)
 			Expect(unresponsive).To(BeTrue())
-		})
-
-		It("Set and Get Socket Info Metadata", func() {
-			sock, err := FindSocketOnHost(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = SetSocketInfo(sock, "1234", "myname", "mynamespace")
-			Expect(err).ToNot(HaveOccurred())
-
-			info, err := GetSocketInfo(sock)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(info.UID).To(Equal("1234"))
-			Expect(info.Name).To(Equal("myname"))
-			Expect(info.Namespace).To(Equal("mynamespace"))
-
 		})
 	})
 })

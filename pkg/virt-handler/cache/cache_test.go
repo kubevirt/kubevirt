@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
@@ -48,6 +49,7 @@ var _ = Describe("Domain informer", func() {
 	var shareDir string
 	var podsDir string
 	var socketsDir string
+	var ghostCacheDir string
 	var informer cache.SharedInformer
 	var stopChan chan struct{}
 	var ctrl *gomock.Controller
@@ -64,6 +66,11 @@ var _ = Describe("Domain informer", func() {
 
 		podsDir, err = ioutil.TempDir("", "")
 		Expect(err).ToNot(HaveOccurred())
+
+		ghostCacheDir, err = ioutil.TempDir("", "")
+		Expect(err).ToNot(HaveOccurred())
+
+		InitializeGhostRecordCache(ghostCacheDir)
 
 		cmdclient.SetLegacyBaseDir(shareDir)
 		cmdclient.SetPodsBaseDir(podsDir)
@@ -86,6 +93,8 @@ var _ = Describe("Domain informer", func() {
 		close(stopChan)
 		os.RemoveAll(shareDir)
 		os.RemoveAll(podsDir)
+		os.RemoveAll(ghostCacheDir)
+		DeleteGhostRecord("test", "test")
 		ctrl.Finish()
 	})
 
@@ -104,6 +113,71 @@ var _ = Describe("Domain informer", func() {
 			Expect(exists).To(BeFalse())
 		}
 	}
+
+	Context("with ghost record cache", func() {
+		It("Should initialize cache from disk", func() {
+			err := AddGhostRecord("test1-namespace", "test1", "somefile1", "1234-1")
+			Expect(err).ToNot(HaveOccurred())
+			err = AddGhostRecord("test2-namespace", "test2", "somefile2", "1234-2")
+			Expect(err).ToNot(HaveOccurred())
+
+			clearGhostRecordCache()
+
+			_, exists := ghostRecordGlobalCache["test1-namespace/test1"]
+			Expect(exists).To(BeFalse())
+
+			err = InitializeGhostRecordCache(ghostCacheDir)
+			Expect(err).ToNot(HaveOccurred())
+
+			record, exists := ghostRecordGlobalCache["test1-namespace/test1"]
+			Expect(exists).To(BeTrue())
+			Expect(string(record.UID)).To(Equal("1234-1"))
+			Expect(string(record.SocketFile)).To(Equal("somefile1"))
+
+			record, exists = ghostRecordGlobalCache["test2-namespace/test2"]
+			Expect(exists).To(BeTrue())
+			Expect(string(record.UID)).To(Equal("1234-2"))
+			Expect(string(record.SocketFile)).To(Equal("somefile2"))
+		})
+
+		It("Should delete ghost record from cache and disk", func() {
+			err := AddGhostRecord("test1-namespace", "test1", "somefile1", "1234-1")
+			Expect(err).ToNot(HaveOccurred())
+
+			_, exists := ghostRecordGlobalCache["test1-namespace/test1"]
+			Expect(exists).To(BeTrue())
+
+			exists, err = diskutils.FileExists(filepath.Join(ghostRecordDir, "1234-1"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			err = DeleteGhostRecord("test1-namespace", "test1")
+			Expect(err).ToNot(HaveOccurred())
+
+			_, exists = ghostRecordGlobalCache["test1-namespace/test1"]
+			Expect(exists).To(BeFalse())
+
+			exists, err = diskutils.FileExists(filepath.Join(ghostRecordDir, "1234-1"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+
+		})
+
+		It("Should reject adding a ghost record with missing data", func() {
+			err := AddGhostRecord("", "test1", "somefile1", "1234-1")
+			Expect(err).To(HaveOccurred())
+
+			err = AddGhostRecord("test1-namespace", "", "somefile1", "1234-1")
+			Expect(err).To(HaveOccurred())
+
+			err = AddGhostRecord("test1-namespace", "test1", "", "1234-1")
+			Expect(err).To(HaveOccurred())
+
+			err = AddGhostRecord("test1-namespace", "test1", "somefile1", "")
+			Expect(err).To(HaveOccurred())
+
+		})
+	})
 
 	Context("with notification server", func() {
 		It("should list current domains.", func() {
@@ -129,6 +203,33 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(len(listResults)).To(Equal(1))
+		})
+
+		It("should list current domains including inactive domains with ghost record", func() {
+			var list []*api.Domain
+
+			list = append(list, api.NewMinimalDomain("testvmi1"))
+
+			domainManager.EXPECT().ListAllDomains().Return(list, nil)
+
+			err := AddGhostRecord("test1-namespace", "test1", "somefile1", "1234-1")
+			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
+
+			// ensure we can connect to the server first.
+			client, err := cmdclient.NewClient(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+			client.Close()
+
+			d := &DomainWatcher{
+				backgroundWatcherStarted: false,
+				virtShareDir:             shareDir,
+			}
+
+			listResults, err := d.listAllKnownDomains()
+			Expect(err).ToNot(HaveOccurred())
+
+			// includes both the domain with an active socket and the ghost record with deleted socket
+			Expect(len(listResults)).To(Equal(2))
 		})
 		It("should detect active domains at startup.", func() {
 			var list []*api.Domain
@@ -191,7 +292,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()
 
-			cmdclient.SetSocketInfo(socketPath, "1234", "test", "test")
+			AddGhostRecord("test", "test", socketPath, "1234")
 
 			d := &DomainWatcher{
 				backgroundWatcherStarted: false,
@@ -235,7 +336,8 @@ var _ = Describe("Domain informer", func() {
 				}
 			}()
 
-			cmdclient.SetSocketInfo(socketPath, "1234", "test", "test")
+			err = AddGhostRecord("test", "test", socketPath, "1234")
+			Expect(err).ToNot(HaveOccurred())
 
 			d := &DomainWatcher{
 				backgroundWatcherStarted: false,
@@ -251,8 +353,8 @@ var _ = Describe("Domain informer", func() {
 			timedOut := false
 			timeout := time.After(5 * time.Second)
 			select {
-			case event := <-d.eventChan:
-				Expect(event.Type).To(Equal(watch.Deleted))
+			case _ = <-d.eventChan:
+				// fall through
 			case <-timeout:
 				timedOut = true
 			}

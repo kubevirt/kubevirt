@@ -375,13 +375,6 @@ func main() {
 	socketPath := cmdclient.SocketOnGuest()
 	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
 
-	// Set socket info file after starting server
-	err = cmdclient.SetSocketInfo(socketPath, *uid, *name, *namespace)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Unable to write server info file.")
-		panic(err)
-	}
-
 	gracefulShutdownCallback := func() {
 		err := wait.PollImmediate(time.Second, 15*time.Second, func() (bool, error) {
 			err := domainManager.MarkGracefulShutdownVMI(vm)

@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/client-go/precond"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -91,8 +92,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var err error
 	var shareDir string
+	var privateDir string
 	var vmiShareDir string
 	var podsDir string
+	var ghostCacheDir string
 	var vmiTestUUID types.UID
 	var podTestUUID types.UID
 	var stop chan struct{}
@@ -109,11 +112,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 		eventChan = make(chan watch.Event, 100)
 		shareDir, err = ioutil.TempDir("", "")
 		Expect(err).ToNot(HaveOccurred())
+		privateDir, err = ioutil.TempDir("", "")
+		Expect(err).ToNot(HaveOccurred())
 		podsDir, err = ioutil.TempDir("", "")
 		Expect(err).ToNot(HaveOccurred())
 		certDir, err = ioutil.TempDir("", "migrationproxytest")
 		Expect(err).ToNot(HaveOccurred())
 		vmiShareDir, err = ioutil.TempDir("", "")
+		Expect(err).ToNot(HaveOccurred())
+		ghostCacheDir, err = ioutil.TempDir("", "")
+		Expect(err).ToNot(HaveOccurred())
+
+		err = virtcache.InitializeGhostRecordCache(ghostCacheDir)
 		Expect(err).ToNot(HaveOccurred())
 
 		os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)
@@ -165,6 +175,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			host,
 			podIpAddress,
 			shareDir,
+			privateDir,
 			vmiSourceInformer,
 			vmiTargetInformer,
 			domainInformer,
@@ -215,9 +226,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 		close(stop)
 		ctrl.Finish()
 		os.RemoveAll(shareDir)
+		os.RemoveAll(privateDir)
 		os.RemoveAll(vmiShareDir)
 		os.RemoveAll(podsDir)
 		os.RemoveAll(certDir)
+		os.RemoveAll(ghostCacheDir)
 	})
 
 	initGracePeriodHelper := func(gracePeriod int64, vmi *v1.VirtualMachineInstance, dom *api.Domain) {
@@ -260,6 +273,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			legacyMockSockFile := filepath.Join(shareDir, "sockets", uid+"_sock")
 
 			controller.addLauncherClient(types.UID(uid), client, legacyMockSockFile, nil)
+			err := virtcache.AddGhostRecord(namespace, name, legacyMockSockFile, types.UID(uid))
+			Expect(err).ToNot(HaveOccurred())
+
 			os.MkdirAll(filepath.Dir(legacyMockSockFile), 0755)
 			os.MkdirAll(filepath.Join(shareDir, "watchdog-files"), 0755)
 			os.MkdirAll(filepath.Join(shareDir, "graceful-shutdown-trigger"), 0755)

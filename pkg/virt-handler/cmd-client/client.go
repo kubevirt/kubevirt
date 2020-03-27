@@ -54,7 +54,6 @@ import (
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 var (
@@ -75,12 +74,6 @@ type MigrationOptions struct {
 	CompletionTimeoutPerGiB int64
 	UnsafeMigration         bool
 	AllowAutoConverge       bool
-}
-
-type SocketInfo struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-	UID       string `json:"uid"`
 }
 
 type LauncherClient interface {
@@ -119,43 +112,6 @@ func SetLegacyBaseDir(baseDir string) {
 
 func SetPodsBaseDir(baseDir string) {
 	podsBaseDir = baseDir
-}
-
-func FindLastKnownUIDForKey(name string, namespace string) (string, error) {
-	socketFiles, err := ListAllSockets()
-	if err != nil {
-		return "", err
-	}
-
-	// Attempt to detect UID by traversing all known UIDs cached on the system
-	for _, socket := range socketFiles {
-		if SocketMonitoringEnabled(socket) {
-			info, err := GetSocketInfo(socket)
-			if err != nil {
-				continue
-			}
-			if info.Name == name && info.Namespace == namespace {
-				return info.UID, nil
-			}
-		}
-	}
-
-	// Fallback to legacy watchdog file detection.
-	// This works for old VMIs that haven't been updated
-	filePath := watchdog.WatchdogFileFromNamespaceName(legacyBaseDir, namespace, name)
-	watchdogExists, err := diskutils.FileExists(filePath)
-	if err != nil {
-		return "", err
-	}
-	if watchdogExists {
-		b, err := ioutil.ReadFile(filePath)
-		if err != nil {
-			return "", err
-		}
-
-		return string(b), nil
-	}
-	return "", nil
 }
 
 func ListAllSockets() ([]string, error) {
@@ -256,57 +212,6 @@ func MarkSocketUnresponsive(socket string) error {
 	}
 	f.Close()
 	return nil
-}
-
-// Sets metadata about socket that can out live the socket's
-// connectivity. This way we can match a socket with the correct
-// VM in the event that the virt-launcher cmd server dies
-func SetSocketInfo(socket string, uid string, name string, namespace string) error {
-	file := filepath.Join(filepath.Dir(socket), StandardLauncherInfoFileName)
-
-	socketInfo := &SocketInfo{
-		Name:      name,
-		Namespace: namespace,
-		UID:       uid,
-	}
-
-	fileBytes, err := json.Marshal(socketInfo)
-	if err != nil {
-		return err
-	}
-
-	f, err := os.Create(file)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = f.Write(fileBytes)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// Gets metadata about socket that can out live the socket's
-// connectivity. This way we can match a socket with the correct
-// VM in the event that the virt-launcher cmd server dies
-func GetSocketInfo(socket string) (*SocketInfo, error) {
-
-	infoFile := filepath.Join(filepath.Dir(socket), StandardLauncherInfoFileName)
-
-	fileBytes, err := ioutil.ReadFile(infoFile)
-	if err != nil {
-		return nil, err
-	}
-
-	socketInfo := &SocketInfo{}
-	err = json.Unmarshal(fileBytes, socketInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	return socketInfo, nil
 }
 
 func SocketDirectoryOnHost(podUID string) string {
