@@ -873,10 +873,7 @@ var _ = Describe("SRIOV", func() {
 
 func cidrToIP(cidr string) string {
 	ip, _, err := net.ParseCIDR(cidr)
-	if err != nil {
-		panic(err)
-	}
-
+	Expect(err).ToNot(HaveOccurred(), "Should be able to parse IP and prefix length from CIDR")
 	return ip.String()
 }
 
