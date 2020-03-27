@@ -258,7 +258,7 @@ var _ = Describe("Validating VM Admitter", func() {
 						{
 							Action: v1.RenameRequest,
 							Data: map[string]string{
-								"newName": "newName",
+								"newName": "new-name",
 							},
 						},
 					},
@@ -310,7 +310,7 @@ var _ = Describe("Validating VM Admitter", func() {
 						{
 							Action: v1.RenameRequest,
 							Data: map[string]string{
-								"newName": "newName",
+								"newName": "new-name",
 							},
 						},
 					},
@@ -325,20 +325,19 @@ var _ = Describe("Validating VM Admitter", func() {
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
-			It("should reject a running VM with rename request", func() {
-				vm.Spec.Running = &running
-
+			It("should reject a VM with invalid rename request", func() {
 				rawOldObject, err := json.Marshal(vm)
 				Expect(err).ToNot(HaveOccurred())
 
 				ar.Request.OldObject.Raw = rawOldObject
 
+				vm.Spec.Running = &notRunning
 				vm.Status = v1.VirtualMachineStatus{
 					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
 						{
 							Action: v1.RenameRequest,
 							Data: map[string]string{
-								"newName": "newName",
+								"newName": "invalid name <>?:;",
 							},
 						},
 					},
@@ -352,29 +351,32 @@ var _ = Describe("Validating VM Admitter", func() {
 				resp := vmsAdmitter.Admit(ar)
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-				Expect(resp.Result.Details.Causes[0].Field).
-					To(Equal("spec.running"))
+
+				cause := resp.Result.Details.Causes[0]
+				Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(cause.Field).To(Equal("status.stateChangeRequests"))
 			})
 
-			It("should reject a VM with an active runStrategy and rename request", func() {
+			It("should reject a running VM with rename request", func() {
+				vm.Spec.Running = &running
+
 				rawOldObject, err := json.Marshal(vm)
 				Expect(err).ToNot(HaveOccurred())
+
 				ar.Request.OldObject.Raw = rawOldObject
 
 				vm.Status = v1.VirtualMachineStatus{
+					Created: true,
 					StateChangeRequests: []v1.VirtualMachineStateChangeRequest{
 						{
 							Action: v1.RenameRequest,
 							Data: map[string]string{
-								"newName": "newName",
+								"newName": "new-name",
 							},
 						},
 					},
 				}
 
-				vm.Spec.Running = nil
-				runStrat := v1.RunStrategyManual
-				vm.Spec.RunStrategy = &runStrat
 				rawObject, err := json.Marshal(vm)
 				Expect(err).ToNot(HaveOccurred())
 
