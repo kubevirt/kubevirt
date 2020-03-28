@@ -42,6 +42,10 @@ fi
 if [ $# -eq 0 ]; then
     if [ "${target}" = "test" ]; then
         (
+            cd cmd/container-disk-v2alpha
+            go ${target} -v main_test.go container_disk_v2alpha_suite_test.go
+        )
+        (
             cd ${KUBEVIRT_DIR}/pkg
             go ${target} -v -race ./...
         )
@@ -75,6 +79,16 @@ if [ "${target}" = "install" ]; then
     rm -rf ${to_delete}
 fi
 
+if [ "${target}" = "install" ]; then
+    (
+        mkdir -p ${CMD_OUT_DIR}/container-disk-v2alpha
+        cd cmd/container-disk-v2alpha
+        # the containerdisk bianry needs to be static, as it runs in a scratch container
+        echo "building static binary container-disk"
+        gcc -static -o ${CMD_OUT_DIR}/container-disk-v2alpha/container-disk main.c
+    )
+fi
+
 for arg in $args; do
     if [ "${target}" = "test" ]; then
         (
@@ -93,14 +107,8 @@ for arg in $args; do
             # always build and link the linux/amd64 binary
             LINUX_NAME=${ARCH_BASENAME}-linux-amd64
 
-            # the containerdisk bianry needs to be static, as it runs in a scratch container
-            if [[ $BIN_NAME == *"container-disk"* ]]; then
-                echo "building static binary $BIN_NAME"
-                CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go_build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -tags netgo -ldflags "-extldflags '-static' $(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
-            else
-                echo "building dynamic binary $BIN_NAME"
-                GOOS=linux GOARCH=amd64 go_build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
-            fi
+            echo "building dynamic binary $BIN_NAME"
+            GOOS=linux GOARCH=amd64 go_build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
 
             (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${LINUX_NAME} ${BIN_NAME})
 

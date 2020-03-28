@@ -1,17 +1,27 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
-go_library(
-    name = "go_default_library",
-    srcs = ["main.go"],
-    importpath = "kubevirt.io/kubevirt/cmd/container-disk-v2alpha",
-    visibility = ["//visibility:private"],
-    deps = ["//staging/src/kubevirt.io/client-go/log:go_default_library"],
+cc_binary(
+    name = "container-disk",
+    srcs = ["main.c"],
+    linkopts = [
+        "-static",
+    ],
+    visibility = ["//visibility:public"],
 )
 
-go_binary(
-    name = "container-disk",
-    embed = [":go_default_library"],
-    pure = "on",
-    visibility = ["//visibility:public"],
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "container_disk_v2alpha_suite_test.go",
+        "main_test.go",
+    ],
+    args = [
+        "--container-disk-binary",
+        "$(location //cmd/container-disk-v2alpha:container-disk)",
+    ],
+    data = ["//cmd/container-disk-v2alpha:container-disk"],
+    deps = [
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
 )
