@@ -583,8 +583,18 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	// Consider hugepages resource for pod scheduling
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
-		resources.Requests[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
-		resources.Limits[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
+		hugepagesMemReq := vmi.Spec.Domain.Resources.Requests.Memory()
+
+		// If requested, use the guest memory to allocate hugepages
+		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+			requests := vmi.Spec.Domain.Resources.Requests.Memory().Value()
+			guest := vmi.Spec.Domain.Memory.Guest.Value()
+			if requests > guest {
+				hugepagesMemReq = vmi.Spec.Domain.Memory.Guest
+			}
+		}
+		resources.Requests[hugepageType] = *hugepagesMemReq
+		resources.Limits[hugepageType] = *hugepagesMemReq
 
 		// Configure hugepages mount on a pod
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
@@ -600,10 +610,29 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			},
 		})
 
+		reqMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
+		limMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
+		// In case the guest memory and the requested memeory are diffrent, add the difference
+		// to the to the overhead
+		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+			requests := vmi.Spec.Domain.Resources.Requests.Memory().Value()
+			limits := vmi.Spec.Domain.Resources.Limits.Memory().Value()
+			guest := vmi.Spec.Domain.Memory.Guest.Value()
+			if requests > guest {
+				reqMemDiff.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
+				reqMemDiff.Sub(*vmi.Spec.Domain.Memory.Guest)
+			}
+			if limits > guest {
+				limMemDiff.Add(*vmi.Spec.Domain.Resources.Limits.Memory())
+				limMemDiff.Sub(*vmi.Spec.Domain.Memory.Guest)
+			}
+		}
 		// Set requested memory equals to overhead memory
-		resources.Requests[k8sv1.ResourceMemory] = *memoryOverhead
+		reqMemDiff.Add(*memoryOverhead)
+		resources.Requests[k8sv1.ResourceMemory] = *reqMemDiff
 		if _, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-			resources.Limits[k8sv1.ResourceMemory] = *memoryOverhead
+			limMemDiff.Add(*memoryOverhead)
+			resources.Limits[k8sv1.ResourceMemory] = *limMemDiff
 		}
 	} else {
 		// Add overhead memory
