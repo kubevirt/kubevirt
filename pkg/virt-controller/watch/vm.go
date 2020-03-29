@@ -324,7 +324,7 @@ func (c *VMController) handleVMRenameRequest(vm *virtv1.VirtualMachine, newName 
 	newVM.Status.Conditions = []virtv1.VirtualMachineCondition{
 		{
 			Type:    virtv1.RenameConditionType,
-			Status:  "Success",
+			Status:  k8score.ConditionTrue,
 			Reason:  vm.Name,
 			Message: fmt.Sprintf("This VM was renamed, the old name was %s", vm.Name),
 		},
