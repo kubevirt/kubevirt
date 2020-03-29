@@ -35,9 +35,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotContentList":   schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentList(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotContentSpec":   schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentSpec(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotContentStatus": schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError":         schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotError(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotList":          schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotList(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotSource":        schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSource(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotSpec":          schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotStatus":        schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeBackup":                        schema_client_go_apis_snapshot_v1alpha1_VolumeBackup(ref),
 	}
 }
 
@@ -45,19 +48,19 @@ func schema_client_go_apis_snapshot_v1alpha1_SourceSpec(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "SourceSpec contains the specs of the resources being copied",
+				Description: "SourceSpec contains the appropriate spec for the resource being snapshotted",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"virtualMachineSpec": {
+					"virtualMachine": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/client-go/api/v1.VirtualMachineSpec"),
+							Ref: ref("kubevirt.io/client-go/api/v1.VirtualMachine"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.VirtualMachineSpec"},
+			"kubevirt.io/client-go/api/v1.VirtualMachine"},
 	}
 }
 
@@ -216,12 +219,24 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentSpec(r
 							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.SourceSpec"),
 						},
 					},
+					"volumeBackups": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeBackup"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"source"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/apis/snapshot/v1alpha1.SourceSpec"},
+			"kubevirt.io/client-go/apis/snapshot/v1alpha1.SourceSpec", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeBackup"},
 	}
 }
 
@@ -240,6 +255,37 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus
 					"readyToUse": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotError(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineSnapshotError is the last error encountered while creating the snapshot",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"time": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
 							Format: "",
 						},
 					},
@@ -298,6 +344,25 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotList(ref comm
 	}
 }
 
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineSnapshotSource is the source of a snapshot currently only supporting VirtualMachines, but may be addiional sources in the future like VirtualMachineInstances",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"virtualMachineName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -307,7 +372,13 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref comm
 				Properties: map[string]spec.Schema{
 					"source": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
+							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotSource"),
+						},
+					},
+					"time": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
@@ -315,7 +386,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref comm
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.TypedLocalObjectReference"},
+			"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotSource"},
 	}
 }
 
@@ -353,5 +424,38 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VolumeBackup(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeBackup contains the data neeed to restore a PVC",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"diskName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"persistentVolumeClaim": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/api/core/v1.PersistentVolumeClaim"),
+						},
+					},
+					"volumeSnapshotName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"diskName", "persistentVolumeClaim"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.PersistentVolumeClaim"},
 	}
 }

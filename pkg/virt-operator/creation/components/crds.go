@@ -258,7 +258,6 @@ func NewVirtualMachineSnapshotCrd() *extv1beta1.CustomResourceDefinition {
 			},
 		},
 		Scope: "Namespaced",
-
 		Names: extv1beta1.CustomResourceDefinitionNames{
 			Plural:     "virtualmachinesnapshots",
 			Singular:   "virtualmachinesnapshot",
@@ -267,6 +266,13 @@ func NewVirtualMachineSnapshotCrd() *extv1beta1.CustomResourceDefinition {
 			Categories: []string{
 				"all",
 			},
+		},
+		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
+			{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
+			{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
+			{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
+			{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
+			{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
 		},
 	}
 
@@ -288,7 +294,6 @@ func NewVirtualMachineSnapshotContentCrd() *extv1beta1.CustomResourceDefinition 
 			},
 		},
 		Scope: "Namespaced",
-
 		Names: extv1beta1.CustomResourceDefinitionNames{
 			Plural:     "virtualmachinesnapshotcontents",
 			Singular:   "virtualmachinesnapshotcontent",
@@ -297,6 +302,11 @@ func NewVirtualMachineSnapshotContentCrd() *extv1beta1.CustomResourceDefinition 
 			Categories: []string{
 				"all",
 			},
+		},
+		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
+			{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
+			{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
+			{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
 		},
 	}
 

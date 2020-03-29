@@ -20,26 +20,123 @@
 package admitters
 
 import (
-	"k8s.io/api/admission/v1beta1"
+	"encoding/json"
+	"fmt"
+	"reflect"
 
+	"k8s.io/api/admission/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+
+	vmsnapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
+// VMSnapshotAdmitter validates VirtualMachineSnapshots
 type VMSnapshotAdmitter struct {
-	ClusterConfig *virtconfig.ClusterConfig
-	Client        kubecli.KubevirtClient
+	Client kubecli.KubevirtClient
 }
 
-func NewVMSnapshotAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) *VMSnapshotAdmitter {
+// NewVMSnapshotAdmitter creates a VMSnapshotAdmitter
+func NewVMSnapshotAdmitter(client kubecli.KubevirtClient) *VMSnapshotAdmitter {
 	return &VMSnapshotAdmitter{
-		ClusterConfig: clusterConfig,
-		Client:        client,
+		Client: client,
 	}
 }
 
+// Admit validates an AdmissionReview
 func (admitter *VMSnapshotAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	reviewResponse := v1beta1.AdmissionResponse{}
-	reviewResponse.Allowed = true
+	if ar.Request.Resource.Group != vmsnapshotv1alpha1.SchemeGroupVersion.Group ||
+		ar.Request.Resource.Resource != "virtualmachinesnapshots" {
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Unexpected Resource %+v", ar.Request.Resource))
+	}
+
+	vmSnapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{}
+	// TODO ideally use UniversalDeserializer here
+	err := json.Unmarshal(ar.Request.Object.Raw, vmSnapshot)
+	if err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	var causes []metav1.StatusCause
+
+	switch ar.Request.Operation {
+	case v1beta1.Create:
+		sourceField := k8sfield.NewPath("spec", "source")
+
+		switch {
+		case vmSnapshot.Spec.Source.VirtualMachineName != nil:
+			causes, err = admitter.validateCreateVM(sourceField.Child("virtualMachineName"), ar.Request.Namespace, *vmSnapshot.Spec.Source.VirtualMachineName)
+			if err != nil {
+				return webhookutils.ToAdmissionResponseError(err)
+			}
+		default:
+			causes = []metav1.StatusCause{
+				{
+					Type:    metav1.CauseTypeFieldValueNotFound,
+					Message: "missing source name",
+					Field:   sourceField.String(),
+				},
+			}
+		}
+	case v1beta1.Update:
+		prevObj := &vmsnapshotv1alpha1.VirtualMachineSnapshot{}
+		err = json.Unmarshal(ar.Request.OldObject.Raw, prevObj)
+		if err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
+
+		if !reflect.DeepEqual(prevObj.Spec, vmSnapshot.Spec) {
+			causes = []metav1.StatusCause{
+				{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "spec in immutable after creation",
+					Field:   k8sfield.NewPath("spec").String(),
+				},
+			}
+		}
+	default:
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected operation %s", ar.Request.Operation))
+	}
+
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	reviewResponse := v1beta1.AdmissionResponse{
+		Allowed: true,
+	}
 	return &reviewResponse
+}
+
+func (admitter *VMSnapshotAdmitter) validateCreateVM(field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
+	vm, err := admitter.Client.VirtualMachine(namespace).Get(name, &metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("VirtualMachine %q does not exist", name),
+				Field:   field.String(),
+			},
+		}, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	var causes []metav1.StatusCause
+
+	if vm.Spec.Running != nil && *vm.Spec.Running {
+		cause := metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("VirtualMachine %q is running", name),
+			Field:   field.String(),
+		}
+		causes = append(causes, cause)
+	}
+
+	return causes, nil
 }

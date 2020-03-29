@@ -24,7 +24,6 @@ import (
 	"time"
 
 	k8ssnapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -50,6 +49,8 @@ type SnapshotController struct {
 
 	volumeSnapshotInformer      cache.SharedIndexInformer
 	volumeSnapshotClassInformer cache.SharedIndexInformer
+	storageClassInformer        cache.SharedIndexInformer
+	pvcInformer                 cache.SharedIndexInformer
 
 	recorder record.EventRecorder
 
@@ -64,6 +65,8 @@ func NewSnapshotController(
 	vmInformer cache.SharedIndexInformer,
 	volumeSnapshotInformer cache.SharedIndexInformer,
 	volumeSnapshotClassInformer cache.SharedIndexInformer,
+	storageClassInformer cache.SharedIndexInformer,
+	pvcInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	resyncPeriod time.Duration,
 ) *SnapshotController {
@@ -76,6 +79,8 @@ func NewSnapshotController(
 		vmSnapshotContentInformer:   vmSnapshotContentInformer,
 		volumeSnapshotInformer:      volumeSnapshotInformer,
 		volumeSnapshotClassInformer: volumeSnapshotClassInformer,
+		storageClassInformer:        storageClassInformer,
+		pvcInformer:                 pvcInformer,
 		vmInformer:                  vmInformer,
 		recorder:                    recorder,
 		resyncPeriod:                resyncPeriod,
@@ -83,7 +88,7 @@ func NewSnapshotController(
 
 	vmSnapshotInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { ctrl.handleVMSnapshot(obj) },
+			AddFunc:    ctrl.handleVMSnapshot,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMSnapshot(newObj) },
 		},
 		ctrl.resyncPeriod,
@@ -91,7 +96,7 @@ func NewSnapshotController(
 
 	vmSnapshotContentInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { ctrl.handleVMSnapshotContent(obj) },
+			AddFunc:    ctrl.handleVMSnapshotContent,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMSnapshotContent(newObj) },
 		},
 		ctrl.resyncPeriod,
@@ -99,7 +104,7 @@ func NewSnapshotController(
 
 	vmInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { ctrl.handleVM(obj) },
+			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
 		},
 		ctrl.resyncPeriod,
@@ -107,8 +112,9 @@ func NewSnapshotController(
 
 	volumeSnapshotInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { ctrl.handleVolumeSnapshot(obj) },
+			AddFunc:    ctrl.handleVolumeSnapshot,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVolumeSnapshot(newObj) },
+			DeleteFunc: ctrl.handleVolumeSnapshot,
 		},
 		ctrl.resyncPeriod,
 	)
@@ -130,6 +136,9 @@ func (ctrl *SnapshotController) Run(threadiness int, stopCh <-chan struct{}) err
 		ctrl.vmSnapshotInformer.HasSynced,
 		ctrl.vmSnapshotContentInformer.HasSynced,
 		ctrl.vmInformer.HasSynced,
+		ctrl.volumeSnapshotInformer.HasSynced,
+		ctrl.volumeSnapshotClassInformer.HasSynced,
+		ctrl.storageClassInformer.HasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
@@ -250,7 +259,7 @@ func (ctrl *SnapshotController) handleVMSnapshot(obj interface{}) {
 			return
 		}
 		log.Log.V(3).Infof("enqueued %q for sync", objName)
-		ctrl.vmSnapshotQueue.AddRateLimited(objName)
+		ctrl.vmSnapshotQueue.Add(objName)
 	}
 }
 
@@ -269,11 +278,11 @@ func (ctrl *SnapshotController) handleVMSnapshotContent(obj interface{}) {
 		if content.Spec.VirtualMachineSnapshotName != nil {
 			k := cacheKeyFunc(content.Namespace, *content.Spec.VirtualMachineSnapshotName)
 			log.Log.V(5).Infof("enqueued vmsnapshot %q for sync", k)
-			ctrl.vmSnapshotQueue.AddRateLimited(k)
+			ctrl.vmSnapshotQueue.Add(k)
 		}
 
 		log.Log.V(5).Infof("enqueued %q for sync", objName)
-		ctrl.vmSnapshotContentQueue.AddRateLimited(objName)
+		ctrl.vmSnapshotContentQueue.Add(objName)
 	}
 }
 
@@ -290,7 +299,7 @@ func (ctrl *SnapshotController) handleVM(obj interface{}) {
 		}
 
 		for _, k := range keys {
-			ctrl.vmSnapshotQueue.AddRateLimited(k)
+			ctrl.vmSnapshotQueue.Add(k)
 		}
 	}
 }
@@ -301,13 +310,14 @@ func (ctrl *SnapshotController) handleVolumeSnapshot(obj interface{}) {
 	}
 
 	if volumeSnapshot, ok := obj.(*k8ssnapshotv1beta1.VolumeSnapshot); ok {
-		if owner := metav1.GetControllerOf(volumeSnapshot); owner != nil {
-			if owner.Kind != "VirtualMachineSnapshotContent" {
-				return
-			}
+		keys, err := ctrl.vmSnapshotContentInformer.GetIndexer().IndexKeys("volumeSnapshot", volumeSnapshot.Name)
+		if err != nil {
+			utilruntime.HandleError(err)
+			return
+		}
 
-			k := cacheKeyFunc(volumeSnapshot.Namespace, owner.Name)
-			ctrl.vmSnapshotContentQueue.AddRateLimited(k)
+		for _, k := range keys {
+			ctrl.vmSnapshotContentQueue.Add(k)
 		}
 	}
 }

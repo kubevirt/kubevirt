@@ -133,6 +133,7 @@ type VirtControllerApp struct {
 	vmSnapshotContentInformer   cache.SharedIndexInformer
 	volumeSnapshotInformer      cache.SharedIndexInformer
 	volumeSnapshotClassInformer cache.SharedIndexInformer
+	storageClassInformer        cache.SharedIndexInformer
 
 	LeaderElection leaderelectionconfig.Configuration
 
@@ -243,6 +244,7 @@ func Execute() {
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
 	app.volumeSnapshotInformer = app.informerFactory.VolumeSnapshot()
 	app.volumeSnapshotClassInformer = app.informerFactory.VolumeSnapshotClass()
+	app.storageClassInformer = app.informerFactory.StorageClass()
 
 	if app.hasCDI {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
@@ -451,6 +453,8 @@ func (vca *VirtControllerApp) initSnapshotController() {
 		vca.vmInformer,
 		vca.volumeSnapshotInformer,
 		vca.volumeSnapshotClassInformer,
+		vca.storageClassInformer,
+		vca.persistentVolumeClaimInformer,
 		recorder,
 		vca.snapshotControllerResyncPeriod,
 	)

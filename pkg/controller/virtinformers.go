@@ -35,6 +35,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -197,7 +198,10 @@ type KubeInformerFactory interface {
 	// PVC snapshots created by snapshot controller
 	VolumeSnapshot() cache.SharedIndexInformer
 
-	// PVC snapshots created by snapshot controller
+	// PVC StorageClasses
+	StorageClass() cache.SharedIndexInformer
+
+	// VolumeSnapshot classes
 	VolumeSnapshotClass() cache.SharedIndexInformer
 
 	K8SInformerFactory() informers.SharedInformerFactory
@@ -352,8 +356,8 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 				if !ok {
 					return nil, fmt.Errorf("unexpected object")
 				}
-				if vms.Spec.Source.Kind == "VirtualMachine" {
-					return []string{vms.Spec.Source.Name}, nil
+				if vms.Spec.Source.VirtualMachineName != nil {
+					return []string{*vms.Spec.Source.VirtualMachineName}, nil
 				}
 				return nil, nil
 			},
@@ -364,7 +368,21 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 func (f *kubeInformerFactory) VirtualMachineSnapshotContent() cache.SharedIndexInformer {
 	return f.getInformer("vmSnapshotContentInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1alpha1().RESTClient(), "virtualmachinesnapshotcontents", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &snapshotv1alpha1.VirtualMachineSnapshotContent{}, f.defaultResync, cache.Indexers{})
+		return cache.NewSharedIndexInformer(lw, &snapshotv1alpha1.VirtualMachineSnapshotContent{}, f.defaultResync, cache.Indexers{
+			"volumeSnapshot": func(obj interface{}) ([]string, error) {
+				vmsc, ok := obj.(*snapshotv1alpha1.VirtualMachineSnapshotContent)
+				if !ok {
+					return nil, fmt.Errorf("unexpected object")
+				}
+				var volumeSnapshots []string
+				for _, v := range vmsc.Spec.VolumeBackups {
+					if v.VolumeSnapshotName != nil {
+						volumeSnapshots = append(volumeSnapshots, *v.VolumeSnapshotName)
+					}
+				}
+				return volumeSnapshots, nil
+			},
+		})
 	})
 }
 
@@ -745,5 +763,13 @@ func (f *kubeInformerFactory) VolumeSnapshotClass() cache.SharedIndexInformer {
 		restClient := f.clientSet.KubernetesSnapshotClient().SnapshotV1beta1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "volumesnapshotclasses", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8ssnapshotv1beta1.VolumeSnapshotClass{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) StorageClass() cache.SharedIndexInformer {
+	return f.getInformer("storageClassInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.StorageV1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "storageclasses", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &storagev1.StorageClass{}, f.defaultResync, cache.Indexers{})
 	})
 }

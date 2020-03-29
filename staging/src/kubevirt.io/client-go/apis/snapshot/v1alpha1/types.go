@@ -27,10 +27,8 @@ import (
 )
 
 // VirtualMachineSnapshot defines the operation of snapshotting a VM
-// ---
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 type VirtualMachineSnapshot struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -41,25 +39,37 @@ type VirtualMachineSnapshot struct {
 	Status *VirtualMachineSnapshotStatus `json:"status,omitempty"`
 }
 
+// DeletionPolicy defines that to do with VirtualMachineSnapshot
+// when VirtualMachineSnapshot is deleted
+type DeletionPolicy string
+
+const (
+	// VirtualMachineSnapshotContentDelete is the default and causes the
+	// VirtualMachineSnapshotContent to be deleted
+	VirtualMachineSnapshotContentDelete DeletionPolicy = "Delete"
+
+	// VirtualMachineSnapshotContentRetain is the default and causes the
+	// VirtualMachineSnapshotContent to stay around
+	VirtualMachineSnapshotContentRetain DeletionPolicy = "Retain"
+)
+
 // VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource
-// ---
-// +k8s:openapi-gen=true
 type VirtualMachineSnapshotSpec struct {
-	Source corev1.TypedLocalObjectReference `json:"source"`
+	Source VirtualMachineSnapshotSource `json:"source"`
+
+	// +optional
+	DeletionPolicy *DeletionPolicy `json:"time,omitempty"`
 }
 
-// VirtualMachineSnapshotError is the last error encountered while creating the snapshot
-type VirtualMachineSnapshotError struct {
+// VirtualMachineSnapshotSource is the source of a snapshot
+// currently only supporting VirtualMachines, but may be addiional sources
+// in the future like VirtualMachineInstances
+type VirtualMachineSnapshotSource struct {
 	// +optional
-	Time *metav1.Time `json:"time,omitempty"`
-
-	// +optional
-	Message *string `json:"message,omitempty"`
+	VirtualMachineName *string `json:"virtualMachineName,omitempty"`
 }
 
 // VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource
-// ---
-// +k8s:openapi-gen=true
 type VirtualMachineSnapshotStatus struct {
 	// +optional
 	VirtualMachineSnapshotContentName *string `json:"virtualMachineSnapshotContentName,omitempty"`
@@ -74,10 +84,17 @@ type VirtualMachineSnapshotStatus struct {
 	Error *VirtualMachineSnapshotError `json:"error,omitempty"`
 }
 
+// VirtualMachineSnapshotError is the last error encountered while creating the snapshot
+type VirtualMachineSnapshotError struct {
+	// +optional
+	Time *metav1.Time `json:"time,omitempty"`
+
+	// +optional
+	Message *string `json:"message,omitempty"`
+}
+
 // VirtualMachineSnapshotList is a list of VirtualMachineSnapshot resources
-// ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 type VirtualMachineSnapshotList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
@@ -86,10 +103,8 @@ type VirtualMachineSnapshotList struct {
 }
 
 // VirtualMachineSnapshotContent contains the snapshot data
-// ---
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 type VirtualMachineSnapshotContent struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -101,37 +116,45 @@ type VirtualMachineSnapshotContent struct {
 }
 
 // VirtualMachineSnapshotContentSpec is the spec for a VirtualMachineSnapshotContent resource
-// ---
-// +k8s:openapi-gen=true
 type VirtualMachineSnapshotContentSpec struct {
 	VirtualMachineSnapshotName *string `json:"virtualMachineSnapshotName,omitempty"`
 
 	Source SourceSpec `json:"source"`
+
+	// +optional
+	VolumeBackups []VolumeBackup `json:"volumeBackups,omitempty"`
 }
 
-// SourceSpec contains the specs of the resources being copied
-// ---
-// +k8s:openapi-gen=true
+// SourceSpec contains the appropriate spec for the resource being snapshotted
 type SourceSpec struct {
 	// +optional
-	VirtualMachineSpec *v1.VirtualMachineSpec `json:"virtualMachineSpec,omitempty"`
+	VirtualMachine *v1.VirtualMachine `json:"virtualMachine,omitempty"`
+}
+
+// VolumeBackup contains the data neeed to restore a PVC
+type VolumeBackup struct {
+	DiskName string `json:"diskName"`
+
+	PersistentVolumeClaim corev1.PersistentVolumeClaim `json:"persistentVolumeClaim"`
+
+	// +optional
+	VolumeSnapshotName *string `json:"volumeSnapshotName,omitempty"`
 }
 
 // VirtualMachineSnapshotContentStatus is the status for a VirtualMachineSnapshotStatus resource
-// ---
-// +k8s:openapi-gen=true
 type VirtualMachineSnapshotContentStatus struct {
 	// +optional
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
 
 	// +optional
 	ReadyToUse *bool `json:"readyToUse,omitempty"`
+
+	// +optional
+	Error *VirtualMachineSnapshotError `json:"error,omitempty"`
 }
 
 // VirtualMachineSnapshotContentList is a list of VirtualMachineSnapshot resources
-// ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:openapi-gen=true
 type VirtualMachineSnapshotContentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

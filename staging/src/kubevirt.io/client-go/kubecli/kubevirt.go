@@ -32,17 +32,16 @@ import (
 	autov1 "k8s.io/api/autoscaling/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	snapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
 	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
 	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
+	vmsnapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
 	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
 )
@@ -54,8 +53,8 @@ type KubevirtClient interface {
 	VirtualMachine(namespace string) VirtualMachineInterface
 	KubeVirt(namespace string) KubeVirtInterface
 	VirtualMachineInstancePreset(namespace string) VirtualMachineInstancePresetInterface
-	VirtualMachineSnapshot(namespace string) VirtualMachineSnapshotInterface
-	VirtualMachineSnapshotContent(namespace string) VirtualMachineSnapshotContentInterface
+	VirtualMachineSnapshot(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotInterface
+	VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface
 	ServerVersion() *ServerVersion
 	RestClient() *rest.RESTClient
 	GeneratedKubeVirtClient() generatedclient.Interface
@@ -122,11 +121,11 @@ func (k kubevirt) GeneratedKubeVirtClient() generatedclient.Interface {
 	return k.generatedKubeVirtClient
 }
 
-func (k kubevirt) VirtualMachineSnapshot(namespace string) VirtualMachineSnapshotInterface {
+func (k kubevirt) VirtualMachineSnapshot(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotInterface {
 	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineSnapshots(namespace)
 }
 
-func (k kubevirt) VirtualMachineSnapshotContent(namespace string) VirtualMachineSnapshotContentInterface {
+func (k kubevirt) VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface {
 	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineSnapshotContents(namespace)
 }
 
@@ -212,22 +211,4 @@ type KubeVirtInterface interface {
 	Update(*v1.KubeVirt) (*v1.KubeVirt, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.KubeVirt, err error)
-}
-
-type VirtualMachineSnapshotInterface interface {
-	Get(name string, options metav1.GetOptions) (*snapshotv1alpha1.VirtualMachineSnapshot, error)
-	List(opts metav1.ListOptions) (*snapshotv1alpha1.VirtualMachineSnapshotList, error)
-	Create(*snapshotv1alpha1.VirtualMachineSnapshot) (*snapshotv1alpha1.VirtualMachineSnapshot, error)
-	Update(*snapshotv1alpha1.VirtualMachineSnapshot) (*snapshotv1alpha1.VirtualMachineSnapshot, error)
-	Delete(name string, options *metav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *snapshotv1alpha1.VirtualMachineSnapshot, err error)
-}
-
-type VirtualMachineSnapshotContentInterface interface {
-	Get(name string, options metav1.GetOptions) (*snapshotv1alpha1.VirtualMachineSnapshotContent, error)
-	List(opts metav1.ListOptions) (*snapshotv1alpha1.VirtualMachineSnapshotContentList, error)
-	Create(*snapshotv1alpha1.VirtualMachineSnapshotContent) (*snapshotv1alpha1.VirtualMachineSnapshotContent, error)
-	Update(*snapshotv1alpha1.VirtualMachineSnapshotContent) (*snapshotv1alpha1.VirtualMachineSnapshotContent, error)
-	Delete(name string, options *metav1.DeleteOptions) error
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *snapshotv1alpha1.VirtualMachineSnapshotContent, err error)
 }

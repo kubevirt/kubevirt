@@ -4,22 +4,22 @@ package v1alpha1
 
 func (VirtualMachineSnapshot) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "VirtualMachineSnapshot defines the operation of snapshotting a VM",
+		"":       "VirtualMachineSnapshot defines the operation of snapshotting a VM\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 		"status": "+optional",
 	}
 }
 
 func (VirtualMachineSnapshotSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource",
+		"":     "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource",
+		"time": "+optional",
 	}
 }
 
-func (VirtualMachineSnapshotError) SwaggerDoc() map[string]string {
+func (VirtualMachineSnapshotSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "VirtualMachineSnapshotError is the last error encountered while creating the snapshot",
-		"time":    "+optional",
-		"message": "+optional",
+		"":                   "VirtualMachineSnapshotSource is the source of a snapshot\ncurrently only supporting VirtualMachines, but may be addiional sources\nin the future like VirtualMachineInstances",
+		"virtualMachineName": "+optional",
 	}
 }
 
@@ -33,29 +33,45 @@ func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineSnapshotError) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":        "VirtualMachineSnapshotError is the last error encountered while creating the snapshot",
+		"time":    "+optional",
+		"message": "+optional",
+	}
+}
+
 func (VirtualMachineSnapshotList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineSnapshotList is a list of VirtualMachineSnapshot resources",
+		"": "VirtualMachineSnapshotList is a list of VirtualMachineSnapshot resources\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 	}
 }
 
 func (VirtualMachineSnapshotContent) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "VirtualMachineSnapshotContent contains the snapshot data",
+		"":       "VirtualMachineSnapshotContent contains the snapshot data\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 		"status": "+optional",
 	}
 }
 
 func (VirtualMachineSnapshotContentSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineSnapshotContentSpec is the spec for a VirtualMachineSnapshotContent resource",
+		"":              "VirtualMachineSnapshotContentSpec is the spec for a VirtualMachineSnapshotContent resource",
+		"volumeBackups": "+optional",
 	}
 }
 
 func (SourceSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                   "SourceSpec contains the specs of the resources being copied",
-		"virtualMachineSpec": "+optional",
+		"":               "SourceSpec contains the appropriate spec for the resource being snapshotted",
+		"virtualMachine": "+optional",
+	}
+}
+
+func (VolumeBackup) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                   "VolumeBackup contains the data neeed to restore a PVC",
+		"volumeSnapshotName": "+optional",
 	}
 }
 
@@ -64,11 +80,12 @@ func (VirtualMachineSnapshotContentStatus) SwaggerDoc() map[string]string {
 		"":             "VirtualMachineSnapshotContentStatus is the status for a VirtualMachineSnapshotStatus resource",
 		"creationTime": "+optional",
 		"readyToUse":   "+optional",
+		"error":        "+optional",
 	}
 }
 
 func (VirtualMachineSnapshotContentList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineSnapshotContentList is a list of VirtualMachineSnapshot resources",
+		"": "VirtualMachineSnapshotContentList is a list of VirtualMachineSnapshot resources\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 	}
 }
