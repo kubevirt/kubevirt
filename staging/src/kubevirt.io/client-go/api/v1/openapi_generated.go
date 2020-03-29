@@ -1588,7 +1588,7 @@ func schema_kubevirtio_client_go_api_v1_Interface(ref common.ReferenceCallback) 
 					},
 					"model": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Interface model. One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio. Defaults to virtio.",
+							Description: "Interface model. One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio, virtio_transitional. Defaults to virtio.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

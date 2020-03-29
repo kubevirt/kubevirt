@@ -624,6 +624,7 @@ func getInterfaceType(iface *v1.Interface) string {
 	if iface.Model != "" {
 		return iface.Model
 	}
+	// TODO(dmellado) Handle interface for virtio_transitional
 	return "virtio"
 }
 

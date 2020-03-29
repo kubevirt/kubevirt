@@ -942,7 +942,7 @@ type Interface struct {
 	// Must match the Name of a Network.
 	Name string `json:"name"`
 	// Interface model.
-	// One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
+	// One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio, virtio_transitional.
 	// Defaults to virtio.
 	// TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
 	Model string `json:"model,omitempty"`

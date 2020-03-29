@@ -5223,7 +5223,7 @@
       "$ref": "#/definitions/v1.InterfaceMasquerade"
      },
      "model": {
-      "description": "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
+      "description": "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio, virtio_transitional.\nDefaults to virtio.",
       "type": "string"
      },
      "name": {

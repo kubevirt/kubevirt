@@ -60,7 +60,7 @@ const (
 	maxDNSSearchListChars = 256
 )
 
-var validInterfaceModels = map[string]*struct{}{"e1000": nil, "e1000e": nil, "ne2k_pci": nil, "pcnet": nil, "rtl8139": nil, "virtio": nil}
+var validInterfaceModels = map[string]*struct{}{"e1000": nil, "e1000e": nil, "ne2k_pci": nil, "pcnet": nil, "rtl8139": nil, "virtio": nil, "virtio_transitional": nil}
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
 
