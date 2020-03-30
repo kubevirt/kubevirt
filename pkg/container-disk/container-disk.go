@@ -42,6 +42,10 @@ var podsBaseDir = "/var/lib/kubelet/pods"
 
 var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
+func GenerateLegacyVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) string {
+	return filepath.Join(mountBaseDir, string(vmi.UID))
+}
+
 func GenerateVolumeMountDirOnGuest(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(mountBaseDir, string(vmi.UID))
 }

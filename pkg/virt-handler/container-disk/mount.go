@@ -210,9 +210,50 @@ func (m *Mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 	return nil
 }
 
+// Legacy Unmount unmounts all container disks of a given VMI when the hold HostPath method was in use.
+// This exists for backwards compatibility for VMIs running before a KubeVirt update occurs.
+func (m *Mounter) legacyUnmount(vmi *v1.VirtualMachineInstance) error {
+	mountDir := containerdisk.GenerateLegacyVolumeMountDirOnHost(vmi)
+
+	files, err := ioutil.ReadDir(mountDir)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to list container disk mounts: %v", err)
+	}
+
+	if vmi.UID != "" {
+		for _, file := range files {
+			path := filepath.Join(mountDir, file.Name())
+			if strings.HasSuffix(path, ".sock") {
+				continue
+			}
+			if mounted, err := isolation.NodeIsolationResult().IsMounted(path); err != nil {
+				return fmt.Errorf("failed to check mount point for containerDisk %v: %v", path, err)
+			} else if mounted {
+				out, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "umount", path).CombinedOutput()
+				if err != nil {
+					return fmt.Errorf("failed to unmount containerDisk %v: %v : %v", path, string(out), err)
+				}
+			}
+		}
+
+		if err := os.RemoveAll(mountDir); err != nil {
+			return fmt.Errorf("failed to remove containerDisk files: %v", err)
+		}
+	}
+	return nil
+}
+
 // Unmount unmounts all container disks of a given VMI.
 func (m *Mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 	if vmi.UID != "" {
+
+		// this will catch unmounting a vmi's container disk when
+		// an old VMI is left over after a KubeVirt update
+		err := m.legacyUnmount(vmi)
+		if err != nil {
+			return err
+		}
+
 		record, err := m.getMountTargetRecord(vmi)
 		if err != nil {
 			return err
