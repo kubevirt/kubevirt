@@ -173,6 +173,37 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Subdomain).To(BeEmpty())
 			})
 		})
+		Context("with SELinux types", func() {
+			It("should run under the SELinux type container_t if none specified", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{}},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				if pod.Spec.SecurityContext != nil && pod.Spec.SecurityContext.SELinuxOptions != nil {
+					Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(""))
+				}
+			})
+			It("should run under the corresponding SELinux type if specified", func() {
+				testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
+					Data: map[string]string{virtconfig.SELinuxLauncherTypeKey: "spc_t"},
+				})
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{}},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.SecurityContext).ToNot(BeNil())
+				Expect(pod.Spec.SecurityContext.SELinuxOptions).ToNot(BeNil())
+				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal("spc_t"))
+			})
+		})
 		Context("with debug log annotation", func() {
 			It("should add the corresponding environment variable", func() {
 				vmi := v1.VirtualMachineInstance{

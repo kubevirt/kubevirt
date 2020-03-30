@@ -112,7 +112,7 @@ var _ = Describe("SecurityFeatures", func() {
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			})
 
-			It("[test_id:2953]Ensure virt-launcher pod securityContext type is virt_launcher.process", func() {
+			It("[test_id:2953]Ensure virt-launcher pod securityContext type is not forced", func() {
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -121,7 +121,7 @@ var _ = Describe("SecurityFeatures", func() {
 
 				By("Check virt-launcher pod SecurityContext values")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-				Expect(vmiPod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal("virt_launcher.process"))
+				Expect(vmiPod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(""))
 			})
 
 			It("[test_id:2895]Make sure the virt-launcher pod is not priviledged", func() {
