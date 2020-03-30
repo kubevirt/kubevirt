@@ -84,9 +84,10 @@ WORKDIR /tmp/kubevirt
 COPY . .
 
 # write poor mans replacement of PULL_PULL_SHA to output folder
+# use the second parent sha of the last merge commit (relying on --no-ff from clonerefs)
 RUN \
-    echo ${BUILD} | jq '.metadata.annotations' | jq -r '.["ci.openshift.io/job-spec"]' | jq -r '.refs.pulls[0].sha') \
-        > _out/PULL_PULL_SHA
+    mkdir -p _out/ && \
+    git --no-pager show $(git --no-pager log -1 --merges --format=%H) --format=%P | tr -d '\n' | cut -d ' ' -f 2 > _out/PULL_PULL_SHA
 
 RUN \
     export PULL_PULL_SHA=$(cat _out/PULL_PULL_SHA) && \
