@@ -93,6 +93,11 @@ volumes="-v ${BUILDER}:/root:rw,z"
 mkdir -p "${HOME}/.docker"
 volumes="$volumes -v ${HOME}/.docker:/root/.docker:ro,z"
 
+# add custom docker certs, if needed
+if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
+    volumes="$volumes -v ${DOCKER_CA_CERT_FILE}:${DOCKERIZED_CUSTOM_CA_PATH}:ro,z"
+fi
+
 # Ensure that a bazel server which is running is the correct one
 if [ -n "$(docker ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
     # check if the image is correct
@@ -107,6 +112,11 @@ fi
 # Ensure that a bazel server is running
 if [ -z "$(docker ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
     docker run --network host -d ${volumes} --security-opt label:disable --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${KUBEVIRT_BUILDER_IMAGE} hack/bazel-server.sh
+fi
+
+# Update cert trust, if custom is provided
+if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
+    docker exec ${BUILDER}-bazel-server /entrypoint.sh "/usr/bin/update-ca-trust"
 fi
 
 # Run the command

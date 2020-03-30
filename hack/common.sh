@@ -61,3 +61,10 @@ KUBEVIRT_VERSION="$(kubevirt_version)"
 function go_build() {
     GOPROXY=off GOFLAGS=-mod=vendor go build "$@"
 }
+
+# Use this environment variable to set a local path to a custom CA certificate for
+# a private HTTPS docker registry. The intention is that this will be merged with the trust
+# store in the build environment.
+
+DOCKER_CA_CERT_FILE="${DOCKER_CA_CERT_FILE:-}"
+DOCKERIZED_CUSTOM_CA_PATH="/etc/pki/ca-trust/source/anchors/custom-ca.crt"
