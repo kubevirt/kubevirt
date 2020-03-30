@@ -68,9 +68,3 @@ function go_build() {
 
 DOCKER_CA_CERT_FILE="${DOCKER_CA_CERT_FILE:-}"
 DOCKERIZED_CUSTOM_CA_PATH="/etc/pki/ca-trust/source/anchors/custom-ca.crt"
-
-function check_update_trust() {
-    if [ -f "$DOCKERIZED_CUSTOM_CA_PATH" ]; then
-        /usr/bin/update-ca-trust
-    fi
-}

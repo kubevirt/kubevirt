@@ -26,8 +26,6 @@ rm -rf ${CMD_OUT_DIR}
 mkdir -p ${CMD_OUT_DIR}/virtctl
 mkdir -p ${CMD_OUT_DIR}/dump
 
-check_update_trust
-
 # Build all binaries for amd64
 bazel build \
     --config=${ARCHITECTURE} \
