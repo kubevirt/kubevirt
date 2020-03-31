@@ -64,6 +64,8 @@ var _ = Describe("Storage", func() {
 	Describe("Starting a VirtualMachineInstance", func() {
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
 			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc) {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := newVMI(tests.DiskAlpineHostPath)
 				tests.RunVMIAndExpectLaunch(vmi, 90)
@@ -78,6 +80,8 @@ var _ = Describe("Storage", func() {
 			)
 
 			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+
 				vmi := newVMI(tests.DiskAlpineHostPath)
 
 				num := 3
@@ -201,6 +205,8 @@ var _ = Describe("Storage", func() {
 			})
 
 			It("[test_id:3136]should be successfully started", func() {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 				if isRunOnKindInfra {
@@ -215,6 +221,8 @@ var _ = Describe("Storage", func() {
 			})
 
 			It("[test_id:3137]should not persist data", func() {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+
 				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 
 				By("Starting the VirtualMachineInstance")
@@ -279,6 +287,8 @@ var _ = Describe("Storage", func() {
 			}, 120)
 
 			It("[test_id:3138]should start vmi multiple times", func() {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+
 				vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
 				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
 
@@ -588,6 +598,7 @@ var _ = Describe("Storage", func() {
 			})
 
 			It("[test_id:1015] should be successfully started", func() {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
 				// Without userdata the hostname isn't set correctly and the login expecter fails...
