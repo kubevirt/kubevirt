@@ -2343,10 +2343,10 @@ var _ = Describe("Configurations", func() {
 				Expect(err.Error()).To(ContainSubstring(errMsg))
 			}
 		},
-			table.Entry("Should be accepted when using sata", "sata", ""),
-			table.Entry("Should be accepted when using scsi", "scsi", ""),
-			table.Entry("Should be rejected when using virtio", "virtio", "Bus type virtio is invalid"),
-			table.Entry("Should be rejected when using ide", "ide", "IDE bus is not supported"),
+			table.Entry("[test_id:3777] Should be accepted when using sata", "sata", ""),
+			table.Entry("[test_id:3809] Should be accepted when using scsi", "scsi", ""),
+			table.Entry("[test_id:3776] Should be rejected when using virtio", "virtio", "Bus type virtio is invalid"),
+			table.Entry("[test_id:3808] Should be rejected when using ide", "ide", "IDE bus is not supported"),
 		)
 	})
 })
