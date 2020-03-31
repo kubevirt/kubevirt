@@ -54,6 +54,7 @@ const (
 	ptpConfCRD             = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
 	sriovConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	sriovLinkEnableConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	macvtapNetworkConf     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
 )
 
 var _ = Describe("[Serial]Multus", func() {
@@ -869,6 +870,64 @@ var _ = Describe("[Serial]SRIOV", func() {
 
 		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
 			pingThroughSriov("fc00::1/64", "fc00::2/64")
+		})
+	})
+})
+
+var _ = Describe("[Serial]Macvtap", func() {
+	var err error
+	var virtClient kubecli.KubevirtClient
+	var macvtapLowerDevice string
+	var macvtapNetworkName string
+
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
+		macvtapLowerDevice = "eth0"
+		macvtapNetworkName = "net1"
+
+		// cleanup the environment
+		tests.BeforeTestCleanup()
+	})
+
+	BeforeEach(func() {
+		result := virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, macvtapNetworkName)).
+			Body([]byte(fmt.Sprintf(macvtapNetworkConf, macvtapNetworkName, tests.NamespaceTestDefault, macvtapLowerDevice, macvtapNetworkName))).
+			Do()
+		Expect(result.Error()).NotTo(HaveOccurred(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
+	})
+
+	newRandomVMIWithMacvtapInterfaceEphemeralDiskAndUserdata := func(containerImage string, userData string, macvtapNetworkName string) *v1.VirtualMachineInstance {
+		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMacvtapNetworkInterface(macvtapNetworkName)}
+		vmi.Spec.Networks = []v1.Network{{
+			Name: macvtapNetworkName,
+			NetworkSource: v1.NetworkSource{
+				Multus: &v1.MultusNetwork{
+					NetworkName: macvtapNetworkName,
+				},
+			},
+		}}
+		return vmi
+	}
+
+	Context("a virtual machine with one macvtap interface, with a custom MAC address", func() {
+		chosenMAC := "de:ad:00:00:be:af"
+		var vmiWithMacDefined *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmiWithMacDefined = newRandomVMIWithMacvtapInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", macvtapNetworkName)
+			vmiWithMacDefined.Spec.Domain.Devices.Interfaces[0].MacAddress = chosenMAC
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmiWithMacDefined)
+			Expect(err).ToNot(HaveOccurred(), "vmi should have been successfully created")
+			vmiWithMacDefined = tests.WaitUntilVMIReady(vmiWithMacDefined, tests.LoggedInCirrosExpecter)
+		})
+
+		It("should have the specified MAC address reported back via the API", func() {
+			Expect(len(vmiWithMacDefined.Status.Interfaces)).To(Equal(1), "should have a single interface")
+			Expect(vmiWithMacDefined.Status.Interfaces[0].MAC).To(Equal(chosenMAC), "the expected MAC address should be set in the VMI")
 		})
 	})
 })
