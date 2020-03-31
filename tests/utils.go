@@ -4325,3 +4325,9 @@ func SkipPVCTestIfRunnigOnKindInfra() {
 		Skip("Skip PVC tests till PR https://github.com/kubevirt/kubevirt/pull/3171 is merged")
 	}
 }
+
+func SkipMigrationTestIfRunnigOnKindInfra() {
+	if IsRunningOnKindInfra() {
+		Skip("Skip migration tests till PR https://github.com/kubevirt/kubevirt/pull/3221 is merged")
+	}
+}
