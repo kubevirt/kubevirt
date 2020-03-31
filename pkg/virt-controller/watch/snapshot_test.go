@@ -604,6 +604,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			expectVMSnapshotContentCreate(vmSnapshotClient, vmSnapshotContent)
 			addVirtualMachineSnapshot(vmSnapshot)
 			controller.processVMSnapshotWorkItem()
+			testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
 		})
 
 		It("should update VirtualMachineSnapshotStatus", func() {
@@ -643,6 +644,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 			addVirtualMachineSnapshotContent(vmSnapshotContent)
 			controller.processVMSnapshotContentWorkItem()
+			testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 		})
 
 		It("should create VolumeSnapshot with multiple VolumeSnapshotClasses", func() {
@@ -663,6 +665,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClasses[0].Name, vmSnapshotContent)
 			addVirtualMachineSnapshotContent(vmSnapshotContent)
 			controller.processVMSnapshotContentWorkItem()
+			testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 		})
 
 		It("should update VirtualMachineSnapshotContent", func() {
@@ -730,7 +733,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			controller.processVMSnapshotContentWorkItem()
 		})
 
-		It("should update VirtualMachineSnapshotContent when VolumeSnapshotDeleted", func() {
+		It("should update VirtualMachineSnapshotContent when VolumeSnapshot deleted", func() {
 			vmSnapshotContent := createVMSnapshotContent()
 			vmSnapshotContent.Status.ReadyToUse = &t
 			vmSnapshotContent.Status.CreationTime = timeFunc()
@@ -754,6 +757,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 			addVirtualMachineSnapshotContent(vmSnapshotContent)
 			controller.processVMSnapshotContentWorkItem()
+			testutils.ExpectEvent(recorder, "VolumeSnapshotMissing")
 		})
 	})
 })

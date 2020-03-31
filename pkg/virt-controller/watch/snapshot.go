@@ -45,6 +45,12 @@ const (
 	vmSnapshotContentFinalizer = "snapshot.kubevirt.io/vmsnapshotcontent-protection"
 
 	defaultVolumeSnapshotClassAnnotation = "snapshot.storage.kubernetes.io/is-default-class"
+
+	vmSnapshotContentCreateEvent = "SuccessfulVirtualMachineSnapshotContentCreate"
+
+	volumeSnapshotCreateEvent = "SuccessfulVolumeSnapshotCreate"
+
+	volumeSnapshotMissingEvent = "VolumeSnapshotMissing"
 )
 
 type snapshotSource interface {
@@ -181,6 +187,13 @@ func (ctrl *SnapshotController) updateVMSnapshotContent(content *vmsnapshotv1alp
 				// check if snapshot was deleted
 				if content.Status != nil && content.Status.ReadyToUse != nil && *content.Status.ReadyToUse {
 					log.Log.Warningf("VolumeSnapshot %s no longer exists", *volmeBackup.VolumeSnapshotName)
+					ctrl.recorder.Eventf(
+						content,
+						corev1.EventTypeWarning,
+						volumeSnapshotMissingEvent,
+						"VolumeSnapshot %s no longer exists",
+						*volmeBackup.VolumeSnapshotName,
+					)
 					ready = false
 					deletedSnapshots = append(deletedSnapshots, *volmeBackup.VolumeSnapshotName)
 					continue
@@ -226,8 +239,18 @@ func (ctrl *SnapshotController) updateVMSnapshotContent(content *vmsnapshotv1alp
 				_, err = ctrl.client.KubernetesSnapshotClient().SnapshotV1beta1().
 					VolumeSnapshots(content.Namespace).
 					Create(snapshot)
-				if err != nil && !errors.IsAlreadyExists(err) {
-					return err
+				if err != nil {
+					if !errors.IsAlreadyExists(err) {
+						return err
+					}
+				} else {
+					ctrl.recorder.Eventf(
+						snapshot,
+						corev1.EventTypeNormal,
+						volumeSnapshotCreateEvent,
+						"Successfully created VolumeSnapshot %s",
+						snapshot.Name,
+					)
 				}
 
 				ready = false
@@ -421,6 +444,14 @@ func (ctrl *SnapshotController) createContent(vmSnapshot *vmsnapshotv1alpha1.Vir
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return err
 	}
+
+	ctrl.recorder.Eventf(
+		content,
+		corev1.EventTypeNormal,
+		vmSnapshotContentCreateEvent,
+		"Successfully created VirtualMachineSnapshotContent %s",
+		content.Name,
+	)
 
 	return nil
 }
