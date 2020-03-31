@@ -9,6 +9,10 @@ local machine and are then pushed to a registry which is exposed at
 It also comes with OVNKubernetes at ocp networking type instead of OpenShiftSDN
 you can follow guide to play with it [1].
 
+There are 3 masters and 1 worker due to
+https://bugzilla.redhat.com/show_bug.cgi?id=1805034
+Machine should be stronger, and more time needed for cluster-up.
+
 [1] https://github.com/ovn-org/ovn-kubernetes/blob/master/README_MANUAL.md
 
 ## Bringing the cluster up

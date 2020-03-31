@@ -113,19 +113,28 @@ EOF
     done
 }
 
+function _get_nodes() {
+    _kubectl get nodes --no-headers
+}
+
+function _get_pods() {
+    _kubectl get pods --all-namespaces --no-headers
+}
+
 function _fix_node_labels() {
     # Due to inconsistent labels and taints state in multi-nodes clusters,
     # it is nessecery to remove taint NoSchedule and set role labels manualy:
     #   Master nodes might lack 'scheduable=true' label and have NoScheduable taint.
     #   Worker nodes might lack worker role label.
-    master_nodes=$(_kubectl get nodes --no-headers | grep -i $MASTER_NODES_PATTERN | awk '{print $1}')
+    master_nodes=$(_get_nodes | grep -i $MASTER_NODES_PATTERN | awk '{print $1}')
     for node in ${master_nodes[@]}; do
-        # removing NoSchedule taint
-        _kubectl taint nodes $node node-role.kubernetes.io/master:NoSchedule-
-        _kubectl label node $node kubevirt.io/schedulable=true
+        # removing NoSchedule taint if is there
+        if _kubectl taint nodes $node node-role.kubernetes.io/master:NoSchedule-; then
+            _kubectl label node $node kubevirt.io/schedulable=true
+        fi
     done
 
-    worker_nodes=$(_kubectl get nodes --no-headers | grep -i $WORKER_NODES_PATTERN | awk '{print $1}')
+    worker_nodes=$(_get_nodes | grep -i $WORKER_NODES_PATTERN | awk '{print $1}')
     for node in ${worker_nodes[@]}; do
         _kubectl label node $node kubevirt.io/schedulable=true
         _kubectl label node $node node-role.kubernetes.io/worker=""
@@ -139,7 +148,7 @@ function setup_kind() {
     docker cp ${CLUSTER_NAME}-control-plane:/kind/bin/kubectl ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
     chmod u+x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
 
-    for node in $(_kubectl get nodes --no-headers | awk '{print $1}'); do
+    for node in $(_get_nodes | awk '{print $1}'); do
         docker exec $node /bin/sh -c "curl -L https://github.com/containernetworking/plugins/releases/download/v0.8.5/cni-plugins-linux-amd64-v0.8.5.tgz | tar xz -C /opt/cni/bin"
     done
 
@@ -156,26 +165,25 @@ function setup_kind() {
 
     _wait_kind_up
     _kubectl cluster-info
-
     _fix_node_labels
 
-    until _kubectl get nodes --no-headers
+    until _get_nodes
     do
         echo "Waiting for all nodes to become ready ..."
         sleep 10
     done
 
     # wait until k8s pods are running
-    while [ -n "$(_kubectl get pods --all-namespaces --no-headers | grep -v Running)" ]; do
+    while [ -n "$(_get_pods | grep -v Running)" ]; do
         echo "Waiting for all pods to enter the Running state ..."
-        _kubectl get pods --all-namespaces --no-headers | >&2 grep -v Running || true
+        _get_pods | >&2 grep -v Running || true
         sleep 10
     done
 
     _wait_containers_ready
     _run_registry
 
-    for node in $(_kubectl get nodes --no-headers | awk '{print $1}'); do
+    for node in $(_get_nodes | awk '{print $1}'); do
         _configure_registry_on_node "$node"
         _configure_network "$node"
     done

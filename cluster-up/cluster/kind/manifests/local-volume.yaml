@@ -1,0 +1,130 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+ name: local
+ annotations:
+  storageclass.kubernetes.io/is-default-class: "true"
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: local-storage-config
+data:
+  storageClassMap: |
+    local:
+       hostDir: /mnt/local-storage/local
+       mountDir: /mnt/local-storage/local
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: local-storage-provisioner-pv-binding
+subjects:
+- kind: ServiceAccount
+  name: local-storage-admin
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: system:persistent-volume-provisioner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: local-storage-provisioner-node-clusterrole
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: local-storage-provisioner-node-binding
+subjects:
+- kind: ServiceAccount
+  name: local-storage-admin
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: local-storage-provisioner-node-clusterrole
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: local-storage-provisioner-jobs-role
+rules:
+- apiGroups:
+    - 'batch'
+  resources:
+    - jobs
+  verbs:
+    - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: local-storage-provisioner-jobs-rolebinding
+subjects:
+- kind: ServiceAccount
+  name: local-storage-admin
+roleRef:
+  kind: Role
+  name: local-storage-provisioner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: local-storage-admin
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: local-volume-provisioner
+  labels:
+    app: local-volume-provisioner
+spec:
+  selector:
+    matchLabels:
+      app: local-volume-provisioner
+  template:
+    metadata:
+      labels:
+        app: local-volume-provisioner
+    spec:
+      serviceAccountName: local-storage-admin
+      containers:
+        - image: "quay.io/external_storage/local-volume-provisioner:v2.3.4"
+          name: provisioner
+          securityContext:
+            privileged: true
+          env:
+          - name: MY_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: MY_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: JOB_CONTAINER_IMAGE
+            value: "quay.io/external_storage/local-volume-provisioner:v2.3.4"
+          volumeMounts:
+            - mountPath: /etc/provisioner/config
+              name: provisioner-config
+              readOnly: true
+            - mountPath: /mnt/local-storage
+              name: local-storage
+              mountPropagation: "HostToContainer"
+      volumes:
+        - name: provisioner-config
+          configMap:
+            name: local-storage-config
+        - name: local-storage
+          hostPath:
+            path: /mnt/local-storage
