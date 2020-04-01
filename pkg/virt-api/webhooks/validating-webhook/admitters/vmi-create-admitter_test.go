@@ -1123,7 +1123,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "default1"},
-						Pod:    &v1.PodNetwork{NetworkName: "default2"},
+						Pod:    &v1.PodNetwork{},
 					},
 				},
 			}
@@ -1259,7 +1259,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				v1.Network{
 					Name: "pod",
 					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{NetworkName: "default2"},
+						Pod: &v1.PodNetwork{},
 					},
 				},
 			}
