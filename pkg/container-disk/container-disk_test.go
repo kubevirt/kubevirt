@@ -91,6 +91,7 @@ var _ = Describe("ContainerDisk", func() {
 
 			It("by verifying host directory locations", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi.UID = "6789"
 				vmi.Status.ActivePods = map[types.UID]string{
 					"1234": "myhost",
 				}
@@ -106,6 +107,35 @@ var _ = Describe("ContainerDisk", func() {
 				path, found, err = GenerateVolumeMountDirOnHost(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(found).To(BeTrue())
+				Expect(path).To(Equal(expectedPath))
+
+				// should be able to generate legacy socket path dir
+				legacySocket := GenerateLegacyVolumeMountDirOnHost(vmi)
+				Expect(legacySocket).To(Equal(filepath.Join(tmpDir, "6789")))
+
+				// should return error if disk target doesn't exist
+				targetPath, err := GenerateDiskTargetPathFromHostView(vmi, 1)
+				expectedPath = fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks/disk_1.img", tmpDir)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(targetPath).To(Equal(expectedPath))
+
+			})
+
+			It("by verifying launcher directory locations", func() {
+				vmi := v1.NewMinimalVMI("fake-vmi")
+				vmi.UID = "6789"
+
+				// This should fail if no file exists
+				path, err := GetDiskTargetPartFromLauncherView(1)
+				Expect(err).To(HaveOccurred())
+
+				expectedPath := fmt.Sprintf("%s/disk_1.img", tmpDir)
+				_, err = os.Create(expectedPath)
+				Expect(err).ToNot(HaveOccurred())
+
+				// this should pass once file exists
+				path, err = GetDiskTargetPartFromLauncherView(1)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(path).To(Equal(expectedPath))
 			})
 

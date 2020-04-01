@@ -115,6 +115,27 @@ var _ = Describe("Domain informer", func() {
 	}
 
 	Context("with ghost record cache", func() {
+		It("Should be able to retrieve uid", func() {
+			err := AddGhostRecord("test1-namespace", "test1", "somefile1", "1234-1")
+			Expect(err).ToNot(HaveOccurred())
+
+			uid := LastKnownUIDFromGhostRecordCache("test1-namespace/test1")
+			Expect(string(uid)).To(Equal("1234-1"))
+
+		})
+
+		It("Should find ghost record by socket ", func() {
+			err := AddGhostRecord("test1-namespace", "test1", "somefile1", "1234-1")
+			Expect(err).ToNot(HaveOccurred())
+
+			record, exists := findGhostRecordBySocket("somefile1")
+			Expect(exists).To(BeTrue())
+			Expect(record.Name).To(Equal("test1"))
+
+			record, exists = findGhostRecordBySocket("does-not-exist")
+			Expect(exists).To(BeFalse())
+		})
+
 		It("Should initialize cache from disk", func() {
 			err := AddGhostRecord("test1-namespace", "test1", "somefile1", "1234-1")
 			Expect(err).ToNot(HaveOccurred())

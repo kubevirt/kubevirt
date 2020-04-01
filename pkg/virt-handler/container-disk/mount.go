@@ -273,7 +273,7 @@ func (m *Mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 		}
 		err = m.deleteMountTargetRecord(vmi)
 		if err != nil {
-			return nil
+			return err
 		}
 	}
 	return nil

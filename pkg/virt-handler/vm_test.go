@@ -429,7 +429,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should cleanup if vmi is finalized and domain does not exist", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Succeeded
 
 			mockWatchdog.CreateFile(vmi)
@@ -978,7 +978,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}, 3)
 		It("update guest time after completed migration", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
@@ -995,7 +995,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 
 			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{

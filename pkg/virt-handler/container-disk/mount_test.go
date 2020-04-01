@@ -22,11 +22,13 @@ package container_disk
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
 var _ = Describe("ContainerDisk", func() {
@@ -63,6 +65,12 @@ var _ = Describe("ContainerDisk", func() {
 				err = m.setMountTargetRecordEntry(vmi, "sometargetfile", "somesocketfile")
 				Expect(err).ToNot(HaveOccurred())
 
+				// verify the the file actually exists
+				recordFile := filepath.Join(tmpDir, string(vmi.UID))
+				exists, err := diskutils.FileExists(recordFile)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(exists).To(BeTrue())
+
 				// verify we can read a result
 				record, err = m.getMountTargetRecord(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -86,6 +94,11 @@ var _ = Describe("ContainerDisk", func() {
 				// verify delete results
 				err = m.deleteMountTargetRecord(vmi)
 				Expect(err).ToNot(HaveOccurred())
+
+				// verify the the file is actually removed
+				exists, err = diskutils.FileExists(recordFile)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(exists).To(BeFalse())
 
 				// verify deleting results that don't exist won't fail
 				err = m.deleteMountTargetRecord(vmi)

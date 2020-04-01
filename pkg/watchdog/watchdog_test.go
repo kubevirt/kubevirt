@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/precond"
 )

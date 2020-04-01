@@ -97,7 +97,19 @@ var _ = Describe("Virt remote commands", func() {
 			sock, err = FindSocketOnHost(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sock).To(Equal(filepath.Join(shareDir, "sockets", "1234_sock")))
+		})
 
+		It("Listing all sockets", func() {
+			// the new socket is already created in the Before function
+
+			// create a legacy socket to ensure we find both new and legacy sockets
+			f, err := os.Create(filepath.Join(socketsDir, "1234_sock"))
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+
+			// listing all sockets should detect both the new and legacy sockets
+			sockets, err := ListAllSockets()
+			Expect(len(sockets)).To(Equal(2))
 		})
 
 		It("Detect unresponsive socket", func() {
@@ -122,6 +134,21 @@ var _ = Describe("Virt remote commands", func() {
 			MarkSocketUnresponsive(sock)
 			unresponsive = IsSocketUnresponsive(sock)
 			Expect(unresponsive).To(BeTrue())
+		})
+
+		It("Determine legacy sockets vs new socket paths", func() {
+			legacy := IsLegacySocket("/some/path/something_sock")
+			Expect(legacy).To(BeTrue())
+
+			legacy = IsLegacySocket("/some/path/" + StandardLauncherSocketFileName)
+			Expect(legacy).To(BeFalse())
+
+			monEnabled := SocketMonitoringEnabled("/some/path/something_sock")
+			Expect(monEnabled).To(BeFalse())
+
+			monEnabled = SocketMonitoringEnabled("/some/path/" + StandardLauncherSocketFileName)
+			Expect(monEnabled).To(BeTrue())
+
 		})
 	})
 })
