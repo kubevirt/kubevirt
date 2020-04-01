@@ -1100,7 +1100,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(instance *hco
 	}
 	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
 
-	handleComponentConditions(r, logger, "KubevirtMetricsAggregation", found.Status.Conditions)
+	// Don't call handleComponentConditions, because KubeVirtMetricsAggregation uses non-standard conditions
 	return r.client.Status().Update(context.TODO(), instance)
 }
 
