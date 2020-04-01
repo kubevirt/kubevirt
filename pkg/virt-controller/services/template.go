@@ -983,12 +983,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		annotationsList[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
 
-	// If an SELinux type was specified, use that--otherwise don't set an SELinux type
-	selinuxOptions := k8sv1.SELinuxOptions{}
-	if t.clusterConfig.GetSELinuxLauncherType() != virtconfig.DefaultSELinuxLauncherType {
-		selinuxOptions.Type = t.clusterConfig.GetSELinuxLauncherType()
-	}
-
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1003,9 +997,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			Hostname:  hostName,
 			Subdomain: vmi.Spec.Subdomain,
 			SecurityContext: &k8sv1.PodSecurityContext{
-				RunAsUser:      &userId,
-				SELinuxOptions: &selinuxOptions,
-				FSGroup:        &t.launcherSubGid,
+				RunAsUser: &userId,
+				FSGroup:   &t.launcherSubGid,
 			},
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
@@ -1016,6 +1009,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			DNSConfig:                     vmi.Spec.DNSConfig,
 			DNSPolicy:                     vmi.Spec.DNSPolicy,
 		},
+	}
+
+	// If an SELinux type was specified, use that--otherwise don't set an SELinux type
+	selinuxType := t.clusterConfig.GetSELinuxLauncherType()
+	if selinuxType != virtconfig.DefaultSELinuxLauncherType {
+		pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
 	}
 
 	if vmi.Spec.PriorityClassName != "" {
