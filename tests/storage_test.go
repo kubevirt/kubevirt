@@ -62,27 +62,76 @@ var _ = Describe("Storage", func() {
 	})
 
 	Describe("Starting a VirtualMachineInstance", func() {
+		var _pvName string
+		var vmi *v1.VirtualMachineInstance
+		var nfsInitialized bool
+
+		initNFS := func() string {
+			if !nfsInitialized {
+				_pvName = "test-nfs" + rand.String(48)
+				// Prepare a NFS backed PV
+				By("Starting an NFS POD")
+				os := string(tests.ContainerDiskAlpine)
+				nfsIP := tests.CreateNFSTargetPOD(os)
+				// create a new PV and PVC (PVs can't be reused)
+				By("create a new NFS PV and PVC")
+				tests.CreateNFSPvAndPvc(_pvName, "5Gi", nfsIP, os)
+
+				nfsInitialized = true
+			}
+			return _pvName
+		}
+
+		BeforeEach(func() {
+			nfsInitialized = false
+		})
+
+		AfterEach(func() {
+			if nfsInitialized {
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				// PVs can't be reused
+				tests.DeletePvAndPvc(_pvName)
+
+				By("Deleting NFS pod")
+				Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
+				By("Waiting for NFS pod to disappear")
+				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
+			}
+		})
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
-			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc) {
+			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string) {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 
+				var ignoreWarnings bool
+				var pvName string
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := newVMI(tests.DiskAlpineHostPath)
-				tests.RunVMIAndExpectLaunch(vmi, 90)
+				if storageEngine == "nfs" {
+					pvName = initNFS()
+					ignoreWarnings = true
+				} else {
+					pvName = tests.DiskAlpineHostPath
+				}
+				vmi = newVMI(pvName)
+				tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 			},
-				table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC),
-				table.Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom),
+				table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, ""),
+				table.Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, ""),
+				table.Entry("with NFS Disk PVC", tests.NewRandomVMIWithPVC, "nfs"),
 			)
 
 			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 
-				vmi := newVMI(tests.DiskAlpineHostPath)
+				vmi = newVMI(tests.DiskAlpineHostPath)
 
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
@@ -113,7 +162,7 @@ var _ = Describe("Storage", func() {
 			It("[test_id:3134]should create a writeable emptyDisk with the right capacity", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "echo hi!")
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "echo hi!")
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 					Name: "emptydisk1",
 					DiskDevice: v1.DiskDevice{
@@ -162,7 +211,7 @@ var _ = Describe("Storage", func() {
 			It("[test_id:3135]should create a writeable emptyDisk with the specified serial number", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "echo hi!")
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "echo hi!")
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 					Name:   "emptydisk1",
 					Serial: diskSerial,
@@ -198,32 +247,40 @@ var _ = Describe("Storage", func() {
 		})
 
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ephemeral alpine PVC", func() {
-			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 			var isRunOnKindInfra bool
 			tests.BeforeAll(func() {
 				isRunOnKindInfra = tests.IsRunningOnKindInfra()
 			})
 
-			It("[test_id:3136]should be successfully started", func() {
+			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
+			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string) {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
-
+				var ignoreWarnings bool
+				var pvName string
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
-				if isRunOnKindInfra {
-					tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
+				if storageEngine == "nfs" {
+					pvName = initNFS()
+					ignoreWarnings = true
 				} else {
-					tests.RunVMIAndExpectLaunch(vmi, 90)
+					pvName = tests.DiskAlpineHostPath
 				}
+				vmi = newVMI(pvName)
+				tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
+
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
-			})
+			},
+				table.Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, ""),
+				table.Entry("with Ephemeral PVC from NFS", tests.NewRandomVMIWithEphemeralPVC, "nfs"),
+			)
 
+			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3137]should not persist data", func() {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 
-				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
+				vmi = tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 
 				By("Starting the VirtualMachineInstance")
 				var createdVMI *v1.VirtualMachineInstance
@@ -286,10 +343,11 @@ var _ = Describe("Storage", func() {
 				tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
 			}, 120)
 
+			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3138]should start vmi multiple times", func() {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 
-				vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
+				vmi = tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
 				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
 
 				num := 3
@@ -348,10 +406,11 @@ var _ = Describe("Storage", func() {
 					diskName := "disk-" + uuid.NewRandom().String() + ".img"
 					diskPath := filepath.Join(hostDiskDir, diskName)
 
+					// Not a candidate for NFS testing due to usage of host disk
 					table.DescribeTable("Should create a disk image and start", func(driver string) {
 						By("Starting VirtualMachineInstance")
 						// do not choose a specific node to run the test
-						vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
+						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
 						vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = driver
 
 						tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -372,10 +431,11 @@ var _ = Describe("Storage", func() {
 						table.Entry("[test_id:3057]with sata driver", "sata"),
 					)
 
+					// Not a candidate for NFS testing due to usage of host disk
 					It("[test_id:3107]should start with multiple hostdisks in the same directory", func() {
 						By("Starting VirtualMachineInstance")
 						// do not choose a specific node to run the test
-						vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
+						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
 						tests.AddHostDisk(vmi, filepath.Join(hostDiskDir, "another.img"), v1.HostDiskExistsOrCreate, "anotherdisk")
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
@@ -426,9 +486,10 @@ var _ = Describe("Storage", func() {
 						Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
 					})
 
+					// Not a candidate for NFS testing due to usage of host disk
 					It("[test_id:2306]Should use existing disk image and start", func() {
 						By("Starting VirtualMachineInstance")
-						vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
+						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
 						tests.RunVMIAndExpectLaunch(vmi, 30)
 
 						By("Checking if disk.img exists")
@@ -443,9 +504,10 @@ var _ = Describe("Storage", func() {
 						Expect(output).To(ContainSubstring(diskName))
 					})
 
+					// Not a candidate for NFS testing due to usage of host disk
 					It("[test_id:847]Should fail with a capacity option", func() {
 						By("Starting VirtualMachineInstance")
-						vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
+						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
 						for i, volume := range vmi.Spec.Volumes {
 							if volume.HostDisk != nil {
 								vmi.Spec.Volumes[i].HostDisk.Capacity = resource.MustParse("1Gi")
@@ -458,9 +520,10 @@ var _ = Describe("Storage", func() {
 				})
 
 				Context("With unknown hostDisk type", func() {
+					// Not a candidate for NFS testing due to usage of host disk
 					It("[test_id:852]Should fail to start VMI", func() {
 						By("Starting VirtualMachineInstance")
-						vmi := tests.NewRandomVMIWithHostDisk("/data/unknown.img", "unknown", "")
+						vmi = tests.NewRandomVMIWithHostDisk("/data/unknown.img", "unknown", "")
 						_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 						Expect(err).To(HaveOccurred())
 					})
@@ -485,10 +548,11 @@ var _ = Describe("Storage", func() {
 					}
 				}, 120)
 
+				// Not a candidate for NFS testing because multiple VMIs are started
 				It("[test_id:868]Should initialize an empty PVC by creating a disk.img", func() {
 					for _, pvc := range pvcs {
 						By("starting VirtualMachineInstance")
-						vmi := tests.NewRandomVMIWithPVC("disk-" + pvc)
+						vmi = tests.NewRandomVMIWithPVC("disk-" + pvc)
 						tests.RunVMIAndExpectLaunch(vmi, 90)
 
 						By("Checking if disk.img exists")
@@ -559,12 +623,13 @@ var _ = Describe("Storage", func() {
 					tests.UpdateClusterConfigValueAndWait(virtconfig.LessPVCSpaceTolerationKey, strconv.Itoa(toleration))
 				}
 
+				// Not a candidate for NFS test due to usage of host disk
 				It("[test_id:3108]Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", func() {
 
 					configureToleration(10)
 
 					By("starting VirtualMachineInstance")
-					vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
+					vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
 					tests.RunVMI(vmi, 30)
 
@@ -576,12 +641,13 @@ var _ = Describe("Storage", func() {
 
 				})
 
+				// Not a candidate for NFS test due to usage of host disk
 				It("[test_id:3109]Should initialize an empty PVC with a disk.img when disk is too small but within toleration", func() {
 
 					configureToleration(30)
 
 					By("starting VirtualMachineInstance")
-					vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
+					vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
 					tests.RunVMIAndExpectLaunch(vmi, 30)
 
@@ -601,10 +667,11 @@ var _ = Describe("Storage", func() {
 				tests.CreateBlockVolumePvAndPvc("1Gi")
 			})
 
+			// Not a candidate for NFS because local volumes are used in test
 			It("[test_id:1015] should be successfully started", func() {
 				tests.SkipPVCTestIfRunnigOnKindInfra()
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
+				vmi = tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
 				// Without userdata the hostname isn't set correctly and the login expecter fails...
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
@@ -634,10 +701,11 @@ var _ = Describe("Storage", func() {
 				tests.DeletePvAndPvc(pvName)
 			})
 
+			// Not a candidate for NFS because these tests exercise ISCSI
 			It("[test_id:3139]should be successfully started", func() {
 				By("Create a VMIWithPVC")
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := tests.NewRandomVMIWithPVC(pvName)
+				vmi = tests.NewRandomVMIWithPVC(pvName)
 				By("Launching a VMI with PVC ")
 				tests.RunVMIAndExpectLaunch(vmi, 180)
 
@@ -649,10 +717,11 @@ var _ = Describe("Storage", func() {
 		})
 
 		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component] With not existing PVC", func() {
+			// Not a candidate for NFS because the PVC in question doesn't actually exist
 			It("[test_id:1040] should get unschedulable condition", func() {
 				// Start the VirtualMachineInstance
 				pvcName := "nonExistingPVC"
-				vmi := tests.NewRandomVMIWithPVC(pvcName)
+				vmi = tests.NewRandomVMIWithPVC(pvcName)
 
 				tests.RunVMI(vmi, 10)
 
