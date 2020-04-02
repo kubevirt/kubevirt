@@ -318,15 +318,21 @@ func (m *VirtualMachineInstanceMigration) TargetIsHandedOff() bool {
 //
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceNetworkInterface struct {
-	// IP address of a Virtual Machine interface. It is always the first item of
-	// IPs
+	// (deprecated) IP address of a Virtual Machine interface. This will show
+	// the first IP from IPs list.
 	IP string `json:"ipAddress,omitempty"`
 	// Hardware address of a Virtual Machine interface
 	MAC string `json:"mac,omitempty"`
 	// Name of the interface, corresponds to name of the network assigned to the interface
 	// TODO: remove omitempty, when api breaking changes are allowed
 	Name string `json:"name,omitempty"`
-	// List of all IP addresses of a Virtual Machine interface
+	// List of all IP addresses of a Virtual Machine interface accessible on
+	// given network.
+	// For L2 binding mechanisms (bridge, sriov), this would be addresses
+	// assigned by CNI IPAM. In case IPAM was not set, this would be addresses
+	// reported by guest agent (if the guest agent is available in the guest).
+	// For forwarding binding mechanisms (masquerade, slirp), this would be
+	// always addresses assigned by CNI IPAM.
 	IPs []string `json:"ipAddresses,omitempty"`
 	// The interface name inside the Virtual Machine
 	InterfaceName string `json:"interfaceName,omitempty"`

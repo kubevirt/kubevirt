@@ -17090,7 +17090,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceNetworkInterface(r
 				Properties: map[string]spec.Schema{
 					"ipAddress": {
 						SchemaProps: spec.SchemaProps{
-							Description: "IP address of a Virtual Machine interface. It is always the first item of IPs",
+							Description: "(deprecated) IP address of a Virtual Machine interface. This will show the first IP from IPs list.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -17111,7 +17111,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceNetworkInterface(r
 					},
 					"ipAddresses": {
 						SchemaProps: spec.SchemaProps{
-							Description: "List of all IP addresses of a Virtual Machine interface",
+							Description: "List of all IP addresses of a Virtual Machine interface accessible on given network. For L2 binding mechanisms (bridge, sriov), this would be addresses assigned by CNI IPAM. In case IPAM was not set, this would be addresses reported by guest agent (if the guest agent is available in the guest). For forwarding binding mechanisms (masquerade, slirp), this would be always addresses assigned by CNI IPAM.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

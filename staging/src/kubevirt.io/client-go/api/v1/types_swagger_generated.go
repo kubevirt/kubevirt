@@ -73,10 +73,10 @@ func (VirtualMachineInstanceMigrationCondition) SwaggerDoc() map[string]string {
 func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":              "+k8s:openapi-gen=true",
-		"ipAddress":     "IP address of a Virtual Machine interface. It is always the first item of\nIPs",
+		"ipAddress":     "(deprecated) IP address of a Virtual Machine interface. This will show\nthe first IP from IPs list.",
 		"mac":           "Hardware address of a Virtual Machine interface",
 		"name":          "Name of the interface, corresponds to name of the network assigned to the interface",
-		"ipAddresses":   "List of all IP addresses of a Virtual Machine interface",
+		"ipAddresses":   "List of all IP addresses of a Virtual Machine interface accessible on\ngiven network.\nFor L2 binding mechanisms (bridge, sriov), this would be addresses\nassigned by CNI IPAM. In case IPAM was not set, this would be addresses\nreported by guest agent (if the guest agent is available in the guest).\nFor forwarding binding mechanisms (masquerade, slirp), this would be\nalways addresses assigned by CNI IPAM.",
 		"interfaceName": "The interface name inside the Virtual Machine",
 	}
 }

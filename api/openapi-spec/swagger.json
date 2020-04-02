@@ -8284,11 +8284,11 @@
       "type": "string"
      },
      "ipAddress": {
-      "description": "IP address of a Virtual Machine interface. It is always the first item of IPs",
+      "description": "(deprecated) IP address of a Virtual Machine interface. This will show the first IP from IPs list.",
       "type": "string"
      },
      "ipAddresses": {
-      "description": "List of all IP addresses of a Virtual Machine interface",
+      "description": "List of all IP addresses of a Virtual Machine interface accessible on given network. For L2 binding mechanisms (bridge, sriov), this would be addresses assigned by CNI IPAM. In case IPAM was not set, this would be addresses reported by guest agent (if the guest agent is available in the guest). For forwarding binding mechanisms (masquerade, slirp), this would be always addresses assigned by CNI IPAM.",
       "type": "array",
       "items": {
        "type": "string"
