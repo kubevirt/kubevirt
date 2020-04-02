@@ -48,7 +48,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		}
 		table.DescribeTable("should succeed", func(readinessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int)) {
 			if tests.IsRunningOnKindInfra() && readinessProbe == httpProbe {
-				Skip("Skip http probe test till card https://issues.redhat.com/browse/CNV-4454 is fixed")
+				Skip("Skip http probe test till PR https://github.com/kubevirt/kubevirt/pull/3224 is merged")
 			}
 			By("Specifying a VMI with a readiness probe")
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")

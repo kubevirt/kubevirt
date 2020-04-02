@@ -39,6 +39,8 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
+
+	netutils "k8s.io/utils/net"
 )
 
 const randomMacGenerationAttempts = 10
@@ -153,24 +155,12 @@ func (h *NetworkUtilsHandler) ConfigureIpv6Forwarding() error {
 }
 
 func (h *NetworkUtilsHandler) IsIpv6Enabled(link netlink.Link) bool {
-	linkName := link.Attrs().Name
-	addrs, err := h.AddrList(link, netlink.FAMILY_V6)
-	if err != nil {
-		log.Log.Reason(err).Errorf("ipv6 disabled, failed retrieving ipv6 addresses from %s", linkName)
+	podIp := os.Getenv("MY_POD_IP")
+	if !netutils.IsIPv6String(podIp) {
+		log.Log.V(5).Info("Since the pod ip is non IPv6, IPv6 is disabled")
 		return false
 	}
-	if len(addrs) == 0 {
-		log.Log.Infof("ipv6 disabled, there is no ipv6 addresses from %s", linkName)
-		return false
-	}
-	for _, addr := range addrs {
-		if !addr.IP.IsLinkLocalUnicast() {
-			log.Log.Infof("ipv6 enabled, there is a non link local ipv6 address from %s", linkName)
-			return true
-		}
-	}
-	log.Log.Infof("ipv6 disabled, all the ipv6 addresses are link local from %s", linkName)
-	return false
+	return true
 }
 
 func (h *NetworkUtilsHandler) IptablesNewChain(proto iptables.Protocol, table, chain string) error {

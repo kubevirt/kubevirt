@@ -769,7 +769,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingIptables(protocol iptables.P
 		return err
 	}
 
-	err = Handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-s", getVifIpByProtocol(p, protocol), "-j", "MASQUERADE")
+	err = Handler.IptablesAppendRule(protocol, "nat", "POSTROUTING", "-s", p.getVifIpByProtocol(protocol), "-j", "MASQUERADE")
 	if err != nil {
 		return err
 	}
@@ -788,7 +788,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingIptables(protocol iptables.P
 		err = Handler.IptablesAppendRule(protocol, "nat", "KUBEVIRT_PREINBOUND",
 			"-j",
 			"DNAT",
-			"--to-destination", getVifIpByProtocol(p, protocol))
+			"--to-destination", p.getVifIpByProtocol(protocol))
 
 		return err
 	}
@@ -805,7 +805,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingIptables(protocol iptables.P
 			strconv.Itoa(int(port.Port)),
 			"-j",
 			"SNAT",
-			"--to-source", getGatewayByProtocol(p, protocol))
+			"--to-source", p.getGatewayByProtocol(protocol))
 		if err != nil {
 			return err
 		}
@@ -817,7 +817,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingIptables(protocol iptables.P
 			strconv.Itoa(int(port.Port)),
 			"-j",
 			"DNAT",
-			"--to-destination", getVifIpByProtocol(p, protocol))
+			"--to-destination", p.getVifIpByProtocol(protocol))
 		if err != nil {
 			return err
 		}
@@ -830,7 +830,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingIptables(protocol iptables.P
 			"--destination", getLoopbackAdrress(protocol),
 			"-j",
 			"DNAT",
-			"--to-destination", getVifIpByProtocol(p, protocol))
+			"--to-destination", p.getVifIpByProtocol(protocol))
 		if err != nil {
 			return err
 		}
@@ -839,7 +839,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingIptables(protocol iptables.P
 	return nil
 }
 
-func getGatewayByProtocol(p *MasqueradePodInterface, proto iptables.Protocol) string {
+func (p *MasqueradePodInterface) getGatewayByProtocol(proto iptables.Protocol) string {
 	if proto == iptables.ProtocolIPv4 {
 		return p.gatewayAddr.IP.String()
 	} else {
@@ -847,7 +847,7 @@ func getGatewayByProtocol(p *MasqueradePodInterface, proto iptables.Protocol) st
 	}
 }
 
-func getVifIpByProtocol(p *MasqueradePodInterface, proto iptables.Protocol) string {
+func (p *MasqueradePodInterface) getVifIpByProtocol(proto iptables.Protocol) string {
 	if proto == iptables.ProtocolIPv4 {
 		return p.vif.IP.IP.String()
 	} else {
@@ -874,7 +874,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Prot
 		return err
 	}
 
-	err = Handler.NftablesAppendRule(proto, "nat", "postrouting", Handler.GetNFTIPString(proto), "saddr", getVifIpByProtocol(p, proto), "counter", "masquerade")
+	err = Handler.NftablesAppendRule(proto, "nat", "postrouting", Handler.GetNFTIPString(proto), "saddr", p.getVifIpByProtocol(proto), "counter", "masquerade")
 	if err != nil {
 		return err
 	}
@@ -891,7 +891,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Prot
 
 	if len(p.iface.Ports) == 0 {
 		err = Handler.NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND",
-			"counter", "dnat", "to", getVifIpByProtocol(p, proto))
+			"counter", "dnat", "to", p.getVifIpByProtocol(proto))
 
 		return err
 	}
@@ -905,7 +905,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Prot
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			"counter", "snat", "to", getGatewayByProtocol(p, proto))
+			"counter", "snat", "to", p.getGatewayByProtocol(proto))
 		if err != nil {
 			return err
 		}
@@ -914,7 +914,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Prot
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			"counter", "dnat", "to", getVifIpByProtocol(p, proto))
+			"counter", "dnat", "to", p.getVifIpByProtocol(proto))
 		if err != nil {
 			return err
 		}
@@ -924,7 +924,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Prot
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
-			"counter", "dnat", "to", getVifIpByProtocol(p, proto))
+			"counter", "dnat", "to", p.getVifIpByProtocol(proto))
 		if err != nil {
 			return err
 		}
