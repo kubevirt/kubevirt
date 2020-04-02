@@ -14,6 +14,9 @@ usage: [NUM_TESTS=x] [NEW_TESTS=test1_test|...|testn_test] $0 [kubevirtci_provid
         NEW_TESTS       what set of tests to run, defaults to all test files added or changed since
                         last merge commit
         TARGET_COMMIT   the commit id to use when fetching the changed test files
+                        note: leaving TARGET_COMMIT empty only works if on a git branch different from master.
+                        If /clonerefs is at work you need to provide a target commit, as then the latest commit is a
+                        merge commit (resulting in no changes detected)
 
     example:
 
@@ -47,12 +50,12 @@ if (( $# > 0 )); then
     fi
 fi
 
-NUM_TESTS=${NUM_TESTS-3}
+if [[ -z ${TARGET_COMMIT-} ]]; then
+    # if there's no commit provided default to the latest merge commit
+    TARGET_COMMIT=$(git log -1 --format=%H --merges)
+fi
+
 if [[ -z ${NEW_TESTS-} ]]; then
-    if [[ -z ${TARGET_COMMIT-} ]]; then
-        # if there's no commit provided default to the latest merge commit
-        TARGET_COMMIT=$(git log -1 --format=%H --merges)
-    fi
 
     set +e # required due to grep barking when it does not have any input
     NEW_TESTS=$(new_tests $TARGET_COMMIT)
@@ -65,6 +68,7 @@ if [[ -z "${NEW_TESTS}" ]]; then
     echo "Nothing to test"
     exit 0
 fi
+echo "Test files touched: $(echo ${NEW_TESTS} | tr '|' ',')"
 
 if (( $# > 0 )); then
     declare -a TEST_LANES
@@ -78,6 +82,21 @@ else
     TEST_LANES=( 'k8s-1.14' 'k8s-1.15' 'k8s-1.16' )
 fi
 echo "Test lanes: ${TEST_LANES[*]}"
+
+NUM_TESTS=${NUM_TESTS-3}
+echo "Number of per lane runs: $NUM_TESTS"
+
+tests_total_estimate=$(find tests/ -name '*_test.go' -print0 | xargs -0 grep -E '(Specify|It)\(' | wc -l | awk '{total += $1} END {print total}')
+tests_to_run_estimate=$(git diff --name-status "${TARGET_COMMIT}".. -- tests/ | grep -o -E 'tests\/[a-z_]+_test\.go' | xargs grep -E '(Specify|It)\(' | wc -l | awk '{total += $1} END {print total}')
+tests_total_for_all_runs_estimate=$(expr $tests_to_run_estimate \* $NUM_TESTS \* ${#TEST_LANES[@]})
+echo -e "Estimates:\ttests_total_estimate: $tests_total_estimate\ttests_total_for_all_runs_estimate: $tests_total_for_all_runs_estimate"
+if [ $tests_total_for_all_runs_estimate -gt $tests_total_estimate ]; then
+    # taking into account that each file containing changed tests is run several times per default
+    # and considering overhead of cluster-up etc., we should just skip the run
+    # if the total number of tests for all runs gets higher than the total number of tests
+    echo "Skipping run due to number of tests in total being too high for repeated run."
+    exit 0
+fi
 
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM
 
