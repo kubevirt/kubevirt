@@ -43,6 +43,8 @@ github.com/MarSik/kubevirt-ssp-operator v1.0.26 h1:5Ltm423Pv2Ui6eM07QsIQdtQ9Bl5V
 github.com/MarSik/kubevirt-ssp-operator v1.0.26/go.mod h1:0bP+DSIkEmEedKp4lyYkIEE4xb4OYVUFTvs83d3cSVw=
 github.com/MarSik/kubevirt-ssp-operator v1.0.28 h1:liUbSwkeD7VfrfoA2X23NxXBZT+eww60NPi4gZH39/Y=
 github.com/MarSik/kubevirt-ssp-operator v1.0.28/go.mod h1:0bP+DSIkEmEedKp4lyYkIEE4xb4OYVUFTvs83d3cSVw=
+github.com/MarSik/kubevirt-ssp-operator v1.0.29 h1:YhPrBC5n508bdBhn/8GVmE9AY4R0sMegJO4WUSTpSfw=
+github.com/MarSik/kubevirt-ssp-operator v1.0.29/go.mod h1:0bP+DSIkEmEedKp4lyYkIEE4xb4OYVUFTvs83d3cSVw=
 github.com/Masterminds/goutils v1.1.0/go.mod h1:8cTjp+g8YejhMuvIA5y2vz3BpJxksy863GQaJW2MFNU=
 github.com/Masterminds/semver v1.5.0/go.mod h1:MB6lktGJrhw8PrUyiEoblNEGEQ+RzHPF078ddwwvV3Y=
 github.com/Masterminds/semver/v3 v3.0.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=

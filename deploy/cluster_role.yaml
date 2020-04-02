@@ -772,6 +772,13 @@ rules:
   - patch
   - watch
 - apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - clusterroles
