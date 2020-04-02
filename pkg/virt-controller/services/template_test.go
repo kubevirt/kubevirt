@@ -183,8 +183,8 @@ var _ = Describe("Template", func() {
 				}
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				if pod.Spec.SecurityContext != nil && pod.Spec.SecurityContext.SELinuxOptions != nil {
-					Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(""))
+				if pod.Spec.SecurityContext != nil {
+					Expect(pod.Spec.SecurityContext.SELinuxOptions).To(BeNil())
 				}
 			})
 			It("should run under the corresponding SELinux type if specified", func() {
