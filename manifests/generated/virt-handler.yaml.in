@@ -66,6 +66,7 @@ spec:
         - mountPath: /var/lib/kubelet/device-plugins
           name: device-plugin
       hostPID: true
+      priorityClassName: kubevirt-cluster-critical
       serviceAccountName: kubevirt-handler
       tolerations:
       - key: CriticalAddonsOnly

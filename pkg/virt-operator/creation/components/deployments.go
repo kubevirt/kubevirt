@@ -115,8 +115,9 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 			Name: podName,
 		},
 		Spec: corev1.PodSpec{
-			Affinity:    podAffinity,
-			Tolerations: criticalAddonsToleration(),
+			PriorityClassName: "kubevirt-cluster-critical",
+			Affinity:          podAffinity,
+			Tolerations:       criticalAddonsToleration(),
 			Containers: []corev1.Container{
 				{
 					Name:            podName,
@@ -470,6 +471,7 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 					Name: name,
 				},
 				Spec: corev1.PodSpec{
+					PriorityClassName:  "kubevirt-cluster-critical",
 					Tolerations:        criticalAddonsToleration(),
 					Affinity:           podAntiAffinity,
 					ServiceAccountName: "kubevirt-operator",

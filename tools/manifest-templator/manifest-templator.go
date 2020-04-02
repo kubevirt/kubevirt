@@ -64,6 +64,7 @@ type templateData struct {
 	VirtControllerSha      string
 	VirtHandlerSha         string
 	VirtLauncherSha        string
+	PriorityClassSpec      string
 	GeneratedManifests     map[string]string
 }
 
@@ -125,6 +126,7 @@ func main() {
 		data.CreatedAt = getTimestamp()
 		data.ReplacesCsvVersion = ""
 		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data, 2)
+		data.PriorityClassSpec = getPriorityClassSpec(2)
 
 		// operator deployment differs a bit in normal manifest and CSV
 		if strings.Contains(*inputFile, ".clusterserviceversion.yaml") {
@@ -207,6 +209,16 @@ func getOperatorRules() string {
 		}
 	}
 	return fixResourceString(writer.String(), 14)
+}
+
+func getPriorityClassSpec(indentation int) string {
+	priorityClassSpec := components.NewKubeVirtPriorityClassCR()
+	writer := strings.Builder{}
+	err := util.MarshallObject(priorityClassSpec, &writer)
+	if err != nil {
+		panic(err)
+	}
+	return fixResourceString(writer.String(), indentation)
 }
 
 func getOperatorDeploymentSpec(data templateData, indentation int) string {

@@ -7,3 +7,4 @@ metadata:
   name: {{.Namespace}}
 {{index .GeneratedManifests "kv-resource.yaml"}}
 {{index .GeneratedManifests "rbac-operator.authorization.k8s.yaml.in"}}
+{{index .GeneratedManifests "kubevirt-cluster-critical.yaml"}}

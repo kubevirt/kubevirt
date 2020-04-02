@@ -7,6 +7,14 @@ metadata:
   name: {{.Namespace}}
 {{index .GeneratedManifests "kv-resource.yaml"}}
 ---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: kubevirt-cluster-critical
+value: 1000000000
+globalDefault: false
+description: "This priority class should be used for core kubevirt components only."
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
