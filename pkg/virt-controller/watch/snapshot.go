@@ -176,105 +176,102 @@ func (ctrl *SnapshotController) updateVMSnapshotContent(content *vmsnapshotv1alp
 	var deletedSnapshots []string
 
 	for _, volmeBackup := range content.Spec.VolumeBackups {
-		if volmeBackup.VolumeSnapshotName != nil {
-			key := fmt.Sprintf("%s/%s", content.Namespace, *volmeBackup.VolumeSnapshotName)
-			obj, exists, err := ctrl.volumeSnapshotInformer.GetStore().GetByKey(key)
+		if volmeBackup.VolumeSnapshotName == nil {
+			continue
+		}
+
+		volumeSnapshot, err := ctrl.getVolumeSnapshot(content.Namespace, *volmeBackup.VolumeSnapshotName)
+		if err != nil {
+			return err
+		}
+
+		if volumeSnapshot == nil {
+			// check if snapshot was deleted
+			if content.Status != nil && content.Status.ReadyToUse != nil && *content.Status.ReadyToUse {
+				log.Log.Warningf("VolumeSnapshot %s no longer exists", *volmeBackup.VolumeSnapshotName)
+				ctrl.recorder.Eventf(
+					content,
+					corev1.EventTypeWarning,
+					volumeSnapshotMissingEvent,
+					"VolumeSnapshot %s no longer exists",
+					*volmeBackup.VolumeSnapshotName,
+				)
+				ready = false
+				deletedSnapshots = append(deletedSnapshots, *volmeBackup.VolumeSnapshotName)
+				continue
+			}
+
+			log.Log.Infof("Attempting to create VolumeSnapshot %s", *volmeBackup.VolumeSnapshotName)
+
+			sc := volmeBackup.PersistentVolumeClaim.Spec.StorageClassName
+			if sc == nil {
+				return fmt.Errorf("%s/%s VolumeSnapshot requested but no storage class",
+					content.Namespace, volmeBackup.PersistentVolumeClaim.Name)
+			}
+
+			volumeSnapshotClass, err := ctrl.getVolumeSnapshotClass(*sc)
 			if err != nil {
+				log.Log.Warningf("Couldn't find VolumeSnapshotClass for %s", *sc)
 				return err
 			}
 
-			if !exists {
-				// check if snapshot was deleted
-				if content.Status != nil && content.Status.ReadyToUse != nil && *content.Status.ReadyToUse {
-					log.Log.Warningf("VolumeSnapshot %s no longer exists", *volmeBackup.VolumeSnapshotName)
-					ctrl.recorder.Eventf(
-						content,
-						corev1.EventTypeWarning,
-						volumeSnapshotMissingEvent,
-						"VolumeSnapshot %s no longer exists",
-						*volmeBackup.VolumeSnapshotName,
-					)
-					ready = false
-					deletedSnapshots = append(deletedSnapshots, *volmeBackup.VolumeSnapshotName)
-					continue
-				}
+			t := true
+			snapshot := &k8ssnapshotv1beta1.VolumeSnapshot{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: *volmeBackup.VolumeSnapshotName,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion:         vmsnapshotv1alpha1.SchemeGroupVersion.String(),
+							Kind:               "VirtualMachineSnapshotContent",
+							Name:               content.Name,
+							UID:                content.UID,
+							Controller:         &t,
+							BlockOwnerDeletion: &t,
+						},
+					},
+				},
+				Spec: k8ssnapshotv1beta1.VolumeSnapshotSpec{
+					Source: k8ssnapshotv1beta1.VolumeSnapshotSource{
+						PersistentVolumeClaimName: &volmeBackup.PersistentVolumeClaim.Name,
+					},
+					VolumeSnapshotClassName: &volumeSnapshotClass,
+				},
+			}
 
-				log.Log.Infof("Attempting to create VolumeSnapshot %s", *volmeBackup.VolumeSnapshotName)
-
-				sc := volmeBackup.PersistentVolumeClaim.Spec.StorageClassName
-				if sc == nil {
-					return fmt.Errorf("%s/%s VolumeSnapshot requested but no storage class",
-						content.Namespace, volmeBackup.PersistentVolumeClaim.Name)
-				}
-
-				volumeSnapshotClass, err := ctrl.getVolumeSnapshotClass(*sc)
-				if err != nil {
-					log.Log.Warningf("Couldn't find VolumeSnapshotClass for %s", *sc)
+			_, err = ctrl.client.KubernetesSnapshotClient().SnapshotV1beta1().
+				VolumeSnapshots(content.Namespace).
+				Create(snapshot)
+			if err != nil {
+				if !errors.IsAlreadyExists(err) {
 					return err
 				}
-
-				t := true
-				snapshot := &k8ssnapshotv1beta1.VolumeSnapshot{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: *volmeBackup.VolumeSnapshotName,
-						OwnerReferences: []metav1.OwnerReference{
-							{
-								APIVersion:         vmsnapshotv1alpha1.SchemeGroupVersion.String(),
-								Kind:               "VirtualMachineSnapshotContent",
-								Name:               content.Name,
-								UID:                content.UID,
-								Controller:         &t,
-								BlockOwnerDeletion: &t,
-							},
-						},
-					},
-					Spec: k8ssnapshotv1beta1.VolumeSnapshotSpec{
-						Source: k8ssnapshotv1beta1.VolumeSnapshotSource{
-							PersistentVolumeClaimName: &volmeBackup.PersistentVolumeClaim.Name,
-						},
-						VolumeSnapshotClassName: &volumeSnapshotClass,
-					},
-				}
-
-				_, err = ctrl.client.KubernetesSnapshotClient().SnapshotV1beta1().
-					VolumeSnapshots(content.Namespace).
-					Create(snapshot)
-				if err != nil {
-					if !errors.IsAlreadyExists(err) {
-						return err
-					}
-				} else {
-					ctrl.recorder.Eventf(
-						snapshot,
-						corev1.EventTypeNormal,
-						volumeSnapshotCreateEvent,
-						"Successfully created VolumeSnapshot %s",
-						snapshot.Name,
-					)
-				}
-
-				ready = false
-				continue
-			} else if err != nil {
-				return err
+			} else {
+				ctrl.recorder.Eventf(
+					snapshot,
+					corev1.EventTypeNormal,
+					volumeSnapshotCreateEvent,
+					"Successfully created VolumeSnapshot %s",
+					snapshot.Name,
+				)
 			}
 
-			vs := obj.(*k8ssnapshotv1beta1.VolumeSnapshot)
+			ready = false
+			continue
+		}
 
-			if vs.Status != nil {
-				if vs.Status.ReadyToUse == nil || *vs.Status.ReadyToUse == false {
-					ready = false
+		if volumeSnapshot.Status != nil {
+			if volumeSnapshot.Status.ReadyToUse == nil || *volumeSnapshot.Status.ReadyToUse == false {
+				ready = false
+			}
+
+			if volumeSnapshot.Status.Error != nil {
+				ready = false
+				vmSnapshotError = &vmsnapshotv1alpha1.VirtualMachineSnapshotError{
+					Time:    volumeSnapshot.Status.Error.Time,
+					Message: volumeSnapshot.Status.Error.Message,
 				}
 
-				if vs.Status.Error != nil {
-					ready = false
-					vmSnapshotError = &vmsnapshotv1alpha1.VirtualMachineSnapshotError{
-						Time:    vs.Status.Error.Time,
-						Message: vs.Status.Error.Message,
-					}
-
-					break
-				}
+				break
 			}
 		}
 	}
@@ -491,26 +488,17 @@ func (ctrl *SnapshotController) getSnapshotPVC(namespace string, volumeName stri
 }
 
 func (ctrl *SnapshotController) getVolumeSnapshotClass(storageClassName string) (string, error) {
-	var provisioner string
-	storageClasses := ctrl.storageClassInformer.GetStore().List()
-	for _, obj := range storageClasses {
-		storageClass := obj.(*storagev1.StorageClass)
-		if storageClass.Name == storageClassName {
-			provisioner = storageClass.Provisioner
-			break
-		}
+	obj, exists, err := ctrl.storageClassInformer.GetStore().GetByKey(storageClassName)
+	if !exists || err != nil {
+		return "", err
 	}
 
-	if provisioner == "" {
-		log.Log.Warningf("No StorageClass named %s", storageClassName)
-		return "", nil
-	}
+	storageClass := obj.(*storagev1.StorageClass)
 
-	var matches []*k8ssnapshotv1beta1.VolumeSnapshotClass
-	volumeSnapshotClasses := ctrl.volumeSnapshotClassInformer.GetStore().List()
-	for _, obj := range volumeSnapshotClasses {
-		volumeSnapshotClass := obj.(*k8ssnapshotv1beta1.VolumeSnapshotClass)
-		if volumeSnapshotClass.Driver == provisioner {
+	var matches []k8ssnapshotv1beta1.VolumeSnapshotClass
+	volumeSnapshotClasses := ctrl.getVolumeSnapshotClasses()
+	for _, volumeSnapshotClass := range volumeSnapshotClasses {
+		if volumeSnapshotClass.Driver == storageClass.Provisioner {
 			matches = append(matches, volumeSnapshotClass)
 		}
 	}

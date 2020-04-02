@@ -21,9 +21,11 @@ package watch
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	k8ssnapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -34,7 +36,23 @@ import (
 	vmsnapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/controller"
 )
+
+const (
+	volumeSnapshotCRD      = "volumesnapshots.snapshot.storage.k8s.io"
+	volumeSnapshotClassCRD = "volumesnapshotclasses.snapshot.storage.k8s.io"
+)
+
+type informerFunc func(kubecli.KubevirtClient, time.Duration) cache.SharedIndexInformer
+
+type dynamicInformer struct {
+	stopCh   chan struct{}
+	informer cache.SharedIndexInformer
+	mutex    sync.Mutex
+
+	informerFunc informerFunc
+}
 
 // SnapshotController is resonsible for snapshotting VMs
 type SnapshotController struct {
@@ -42,15 +60,18 @@ type SnapshotController struct {
 
 	vmSnapshotQueue        workqueue.RateLimitingInterface
 	vmSnapshotContentQueue workqueue.RateLimitingInterface
+	crdQueue               workqueue.RateLimitingInterface
 
 	vmSnapshotInformer        cache.SharedIndexInformer
 	vmSnapshotContentInformer cache.SharedIndexInformer
 	vmInformer                cache.SharedIndexInformer
 
-	volumeSnapshotInformer      cache.SharedIndexInformer
-	volumeSnapshotClassInformer cache.SharedIndexInformer
-	storageClassInformer        cache.SharedIndexInformer
-	pvcInformer                 cache.SharedIndexInformer
+	storageClassInformer cache.SharedIndexInformer
+	pvcInformer          cache.SharedIndexInformer
+	crdInformer          cache.SharedIndexInformer
+
+	dynamicInformerMap map[string]*dynamicInformer
+	eventHandlerMap    map[string]cache.ResourceEventHandlerFuncs
 
 	recorder record.EventRecorder
 
@@ -63,27 +84,39 @@ func NewSnapshotController(
 	vmSnapshotInformer cache.SharedIndexInformer,
 	vmSnapshotContentInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
-	volumeSnapshotInformer cache.SharedIndexInformer,
-	volumeSnapshotClassInformer cache.SharedIndexInformer,
 	storageClassInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
+	crdInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	resyncPeriod time.Duration,
 ) *SnapshotController {
 
 	ctrl := &SnapshotController{
-		client:                      client,
-		vmSnapshotQueue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-vmsnapshot"),
-		vmSnapshotContentQueue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-vmsnapshotcontent"),
-		vmSnapshotInformer:          vmSnapshotInformer,
-		vmSnapshotContentInformer:   vmSnapshotContentInformer,
-		volumeSnapshotInformer:      volumeSnapshotInformer,
-		volumeSnapshotClassInformer: volumeSnapshotClassInformer,
-		storageClassInformer:        storageClassInformer,
-		pvcInformer:                 pvcInformer,
-		vmInformer:                  vmInformer,
-		recorder:                    recorder,
-		resyncPeriod:                resyncPeriod,
+		client:                    client,
+		vmSnapshotQueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-vmsnapshot"),
+		vmSnapshotContentQueue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-vmsnapshotcontent"),
+		crdQueue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "snapshot-controller-crd"),
+		vmSnapshotInformer:        vmSnapshotInformer,
+		vmSnapshotContentInformer: vmSnapshotContentInformer,
+		storageClassInformer:      storageClassInformer,
+		pvcInformer:               pvcInformer,
+		vmInformer:                vmInformer,
+		crdInformer:               crdInformer,
+		recorder:                  recorder,
+		resyncPeriod:              resyncPeriod,
+	}
+
+	ctrl.dynamicInformerMap = map[string]*dynamicInformer{
+		volumeSnapshotCRD:      &dynamicInformer{informerFunc: controller.VolumeSnapshotInformer},
+		volumeSnapshotClassCRD: &dynamicInformer{informerFunc: controller.VolumeSnapshotClassInformer},
+	}
+
+	ctrl.eventHandlerMap = map[string]cache.ResourceEventHandlerFuncs{
+		volumeSnapshotCRD: cache.ResourceEventHandlerFuncs{
+			AddFunc:    ctrl.handleVolumeSnapshot,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVolumeSnapshot(newObj) },
+			DeleteFunc: ctrl.handleVolumeSnapshot,
+		},
 	}
 
 	vmSnapshotInformer.AddEventHandlerWithResyncPeriod(
@@ -110,11 +143,11 @@ func NewSnapshotController(
 		ctrl.resyncPeriod,
 	)
 
-	volumeSnapshotInformer.AddEventHandlerWithResyncPeriod(
+	crdInformer.AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    ctrl.handleVolumeSnapshot,
-			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVolumeSnapshot(newObj) },
-			DeleteFunc: ctrl.handleVolumeSnapshot,
+			AddFunc:    ctrl.handleCRD,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleCRD(newObj) },
+			DeleteFunc: ctrl.handleCRD,
 		},
 		ctrl.resyncPeriod,
 	)
@@ -127,6 +160,7 @@ func (ctrl *SnapshotController) Run(threadiness int, stopCh <-chan struct{}) err
 	defer utilruntime.HandleCrash()
 	defer ctrl.vmSnapshotQueue.ShutDown()
 	defer ctrl.vmSnapshotContentQueue.ShutDown()
+	defer ctrl.crdQueue.ShutDown()
 
 	log.Log.Info("Starting snapshot controller.")
 	defer log.Log.Info("Shutting down snapshot controller.")
@@ -136,9 +170,8 @@ func (ctrl *SnapshotController) Run(threadiness int, stopCh <-chan struct{}) err
 		ctrl.vmSnapshotInformer.HasSynced,
 		ctrl.vmSnapshotContentInformer.HasSynced,
 		ctrl.vmInformer.HasSynced,
-		ctrl.volumeSnapshotInformer.HasSynced,
-		ctrl.volumeSnapshotClassInformer.HasSynced,
 		ctrl.storageClassInformer.HasSynced,
+		ctrl.crdInformer.HasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
@@ -146,6 +179,7 @@ func (ctrl *SnapshotController) Run(threadiness int, stopCh <-chan struct{}) err
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(ctrl.vmSnapshotWorker, time.Second, stopCh)
 		go wait.Until(ctrl.vmSnapshotContentWorker, time.Second, stopCh)
+		go wait.Until(ctrl.crdWorker, time.Second, stopCh)
 	}
 
 	<-stopCh
@@ -160,6 +194,11 @@ func (ctrl *SnapshotController) vmSnapshotWorker() {
 
 func (ctrl *SnapshotController) vmSnapshotContentWorker() {
 	for ctrl.processVMSnapshotContentWorkItem() {
+	}
+}
+
+func (ctrl *SnapshotController) crdWorker() {
+	for ctrl.processCRDWorkItem() {
 	}
 }
 
@@ -208,6 +247,37 @@ func (ctrl *SnapshotController) processVMSnapshotContentWorkItem() bool {
 		}
 
 		return nil
+	})
+}
+
+func (ctrl *SnapshotController) processCRDWorkItem() bool {
+	return processWorkItem(ctrl.crdQueue, func(key string) error {
+		log.Log.V(3).Infof("CRD worker processing key [%s]", key)
+
+		storeObj, exists, err := ctrl.crdInformer.GetStore().GetByKey(key)
+		if err != nil {
+			return err
+		}
+
+		if !exists {
+			_, name, err := cache.SplitMetaNamespaceKey(key)
+			if err != nil {
+				return err
+			}
+
+			return ctrl.deleteDynamicInformer(name)
+		}
+
+		crd, ok := storeObj.(*extv1beta1.CustomResourceDefinition)
+		if !ok {
+			return fmt.Errorf("unexpected resource %+v", storeObj)
+		}
+
+		if crd.DeletionTimestamp != nil {
+			return ctrl.deleteDynamicInformer(crd.Name)
+		}
+
+		return ctrl.ensureDynamicInformer(crd.Name)
 	})
 }
 
@@ -304,6 +374,26 @@ func (ctrl *SnapshotController) handleVM(obj interface{}) {
 	}
 }
 
+func (ctrl *SnapshotController) handleCRD(obj interface{}) {
+	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
+		obj = unknown.Obj
+	}
+
+	if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok {
+		_, ok = ctrl.dynamicInformerMap[crd.Name]
+		if ok {
+			objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(crd)
+			if err != nil {
+				log.Log.Errorf("failed to get key from object: %v, %v", err, crd)
+				return
+			}
+
+			log.Log.V(3).Infof("enqueued %q for sync", objName)
+			ctrl.crdQueue.Add(objName)
+		}
+	}
+}
+
 func (ctrl *SnapshotController) handleVolumeSnapshot(obj interface{}) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
@@ -320,4 +410,89 @@ func (ctrl *SnapshotController) handleVolumeSnapshot(obj interface{}) {
 			ctrl.vmSnapshotContentQueue.Add(k)
 		}
 	}
+}
+
+func (ctrl *SnapshotController) getVolumeSnapshot(namespace, name string) (*k8ssnapshotv1beta1.VolumeSnapshot, error) {
+	di := ctrl.dynamicInformerMap[volumeSnapshotCRD]
+	di.mutex.Lock()
+	defer di.mutex.Unlock()
+
+	if di.informer == nil {
+		return nil, nil
+	}
+
+	key := fmt.Sprintf("%s/%s", namespace, name)
+	obj, exists, err := di.informer.GetStore().GetByKey(key)
+	if !exists || err != nil {
+		return nil, err
+	}
+
+	return obj.(*k8ssnapshotv1beta1.VolumeSnapshot), nil
+}
+
+func (ctrl *SnapshotController) getVolumeSnapshotClasses() []k8ssnapshotv1beta1.VolumeSnapshotClass {
+	di := ctrl.dynamicInformerMap[volumeSnapshotClassCRD]
+	di.mutex.Lock()
+	defer di.mutex.Unlock()
+
+	if di.informer == nil {
+		return nil
+	}
+
+	var vscs []k8ssnapshotv1beta1.VolumeSnapshotClass
+	objs := di.informer.GetStore().List()
+	for _, obj := range objs {
+		vsc := obj.(*k8ssnapshotv1beta1.VolumeSnapshotClass)
+		vscs = append(vscs, *vsc)
+	}
+
+	return vscs
+}
+
+func (ctrl *SnapshotController) ensureDynamicInformer(name string) error {
+	di, ok := ctrl.dynamicInformerMap[name]
+	if !ok {
+		return fmt.Errorf("unexpected CRD %s", name)
+	}
+
+	di.mutex.Lock()
+	defer di.mutex.Unlock()
+	if di.informer != nil {
+		return nil
+	}
+
+	di.stopCh = make(chan struct{})
+	di.informer = di.informerFunc(ctrl.client, ctrl.resyncPeriod)
+	handlerFuncs, ok := ctrl.eventHandlerMap[name]
+	if ok {
+		di.informer.AddEventHandlerWithResyncPeriod(handlerFuncs, ctrl.resyncPeriod)
+	}
+
+	go di.informer.Run(di.stopCh)
+	cache.WaitForCacheSync(di.stopCh, di.informer.HasSynced)
+
+	log.Log.Infof("Successfully created informer for %q", name)
+
+	return nil
+}
+
+func (ctrl *SnapshotController) deleteDynamicInformer(name string) error {
+	di, ok := ctrl.dynamicInformerMap[name]
+	if !ok {
+		return fmt.Errorf("unexpected CRD %s", name)
+	}
+
+	di.mutex.Lock()
+	defer di.mutex.Unlock()
+	if di.informer == nil {
+		return nil
+	}
+
+	close(di.stopCh)
+	di.stopCh = nil
+	di.informer = nil
+
+	log.Log.Infof("Successfully deleted informer for %q", name)
+
+	return nil
 }

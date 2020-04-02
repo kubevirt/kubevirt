@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/emicklei/go-restful"
+	k8ssnapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
@@ -40,16 +41,16 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
-	"kubevirt.io/kubevirt/pkg/util/webhooks"
-
+	vmsnapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
@@ -128,12 +129,12 @@ type VirtControllerApp struct {
 	migrationController *MigrationController
 	migrationInformer   cache.SharedIndexInformer
 
-	snapshotController          *SnapshotController
-	vmSnapshotInformer          cache.SharedIndexInformer
-	vmSnapshotContentInformer   cache.SharedIndexInformer
-	volumeSnapshotInformer      cache.SharedIndexInformer
-	volumeSnapshotClassInformer cache.SharedIndexInformer
-	storageClassInformer        cache.SharedIndexInformer
+	snapshotController        *SnapshotController
+	vmSnapshotInformer        cache.SharedIndexInformer
+	vmSnapshotContentInformer cache.SharedIndexInformer
+	storageClassInformer      cache.SharedIndexInformer
+
+	crdInformer cache.SharedIndexInformer
 
 	LeaderElection leaderelectionconfig.Configuration
 
@@ -171,6 +172,9 @@ type VirtControllerApp struct {
 var _ service.Service = &VirtControllerApp{}
 
 func init() {
+	k8ssnapshotv1beta1.AddToScheme(scheme.Scheme)
+	vmsnapshotv1alpha1.AddToScheme(scheme.Scheme)
+
 	prometheus.MustRegister(leaderGauge)
 	prometheus.MustRegister(readyGauge)
 }
@@ -212,11 +216,11 @@ func Execute() {
 	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, nil, app.kubevirtNamespace)
 
 	configMapInformer := app.informerFactory.ConfigMap()
-	crdInformer := app.informerFactory.CRD()
+	app.crdInformer = app.informerFactory.CRD()
 	app.informerFactory.Start(stopChan)
 
-	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced, crdInformer.HasSynced)
-	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, app.kubevirtNamespace)
+	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced, app.crdInformer.HasSynced)
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, app.crdInformer, app.kubevirtNamespace)
 
 	app.reInitChan = make(chan string, 10)
 	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
@@ -242,8 +246,6 @@ func Execute() {
 
 	app.vmSnapshotInformer = app.informerFactory.VirtualMachineSnapshot()
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
-	app.volumeSnapshotInformer = app.informerFactory.VolumeSnapshot()
-	app.volumeSnapshotClassInformer = app.informerFactory.VolumeSnapshotClass()
 	app.storageClassInformer = app.informerFactory.StorageClass()
 
 	if app.hasCDI {
@@ -451,10 +453,9 @@ func (vca *VirtControllerApp) initSnapshotController() {
 		vca.vmSnapshotInformer,
 		vca.vmSnapshotContentInformer,
 		vca.vmInformer,
-		vca.volumeSnapshotInformer,
-		vca.volumeSnapshotClassInformer,
 		vca.storageClassInformer,
 		vca.persistentVolumeClaimInformer,
+		vca.crdInformer,
 		recorder,
 		vca.snapshotControllerResyncPeriod,
 	)
