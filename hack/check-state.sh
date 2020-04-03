@@ -162,13 +162,16 @@ EOF
         if [ "$OPERATION_PROGRESSING" == 'False' ]; then
             set +x
             if [ "$APPLICATION_AVAILABLE" == 'False' ]; then 
-                echo "Error: Operator $kind is not is not available. Detailed status: $APPLICATION_AVAILABLE_DATA"
+                echo "Error: Operator $kind is not available. Detailed status: $APPLICATION_AVAILABLE_DATA"
             fi
             if [ "$APPLICATION_DEGRADED" == 'True' ]; then 
                 echo "Error: Operator $kind is degraded. Detailed status: $APPLICATION_DEGRADED_DATA"
             fi
-            EXIT_STATUS=1
-            return
+            # TODO: revert this once the upgrade gating mechanism is properly handled on HCO side
+            # EXIT_STATUS=1
+            # return
+            REASON="Operator $kind not available & not progressing but we cannot really trust this state: ignoring it..."
+
         fi
 
         REASON=""
