@@ -178,7 +178,6 @@ const (
 
 const SubresourceTestLabel = "subresource-access-test-pod"
 const namespaceKubevirt = "kubevirt"
-const kubevirtConfig = "kubevirt-config"
 
 const (
 	// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
@@ -790,7 +789,7 @@ func EnsureKVMPresent() {
 	PanicOnError(err)
 
 	options := metav1.GetOptions{}
-	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get("kubevirt-config", options)
+	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
 	if err == nil {
 		val, ok := cfgMap.Data["debug.useEmulation"]
 		useEmulation = ok && (val == "true")
@@ -3880,7 +3879,7 @@ func HasFeature(feature string) bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	options := metav1.GetOptions{}
-	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get("kubevirt-config", options)
+	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
 	if err == nil {
 		val, ok := cfgMap.Data[virtconfig.FeatureGatesKey]
 		if !ok {
@@ -3901,7 +3900,7 @@ func DisableFeatureGate(feature string) {
 	}
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
-	cfg, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+	cfg, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	val, _ := cfg.Data["feature-gates"]
@@ -3918,7 +3917,7 @@ func EnableFeatureGate(feature string) {
 	}
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
-	cfg, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+	cfg, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	val, _ := cfg.Data["feature-gates"]
@@ -4128,7 +4127,7 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 func UpdateClusterConfigValueAndWait(key string, value string) string {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
+	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	oldValue := cfgMap.Data[key]
 	cfgMap.Data[key] = value
@@ -4330,4 +4329,34 @@ func SkipMigrationTestIfRunnigOnKindInfra() {
 	if IsRunningOnKindInfra() {
 		Skip("Skip migration tests till PR https://github.com/kubevirt/kubevirt/pull/3221 is merged")
 	}
+}
+
+func GetNodeDrainKey() string {
+	var data map[string]string
+
+	key := virtconfig.NodeDrainTaintDefaultKey
+	cfgMap, err := GetKubeVirtConfigMap()
+	if err == nil {
+		if val, ok := cfgMap.Data[virtconfig.MigrationsConfigKey]; ok {
+			json.Unmarshal([]byte(val), &data)
+			if val, ok = data["nodeDrainTaintKey"]; ok {
+				key = val
+			}
+		}
+	}
+
+	return key
+}
+
+func GetKubeVirtConfigMap() (*k8sv1.ConfigMap, error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	options := metav1.GetOptions{}
+	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
+	if err != nil && !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+
+	return cfgMap, err
 }
