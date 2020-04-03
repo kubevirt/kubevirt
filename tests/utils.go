@@ -2049,6 +2049,14 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, 
 	return vmi
 }
 
+func NewRandomFedora32VMIWithFedoraUser() *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), `#!/bin/bash
+	    echo "fedora" |passwd fedora --stdin
+        echo `)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	return vmi
+}
+
 func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
 	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), GetGuestAgentUserData())
 	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
@@ -4121,16 +4129,30 @@ func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int) {
-	expecter, err := LoggedInCirrosExpecter(vmi)
-	Expect(err).ToNot(HaveOccurred())
+func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) {
+	var err error
+	var expecter expect.Expecter
+	var httpServerMaker string
+	var prompt string
+
+	if isFedoraVM {
+		expecter, err = LoggedInFedoraExpecter(vmi)
+		Expect(err).NotTo(HaveOccurred())
+		httpServerMaker = fmt.Sprintf("python3 -m http.server %d --bind ::0 &\n", port)
+		prompt = "#"
+	} else {
+		expecter, err = LoggedInCirrosExpecter(vmi)
+		Expect(err).NotTo(HaveOccurred())
+		httpServerMaker = fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\n\\nHello World!\"\n", port)
+		prompt = "\\$"
+	}
 	defer expecter.Close()
 
 	resp, err := expecter.ExpectBatch([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\n\\nHello World!\"\n", port)},
-		&expect.BExp{R: "\\$ "},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: httpServerMaker},
+		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 	}, 60*time.Second)
@@ -4702,4 +4724,9 @@ func ClearKubeVirtConfigMap(key string) error {
 
 func RandTmpDir() string {
 	return tmpPath + "/" + rand.String(10)
+}
+
+func IsIPv6Cluster(virtClient kubecli.KubevirtClient) bool {
+	clusterDnsIP, _ := getClusterDnsServiceIP(virtClient)
+	return netutils.IsIPv6String(clusterDnsIP)
 }
