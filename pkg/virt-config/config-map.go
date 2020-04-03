@@ -43,7 +43,7 @@ import (
 )
 
 const (
-	configMapName                     = "kubevirt-config"
+	ConfigMapName                     = "kubevirt-config"
 	FeatureGatesKey                   = "feature-gates"
 	EmulatedMachinesKey               = "emulated-machines"
 	MachineTypeKey                    = "machine-type"
@@ -79,12 +79,12 @@ func getConfigMap() *k8sv1.ConfigMap {
 			return false, err
 		}
 
-		cfgMap, curErr = virtClient.CoreV1().ConfigMaps(namespace).Get(configMapName, metav1.GetOptions{})
+		cfgMap, curErr = virtClient.CoreV1().ConfigMaps(namespace).Get(ConfigMapName, metav1.GetOptions{})
 
 		if curErr != nil {
 			if errors.IsNotFound(curErr) {
 				logger := log.DefaultLogger()
-				logger.Infof("%s ConfigMap does not exist. Using defaults.", configMapName)
+				logger.Infof("%s ConfigMap does not exist. Using defaults.", ConfigMapName)
 				cfgMap = &k8sv1.ConfigMap{}
 				return true, nil
 			}
@@ -423,7 +423,7 @@ func (c *ClusterConfig) getConfig() (config *Config) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if obj, exists, err := c.configMapInformer.GetStore().GetByKey(c.namespace + "/" + configMapName); err != nil {
+	if obj, exists, err := c.configMapInformer.GetStore().GetByKey(c.namespace + "/" + ConfigMapName); err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Error loading the cluster config from cache, falling back to last good resource version '%s'", c.lastValidConfig.ResourceVersion)
 		return c.lastValidConfig
 	} else if !exists {
