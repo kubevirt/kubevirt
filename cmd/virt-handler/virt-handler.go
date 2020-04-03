@@ -347,6 +347,11 @@ func (app *virtHandlerApp) Run() {
 	if err == nil {
 		devnettun.Close()
 	}
+	// Same for /dev/vhost-net
+	devvhostnet, err := os.Open("/dev/vhost-net")
+	if err == nil {
+		devvhostnet.Close()
+	}
 
 	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiInformer.HasSynced, factory.CRD().HasSynced)
 
