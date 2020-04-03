@@ -1241,33 +1241,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.networks"))
 			Expect(causes[0].Message).To(Equal("Pod network cannot be defined when Multus default network is defined"))
 		})
-		It("should reject when CNI networks of different types are defined", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultBridgeNetworkInterface(),
-				*v1.DefaultBridgeNetworkInterface(),
-			}
-			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus"
-			vm.Spec.Domain.Devices.Interfaces[1].Name = "pod"
-			vm.Spec.Networks = []v1.Network{
-				v1.Network{
-					Name: "multus",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "default1"},
-					},
-				},
-				v1.Network{
-					Name: "pod",
-					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{},
-					},
-				},
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.networks[1]"))
-		})
 		It("should reject multus network source without networkName", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
