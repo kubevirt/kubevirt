@@ -41,6 +41,14 @@ metadata:
   name: ${namespace}
 EOF
 
+if [[ $KUBEVIRT_PROVIDER == "k8s-1.17" ]]; then
+    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/external-snapshotter
+    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook/common.yaml
+    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook/operator.yaml
+    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook/cluster.yaml
+    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook/pool.yaml
+fi
+
 # Deploy infra for testing first
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing
 
@@ -100,5 +108,14 @@ until _kubectl wait -n kubevirt kv kubevirt --for condition=Available --timeout 
     echo "Error waiting for KubeVirt to be Available, sleeping 1m and retrying"
     sleep 1m
 done
+
+if [[ $KUBEVIRT_PROVIDER == "k8s-1.17" ]]; then
+    # wait for ceph
+    until _kubectl get cephblockpools -n rook-ceph replicapool -o jsonpath='{.status.phase}' | grep Ready; do
+        ((count++)) && ((count == 20)) && echo "Ceph not ready in time" && exit 1
+        echo "Error waiting for Ceph to be Ready, sleeping 1m and retrying"
+        sleep 30
+    done
+fi
 
 echo "Done"

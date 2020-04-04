@@ -184,6 +184,10 @@ func (ctrl *SnapshotController) Run(threadiness int, stopCh <-chan struct{}) err
 
 	<-stopCh
 
+	for crd := range ctrl.dynamicInformerMap {
+		ctrl.deleteDynamicInformer(crd)
+	}
+
 	return nil
 }
 
