@@ -32,7 +32,7 @@ import (
 )
 
 func main() {
-	resourceType := flag.String("type", "", "Type of resource to generate. vmi | vmipreset | vmirs | vm | vmim | kv | rbac")
+	resourceType := flag.String("type", "", "Type of resource to generate. vmi | vmipreset | vmirs | vm | vmim | kv | rbac | priorityclass")
 	namespace := flag.String("namespace", "kube-system", "Namespace to use.")
 	repository := flag.String("repository", "kubevirt", "Image Repository to use.")
 	imagePrefix := flag.String("imagePrefix", "", "Optional prefix for virt-* image names.")
@@ -107,6 +107,9 @@ func main() {
 			panic(fmt.Errorf("error generating virt-handler deployment %v", err))
 		}
 		util.MarshallObject(handler, os.Stdout)
+	case "priorityclass":
+		priorityClass := components.NewKubeVirtPriorityClassCR()
+		util.MarshallObject(priorityClass, os.Stdout)
 	default:
 		panic(fmt.Errorf("unknown resource type %s", *resourceType))
 	}

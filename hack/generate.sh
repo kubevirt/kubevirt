@@ -42,6 +42,7 @@ ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DI
 (cd ${KUBEVIRT_DIR}/tools/csv-generator/ && go_build)
 rm -f ${KUBEVIRT_DIR}/manifests/generated/*
 rm -f ${KUBEVIRT_DIR}/examples/*
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=priorityclass >${KUBEVIRT_DIR}/manifests/generated/kubevirt-priority-class.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmi >${KUBEVIRT_DIR}/manifests/generated/vmi-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmirs >${KUBEVIRT_DIR}/manifests/generated/vmirs-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmipreset >${KUBEVIRT_DIR}/manifests/generated/vmipreset-resource.yaml

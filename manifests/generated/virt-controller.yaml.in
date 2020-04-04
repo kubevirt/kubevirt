@@ -65,6 +65,7 @@ spec:
           initialDelaySeconds: 15
           timeoutSeconds: 10
         resources: {}
+      priorityClassName: kubevirt-cluster-critical
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kubevirt-controller
