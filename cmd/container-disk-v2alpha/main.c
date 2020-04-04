@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
     */
     memset(&address, 0, sizeof(struct sockaddr_un));
     address.sun_family = AF_UNIX;
-    strncat(copy_path, ".sock", 5);
+    strcat(copy_path, ".sock");
     strncpy(address.sun_path, copy_path, sizeof(address.sun_path));
 
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
