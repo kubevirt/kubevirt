@@ -121,7 +121,7 @@ var _ = Describe("SecurityFeatures", func() {
 
 				By("Check virt-launcher pod SecurityContext values")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-				Expect(vmiPod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal(""))
+				Expect(vmiPod.Spec.SecurityContext.SELinuxOptions).To(BeNil())
 			})
 
 			It("[test_id:2895]Make sure the virt-launcher pod is not priviledged", func() {
