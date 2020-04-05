@@ -296,7 +296,7 @@ func (r *realIsolationResult) MountInfoRoot() (*MountInfo, error) {
 			}
 		}
 
-		if record[3] == "/" && record[4] == "/" {
+		if record[4] == "/" {
 			return &MountInfo{
 				DeviceContainingFile: record[2],
 				Root:                 record[3],
