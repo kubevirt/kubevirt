@@ -88,7 +88,7 @@ type NetworkHandler interface {
 	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
 	HasNatIptables(proto iptables.Protocol) bool
-	IsIpv6Enabled(link netlink.Link) bool
+	IsIpv6Enabled() bool
 	ConfigureIpv6Forwarding() error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
 	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
@@ -154,7 +154,7 @@ func (h *NetworkUtilsHandler) ConfigureIpv6Forwarding() error {
 	return err
 }
 
-func (h *NetworkUtilsHandler) IsIpv6Enabled(link netlink.Link) bool {
+func (h *NetworkUtilsHandler) IsIpv6Enabled() bool {
 	podIp := os.Getenv("MY_POD_IP")
 	if !netutils.IsIPv6String(podIp) {
 		log.Log.V(5).Info("Since the pod ip is non IPv6, IPv6 is disabled")

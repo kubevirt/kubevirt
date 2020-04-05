@@ -48,14 +48,13 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		}
 		table.DescribeTable("should succeed", func(readinessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int)) {
 			if tests.IsRunningOnKindInfra() && readinessProbe == httpProbe {
-				Skip("Skip http probe test till PR https://github.com/kubevirt/kubevirt/pull/3224 is merged")
+				Skip("Skip http probe test till issue https://github.com/kubevirt/kubevirt/issues/3247 is fixed")
 			}
 			By("Specifying a VMI with a readiness probe")
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			vmi.Spec.ReadinessProbe = readinessProbe
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
@@ -85,7 +84,6 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			vmi.Spec.ReadinessProbe = readinessProbe
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
@@ -136,7 +134,6 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			vmi.Spec.LivenessProbe = livenessProbe
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
@@ -160,7 +157,6 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			vmi.Spec.LivenessProbe = livenessProbe
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 

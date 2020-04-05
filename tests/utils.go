@@ -2662,17 +2662,17 @@ func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batc
 	return err
 }
 
-func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, virtClient kubecli.KubevirtClient) error {
+func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, virtClient kubecli.KubevirtClient, prompt string) error {
 	shouldConfigureIpv6 := func(vmi *v1.VirtualMachineInstance) bool {
 		shouldConfigureIpv6Batch := append([]expect.Batcher{
 			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: "\\$ "},
+			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "ip a | grep -q eth0\n"},
-			&expect.BExp{R: "\\$ "},
+			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "echo $?\n"},
 			&expect.BExp{R: "0"},
 			&expect.BSnd{S: "ip address show dev eth0 scope global | grep -q inet6\n"},
-			&expect.BExp{R: "\\$ "},
+			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "echo $?\n"},
 			&expect.BExp{R: "1"}})
 		_, err := expecter.ExpectBatch(shouldConfigureIpv6Batch, 30*time.Second)
@@ -2695,19 +2695,19 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 
 	ipv6Batch := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "\\$ "},
+		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "sudo ip -6 addr add fd2e:f1fe:9490:a8ff::2/120 dev eth0\n"},
-		&expect.BExp{R: "\\$ "},
+		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 		&expect.BSnd{S: "sleep 5\n"},
-		&expect.BExp{R: "\\$ "},
+		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "sudo ip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2\n"},
-		&expect.BExp{R: "\\$ "},
+		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 		&expect.BSnd{S: fmt.Sprintf(`echo "nameserver %s" >> /etc/resolv.conf\n`, dnsServerIP)},
-		&expect.BExp{R: "\\$ "},
+		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"}})
 	resp, err := expecter.ExpectBatch(ipv6Batch, 1*time.Minute)
@@ -2758,7 +2758,7 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return nil, err
 	}
 
-	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient)
+	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "\\$ ")
 }
 
 func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
@@ -2809,7 +2809,7 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return expecter, err
 	}
 
-	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient)
+	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "#")
 }
 
 // ReLoggedInFedoraExpecter return prepared and ready to use console expecter for

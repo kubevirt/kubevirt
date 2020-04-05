@@ -213,14 +213,14 @@ func (_mr *_MockNetworkHandlerRecorder) HasNatIptables(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "HasNatIptables", arg0)
 }
 
-func (_m *MockNetworkHandler) IsIpv6Enabled(link netlink.Link) bool {
-	ret := _m.ctrl.Call(_m, "IsIpv6Enabled", link)
+func (_m *MockNetworkHandler) IsIpv6Enabled() bool {
+	ret := _m.ctrl.Call(_m, "IsIpv6Enabled")
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-func (_mr *_MockNetworkHandlerRecorder) IsIpv6Enabled(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsIpv6Enabled", arg0)
+func (_mr *_MockNetworkHandlerRecorder) IsIpv6Enabled() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "IsIpv6Enabled")
 }
 
 func (_m *MockNetworkHandler) ConfigureIpv6Forwarding() error {
