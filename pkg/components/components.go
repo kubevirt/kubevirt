@@ -484,10 +484,10 @@ func GetV2VCRD() *extv1beta1.CustomResourceDefinition {
 			Kind:       "CustomResourceDefinition",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "v2vvmwares.kubevirt.io",
+			Name: "v2vvmwares.v2v.kubevirt.io",
 		},
 		Spec: extv1beta1.CustomResourceDefinitionSpec{
-			Group:   "kubevirt.io",
+			Group:   "v2v.kubevirt.io",
 			Version: "v1alpha1",
 			Scope:   "Namespaced",
 			Versions: []extv1beta1.CustomResourceDefinitionVersion{
@@ -654,7 +654,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 						Description: "Represents the deployment of " + crdDisplay,
 					},
 					csvv1alpha1.CRDDescription{
-						Name:        "v2vvmwares.kubevirt.io",
+						Name:        "v2vvmwares.v2v.kubevirt.io",
 						Version:     "v1alpha1",
 						Kind:        "V2VVmware",
 						DisplayName: "V2V Vmware",

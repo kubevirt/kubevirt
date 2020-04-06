@@ -2,9 +2,9 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: v2vvmwares.kubevirt.io
+  name: v2vvmwares.v2v.kubevirt.io
 spec:
-  group: kubevirt.io
+  group: v2v.kubevirt.io
   names:
     kind: V2VVmware
     listKind: V2VVmwareList
