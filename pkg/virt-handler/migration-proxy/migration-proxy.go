@@ -29,7 +29,10 @@ import (
 	"strings"
 	"sync"
 
+	netutils "k8s.io/utils/net"
+
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 )
 
 const (
@@ -93,6 +96,14 @@ func SourceUnixFile(baseDir string, key string) string {
 	return filepath.Join(baseDir, "migrationproxy", key+"-source.sock")
 }
 
+func ipBindAddress() string {
+	if network.IsIpv6Enabled() {
+		return "[::]"
+	}
+
+	return "0.0.0.0"
+}
+
 func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles []string) error {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
@@ -129,7 +140,7 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles 
 	proxiesList := []*migrationProxy{}
 	for _, targetUnixFile := range targetUnixFiles {
 		// 0 means random port is used
-		proxy := NewTargetProxy("0.0.0.0", 0, m.serverTLSConfig, m.clientTLSConfig, targetUnixFile)
+		proxy := NewTargetProxy(ipBindAddress(), 0, m.serverTLSConfig, m.clientTLSConfig, targetUnixFile)
 
 		err := proxy.StartListening()
 		if err != nil {
@@ -211,6 +222,10 @@ func (m *migrationProxyManager) StopTargetListener(key string) {
 func (m *migrationProxyManager) StartSourceListener(key string, targetAddress string, destSrcPortMap map[int]int, baseDir string) error {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
+
+	if netutils.IsIPv6String(targetAddress) {
+		targetAddress = "[" + targetAddress + "]"
+	}
 
 	isExistingProxy := func(curProxies []*migrationProxy, targetAddress string, destSrcPortMap map[int]int) bool {
 		if len(curProxies) != len(destSrcPortMap) {
@@ -315,12 +330,16 @@ func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls
 
 }
 
+func isLoopbackAddress(ipAddress string) bool {
+	return (strings.Contains(ipAddress, "127.0.0.1") || strings.Contains(ipAddress, "[::1]"))
+}
+
 func (m *migrationProxy) createTcpListener() error {
 	var listener net.Listener
 	var err error
 	if m.serverTLSConfig != nil {
 		listener, err = tls.Listen("tcp", fmt.Sprintf("%s:%d", m.tcpBindAddress, m.tcpBindPort), m.serverTLSConfig)
-	} else if strings.Contains(m.tcpBindAddress, "127.0.0.1") {
+	} else if isLoopbackAddress(m.tcpBindAddress) {
 		listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", m.tcpBindAddress, m.tcpBindPort))
 	} else {
 		return fmt.Errorf("Unsecured tcp migration proxy listeners are not permitted")

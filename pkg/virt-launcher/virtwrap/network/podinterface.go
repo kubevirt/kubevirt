@@ -511,7 +511,7 @@ func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 		return err
 	}
 
-	if Handler.IsIpv6Enabled() {
+	if IsIpv6Enabled() {
 		err = configureVifV6Addresses(p, err)
 		if err != nil {
 			return err
@@ -620,7 +620,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 			return err
 		}
 	}
-	if Handler.IsIpv6Enabled() && (Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil) {
+	if IsIpv6Enabled() && (Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil) {
 		err = Handler.ConfigureIpv6Forwarding()
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to turn on net.ipv6.conf.all.forwarding")
@@ -733,7 +733,7 @@ func (p *MasqueradePodInterface) createBridge() error {
 		return err
 	}
 
-	if Handler.IsIpv6Enabled() {
+	if IsIpv6Enabled() {
 		if err := Handler.AddrAdd(bridge, p.gatewayIpv6Addr); err != nil {
 			log.Log.Reason(err).Errorf("failed to set bridge IPv6")
 			return err
