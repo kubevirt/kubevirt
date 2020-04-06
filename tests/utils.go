@@ -107,6 +107,7 @@ var PreviousReleaseRegistry = ""
 var ConfigFile = ""
 var Config *KubeVirtTestsConfiguration
 var SkipShasumCheck bool
+var TimeoutMultiplier float64
 
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
@@ -131,6 +132,7 @@ func init() {
 	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "", "Set registry of the release to test updating from")
 	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
+	flag.Float64Var(&TimeoutMultiplier, "timeout-multiplier", 1, "Scalar multiplier to apply to test timeouts")
 }
 
 func FlagParse() {
@@ -153,6 +155,9 @@ const TempDirPrefix = "kubevirt-test"
 const (
 	defaultEventuallyTimeout         = 5 * time.Second
 	defaultEventuallyPollingInterval = 1 * time.Second
+	defualtVMIStartTimeout           = 180
+	defualtVMIMigrationTimeout       = 180
+	defualtVMIDeletionTimeout        = 120
 )
 
 const (
@@ -268,6 +273,30 @@ type ObjectEventWatcher struct {
 
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
 	return &ObjectEventWatcher{object: object, startType: invalidWatch}
+}
+
+func GetVMIStartTimeoutSeconds() int {
+	return int(GetVMIStartTimeout().Seconds())
+}
+
+func GetVMIStartTimeout() time.Duration {
+	return time.Duration(defualtVMIStartTimeout * TimeoutMultiplier * float64(time.Second))
+}
+
+func GetVMIMigrationTimeoutSeconds() int {
+	return int(GetVMIMigrationTimeout().Seconds())
+}
+
+func GetVMIMigrationTimeout() time.Duration {
+	return time.Duration(defualtVMIMigrationTimeout * TimeoutMultiplier * float64(time.Second))
+}
+
+func GetVMIDeletionTimeoutSeconds() int {
+	return int(GetVMIDeletionTimeout().Seconds())
+}
+
+func GetVMIDeletionTimeout() time.Duration {
+	return time.Duration(defualtVMIDeletionTimeout * TimeoutMultiplier * float64(time.Second))
 }
 
 func (w *ObjectEventWatcher) Timeout(duration time.Duration) *ObjectEventWatcher {
