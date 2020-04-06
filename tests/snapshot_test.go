@@ -193,6 +193,19 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 })
 
 func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
+	_, err := client.
+		ExtensionsClient().
+		ApiextensionsV1beta1().
+		CustomResourceDefinitions().
+		Get("volumesnapshotclasses.snapshot.storage.k8s.io", metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", nil
+		}
+
+		return "", err
+	}
+
 	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1beta1().VolumeSnapshotClasses().List(metav1.ListOptions{})
 	if err != nil {
 		return "", err
