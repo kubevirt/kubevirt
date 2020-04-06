@@ -30,7 +30,7 @@ var _ = Describe("Generic Device", func() {
 		Expect(err).ToNot(HaveOccurred())
 		fileObj.Close()
 
-		dpi = NewGenericDevicePlugin("foo", devicePath, 1)
+		dpi = NewGenericDevicePlugin("foo", devicePath, 1, true)
 		dpi.socketPath = filepath.Join(workDir, "test.sock")
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 		dpi.done = make(chan struct{})
