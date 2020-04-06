@@ -148,7 +148,7 @@ kubectl() { cluster-up/kubectl.sh "$@"; }
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
+trap '{ for i in $(docker ps --format '{{.Names}}'); do echo "============== $i ============================" >> $ARTIFACTS_PATH/container.log ; docker logs $i >> $ARTIFACTS_PATH/container.log 2>&1; done || true; make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
 make cluster-down
 
@@ -309,7 +309,6 @@ spec:
   storageClassName: rhel
 EOF
 fi
-
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params make functest
