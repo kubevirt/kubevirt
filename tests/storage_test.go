@@ -64,6 +64,8 @@ var _ = Describe("Storage", func() {
 	Describe("Starting a VirtualMachineInstance", func() {
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
 			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc) {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := newVMI(tests.DiskAlpineHostPath)
 				tests.RunVMIAndExpectLaunch(vmi, 90)
@@ -78,6 +80,8 @@ var _ = Describe("Storage", func() {
 			)
 
 			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+
 				vmi := newVMI(tests.DiskAlpineHostPath)
 
 				num := 3
@@ -195,11 +199,21 @@ var _ = Describe("Storage", func() {
 
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ephemeral alpine PVC", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
+			var isRunOnKindInfra bool
+			tests.BeforeAll(func() {
+				isRunOnKindInfra = tests.IsRunningOnKindInfra()
+			})
+
 			It("[test_id:3136]should be successfully started", func() {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
-				tests.RunVMIAndExpectLaunch(vmi, 90)
-
+				if isRunOnKindInfra {
+					tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
+				} else {
+					tests.RunVMIAndExpectLaunch(vmi, 90)
+				}
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -207,10 +221,17 @@ var _ = Describe("Storage", func() {
 			})
 
 			It("[test_id:3137]should not persist data", func() {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+
 				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 
 				By("Starting the VirtualMachineInstance")
-				createdVMI := tests.RunVMIAndExpectLaunch(vmi, 90)
+				var createdVMI *v1.VirtualMachineInstance
+				if isRunOnKindInfra {
+					createdVMI = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
+				} else {
+					createdVMI = tests.RunVMIAndExpectLaunch(vmi, 90)
+				}
 
 				By("Writing an arbitrary file to it's EFI partition")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
@@ -234,7 +255,11 @@ var _ = Describe("Storage", func() {
 				tests.WaitForVirtualMachineToDisappearWithTimeout(createdVMI, 120)
 
 				By("Starting the VirtualMachineInstance again")
-				tests.RunVMIAndExpectLaunch(vmi, 90)
+				if isRunOnKindInfra {
+					createdVMI = tests.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 90)
+				} else {
+					createdVMI = tests.RunVMIAndExpectLaunch(vmi, 90)
+				}
 
 				By("Making sure that the previously written file is not present")
 				expecter, err = tests.LoggedInAlpineExpecter(vmi)
@@ -262,6 +287,8 @@ var _ = Describe("Storage", func() {
 			}, 120)
 
 			It("[test_id:3138]should start vmi multiple times", func() {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
+
 				vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
 				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
 
@@ -571,6 +598,7 @@ var _ = Describe("Storage", func() {
 			})
 
 			It("[test_id:1015] should be successfully started", func() {
+				tests.SkipPVCTestIfRunnigOnKindInfra()
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
 				// Without userdata the hostname isn't set correctly and the login expecter fails...

@@ -36,6 +36,7 @@ import (
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
+	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -725,9 +726,27 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(serverVMI.Status.Interfaces)).To(Equal(1))
 
-			By("checking ping to google")
-			pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
-			pingVirtualMachine(clientVMI, "google.com", "\\$ ")
+			if netutils.IsIPv6String(serverVMI.Status.Interfaces[0].IP) {
+				By("Checking traceroute from vmi to cluster nodes gateway")
+				// Cluster nodes subnet (docker network gateway)
+				// Docker network subnet cidr definition https://bit.ly/2wZTgMK
+				err := tests.CheckForTextExpecter(serverVMI, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: "traceroute -6 2001:db8:1::1 -w1 > tr\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: "cat tr | grep -q \"*\\|!\"\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "1"},
+				}, 180)
+
+				Expect(err).ToNot(HaveOccurred(), "Failed to traceroute to VMI %s within the given timeout", serverVMI.Name)
+			} else {
+				By("Checking ping to google")
+				pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
+				pingVirtualMachine(clientVMI, "google.com", "\\$ ")
+			}
 
 			By("starting a tcp server")
 			err = tests.CheckForTextExpecter(serverVMI, []expect.Batcher{
