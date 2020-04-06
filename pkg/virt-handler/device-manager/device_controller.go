@@ -46,9 +46,9 @@ type DeviceController struct {
 func NewDeviceController(host string, maxDevices int) *DeviceController {
 	return &DeviceController{
 		devicePlugins: []GenericDevice{
-			NewGenericDevicePlugin(KVMName, KVMPath, maxDevices),
-			NewGenericDevicePlugin(TunName, TunPath, maxDevices),
-			NewGenericDevicePlugin(VhostNetName, VhostNetPath, maxDevices),
+			NewGenericDevicePlugin(KVMName, KVMPath, maxDevices, false),
+			NewGenericDevicePlugin(TunName, TunPath, maxDevices, true),
+			NewGenericDevicePlugin(VhostNetName, VhostNetPath, maxDevices, true),
 		},
 		host:       host,
 		maxDevices: maxDevices,
