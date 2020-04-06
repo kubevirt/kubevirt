@@ -353,7 +353,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					launcher := findLauncherForVMI(vmi)
 					tests.NewObjectEventWatcher(launcher).
 						SinceWatchedObjectResourceVersion().
-						Timeout(60*time.Second).
+						Timeout(tests.GetVMIStartTimeout()).
 						Watch(stopChan, func(event *k8sv1.Event) bool {
 							if event.Type == "Warning" && event.Reason == "FailedMount" {
 								return true
@@ -385,7 +385,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					By("Checking that VirtualMachineInstance start failed")
 					stopChan := make(chan struct{})
 					defer close(stopChan)
-					event := tests.NewObjectEventWatcher(launcher).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(stopChan, tests.WarningEvent, "FailedMount")
+					event := tests.NewObjectEventWatcher(launcher).Timeout(tests.GetVMIStartTimeout()).SinceWatchedObjectResourceVersion().WaitFor(stopChan, tests.WarningEvent, "FailedMount")
 					Expect(event.Message).To(SatisfyAny(
 						ContainSubstring(`secret "nonexistent" not found`),
 						ContainSubstring(`secrets "nonexistent" not found`), // for k8s 1.11.x
@@ -411,7 +411,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					// Wait for the VirtualMachineInstance to be started, allow warning events to occur
 					By("Checking that VirtualMachineInstance start succeeded")
-					tests.NewObjectEventWatcher(createdVMI).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(stopChan, tests.NormalEvent, v1.Started)
+					tests.NewObjectEventWatcher(createdVMI).SinceWatchedObjectResourceVersion().Timeout(tests.GetVMIStartTimeout()).WaitFor(stopChan, tests.NormalEvent, v1.Started)
 				})
 			})
 		})

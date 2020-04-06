@@ -395,7 +395,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Starting a Fedora VMI")
 			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 360)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, tests.GetVMIStartTimeoutSeconds())
 			tests.WaitAgentConnected(virtClient, vmi)
 
 			expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)

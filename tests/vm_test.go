@@ -1694,7 +1694,7 @@ func waitForVMIStart(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 			return v1.Unknown
 		}
 		return newVMI.Status.Phase
-	}, 120*time.Second, 1*time.Second).Should(Equal(v1.Running), "New VMI was not created")
+	}, tests.GetVMIStartTimeout(), 1*time.Second).Should(Equal(v1.Running), "New VMI was not created")
 }
 
 func waitForVMIScheduling(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
@@ -1707,7 +1707,7 @@ func waitForVMIScheduling(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMach
 			return v1.Unknown
 		}
 		return newVMI.Status.Phase
-	}, 120*time.Second, 1*time.Second).Should(Equal(v1.Scheduling), "New VMI was not created")
+	}, tests.GetVMIStartTimeout(), 1*time.Second).Should(Equal(v1.Scheduling), "New VMI was not created")
 }
 
 func waitForResourceDeletion(k8sClient string, resourceType string, resourceName string) {
@@ -1715,5 +1715,5 @@ func waitForResourceDeletion(k8sClient string, resourceType string, resourceName
 		stdout, _, err := tests.RunCommand(k8sClient, "get", resourceType)
 		Expect(err).ToNot(HaveOccurred())
 		return strings.Contains(stdout, resourceName)
-	}, 120*time.Second, 1*time.Second).Should(BeFalse(), "VM was not deleted")
+	}, tests.GetVMIDeletionTimeout(), 1*time.Second).Should(BeFalse(), "VM was not deleted")
 }

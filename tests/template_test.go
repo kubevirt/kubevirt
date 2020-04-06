@@ -226,7 +226,7 @@ var _ = Describe("Templates", func() {
 					vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})
 					ExpectWithOffset(1, err).ToNot(HaveOccurred(), "failed to fetch VirtualMachine %q: %v", vmName, err)
 					return vm.Status.Ready
-				}).Should(BeTrue(), "VirtualMachine %q still does not have status ready", vmName)
+				}, tests.GetVMIStartTimeoutSeconds()).Should(BeTrue(), "VirtualMachine %q still does not have status ready", vmName)
 
 				By("Checking if the VirtualMachineInstance specs match Template parameters")
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmName, &metav1.GetOptions{})

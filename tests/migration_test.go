@@ -1607,7 +1607,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("waiting until the VMIs are ready")
 				for _, vmi := range vmis {
-					tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+					tests.WaitForSuccessfulVMIStartWithTimeout(vmi, tests.GetVMIStartTimeoutSeconds())
 				}
 
 				By("selecting a  node as the target")
@@ -1625,7 +1625,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					runningMigrations := migrations.FilterRunningMigrations(migrationList.Items)
 
 					return len(runningMigrations)
-				}, 2*time.Minute, 1*time.Second).Should(BeNumerically(">", 0))
+				}, tests.GetVMIMigrationTimeoutSeconds(), 1*time.Second).Should(BeNumerically(">", 0))
 
 				By("checking that all VMIs were migrated, and we never see more than two running migrations in parallel")
 				Eventually(func() []string {
@@ -1642,7 +1642,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Expect(len(runningMigrations)).To(BeNumerically("<=", 2))
 
 					return nodes
-				}, 4*time.Minute, 1*time.Second).Should(ConsistOf(
+				}, tests.GetVMIMigrationTimeoutSeconds()*2, 1*time.Second).Should(ConsistOf(
 					targetNode.Name,
 					targetNode.Name,
 					targetNode.Name,

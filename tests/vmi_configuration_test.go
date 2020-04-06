@@ -1856,7 +1856,7 @@ var _ = Describe("Configurations", func() {
 				log.DefaultLogger().Object(cpuVmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
 			})
-			It("should be able to start a vm with guest memory different from requested and keed guaranteed qos", func() {
+			It("should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets:               2,
