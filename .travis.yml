@@ -7,7 +7,7 @@ services:
 
 arch:
 - amd64
-# - ppc64le # temporary disable until we have it under control again
+- ppc64le
 
 os: linux
 
