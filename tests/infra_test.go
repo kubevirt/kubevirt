@@ -22,33 +22,33 @@ package tests_test
 import (
 	"crypto/tls"
 	"encoding/json"
-	"reflect"
-
-	"k8s.io/apimachinery/pkg/watch"
-
 	"fmt"
 	"net/http"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
-
-	expect "github.com/google/goexpect"
+	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -57,6 +57,128 @@ var _ = Describe("Infrastructure", func() {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
+
+	config, err := kubecli.GetConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	aggregatorClient := aggregatorclient.NewForConfigOrDie(config)
+
+	Describe("certificates", func() {
+
+		It("should be rotated when a new CA is created", func() {
+			By("checking that the config-map gets the new CA bundle attached")
+			Eventually(func() int {
+				_, crts := tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
+				return len(crts)
+			}, 10*time.Second, 1*time.Second).Should(BeNumerically(">", 0))
+
+			By("destroying the certificate")
+			secret, err := virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Get(components.KubeVirtCASecretName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			secret.Data = map[string][]byte{
+				"random": []byte("nonsense"),
+			}
+			_, err = virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Update(secret)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking that the CA secret gets restored with a new ca bundle")
+			var newCA []byte
+			Eventually(func() []byte {
+				newCA = tests.GetCertFromSecret(components.KubeVirtCASecretName)
+				return newCA
+			}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
+
+			By("checking that one of the CAs in the config-map is the new one")
+			var caBundle []byte
+			Eventually(func() bool {
+				caBundle, _ = tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
+				return tests.ContainsCrt(caBundle, newCA)
+			}, 10*time.Second, 1*time.Second).Should(BeTrue(), "the new CA should be added to the config-map")
+
+			By("checking that the ca bundle gets propagated to the validating webhook")
+			Eventually(func() bool {
+				webhook, err := virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(components.VirtAPIValidatingWebhookName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if len(webhook.Webhooks) > 0 {
+					return tests.ContainsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
+				}
+				return false
+			}, 10*time.Second, 1*time.Second).Should(BeTrue())
+			By("checking that the ca bundle gets propagated to the mutating webhook")
+			Eventually(func() bool {
+				webhook, err := virtClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(components.VirtAPIMutatingWebhookName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if len(webhook.Webhooks) > 0 {
+					return tests.ContainsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
+				}
+				return false
+			}, 10*time.Second, 1*time.Second).Should(BeTrue())
+
+			By("checking that the ca bundle gets propagated to the apiservice")
+			Eventually(func() bool {
+				apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get("v1alpha3.subresources.kubevirt.io", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return tests.ContainsCrt(apiService.Spec.CABundle, newCA)
+			}, 10*time.Second, 1*time.Second).Should(BeTrue())
+
+			By("checking that we can still start virtual machines and connect to the VMI")
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi = tests.RunVMI(vmi, 60)
+			expecter, err := tests.LoggedInAlpineExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+		})
+
+		It("should be valid during the whole rotation process", func() {
+			oldAPICert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), tests.KubeVirtInstallNamespace, "8443")
+			oldHandlerCert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), tests.KubeVirtInstallNamespace, "8186")
+			Expect(err).ToNot(HaveOccurred())
+
+			By("destroying the CA certificate")
+			err = virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Delete(components.KubeVirtCASecretName, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
+			Eventually(func() (rotated bool) {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi = tests.RunVMI(vmi, 60)
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				expecter.Close()
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), tests.KubeVirtInstallNamespace, "8443")
+				Expect(err).ToNot(HaveOccurred())
+				newHandlerCert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), tests.KubeVirtInstallNamespace, "8186")
+				Expect(err).ToNot(HaveOccurred())
+				return !reflect.DeepEqual(oldHandlerCert, newHandlerCert) && !reflect.DeepEqual(oldAPICert, newAPICert)
+			}, 120*time.Second).Should(BeTrue())
+		})
+
+		table.DescribeTable("should be rotated when deleted for ", func(secretName string) {
+			By("destroying the certificate")
+			secret, err := virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Get(secretName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			secret.Data = map[string][]byte{
+				"random": []byte("nonsense"),
+			}
+			_, err = virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Update(secret)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking that the secret gets restored with a new certificate")
+			Eventually(func() []byte {
+				return tests.GetCertFromSecret(secretName)
+			}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
+		},
+			table.Entry("virt-operator", components.VirtOperatorCertSecretName),
+			table.Entry("virt-api", components.VirtApiCertSecretName),
+			table.Entry("virt-controller", components.VirtControllerCertSecretName),
+			table.Entry("virt-handlers client side", components.VirtHandlerCertSecretName),
+			table.Entry("virt-handlers server side", components.VirtHandlerServerCertSecretName),
+		)
+	})
 
 	// start a VMI, wait for it to run and return the node it runs on
 	startVMI := func(vmi *v1.VirtualMachineInstance) string {
