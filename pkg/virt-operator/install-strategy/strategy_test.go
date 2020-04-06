@@ -272,6 +272,9 @@ var _ = Describe("Install Strategy", func() {
 							v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
 							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 						},
+						Labels: map[string]string{
+							v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+						},
 					},
 					Spec: corev1.ServiceSpec{
 						ClusterIP: "2.2.2.2",
@@ -284,6 +287,9 @@ var _ = Describe("Install Strategy", func() {
 							v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
 							v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
 							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
+						},
+						Labels: map[string]string{
+							v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -298,6 +304,9 @@ var _ = Describe("Install Strategy", func() {
 							v1.InstallStrategyVersionAnnotation:    "oldversion",
 							v1.InstallStrategyRegistryAnnotation:   "oldversion",
 							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
+						},
+						Labels: map[string]string{
+							v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -324,6 +333,9 @@ var _ = Describe("Install Strategy", func() {
 							v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
 							v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
 							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
+						},
+						Labels: map[string]string{
+							v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -352,6 +364,9 @@ var _ = Describe("Install Strategy", func() {
 							v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
 							v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
 							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
+						},
+						Labels: map[string]string{
+							v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -386,6 +401,9 @@ var _ = Describe("Install Strategy", func() {
 							v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
 							v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
 							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
+						},
+						Labels: map[string]string{
+							v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -423,6 +441,9 @@ var _ = Describe("Install Strategy", func() {
 							v1.InstallStrategyRegistryAnnotation:   "old",
 							v1.InstallStrategyIdentifierAnnotation: "old",
 						},
+						Labels: map[string]string{
+							v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+						},
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
@@ -456,6 +477,9 @@ var _ = Describe("Install Strategy", func() {
 							v1.InstallStrategyVersionAnnotation:    config.GetKubeVirtVersion(),
 							v1.InstallStrategyRegistryAnnotation:   config.GetImageRegistry(),
 							v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
+						},
+						Labels: map[string]string{
+							v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
 						},
 					},
 					Spec: corev1.ServiceSpec{

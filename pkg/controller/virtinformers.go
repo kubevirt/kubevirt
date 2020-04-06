@@ -20,6 +20,7 @@
 package controller
 
 import (
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -86,6 +87,12 @@ type KubeInformerFactory interface {
 
 	// Watches for k8s extensions api configmap
 	ApiAuthConfigMap() cache.SharedIndexInformer
+
+	// Watches for the kubevirt CA config map
+	KubeVirtCAConfigMap() cache.SharedIndexInformer
+
+	// ConfigMaps which are managed by the operator
+	OperatorConfigMap() cache.SharedIndexInformer
 
 	// Watches for ConfigMap objects
 	ConfigMap() cache.SharedIndexInformer
@@ -164,6 +171,9 @@ type KubeInformerFactory interface {
 
 	// ServiceMonitors created/managed by virt operator
 	OperatorServiceMonitor() cache.SharedIndexInformer
+
+	// Managed secrets which hold data like certificates
+	Secrets() cache.SharedIndexInformer
 
 	// Fake ServiceMonitor informer used when Prometheus is not installed
 	DummyOperatorServiceMonitor() cache.SharedIndexInformer
@@ -343,6 +353,15 @@ func (f *kubeInformerFactory) ApiAuthConfigMap() cache.SharedIndexInformer {
 	})
 }
 
+func (f *kubeInformerFactory) KubeVirtCAConfigMap() cache.SharedIndexInformer {
+	return f.getInformer("extensionsKubeVirtCAConfigMapInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.CoreV1().RESTClient()
+		fieldSelector := fields.OneTermEqualSelector("metadata.name", "kubevirt-ca")
+		lw := cache.NewListWatchFromClient(restClient, "configmaps", f.kubevirtNamespace, fieldSelector)
+		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
 func (f *kubeInformerFactory) ConfigMap() cache.SharedIndexInformer {
 	return f.getInformer("configMapInformer", func() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
@@ -390,6 +409,19 @@ func (f *kubeInformerFactory) OperatorServiceAccount() cache.SharedIndexInformer
 
 		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "serviceaccounts", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.ServiceAccount{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorConfigMap() cache.SharedIndexInformer {
+	// filter out install strategies
+	return f.getInformer("OperatorConfigMapInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(fmt.Sprintf("!%s, %s=%s", kubev1.InstallStrategyLabel, kubev1.ManagedByLabel, kubev1.ManagedByLabelOperatorValue))
+		if err != nil {
+			panic(err)
+		}
+		restClient := f.clientSet.CoreV1().RESTClient()
+		lw := NewListWatchFromClient(restClient, "configmaps", f.kubevirtNamespace, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
@@ -564,6 +596,19 @@ func (f *kubeInformerFactory) OperatorMutatingWebhook() cache.SharedIndexInforme
 
 		lw := NewListWatchFromClient(f.clientSet.AdmissionregistrationV1beta1().RESTClient(), "mutatingwebhookconfigurations", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &admissionregistrationv1beta1.MutatingWebhookConfiguration{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) Secrets() cache.SharedIndexInformer {
+	return f.getInformer("secretsInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		restClient := f.clientSet.CoreV1().RESTClient()
+		lw := NewListWatchFromClient(restClient, "secrets", f.kubevirtNamespace, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &corev1.Secret{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
