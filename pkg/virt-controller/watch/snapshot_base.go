@@ -46,6 +46,8 @@ const (
 
 type informerFunc func(kubecli.KubevirtClient, time.Duration) cache.SharedIndexInformer
 
+var supportedCRDVersions = []string{"v1beta1"}
+
 type dynamicInformer struct {
 	stopCh   chan struct{}
 	informer cache.SharedIndexInformer
@@ -386,6 +388,19 @@ func (ctrl *SnapshotController) handleCRD(obj interface{}) {
 	if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok {
 		_, ok = ctrl.dynamicInformerMap[crd.Name]
 		if ok {
+			hasSupportedVersion := false
+			for _, crdVersion := range crd.Spec.Versions {
+				for _, supportedVersion := range supportedCRDVersions {
+					if crdVersion.Name == supportedVersion && crdVersion.Served {
+						hasSupportedVersion = true
+					}
+				}
+			}
+
+			if !hasSupportedVersion {
+				return
+			}
+
 			objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(crd)
 			if err != nil {
 				log.Log.Errorf("failed to get key from object: %v, %v", err, crd)

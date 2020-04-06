@@ -193,7 +193,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 })
 
 func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
-	_, err := client.
+	crd, err := client.
 		ExtensionsClient().
 		ApiextensionsV1beta1().
 		CustomResourceDefinitions().
@@ -204,6 +204,17 @@ func getSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 		}
 
 		return "", err
+	}
+
+	hasV1beta1 := false
+	for _, v := range crd.Spec.Versions {
+		if v.Name == "v1beta1" && v.Served {
+			hasV1beta1 = true
+		}
+	}
+
+	if !hasV1beta1 {
+		return "", nil
 	}
 
 	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1beta1().VolumeSnapshotClasses().List(metav1.ListOptions{})

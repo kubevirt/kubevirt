@@ -790,6 +790,14 @@ var _ = Describe("Snapshot controlleer", func() {
 						Name:              crdName,
 						DeletionTimestamp: timeFunc(),
 					},
+					Spec: extv1beta1.CustomResourceDefinitionSpec{
+						Versions: []extv1beta1.CustomResourceDefinitionVersion{
+							{
+								Name:   "v1beta1",
+								Served: true,
+							},
+						},
+					},
 				}
 
 				addCRD(crd)
@@ -817,6 +825,14 @@ var _ = Describe("Snapshot controlleer", func() {
 				crd := &extv1beta1.CustomResourceDefinition{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: crdName,
+					},
+					Spec: extv1beta1.CustomResourceDefinitionSpec{
+						Versions: []extv1beta1.CustomResourceDefinitionVersion{
+							{
+								Name:   "v1beta1",
+								Served: true,
+							},
+						},
 					},
 				}
 
