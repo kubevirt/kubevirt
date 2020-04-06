@@ -23,7 +23,6 @@ package network
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -109,19 +108,16 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 
 		if err := driver.preparePodNetworkInterfaces(); err != nil {
 			log.Log.Reason(err).Critical("failed to prepare pod networking")
-			panic(err)
 		}
 
 		err = driver.setCachedInterface(pidStr, iface.Name)
 		if err != nil {
 			log.Log.Reason(err).Critical("failed to save interface configuration")
-			panic(err)
 		}
 
 		err = driver.setCachedVIF(pidStr, iface.Name)
 		if err != nil {
 			log.Log.Reason(err).Critical("failed to save vif configuration")
-			panic(err)
 		}
 	}
 
@@ -163,27 +159,22 @@ func (l *PodInterface) PlugPhase2(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 	isExist, err := driver.loadCachedInterface(pid, iface.Name)
 	if err != nil {
 		log.Log.Reason(err).Critical("failed to load cached interface configuration")
-		panic(err)
 	}
 	if !isExist {
 		log.Log.Reason(err).Critical("cached interface configuration doesn't exist")
-		panic(errors.New("cached interface configuration doesn't exist"))
 	}
 
 	isExist, err = driver.loadCachedVIF(pid, iface.Name)
 	if err != nil {
 		log.Log.Reason(err).Critical("failed to load cached vif configuration")
-		panic(err)
 	}
 	if !isExist {
 		log.Log.Reason(err).Critical("cached vif configuration doesn't exist")
-		panic(errors.New("cached vif configuration doesn't exist"))
 	}
 
 	err = driver.decorateConfig()
 	if err != nil {
 		log.Log.Reason(err).Critical("failed to create libvirt configuration")
-		panic(err)
 	}
 
 	err = ensureDHCP(vmi, driver, podInterfaceName)

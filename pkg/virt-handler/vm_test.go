@@ -155,6 +155,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			10,
 			config,
 			tlsConfig,
+			tlsConfig,
 			mockIsolationDetector,
 		)
 
