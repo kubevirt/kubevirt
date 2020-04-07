@@ -518,7 +518,8 @@ var _ = Describe("Storage", func() {
 					tmpDir := "/tmp/kubevirt/" + rand.String(10)
 					mountDir = filepath.Join(tmpDir, "mount")
 					diskPath = filepath.Join(mountDir, "disk.img")
-					pod = tests.RenderHostPathJob("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{"/usr/bin/bash", "-c"}, []string{fmt.Sprintf("mkdir -p %s && mkdir -p /tmp/yyy  && mount --bind /tmp/yyy %s && while true; do sleep 1; done", mountDir, mountDir)})
+					cmd := "mkdir -p " + mountDir + " && mkdir -p /tmp/yyy && chcon -t container_file_t /tmp/yyy && mount --bind /tmp/yyy " + mountDir + " && while true; do sleep 1; done"
+					pod = tests.RenderHostPathJob("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{"/usr/bin/bash", "-c"}, []string{cmd})
 					pod.Spec.Containers[0].Lifecycle = &k8sv1.Lifecycle{
 						PreStop: &k8sv1.Handler{
 							Exec: &k8sv1.ExecAction{
