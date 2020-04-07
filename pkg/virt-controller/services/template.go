@@ -1031,6 +1031,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	pod.Spec.Tolerations = vmi.Spec.Tolerations
 
+	pod.Spec.SchedulerName = vmi.Spec.SchedulerName
+
 	if len(serviceAccountName) > 0 {
 		pod.Spec.ServiceAccountName = serviceAccountName
 		automount := true

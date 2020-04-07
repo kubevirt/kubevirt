@@ -233,7 +233,9 @@ var exampleJSON = `{
       }
     ]
   },
-  "status": {}
+  "status": {
+    "guestOSInfo": {}
+  }
 }`
 
 var _ = Describe("Schema", func() {
@@ -395,6 +397,7 @@ var _ = Describe("Schema", func() {
 				},
 			},
 		}
+
 		policy := IOThreadsPolicyShared
 		exampleVMI.Spec.Domain.IOThreadsPolicy = &policy
 
