@@ -687,6 +687,7 @@ type ClockOffsetTimezone string
 // Represents the clock and timers of a vmi.
 //
 // +k8s:openapi-gen=true
+// +kubebuilder:pruning:PreserveUnknownFields
 type Clock struct {
 	// ClockOffset allows specifying the UTC offset or the timezone of the guest clock.
 	ClockOffset `json:",inline"`
