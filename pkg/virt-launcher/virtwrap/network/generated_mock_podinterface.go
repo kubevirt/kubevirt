@@ -111,3 +111,13 @@ func (_m *MockBindMechanism) startDHCP(vmi *v1.VirtualMachineInstance) error {
 func (_mr *_MockBindMechanismRecorder) startDHCP(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "startDHCP", arg0)
 }
+
+func (_m *MockBindMechanism) createVirtualNetworkingDevice(deviceName string) error {
+	ret := _m.ctrl.Call(_m, "createVirtualNetworkingDevice", deviceName)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) createVirtualNetworkingDevice(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "createVirtualNetworkingDevice", arg0)
+}

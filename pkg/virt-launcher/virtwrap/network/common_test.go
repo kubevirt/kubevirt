@@ -110,13 +110,14 @@ var _ = Describe("VIF", func() {
 			mac, _ := net.ParseMAC("de:ad:00:00:be:ef")
 			gw := net.ParseIP("10.0.0.1")
 			vif := &VIF{
-				Name:    "test-vif",
-				IP:      *addr,
-				MAC:     mac,
-				Gateway: gw,
-				Mtu:     1450,
+				Name:      "test-vif",
+				IP:        *addr,
+				MAC:       mac,
+				Gateway:   gw,
+				Mtu:       1450,
+				TapDevice: "myTap0",
 			}
-			Expect(vif.String()).To(Equal("VIF: { Name: test-vif, IP: 10.0.0.200, Mask: ffffff00, MAC: de:ad:00:00:be:ef, Gateway: 10.0.0.1, MTU: 1450, IPAMDisabled: false}"))
+			Expect(vif.String()).To(Equal("VIF: { Name: test-vif, IP: 10.0.0.200, Mask: ffffff00, MAC: de:ad:00:00:be:ef, Gateway: 10.0.0.1, MTU: 1450, IPAMDisabled: false, TapDevice: myTap0}"))
 		})
 	})
 })

@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 
 	"github.com/coreos/go-iptables/iptables"
-
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -65,6 +64,8 @@ type BindMechanism interface {
 	// binding and can be used in phase2 only.
 	decorateConfig() error
 	startDHCP(vmi *v1.VirtualMachineInstance) error
+
+	createVirtualNetworkingDevice(deviceName string) error
 }
 
 type PodInterface struct{}
@@ -388,6 +389,13 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
+	tapDeviceName := generateTapDeviceName(podInterfaceName)
+	err := b.createVirtualNetworkingDevice(tapDeviceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
+		return err
+	}
+
 	if !b.vif.IPAMDisabled {
 		// Remove IP from POD interface
 		err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
@@ -524,6 +532,14 @@ func (b *BridgePodInterface) createBridge() error {
 	return nil
 }
 
+func (b *BridgePodInterface) createVirtualNetworkingDevice(deviceName string) error {
+	err := Handler.CreateTapDevice(deviceName)
+	if err == nil {
+		b.vif.TapDevice = deviceName
+	}
+	return err
+}
+
 type MasqueradePodInterface struct {
 	vmi                 *v1.VirtualMachineInstance
 	vif                 *VIF
@@ -658,6 +674,13 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 	}
 
 	if err := p.createBridge(); err != nil {
+		return err
+	}
+
+	tapDeviceName := generateTapDeviceName(podInterfaceName)
+	err = p.createVirtualNetworkingDevice(tapDeviceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
 	}
 
@@ -980,6 +1003,14 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Prot
 	return nil
 }
 
+func (p *MasqueradePodInterface) createVirtualNetworkingDevice(deviceName string) error {
+	err := Handler.CreateTapDevice(deviceName)
+	if err == nil {
+		p.vif.TapDevice = deviceName
+	}
+	return err
+}
+
 type SlirpPodInterface struct {
 	vmi       *v1.VirtualMachineInstance
 	iface     *v1.Interface
@@ -1041,4 +1072,12 @@ func (b *SlirpPodInterface) setCachedVIF(pid, name string) error {
 
 func (s *SlirpPodInterface) setCachedInterface(pid, name string) error {
 	return nil
+}
+
+func (s *SlirpPodInterface) createVirtualNetworkingDevice(deviceName string) error {
+	return nil
+}
+
+func generateTapDeviceName(podInterfaceName string) string {
+	return "tap" + podInterfaceName[3:]
 }
