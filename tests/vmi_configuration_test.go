@@ -46,6 +46,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	kubevirt_hooks_v1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -1755,6 +1756,9 @@ var _ = Describe("Configurations", func() {
 			tests.PanicOnError(err)
 			if len(nodes.Items) == 1 {
 				Skip("Skip cpu pinning test that requires multiple nodes when only one node is present.")
+			}
+			if !tests.HasFeature(virtconfig.CPUManager) {
+				Skip("Skip tests requiring CPUManager if feature gate is not enabled.")
 			}
 		})
 
