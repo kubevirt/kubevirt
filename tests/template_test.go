@@ -258,8 +258,8 @@ var _ = Describe("Templates", func() {
 
 		AfterEach(AssertTestCleanupSuccess())
 
-		Context("with Fedora Template", func() {
-			BeforeEach(AssertTemplateSetupSuccess(vmsgen.GetTemplateFedora(), nil))
+		FContext("with Fedora Template", func() {
+			BeforeEach(AssertTemplateSetupSuccess(vmsgen.GetTemplateFedoraWithContainerDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora)), nil))
 
 			AssertTemplateTestSuccess()
 		})
