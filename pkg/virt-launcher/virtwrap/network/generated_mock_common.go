@@ -302,3 +302,14 @@ func (_m *MockNetworkHandler) GetNFTIPString(proto iptables.Protocol) string {
 func (_mr *_MockNetworkHandlerRecorder) GetNFTIPString(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetNFTIPString", arg0)
 }
+
+func (_m *MockNetworkHandler) CreateTapDevice() (string, error) {
+	ret := _m.ctrl.Call(_m, "CreateTapDevice")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockNetworkHandlerRecorder) CreateTapDevice() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateTapDevice")
+}
