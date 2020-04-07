@@ -24,10 +24,22 @@ function up() {
             mount_disk $node $i
         done
         $DOCKER exec $node bash -c "chmod -R 777 /var/local/kubevirt-storage/local-volume"
+
+        # Create a unique UUID file reference file for each node, that will be mounted in order to support
+        # Migration in Kind providers.
+        $DOCKER exec $node bash -c 'cat /proc/sys/kernel/random/uuid > /kind/product_uuid'
     done
 
     # create the `local` storage class - which functional tests assume to exist
     _kubectl apply -f $KIND_MANIFESTS_DIR/local-volume.yaml
+
+    # Since Kind provider uses containers as nodes, the UUID on all of them will be the same,
+    # and Migration by libvirt would be blocked, because migrate between the same UUID is forbidden.
+    # Enable PodPreset so we can use it in order to mount a fake UUID for each launcher pod.
+    $DOCKER exec kind-1.17.0-control-plane bash -c 'sed -i \
+    -e "s/NodeRestriction/NodeRestriction,PodPreset/" \
+    -e "/NodeRestriction,PodPreset/ a\    - --runtime-config=settings.k8s.io/v1alpha1=true" \
+    /etc/kubernetes/manifests/kube-apiserver.yaml'
 }
 
 function mount_disk() {
