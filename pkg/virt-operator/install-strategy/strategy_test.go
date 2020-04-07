@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -60,6 +61,25 @@ var _ = Describe("Install Strategy", func() {
 	config := getConfig("fake-registry", "v9.9.9")
 
 	Context("should generate", func() {
+		It("install strategy convertable back to objects", func() {
+			strategy, err := GenerateCurrentInstallStrategy(config, true, namespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			data := string(dumpInstallStrategyToBytes(strategy))
+
+			entries := strings.Split(data, "---")
+
+			for _, entry := range entries {
+				entry := strings.TrimSpace(entry)
+				if entry == "" {
+					continue
+				}
+				var obj metav1.TypeMeta
+				err := yaml.Unmarshal([]byte(entry), &obj)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+		})
 		It("latest install strategy with lossless byte conversion.", func() {
 			strategy, err := GenerateCurrentInstallStrategy(config, true, namespace)
 			Expect(err).ToNot(HaveOccurred())
