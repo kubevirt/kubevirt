@@ -69,7 +69,7 @@ require (
 	k8s.io/utils v0.0.0-20190801114015-581e00157fb1
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer v1.10.9
-	kubevirt.io/qe-tools v0.1.3-0.20190512140058-934db0579e0c
+	kubevirt.io/qe-tools v0.1.6
 	sigs.k8s.io/controller-runtime v0.1.9 // indirect
 )
 
