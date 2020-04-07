@@ -322,6 +322,25 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(len(controller.phase1NetworkSetupCache)).To(Equal(0))
 		}, 3)
 
+		It("should cleanup if vmi is finalized and domain does not exist", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.Status.Phase = v1.Succeeded
+
+			mockWatchdog.CreateFile(vmi)
+
+			controller.phase1NetworkSetupCache[vmi.UID] = 1
+			vmiFeeder.Add(vmi)
+
+			client.EXPECT().Close()
+			controller.Execute()
+			Expect(mockQueue.Len()).To(Equal(0))
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			_, err := os.Stat(mockWatchdog.File(vmi))
+			Expect(os.IsNotExist(err)).To(BeTrue())
+			Expect(len(controller.phase1NetworkSetupCache)).To(Equal(0))
+		}, 3)
+
 		It("should attempt force terminate Domain if grace period expires", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = testUUID
