@@ -72,6 +72,8 @@ var _ = Describe("Pod Network", func() {
 	var masqueradeIpv6VmAddr *netlink.Addr
 	var masqueradeVmIpv6 string
 	var pid int
+	var tapDeviceName string
+
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
@@ -94,6 +96,7 @@ var _ = Describe("Pod Network", func() {
 		routeAddr = netlink.Route{Gw: gw}
 		routeList = []netlink.Route{routeAddr}
 		pid = os.Getpid()
+		tapDeviceName = "tap0"
 
 		// Create a bridge
 		bridgeTest = &netlink.Bridge{
@@ -178,6 +181,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
 		mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
 		mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr, api.DefaultBridgeName, nil)
+		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName).Return(nil)
 
 		// For masquerade tests
 		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
@@ -196,6 +200,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().StartDHCP(masqueradeTestNic, masqueradeGwAddr, api.DefaultBridgeName, nil)
 		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMCIDR).Return(masqueradeGwStr, masqueradeVmStr, nil)
 		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMIpv6CIDR).Return(masqueradeIpv6GwStr, masqueradeIpv6VmStr, nil)
+		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName).Return(nil)
 		// Global nat rules using iptables
 		mockNetwork.EXPECT().ConfigureIpv6Forwarding().Return(nil)
 		mockNetwork.EXPECT().GetNFTIPString(iptables.ProtocolIPv4).Return("ip").AnyTimes()
@@ -294,6 +299,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
 			mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
 			mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
+			mockNetwork.EXPECT().CreateTapDevice(tapDeviceName).Return(nil)
 
 			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(HaveOccurred(), "SetupPodNetworkPhase1 should return an error")
