@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 
 	"github.com/coreos/go-iptables/iptables"
-
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -388,6 +387,13 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
+	tapDeviceName := generateTapDeviceName(podInterfaceName)
+	err := createTapDevice(b.vif, tapDeviceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
+		return err
+	}
+
 	if !b.vif.IPAMDisabled {
 		// Remove IP from POD interface
 		err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
@@ -658,6 +664,13 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 	}
 
 	if err := p.createBridge(); err != nil {
+		return err
+	}
+
+	tapDeviceName := generateTapDeviceName(podInterfaceName)
+	err = createTapDevice(p.vif, tapDeviceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
 	}
 
@@ -1041,4 +1054,17 @@ func (b *SlirpPodInterface) setCachedVIF(pid, name string) error {
 
 func (s *SlirpPodInterface) setCachedInterface(pid, name string) error {
 	return nil
+}
+
+func createTapDevice(virtualInterface *VIF, deviceName string) error {
+	err := Handler.CreateTapDevice(deviceName)
+	if err != nil {
+		return err
+	}
+	virtualInterface.TapDevice = deviceName
+	return nil
+}
+
+func generateTapDeviceName(podInterfaceName string) string {
+	return "tap" + podInterfaceName[3:]
 }
