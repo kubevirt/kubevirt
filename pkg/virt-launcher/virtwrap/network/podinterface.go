@@ -31,7 +31,6 @@ import (
 	"strings"
 
 	"github.com/coreos/go-iptables/iptables"
-
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -63,6 +62,8 @@ type BindMechanism interface {
 	// binding and can be used in phase2 only.
 	decorateConfig() error
 	startDHCP(vmi *v1.VirtualMachineInstance) error
+
+	createTapDevice() error
 }
 
 type PodInterface struct{}
@@ -347,6 +348,11 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
+	err := b.createTapDevice()
+	if err != nil {
+		return err
+	}
+
 	if !b.vif.IPAMDisabled {
 		// Remove IP from POD interface
 		err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
@@ -481,6 +487,12 @@ func (b *BridgePodInterface) createBridge() error {
 	}
 
 	return nil
+}
+
+func (b *BridgePodInterface) createTapDevice() error {
+	tapDeviceName, err := Handler.CreateTapDevice()
+	b.vif.TapDevice = tapDeviceName
+	return err
 }
 
 type MasqueradePodInterface struct {
@@ -939,6 +951,12 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Prot
 	return nil
 }
 
+func (p *MasqueradePodInterface) createTapDevice() error {
+	tapDeviceName, err := Handler.CreateTapDevice()
+	p.vif.TapDevice = tapDeviceName
+	return err
+}
+
 type SlirpPodInterface struct {
 	vmi       *v1.VirtualMachineInstance
 	iface     *v1.Interface
@@ -999,5 +1017,9 @@ func (b *SlirpPodInterface) setCachedVIF(pid, name string) error {
 }
 
 func (s *SlirpPodInterface) setCachedInterface(pid, name string) error {
+	return nil
+}
+
+func (s *SlirpPodInterface) createTapDevice() error {
 	return nil
 }
