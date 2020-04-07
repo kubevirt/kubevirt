@@ -23,6 +23,7 @@ set -ex
 # Lastly, we take give the component CSVs to the csv-merger that combines all
 # of the manifests into a single, unified, ClusterServiceVersion.
 PROJECT_ROOT="$(readlink -e $(dirname "$BASH_SOURCE[0]")/../)"
+source "${PROJECT_ROOT}"/hack/config
 
 # REPLACES_VERSION is the old CSV_VERSION
 #   if REPLACES_VERSION == CSV_VERSION it will be ignored
@@ -39,15 +40,15 @@ OPERATOR_IMAGE="${OPERATOR_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operat
 IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 
 # Component Images
-KUBEVIRT_IMAGE="${KUBEVIRT_IMAGE:-docker.io/kubevirt/virt-operator:v0.26.0}"
-CNA_IMAGE="${CNA_IMAGE:-quay.io/kubevirt/cluster-network-addons-operator:0.27.2}"
-SSP_IMAGE="${SSP_IMAGE:-quay.io/fromani/kubevirt-ssp-operator-container:v1.0.29}"
-CDI_IMAGE="${CDI_IMAGE:-docker.io/kubevirt/cdi-operator:v1.13.1}"
-NMO_IMAGE="${NMO_IMAGE:-quay.io/kubevirt/node-maintenance-operator:v0.4.0}"
-HPPO_IMAGE="${HPP_IMAGE:-quay.io/kubevirt/hostpath-provisioner-operator:v0.2.8}"
-HPP_IMAGE="${HPP_IMAGE:-quay.io/kubevirt/hostpath-provisioner:v0.2.2}"
-CONVERSION_CONTAINER="${CONVERSION_CONTAINER:-quay.io/kubevirt/kubevirt-v2v-conversion:v2.0.0}"
-VMWARE_CONTAINER="${VMWARE_CONTAINER:-quay.io/kubevirt/kubevirt-vmware:v2.0.0}"
+KUBEVIRT_IMAGE="${KUBEVIRT_IMAGE:-docker.io/kubevirt/virt-operator:${KUBEVIRT_VERSION}}"
+CNA_IMAGE="${CNA_IMAGE:-quay.io/kubevirt/cluster-network-addons-operator:${NETWORK_ADDONS_VERSION}}"
+SSP_IMAGE="${SSP_IMAGE:-quay.io/fromani/kubevirt-ssp-operator-container:${SSP_VERSION}}"
+CDI_IMAGE="${CDI_IMAGE:-docker.io/kubevirt/cdi-operator:${CDI_VERSION}}"
+NMO_IMAGE="${NMO_IMAGE:-quay.io/kubevirt/node-maintenance-operator:${NMO_VERSION}}"
+HPPO_IMAGE="${HPP_IMAGE:-quay.io/kubevirt/hostpath-provisioner-operator:${HPPO_VERSION}}"
+HPP_IMAGE="${HPP_IMAGE:-quay.io/kubevirt/hostpath-provisioner:${HPP_VERSION}}"
+CONVERSION_CONTAINER="${CONVERSION_CONTAINER:-quay.io/kubevirt/kubevirt-v2v-conversion:${CONVERSION_CONTAINER_VERSION}}"
+VMWARE_CONTAINER="${VMWARE_CONTAINER:-quay.io/kubevirt/kubevirt-vmware:${VMWARE_CONTAINER_VERSION}}"
 
 # Important extensions
 CSV_EXT="clusterserviceversion.yaml"

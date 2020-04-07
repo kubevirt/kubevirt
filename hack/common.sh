@@ -22,9 +22,9 @@ set -e
 source hack/defaults
 source cluster/kubevirtci.sh
 
-CDI_OPERATOR_URL="https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator.yaml"
-KUBEVIRT_OPERATOR_URL="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-operator.yaml"
-CNA_URL_PREFIX="https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}"
+CDI_OPERATOR_URL="https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-operator.yaml"
+KUBEVIRT_OPERATOR_URL="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/kubevirt-operator.yaml"
+CNA_URL_PREFIX="https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_VERSION}"
 
 mem_size=${KUBEVIRT_MEMORY_SIZE:-5120M}
 num_nodes=${KUBEVIRT_NUM_NODES:-1}
@@ -37,7 +37,7 @@ TEST_PATH="tests/func-tests"
 TEST_OUT_PATH=${TEST_PATH}/_out
 JOB_TYPE=${JOB_TYPE:-}
 
-SSP_URL_PREFIX="https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_MANIFEST_VERSION}"
+SSP_URL_PREFIX="https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_VERSION}"
 
 KUBECTL=$(which kubectl 2> /dev/null) || true
 

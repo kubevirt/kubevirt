@@ -1,13 +1,10 @@
 #!/bin/bash
 
+PROJECT_ROOT="$(readlink -e $(dirname "$BASH_SOURCE[0]")/../)"
+source "${PROJECT_ROOT}"/hack/config
+
 TEMP_DIR=`mktemp -d`
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-450s}"
-
-# Use upstream manifests with downstream containers
-KUBEVIRT_MANIFEST_VERSION="v0.17.0"
-CDI_MANIFEST_VERSION="v1.13.1"
-NETWORK_ADDONS_MANIFEST_VERSION="0.27.2"
-SSP_MANIFEST_VERSION="v1.0.29"
 
 CDI_CONTAINER_REGISTRY="${CDI_CONTAINER_REGISTRY:-docker.io/kubevirt}"
 KUBEVIRT_CONTAINER_REGISTRY="${KUBEVIRT_CONTAINER_REGISTRY:-docker.io/kubevirt}"
@@ -45,11 +42,11 @@ if echo "${CDI_CONTAINER_REGISTRY}" | grep 'brew'; then
 fi
 
 function kubevirt_sed {
-    sed -i "s|          image: \&image docker\.io\/kubevirt\/virt-operator:${KUBEVIRT_MANIFEST_VERSION}|          image: \&image ${KUBEVIRT_CONTAINER_REGISTRY}\/virt-operator:${KUBEVIRT_VERSION}|g" ${TEMP_DIR}/kubevirt-operator.yaml
+    sed -i "s|          image: \&image docker\.io\/kubevirt\/virt-operator:${KUBEVIRT_VERSION}|          image: \&image ${KUBEVIRT_CONTAINER_REGISTRY}\/virt-operator:${KUBEVIRT_VERSION}|g" ${TEMP_DIR}/kubevirt-operator.yaml
 }
 
 function cdi_sed {
-    sed -i "s|          image: kubevirt\/cdi-operator:${CDI_MANIFEST_VERSION}|          image: ${CDI_CONTAINER_REGISTRY}\/${CDI_OPERATOR_NAME}:${CDI_VERSION}|g" ${TEMP_DIR}/cdi-operator.yaml.j2
+    sed -i "s|          image: kubevirt\/cdi-operator:${CDI_VERSION}|          image: ${CDI_CONTAINER_REGISTRY}\/${CDI_OPERATOR_NAME}:${CDI_VERSION}|g" ${TEMP_DIR}/cdi-operator.yaml.j2
 
     ls "${TEMP_DIR}"/cdi-operator.yaml.j2
 
@@ -59,7 +56,7 @@ function cdi_sed {
 }
 
 function network_addons_sed {
-    sed -i "s|quay\.io\/kubevirt\/cluster-network-addons-operator:${NETWORK_ADDONS_MANIFEST_VERSION}|${NETWORK_ADDONS_CONTAINER_REGISTRY}\/cluster-network-addons-operator:${NETWORK_ADDONS_VERSION}|g" ${TEMP_DIR}/operator.yaml
+    sed -i "s|quay\.io\/kubevirt\/cluster-network-addons-operator:${NETWORK_ADDONS_VERSION}|${NETWORK_ADDONS_CONTAINER_REGISTRY}\/cluster-network-addons-operator:${NETWORK_ADDONS_VERSION}|g" ${TEMP_DIR}/operator.yaml
 
     if [ -n "${NETWORK_ADDONS_MULTUS_IMAGE}" ]; then
         sed -i "s|value: .*multus.*|value: ${NETWORK_ADDONS_MULTUS_IMAGE}|g" ${TEMP_DIR}/operator.yaml
@@ -93,19 +90,19 @@ function network_addons_sed {
 }
 
 function ssp_sed {
-    sed -i "s|          image: \&image quay\.io\/fromani\/kubevirt-ssp-operator-container:${SSP_MANIFEST_VERSION}|          image: \&image ${SSP_CONTAINER_REGISTRY}\/kubevirt-ssp-operator-container:${SSP_VERSION}|g" ${TEMP_DIR}/operator.yaml
+    sed -i "s|          image: \&image quay\.io\/fromani\/kubevirt-ssp-operator-container:${SSP_VERSION}|          image: \&image ${SSP_CONTAINER_REGISTRY}\/kubevirt-ssp-operator-container:${SSP_VERSION}|g" ${TEMP_DIR}/operator.yaml
 }
 
 # Deploy upstream operators
-OPERATOR_MANIFESTS="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-operator.yaml
-https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator.yaml.j2
-https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/network-addons-config.crd.yaml
-https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/namespace.yaml
-https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/operator.yaml
-https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_MANIFEST_VERSION}/kubevirt-ssp-operator-crd.yaml
-https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_MANIFEST_VERSION}/kubevirt-ssp-operator.yaml"
+OPERATOR_MANIFESTS="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/kubevirt-operator.yaml
+https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-operator.yaml.j2
+https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_VERSION}/network-addons-config.crd.yaml
+https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_VERSION}/namespace.yaml
+https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_VERSION}/operator.yaml
+https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_VERSION}/kubevirt-ssp-operator-crd.yaml
+https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_VERSION}/kubevirt-ssp-operator.yaml"
 
-OPERATOR_CRS="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-cr.yaml
-https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator-cr.yaml
-https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/network-addons-config-example.cr.yaml
-https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_MANIFEST_VERSION}/kubevirt-ssp-operator-cr.yaml"
+OPERATOR_CRS="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/kubevirt-cr.yaml
+https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-operator-cr.yaml
+https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_VERSION}/network-addons-config-example.cr.yaml
+https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_VERSION}/kubevirt-ssp-operator-cr.yaml"
