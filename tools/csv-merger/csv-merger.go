@@ -24,7 +24,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"log"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/blang/semver"
@@ -89,6 +94,7 @@ var (
 		"Comma separated list of all the CRDs that should be visible in OLM console")
 	relatedImagesList = flag.String("related-images-list", "",
 		"Comma separated list of all the images referred in the CSV (just the image pull URLs or eventually a set of 'image|name' collations)")
+	crdDir = flag.String("crds-dir", "", "the directory containing the CRDs for apigroup validation. The validation will be performed if and only if the value is non-empty.")
 )
 
 func gen_hco_crds() {
@@ -97,8 +103,112 @@ func gen_hco_crds() {
 	util.MarshallObject(components.GetV2VCRD(), os.Stdout)
 }
 
+func IOReadDir(root string) ([]string, error) {
+	var files []string
+	fileInfo, err := ioutil.ReadDir(root)
+	if err != nil {
+		return files, err
+	}
+
+	for _, file := range fileInfo {
+		files = append(files, filepath.Join(root, file.Name()))
+	}
+	return files, nil
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
+func validateNoApiOverlap(crdDir string) bool {
+	var (
+		crdFiles []string
+		err      error
+	)
+	crdFiles, err = IOReadDir(crdDir)
+	if err != nil {
+		panic(err)
+	}
+
+	// crdMap is populated with operator names as keys and a slice of associated api groups as values.
+	crdMap := make(map[string][]string)
+
+	for _, crdFilePath := range crdFiles {
+		file, err := os.Open(crdFilePath)
+		if err != nil {
+			panic(err)
+		}
+		content, err := ioutil.ReadAll(file)
+		if err != nil {
+			panic(err)
+		}
+		err = file.Close()
+		if err != nil {
+			panic(err)
+		}
+
+		crdFileName := filepath.Base(crdFilePath)
+		reg := regexp.MustCompile(`([^\d]+)`)
+		operator := reg.FindString(crdFileName)
+
+		var crd apiextensions.CustomResourceDefinition
+		err = yaml.Unmarshal(content, &crd)
+		if err != nil {
+			panic(err)
+		}
+		if !stringInSlice(crd.Spec.Group, crdMap[operator]) {
+			crdMap[operator] = append(crdMap[operator], crd.Spec.Group)
+		}
+	}
+
+	// overlapsMap is populated with collisions found - API Groups as keys,
+	// and slice containing operators using them, as values.
+	overlapsMap := make(map[string][]string)
+	for operator := range crdMap {
+		for _, apigroup := range crdMap[operator] {
+			for comparedOperator := range crdMap {
+				if operator == comparedOperator {
+					continue
+				}
+				if stringInSlice(apigroup, crdMap[comparedOperator]) {
+					overlappingOperators := []string{operator, comparedOperator}
+					for _, o := range overlappingOperators {
+						if !stringInSlice(o, overlapsMap[apigroup]) {
+							overlapsMap[apigroup] = append(overlapsMap[apigroup], o)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// if at least one overlap found - emit an error.
+	if len(overlapsMap) != 0 {
+		log.Print("ERROR: Overlapping API Groups were found between different operators.")
+		for apigroup := range overlapsMap {
+			fmt.Print("The API Group " + apigroup + " is being used by these operators: " + strings.Join(overlapsMap[apigroup], ", ") + "\n")
+			return false
+		}
+	}
+	return true
+}
+
 func main() {
 	flag.Parse()
+
+	if *crdDir != "" {
+		result := validateNoApiOverlap(*crdDir)
+		if result {
+			os.Exit(0)
+		} else {
+			os.Exit(1)
+		}
+	}
 
 	switch *outputMode {
 	case CRDMode:
