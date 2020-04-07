@@ -35,9 +35,10 @@ function new_tests {
     # 3. remove `tests/` and `.go` to only have the test name
     # 4. replace newline with `|`
     # 5. remove last `|`
-    git diff --name-only "${target_commit}".. -- tests/ \
+    git diff --name-status "${target_commit}".. -- tests/ \
+        | grep -v -E '^D.*' \
         | grep -E '_test\.go$' \
-        | sed -E 's/tests\/(.*_test)\.go/\1/' \
+        | sed -E 's/[AM]\s+tests\/(.*_test)\.go/\1/' \
         | tr '\n' '|' \
         | sed -E 's/\|$//'
 }
@@ -87,7 +88,7 @@ NUM_TESTS=${NUM_TESTS-3}
 echo "Number of per lane runs: $NUM_TESTS"
 
 tests_total_estimate=$(find tests/ -name '*_test.go' -print0 | xargs -0 grep -E '(Specify|It)\(' | wc -l | awk '{total += $1} END {print total}')
-tests_to_run_estimate=$(git diff --name-status "${TARGET_COMMIT}".. -- tests/ | grep -o -E 'tests\/[a-z_]+_test\.go' | xargs grep -E '(Specify|It)\(' | wc -l | awk '{total += $1} END {print total}')
+tests_to_run_estimate=$(git diff --name-status "${TARGET_COMMIT}".. -- tests/ | grep -v -E '^D.*' | grep -o -E 'tests\/[a-z_]+_test\.go' | xargs grep -E '(Specify|It)\(' | wc -l | awk '{total += $1} END {print total}')
 tests_total_for_all_runs_estimate=$(expr $tests_to_run_estimate \* $NUM_TESTS \* ${#TEST_LANES[@]})
 echo -e "Estimates:\ttests_total_estimate: $tests_total_estimate\ttests_total_for_all_runs_estimate: $tests_total_for_all_runs_estimate"
 if [ $tests_total_for_all_runs_estimate -gt $tests_total_estimate ]; then
