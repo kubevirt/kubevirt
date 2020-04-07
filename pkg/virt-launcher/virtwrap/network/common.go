@@ -53,6 +53,7 @@ type VIF struct {
 	Routes       *[]netlink.Route
 	Mtu          uint16
 	IPAMDisabled bool
+	TapDevice    string
 }
 
 type CriticalNetworkError struct {
@@ -63,7 +64,7 @@ func (e *CriticalNetworkError) Error() string { return e.Msg }
 
 func (vif VIF) String() string {
 	return fmt.Sprintf(
-		"VIF: { Name: %s, IP: %s, Mask: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: %t}",
+		"VIF: { Name: %s, IP: %s, Mask: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: %t, TapDevice: %s}",
 		vif.Name,
 		vif.IP.IP,
 		vif.IP.Mask,
@@ -71,6 +72,7 @@ func (vif VIF) String() string {
 		vif.Gateway,
 		vif.Mtu,
 		vif.IPAMDisabled,
+		vif.TapDevice,
 	)
 }
 
@@ -100,6 +102,7 @@ type NetworkHandler interface {
 	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesLoad(fnName string) error
 	GetNFTIPString(proto iptables.Protocol) string
+	CreateTapDevice(tapName string) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -343,6 +346,17 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 		return nil, err
 	}
 	return net.HardwareAddr(append(prefix, suffix...)), nil
+}
+
+func (h *NetworkUtilsHandler) CreateTapDevice(tapName string) error {
+	args := []string{"tuntap", "add", "mode", "tap", "user", "qemu", "group", "qemu", "name", tapName}
+	cmd := exec.Command("ip", args...)
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to create tap device %s; %v", tapName, err)
+	}
+	log.Log.Infof("Created tap device: %s", tapName)
+	return nil
 }
 
 // Allow mocking for tests
