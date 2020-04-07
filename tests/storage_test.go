@@ -324,7 +324,7 @@ var _ = Describe("Storage", func() {
 
 			Context("With a HostDisk defined", func() {
 
-				const hostDiskDir = "/tmp/kubevirt-hostdisks"
+				const hostDiskDir = "/var/run/kubevirt/kubevirt-hostdisks"
 				var nodeName string
 
 				BeforeEach(func() {
