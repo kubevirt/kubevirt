@@ -367,6 +367,9 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			log.Log.V(3).Object(vmi).Infof("All pods have been deleted, removing finalizer")
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
 		}
+
+		conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+
 	case vmi.IsRunning():
 		// Keep PodReady condition in sync with the VMI
 		if !podExists {
