@@ -51,7 +51,7 @@ var _ = Describe("ContainerDisk", func() {
 		expectedVolumeMountDir := fmt.Sprintf("%s/%s", tmpDir, string(vmi.UID))
 
 		// create a fake disk file
-		volumeMountDir := GenerateVolumeMountDirOnGuest(vmi)
+		volumeMountDir := GetVolumeMountDirOnGuest(vmi)
 		err = os.MkdirAll(volumeMountDir, 0750)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(expectedVolumeMountDir).To(Equal(volumeMountDir))
@@ -97,24 +97,24 @@ var _ = Describe("ContainerDisk", func() {
 				}
 
 				// should not be found if dir doesn't exist
-				path, found, err := GenerateVolumeMountDirOnHost(vmi)
+				path, found, err := GetVolumeMountDirOnHost(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(found).To(BeFalse())
 
 				// should be found if dir does exist
 				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
 				os.MkdirAll(expectedPath, 0755)
-				path, found, err = GenerateVolumeMountDirOnHost(vmi)
+				path, found, err = GetVolumeMountDirOnHost(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(found).To(BeTrue())
 				Expect(path).To(Equal(expectedPath))
 
 				// should be able to generate legacy socket path dir
-				legacySocket := GenerateLegacyVolumeMountDirOnHost(vmi)
+				legacySocket := GetLegacyVolumeMountDirOnHost(vmi)
 				Expect(legacySocket).To(Equal(filepath.Join(tmpDir, "6789")))
 
 				// should return error if disk target doesn't exist
-				targetPath, err := GenerateDiskTargetPathFromHostView(vmi, 1)
+				targetPath, err := GetDiskTargetPathFromHostView(vmi, 1)
 				expectedPath = fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks/disk_1.img", tmpDir)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(targetPath).To(Equal(expectedPath))

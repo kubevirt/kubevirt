@@ -145,7 +145,7 @@ func (m *Mounter) setMountTargetRecordEntry(vmi *v1.VirtualMachineInstance, targ
 func (m *Mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
-			targetFile, err := containerdisk.GenerateDiskTargetPathFromHostView(vmi, i)
+			targetFile, err := containerdisk.GetDiskTargetPathFromHostView(vmi, i)
 			if err != nil {
 				return err
 			}
@@ -155,7 +155,7 @@ func (m *Mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 			if isMounted, err := nodeRes.IsMounted(targetFile); err != nil {
 				return fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
 			} else if !isMounted {
-				sock, err := containerdisk.GenerateSocketPathFromHostView(vmi, i)
+				sock, err := containerdisk.GetSocketPathFromHostView(vmi, i)
 				if err != nil {
 					return err
 				}
@@ -196,7 +196,7 @@ func (m *Mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 				if err != nil {
 					return fmt.Errorf("failed to detect VMI pod: %v", err)
 				}
-				imageInfo, err := isolation.GetImageInfo(containerdisk.GenerateDiskTargetPathFromLauncherView(i), res)
+				imageInfo, err := isolation.GetImageInfo(containerdisk.GetDiskTargetPathFromLauncherView(i), res)
 				if err != nil {
 					return fmt.Errorf("failed to get image info: %v", err)
 				}
@@ -213,7 +213,7 @@ func (m *Mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 // Legacy Unmount unmounts all container disks of a given VMI when the hold HostPath method was in use.
 // This exists for backwards compatibility for VMIs running before a KubeVirt update occurs.
 func (m *Mounter) legacyUnmount(vmi *v1.VirtualMachineInstance) error {
-	mountDir := containerdisk.GenerateLegacyVolumeMountDirOnHost(vmi)
+	mountDir := containerdisk.GetLegacyVolumeMountDirOnHost(vmi)
 
 	files, err := ioutil.ReadDir(mountDir)
 	if err != nil && !os.IsNotExist(err) {
