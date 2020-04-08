@@ -404,8 +404,8 @@ var _ = Describe("Converter", func() {
     <chassis></chassis>
   </sysinfo>
   <devices>
-    <interface type="bridge">
-      <source bridge="k6t-eth0"></source>
+    <interface type="ethernet">
+      <source></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
     </interface>
@@ -588,8 +588,8 @@ var _ = Describe("Converter", func() {
     <chassis></chassis>
   </sysinfo>
   <devices>
-    <interface type="bridge">
-      <source bridge="k6t-eth0"></source>
+    <interface type="ethernet">
+      <source></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
     </interface>
@@ -773,9 +773,9 @@ var _ = Describe("Converter", func() {
     <chassis></chassis>
   </sysinfo>
   <devices>
-    <interface type="bridge">
+    <interface type="ethernet">
       <address type="pci" domain="0x0000" bus="0x00" slot="0x02" function="0x0"></address>
-      <source bridge="k6t-eth0"></source>
+      <source></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
     </interface>
@@ -1463,7 +1463,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain).ToNot(Equal(nil))
 			Expect(len(domain.Spec.QEMUCmd.QEMUArg)).To(Equal(2))
 			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(2))
-			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("bridge"))
+			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("virtio"))
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("user"))
 			Expect(domain.Spec.Devices.Interfaces[1].Model.Type).To(Equal("e1000"))
@@ -1502,9 +1502,9 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(Equal(nil))
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(3))
-			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-net1"))
-			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net2"))
-			Expect(domain.Spec.Devices.Interfaces[2].Source.Bridge).To(Equal("k6t-eth0"))
+			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
+			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"))
+			Expect(domain.Spec.Devices.Interfaces[2].Type).To(Equal("ethernet"))
 		})
 		It("Should set domain interface source correctly for default multus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -1532,8 +1532,8 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(Equal(nil))
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
-			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
-			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net1"))
+			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
+			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"))
 		})
 		It("should allow setting boot order", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -1573,7 +1573,7 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(Equal(nil))
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
-			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
+			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
 		})
 		It("Should create network configuration for masquerade interface and the pod network and a secondary network using multus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -1598,8 +1598,8 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(Equal(nil))
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
-			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
-			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net1"))
+			Expect(domain.Spec.Devices.Interfaces[0].Type).To(Equal("ethernet"))
+			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("ethernet"))
 		})
 	})
 

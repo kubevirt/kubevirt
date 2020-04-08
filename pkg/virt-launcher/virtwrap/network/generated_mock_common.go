@@ -313,3 +313,13 @@ func (_m *MockNetworkHandler) CreateTapDevice() (string, error) {
 func (_mr *_MockNetworkHandlerRecorder) CreateTapDevice() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateTapDevice")
 }
+
+func (_m *MockNetworkHandler) ConfigureTapDevice(tapName string, bridgeName string) error {
+	ret := _m.ctrl.Call(_m, "ConfigureTapDevice", tapName, bridgeName)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) ConfigureTapDevice(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureTapDevice", arg0, arg1)
+}
