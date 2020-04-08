@@ -109,10 +109,8 @@ func NewController(
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
 		podIsolationDetector:     podIsolationDetector,
-		containerDiskMounter: &container_disk.Mounter{
-			PodIsolationDetector: podIsolationDetector,
-			MountStateDir:        virtPrivateDir + "/container-disk-mount-state"},
-		clusterConfig: clusterConfig,
+		containerDiskMounter:     container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state"),
+		clusterConfig:            clusterConfig,
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -168,7 +166,7 @@ type VirtualMachineController struct {
 	kvmController            *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
-	containerDiskMounter     *container_disk.Mounter
+	containerDiskMounter     container_disk.Mounter
 	clusterConfig            *virtconfig.ClusterConfig
 
 	// records if pod network phase1 has completed

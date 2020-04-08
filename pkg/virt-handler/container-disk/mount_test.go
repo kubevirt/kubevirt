@@ -27,13 +27,15 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
 var _ = Describe("ContainerDisk", func() {
 	var tmpDir string
-	var m *Mounter
+	var m *mounter
 	var err error
 	var vmi *v1.VirtualMachineInstance
 
@@ -43,8 +45,9 @@ var _ = Describe("ContainerDisk", func() {
 		vmi = v1.NewMinimalVMI("fake-vmi")
 		vmi.UID = "1234"
 
-		m = &Mounter{
-			MountStateDir: tmpDir,
+		m = &mounter{
+			mountRecords:  make(map[types.UID]*vmiMountTargetRecord),
+			mountStateDir: tmpDir,
 		}
 	})
 
@@ -59,10 +62,18 @@ var _ = Describe("ContainerDisk", func() {
 				// verify reading non-existent results just returns empty slice
 				record, err := m.getMountTargetRecord(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(record.MountTargetEntries)).To(Equal(0))
+				Expect(record).To(BeNil())
 
 				// verify setting a result works
-				err = m.setMountTargetRecordEntry(vmi, "sometargetfile", "somesocketfile")
+				record = &vmiMountTargetRecord{
+					MountTargetEntries: []vmiMountTargetEntry{
+						{
+							TargetFile: "sometargetfile",
+							SocketFile: "somesocketfile",
+						},
+					},
+				}
+				err = m.setMountTargetRecord(vmi, record)
 				Expect(err).ToNot(HaveOccurred())
 
 				// verify the the file actually exists
@@ -78,18 +89,18 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(record.MountTargetEntries[0].TargetFile).To(Equal("sometargetfile"))
 				Expect(record.MountTargetEntries[0].SocketFile).To(Equal("somesocketfile"))
 
-				// verify appending more results works
-				err = m.setMountTargetRecordEntry(vmi, "sometargetfile2", "somesocketfile2")
-				Expect(err).ToNot(HaveOccurred())
-
-				// verify we return all results when multiples exist
+				// verify we can read a result directly from disk if the entry
+				// doesn't exist in the map
+				delete(m.mountRecords, vmi.UID)
 				record, err = m.getMountTargetRecord(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(record.MountTargetEntries)).To(Equal(2))
+				Expect(len(record.MountTargetEntries)).To(Equal(1))
 				Expect(record.MountTargetEntries[0].TargetFile).To(Equal("sometargetfile"))
 				Expect(record.MountTargetEntries[0].SocketFile).To(Equal("somesocketfile"))
-				Expect(record.MountTargetEntries[1].TargetFile).To(Equal("sometargetfile2"))
-				Expect(record.MountTargetEntries[1].SocketFile).To(Equal("somesocketfile2"))
+
+				// verify the cache is populated again with the mount info after reading from disk
+				_, ok := m.mountRecords[vmi.UID]
+				Expect(ok).To(BeTrue())
 
 				// verify delete results
 				err = m.deleteMountTargetRecord(vmi)
@@ -107,7 +118,7 @@ var _ = Describe("ContainerDisk", func() {
 				// verify reading deleted results just returns empty slice
 				record, err = m.getMountTargetRecord(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(record.MountTargetEntries)).To(Equal(0))
+				Expect(record).To(BeNil())
 			})
 		})
 	})

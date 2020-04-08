@@ -7,18 +7,29 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"sync"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
-type Mounter struct {
-	PodIsolationDetector isolation.PodIsolationDetector
-	MountStateDir        string
+type mounter struct {
+	podIsolationDetector isolation.PodIsolationDetector
+	mountStateDir        string
+	mountRecords         map[types.UID]*vmiMountTargetRecord
+	mountRecordsLock     sync.Mutex
+}
+
+type Mounter interface {
+	Mount(vmi *v1.VirtualMachineInstance, verify bool) error
+	Unmount(vmi *v1.VirtualMachineInstance) error
 }
 
 type vmiMountTargetEntry struct {
@@ -30,41 +41,66 @@ type vmiMountTargetRecord struct {
 	MountTargetEntries []vmiMountTargetEntry `json:"mountTargetEntries"`
 }
 
-func (m *Mounter) deleteMountTargetRecord(vmi *v1.VirtualMachineInstance) error {
+func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string) Mounter {
+	return &mounter{
+		mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
+		podIsolationDetector: isoDetector,
+		mountStateDir:        mountStateDir,
+	}
+}
+
+func (m *mounter) deleteMountTargetRecord(vmi *v1.VirtualMachineInstance) error {
 	if string(vmi.UID) == "" {
 		return fmt.Errorf("unable to find container disk mounted directories for vmi without uid")
 	}
 
-	recordFile := filepath.Join(m.MountStateDir, string(vmi.UID))
+	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
 
 	exists, err := diskutils.FileExists(recordFile)
 	if err != nil {
 		return err
-	} else if !exists {
-		return nil
 	}
 
-	record, err := m.getMountTargetRecord(vmi)
-	if err != nil {
-		return err
+	if exists {
+		record, err := m.getMountTargetRecord(vmi)
+		if err != nil {
+			return err
+		}
+
+		for _, target := range record.MountTargetEntries {
+			os.Remove(target.TargetFile)
+			os.Remove(target.SocketFile)
+		}
+
+		os.Remove(recordFile)
 	}
 
-	for _, target := range record.MountTargetEntries {
-		os.Remove(target.TargetFile)
-		os.Remove(target.SocketFile)
-	}
-
-	os.Remove(recordFile)
+	m.mountRecordsLock.Lock()
+	defer m.mountRecordsLock.Unlock()
+	delete(m.mountRecords, vmi.UID)
 
 	return nil
 }
 
-func (m *Mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMountTargetRecord, error) {
+func (m *mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMountTargetRecord, error) {
+	var ok bool
+	var existingRecord *vmiMountTargetRecord
+
 	if string(vmi.UID) == "" {
 		return nil, fmt.Errorf("unable to find container disk mounted directories for vmi without uid")
 	}
-	record := &vmiMountTargetRecord{}
-	recordFile := filepath.Join(m.MountStateDir, string(vmi.UID))
+
+	m.mountRecordsLock.Lock()
+	defer m.mountRecordsLock.Unlock()
+	existingRecord, ok = m.mountRecords[vmi.UID]
+
+	// first check memory cache
+	if ok {
+		return existingRecord, nil
+	}
+
+	// if not there, see if record is on disk, this can happen if virt-handler restarts
+	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
 
 	exists, err := diskutils.FileExists(recordFile)
 	if err != nil {
@@ -72,77 +108,95 @@ func (m *Mounter) getMountTargetRecord(vmi *v1.VirtualMachineInstance) (*vmiMoun
 	}
 
 	if exists {
+		record := vmiMountTargetRecord{}
 		bytes, err := ioutil.ReadFile(recordFile)
 		if err != nil {
 			return nil, err
 		}
-		err = json.Unmarshal(bytes, record)
+		err = json.Unmarshal(bytes, &record)
 		if err != nil {
 			return nil, err
 		}
+
+		m.mountRecords[vmi.UID] = &record
+		return &record, nil
 	}
 
-	return record, nil
+	// not found
+	return nil, nil
 }
 
-func (m *Mounter) setMountTargetRecordEntry(vmi *v1.VirtualMachineInstance, target string, socket string) error {
+func (m *mounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
 	if string(vmi.UID) == "" {
 		return fmt.Errorf("unable to set container disk mounted directories for vmi without uid")
 	}
-	record := &vmiMountTargetRecord{}
-	recordFile := filepath.Join(m.MountStateDir, string(vmi.UID))
 
-	exists, err := diskutils.FileExists(recordFile)
+	recordFile := filepath.Join(m.mountStateDir, string(vmi.UID))
+	fileExists, err := diskutils.FileExists(recordFile)
 	if err != nil {
 		return err
 	}
 
-	if exists {
-		bytes, err := ioutil.ReadFile(recordFile)
-		if err != nil {
-			return err
-		}
-		err = json.Unmarshal(bytes, record)
-		if err != nil {
-			return err
-		}
+	m.mountRecordsLock.Lock()
+	defer m.mountRecordsLock.Unlock()
 
-		for _, entry := range record.MountTargetEntries {
-			if entry.TargetFile == target {
-				// already recorded
-				return nil
-			}
-		}
-
-		record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
-			TargetFile: target,
-			SocketFile: socket,
-		})
-	} else {
-		os.MkdirAll(filepath.Dir(recordFile), 0755)
-		record.MountTargetEntries = []vmiMountTargetEntry{
-			{
-				TargetFile: target,
-				SocketFile: socket,
-			},
-		}
+	existingRecord, ok := m.mountRecords[vmi.UID]
+	if ok && fileExists && reflect.DeepEqual(existingRecord, record) {
+		// already done
+		return nil
 	}
 
 	bytes, err := json.Marshal(record)
 	if err != nil {
 		return err
 	}
+
+	err = os.MkdirAll(filepath.Dir(recordFile), 0755)
+	if err != nil {
+		return err
+	}
+
 	err = ioutil.WriteFile(recordFile, bytes, 0644)
 	if err != nil {
 		return err
 	}
+
+	m.mountRecords[vmi.UID] = record
 
 	return nil
 }
 
 // Mount takes a vmi and mounts all container disks of the VMI, so that they are visible for the qemu process.
 // Additionally qcow2 images are validated if "verify" is true. The validation happens with rlimits set, to avoid DOS.
-func (m *Mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
+func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
+	record := vmiMountTargetRecord{}
+
+	for i, volume := range vmi.Spec.Volumes {
+		if volume.ContainerDisk != nil {
+			targetFile, err := containerdisk.GetDiskTargetPathFromHostView(vmi, i)
+			if err != nil {
+				return err
+			}
+
+			sock, err := containerdisk.GetSocketPathFromHostView(vmi, i)
+			if err != nil {
+				return err
+			}
+
+			record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
+				TargetFile: targetFile,
+				SocketFile: sock,
+			})
+		}
+	}
+
+	if len(record.MountTargetEntries) > 0 {
+		err := m.setMountTargetRecord(vmi, &record)
+		if err != nil {
+			return err
+		}
+	}
+
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
 			targetFile, err := containerdisk.GetDiskTargetPathFromHostView(vmi, i)
@@ -160,7 +214,7 @@ func (m *Mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 					return err
 				}
 
-				res, err := m.PodIsolationDetector.DetectForSocket(vmi, sock)
+				res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
 				if err != nil {
 					return fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
 				}
@@ -181,10 +235,6 @@ func (m *Mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 					return fmt.Errorf("failed to create mount point target %v: %v", targetFile, err)
 				}
 				f.Close()
-				err = m.setMountTargetRecordEntry(vmi, targetFile, sock)
-				if err != nil {
-					return err
-				}
 
 				out, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "mount", "-o", "ro,bind", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile).CombinedOutput()
 				if err != nil {
@@ -192,7 +242,7 @@ func (m *Mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 				}
 			}
 			if verify {
-				res, err := m.PodIsolationDetector.Detect(vmi)
+				res, err := m.podIsolationDetector.Detect(vmi)
 				if err != nil {
 					return fmt.Errorf("failed to detect VMI pod: %v", err)
 				}
@@ -212,7 +262,7 @@ func (m *Mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 
 // Legacy Unmount unmounts all container disks of a given VMI when the hold HostPath method was in use.
 // This exists for backwards compatibility for VMIs running before a KubeVirt update occurs.
-func (m *Mounter) legacyUnmount(vmi *v1.VirtualMachineInstance) error {
+func (m *mounter) legacyUnmount(vmi *v1.VirtualMachineInstance) error {
 	mountDir := containerdisk.GetLegacyVolumeMountDirOnHost(vmi)
 
 	files, err := ioutil.ReadDir(mountDir)
@@ -244,7 +294,7 @@ func (m *Mounter) legacyUnmount(vmi *v1.VirtualMachineInstance) error {
 }
 
 // Unmount unmounts all container disks of a given VMI.
-func (m *Mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
+func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 	if vmi.UID != "" {
 
 		// this will catch unmounting a vmi's container disk when
@@ -257,6 +307,9 @@ func (m *Mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 		record, err := m.getMountTargetRecord(vmi)
 		if err != nil {
 			return err
+		} else if record == nil {
+			// no entries to unmount
+			return nil
 		}
 
 		for _, entry := range record.MountTargetEntries {
