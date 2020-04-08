@@ -66,8 +66,6 @@ deploy:
   file_glob: true
   file:
   - _out/cmd/virtctl/virtctl-v*
-  - _out/manifests/release/kubevirt.yaml
-  - _out/templates/manifests/release/kubevirt.yaml.j2
   - _out/manifests/release/demo-content.yaml
   - _out/manifests/release/kubevirt-operator.yaml
   - _out/manifests/release/kubevirt-cr.yaml

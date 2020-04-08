@@ -268,6 +268,14 @@ func (KubeVirtList) SwaggerDoc() map[string]string {
 	}
 }
 
+func (KubeVirtSelfSignConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (KubeVirtCertificateRotateStrategy) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (KubeVirtSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"imageTag":          "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",

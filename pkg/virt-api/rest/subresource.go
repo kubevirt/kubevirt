@@ -21,7 +21,6 @@ package rest
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	goerror "errors"
 	"fmt"
 	"io"
@@ -39,12 +38,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/util/cert"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	clientutil "kubevirt.io/client-go/util"
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
@@ -55,24 +52,14 @@ type SubresourceAPIApp struct {
 	credentialsLock         *sync.Mutex
 }
 
-func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int) *SubresourceAPIApp {
+func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int, tlsConfiguration *tls.Config) *SubresourceAPIApp {
 	return &SubresourceAPIApp{
-		virtCli:           virtCli,
-		consoleServerPort: consoleServerPort,
-		credentialsLock:   &sync.Mutex{},
+		virtCli:                 virtCli,
+		consoleServerPort:       consoleServerPort,
+		credentialsLock:         &sync.Mutex{},
+		handlerTLSConfiguration: tlsConfiguration,
 	}
 }
-
-type requestType struct {
-	socketName string
-}
-
-const (
-	clientCertBytesValue      = "client-cert-bytes"
-	clientKeyBytesValue       = "client-key-bytes"
-	signingCertBytesValue     = "signing-cert-bytes"
-	virtHandlerCertSecretName = "kubevirt-virt-handler-certs"
-)
 
 type validation func(*v1.VirtualMachineInstance) (err *errors.StatusError)
 type URLResolver func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (string, error)
@@ -102,26 +89,6 @@ func (app *SubresourceAPIApp) prepareConnection(request *restful.Request, valida
 		statusError = errors.NewBadRequest(err.Error())
 		log.Log.Object(vmi).Reason(statusError).Error("Unable to retrieve target handler URL")
 		return
-	}
-
-	if app.handlerTLSConfiguration == nil {
-		setTLSConfiguration := func() error {
-			app.credentialsLock.Lock()
-			defer app.credentialsLock.Unlock()
-			if app.handlerTLSConfiguration == nil {
-				tlsConfig, err := app.getHandlerTLSConfig()
-				if err != nil {
-					return err
-				}
-				app.handlerTLSConfiguration = tlsConfig
-			}
-			return nil
-		}
-		if err = setTLSConfiguration(); err != nil {
-			statusError = errors.NewInternalError(err)
-			log.Log.Object(vmi).Reason(statusError).Error("Failed to set TLS configuration for virt-handler connection")
-			return
-		}
 	}
 
 	return
@@ -187,81 +154,6 @@ func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, respon
 		writeError(errors.NewInternalError(err), response)
 		return
 	}
-}
-
-func (app *SubresourceAPIApp) getHandlerTLSConfig() (*tls.Config, error) {
-	ns, err := clientutil.GetNamespace()
-	if err != nil {
-		return nil, err
-	}
-	secret, err := app.virtCli.CoreV1().Secrets(ns).Get(virtHandlerCertSecretName, k8smetav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	var clientCertBytes, clientKeyBytes, signingCertBytes []byte
-	var ok bool
-	// retrieve self signed cert info from secret
-	if clientCertBytes, ok = secret.Data[clientCertBytesValue]; !ok {
-		return nil, fmt.Errorf("%s value not found in %s virt-api secret", clientCertBytesValue, virtHandlerCertSecretName)
-	}
-	if clientKeyBytes, ok = secret.Data[clientKeyBytesValue]; !ok {
-		return nil, fmt.Errorf("%s value not found in %s virt-api secret", clientKeyBytesValue, virtHandlerCertSecretName)
-	}
-	if signingCertBytes, ok = secret.Data[signingCertBytesValue]; !ok {
-		return nil, fmt.Errorf("%s value not found in %s virt-api secret", signingCertBytesValue, virtHandlerCertSecretName)
-	}
-	clientCert, err := tls.X509KeyPair(clientCertBytes, clientKeyBytes)
-	if err != nil {
-		return nil, err
-	}
-	caCert, err := cert.ParseCertsPEM(signingCertBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	certPool := x509.NewCertPool()
-	for _, crt := range caCert {
-		certPool.AddCert(crt)
-	}
-
-	// we use the same TLS configuration that is used for live migrations
-	handlerTLSConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
-		ClientCAs:  certPool,
-		GetClientCertificate: func(info *tls.CertificateRequestInfo) (certificate *tls.Certificate, e error) {
-			return &clientCert, nil
-		},
-		GetCertificate: func(info *tls.ClientHelloInfo) (i *tls.Certificate, e error) {
-			return &clientCert, nil
-		},
-		// Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
-		InsecureSkipVerify: true,
-		// XXX: We need to verify the cert ourselves because we don't have DNS or IP on the certs at the moment
-		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-
-			// impossible with RequireAnyClientCert
-			if len(rawCerts) == 0 {
-				return fmt.Errorf("no client certificate provided.")
-			}
-
-			c, err := x509.ParseCertificate(rawCerts[0])
-			if err != nil {
-				return fmt.Errorf("failed to parse peer certificate: %v", err)
-			}
-			_, err = c.Verify(x509.VerifyOptions{
-				Roots:     certPool,
-				KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-			})
-
-			if err != nil {
-				return fmt.Errorf("could not verify peer certificate: %v", err)
-			}
-			return nil
-		},
-		ClientAuth: tls.RequireAndVerifyClientCert,
-	}
-	return handlerTLSConfig, nil
 }
 
 func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, response *restful.Response) {

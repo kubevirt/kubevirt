@@ -160,6 +160,14 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+          - get
+          - update
+        - apiGroups:
           - kubevirt.io
           resources:
           - kubevirts
@@ -322,23 +330,6 @@ spec:
           - watch
           - patch
         - apiGroups:
-          - admissionregistration.k8s.io
-          resources:
-          - validatingwebhookconfigurations
-          - mutatingwebhookconfigurations
-          verbs:
-          - get
-          - create
-          - update
-        - apiGroups:
-          - apiregistration.k8s.io
-          resources:
-          - apiservices
-          verbs:
-          - get
-          - create
-          - update
-        - apiGroups:
           - ""
           resources:
           - pods
@@ -397,16 +388,6 @@ spec:
           - get
           - list
           - watch
-        - apiGroups:
-          - ""
-          resources:
-          - secrets
-          verbs:
-          - get
-          - list
-          - delete
-          - update
-          - create
         - apiGroups:
           - ""
           resources:
@@ -548,13 +529,6 @@ spec:
           - get
           - list
           - watch
-        - apiGroups:
-          - ""
-          resources:
-          - secrets
-          verbs:
-          - create
-          - get
         - apiGroups:
           - subresources.kubevirt.io
           resources:
@@ -715,9 +689,18 @@ spec:
                   initialDelaySeconds: 5
                   timeoutSeconds: 10
                 resources: {}
+                volumeMounts:
+                - mountPath: /etc/virt-operator/certificates
+                  name: kubevirt-operator-certs
+                  readOnly: true
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: kubevirt-operator
+              volumes:
+              - name: kubevirt-operator-certs
+                secret:
+                  optional: true
+                  secretName: kubevirt-operator-certs
     strategy: deployment
   installModes:
   - supported: true

@@ -1931,9 +1931,16 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"certificateRotateStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy"},
 	}
 }
 

@@ -1143,16 +1143,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 					By("Ensuring the VirtualMachineInstance is stopped")
 					Eventually(func() bool {
-						_, err = virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
+						vm, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
 						if err != nil {
-							// A 404 is the expected end result
-							if !errors.IsNotFound(err) {
-								Expect(err).ToNot(HaveOccurred())
-							}
-							return true
+							Expect(err).ToNot(HaveOccurred())
 						}
-						return false
-					}, 240*time.Second, 1*time.Second).Should(BeTrue())
+						return vm.Status.Created
+					}, 240*time.Second, 1*time.Second).Should(BeFalse())
 
 					By("Invoking virtctl start")
 					err = startCommand()

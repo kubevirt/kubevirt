@@ -873,11 +873,12 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				By("checking if we fail to connect with our own cert")
 				// Generate new certs if secret doesn't already exist
-				caKeyPair, _ := triple.NewCA("kubevirt.io")
+				caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour)
 
 				clientKeyPair, _ := triple.NewClientKeyPair(caKeyPair,
 					"kubevirt.io:system:node:virt-handler",
 					nil,
+					time.Hour,
 				)
 
 				certPEM := cert.EncodeCertPEM(clientKeyPair.Cert)

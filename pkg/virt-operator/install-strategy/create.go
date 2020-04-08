@@ -19,11 +19,15 @@
 
 package installstrategy
 
+//go:generate mockgen -source $GOFILE -imports "libvirt=github.com/libvirt/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -33,8 +37,11 @@ import (
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 
 	"github.com/blang/semver"
 
@@ -49,6 +56,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
+const Duration7d = time.Hour * 24 * 7
+const Duration1d = time.Hour * 24
+
+type APIServiceInterface interface {
+	Get(name string, options metav1.GetOptions) (*v1beta1.APIService, error)
+	Create(*v1beta1.APIService) (*v1beta1.APIService, error)
+	Delete(name string, options *metav1.DeleteOptions) error
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1beta1.APIService, err error)
+}
+
 func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version string, imageRegistry string, id string) bool {
 
 	if objectMeta.Annotations == nil {
@@ -58,8 +75,9 @@ func objectMatchesVersion(objectMeta *metav1.ObjectMeta, version string, imageRe
 	foundVersion := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 	foundImageRegistry := objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
 	foundID := objectMeta.Annotations[v1.InstallStrategyIdentifierAnnotation]
+	foundLabels := objectMeta.Labels[v1.ManagedByLabel] == v1.ManagedByLabelOperatorValue
 
-	if foundVersion == version && foundImageRegistry == imageRegistry && foundID == id {
+	if foundVersion == version && foundImageRegistry == imageRegistry && foundID == id && foundLabels {
 		return true
 	}
 
@@ -404,7 +422,7 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 
 	// Set some fake signing cert bytes in for each rule so the k8s apiserver will
 	// allow us to create the webhook.
-	caKeyPair, _ := triple.NewCA("fake.kubevirt.io")
+	caKeyPair, _ := triple.NewCA("fake.kubevirt.io", time.Hour*24)
 	signingCertBytes := cert.EncodeCertPEM(caKeyPair.Cert)
 	for _, webhook := range webhooks {
 		webhook.ClientConfig.CABundle = signingCertBytes
@@ -1275,6 +1293,183 @@ func generateServicePatch(kv *v1.KubeVirt,
 	return patchOps, deleteAndReplace, nil
 }
 
+func createOrUpdateAPIServices(kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	aggregatorClient APIServiceInterface,
+	expectations *util.Expectations,
+	caBundle []byte,
+) error {
+
+	version := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	for _, apiService := range targetStrategy.apiServices {
+		var cachedAPIService *v1beta1.APIService
+		apiService = apiService.DeepCopy()
+
+		apiService.Spec.CABundle = caBundle
+
+		obj, exists, _ := stores.APIServiceCache.Get(apiService)
+		// since these objects was in the past unmanaged, reconcile and pick it up if it exists
+		if !exists {
+			cachedAPIService, err = aggregatorClient.Get(apiService.Name, metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				exists = false
+			} else if err != nil {
+				return err
+			} else {
+				exists = true
+			}
+		} else if exists {
+			cachedAPIService = obj.(*v1beta1.APIService)
+		}
+
+		certsMatch := true
+		if exists {
+			if !reflect.DeepEqual(apiService.Spec.CABundle, cachedAPIService.Spec.CABundle) {
+				certsMatch = false
+			}
+		}
+
+		injectOperatorMetadata(kv, &apiService.ObjectMeta, version, imageRegistry, id)
+		if !exists {
+			expectations.APIService.RaiseExpectations(kvkey, 1, 0)
+			_, err := aggregatorClient.Create(apiService)
+			if err != nil {
+				expectations.APIService.LowerExpectations(kvkey, 1, 0)
+				return fmt.Errorf("unable to create apiservice %+v: %v", apiService, err)
+			}
+		} else {
+			if !objectMatchesVersion(&cachedAPIService.ObjectMeta, version, imageRegistry, id) || !certsMatch {
+				// Patch if old version
+				var ops []string
+
+				// Add Labels and Annotations Patches
+				labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&apiService.ObjectMeta)
+				if err != nil {
+					return err
+				}
+				ops = append(ops, labelAnnotationPatch...)
+
+				// Add Spec Patch
+				spec, err := json.Marshal(apiService.Spec)
+				if err != nil {
+					return err
+				}
+				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(spec)))
+
+				_, err = aggregatorClient.Patch(apiService.Name, types.JSONPatchType, generatePatchBytes(ops))
+				if err != nil {
+					return fmt.Errorf("unable to patch apiservice %+v: %v", apiService, err)
+				}
+				log.Log.V(2).Infof("apiservice %v updated", apiService.GetName())
+
+			} else {
+				log.Log.V(4).Infof("apiservice %v is up-to-date", apiService.GetName())
+			}
+		}
+	}
+	return nil
+}
+
+func createOrUpdateMutatingWebhookConfigurations(kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations,
+	caBundle []byte,
+) error {
+
+	version := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	for _, webhook := range targetStrategy.mutatingWebhookConfigurations {
+		var cachedWebhook *admissionregistrationv1beta1.MutatingWebhookConfiguration
+		webhook = webhook.DeepCopy()
+
+		for i, _ := range webhook.Webhooks {
+			webhook.Webhooks[i].ClientConfig.CABundle = caBundle
+		}
+
+		obj, exists, _ := stores.MutatingWebhookCache.Get(webhook)
+		// since these objects was in the past unmanaged, reconcile and pick it up if it exists
+		if !exists {
+			cachedWebhook, err = clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(webhook.Name, metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				exists = false
+			} else if err != nil {
+				return err
+			} else {
+				exists = true
+			}
+		} else if exists {
+			cachedWebhook = obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration)
+		}
+
+		certsMatch := true
+		if exists {
+			for _, wh := range cachedWebhook.Webhooks {
+				if !reflect.DeepEqual(wh.ClientConfig.CABundle, caBundle) {
+					certsMatch = false
+					break
+				}
+			}
+		}
+
+		injectOperatorMetadata(kv, &webhook.ObjectMeta, version, imageRegistry, id)
+		if !exists {
+			expectations.MutatingWebhook.RaiseExpectations(kvkey, 1, 0)
+			_, err := clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(webhook)
+			if err != nil {
+				expectations.MutatingWebhook.LowerExpectations(kvkey, 1, 0)
+				return fmt.Errorf("unable to create mutatingwebhook %+v: %v", webhook, err)
+			}
+		} else {
+			if !objectMatchesVersion(&cachedWebhook.ObjectMeta, version, imageRegistry, id) || !certsMatch {
+				// Patch if old version
+				var ops []string
+
+				// Add Labels and Annotations Patches
+				labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&webhook.ObjectMeta)
+				if err != nil {
+					return err
+				}
+				ops = append(ops, labelAnnotationPatch...)
+
+				// Add Spec Patch
+				webhooks, err := json.Marshal(webhook.Webhooks)
+				if err != nil {
+					return err
+				}
+				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/webhooks", "value": %s }`, string(webhooks)))
+
+				_, err = clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(webhook.Name, types.JSONPatchType, generatePatchBytes(ops))
+				if err != nil {
+					return fmt.Errorf("unable to patch mutatingwebhookconfiguration %+v: %v", webhook, err)
+				}
+				log.Log.V(2).Infof("mutatingwebhoookconfiguration %v updated", webhook.GetName())
+
+			} else {
+				log.Log.V(4).Infof("mutatingwebhookconfiguration %v is up-to-date", webhook.GetName())
+			}
+		}
+	}
+	return nil
+}
+
 func createOrUpdateValidatingWebhookConfigurations(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
@@ -1301,9 +1496,22 @@ func createOrUpdateValidatingWebhookConfigurations(kv *v1.KubeVirt,
 		}
 
 		obj, exists, _ := stores.ValidationWebhookCache.Get(webhook)
+		// since these objects was in the past unmanaged, reconcile and pick it up if it exists
+		if !exists {
+			cachedWebhook, err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(webhook.Name, metav1.GetOptions{})
+			if errors.IsNotFound(err) {
+				exists = false
+			} else if err != nil {
+				return err
+			} else {
+				exists = true
+			}
+		} else if exists {
+			cachedWebhook = obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration)
+		}
+
 		certsMatch := true
 		if exists {
-			cachedWebhook = obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration)
 			for _, wh := range cachedWebhook.Webhooks {
 				if !reflect.DeepEqual(wh.ClientConfig.CABundle, caBundle) {
 					certsMatch = false
@@ -1348,6 +1556,172 @@ func createOrUpdateValidatingWebhookConfigurations(kv *v1.KubeVirt,
 			} else {
 				log.Log.V(4).Infof("validatingwebhookconfiguration %v is up-to-date", webhook.GetName())
 			}
+		}
+	}
+	return nil
+}
+
+func createOrUpdateCACertificateSecret(
+	queue workqueue.RateLimitingInterface,
+	kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations,
+	duration *metav1.Duration,
+) (caCert *tls.Certificate, err error) {
+
+	for _, secret := range targetStrategy.certificateSecrets {
+
+		// Only work on the ca secret
+		if secret.Name != components.KubeVirtCASecretName {
+			continue
+		}
+		caCert, err := createOrUpdateCertificateSecret(queue, kv, stores, clientset, expectations, nil, secret, duration)
+		if err != nil {
+			return nil, err
+		}
+		return caCert, nil
+	}
+	return nil, nil
+}
+
+func createOrUpdateCertificateSecret(
+	queue workqueue.RateLimitingInterface,
+	kv *v1.KubeVirt,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations,
+	ca *tls.Certificate,
+	secret *corev1.Secret,
+	duration *metav1.Duration,
+) (*tls.Certificate, error) {
+	var cachedSecret *corev1.Secret
+	secret = secret.DeepCopy()
+
+	log.DefaultLogger().V(4).Infof("checking certificate %v", secret.Name)
+
+	version := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return nil, err
+	}
+
+	obj, exists, _ := stores.SecretCache.Get(secret)
+
+	// since these objects was in the past unmanaged, reconcile and pick it up if it exists
+	if !exists {
+		cachedSecret, err = clientset.CoreV1().Secrets(secret.Namespace).Get(secret.Name, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			exists = false
+		} else if err != nil {
+			return nil, err
+		} else {
+			exists = true
+		}
+	} else if exists {
+		cachedSecret = obj.(*corev1.Secret)
+	}
+
+	rotateCertificate := false
+	if exists {
+
+		crt, err := components.LoadCertificates(cachedSecret)
+		if err != nil {
+			log.DefaultLogger().Reason(err).Infof("Failed to load certificate from secret %s, will rotate it.", secret.Name)
+			rotateCertificate = true
+		} else if cachedSecret.Annotations["kubevirt.io/duration"] != duration.String() {
+			rotateCertificate = true
+		} else {
+			rotationTime := components.NextRotationDeadline(crt, ca)
+			// We update the certificate if it has passed 80 percent of its lifetime
+			if rotationTime.Before(time.Now()) {
+				rotateCertificate = true
+			}
+		}
+	}
+
+	if !exists || rotateCertificate {
+		if err := components.PopulateSecretWithCertificate(secret, ca, duration); err != nil {
+			return nil, err
+		}
+	} else if exists {
+		secret.Data = cachedSecret.Data
+	}
+
+	crt, err := components.LoadCertificates(secret)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Infof("Failed to load certificate from secret %s.", secret.Name)
+		return nil, err
+	}
+	// we need to ensure that we revisit certificates before they expire
+	wakeupDeadline := components.NextRotationDeadline(crt, ca).Sub(time.Now())
+	queue.AddAfter(kvkey, wakeupDeadline)
+
+	injectOperatorMetadata(kv, &secret.ObjectMeta, version, imageRegistry, id)
+	if !exists {
+		expectations.Secrets.RaiseExpectations(kvkey, 1, 0)
+		_, err := clientset.CoreV1().Secrets(secret.Namespace).Create(secret)
+		if err != nil {
+			expectations.Secrets.LowerExpectations(kvkey, 1, 0)
+			return nil, fmt.Errorf("unable to create secret %+v: %v", secret, err)
+		}
+	} else {
+		if !objectMatchesVersion(&cachedSecret.ObjectMeta, version, imageRegistry, id) || rotateCertificate {
+			// Patch if old version
+			var ops []string
+
+			// Add Labels and Annotations Patches
+			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&secret.ObjectMeta)
+			if err != nil {
+				return nil, err
+			}
+			ops = append(ops, labelAnnotationPatch...)
+
+			// Add Spec Patch
+			data, err := json.Marshal(secret.Data)
+			if err != nil {
+				return nil, err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/data", "value": %s }`, string(data)))
+
+			_, err = clientset.CoreV1().Secrets(secret.Namespace).Patch(secret.Name, types.JSONPatchType, generatePatchBytes(ops))
+			if err != nil {
+				return nil, fmt.Errorf("unable to patch secret %+v: %v", secret, err)
+			}
+			log.Log.V(2).Infof("secret %v updated", secret.GetName())
+
+		} else {
+			log.Log.V(4).Infof("secret %v is up-to-date", secret.GetName())
+		}
+	}
+	return crt, nil
+}
+
+func createOrUpdateCertificateSecrets(
+	queue workqueue.RateLimitingInterface,
+	kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations,
+	caCert *tls.Certificate,
+	duration *metav1.Duration,
+) error {
+
+	for _, secret := range targetStrategy.certificateSecrets {
+
+		// The CA certificate needs to be handled separetely and before other secrets
+		if secret.Name == components.KubeVirtCASecretName {
+			continue
+		}
+
+		_, err := createOrUpdateCertificateSecret(queue, kv, stores, clientset, expectations, caCert, secret, duration)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -1828,14 +2202,7 @@ func syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment, clients
 	return nil
 }
 
-func SyncAll(kv *v1.KubeVirt,
-	prevStrategy *InstallStrategy,
-	targetStrategy *InstallStrategy,
-	stores util.Stores,
-	clientset kubecli.KubevirtClient,
-	expectations *util.Expectations,
-	caBundle []byte,
-) (bool, error) {
+func SyncAll(queue workqueue.RateLimitingInterface, kv *v1.KubeVirt, prevStrategy *InstallStrategy, targetStrategy *InstallStrategy, stores util.Stores, clientset kubecli.KubevirtClient, aggregatorclient APIServiceInterface, expectations *util.Expectations) (bool, error) {
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -1933,8 +2300,53 @@ func SyncAll(kv *v1.KubeVirt,
 		return false, err
 	}
 
+	caDuration := &metav1.Duration{Duration: Duration7d}
+	caOverlapTime := &metav1.Duration{Duration: Duration1d}
+	certDuration := &metav1.Duration{Duration: Duration1d}
+	if kv.Spec.CertificateRotationStrategy.SelfSigned != nil {
+		if kv.Spec.CertificateRotationStrategy.SelfSigned.CARotateInterval != nil {
+			caDuration = kv.Spec.CertificateRotationStrategy.SelfSigned.CARotateInterval
+		}
+		if kv.Spec.CertificateRotationStrategy.SelfSigned.CAOverlapInterval != nil {
+			caOverlapTime = kv.Spec.CertificateRotationStrategy.SelfSigned.CAOverlapInterval
+		}
+		if kv.Spec.CertificateRotationStrategy.SelfSigned.CertRotateInterval != nil {
+			certDuration = kv.Spec.CertificateRotationStrategy.SelfSigned.CertRotateInterval
+		}
+	}
+
+	// create/update CA Certificate secret
+	caCert, err := createOrUpdateCACertificateSecret(queue, kv, targetStrategy, stores, clientset, expectations, caDuration)
+	if err != nil {
+		return false, err
+	}
+
+	// create/update CA config map
+	caBundle, err := createOrUpdateKubeVirtCAConfigMap(queue, kv, targetStrategy, stores, clientset, expectations, caCert, caOverlapTime)
+	if err != nil {
+		return false, err
+	}
+
+	// create/update Certificate secrets
+	err = createOrUpdateCertificateSecrets(queue, kv, targetStrategy, stores, clientset, expectations, caCert, certDuration)
+	if err != nil {
+		return false, err
+	}
+
 	// create/update ValidatingWebhookConfiguration
 	err = createOrUpdateValidatingWebhookConfigurations(kv, targetStrategy, stores, clientset, expectations, caBundle)
+	if err != nil {
+		return false, err
+	}
+
+	// create/update MutatingWebhookConfiguration
+	err = createOrUpdateMutatingWebhookConfigurations(kv, targetStrategy, stores, clientset, expectations, caBundle)
+	if err != nil {
+		return false, err
+	}
+
+	// create/update APIServices
+	err = createOrUpdateAPIServices(kv, targetStrategy, stores, aggregatorclient, expectations, caBundle)
 	if err != nil {
 		return false, err
 	}
@@ -2073,21 +2485,30 @@ func SyncAll(kv *v1.KubeVirt,
 		return false, nil
 	}
 
-	// remove unused webhooks
 	// outdated webhooks can potentially block deletes of other objects during the cleanup and need to be removed first
+
+	// remove unused validating webhooks
 	objects := stores.ValidationWebhookCache.List()
 	for _, obj := range objects {
 		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
 			found := false
-			// XXX virt-api-validator is right now only half managed and not in the manifest, skip it right now on updates
-			if strings.HasPrefix(webhook.Name, "virt-operator-tmp-webhook") || webhook.Name == "virt-api-validator" {
+			if strings.HasPrefix(webhook.Name, "virt-operator-tmp-webhook") {
 				continue
 			}
+
 			for _, targetWebhook := range targetStrategy.validatingWebhookConfigurations {
+
 				if targetWebhook.Name == webhook.Name {
 					found = true
 					break
 				}
+			}
+			// This is for backward compatibility where virt-api managed the entity itself.
+			// If someone upgrades from such an old version and then has to roll back, we want avoid deleting a resource
+			// which was not explicitly created by an operator, but is still visible to it.
+			// TODO: Remove this once we don't support upgrading from such old kubevirt installations.
+			if _, ok := webhook.Annotations[v1.InstallStrategyVersionAnnotation]; !ok {
+				found = true
 			}
 			if !found {
 				if key, err := controller.KeyFunc(webhook); err == nil {
@@ -2096,6 +2517,127 @@ func SyncAll(kv *v1.KubeVirt,
 					if err != nil {
 						expectations.ValidationWebhook.DeletionObserved(kvkey, key)
 						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
+						return false, err
+					}
+				}
+			}
+		}
+	}
+
+	// remove unused mutating webhooks
+	objects = stores.MutatingWebhookCache.List()
+	for _, obj := range objects {
+		if webhook, ok := obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
+			found := false
+			for _, targetWebhook := range targetStrategy.mutatingWebhookConfigurations {
+				if targetWebhook.Name == webhook.Name {
+					found = true
+					break
+				}
+			}
+			// This is for backward compatibility where virt-api managed the entity itself.
+			// If someone upgrades from such an old version and then has to roll back, we want avoid deleting a resource
+			// which was not explicitly created by an operator, but is still visible to it.
+			// TODO: Remove this once we don't support upgrading from such old kubevirt installations.
+			if _, ok := webhook.Annotations[v1.InstallStrategyVersionAnnotation]; !ok {
+				found = true
+			}
+			if !found {
+				if key, err := controller.KeyFunc(webhook); err == nil {
+					expectations.MutatingWebhook.AddExpectedDeletion(kvkey, key)
+					err := clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Delete(webhook.Name, deleteOptions)
+					if err != nil {
+						expectations.MutatingWebhook.DeletionObserved(kvkey, key)
+						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
+						return false, err
+					}
+				}
+			}
+		}
+	}
+
+	// remove unused APIServices
+	objects = stores.APIServiceCache.List()
+	for _, obj := range objects {
+		if apiService, ok := obj.(*v1beta1.APIService); ok && apiService.DeletionTimestamp == nil {
+			found := false
+			for _, targetAPIService := range targetStrategy.apiServices {
+				if targetAPIService.Name == apiService.Name {
+					found = true
+					break
+				}
+			}
+			// This is for backward compatibility where virt-api managed the entity itself.
+			// If someone upgrades from such an old version and then has to roll back, we want avoid deleting a resource
+			// which was not explicitly created by an operator, but is still visible to it.
+			// TODO: Remove this once we don't support upgrading from such old kubevirt installations.
+			if _, ok := apiService.Annotations[v1.InstallStrategyVersionAnnotation]; !ok {
+				found = true
+			}
+			if !found {
+				if key, err := controller.KeyFunc(apiService); err == nil {
+					expectations.APIService.AddExpectedDeletion(kvkey, key)
+					err := aggregatorclient.Delete(apiService.Name, deleteOptions)
+					if err != nil {
+						expectations.APIService.DeletionObserved(kvkey, key)
+						log.Log.Errorf("Failed to delete apiService %+v: %v", apiService, err)
+						return false, err
+					}
+				}
+			}
+		}
+	}
+
+	// remove unused Secrets
+	objects = stores.SecretCache.List()
+	for _, obj := range objects {
+		if secret, ok := obj.(*corev1.Secret); ok && secret.DeletionTimestamp == nil {
+			found := false
+			for _, targetSecret := range targetStrategy.certificateSecrets {
+				if targetSecret.Name == secret.Name {
+					found = true
+					break
+				}
+			}
+			// This is for backward compatibility where virt-api managed the entity itself.
+			// If someone upgrades from such an old version and then has to roll back, we want avoid deleting a resource
+			// which was not explicitly created by an operator, but is still visible to it.
+			// TODO: Remove this once we don't support upgrading from such old kubevirt installations.
+			if _, ok := secret.Annotations[v1.InstallStrategyVersionAnnotation]; !ok {
+				found = true
+			}
+			if !found {
+				if key, err := controller.KeyFunc(secret); err == nil {
+					expectations.Secrets.AddExpectedDeletion(kvkey, key)
+					err := clientset.CoreV1().Secrets(secret.Namespace).Delete(secret.Name, deleteOptions)
+					if err != nil {
+						expectations.Secrets.DeletionObserved(kvkey, key)
+						log.Log.Errorf("Failed to delete secret %+v: %v", secret, err)
+						return false, err
+					}
+				}
+			}
+		}
+	}
+
+	// remove unused ConfigMaps
+	objects = stores.ConfigMapCache.List()
+	for _, obj := range objects {
+		if configMap, ok := obj.(*corev1.ConfigMap); ok && configMap.DeletionTimestamp == nil {
+			found := false
+			for _, targetConfigMap := range targetStrategy.configMaps {
+				if targetConfigMap.Name == configMap.Name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if key, err := controller.KeyFunc(configMap); err == nil {
+					expectations.ConfigMap.AddExpectedDeletion(kvkey, key)
+					err := clientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(configMap.Name, deleteOptions)
+					if err != nil {
+						expectations.ConfigMap.DeletionObserved(kvkey, key)
+						log.Log.Errorf("Failed to delete configmap %+v: %v", configMap, err)
 						return false, err
 					}
 				}
@@ -2388,4 +2930,100 @@ func SyncAll(kv *v1.KubeVirt,
 	}
 
 	return true, nil
+}
+
+func createOrUpdateKubeVirtCAConfigMap(
+	queue workqueue.RateLimitingInterface,
+	kv *v1.KubeVirt,
+	strategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations,
+	caCert *tls.Certificate,
+	overlapInterval *metav1.Duration,
+) (caBundle []byte, err error) {
+
+	for _, configMap := range strategy.configMaps {
+
+		if configMap.Name != components.KubeVirtCASecretName {
+			continue
+		}
+		var cachedConfigMap *corev1.ConfigMap
+		configMap = configMap.DeepCopy()
+
+		log.DefaultLogger().V(4).Infof("checking ca config map %v", configMap.Name)
+
+		version := kv.Status.TargetKubeVirtVersion
+		imageRegistry := kv.Status.TargetKubeVirtRegistry
+		id := kv.Status.TargetDeploymentID
+
+		kvkey, err := controller.KeyFunc(kv)
+		if err != nil {
+			return nil, err
+		}
+
+		obj, exists, _ := stores.ConfigMapCache.Get(configMap)
+
+		updateBundle := false
+		if exists {
+			cachedConfigMap = obj.(*corev1.ConfigMap)
+
+			bundle, certCount, err := components.MergeCABundle(caCert, []byte(cachedConfigMap.Data[components.CABundleKey]), overlapInterval.Duration)
+			if err != nil {
+				return nil, err
+			}
+
+			// ensure that we remove the old CA after the overlap period
+			if certCount > 1 {
+				queue.AddAfter(kvkey, overlapInterval.Duration)
+			}
+
+			configMap.Data = map[string]string{components.CABundleKey: string(bundle)}
+
+			if !reflect.DeepEqual(configMap.Data, cachedConfigMap.Data) {
+				updateBundle = true
+			}
+		} else {
+			configMap.Data = map[string]string{components.CABundleKey: string(cert.EncodeCertPEM(caCert.Leaf))}
+		}
+
+		injectOperatorMetadata(kv, &configMap.ObjectMeta, version, imageRegistry, id)
+		if !exists {
+			expectations.ConfigMap.RaiseExpectations(kvkey, 1, 0)
+			_, err := clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(configMap)
+			if err != nil {
+				expectations.ConfigMap.LowerExpectations(kvkey, 1, 0)
+				return nil, fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
+			}
+		} else {
+			if !objectMatchesVersion(&cachedConfigMap.ObjectMeta, version, imageRegistry, id) || updateBundle {
+				// Patch if old version
+				var ops []string
+
+				// Add Labels and Annotations Patches
+				labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&configMap.ObjectMeta)
+				if err != nil {
+					return nil, err
+				}
+				ops = append(ops, labelAnnotationPatch...)
+
+				// Add Spec Patch
+				data, err := json.Marshal(configMap.Data)
+				if err != nil {
+					return nil, err
+				}
+				ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/data", "value": %s }`, string(data)))
+
+				_, err = clientset.CoreV1().ConfigMaps(configMap.Namespace).Patch(configMap.Name, types.JSONPatchType, generatePatchBytes(ops))
+				if err != nil {
+					return nil, fmt.Errorf("unable to patch configMap %+v: %v", configMap, err)
+				}
+				log.Log.V(2).Infof("configMap %v updated", configMap.GetName())
+			} else {
+				log.Log.V(4).Infof("configMap %v is up-to-date", configMap.GetName())
+			}
+		}
+		return []byte(configMap.Data[components.CABundleKey]), nil
+	}
+	return nil, nil
 }

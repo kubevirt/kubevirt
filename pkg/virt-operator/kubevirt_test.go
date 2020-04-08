@@ -25,12 +25,15 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -79,6 +82,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var kvInterface *kubecli.MockKubeVirtInterface
 	var kvSource *framework.FakeControllerSource
 	var kvInformer cache.SharedIndexInformer
+	var apiServiceClient *installstrategy.MockAPIServiceInterface
 
 	var serviceAccountSource *framework.FakeControllerSource
 	var clusterRoleSource *framework.FakeControllerSource
@@ -90,6 +94,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var deploymentSource *framework.FakeControllerSource
 	var daemonSetSource *framework.FakeControllerSource
 	var validatingWebhookSource *framework.FakeControllerSource
+	var mutatingWebhookSource *framework.FakeControllerSource
+	var apiserviceSource *framework.FakeControllerSource
 	var sccSource *framework.FakeControllerSource
 	var installStrategyConfigMapSource *framework.FakeControllerSource
 	var installStrategyJobSource *framework.FakeControllerSource
@@ -98,6 +104,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var serviceMonitorSource *framework.FakeControllerSource
 	var namespaceSource *framework.FakeControllerSource
 	var prometheusRuleSource *framework.FakeControllerSource
+	var secretsSource *framework.FakeControllerSource
+	var configMapSource *framework.FakeControllerSource
 
 	var stop chan struct{}
 	var controller *KubeVirtController
@@ -134,8 +142,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 	var resourceChanges map[string]map[string]int
 
-	resourceCount := 39
-	patchCount := 20
+	resourceCount := 49
+	patchCount := 30
 	updateCount := 20
 
 	deleteFromCache := true
@@ -163,6 +171,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		go informers.ServiceMonitor.Run(stop)
 		go informers.Namespace.Run(stop)
 		go informers.PrometheusRule.Run(stop)
+		go informers.Secrets.Run(stop)
+		go informers.ConfigMap.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
 
@@ -186,6 +196,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		cache.WaitForCacheSync(stop, informers.ServiceMonitor.HasSynced)
 		cache.WaitForCacheSync(stop, informers.Namespace.HasSynced)
 		cache.WaitForCacheSync(stop, informers.PrometheusRule.HasSynced)
+		cache.WaitForCacheSync(stop, informers.Secrets.HasSynced)
+		cache.WaitForCacheSync(stop, informers.ConfigMap.HasSynced)
 	}
 
 	getSCC := func() secv1.SecurityContextConstraints {
@@ -218,6 +230,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		kvInterface = kubecli.NewMockKubeVirtInterface(ctrl)
+		apiServiceClient = installstrategy.NewMockAPIServiceInterface(ctrl)
 
 		kvInformer, kvSource = testutils.NewFakeInformerFor(&v1.KubeVirt{})
 		recorder = record.NewFakeRecorder(100)
@@ -251,9 +264,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		informers.ValidationWebhook, validatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{})
 		stores.ValidationWebhookCache = informers.ValidationWebhook.GetStore()
-		informers.MutatingWebhook, _ = testutils.NewFakeInformerFor(&admissionregistrationv1beta1.MutatingWebhookConfiguration{})
+		informers.MutatingWebhook, mutatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1beta1.MutatingWebhookConfiguration{})
 		stores.MutatingWebhookCache = informers.MutatingWebhook.GetStore()
-		informers.APIService, _ = testutils.NewFakeInformerFor(&v1beta1.APIService{})
+		informers.APIService, apiserviceSource = testutils.NewFakeInformerFor(&v1beta1.APIService{})
 		stores.APIServiceCache = informers.APIService.GetStore()
 
 		informers.SCC, sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
@@ -289,7 +302,13 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.PrometheusRule, prometheusRuleSource = testutils.NewFakeInformerFor(&promv1.PrometheusRule{})
 		stores.PrometheusRuleCache = informers.PrometheusRule.GetStore()
 		stores.PrometheusRulesEnabled = true
-		controller = NewKubeVirtController(virtClient, nil, kvInformer, recorder, stores, informers, NAMESPACE, nil)
+
+		informers.Secrets, secretsSource = testutils.NewFakeInformerFor(&k8sv1.Secret{})
+		stores.SecretCache = informers.Secrets.GetStore()
+		informers.ConfigMap, configMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		stores.ConfigMapCache = informers.ConfigMap.GetStore()
+
+		controller = NewKubeVirtController(virtClient, apiServiceClient, kvInformer, recorder, stores, informers, NAMESPACE)
 
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
@@ -317,11 +336,21 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			if action.GetVerb() == "get" && action.GetResource().Resource == "secrets" {
+				return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "secrets"}, "whatever")
+			}
+			if action.GetVerb() == "get" && action.GetResource().Resource == "validatingwebhookconfigurations" {
+				return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "validatingwebhookconfigurations"}, "whatever")
+			}
+			if action.GetVerb() == "get" && action.GetResource().Resource == "mutatingwebhookconfigurations" {
+				return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "mutatingwebhookconfigurations"}, "whatever")
+			}
 			if action.GetVerb() != "get" || action.GetResource().Resource != "namespaces" {
 				Expect(action).To(BeNil())
 			}
 			return true, nil, nil
 		})
+		apiServiceClient.EXPECT().Get(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "apiservices"}, "whatever"))
 		secClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			Expect(action).To(BeNil())
 			return true, nil, nil
@@ -434,9 +463,15 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	addInstallStrategyConfigMap := func(c *k8sv1.ConfigMap) {
+	addMutatingWebhook := func(wh *admissionregistrationv1beta1.MutatingWebhookConfiguration) {
 		mockQueue.ExpectAdds(1)
-		installStrategyConfigMapSource.Add(c)
+		mutatingWebhookSource.Add(wh)
+		mockQueue.Wait()
+	}
+
+	addAPIService := func(wh *v1beta1.APIService) {
+		mockQueue.ExpectAdds(1)
+		apiserviceSource.Add(wh)
 		mockQueue.Wait()
 	}
 
@@ -455,6 +490,22 @@ var _ = Describe("KubeVirt Operator", func() {
 	addPodDisruptionBudget := func(podDisruptionBudget *policyv1beta1.PodDisruptionBudget) {
 		mockQueue.ExpectAdds(1)
 		podDisruptionBudgetSource.Add(podDisruptionBudget)
+		mockQueue.Wait()
+	}
+
+	addSecret := func(secret *k8sv1.Secret) {
+		mockQueue.ExpectAdds(1)
+		secretsSource.Add(secret)
+		mockQueue.Wait()
+	}
+
+	addConfigMap := func(configMap *k8sv1.ConfigMap) {
+		mockQueue.ExpectAdds(1)
+		if _, ok := configMap.Labels[v1.InstallStrategyLabel]; ok {
+			installStrategyConfigMapSource.Add(configMap)
+		} else {
+			configMapSource.Add(configMap)
+		}
 		mockQueue.Wait()
 	}
 
@@ -508,18 +559,27 @@ var _ = Describe("KubeVirt Operator", func() {
 		case *admissionregistrationv1beta1.ValidatingWebhookConfiguration:
 			injectMetadata(&obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration).ObjectMeta, config)
 			addValidatingWebhook(resource)
+		case *admissionregistrationv1beta1.MutatingWebhookConfiguration:
+			injectMetadata(&obj.(*admissionregistrationv1beta1.MutatingWebhookConfiguration).ObjectMeta, config)
+			addMutatingWebhook(resource)
+		case *v1beta1.APIService:
+			injectMetadata(&obj.(*v1beta1.APIService).ObjectMeta, config)
+			addAPIService(resource)
 		case *batchv1.Job:
 			injectMetadata(&obj.(*batchv1.Job).ObjectMeta, config)
 			addInstallStrategyJob(resource)
 		case *k8sv1.ConfigMap:
 			injectMetadata(&obj.(*k8sv1.ConfigMap).ObjectMeta, config)
-			addInstallStrategyConfigMap(resource)
+			addConfigMap(resource)
 		case *k8sv1.Pod:
 			injectMetadata(&obj.(*k8sv1.Pod).ObjectMeta, config)
 			addPod(resource)
 		case *policyv1beta1.PodDisruptionBudget:
 			injectMetadata(&obj.(*policyv1beta1.PodDisruptionBudget).ObjectMeta, config)
 			addPodDisruptionBudget(resource)
+		case *k8sv1.Secret:
+			injectMetadata(&obj.(*k8sv1.Secret).ObjectMeta, config)
+			addSecret(resource)
 		case *secv1.SecurityContextConstraints:
 			injectMetadata(&obj.(*secv1.SecurityContextConstraints).ObjectMeta, config)
 			addSCC(resource)
@@ -764,8 +824,6 @@ var _ = Describe("KubeVirt Operator", func() {
 	addAll := func(config *util.KubeVirtDeploymentConfig) {
 		all := make([]interface{}, 0)
 
-		// webhooks
-		all = append(all, components.NewValidatingWebhookConfiguration(NAMESPACE))
 		// rbac
 		all = append(all, rbac.GetAllCluster(NAMESPACE)...)
 		all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
@@ -782,7 +840,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
 		all = append(all, components.NewKubeVirtHandlerSCC(NAMESPACE))
 		// services and deployments
-		all = append(all, components.NewWebhookService(NAMESPACE))
+		all = append(all, components.NewOperatorWebhookService(NAMESPACE))
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
 		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
@@ -794,6 +852,45 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespace(), config.GetMonitorServiceAccount())...)
 		all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetMonitorNamespace(), true))
+
+		// ca certificate
+		caSecret := components.NewCACertSecret(NAMESPACE)
+		components.PopulateSecretWithCertificate(caSecret, nil, &metav1.Duration{Duration: installstrategy.Duration7d})
+		caCert, _ := components.LoadCertificates(caSecret)
+		caBundle := cert.EncodeCertPEM(caCert.Leaf)
+		all = append(all, caSecret)
+
+		caConfigMap := components.NewKubeVirtCAConfigMap(NAMESPACE)
+		caConfigMap.Data = map[string]string{components.CABundleKey: string(caBundle)}
+		all = append(all, caConfigMap)
+
+		// webhooks and apiservice
+		validatingWebhook := components.NewVirtAPIValidatingWebhookConfiguration(config.GetNamespace())
+		for i, _ := range validatingWebhook.Webhooks {
+			validatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
+		}
+		all = append(all, validatingWebhook)
+		mutatingWebhook := components.NewVirtAPIMutatingWebhookConfiguration(config.GetNamespace())
+		for i, _ := range mutatingWebhook.Webhooks {
+			mutatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
+		}
+		all = append(all, mutatingWebhook)
+		apiServices := components.NewVirtAPIAPIServices(config.GetNamespace())
+		for _, apiService := range apiServices {
+			apiService.Spec.CABundle = caBundle
+			all = append(all, apiService)
+		}
+		validatingWebhook = components.NewOpertorValidatingWebhookConfiguration(NAMESPACE)
+		for i, _ := range validatingWebhook.Webhooks {
+			validatingWebhook.Webhooks[i].ClientConfig.CABundle = caBundle
+		}
+		all = append(all, validatingWebhook)
+
+		secrets := components.NewCertSecrets(NAMESPACE, config.GetNamespace())
+		for _, secret := range secrets {
+			components.PopulateSecretWithCertificate(secret, caCert, &metav1.Duration{Duration: installstrategy.Duration1d})
+			all = append(all, secret)
+		}
 
 		for _, obj := range all {
 			if resource, ok := obj.(runtime.Object); ok {
@@ -811,7 +908,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, rbac.ApiServiceAccountName),
 			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, rbac.ControllerServiceAccountName))
 		sccSource.Modify(&scc)
-
 	}
 
 	makePodDisruptionBudgetsReady := func() {
@@ -953,6 +1049,22 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	deleteMutatingWebhook := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.MutatingWebhook.GetStore().GetByKey(key); exists {
+			mutatingWebhookSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
+
+	deleteAPIService := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.APIService.GetStore().GetByKey(key); exists {
+			apiserviceSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
+
 	deleteInstallStrategyJob := func(key string) {
 		mockQueue.ExpectAdds(1)
 		if obj, exists, _ := informers.InstallStrategyJob.GetStore().GetByKey(key); exists {
@@ -961,18 +1073,30 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	deleteInstallStrategyConfigMap := func(key string) {
-		mockQueue.ExpectAdds(1)
-		if obj, exists, _ := informers.InstallStrategyConfigMap.GetStore().GetByKey(key); exists {
-			installStrategyConfigMapSource.Delete(obj.(runtime.Object))
-		}
-		mockQueue.Wait()
-	}
-
 	deletePodDisruptionBudget := func(key string) {
 		mockQueue.ExpectAdds(1)
 		if obj, exists, _ := informers.PodDisruptionBudget.GetStore().GetByKey(key); exists {
 			podDisruptionBudgetSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
+
+	deleteSecret := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.Secrets.GetStore().GetByKey(key); exists {
+			secretsSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
+
+	deleteConfigMap := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.ConfigMap.GetStore().GetByKey(key); exists {
+			configMap := obj.(*k8sv1.ConfigMap)
+			configMapSource.Delete(configMap)
+		} else if obj, exists, _ := informers.InstallStrategyConfigMap.GetStore().GetByKey(key); exists {
+			configMap := obj.(*k8sv1.ConfigMap)
+			installStrategyConfigMapSource.Delete(configMap)
 		}
 		mockQueue.Wait()
 	}
@@ -1023,12 +1147,18 @@ var _ = Describe("KubeVirt Operator", func() {
 			deleteDaemonset(key)
 		case "validatingwebhookconfigurations":
 			deleteValidationWebhook(key)
+		case "mutatingwebhookconfigurations":
+			deleteMutatingWebhook(key)
+		case "apiservices":
+			deleteAPIService(key)
 		case "jobs":
 			deleteInstallStrategyJob(key)
 		case "configmaps":
-			deleteInstallStrategyConfigMap(key)
+			deleteConfigMap(key)
 		case "poddisruptionbudgets":
 			deletePodDisruptionBudget(key)
+		case "secrets":
+			deleteSecret(key)
 		case "securitycontextconstraints":
 			deleteSCC(key)
 		case "servicemonitors":
@@ -1110,6 +1240,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			deleted, ok := action.(testing.DeleteAction)
 			Expect(ok).To(BeTrue())
+			if deleted.GetName() == "kubevirt-ca" {
+				return false, nil, nil
+			}
 			var key string
 			if len(deleted.GetNamespace()) > 0 {
 				key = deleted.GetNamespace() + "/"
@@ -1138,10 +1271,16 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("delete", "deployments", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "daemonsets", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "validatingwebhookconfigurations", genericDeleteFunc)
+		kubeClient.Fake.PrependReactor("delete", "mutatingwebhookconfigurations", genericDeleteFunc)
+		kubeClient.Fake.PrependReactor("delete", "secrets", genericDeleteFunc)
+		kubeClient.Fake.PrependReactor("delete", "configmaps", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "poddisruptionbudgets", genericDeleteFunc)
 		secClient.Fake.PrependReactor("delete", "securitycontextconstraints", genericDeleteFunc)
 		promClient.Fake.PrependReactor("delete", "servicemonitors", genericDeleteFunc)
 		promClient.Fake.PrependReactor("delete", "prometheusrules", genericDeleteFunc)
+		apiServiceClient.EXPECT().Delete(gomock.Any(), gomock.Any()).AnyTimes().Do(func(name string, options interface{}) {
+			genericDeleteFunc(&testing.DeleteActionImpl{ActionImpl: testing.ActionImpl{Resource: schema.GroupVersionResource{Resource: "apiservices"}}, Name: name})
+		})
 	}
 
 	shouldExpectJobDeletion := func() {
@@ -1160,6 +1299,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("update", "roles", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "rolebindings", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("patch", "validatingwebhookconfigurations", genericPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "mutatingwebhookconfigurations", genericPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "secrets", genericPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "configmaps", genericPatchFunc)
 
 		kubeClient.Fake.PrependReactor("patch", "services", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "daemonsets", genericPatchFunc)
@@ -1168,6 +1310,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericUpdateFunc)
 		promClient.Fake.PrependReactor("patch", "servicemonitors", genericPatchFunc)
 		promClient.Fake.PrependReactor("patch", "prometheusrules", genericPatchFunc)
+		apiServiceClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(args ...interface{}) {
+			genericPatchFunc(&testing.PatchActionImpl{ActionImpl: testing.ActionImpl{Resource: schema.GroupVersionResource{Resource: "apiservices"}}})
+		})
 	}
 
 	shouldExpectRbacBackupCreations := func() {
@@ -1183,7 +1328,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "clusterrolebindings", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "roles", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "rolebindings", genericCreateFunc)
-		kubeClient.Fake.PrependReactor("create", "validatingwebhookconfigurations", genericCreateFunc)
 
 		secClient.Fake.PrependReactor("patch", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			patch, _ := action.(testing.PatchAction)
@@ -1196,10 +1340,16 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "deployments", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "validatingwebhookconfigurations", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "mutatingwebhookconfigurations", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "secrets", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "configmaps", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", genericCreateFunc)
 		secClient.Fake.PrependReactor("create", "securitycontextconstraints", genericCreateFunc)
 		promClient.Fake.PrependReactor("create", "servicemonitors", genericCreateFunc)
 		promClient.Fake.PrependReactor("create", "prometheusrules", genericCreateFunc)
+		apiServiceClient.EXPECT().Create(gomock.Any()).AnyTimes().Do(func(obj runtime.Object) {
+			genericCreateFunc(&testing.CreateActionImpl{Object: obj})
+		})
 	}
 
 	shouldExpectKubeVirtUpdate := func(times int) {
@@ -1706,7 +1856,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.ServiceCache.List())).To(Equal(3))
 			Expect(len(controller.stores.DeploymentCache.List())).To(Equal(1))
 			Expect(len(controller.stores.DaemonSetCache.List())).To(Equal(0))
-			Expect(len(controller.stores.ValidationWebhookCache.List())).To(Equal(2))
+			Expect(len(controller.stores.ValidationWebhookCache.List())).To(Equal(3))
 			Expect(len(controller.stores.PodDisruptionBudgetCache.List())).To(Equal(1))
 			Expect(len(controller.stores.SCCCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ServiceMonitorCache.List())).To(Equal(1))

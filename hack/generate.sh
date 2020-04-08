@@ -42,17 +42,9 @@ ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DI
 (cd ${KUBEVIRT_DIR}/tools/csv-generator/ && go_build)
 rm -f ${KUBEVIRT_DIR}/manifests/generated/*
 rm -f ${KUBEVIRT_DIR}/examples/*
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmi >${KUBEVIRT_DIR}/manifests/generated/vmi-resource.yaml
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmirs >${KUBEVIRT_DIR}/manifests/generated/vmirs-resource.yaml
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmipreset >${KUBEVIRT_DIR}/manifests/generated/vmipreset-resource.yaml
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vm >${KUBEVIRT_DIR}/manifests/generated/vm-resource.yaml
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmim >${KUBEVIRT_DIR}/manifests/generated/vmim-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv >${KUBEVIRT_DIR}/manifests/generated/kv-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv-cr --namespace={{.Namespace}} --pullPolicy={{.ImagePullPolicy}} >${KUBEVIRT_DIR}/manifests/generated/kubevirt-cr.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kubevirt-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-kubevirt.authorization.k8s.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=cluster-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-cluster.authorization.k8s.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=operator-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-operator.authorization.k8s.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=prometheus --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/prometheus.yaml.in
 
 # used for Image fields in manifests
 function getVersion() {
@@ -82,10 +74,6 @@ virtapi_rawsha=$(getRawShasum ".VirtApiSha")
 virtcontroller_rawsha=$(getRawShasum ".VirtControllerSha")
 virthandler_rawsha=$(getRawShasum ".VirtHandlerSha")
 virtlauncher_rawsha=$(getRawShasum ".VirtLauncherSha")
-
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-api --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virtapi_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-api.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-controller --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virtcontroller_version" --launcherVersion="$virtlauncher_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-controller.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-handler --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version="$virthandler_version" --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-handler.yaml.in
 
 # The generation code for CSV requires a valid semver to be used.
 # But we're trying to generate a template for a CSV here from code

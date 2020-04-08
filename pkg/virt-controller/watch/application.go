@@ -21,14 +21,12 @@ package watch
 
 import (
 	"context"
-	"io/ioutil"
 	golog "log"
 	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/emicklei/go-restful"
-	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
@@ -41,10 +39,12 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
+	"kubevirt.io/kubevirt/pkg/util/webhooks"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
-	"kubevirt.io/kubevirt/pkg/certificates"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -272,21 +272,20 @@ func (vca *VirtControllerApp) Run() {
 
 	stop := vca.ctx.Done()
 
-	certsDirectory, err := ioutil.TempDir("", "certsdir")
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(certsDirectory)
+	promCertManager := bootstrap.NewFileCertificateManager("/etc/virt-controller/certificates")
+	go promCertManager.Start()
+	promTLSConfig := webhooks.SetupPromTLS(promCertManager)
 
-	certStore, err := certificates.GenerateSelfSignedCert(certsDirectory, "virt-controller", vca.kubevirtNamespace)
-	if err != nil {
-		glog.Fatalf("unable to generate certificates: %v", err)
-	}
 	go func() {
 		httpLogger := logger.With("service", "http")
 		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
 		http.Handle("/metrics", promhttp.Handler())
-		if err := http.ListenAndServeTLS(vca.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil); err != nil {
+		server := http.Server{
+			Addr:      vca.Address(),
+			Handler:   http.DefaultServeMux,
+			TLSConfig: promTLSConfig,
+		}
+		if err := server.ListenAndServeTLS("", ""); err != nil {
 			golog.Fatal(err)
 		}
 	}()

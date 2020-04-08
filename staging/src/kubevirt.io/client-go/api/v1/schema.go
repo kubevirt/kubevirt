@@ -34,6 +34,8 @@ const (
 	CPUModeHostModel                       = "host-model"
 )
 
+type Blub int
+
 //go:generate swagger-doc
 //go:generate openapi-gen -i . --output-package=kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1  --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
 

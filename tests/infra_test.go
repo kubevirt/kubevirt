@@ -25,26 +25,31 @@ import (
 
 	"fmt"
 	"net/http"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
-
-	expect "github.com/google/goexpect"
+	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -53,6 +58,344 @@ var _ = Describe("Infrastructure", func() {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
+
+	config, err := kubecli.GetConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	aggregatorClient := aggregatorclient.NewForConfigOrDie(config)
+
+	Describe("certificates", func() {
+
+		It("should be rotated when a new CA is created", func() {
+			By("checking that the config-map gets the new CA bundle attached")
+			Eventually(func() int {
+				_, crts := tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
+				return len(crts)
+			}, 10*time.Second, 1*time.Second).Should(BeNumerically(">", 0))
+
+			By("destroying the certificate")
+			secret, err := virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Get(components.KubeVirtCASecretName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			secret.Data = map[string][]byte{
+				"random": []byte("nonsense"),
+			}
+			_, err = virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Update(secret)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking that the CA secret gets restored with a new ca bundle")
+			var newCA []byte
+			Eventually(func() []byte {
+				newCA = tests.GetCertFromSecret(components.KubeVirtCASecretName)
+				return newCA
+			}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
+
+			By("checking that one of the CAs in the config-map is the new one")
+			var caBundle []byte
+			Eventually(func() bool {
+				caBundle, _ = tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
+				return tests.ContainsCrt(caBundle, newCA)
+			}, 10*time.Second, 1*time.Second).Should(BeTrue(), "the new CA should be added to the config-map")
+
+			By("checking that the ca bundle gets propagated to the validating webhook")
+			Eventually(func() bool {
+				webhook, err := virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(components.VirtAPIValidatingWebhookName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if len(webhook.Webhooks) > 0 {
+					return tests.ContainsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
+				}
+				return false
+			}, 10*time.Second, 1*time.Second).Should(BeTrue())
+			By("checking that the ca bundle gets propagated to the mutating webhook")
+			Eventually(func() bool {
+				webhook, err := virtClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(components.VirtAPIMutatingWebhookName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if len(webhook.Webhooks) > 0 {
+					return tests.ContainsCrt(webhook.Webhooks[0].ClientConfig.CABundle, newCA)
+				}
+				return false
+			}, 10*time.Second, 1*time.Second).Should(BeTrue())
+
+			By("checking that the ca bundle gets propagated to the apiservice")
+			Eventually(func() bool {
+				apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get("v1alpha3.subresources.kubevirt.io", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return tests.ContainsCrt(apiService.Spec.CABundle, newCA)
+			}, 10*time.Second, 1*time.Second).Should(BeTrue())
+
+			By("checking that we can still start virtual machines and connect to the VMI")
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi = tests.RunVMI(vmi, 60)
+			expecter, err := tests.LoggedInAlpineExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+		})
+
+		It("should be valid during the whole rotation process", func() {
+			oldAPICert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), tests.KubeVirtInstallNamespace, "8443")
+			oldHandlerCert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), tests.KubeVirtInstallNamespace, "8186")
+			Expect(err).ToNot(HaveOccurred())
+
+			By("destroying the CA certificate")
+			err = virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Delete(components.KubeVirtCASecretName, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
+			Eventually(func() (rotated bool) {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi = tests.RunVMI(vmi, 60)
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				expecter.Close()
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), tests.KubeVirtInstallNamespace, "8443")
+				Expect(err).ToNot(HaveOccurred())
+				newHandlerCert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), tests.KubeVirtInstallNamespace, "8186")
+				Expect(err).ToNot(HaveOccurred())
+				return !reflect.DeepEqual(oldHandlerCert, newHandlerCert) && !reflect.DeepEqual(oldAPICert, newAPICert)
+			}, 120*time.Second).Should(BeTrue())
+		})
+
+		table.DescribeTable("should be rotated when deleted for ", func(secretName string) {
+			By("destroying the certificate")
+			secret, err := virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Get(secretName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			secret.Data = map[string][]byte{
+				"random": []byte("nonsense"),
+			}
+			_, err = virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Update(secret)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking that the secret gets restored with a new certificate")
+			Eventually(func() []byte {
+				return tests.GetCertFromSecret(secretName)
+			}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
+		},
+			table.Entry("virt-operator", components.VirtOperatorCertSecretName),
+			table.Entry("virt-api", components.VirtApiCertSecretName),
+			table.Entry("virt-controller", components.VirtControllerCertSecretName),
+			table.Entry("virt-handlers client side", components.VirtHandlerCertSecretName),
+			table.Entry("virt-handlers server side", components.VirtHandlerServerCertSecretName),
+		)
+	})
+
+	// start a VMI, wait for it to run and return the node it runs on
+	startVMI := func(vmi *v1.VirtualMachineInstance) string {
+		By("Starting a new VirtualMachineInstance")
+		obj, err := virtClient.
+			RestClient().
+			Post().
+			Resource("virtualmachineinstances").
+			Namespace(tests.NamespaceTestDefault).
+			Body(vmi).
+			Do().Get()
+		Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+		By("Waiting until the VM is ready")
+		return tests.WaitForSuccessfulVMIStart(obj)
+	}
+
+	Describe("Taints and toleration", func() {
+
+		It("should tolerate CriticalAddonsOnly toleration", func() {
+
+			var kvPods *k8sv1.PodList
+			By("finding all nodes that are running kubevirt components", func() {
+				kvPods, err = virtClient.CoreV1().
+					Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred(), "failed listing kubevirt pods")
+				Expect(len(kvPods.Items)).
+					To(BeNumerically(">", 0), "no kubevirt pods found")
+			})
+
+			// nodes that run kubevirt components.
+			kvTaintedNodes := make(map[string]*k8sv1.Node)
+			By("adding taints to any node that runs kubevirt component", func() {
+				criticalPodTaint := k8sv1.Taint{
+					Key:    "CriticalAddonsOnly",
+					Value:  "",
+					Effect: k8sv1.TaintEffectNoExecute,
+				}
+
+				for _, kvPod := range kvPods.Items {
+					if _, exists := kvTaintedNodes[kvPod.Spec.NodeName]; exists {
+						continue
+					}
+					kvNode, err := virtClient.CoreV1().Nodes().Get(kvPod.Spec.NodeName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "failed retrieving node")
+					hasTaint := false
+					// check if node already has the taint
+					for _, taint := range kvNode.Spec.Taints {
+						if reflect.DeepEqual(taint, criticalPodTaint) {
+							// node already have the taint set
+							hasTaint = true
+							break
+						}
+					}
+					if hasTaint {
+						continue
+					}
+					kvNode.ResourceVersion = ""
+					kvTaintedNodes[kvPod.Spec.NodeName] = kvNode
+					kvNodeCopy := kvNode.DeepCopy()
+					kvNodeCopy.Spec.Taints = append(kvNodeCopy.Spec.Taints, criticalPodTaint)
+					_, err = virtClient.CoreV1().Nodes().Update(kvNodeCopy)
+					Expect(err).ToNot(HaveOccurred(), "failed setting taint on node")
+				}
+			})
+
+			defer func() {
+				var errors []error
+				By("restoring nodes")
+				for _, nodeSpec := range kvTaintedNodes {
+					_, err = virtClient.CoreV1().Nodes().Update(nodeSpec)
+					if err != nil {
+						errors = append(errors, err)
+					}
+				}
+				Expect(errors).Should(BeEmpty(), "failed restoring one or more nodes")
+			}()
+
+			By("watching for terminated kubevirt pods", func() {
+				lw, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).Watch(metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				// in the test env, we also deploy non core-kubevirt apps
+				kvCoreApps := map[string]string{
+					"virt-handler":    "",
+					"virt-controller": "",
+					"virt-api":        "",
+					"virt-operator":   "",
+				}
+				signalTerminatedPods := func(stopCn <-chan bool, eventsCn <-chan watch.Event, terminatedPodsCn chan<- bool) {
+					for {
+						select {
+						case <-stopCn:
+							return
+						case e := <-eventsCn:
+							pod, ok := e.Object.(*k8sv1.Pod)
+							Expect(ok).To(BeTrue())
+							if _, isCoreApp := kvCoreApps[pod.Name]; !isCoreApp {
+								continue
+							}
+							if pod.DeletionTimestamp != nil {
+								By(fmt.Sprintf("%s terminated", pod.Name))
+								terminatedPodsCn <- true
+								return
+							}
+						}
+					}
+				}
+				stopCn := make(chan bool, 1)
+				terminatedPodsCn := make(chan bool, 1)
+				go signalTerminatedPods(stopCn, lw.ResultChan(), terminatedPodsCn)
+				Consistently(terminatedPodsCn, 5*time.Second).
+					ShouldNot(Receive(), "pods should not terminate")
+				stopCn <- true
+			})
+		})
+
+	})
+
+	Describe("Prometheus scraped metrics", func() {
+
+		/*
+			This test is querying the metrics from Prometheus *after* they were
+			scraped and processed by the different components on the way.
+		*/
+
+		tests.BeforeAll(func() {
+			onOCP, err := clusterutil.IsOnOpenShift(virtClient)
+			Expect(err).ToNot(HaveOccurred(), "failed to detect cluster type")
+
+			if !onOCP {
+				Skip("test is verifying integration with OCP's cluster monitoring stack")
+			}
+		})
+
+		It("should find VMI namespace on namespace label of the metric", func() {
+
+			/*
+				This test is required because in cases of misconfigurations on
+				monitoring objects (such for the ServiceMonitor), our rules will
+				still be picked up by the monitoring-operator, but Prometheus
+				will fail to load it.
+			*/
+
+			By("creating a VMI in a user defined namespace")
+			vmi := tests.NewRandomVMIWithEphemeralDisk(
+				tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			startVMI(vmi)
+
+			By("finding virt-operator pod")
+			ops, err := virtClient.CoreV1().Pods("kubevirt").
+				List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-operator"})
+			Expect(err).ToNot(HaveOccurred(), "failed to list virt-operators")
+			Expect(ops.Size).ToNot(Equal(0), "no virt-operators found")
+			op := ops.Items[0]
+			Expect(op).ToNot(BeNil(), "virt-operator pod should not be nil")
+
+			By("finding Prometheus endpoint")
+			ep, err := virtClient.CoreV1().Endpoints("openshift-monitoring").
+				Get("prometheus-k8s", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint")
+			promIP := ep.Subsets[0].Addresses[0].IP
+			Expect(promIP).ToNot(Equal(0), "could not get Prometheus IP from endpoint")
+			var promPort int32
+			for _, port := range ep.Subsets[0].Ports {
+				if port.Name == "web" {
+					promPort = port.Port
+				}
+			}
+			Expect(promPort).ToNot(Equal(0), "could not get Prometheus port from endpoint")
+
+			// We need a token from a service account that can view all namespaces in the cluster
+			By("extracting virt-operator sa token")
+			token, _, err := tests.ExecuteCommandOnPodV2(virtClient,
+				&op,
+				"virt-operator",
+				[]string{
+					"cat",
+					"/var/run/secrets/kubernetes.io/serviceaccount/token",
+				})
+			Expect(err).ToNot(HaveOccurred(), "failed executing command on virt-operator")
+			Expect(token).ToNot(BeEmpty(), "virt-operator sa token returned empty")
+
+			By("querying Prometheus API endpoint for a VMI exported metric")
+			stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
+				&op,
+				"virt-operator",
+				[]string{
+					"curl",
+					"-L",
+					"-k",
+					fmt.Sprintf("https://%s:%d/api/v1/query", promIP, promPort),
+					"-H",
+					fmt.Sprintf("Authorization: Bearer %s", token),
+					"--data-urlencode",
+					fmt.Sprintf(
+						`query=kubevirt_vmi_memory_resident_bytes{namespace="%s",name="%s"}`,
+						vmi.Namespace,
+						vmi.Name,
+					),
+				})
+			Expect(err).ToNot(HaveOccurred(), "failed to execute query")
+
+			// the Prometheus go-client does not export queryResult, and
+			// using an HTTP client for queries would require a port-forwarding
+			// since the cluster is running in a different network.
+			var queryResult map[string]json.RawMessage
+
+			err = json.Unmarshal([]byte(stdout), &queryResult)
+			Expect(err).ToNot(HaveOccurred(), "failed to unmarshal query result")
+
+			var status string
+			err = json.Unmarshal(queryResult["status"], &status)
+			Expect(err).ToNot(HaveOccurred(), "failed to unmarshal query status")
+			Expect(status).To(Equal("success"))
+		})
+	})
 
 	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component] Prometheus Endpoints", func() {
 		var preparedVMIs []*v1.VirtualMachineInstance

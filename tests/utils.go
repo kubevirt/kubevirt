@@ -23,6 +23,7 @@ import (
 	"bytes"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -42,6 +43,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -72,6 +74,11 @@ import (
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/transport/spdy"
+
+	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -543,6 +550,9 @@ func GenerateRESTReport() error {
 }
 
 func AfterTestSuitCleanup() {
+
+	RestoreKubeVirtResource()
+
 	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
 	createNamespaces()
 	cleanNamespaces()
@@ -743,6 +753,42 @@ func BeforeTestSuitSetup() {
 
 	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
+
+	AdjustKubeVirtResource()
+}
+
+var originalKV *v1.KubeVirt
+
+func AdjustKubeVirtResource() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	kv := GetCurrentKv(virtClient)
+	originalKV = kv.DeepCopy()
+
+	// Rotate very often during the tests to ensure that things are working
+	kv.Spec.CertificateRotationStrategy = v1.KubeVirtCertificateRotateStrategy{SelfSigned: &v1.KubeVirtSelfSignConfiguration{
+		CARotateInterval:   &metav1.Duration{Duration: 10 * time.Minute},
+		CertRotateInterval: &metav1.Duration{Duration: 7 * time.Minute},
+		CAOverlapInterval:  &metav1.Duration{Duration: 4 * time.Minute},
+	}}
+
+	data, err := json.Marshal(kv.Spec)
+	Expect(err).ToNot(HaveOccurred())
+	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
+	_, err = virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData))
+	PanicOnError(err)
+}
+
+func RestoreKubeVirtResource() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	data, err := json.Marshal(originalKV.Spec)
+	Expect(err).ToNot(HaveOccurred())
+	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
+	_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(originalKV.Name, types.JSONPatchType, []byte(patchData))
+	PanicOnError(err)
 }
 
 func createStorageClass(name string) {
@@ -4219,4 +4265,173 @@ func GetKubeVirtConfigMap() (*k8sv1.ConfigMap, error) {
 	}
 
 	return cfgMap, err
+}
+
+func GetCurrentKv(virtClient kubecli.KubevirtClient) *v1.KubeVirt {
+	kvs := GetKvList(virtClient)
+	Expect(len(kvs)).To(Equal(1))
+	return &kvs[0]
+}
+
+func GetKvList(virtClient kubecli.KubevirtClient) []v1.KubeVirt {
+	var kvListInstallNS *v1.KubeVirtList
+	var kvListDefaultNS *v1.KubeVirtList
+	var items []v1.KubeVirt
+
+	var err error
+
+	Eventually(func() error {
+
+		kvListInstallNS, err = virtClient.KubeVirt(KubeVirtInstallNamespace).List(&metav1.ListOptions{})
+
+		return err
+	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+	Eventually(func() error {
+
+		kvListDefaultNS, err = virtClient.KubeVirt(NamespaceTestDefault).List(&metav1.ListOptions{})
+
+		return err
+	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+	items = append(items, kvListInstallNS.Items...)
+	items = append(items, kvListDefaultNS.Items...)
+
+	return items
+}
+
+func getCert(pod *k8sv1.Pod, port string) []byte {
+	randPort := strconv.Itoa(int(4321 + rand.Intn(6000)))
+	var rawCert []byte
+	mutex := &sync.Mutex{}
+	conf := &tls.Config{
+		InsecureSkipVerify: true,
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			mutex.Lock()
+			defer mutex.Unlock()
+			rawCert = rawCerts[0]
+			return nil
+		},
+	}
+
+	var cert []byte
+	EventuallyWithOffset(2, func() []byte {
+		stopChan := make(chan struct{})
+		defer close(stopChan)
+		err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 10*time.Second)
+		ExpectWithOffset(2, err).ToNot(HaveOccurred())
+
+		conn, err := tls.Dial("tcp4", fmt.Sprintf("localhost:%s", randPort), conf)
+		if err == nil {
+			defer conn.Close()
+		}
+		mutex.Lock()
+		defer mutex.Unlock()
+		cert = make([]byte, len(rawCert))
+		copy(cert, rawCert)
+		return cert
+	}, 40*time.Second, 1*time.Second).Should(Not(BeEmpty()))
+
+	return cert
+}
+
+// GetCertsForPods returns the used certificates for all pods matching  the label selector
+func GetCertsForPods(labelSelector string, namespace string, port string) ([][]byte, error) {
+	cli, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	pods, err := cli.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: labelSelector})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pods.Items).ToNot(BeEmpty())
+
+	var certs [][]byte
+
+	for _, pod := range pods.Items {
+		err := func() error {
+			certs = append(certs, getCert(&pod, port))
+			return nil
+		}()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return certs, nil
+}
+
+// EnsurePodsCertIsSynced waits until new certificates are rolled out  to all pods which are matching the specified labelselector.
+// Once all certificates are in sync, the final secret is returned
+func EnsurePodsCertIsSynced(labelSelector string, namespace string, port string) []byte {
+	var certs [][]byte
+	EventuallyWithOffset(1, func() bool {
+		var err error
+		certs, err = GetCertsForPods(labelSelector, namespace, port)
+		Expect(err).ToNot(HaveOccurred())
+		if len(certs) == 0 {
+			return true
+		}
+		for _, crt := range certs {
+			if !reflect.DeepEqual(certs[0], crt) {
+				return false
+			}
+		}
+		return true
+	}, 90*time.Second, 1*time.Second).Should(BeTrue(), "certificates across '%s' pods are not in sync", labelSelector)
+	if len(certs) > 0 {
+		return certs[0]
+	}
+	return nil
+}
+
+// GetPodsCertIfSynced returns the certificate for all matching pods once all of them use the same certificate
+func GetPodsCertIfSynced(labelSelector string, namespace string, port string) (cert []byte, synced bool, err error) {
+	certs, err := GetCertsForPods(labelSelector, namespace, port)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(certs) == 0 {
+		return nil, true, nil
+	}
+	for _, crt := range certs {
+		if !reflect.DeepEqual(certs[0], crt) {
+			return nil, false, nil
+		}
+	}
+	return certs[0], true, nil
+}
+
+func GetCertFromSecret(secretName string) []byte {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	secret, err := virtClient.CoreV1().Secrets(KubeVirtInstallNamespace).Get(secretName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	if rawBundle, ok := secret.Data[bootstrap.CertBytesValue]; ok {
+		return rawBundle
+	}
+	return nil
+}
+
+func GetBundleFromConfigMap(configMapName string) ([]byte, []*x509.Certificate) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	configMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(components.KubeVirtCASecretName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	if rawBundle, ok := configMap.Data[components.CABundleKey]; ok {
+		crts, err := cert.ParseCertsPEM([]byte(rawBundle))
+		Expect(err).ToNot(HaveOccurred())
+		return []byte(rawBundle), crts
+	}
+	return nil, nil
+}
+
+func ContainsCrt(bundle []byte, containedCrt []byte) bool {
+	crts, err := cert.ParseCertsPEM(bundle)
+	Expect(err).ToNot(HaveOccurred())
+	attached := false
+	for _, crt := range crts {
+		crtBytes := cert.EncodeCertPEM(crt)
+		if reflect.DeepEqual(crtBytes, containedCrt) {
+			attached = true
+			break
+		}
+	}
+	return attached
 }

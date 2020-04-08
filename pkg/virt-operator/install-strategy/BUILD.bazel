@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "create.go",
         "delete.go",
+        "generated_mock_create.go",
         "strategy.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy",
@@ -24,6 +25,7 @@ go_library(
         "//vendor/github.com/blang/semver:go_default_library",
         "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
         "//vendor/github.com/ghodss/yaml:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/openshift/api/security/v1:go_default_library",
         "//vendor/k8s.io/api/admissionregistration/v1beta1:go_default_library",
         "//vendor/k8s.io/api/apps/v1:go_default_library",
@@ -34,8 +36,8 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
         "//vendor/k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1:go_default_library",
-        "//vendor/k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset:go_default_library",
     ],
 )
 

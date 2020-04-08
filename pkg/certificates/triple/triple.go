@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"time"
 
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
@@ -29,7 +30,7 @@ type KeyPair struct {
 	Cert *x509.Certificate
 }
 
-func NewCA(name string) (*KeyPair, error) {
+func NewCA(name string, duration time.Duration) (*KeyPair, error) {
 	key, err := certutil.NewPrivateKey()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a private key for a new CA: %v", err)
@@ -39,18 +40,17 @@ func NewCA(name string) (*KeyPair, error) {
 		CommonName: name,
 	}
 
-	cert, err := certutil.NewSelfSignedCACert(config, key)
+	cert, err := certutil.NewSelfSignedCACert(config, key, duration)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a self-signed certificate for a new CA: %v", err)
 	}
-
 	return &KeyPair{
 		Key:  key,
 		Cert: cert,
 	}, nil
 }
 
-func NewServerKeyPair(ca *KeyPair, commonName, svcName, svcNamespace, dnsDomain string, ips, hostnames []string) (*KeyPair, error) {
+func NewServerKeyPair(ca *KeyPair, commonName, svcName, svcNamespace, dnsDomain string, ips, hostnames []string, duration time.Duration) (*KeyPair, error) {
 	key, err := certutil.NewPrivateKey()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a server private key: %v", err)
@@ -79,7 +79,7 @@ func NewServerKeyPair(ca *KeyPair, commonName, svcName, svcNamespace, dnsDomain 
 		AltNames:   altNames,
 		Usages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
-	cert, err := certutil.NewSignedCert(config, key, ca.Cert, ca.Key)
+	cert, err := certutil.NewSignedCert(config, key, ca.Cert, ca.Key, duration)
 	if err != nil {
 		return nil, fmt.Errorf("unable to sign the server certificate: %v", err)
 	}
@@ -90,7 +90,7 @@ func NewServerKeyPair(ca *KeyPair, commonName, svcName, svcNamespace, dnsDomain 
 	}, nil
 }
 
-func NewClientKeyPair(ca *KeyPair, commonName string, organizations []string) (*KeyPair, error) {
+func NewClientKeyPair(ca *KeyPair, commonName string, organizations []string, duration time.Duration) (*KeyPair, error) {
 	key, err := certutil.NewPrivateKey()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create a client private key: %v", err)
@@ -101,7 +101,7 @@ func NewClientKeyPair(ca *KeyPair, commonName string, organizations []string) (*
 		Organization: organizations,
 		Usages:       []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 	}
-	cert, err := certutil.NewSignedCert(config, key, ca.Cert, ca.Key)
+	cert, err := certutil.NewSignedCert(config, key, ca.Cert, ca.Key, duration)
 	if err != nil {
 		return nil, fmt.Errorf("unable to sign the client certificate: %v", err)
 	}

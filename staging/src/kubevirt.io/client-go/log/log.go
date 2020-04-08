@@ -333,6 +333,7 @@ func (l FilteredLogger) Errorf(msg string, args ...interface{}) {
 
 func (l FilteredLogger) Critical(msg string) {
 	l.Level(FATAL).msg(msg)
+	panic(msg)
 }
 
 func (l FilteredLogger) Criticalf(msg string, args ...interface{}) {

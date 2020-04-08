@@ -21,10 +21,8 @@ package main
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,25 +31,20 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/util/certificate"
-
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/certificate"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
-	"kubevirt.io/kubevirt/pkg/certificates"
-	"kubevirt.io/kubevirt/pkg/certificates/triple"
-	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
 	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"    // import for prometheus metrics
@@ -60,6 +53,7 @@ import (
 	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -86,13 +80,7 @@ const (
 	// This value is derived from default MaxPods in Kubelet Config
 	maxDevices = 110
 
-	clientCertBytesValue  = "client-cert-bytes"
-	clientKeyBytesValue   = "client-key-bytes"
-	signingCertBytesValue = "signing-cert-bytes"
-
-	// selfsigned cert secret name
-	virtHandlerCertSecretName = "kubevirt-virt-handler-certs"
-	maxRequestsInFlight       = 3
+	maxRequestsInFlight = 3
 	// Default port that virt-handler listens to console requests
 	defaultConsoleServerPort = 8186
 )
@@ -107,66 +95,23 @@ type virtHandlerApp struct {
 	MaxDevices              int
 	MaxRequestsInFlight     int
 
-	signingCertBytes []byte
-	clientCertBytes  []byte
-	clientKeyBytes   []byte
-
 	virtCli   kubecli.KubevirtClient
 	namespace string
 
-	migrationTLSConfig *tls.Config
-	consoleServerPort  int
+	serverTLSConfig   *tls.Config
+	clientTLSConfig   *tls.Config
+	consoleServerPort int
+	clientcertmanager certificate.Manager
+	servercertmanager certificate.Manager
+	promTLSConfig     *tls.Config
 }
 
 var _ service.Service = &virtHandlerApp{}
 
-func (app *virtHandlerApp) getSelfSignedCert() error {
-	var ok bool
-
-	caKeyPair, _ := triple.NewCA("kubevirt.io")
-	clientKeyPair, _ := triple.NewClientKeyPair(caKeyPair,
-		"kubevirt.io:system:node:virt-handler",
-		nil,
-	)
-
-	secret := &k8sv1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      virtHandlerCertSecretName,
-			Namespace: app.namespace,
-			Labels: map[string]string{
-				v1.AppLabel: "virt-api-aggregator",
-			},
-		},
-		Type: "Opaque",
-		Data: map[string][]byte{
-			clientCertBytesValue:  cert.EncodeCertPEM(clientKeyPair.Cert),
-			clientKeyBytesValue:   cert.EncodePrivateKeyPEM(clientKeyPair.Key),
-			signingCertBytesValue: cert.EncodeCertPEM(caKeyPair.Cert),
-		},
-	}
-	_, err := app.virtCli.CoreV1().Secrets(app.namespace).Create(secret)
-	if errors.IsAlreadyExists(err) {
-		secret, err = app.virtCli.CoreV1().Secrets(app.namespace).Get(virtHandlerCertSecretName, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-	} else if err != nil {
-		return err
-	}
-	// retrieve self signed cert info from secret
-	app.clientCertBytes, ok = secret.Data[clientCertBytesValue]
-	if !ok {
-		return fmt.Errorf("%s value not found in %s virt-api secret", clientCertBytesValue, virtHandlerCertSecretName)
-	}
-	app.clientKeyBytes, ok = secret.Data[clientKeyBytesValue]
-	if !ok {
-		return fmt.Errorf("%s value not found in %s virt-api secret", clientKeyBytesValue, virtHandlerCertSecretName)
-	}
-	app.signingCertBytes, ok = secret.Data[signingCertBytesValue]
-	if !ok {
-		return fmt.Errorf("%s value not found in %s virt-api secret", signingCertBytesValue, virtHandlerCertSecretName)
-	}
-	return nil
+func (app *virtHandlerApp) prepareCertManager() (err error) {
+	app.clientcertmanager = bootstrap.NewFileCertificateManager("/etc/virt-handler/clientcertificates")
+	app.servercertmanager = bootstrap.NewFileCertificateManager("/etc/virt-handler/servercertificates")
+	return
 }
 
 func (app *virtHandlerApp) Run() {
@@ -246,15 +191,15 @@ func (app *virtHandlerApp) Run() {
 		glog.Fatalf("Error searching for namespace: %v", err)
 	}
 
-	if err := app.getSelfSignedCert(); err != nil {
-		glog.Fatalf("Error loading self signed certificates: %v", err)
-	}
-
-	if err := app.setupTLS(); err != nil {
-		glog.Fatalf("Error constructing migration tls config: %v", err)
+	if err := app.prepareCertManager(); err != nil {
+		glog.Fatalf("Error preparing the certificate manager: %v", err)
 	}
 
 	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, nil, app.namespace)
+
+	if err := app.setupTLS(factory); err != nil {
+		glog.Fatalf("Error constructing migration tls config: %v", err)
+	}
 
 	gracefulShutdownInformer := cache.NewSharedIndexInformer(
 		inotifyinformer.NewFileListWatchFromClient(
@@ -280,7 +225,8 @@ func (app *virtHandlerApp) Run() {
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
 		clusterConfig,
-		app.migrationTLSConfig,
+		app.serverTLSConfig,
+		app.clientTLSConfig,
 		podIsolationDetector,
 	)
 
@@ -294,18 +240,10 @@ func (app *virtHandlerApp) Run() {
 		app.VirtShareDir,
 	)
 
-	certsDirectory, err := ioutil.TempDir("", "certsdir")
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(certsDirectory)
-
-	certStore, err := certificates.GenerateSelfSignedCert(certsDirectory, "virt-handler", app.namespace)
-	if err != nil {
-		glog.Fatalf("unable to generate certificates: %v", err)
-	}
-
 	promvm.SetupCollector(app.virtCli, app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight)
+
+	go app.clientcertmanager.Start()
+	go app.servercertmanager.Start()
 
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
@@ -346,17 +284,24 @@ func (app *virtHandlerApp) Run() {
 	go vmController.Run(10, stop)
 
 	errCh := make(chan error)
-	go app.runPrometheusServer(errCh, certStore)
+	promErrCh := make(chan error)
+	go app.runPrometheusServer(promErrCh)
 	go app.runServer(errCh, consoleHandler, lifecycleHandler)
 
 	// wait for one of the servers to exit
-	<-errCh
+	fmt.Println(<-errCh)
 }
 
-func (app *virtHandlerApp) runPrometheusServer(errCh chan error, certStore certificate.FileStore) {
+func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
-	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
-	errCh <- http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
+	server := http.Server{
+		Addr:      app.ServiceListen.Address(),
+		Handler:   mux,
+		TLSConfig: app.promTLSConfig,
+	}
+	errCh <- server.ListenAndServeTLS("", "")
 }
 
 func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.ConsoleHandler, lifecycleHandler *rest.LifecycleHandler) {
@@ -370,7 +315,7 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 		Addr:    fmt.Sprintf("%s:%d", app.ServiceListen.BindAddress, app.consoleServerPort),
 		Handler: restful.DefaultContainer,
 		// we use migration TLS also for console connections (initiated by virt-api)
-		TLSConfig: app.migrationTLSConfig,
+		TLSConfig: app.serverTLSConfig,
 	}
 	errCh <- server.ListenAndServeTLS("", "")
 }
@@ -411,59 +356,13 @@ func (app *virtHandlerApp) AddFlags() {
 		"The port virt-handler listens on for console requests")
 }
 
-func (app *virtHandlerApp) setupTLS() error {
+func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) error {
+	kubevirtCAConfigInformer := factory.KubeVirtCAConfigMap()
+	caManager := webhooks.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace)
 
-	clientCert, err := tls.X509KeyPair(app.clientCertBytes, app.clientKeyBytes)
-	if err != nil {
-		return err
-	}
-
-	caCert, err := cert.ParseCertsPEM(app.signingCertBytes)
-	if err != nil {
-		return err
-	}
-
-	certPool := x509.NewCertPool()
-
-	for _, crt := range caCert {
-		certPool.AddCert(crt)
-	}
-
-	app.migrationTLSConfig = &tls.Config{
-		MinVersion: tls.VersionTLS12,
-		ClientCAs:  certPool,
-		GetClientCertificate: func(info *tls.CertificateRequestInfo) (certificate *tls.Certificate, e error) {
-			return &clientCert, nil
-		},
-		GetCertificate: func(info *tls.ClientHelloInfo) (i *tls.Certificate, e error) {
-			return &clientCert, nil
-		},
-		// Neither the client nor the server should validate anything itself, `VerifyPeerCertificate` is still executed
-		InsecureSkipVerify: true,
-		// XXX: We need to verify the cert ourselves because we don't have DNS or IP on the certs at the moment
-		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-
-			// impossible with RequireAnyClientCert
-			if len(rawCerts) == 0 {
-				return fmt.Errorf("no client certificate provided.")
-			}
-
-			c, err := x509.ParseCertificate(rawCerts[0])
-			if err != nil {
-				return fmt.Errorf("failed to parse peer certificate: %v", err)
-			}
-			_, err = c.Verify(x509.VerifyOptions{
-				Roots:     certPool,
-				KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-			})
-
-			if err != nil {
-				return fmt.Errorf("could not verify peer certificate: %v", err)
-			}
-			return nil
-		},
-		ClientAuth: tls.RequireAndVerifyClientCert,
-	}
+	app.promTLSConfig = webhooks.SetupPromTLS(app.servercertmanager)
+	app.serverTLSConfig = webhooks.SetupTLSForVirtHandlerServer(caManager, app.servercertmanager)
+	app.clientTLSConfig = webhooks.SetupTLSForVirtHandlerClients(caManager, app.clientcertmanager)
 
 	return nil
 }

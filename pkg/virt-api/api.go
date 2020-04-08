@@ -32,16 +32,15 @@ import (
 	"github.com/go-openapi/spec"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
-	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
+	certificate2 "k8s.io/client-go/util/certificate"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	webhooksutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -49,8 +48,6 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 	virtversion "kubevirt.io/client-go/version"
-	"kubevirt.io/kubevirt/pkg/certificates/triple"
-	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
@@ -70,30 +67,6 @@ const (
 
 	// Default address that virt-api listens on.
 	defaultHost = "0.0.0.0"
-
-	// selfsigned cert secret name
-	virtApiCertSecretName = "kubevirt-virt-api-certs"
-
-	virtWebhookValidator = "virt-api-validator"
-	virtWebhookMutator   = "virt-api-mutator"
-
-	virtApiServiceName = "virt-api"
-
-	vmiCreateValidatePath       = "/virtualmachineinstances-validate-create"
-	vmiUpdateValidatePath       = "/virtualmachineinstances-validate-update"
-	vmValidatePath              = "/virtualmachines-validate"
-	vmirsValidatePath           = "/virtualmachinereplicaset-validate"
-	vmipresetValidatePath       = "/vmipreset-validate"
-	migrationCreateValidatePath = "/migration-validate-create"
-	migrationUpdateValidatePath = "/migration-validate-update"
-
-	vmMutatePath        = "/virtualmachines-mutate"
-	vmiMutatePath       = "/virtualmachineinstances-mutate"
-	migrationMutatePath = "/migration-mutate-create"
-
-	certBytesValue        = "cert-bytes"
-	keyBytesValue         = "key-bytes"
-	signingCertBytesValue = "signing-cert-bytes"
 
 	defaultConsoleServerPort = 8186
 )
@@ -116,12 +89,13 @@ type virtAPIApp struct {
 	certsDirectory   string
 	clusterConfig    *virtconfig.ClusterConfig
 
-	signingCertBytes  []byte
-	certBytes         []byte
-	keyBytes          []byte
-	namespace         string
-	tlsConfig         *tls.Config
-	consoleServerPort int
+	namespace               string
+	tlsConfig               *tls.Config
+	certificate             *tls.Certificate
+	consoleServerPort       int
+	certmanager             certificate2.Manager
+	handlerTLSConfiguration *tls.Config
+	handlerCertManager      certificate2.Manager
 }
 
 var _ service.Service = &virtAPIApp{}
@@ -166,7 +140,6 @@ func (app *virtAPIApp) Execute() {
 		panic(err)
 	}
 
-	app.Compose()
 	app.ConfigureOpenAPIService()
 	app.Run()
 }
@@ -206,7 +179,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
 		subws.Path(rest.GroupVersionBasePath(version))
 
-		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort)
+		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort, app.handlerTLSConfiguration)
 
 		restartRouteBuilder := subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).
@@ -506,511 +479,50 @@ func (app *virtAPIApp) readRequestHeader() error {
 	return nil
 }
 
-func (app *virtAPIApp) getSelfSignedCert() error {
-	var ok bool
-
-	caKeyPair, _ := triple.NewCA("kubevirt.io")
-	keyPair, _ := triple.NewServerKeyPair(
-		caKeyPair,
-		"virt-api."+app.namespace+".pod.cluster.local",
-		"virt-api",
-		app.namespace,
-		"cluster.local",
-		nil,
-		nil,
-	)
-
-	secret := &k8sv1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      virtApiCertSecretName,
-			Namespace: app.namespace,
-			Labels: map[string]string{
-				v1.AppLabel: "virt-api-aggregator",
-			},
-		},
-		Type: "Opaque",
-		Data: map[string][]byte{
-			certBytesValue:        cert.EncodeCertPEM(keyPair.Cert),
-			keyBytesValue:         cert.EncodePrivateKeyPEM(keyPair.Key),
-			signingCertBytesValue: cert.EncodeCertPEM(caKeyPair.Cert),
-		},
-	}
-	_, err := app.virtCli.CoreV1().Secrets(app.namespace).Create(secret)
-	if errors.IsAlreadyExists(err) {
-		secret, err = app.virtCli.CoreV1().Secrets(app.namespace).Get(virtApiCertSecretName, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-	} else if err != nil {
-		return err
-	}
-	// retrieve self signed cert info from secret
-
-	app.certBytes, ok = secret.Data[certBytesValue]
-	if !ok {
-		return fmt.Errorf("%s value not found in %s virt-api secret", certBytesValue, virtApiCertSecretName)
-	}
-	app.keyBytes, ok = secret.Data[keyBytesValue]
-	if !ok {
-		return fmt.Errorf("%s value not found in %s virt-api secret", keyBytesValue, virtApiCertSecretName)
-	}
-	app.signingCertBytes, ok = secret.Data[signingCertBytesValue]
-	if !ok {
-		return fmt.Errorf("%s value not found in %s virt-api secret", signingCertBytesValue, virtApiCertSecretName)
-	}
-	return nil
+func (app *virtAPIApp) prepareCertManager() {
+	app.certmanager = bootstrap.NewFileCertificateManager("/etc/virt-api/certificates")
+	app.handlerCertManager = bootstrap.NewFileCertificateManager("/etc/virt-handler/clientcertificates")
 }
 
-func (app *virtAPIApp) createWebhook() error {
-	err := app.createValidatingWebhook()
-	if err != nil {
-		return err
-	}
-	err = app.createMutatingWebhook()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.ValidatingWebhook {
-
-	vmiPathCreate := vmiCreateValidatePath
-	vmiPathUpdate := vmiUpdateValidatePath
-	vmPath := vmValidatePath
-	vmirsPath := vmirsValidatePath
-	vmipresetPath := vmipresetValidatePath
-	migrationCreatePath := migrationCreateValidatePath
-	migrationUpdatePath := migrationUpdateValidatePath
-	failurePolicy := admissionregistrationv1beta1.Fail
-
-	webHooks := []admissionregistrationv1beta1.ValidatingWebhook{
-		{
-			Name:          "virtualmachineinstances-create-validator.kubevirt.io",
-			FailurePolicy: &failurePolicy,
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Create,
-				},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{v1.GroupName},
-					APIVersions: v1.ApiSupportedWebhookVersions,
-					Resources:   []string{"virtualmachineinstances"},
-				},
-			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: app.namespace,
-					Name:      virtApiServiceName,
-					Path:      &vmiPathCreate,
-				},
-				CABundle: app.signingCertBytes,
-			},
-		},
-		{
-			Name:          "virtualmachineinstances-update-validator.kubevirt.io",
-			FailurePolicy: &failurePolicy,
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Update,
-				},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{v1.GroupName},
-					APIVersions: v1.ApiSupportedWebhookVersions,
-					Resources:   []string{"virtualmachineinstances"},
-				},
-			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: app.namespace,
-					Name:      virtApiServiceName,
-					Path:      &vmiPathUpdate,
-				},
-				CABundle: app.signingCertBytes,
-			},
-		},
-		{
-			Name:          "virtualmachine-validator.kubevirt.io",
-			FailurePolicy: &failurePolicy,
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Create,
-					admissionregistrationv1beta1.Update,
-				},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{v1.GroupName},
-					APIVersions: v1.ApiSupportedWebhookVersions,
-					Resources:   []string{"virtualmachines"},
-				},
-			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: app.namespace,
-					Name:      virtApiServiceName,
-					Path:      &vmPath,
-				},
-				CABundle: app.signingCertBytes,
-			},
-		},
-		{
-			Name:          "virtualmachinereplicaset-validator.kubevirt.io",
-			FailurePolicy: &failurePolicy,
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Create,
-					admissionregistrationv1beta1.Update,
-				},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{v1.GroupName},
-					APIVersions: v1.ApiSupportedWebhookVersions,
-					Resources:   []string{"virtualmachineinstancereplicasets"},
-				},
-			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: app.namespace,
-					Name:      virtApiServiceName,
-					Path:      &vmirsPath,
-				},
-				CABundle: app.signingCertBytes,
-			},
-		},
-		{
-			Name:          "virtualmachinepreset-validator.kubevirt.io",
-			FailurePolicy: &failurePolicy,
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Create,
-					admissionregistrationv1beta1.Update,
-				},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{v1.GroupName},
-					APIVersions: v1.ApiSupportedWebhookVersions,
-					Resources:   []string{"virtualmachineinstancepresets"},
-				},
-			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: app.namespace,
-					Name:      virtApiServiceName,
-					Path:      &vmipresetPath,
-				},
-				CABundle: app.signingCertBytes,
-			},
-		},
-		{
-			Name:          "migration-create-validator.kubevirt.io",
-			FailurePolicy: &failurePolicy,
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Create,
-				},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{v1.GroupName},
-					APIVersions: v1.ApiSupportedWebhookVersions,
-					Resources:   []string{"virtualmachineinstancemigrations"},
-				},
-			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: app.namespace,
-					Name:      virtApiServiceName,
-					Path:      &migrationCreatePath,
-				},
-				CABundle: app.signingCertBytes,
-			},
-		},
-		{
-			Name:          "migration-update-validator.kubevirt.io",
-			FailurePolicy: &failurePolicy,
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Update,
-				},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{v1.GroupName},
-					APIVersions: v1.ApiSupportedWebhookVersions,
-					Resources:   []string{"virtualmachineinstancemigrations"},
-				},
-			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: app.namespace,
-					Name:      virtApiServiceName,
-					Path:      &migrationUpdatePath,
-				},
-				CABundle: app.signingCertBytes,
-			},
-		},
-	}
-
-	return webHooks
-}
-
-func (app *virtAPIApp) createValidatingWebhook() error {
-	registerWebhook := false
-	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(virtWebhookValidator, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			fmt.Println(err)
-			registerWebhook = true
-		} else {
-			return err
-		}
-	}
-
-	webHooks := app.validatingWebhooks()
-
-	if registerWebhook {
-		_, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: virtWebhookValidator,
-				Labels: map[string]string{
-					v1.AppLabel:       virtWebhookValidator,
-					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
-				},
-			},
-			Webhooks: webHooks,
-		})
-		if err != nil {
-			return err
-		}
-	} else {
-
-		// Ensure that we have the operator label attached, so that the operator can manage the resource later
-		// This is part of a soft transition from behing controlled by the apiserver, to being controlled by the operator
-		webhookRegistration.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
-
-		// update registered webhook with our data
-		webhookRegistration.Webhooks = webHooks
-
-		_, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(webhookRegistration)
-		if err != nil {
-			return err
-		}
-	}
-
-	http.HandleFunc(vmiCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+func (app *virtAPIApp) registerValidatingWebhooks() {
+	http.HandleFunc(components.VMICreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMICreate(w, r, app.clusterConfig)
 	})
-	http.HandleFunc(vmiUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(components.VMIUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIUpdate(w, r)
 	})
-	http.HandleFunc(vmValidatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(components.VMValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli)
 	})
-	http.HandleFunc(vmirsValidatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(components.VMIRSValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
 	})
-	http.HandleFunc(vmipresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(components.VMIPresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIPreset(w, r)
 	})
-	http.HandleFunc(migrationCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(components.MigrationCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig)
 	})
-	http.HandleFunc(migrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(components.MigrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationUpdate(w, r)
 	})
-
-	return nil
 }
 
-func (app *virtAPIApp) mutatingWebhooks() []admissionregistrationv1beta1.MutatingWebhook {
-	vmPath := vmMutatePath
-	vmiPath := vmiMutatePath
-	migrationPath := migrationMutatePath
-	webHooks := []admissionregistrationv1beta1.MutatingWebhook{
-		{
-			Name: "virtualmachines-mutator.kubevirt.io",
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Create,
-					admissionregistrationv1beta1.Update,
-				},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{v1.GroupName},
-					APIVersions: v1.ApiSupportedWebhookVersions,
-					Resources:   []string{"virtualmachines"},
-				},
-			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: app.namespace,
-					Name:      virtApiServiceName,
-					Path:      &vmPath,
-				},
-				CABundle: app.signingCertBytes,
-			},
-		},
-		{
-			Name: "virtualmachineinstances-mutator.kubevirt.io",
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Create,
-				},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{v1.GroupName},
-					APIVersions: v1.ApiSupportedWebhookVersions,
-					Resources:   []string{"virtualmachineinstances"},
-				},
-			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: app.namespace,
-					Name:      virtApiServiceName,
-					Path:      &vmiPath,
-				},
-				CABundle: app.signingCertBytes,
-			},
-		},
-		{
-			Name: "migrations-mutator.kubevirt.io",
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{
-					admissionregistrationv1beta1.Create,
-				},
-				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{v1.GroupName},
-					APIVersions: v1.ApiSupportedWebhookVersions,
-					Resources:   []string{"virtualmachineinstancemigrations"},
-				},
-			}},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: app.namespace,
-					Name:      virtApiServiceName,
-					Path:      &migrationPath,
-				},
-				CABundle: app.signingCertBytes,
-			},
-		},
-	}
-	return webHooks
-}
+func (app *virtAPIApp) registerMutatingWebhook() {
 
-func (app *virtAPIApp) createMutatingWebhook() error {
-	registerWebhook := false
-
-	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(virtWebhookMutator, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			registerWebhook = true
-		} else {
-			return err
-		}
-	}
-
-	webHooks := app.mutatingWebhooks()
-
-	if registerWebhook {
-		_, err := app.virtCli.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(&admissionregistrationv1beta1.MutatingWebhookConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: virtWebhookMutator,
-				Labels: map[string]string{
-					v1.AppLabel:       virtWebhookMutator,
-					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
-				},
-			},
-			Webhooks: webHooks,
-		})
-		if err != nil {
-			return err
-		}
-	} else {
-		// Ensure that we have the operator label attached, so that the operator can manage the resource later
-		// This is part of a soft transition from behing controlled by the apiserver, to being controlled by the operator
-		webhookRegistration.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
-
-		// update registered webhook with our data
-		webhookRegistration.Webhooks = webHooks
-
-		_, err := app.virtCli.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Update(webhookRegistration)
-		if err != nil {
-			return err
-		}
-	}
-
-	http.HandleFunc(vmMutatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(components.VMMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeVMs(w, r, app.clusterConfig)
 	})
-	http.HandleFunc(vmiMutatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(components.VMIMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeVMIs(w, r, app.clusterConfig)
 	})
-	http.HandleFunc(migrationMutatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(components.MigrationMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeMigrationCreate(w, r)
 	})
-	return nil
 }
 
-func (app *virtAPIApp) subresourceApiservice(version schema.GroupVersion) *apiregistrationv1beta1.APIService {
+func (app *virtAPIApp) setupTLS(k8sCAManager webhooksutils.ClientCAManager, kubevirtCAManager webhooksutils.ClientCAManager) {
 
-	subresourceAggregatedApiName := version.Version + "." + version.Group
-
-	return &apiregistrationv1beta1.APIService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      subresourceAggregatedApiName,
-			Namespace: app.namespace,
-			Labels: map[string]string{
-				v1.AppLabel:       "virt-api-aggregator",
-				v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
-			},
-		},
-		Spec: apiregistrationv1beta1.APIServiceSpec{
-			Service: &apiregistrationv1beta1.ServiceReference{
-				Namespace: app.namespace,
-				Name:      virtApiServiceName,
-			},
-			Group:                version.Group,
-			Version:              version.Version,
-			CABundle:             app.signingCertBytes,
-			GroupPriorityMinimum: 1000,
-			VersionPriority:      15,
-		},
-	}
-}
-
-func (app *virtAPIApp) createSubresourceApiservice(version schema.GroupVersion) error {
-
-	subresourceApiservice := app.subresourceApiservice(version)
-
-	registerApiService := false
-
-	apiService, err := app.aggregatorClient.ApiregistrationV1beta1().APIServices().Get(subresourceApiservice.Name, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			registerApiService = true
-		} else {
-			return err
-		}
-	}
-
-	if registerApiService {
-		_, err = app.aggregatorClient.ApiregistrationV1beta1().APIServices().Create(app.subresourceApiservice(version))
-		if err != nil {
-			return err
-		}
-	} else {
-
-		// Ensure that we have the operator label attached, so that the operator can manage the resource later
-		// This is part of a soft transition from behing controlled by the apiserver, to being controlled by the operator
-		apiService.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
-
-		// Always update spec to latest.
-		apiService.Spec = app.subresourceApiservice(version).Spec
-		_, err := app.aggregatorClient.ApiregistrationV1beta1().APIServices().Update(apiService)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (app *virtAPIApp) setupTLS(caManager webhooksutils.ClientCAManager) error {
-
-	certPair, err := tls.X509KeyPair(app.certBytes, app.keyBytes)
-	if err != nil {
-		return fmt.Errorf("some special error: %b", err)
-	}
 	// A VerifyClientCertIfGiven request means we're not guaranteed
 	// a client has been authenticated unless they provide a peer
 	// cert.
@@ -1026,27 +538,23 @@ func (app *virtAPIApp) setupTLS(caManager webhooksutils.ClientCAManager) error {
 	// response is given. That status request won't send a peer cert regardless
 	// if the TLS handshake requests it. As a result, the TLS handshake fails
 	// and our aggregated endpoint never becomes available.
-	app.tlsConfig = webhooksutils.SetupTLS(caManager, certPair, tls.VerifyClientCertIfGiven)
-	return nil
+	app.tlsConfig = webhooksutils.SetupTLSWithCertManager(k8sCAManager, app.certmanager, tls.VerifyClientCertIfGiven)
+	app.handlerTLSConfiguration = webhooksutils.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager)
 }
 
-func (app *virtAPIApp) startTLS(stopCh <-chan struct{}) error {
+func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory, stopCh <-chan struct{}) error {
 
 	errors := make(chan error)
 
-	informerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.aggregatorClient, app.namespace)
-
 	authConfigMapInformer := informerFactory.ApiAuthConfigMap()
-	informerFactory.Start(stopCh)
+	kubevirtCAConfigInformer := informerFactory.KubeVirtCAConfigMap()
 
-	cache.WaitForCacheSync(stopCh, authConfigMapInformer.HasSynced)
+	k8sCAManager := webhooksutils.NewKubernetesClientCAManager(authConfigMapInformer.GetStore())
+	kubevirtCAInformer := webhooksutils.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace)
 
-	caManager := webhooksutils.NewClientCAManager(authConfigMapInformer.GetStore())
+	app.setupTLS(k8sCAManager, kubevirtCAInformer)
 
-	err := app.setupTLS(caManager)
-	if err != nil {
-		return err
-	}
+	app.Compose()
 
 	// start TLS server
 	go func() {
@@ -1072,24 +580,19 @@ func (app *virtAPIApp) Run() {
 	}
 
 	// Get/Set selfsigned cert
-	err = app.getSelfSignedCert()
-	if err != nil {
-		panic(err)
-	}
+	app.prepareCertManager()
 
-	// Verify/create aggregator endpoint.
-	for _, version := range v1.SubresourceGroupVersions {
-		err = app.createSubresourceApiservice(version)
-		if err != nil {
-			panic(err)
-		}
-	}
+	// Build webhook subresources
+	app.registerMutatingWebhook()
+	app.registerValidatingWebhooks()
 
 	// Run informers for webhooks usage
 	webhookInformers := webhooks.GetInformers()
 	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.aggregatorClient, app.namespace)
 	configMapInformer := kubeInformerFactory.ConfigMap()
 	crdInformer := kubeInformerFactory.CRD()
+	authConfigMapInformer := kubeInformerFactory.ApiAuthConfigMap()
+	kubevirtCAConfigInformer := kubeInformerFactory.KubeVirtCAConfigMap()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
@@ -1098,7 +601,12 @@ func (app *virtAPIApp) Run() {
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
 	go configMapInformer.Run(stopChan)
 	go crdInformer.Run(stopChan)
+	go authConfigMapInformer.Run(stopChan)
+	go kubevirtCAConfigInformer.Run(stopChan)
 	cache.WaitForCacheSync(stopChan,
+		crdInformer.HasSynced,
+		authConfigMapInformer.HasSynced,
+		kubevirtCAConfigInformer.HasSynced,
 		webhookInformers.VMIInformer.HasSynced,
 		webhookInformers.VMIPresetInformer.HasSynced,
 		webhookInformers.NamespaceLimitsInformer.HasSynced,
@@ -1106,14 +614,12 @@ func (app *virtAPIApp) Run() {
 
 	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, app.namespace)
 
-	// Verify/create webhook endpoint.
-	err = app.createWebhook()
-	if err != nil {
-		panic(err)
-	}
+	go app.certmanager.Start()
+	go app.handlerCertManager.Start()
 
 	// start TLS server
-	err = app.startTLS(stopChan)
+	// tls server will only accept connections when fetching a certificate and internal configuration passed once
+	err = app.startTLS(kubeInformerFactory, stopChan)
 	if err != nil {
 		panic(err)
 	}

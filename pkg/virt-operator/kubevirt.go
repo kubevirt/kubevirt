@@ -33,7 +33,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -56,19 +55,17 @@ type KubeVirtController struct {
 	installStrategyMutex sync.Mutex
 	installStrategyMap   map[string]*installstrategy.InstallStrategy
 	operatorNamespace    string
-	caBundle             []byte
-	aggregatorClient     aggregatorclient.Interface
+	aggregatorClient     installstrategy.APIServiceInterface
 }
 
 func NewKubeVirtController(
 	clientset kubecli.KubevirtClient,
-	aggregatorClient aggregatorclient.Interface,
+	aggregatorClient installstrategy.APIServiceInterface,
 	informer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	stores util.Stores,
 	informers util.Informers,
 	operatorNamespace string,
-	caBundle []byte,
 ) *KubeVirtController {
 
 	c := KubeVirtController{
@@ -93,15 +90,16 @@ func NewKubeVirtController(
 			MutatingWebhook:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("MutatingWebhook")),
 			APIService:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("APIService")),
 			SCC:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("SCC")),
-			InstallStrategyConfigMap: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
+			InstallStrategyConfigMap: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("InstallStrategyConfigMap")),
 			InstallStrategyJob:       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Jobs")),
 			PodDisruptionBudget:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets")),
 			ServiceMonitor:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceMonitor")),
 			PrometheusRule:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PrometheusRule")),
+			Secrets:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Secret")),
+			ConfigMap:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
 		},
 		installStrategyMap: make(map[string]*installstrategy.InstallStrategy),
 		operatorNamespace:  operatorNamespace,
-		caBundle:           caBundle,
 	}
 
 	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -346,6 +344,30 @@ func NewKubeVirtController(
 		},
 	})
 
+	c.informers.Secrets.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.Secrets)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.Secrets)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.Secrets)
+		},
+	})
+
+	c.informers.ConfigMap.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.ConfigMap)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.ConfigMap)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.ConfigMap)
+		},
+	})
+
 	return &c
 }
 
@@ -515,6 +537,8 @@ func (c *KubeVirtController) Run(threadiness int, stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.informers.ServiceMonitor.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.Namespace.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.PrometheusRule.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.Secrets.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.ConfigMap.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -884,20 +908,16 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, loadObservedVe
 	return nil, true, nil
 }
 
-func (c *KubeVirtController) checkForActiveInstall(kv *v1.KubeVirt) bool {
-	kvs := c.kubeVirtInformer.GetStore().List()
-	for _, obj := range kvs {
-		if fromStore, ok := obj.(*v1.KubeVirt); ok {
-			if fromStore.UID == kv.UID {
-				continue
-			}
-			if isKubeVirtActive(fromStore) {
-				return true
-			}
-		}
+func (c *KubeVirtController) checkForActiveInstall(kv *v1.KubeVirt) error {
+	if len(c.kubeVirtInformer.GetStore().List()) > 1 {
+		return fmt.Errorf("More than one KubeVirt CR detected, ensure that KubeVirt is only installed once.")
 	}
-	return false
 
+	if kv.Namespace != c.operatorNamespace {
+		return fmt.Errorf("KubeVirt CR is created in another namespace than the operator, that is not supported.")
+	}
+
+	return nil
 }
 
 func isUpdating(kv *v1.KubeVirt) bool {
@@ -925,16 +945,14 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	var targetPending bool
 	var err error
 
-	logger := log.Log.Object(kv)
-	logger.Infof("Handling deployment")
-
-	// check if there is already an active KubeVirt deployment
-	// TODO move this into a new validating webhook
-	if c.checkForActiveInstall(kv) {
-		logger.Warningf("There is already a KubeVirt deployment!")
+	if err := c.checkForActiveInstall(kv); err != nil {
+		log.DefaultLogger().Reason(err).Error("Will ignore the install request until the situation is resolved.")
 		util.UpdateConditionsFailedExists(kv)
 		return nil
 	}
+
+	logger := log.Log.Object(kv)
+	logger.Infof("Handling deployment")
 
 	config := operatorutil.GetTargetConfigFromKV(kv)
 
@@ -983,7 +1001,7 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	}
 
 	// deploy
-	synced, err := installstrategy.SyncAll(kv, prevStrategy, targetStrategy, c.stores, c.clientset, &c.kubeVirtExpectations, c.caBundle)
+	synced, err := installstrategy.SyncAll(c.queue, kv, prevStrategy, targetStrategy, c.stores, c.clientset, c.aggregatorClient, &c.kubeVirtExpectations)
 
 	if err != nil {
 		// deployment failed
@@ -1039,6 +1057,12 @@ func (c *KubeVirtController) isReady(kv *v1.KubeVirt) bool {
 func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 	logger := log.Log.Object(kv)
 	logger.Info("Handling deletion")
+
+	if err := c.checkForActiveInstall(kv); err != nil {
+		log.DefaultLogger().Reason(err).Error("Will ignore the delete request until the situation is resolved.")
+		util.UpdateConditionsFailedExists(kv)
+		return nil
+	}
 
 	// set phase to deleting
 	kv.Status.Phase = v1.KubeVirtPhaseDeleting

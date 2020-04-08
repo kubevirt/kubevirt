@@ -1034,6 +1034,16 @@ type KubeVirtList struct {
 	Items           []KubeVirt `json:"items"`
 }
 
+type KubeVirtSelfSignConfiguration struct {
+	CARotateInterval   *metav1.Duration `json:"caRotateInterval,omitempty"`
+	CertRotateInterval *metav1.Duration `json:"certRotateInterval,omitempty"`
+	CAOverlapInterval  *metav1.Duration `json:"caOverlapInterval,omitempty"`
+}
+
+type KubeVirtCertificateRotateStrategy struct {
+	SelfSigned *KubeVirtSelfSignConfiguration `json:"selfSigned,omitempty"`
+}
+
 // ---
 // +k8s:openapi-gen=true
 type KubeVirtSpec struct {
@@ -1058,6 +1068,8 @@ type KubeVirtSpec struct {
 	// Specifies if kubevirt can be deleted if workloads are still present.
 	// This is mainly a precaution to avoid accidental data loss
 	UninstallStrategy KubeVirtUninstallStrategy `json:"uninstallStrategy,omitempty"`
+
+	CertificateRotationStrategy KubeVirtCertificateRotateStrategy `json:"certificateRotateStrategy,omitempty"`
 }
 
 type KubeVirtUninstallStrategy string

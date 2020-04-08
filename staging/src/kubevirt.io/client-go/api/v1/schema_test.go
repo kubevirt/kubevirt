@@ -233,7 +233,9 @@ var exampleJSON = `{
       }
     ]
   },
-  "status": {}
+  "status": {
+    "guestOSInfo": {}
+  }
 }`
 
 var _ = Describe("Schema", func() {

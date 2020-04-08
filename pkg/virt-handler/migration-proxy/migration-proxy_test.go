@@ -65,7 +65,7 @@ var _ = Describe("MigrationProxy", func() {
 
 				defer listener.Close()
 
-				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig)
+				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig)
 				defer sourceProxy.StopListening()
 
 				err = sourceProxy.StartListening()
@@ -107,8 +107,8 @@ var _ = Describe("MigrationProxy", func() {
 
 				defer libvirtdListener.Close()
 
-				targetProxy := NewTargetProxy("0.0.0.0", 12345, tlsConfig, libvirtdSock)
-				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig)
+				targetProxy := NewTargetProxy("0.0.0.0", 12345, tlsConfig, tlsConfig, libvirtdSock)
+				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig)
 				defer targetProxy.StopListening()
 				defer sourceProxy.StopListening()
 
@@ -151,7 +151,7 @@ var _ = Describe("MigrationProxy", func() {
 
 				Expect(err).ShouldNot(HaveOccurred())
 
-				manager := NewMigrationProxyManager(tmpDir, tlsConfig)
+				manager := NewMigrationProxyManager(tmpDir, tlsConfig, tlsConfig)
 				manager.StartTargetListener("mykey", []string{libvirtdSock, directSock})
 				destSrcPortMap := manager.GetTargetListenerPorts("mykey")
 				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap)

@@ -70,29 +70,6 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{
-					"admissionregistration.k8s.io",
-				},
-				Resources: []string{
-					"validatingwebhookconfigurations",
-					"mutatingwebhookconfigurations",
-				},
-				Verbs: []string{
-					"get", "create", "update",
-				},
-			},
-			{
-				APIGroups: []string{
-					"apiregistration.k8s.io",
-				},
-				Resources: []string{
-					"apiservices",
-				},
-				Verbs: []string{
-					"get", "create", "update",
-				},
-			},
-			{
-				APIGroups: []string{
 					"",
 				},
 				Resources: []string{
@@ -243,17 +220,6 @@ func newApiServerRole(namespace string) *rbacv1.Role {
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{
-					"",
-				},
-				Resources: []string{
-					"secrets",
-				},
-				Verbs: []string{
-					"get", "list", "delete", "update", "create",
-				},
-			},
 			{
 				APIGroups: []string{
 					"",

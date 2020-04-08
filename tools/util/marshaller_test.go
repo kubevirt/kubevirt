@@ -29,7 +29,7 @@ import (
 
 func TestMarshallObject(t *testing.T) {
 
-	handler, err := components.NewHandlerDaemonSet("{{.Namespace}}", "{{.DockerPrefix}}", "{{.DockerTag}}", v1.PullIfNotPresent, "2")
+	handler, err := components.NewHandlerDaemonSet("{{.Namespace}}", "", "{{.DockerPrefix}}", "{{.DockerTag}}", v1.PullIfNotPresent, "2")
 	if err != nil {
 		t.Fatalf("error generating virt-handler deployment for marshall test %v", err)
 	}

@@ -29,6 +29,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/cert"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -40,14 +42,30 @@ type manager struct {
 	store        cache.Store
 	lock         *sync.Mutex
 	lastRevision string
+	namespace    string
+	name         string
+	secretKey    string
 
 	lastPool *x509.CertPool
 }
 
-func NewClientCAManager(configMapCache cache.Store) ClientCAManager {
+func NewKubernetesClientCAManager(configMapCache cache.Store) ClientCAManager {
 	return &manager{
-		store: configMapCache,
-		lock:  &sync.Mutex{},
+		store:     configMapCache,
+		lock:      &sync.Mutex{},
+		namespace: metav1.NamespaceSystem,
+		name:      util.ExtensionAPIServerAuthenticationConfigMap,
+		secretKey: util.RequestHeaderClientCAFileKey,
+	}
+}
+
+func NewCAManager(configMapCache cache.Store, namespace string) ClientCAManager {
+	return &manager{
+		store:     configMapCache,
+		lock:      &sync.Mutex{},
+		namespace: namespace,
+		name:      "kubevirt-ca",
+		secretKey: components.CABundleKey,
 	}
 }
 
@@ -55,7 +73,7 @@ func (m *manager) GetCurrent() (*x509.CertPool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	obj, exists, err := m.store.GetByKey(metav1.NamespaceSystem + "/" + util.ExtensionAPIServerAuthenticationConfigMap)
+	obj, exists, err := m.store.GetByKey(m.namespace + "/" + m.name)
 
 	if err != nil {
 		return nil, err
@@ -64,7 +82,7 @@ func (m *manager) GetCurrent() (*x509.CertPool, error) {
 			return m.lastPool, nil
 		}
 
-		return nil, fmt.Errorf("configmap %s not found. Unable to detect request header CA", util.ExtensionAPIServerAuthenticationConfigMap)
+		return nil, fmt.Errorf("configmap %s not found. Unable to detect request header CA", m.name)
 	}
 
 	configMap := obj.(*k8sv1.ConfigMap)
@@ -74,7 +92,7 @@ func (m *manager) GetCurrent() (*x509.CertPool, error) {
 		return m.lastPool, nil
 	}
 
-	requestHeaderClientCA, ok := configMap.Data[util.RequestHeaderClientCAFileKey]
+	requestHeaderClientCA, ok := configMap.Data[m.secretKey]
 	if !ok {
 		return nil, fmt.Errorf("requestheader-client-ca-file not found in extension-apiserver-authentication ConfigMap")
 	}

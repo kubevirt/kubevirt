@@ -5,4 +5,5 @@ metadata:
   name: kubevirt
   namespace: {{.Namespace}}
 spec:
+  certificateRotateStrategy: {}
   imagePullPolicy: {{.ImagePullPolicy}}

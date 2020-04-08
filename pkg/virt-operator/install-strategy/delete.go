@@ -35,7 +35,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
-	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -87,7 +86,7 @@ func DeleteAll(kv *v1.KubeVirt,
 	strategy *InstallStrategy,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
-	aggregatorclient aggregatorclient.Interface,
+	aggregatorclient APIServiceInterface,
 	expectations *util.Expectations) error {
 
 	kvkey, err := controller.KeyFunc(kv)
@@ -227,7 +226,7 @@ func DeleteAll(kv *v1.KubeVirt,
 		if apiservice, ok := obj.(*v1beta1.APIService); ok && apiservice.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(apiservice); err == nil {
 				expectations.APIService.AddExpectedDeletion(kvkey, key)
-				err := aggregatorclient.ApiregistrationV1beta1().APIServices().Delete(apiservice.Name, deleteOptions)
+				err := aggregatorclient.Delete(apiservice.Name, deleteOptions)
 				if err != nil {
 					expectations.APIService.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete apiservice %+v: %v", apiservice, err)
@@ -382,6 +381,42 @@ func DeleteAll(kv *v1.KubeVirt,
 				if err != nil {
 					expectations.ServiceAccount.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete serviceaccount %+v: %v", sa, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	objects = stores.SecretCache.List()
+	for _, obj := range objects {
+		if secret, ok := obj.(*corev1.Secret); ok && secret.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(secret); err == nil {
+				expectations.Secrets.AddExpectedDeletion(kvkey, key)
+				err := clientset.CoreV1().Secrets(kv.Namespace).Delete(secret.Name, deleteOptions)
+				if err != nil {
+					expectations.Secrets.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete secret %+v: %v", secret, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	objects = stores.ConfigMapCache.List()
+	for _, obj := range objects {
+		if configMap, ok := obj.(*corev1.ConfigMap); ok && configMap.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(configMap); err == nil {
+				expectations.ConfigMap.AddExpectedDeletion(kvkey, key)
+				err := clientset.CoreV1().ConfigMaps(kv.Namespace).Delete(configMap.Name, deleteOptions)
+				if err != nil {
+					expectations.ConfigMap.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete configMap %+v: %v", configMap, err)
 					return err
 				}
 			}
