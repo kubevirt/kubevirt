@@ -388,7 +388,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 	}
 
 	tapDeviceName := generateTapDeviceName(podInterfaceName)
-	err := createTapDevice(b.vif, tapDeviceName)
+	err := createAndBindTapToBridge(b.vif, tapDeviceName, b.bridgeInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -411,6 +411,10 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 
 	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
 	b.virtIface.MAC = &api.MAC{MAC: b.vif.MAC.String()}
+	b.virtIface.Target = &api.InterfaceTarget{
+		Device:  b.vif.TapDevice,
+		Managed: "no",
+	}
 
 	return nil
 }
@@ -421,6 +425,7 @@ func (b *BridgePodInterface) decorateConfig() error {
 		if iface.Alias.Name == b.iface.Name {
 			ifaces[i].MTU = b.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: b.vif.MAC.String()}
+			ifaces[i].Target = b.virtIface.Target
 			break
 		}
 	}
@@ -668,7 +673,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 	}
 
 	tapDeviceName := generateTapDeviceName(podInterfaceName)
-	err = createTapDevice(p.vif, tapDeviceName)
+	err = createAndBindTapToBridge(p.vif, tapDeviceName, p.bridgeInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -703,6 +708,10 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 
 	p.virtIface.MTU = &api.MTU{Size: strconv.Itoa(p.podNicLink.Attrs().MTU)}
 	p.virtIface.MAC = &api.MAC{MAC: p.vif.MAC.String()}
+	p.virtIface.Target = &api.InterfaceTarget{
+		Device:  p.vif.TapDevice,
+		Managed: "no",
+	}
 
 	return nil
 }
@@ -713,6 +722,7 @@ func (p *MasqueradePodInterface) decorateConfig() error {
 		if iface.Alias.Name == p.iface.Name {
 			ifaces[i].MTU = p.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: p.vif.MAC.String()}
+			ifaces[i].Target = p.virtIface.Target
 			break
 		}
 	}
@@ -1056,13 +1066,13 @@ func (s *SlirpPodInterface) setCachedInterface(pid, name string) error {
 	return nil
 }
 
-func createTapDevice(virtualInterface *VIF, deviceName string) error {
+func createAndBindTapToBridge(virtualInterface *VIF, deviceName string, bridgeIfaceName string) error {
 	err := Handler.CreateTapDevice(deviceName)
 	if err != nil {
 		return err
 	}
 	virtualInterface.TapDevice = deviceName
-	return nil
+	return Handler.BindTapDeviceToBridge(deviceName, bridgeIfaceName)
 }
 
 func generateTapDeviceName(podInterfaceName string) string {
