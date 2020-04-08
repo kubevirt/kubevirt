@@ -66,6 +66,7 @@ type BindMechanism interface {
 	startDHCP(vmi *v1.VirtualMachineInstance) error
 
 	createVirtualNetworkingDevice(deviceName string) error
+	configureVirtualNetworkingDevice() error
 }
 
 type PodInterface struct{}
@@ -396,6 +397,10 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
+	if err := b.configureVirtualNetworkingDevice(); err != nil {
+		return err
+	}
+
 	if !b.vif.IPAMDisabled {
 		// Remove IP from POD interface
 		err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
@@ -413,6 +418,10 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 
 	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
 	b.virtIface.MAC = &api.MAC{MAC: b.vif.MAC.String()}
+	b.virtIface.Target = &api.InterfaceTarget{
+		Device:  b.vif.TapDevice,
+		Managed: "no",
+	}
 
 	return nil
 }
@@ -423,6 +432,7 @@ func (b *BridgePodInterface) decorateConfig() error {
 		if iface.Alias.Name == b.iface.Name {
 			ifaces[i].MTU = b.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: b.vif.MAC.String()}
+			ifaces[i].Target = b.virtIface.Target
 			break
 		}
 	}
@@ -538,6 +548,10 @@ func (b *BridgePodInterface) createVirtualNetworkingDevice(deviceName string) er
 		b.vif.TapDevice = deviceName
 	}
 	return err
+}
+
+func (b *BridgePodInterface) configureVirtualNetworkingDevice() error {
+	return Handler.BindTapDeviceToBridge(b.vif.TapDevice, b.bridgeInterfaceName)
 }
 
 type MasqueradePodInterface struct {
@@ -681,6 +695,9 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 	err = p.createVirtualNetworkingDevice(tapDeviceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
+	}
+
+	if err := p.configureVirtualNetworkingDevice(); err != nil {
 		return err
 	}
 
@@ -713,6 +730,10 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 
 	p.virtIface.MTU = &api.MTU{Size: strconv.Itoa(p.podNicLink.Attrs().MTU)}
 	p.virtIface.MAC = &api.MAC{MAC: p.vif.MAC.String()}
+	p.virtIface.Target = &api.InterfaceTarget{
+		Device:  p.vif.TapDevice,
+		Managed: "no",
+	}
 
 	return nil
 }
@@ -723,6 +744,7 @@ func (p *MasqueradePodInterface) decorateConfig() error {
 		if iface.Alias.Name == p.iface.Name {
 			ifaces[i].MTU = p.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: p.vif.MAC.String()}
+			ifaces[i].Target = p.virtIface.Target
 			break
 		}
 	}
@@ -1011,6 +1033,10 @@ func (p *MasqueradePodInterface) createVirtualNetworkingDevice(deviceName string
 	return err
 }
 
+func (m *MasqueradePodInterface) configureVirtualNetworkingDevice() error {
+	return Handler.BindTapDeviceToBridge(m.vif.TapDevice, m.bridgeInterfaceName)
+}
+
 type SlirpPodInterface struct {
 	vmi       *v1.VirtualMachineInstance
 	iface     *v1.Interface
@@ -1075,6 +1101,10 @@ func (s *SlirpPodInterface) setCachedInterface(pid, name string) error {
 }
 
 func (s *SlirpPodInterface) createVirtualNetworkingDevice(deviceName string) error {
+	return nil
+}
+
+func (s *SlirpPodInterface) configureVirtualNetworkingDevice() error {
 	return nil
 }
 

@@ -121,3 +121,13 @@ func (_m *MockBindMechanism) createVirtualNetworkingDevice(deviceName string) er
 func (_mr *_MockBindMechanismRecorder) createVirtualNetworkingDevice(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "createVirtualNetworkingDevice", arg0)
 }
+
+func (_m *MockBindMechanism) configureVirtualNetworkingDevice() error {
+	ret := _m.ctrl.Call(_m, "configureVirtualNetworkingDevice")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) configureTapDevice() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "configureVirtualNetworkingDevice")
+}
