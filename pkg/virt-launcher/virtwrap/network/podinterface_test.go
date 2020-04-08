@@ -103,11 +103,14 @@ var _ = Describe("Pod Network", func() {
 		}
 
 		bridgeAddr, _ = netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0))
+		tapDeviceName = "tap0"
 		testNic = &VIF{Name: podInterface,
-			IP:      fakeAddr,
-			MAC:     fakeMac,
-			Mtu:     1410,
-			Gateway: gw}
+			IP:        fakeAddr,
+			MAC:       fakeMac,
+			Mtu:       1410,
+			Gateway:   gw,
+			TapDevice: tapDeviceName,
+		}
 
 		masqueradeGwStr = "10.0.2.1/30"
 		masqueradeGwAddr, _ = netlink.ParseAddr(masqueradeGwStr)
@@ -178,6 +181,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
 		mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr, api.DefaultBridgeName, nil)
 		mockNetwork.EXPECT().CreateTapDevice().Return(tapDeviceName, nil)
+		mockNetwork.EXPECT().ConfigureTapDevice(tapDeviceName, "k6t-eth0").Return(nil)
 
 		// For masquerade tests
 		mockNetwork.EXPECT().ParseAddr(masqueradeGwStr).Return(masqueradeGwAddr, nil)
@@ -239,6 +243,8 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND", "counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil)
 
 		}
+		mockNetwork.EXPECT().CreateTapDevice().Return(tapDeviceName, nil)
+		mockNetwork.EXPECT().ConfigureTapDevice(tapDeviceName, "k6t-eth0").Return(nil)
 
 		err := SetupPodNetworkPhase1(vm, pid)
 		Expect(err).To(BeNil())
@@ -292,6 +298,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
 			mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
 			mockNetwork.EXPECT().CreateTapDevice().Return(tapDeviceName, nil)
+			mockNetwork.EXPECT().ConfigureTapDevice(tapDeviceName, "k6t-eth0").Return(nil)
 
 			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(HaveOccurred(), "SetupPodNetworkPhase1 should return an error")

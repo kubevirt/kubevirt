@@ -105,6 +105,7 @@ type NetworkHandler interface {
 	NftablesLoad(fnName string) error
 	GetNFTIPString(proto iptables.Protocol) string
 	CreateTapDevice() (string, error)
+	ConfigureTapDevice(tapName string, bridgeName string) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -355,6 +356,34 @@ func (h *NetworkUtilsHandler) CreateTapDevice() (string, error) {
 	}
 	log.Log.Infof("Created tap device: %s", tapName)
 	return tapName, nil
+}
+
+func (h *NetworkUtilsHandler) ConfigureTapDevice(tapName string, bridgeName string) error {
+	tap, err := netlink.LinkByName(tapName)
+	log.Log.Infof("Looking for tap device: %s", tapName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("Did not find tap device: %s", tapName)
+		return err
+	}
+
+	bridge := &netlink.Bridge{
+		LinkAttrs: netlink.LinkAttrs{
+			Name: bridgeName,
+		},
+	}
+	if err := netlink.LinkSetMaster(tap, bridge); err != nil {
+		log.Log.Reason(err).Criticalf("Failed to enslave tap device [%s] to bridge [%s]", tapName, bridgeName)
+		return err
+	}
+
+	err = netlink.LinkSetUp(tap)
+	if err != nil {
+		log.Log.Reason(err).Criticalf("Failed to set tap device [%s] up", tapName)
+		return err
+	}
+
+	log.Log.Infof("Successfully configured tap device: %s", tapName)
+	return nil
 }
 
 // Allow mocking for tests

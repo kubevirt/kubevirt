@@ -121,3 +121,13 @@ func (_m *MockBindMechanism) createTapDevice() error {
 func (_mr *_MockBindMechanismRecorder) createTapDevice() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "createTapDevice")
 }
+
+func (_m *MockBindMechanism) configureTapDevice() error {
+	ret := _m.ctrl.Call(_m, "configureTapDevice")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockBindMechanismRecorder) configureTapDevice() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "configureTapDevice")
+}
