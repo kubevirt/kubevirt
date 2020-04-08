@@ -257,15 +257,14 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should fetch UserList from VirtualMachineInstance via subresource", func() {
-		userList := []v1.VirtualMachineInstanceGuestOSUser{
-			v1.VirtualMachineInstanceGuestOSUser{
-				UserName: "testUser",
+		userList := v1.VirtualMachineInstanceGuestOSUserList{
+			Items: []v1.VirtualMachineInstanceGuestOSUser{
+				{UserName: "testUser"},
 			},
 		}
-
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", subVMPath+"/userlist"),
-			ghttp.RespondWithJSONEncoded(http.StatusOK, osInfo),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, userList),
 		))
 		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).UserList("testvm")
 
@@ -274,21 +273,23 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should fetch FilesystemList from VirtualMachineInstance via subresource", func() {
-		userList := []v1.VirtualMachineInstanceFileSystem{
-			v1.VirtualMachineInstanceFileSystem{
-				DiskName:   "main",
-				MountPoint: "/",
+		fileSystemList := v1.VirtualMachineInstanceFileSystemList{
+			Items: []v1.VirtualMachineInstanceFileSystem{
+				{
+					DiskName:   "main",
+					MountPoint: "/",
+				},
 			},
 		}
 
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", subVMPath+"/filesystemlist"),
-			ghttp.RespondWithJSONEncoded(http.StatusOK, osInfo),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, fileSystemList),
 		))
 		fetchedInfo, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).FilesystemList("testvm")
 
 		Expect(err).ToNot(HaveOccurred(), "should fetch info normally")
-		Expect(fetchedInfo).To(Equal(userList), "fetched info should be the same as passed in")
+		Expect(fetchedInfo).To(Equal(fileSystemList), "fetched info should be the same as passed in")
 	})
 
 	AfterEach(func() {

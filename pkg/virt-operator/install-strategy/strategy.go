@@ -30,6 +30,7 @@ import (
 	"github.com/golang/glog"
 	secv1 "github.com/openshift/api/security/v1"
 	"k8s.io/api/admissionregistration/v1beta1"
+	v1beta12 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -78,6 +79,9 @@ type InstallStrategy struct {
 	deployments                     []*appsv1.Deployment
 	daemonSets                      []*appsv1.DaemonSet
 	validatingWebhookConfigurations []*v1beta1.ValidatingWebhookConfiguration
+	mutatingWebhookConfigurations   []*v1beta1.MutatingWebhookConfiguration
+	apiServices                     []*v1beta12.APIService
+	certificateSecrets              []*corev1.Secret
 
 	// deprecated, keep it for backwards compatibility
 	customSCCPrivileges []*customSCCPrivilegedAccounts
@@ -85,6 +89,7 @@ type InstallStrategy struct {
 	sccs            []*secv1.SecurityContextConstraints
 	serviceMonitors []*promv1.ServiceMonitor
 	prometheusRules []*promv1.PrometheusRule
+	configMaps      []*corev1.ConfigMap
 }
 
 func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, addMonitorServiceResources bool, operatorNamespace string) (*corev1.ConfigMap, error) {
@@ -175,7 +180,16 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	for _, entry := range strategy.services {
 		marshalutil.MarshallObject(entry, writer)
 	}
+	for _, entry := range strategy.certificateSecrets {
+		marshalutil.MarshallObject(entry, writer)
+	}
 	for _, entry := range strategy.validatingWebhookConfigurations {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.mutatingWebhookConfigurations {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.apiServices {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	for _, entry := range strategy.deployments {
@@ -194,6 +208,9 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	for _, entry := range strategy.prometheusRules {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.configMaps {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	writer.Flush()
@@ -254,11 +271,13 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		}
 	}
 
-	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewValidatingWebhookConfiguration(operatorNamespace))
+	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewOpertorValidatingWebhookConfiguration(operatorNamespace))
+	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewVirtAPIValidatingWebhookConfiguration(config.GetNamespace()))
+	strategy.mutatingWebhookConfigurations = append(strategy.mutatingWebhookConfigurations, components.NewVirtAPIMutatingWebhookConfiguration(config.GetNamespace()))
 
 	strategy.services = append(strategy.services, components.NewPrometheusService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
-	strategy.services = append(strategy.services, components.NewWebhookService(operatorNamespace))
+	strategy.services = append(strategy.services, components.NewOperatorWebhookService(operatorNamespace))
 	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
@@ -294,6 +313,11 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), rbac.ControllerServiceAccountName),
 		},
 	})
+
+	strategy.apiServices = components.NewVirtAPIAPIServices(config.GetNamespace())
+	strategy.certificateSecrets = components.NewCertSecrets(config.GetNamespace(), operatorNamespace)
+	strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewCACertSecret(operatorNamespace))
+	strategy.configMaps = append(strategy.configMaps, components.NewKubeVirtCAConfigMap(operatorNamespace))
 
 	return strategy, nil
 }
@@ -382,6 +406,24 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, webhook)
+		case "MutatingWebhookConfiguration":
+			webhook := &v1beta1.MutatingWebhookConfiguration{}
+			if err := yaml.Unmarshal([]byte(entry), &webhook); err != nil {
+				return nil, err
+			}
+			strategy.mutatingWebhookConfigurations = append(strategy.mutatingWebhookConfigurations, webhook)
+		case "APIService":
+			apiService := &v1beta12.APIService{}
+			if err := yaml.Unmarshal([]byte(entry), &apiService); err != nil {
+				return nil, err
+			}
+			strategy.apiServices = append(strategy.apiServices, apiService)
+		case "Secret":
+			secret := &corev1.Secret{}
+			if err := yaml.Unmarshal([]byte(entry), &secret); err != nil {
+				return nil, err
+			}
+			strategy.certificateSecrets = append(strategy.certificateSecrets, secret)
 		case "ServiceAccount":
 			sa := &corev1.ServiceAccount{}
 			if err := yaml.Unmarshal([]byte(entry), &sa); err != nil {
@@ -460,6 +502,12 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.prometheusRules = append(strategy.prometheusRules, pr)
+		case "ConfigMap":
+			configMap := &corev1.ConfigMap{}
+			if err := yaml.Unmarshal([]byte(entry), &configMap); err != nil {
+				return nil, err
+			}
+			strategy.configMaps = append(strategy.configMaps, configMap)
 		default:
 			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
 

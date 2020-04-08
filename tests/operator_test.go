@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -30,17 +31,17 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	v12 "k8s.io/api/apps/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	v12 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -63,6 +64,9 @@ var _ = Describe("Operator", func() {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
+	config, err := kubecli.GetConfig()
+	tests.PanicOnError(err)
+	aggregatorClient := aggregatorclient.NewForConfigOrDie(config)
 
 	k8sClient := tests.GetK8sCmdClient()
 
@@ -73,39 +77,6 @@ var _ = Describe("Operator", func() {
 		yamlFile      string
 	}
 	var vmYamls []vmYamlDefinition
-
-	getKvList := func() []v1.KubeVirt {
-		var kvListInstallNS *v1.KubeVirtList
-		var kvListDefaultNS *v1.KubeVirtList
-		var items []v1.KubeVirt
-
-		var err error
-
-		Eventually(func() error {
-
-			kvListInstallNS, err = virtClient.KubeVirt(tests.KubeVirtInstallNamespace).List(&metav1.ListOptions{})
-
-			return err
-		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-		Eventually(func() error {
-
-			kvListDefaultNS, err = virtClient.KubeVirt(tests.NamespaceTestDefault).List(&metav1.ListOptions{})
-
-			return err
-		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-		items = append(items, kvListInstallNS.Items...)
-		items = append(items, kvListDefaultNS.Items...)
-
-		return items
-	}
-
-	getCurrentKv := func() *v1.KubeVirt {
-		kvs := getKvList()
-		Expect(len(kvs)).To(Equal(1))
-		return &kvs[0]
-	}
 
 	copyOriginalCDI := func() *cdiv1.CDI {
 		newCDI := &cdiv1.CDI{
@@ -410,7 +381,7 @@ var _ = Describe("Operator", func() {
 	deleteAllKvAndWait := func(ignoreOriginal bool) {
 		Eventually(func() error {
 
-			kvs := getKvList()
+			kvs := tests.GetKvList(virtClient)
 
 			deleteCount := 0
 			for _, kv := range kvs {
@@ -461,7 +432,7 @@ var _ = Describe("Operator", func() {
 		// make sure virt deployments use shasums before we start
 		ensureShasums()
 
-		originalKv = getCurrentKv()
+		originalKv = tests.GetCurrentKv(virtClient)
 
 		originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
 		if err != nil && !errors.IsNotFound(err) {
@@ -578,6 +549,8 @@ spec:
 		Expect(err).ToNot(HaveOccurred())
 
 		vmYamls = []vmYamlDefinition{}
+
+		verifyOperatorWebhookCertificate()
 	})
 
 	AfterEach(func() {
@@ -601,7 +574,7 @@ spec:
 
 		deleteAllKvAndWait(ignoreDeleteOriginalKV)
 
-		kvs := getKvList()
+		kvs := tests.GetKvList(virtClient)
 		if len(kvs) == 0 {
 			createKv(copyOriginalKv())
 		}
@@ -653,10 +626,13 @@ spec:
 
 		// make sure virt deployments use shasums again after each test
 		ensureShasums()
+
+		// ensure that the state is fully restored after destructive tests
+		verifyOperatorWebhookCertificate()
 	})
 
 	It("[test_id:1746]should have created and available condition", func() {
-		kv := getCurrentKv()
+		kv := tests.GetCurrentKv(virtClient)
 
 		By("vyrifying that created and available condition is present")
 		waitForKv(kv)
@@ -919,34 +895,6 @@ spec:
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("there are still Virtual Machine Instances present"))
 			})
-		})
-
-		It("[test_id:3147]should be able to delete and re-create kubevirt install in a different namespace", func() {
-			allPodsAreReady(originalKv)
-			sanityCheckDeploymentsExist()
-
-			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
-
-			// this is just verifying some common known components do in fact get deleted.
-			By("Sanity Checking Deployments infrastructure is deleted")
-			sanityCheckDeploymentsDeleted()
-
-			By("Creating KubeVirt Object")
-			newKV := copyOriginalKv()
-			newKV.Name = "kubevirt-test-default-namespace"
-			newKV.Namespace = tests.NamespaceTestDefault
-
-			createKv(newKV)
-
-			By("Creating KubeVirt Object Created and Ready Condition")
-			waitForKv(newKV)
-
-			By("Verifying infrastructure is Ready")
-			allPodsAreReady(newKV)
-			// We're just verifying that a few common components that
-			// should always exist get re-deployed.
-			sanityCheckDeploymentsExistWithNS(newKV.Namespace)
 		})
 
 		It("[test_id:3148]should be able to create kubevirt install with custom image tag", func() {
@@ -1434,6 +1382,41 @@ spec:
 			Expect(monitoringLabel).To(Equal("true"))
 		})
 	})
+
+	It("should adopt previously unmanaged entities by updating its metadata", func() {
+		By("removing registration metadata")
+		patchData := []byte(fmt.Sprint(`[{ "op": "replace", "path": "/metadata/labels", "value": {} }]`))
+		_, err = virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Patch(components.VirtApiCertSecretName, types.JSONPatchType, patchData)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Patch("v1alpha3.subresources.kubevirt.io", types.JSONPatchType, patchData)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(components.VirtAPIValidatingWebhookName, types.JSONPatchType, patchData)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(components.VirtAPIMutatingWebhookName, types.JSONPatchType, patchData)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("checking that it gets added again")
+		Eventually(func() map[string]string {
+			secret, err := virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Get(components.VirtApiCertSecretName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return secret.Labels
+		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
+		Eventually(func() map[string]string {
+			apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get("v1alpha3.subresources.kubevirt.io", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return apiService.Labels
+		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
+		Eventually(func() map[string]string {
+			validatingWebhook, err := virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(components.VirtAPIValidatingWebhookName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return validatingWebhook.Labels
+		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
+		Eventually(func() map[string]string {
+			mutatingWebhook, err := virtClient.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(components.VirtAPIMutatingWebhookName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return mutatingWebhook.Labels
+		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
+	})
 })
 
 func patchCRD(orig *v1beta1.CustomResourceDefinition, modified *v1beta1.CustomResourceDefinition) []byte {
@@ -1446,5 +1429,24 @@ func patchCRD(orig *v1beta1.CustomResourceDefinition, modified *v1beta1.CustomRe
 	return patch
 }
 
-func recreateOperatorNamespace(virtClient kubecli.KubevirtClient) {
+// verifyOperatorWebhookCertificate can be used when inside tests doing reinstalls of kubevirt, to ensure that virt-operator already got the new certificate.
+// This is necessary, since it can take up to a minute to get the fresh certificates when secrets are updated.
+func verifyOperatorWebhookCertificate() {
+	caBundle, _ := tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
+	certPool := x509.NewCertPool()
+	certPool.AppendCertsFromPEM(caBundle)
+	// ensure that the state is fully restored before each test
+	Eventually(func() error {
+		currentCert, err := tests.GetCertsForPods(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-operator"), tests.KubeVirtInstallNamespace, "8444")
+		Expect(err).ToNot(HaveOccurred())
+		crt, err := x509.ParseCertificate(currentCert[0])
+		Expect(err).ToNot(HaveOccurred())
+		_, err = crt.Verify(x509.VerifyOptions{
+			Roots: certPool,
+		})
+		return err
+	}, 90*time.Second, 1*time.Second).Should(Not(HaveOccurred()), "bundle and certificate are still not in sync after 90 seconds")
+	// we got the first pod with the new certificate, now let's wait until every pod sees it
+	// this can take additional time since nodes are not synchronizing at the same moment
+	tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-operator"), tests.KubeVirtInstallNamespace, "8444")
 }

@@ -181,18 +181,6 @@ func newHandlerRole(namespace string) *rbacv1.Role {
 					"get", "list", "watch",
 				},
 			},
-			{
-				APIGroups: []string{
-					"",
-				},
-				Resources: []string{
-					"secrets",
-				},
-				Verbs: []string{
-					"create",
-					"get",
-				},
-			},
 		},
 	}
 }

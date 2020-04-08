@@ -18,11 +18,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/kubevirt/tests"
-
 	v12 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/tests"
 )
 
 type KubernetesReporter struct {
@@ -92,6 +91,8 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logPVs(virtCli)
 	r.logPods(virtCli)
 	r.logVMIs(virtCli)
+	r.logConfigMaps(virtCli)
+	r.logSecrets(virtCli)
 	r.logAuditLogs(virtCli, since)
 	r.logDMESG(virtCli, since)
 	r.logVMs(virtCli)
@@ -311,6 +312,52 @@ func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient) {
 	j, err := json.MarshalIndent(pods, "", "    ")
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to marshal pods")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) logConfigMaps(virtCli kubecli.KubevirtClient) {
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_configmaps.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		return
+	}
+	defer f.Close()
+
+	configmaps, err := virtCli.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch configmaps: %v\n", err)
+		return
+	}
+
+	j, err := json.MarshalIndent(configmaps, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal configmaps")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) logSecrets(virtCli kubecli.KubevirtClient) {
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_secrets.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		return
+	}
+	defer f.Close()
+
+	secrets, err := virtCli.CoreV1().Secrets(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch secrets: %v\n", err)
+		return
+	}
+
+	j, err := json.MarshalIndent(secrets, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal secrets")
 		return
 	}
 	fmt.Fprintln(f, string(j))

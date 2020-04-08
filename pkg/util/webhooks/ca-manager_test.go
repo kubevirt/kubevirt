@@ -1,6 +1,8 @@
 package webhooks
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -19,7 +21,7 @@ var _ = Describe("CaManager", func() {
 	var store cache.Store
 
 	BeforeEach(func() {
-		ca, err := triple.NewCA("first")
+		ca, err := triple.NewCA("first", time.Hour)
 		Expect(err).ToNot(HaveOccurred())
 		configMap = &v1.ConfigMap{
 			ObjectMeta: v12.ObjectMeta{
@@ -33,7 +35,7 @@ var _ = Describe("CaManager", func() {
 		}
 		store = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 		Expect(store.Add(configMap)).To(Succeed())
-		manager = NewClientCAManager(store)
+		manager = NewKubernetesClientCAManager(store)
 	})
 
 	It("should load an initial CA", func() {
@@ -43,7 +45,7 @@ var _ = Describe("CaManager", func() {
 	})
 
 	It("should detect updates on the informer and update the CA", func() {
-		newCA, err := triple.NewCA("new")
+		newCA, err := triple.NewCA("new", time.Hour)
 		Expect(err).ToNot(HaveOccurred())
 		configMap.Data[util.RequestHeaderClientCAFileKey] = string(cert.EncodeCertPEM(newCA.Cert))
 		configMap.ObjectMeta.ResourceVersion = "2"
@@ -60,7 +62,7 @@ var _ = Describe("CaManager", func() {
 		Expect(err).To(HaveOccurred())
 		By("repairing the CA")
 		configMap.ObjectMeta.ResourceVersion = "3"
-		newCA, err := triple.NewCA("new")
+		newCA, err := triple.NewCA("new", time.Hour)
 		Expect(err).ToNot(HaveOccurred())
 		configMap.Data[util.RequestHeaderClientCAFileKey] = string(cert.EncodeCertPEM(newCA.Cert))
 		cert, err := manager.GetCurrent()

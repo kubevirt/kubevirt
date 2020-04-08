@@ -30,6 +30,8 @@ import (
 func GetAllOperator(namespace string) []interface{} {
 	return []interface{}{
 		newOperatorServiceAccount(namespace),
+		newOperatorRole(namespace),
+		newOperatorRoleBinding(namespace),
 		NewOperatorClusterRole(),
 		newOperatorClusterRoleBinding(namespace),
 	}
@@ -69,6 +71,23 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
+			// Cluster-wide secret access is not needed anymore from kubevirt-0.28 on, but we need to keep it,
+			// so that rollbacks in case of update errors to older versions are still possible, where virt-api and
+			// virt-handler needed access to secrets.
+			// TODO: remove this at some point when we don't allow updaing from installs which are older than kubevirt-0.28
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"secrets",
+				},
+				Verbs: []string{
+					"create",
+					"get",
+					"update",
+				},
+			},
 			{
 				APIGroups: []string{
 					"kubevirt.io",
@@ -373,6 +392,84 @@ func newOperatorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding 
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
 				Name:      "kubevirt-operator",
+			},
+		},
+	}
+}
+
+func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "rbac.authorization.k8s.io/v1",
+			Kind:       "RoleBinding",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt-operator-rolebinding",
+			Namespace: namespace,
+			Labels: map[string]string{
+				virtv1.AppLabel: "",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     "kubevirt-operator",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Namespace: namespace,
+				Name:      "kubevirt-operator",
+			},
+		},
+	}
+}
+
+func newOperatorRole(namespace string) *rbacv1.Role {
+	return &rbacv1.Role{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "rbac.authorization.k8s.io/v1",
+			Kind:       "Role",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt-operator",
+			Namespace: namespace,
+			Labels: map[string]string{
+				virtv1.AppLabel: "",
+			},
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"secrets",
+				},
+				Verbs: []string{
+					"create",
+					"get",
+					"list",
+					"watch",
+					"patch",
+					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"configmaps",
+				},
+				Verbs: []string{
+					"create",
+					"get",
+					"list",
+					"watch",
+					"patch",
+					"delete",
+				},
 			},
 		},
 	}

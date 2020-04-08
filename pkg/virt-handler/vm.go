@@ -76,7 +76,8 @@ func NewController(
 	watchdogTimeoutSeconds int,
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
-	tlsConfig *tls.Config,
+	serverTLSConfig *tls.Config,
+	clientTLSConfig *tls.Config,
 	podIsolationDetector isolation.PodIsolationDetector,
 ) *VirtualMachineController {
 
@@ -95,7 +96,7 @@ func NewController(
 		gracefulShutdownInformer: gracefulShutdownInformer,
 		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
-		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir, tlsConfig),
+		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir, serverTLSConfig, clientTLSConfig),
 		podIsolationDetector:     podIsolationDetector,
 		containerDiskMounter:     &container_disk.Mounter{PodIsolationDetector: podIsolationDetector},
 		clusterConfig:            clusterConfig,
