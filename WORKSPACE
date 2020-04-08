@@ -159,24 +159,6 @@ http_file(
 )
 
 http_file(
-    name = "fedora30_image",
-    sha256 = "72b6ae7b4ed09a4dccd6e966e1b3ac69bd97da419de9760b410e837ba00b4e26",
-    urls = [
-        "https://download.fedoraproject.org/pub/fedora/linux/releases/30/Cloud/x86_64/images/Fedora-Cloud-Base-30-1.2.x86_64.qcow2",
-        "https://storage.googleapis.com/builddeps/72b6ae7b4ed09a4dccd6e966e1b3ac69bd97da419de9760b410e837ba00b4e26",
-    ],
-)
-
-http_file(
-    name = "fedora30_image_ppc64le",
-    sha256 = "53384d8f0e3f1b40215f0e36dc895f10b7651b0d68eb8a5659530cd2c3747555",
-    urls = [
-        "https://kojipkgs.fedoraproject.org/compose/cloud/Fedora-Cloud-30-20200115.0/compose/Cloud/ppc64le/images/Fedora-Cloud-Base-30-20200115.0.ppc64le.qcow2",
-        "https://storage.googleapis.com/builddeps/53384d8f0e3f1b40215f0e36dc895f10b7651b0d68eb8a5659530cd2c3747555",
-    ],
-)
-
-http_file(
     name = "virtio_win_image",
     sha256 = "7bf7f53e30c69a360f89abb3d2cc19cc978f533766b1b2270c2d8344edf9b3ef",
     urls = [

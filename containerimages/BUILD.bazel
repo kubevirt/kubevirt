@@ -42,16 +42,6 @@ container_image(
 )
 
 container_image(
-    name = "fedora30-cloud-container-disk-image",
-    directory = "/disk",
-    files = select({
-        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@fedora30_image_ppc64le//file"],
-        "//conditions:default": ["@fedora30_image//file"],
-    }),
-    visibility = ["//visibility:public"],
-)
-
-container_image(
     name = "virtio-container-disk-image",
     directory = "/disk",
     files = ["@virtio_win_image//file"],

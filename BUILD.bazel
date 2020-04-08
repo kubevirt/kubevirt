@@ -239,7 +239,6 @@ container_bundle(
         "$(container_prefix)/$(image_prefix)cirros-container-disk-demo:$(container_tag)": "//containerimages:cirros-container-disk-image",
         "$(container_prefix)/$(image_prefix)cirros-custom-container-disk-demo:$(container_tag)": "//containerimages:cirros-custom-container-disk-image",
         "$(container_prefix)/$(image_prefix)fedora-cloud-container-disk-demo:$(container_tag)": "//containerimages:fedora-cloud-container-disk-image",
-        "$(container_prefix)/$(image_prefix)fedora30-cloud-container-disk-demo:$(container_tag)": "//containerimages:fedora30-cloud-container-disk-image",
         "$(container_prefix)/$(image_prefix)virtio-container-disk:$(container_tag)": "//containerimages:virtio-container-disk-image",
         # testing images
         "$(container_prefix)/$(image_prefix)disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
