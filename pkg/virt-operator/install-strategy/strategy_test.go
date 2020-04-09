@@ -166,6 +166,10 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
+				//delete ManagedByLabel labels from original config map.
+				//dumpInstallStrategyToBytes function deletes it, and then
+				//original and converted configmaps are not the same
+				delete(original.Labels, v1.ManagedByLabel)
 				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
 			}
 		})

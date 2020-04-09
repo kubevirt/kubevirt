@@ -3,8 +3,6 @@ package nodelabeller
 import (
 	"encoding/xml"
 	"io/ioutil"
-
-	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -136,30 +134,6 @@ func getStructureFromXMLFile(path string, structure interface{}) error {
 	}
 	//unmarshal data into structure
 	err = xml.Unmarshal(rawFile, structure)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-//GetStructureFromYamlFile load data from yaml file and unmarshals them into given structure
-//Given structure has to be pointer
-func getStructureFromYamlFile(path string, structure interface{}) error {
-	rawFile, err := ioutil.ReadFile(path)
-	if err != nil {
-		return err
-	}
-
-	//unmarshal data into structure
-	err = yaml.Unmarshal(rawFile, structure)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func writeConfigFile(path, data string) error {
-	err := ioutil.WriteFile(path, []byte(data), 0777)
 	if err != nil {
 		return err
 	}

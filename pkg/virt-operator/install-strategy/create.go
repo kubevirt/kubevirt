@@ -676,6 +676,11 @@ func createOrUpdateConfigMaps(kv *v1.KubeVirt,
 	id := kv.Status.TargetDeploymentID
 
 	for _, cm := range targetStrategy.configMaps {
+
+		if cm.Name == components.KubeVirtCASecretName {
+			continue
+		}
+
 		var cachedCM *corev1.ConfigMap
 
 		cm := cm.DeepCopy()

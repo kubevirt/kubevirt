@@ -21,6 +21,7 @@ package nodelabeller
 import (
 	"strings"
 
+	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -60,14 +61,10 @@ func (n *NodeLabeller) loadConfig() (Config, error) {
 	}
 
 	if value, ok := cm.Data["cpu-plugin-configmap.yaml"]; ok {
-		err := writeConfigFile(configPath, value)
+		err := yaml.Unmarshal([]byte(value), &config)
 		if err != nil {
 			return config, err
 		}
-	}
-	err = getStructureFromYamlFile(configPath, &config)
-	if err != nil {
-		return Config{}, err
 	}
 
 	return config, nil

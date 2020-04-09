@@ -1,11 +1,11 @@
 package nodelabeller
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -28,7 +28,6 @@ var nodeLabellerVolumePath = "/var/lib/kubevirt-node-labeller"
 
 //NodeLabeller struct holds informations needed to run node-labeller
 type NodeLabeller struct {
-	lock              sync.Mutex
 	kvmController     *device_manager.DeviceController
 	configMapInformer cache.SharedIndexInformer
 	nodeInformer      cache.SharedIndexInformer
@@ -115,7 +114,6 @@ func (n *NodeLabeller) Execute() bool {
 }
 
 func (n *NodeLabeller) run() error {
-	defer n.lock.Unlock()
 	cpuFeatures := make(map[string]bool)
 	cpuModels := make([]string, 0)
 
@@ -133,16 +131,15 @@ func (n *NodeLabeller) run() error {
 		return err
 	}
 	var (
-		ok   bool
-		node *v1.Node
+		ok           bool
+		originalNode *v1.Node
 	)
-	if node, ok = nodeObj.(*v1.Node); !ok {
+	if originalNode, ok = nodeObj.(*v1.Node); !ok {
 		n.logger.Infof("node-labeller cannot convert node " + n.host)
 		return fmt.Errorf("Could not convert node " + n.host)
 	}
 
-	n.lock.Lock()
-	originalNode := node.DeepCopy()
+	node := originalNode.DeepCopy()
 
 	//prepare new labels
 	newLabels := n.prepareLabels(cpuModels, cpuFeatures)
@@ -151,20 +148,8 @@ func (n *NodeLabeller) run() error {
 	//add new labels
 	n.addNodeLabels(node, newLabels)
 	//patch node only if there is change in labels
-	if !reflect.DeepEqual(node.Labels, originalNode.Labels) {
-		patchTestLabels := fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": {%s}}`, convertMapToText(originalNode.Labels))
-		patchTestAnnotations := fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": {%s}}`, convertMapToText(originalNode.Annotations))
-		patchLabels := fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": {%s}}`, convertMapToText(node.Labels))
-		patchAnnotations := fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": {%s}}`, convertMapToText(node.Annotations))
-		data := []byte(fmt.Sprintf("[ %s, %s, %s, %s ]", patchTestLabels, patchLabels, patchTestAnnotations, patchAnnotations))
-		_, err = n.clientset.CoreV1().Nodes().Patch(node.Name, types.JSONPatchType, data)
-		if err != nil {
-			n.logger.Infof("error during node %s update. %s\n", node.Name, err)
-			return err
-		}
-	}
-
-	return nil
+	err = n.patchNode(originalNode, node)
+	return err
 }
 
 func convertMapToText(m map[string]string) string {
@@ -186,6 +171,42 @@ func convertMapToText(m map[string]string) string {
 		i++
 	}
 	return text
+}
+
+func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
+	originalLabelsBytes, err := json.Marshal(originalNode.Labels)
+	if err != nil {
+		return err
+	}
+
+	originalAnnotationsBytes, err := json.Marshal(originalNode.Annotations)
+	if err != nil {
+		return err
+	}
+
+	labelsBytes, err := json.Marshal(node.Labels)
+	if err != nil {
+		return err
+	}
+
+	annotationsBytes, err := json.Marshal(node.Annotations)
+	if err != nil {
+		return err
+	}
+
+	if !reflect.DeepEqual(node.Labels, originalNode.Labels) {
+		patchTestLabels := fmt.Sprintf(`{ "op": "test", "path": "/metadata/labels", "value": %s}`, string(originalLabelsBytes))
+		patchTestAnnotations := fmt.Sprintf(`{ "op": "test", "path": "/metadata/annotations", "value": %s}`, string(originalAnnotationsBytes))
+		patchLabels := fmt.Sprintf(`{ "op": "replace", "path": "/metadata/labels", "value": %s}`, string(labelsBytes))
+		patchAnnotations := fmt.Sprintf(`{ "op": "replace", "path": "/metadata/annotations", "value": %s}`, string(annotationsBytes))
+		data := []byte(fmt.Sprintf("[ %s, %s, %s, %s ]", patchTestLabels, patchLabels, patchTestAnnotations, patchAnnotations))
+		_, err = n.clientset.CoreV1().Nodes().Patch(node.Name, types.JSONPatchType, data)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // prepareLabels converts cpu models + features to map[string]string format

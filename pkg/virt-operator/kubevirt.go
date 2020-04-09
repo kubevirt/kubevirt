@@ -606,7 +606,7 @@ func (c *KubeVirtController) execute(key string) error {
 		return nil
 	}
 
-	logger.Info("Handling KubeVirt resource " + key)
+	logger.Info("Handling KubeVirt resource")
 
 	// only process the kubevirt deployment if all expectations are satisfied.
 	needsSync := c.kubeVirtExpectations.SatisfiedExpectations(key)
@@ -1119,6 +1119,7 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 
 		return nil
 	}
+
 	logger.Info("Processed deletion for this round")
 	return nil
 }

@@ -142,8 +142,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 	var resourceChanges map[string]map[string]int
 
-	resourceCount := 49
-	patchCount := 30
+	resourceCount := 50
+	patchCount := 31
 	updateCount := 20
 
 	deleteFromCache := true
@@ -275,9 +275,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.InstallStrategyConfigMap, installStrategyConfigMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		stores.InstallStrategyConfigMapCache = informers.InstallStrategyConfigMap.GetStore()
 
-		informers.ConfigMap, configMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
-		stores.ConfigMapCache = informers.ConfigMap.GetStore()
-
 		informers.InstallStrategyJob, installStrategyJobSource = testutils.NewFakeInformerFor(&batchv1.Job{})
 		stores.InstallStrategyJobCache = informers.InstallStrategyJob.GetStore()
 
@@ -308,6 +305,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		informers.Secrets, secretsSource = testutils.NewFakeInformerFor(&k8sv1.Secret{})
 		stores.SecretCache = informers.Secrets.GetStore()
+
 		informers.ConfigMap, configMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		stores.ConfigMapCache = informers.ConfigMap.GetStore()
 
@@ -478,12 +476,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	addConfigMap := func(c *k8sv1.ConfigMap) {
-		mockQueue.ExpectAdds(1)
-		configMapSource.Add(c)
-		mockQueue.Wait()
-	}
-
 	addInstallStrategyJob := func(job *batchv1.Job) {
 		mockQueue.ExpectAdds(1)
 		installStrategyJobSource.Add(job)
@@ -515,6 +507,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		} else {
 			configMapSource.Add(configMap)
 		}
+
 		mockQueue.Wait()
 	}
 
@@ -578,14 +571,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			injectMetadata(&obj.(*batchv1.Job).ObjectMeta, config)
 			addInstallStrategyJob(resource)
 		case *k8sv1.ConfigMap:
-			cm := obj.(*k8sv1.ConfigMap)
-			injectMetadata(&cm.ObjectMeta, config)
-
-			if strings.Contains(cm.Name, "kubevirt-cpu-plugin-configmap") {
-				addConfigMap(resource)
-			} else {
-				addInstallStrategyConfigMap(resource)
-			}
+			injectMetadata(&obj.(*k8sv1.ConfigMap).ObjectMeta, config)
+			addConfigMap(resource)
 		case *k8sv1.Pod:
 			injectMetadata(&obj.(*k8sv1.Pod).ObjectMeta, config)
 			addPod(resource)
@@ -865,8 +852,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 		controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
 		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
-		configMap := components.NewNodeLabellerConfigMap(NAMESPACE)
-		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler, configMap)
+		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 		all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespace(), config.GetMonitorServiceAccount())...)
 		all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetMonitorNamespace(), true))
@@ -1091,14 +1077,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	deleteConfigMap := func(key string) {
-		mockQueue.ExpectAdds(1)
-		if obj, exists, _ := informers.ConfigMap.GetStore().GetByKey(key); exists {
-			configMapSource.Delete(obj.(runtime.Object))
-		}
-		mockQueue.Wait()
-	}
-
 	deletePodDisruptionBudget := func(key string) {
 		mockQueue.ExpectAdds(1)
 		if obj, exists, _ := informers.PodDisruptionBudget.GetStore().GetByKey(key); exists {
@@ -1180,11 +1158,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		case "jobs":
 			deleteInstallStrategyJob(key)
 		case "configmaps":
-			if strings.Contains(key, "kubevirt-cpu-plugin-configmap") {
-				deleteConfigMap(key)
-			} else {
-				deleteInstallStrategyConfigMap(key)
-			}
+			deleteConfigMap(key)
 		case "poddisruptionbudgets":
 			deletePodDisruptionBudget(key)
 		case "secrets":
@@ -1341,7 +1315,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("patch", "services", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "daemonsets", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "deployments", genericPatchFunc)
-		kubeClient.Fake.PrependReactor("patch", "configmaps", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", genericPatchFunc)
 		secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericUpdateFunc)
 		promClient.Fake.PrependReactor("patch", "servicemonitors", genericPatchFunc)
@@ -1379,7 +1352,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "validatingwebhookconfigurations", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "mutatingwebhookconfigurations", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "secrets", genericCreateFunc)
-		kubeClient.Fake.PrependReactor("create", "configmaps", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", genericCreateFunc)
 		secClient.Fake.PrependReactor("create", "securitycontextconstraints", genericCreateFunc)
 		promClient.Fake.PrependReactor("create", "servicemonitors", genericCreateFunc)
@@ -1898,7 +1870,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.SCCCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ServiceMonitorCache.List())).To(Equal(1))
 			Expect(len(controller.stores.PrometheusRuleCache.List())).To(Equal(1))
-			Expect(len(controller.stores.ConfigMapCache.List())).To(Equal(1))
+			Expect(len(controller.stores.ConfigMapCache.List())).To(Equal(2))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
 

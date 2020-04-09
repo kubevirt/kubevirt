@@ -211,6 +211,7 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	for _, entry := range strategy.configMaps {
+		fmt.Printf("%#v\n", entry)
 		marshalutil.MarshallObject(entry, writer)
 	}
 	writer.Flush()
@@ -291,7 +292,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.deployments = append(strategy.deployments, controller)
 
 	nodeLabellerConfigMap := components.NewNodeLabellerConfigMap(config.GetNamespace())
-	strategy.configMaps = append(strategy.configMaps, nodeLabellerConfigMap)
+	strategy.configMaps = append(strategy.configMaps, nodeLabellerConfigMap, components.NewKubeVirtCAConfigMap(operatorNamespace))
 
 	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 	if err != nil {
@@ -320,7 +321,6 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.apiServices = components.NewVirtAPIAPIServices(config.GetNamespace())
 	strategy.certificateSecrets = components.NewCertSecrets(config.GetNamespace(), operatorNamespace)
 	strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewCACertSecret(operatorNamespace))
-	strategy.configMaps = append(strategy.configMaps, components.NewKubeVirtCAConfigMap(operatorNamespace))
 
 	return strategy, nil
 }
