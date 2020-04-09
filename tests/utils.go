@@ -260,6 +260,7 @@ const (
 	osAuditLogPath  = "/var/lib/origin/audit-ocp.log"
 	swaggerPath     = "api/openapi-spec/swagger.json"
 	artifactsEnv    = "ARTIFACTS"
+	tmpPath         = "/tmp/kubevirt.io/tests"
 )
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
@@ -4606,4 +4607,8 @@ func ClearKubeVirtConfigMap(key string) error {
 	}
 
 	return err
+}
+
+func RandTmpDir() string {
+	return tmpPath + "/" + rand.String(10)
 }

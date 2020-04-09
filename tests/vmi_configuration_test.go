@@ -1642,7 +1642,7 @@ var _ = Describe("Configurations", func() {
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
 			tests.AddPVCDisk(vmi, "block-pvc", "virtio", tests.BlockDiskForTest)
-			tests.AddHostDisk(vmi, "/run/kubevirt-private/vm-disks/test-disk.img", v1.HostDiskExistsOrCreate, "hostdisk")
+			tests.AddHostDisk(vmi, tests.RandTmpDir()+"/test-disk.img", v1.HostDiskExistsOrCreate, "hostdisk")
 			tests.RunVMIAndExpectLaunch(vmi, 60)
 
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
