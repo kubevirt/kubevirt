@@ -19,7 +19,9 @@
 package nodelabeller
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
+
+	v1 "k8s.io/api/core/v1"
 )
 
 //Config holds data about obsolete cpus and minimal baseline cpus
@@ -33,9 +35,28 @@ var configPath = "/var/lib/kubevirt-node-labeller/cpu-plugin-configmap.yaml"
 //LoadConfig loads config yaml file with obsolete cpus and minimal baseline cpus
 func (n *NodeLabeller) loadConfig() (Config, error) {
 	config := Config{}
-	cm, err := n.clientset.CoreV1().ConfigMaps(n.namespace).Get("kubevirt-cpu-plugin-configmap", metav1.GetOptions{})
-	if err != nil {
+
+	labellerCMKey := ""
+	for _, key := range n.configMapInformer.GetStore().ListKeys() {
+		if strings.Contains(key, "kubevirt-cpu-plugin-configmap") {
+			labellerCMKey = key
+		}
+	}
+
+	if labellerCMKey == "" {
+		return config, nil
+	}
+
+	cmObj, exists, err := n.configMapInformer.GetStore().GetByKey(labellerCMKey)
+	if !exists || err != nil {
 		return config, err
+	}
+	var (
+		cm *v1.ConfigMap
+		ok bool
+	)
+	if cm, ok = cmObj.(*v1.ConfigMap); !ok {
+		return config, nil
 	}
 
 	if value, ok := cm.Data["cpu-plugin-configmap.yaml"]; ok {

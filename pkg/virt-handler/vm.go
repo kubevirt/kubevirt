@@ -85,6 +85,7 @@ func NewController(
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
 	nLConfigMapInformer cache.SharedIndexInformer,
+	nodeInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	gracefulShutdownInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
@@ -147,7 +148,7 @@ func NewController(
 	c.domainNotifyPipes = make(map[string]string)
 
 	c.kvmController = device_manager.NewDeviceController(c.host, maxDevices)
-	c.nodeLabeller = nodelabeller.NewNodeLabeller(c.kvmController, nLConfigMapInformer, c.clientset, host, namespace)
+	c.nodeLabeller = nodelabeller.NewNodeLabeller(c.kvmController, nodeInformer, nLConfigMapInformer, c.clientset, host, namespace)
 
 	return c
 }

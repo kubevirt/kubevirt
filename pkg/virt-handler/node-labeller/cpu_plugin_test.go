@@ -27,9 +27,9 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("Node-labeller config", func() {
@@ -49,14 +49,17 @@ var _ = Describe("Node-labeller config", func() {
 				Name:      "kubevirt-cpu-plugin-configmap",
 				Namespace: k8sv1.NamespaceDefault,
 			},
+			Data: map[string]string{"cpu-plugin-configmap.yaml": cpuConfig},
 		}
-		cm.Data = map[string]string{"cpu-plugin-configmap.yaml": cpuConfig}
-		fakeClient := fake.NewSimpleClientset(cm).CoreV1()
-		virtClient.EXPECT().CoreV1().Return(fakeClient).AnyTimes()
+
+		cmInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+
 		nlController = &NodeLabeller{
-			namespace: k8sv1.NamespaceDefault,
-			clientset: virtClient,
+			namespace:         k8sv1.NamespaceDefault,
+			clientset:         virtClient,
+			configMapInformer: cmInformer,
 		}
+		nlController.configMapInformer.GetStore().Add(cm)
 		os.Mkdir("/tmp/cpu_map", 0777)
 	})
 

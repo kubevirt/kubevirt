@@ -5,8 +5,6 @@ import (
 	"io/ioutil"
 
 	yaml "gopkg.in/yaml.v2"
-
-	"kubevirt.io/client-go/log"
 )
 
 const (
@@ -19,7 +17,6 @@ var domCapabilitiesFilePath = nodeLabellerVolumePath + "/virsh_domcapabilities.x
 // Output of this function is slice of usable cpu models and features.
 // Only models with tag usable yes will be used.
 func (n *NodeLabeller) getCPUInfo() ([]string, map[string]bool, error) {
-	logger := log.DefaultLogger()
 	hostDomCapabilities := HostDomCapabilities{}
 	err := getStructureFromXMLFile(domCapabilitiesFilePath, &hostDomCapabilities)
 	if err != nil {
@@ -29,7 +26,7 @@ func (n *NodeLabeller) getCPUInfo() ([]string, map[string]bool, error) {
 
 	c, err = n.loadConfig()
 	if err != nil {
-		logger.Infof("labeller config map not loaded: " + err.Error())
+		n.logger.Infof("labeller config map not loaded: " + err.Error())
 	}
 
 	obsoleteCPUsx86 := c.getObsoleteCPUMap()

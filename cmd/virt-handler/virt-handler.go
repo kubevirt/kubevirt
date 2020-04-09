@@ -187,6 +187,12 @@ func (app *virtHandlerApp) Run() {
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 	)
 
+	nodeSharedInformer := cache.NewSharedIndexInformer(
+		cache.NewListWatchFromClient(app.virtCli.CoreV1().RESTClient(), "nodes", k8sv1.NamespaceAll, fields.OneTermEqualSelector("metadata.name", app.HostOverride)),
+		&k8sv1.Node{},
+		(24 * time.Hour),
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+	)
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmSourceSharedInformer.GetStore())
 	if err != nil {
@@ -257,6 +263,7 @@ func (app *virtHandlerApp) Run() {
 		vmSourceSharedInformer,
 		vmTargetSharedInformer,
 		nodeLabellerConfigMapSharedInformer,
+		nodeSharedInformer,
 		domainSharedInformer,
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),

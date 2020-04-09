@@ -79,6 +79,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var configMapInformer cache.SharedIndexInformer
 	var domainSource *framework.FakeControllerSource
 	var domainInformer cache.SharedIndexInformer
+	var nodeInformer cache.SharedIndexInformer
 	var gracefulShutdownInformer cache.SharedIndexInformer
 	var mockQueue *testutils.MockWorkQueue
 	var mockWatchdog *MockWatchdog
@@ -150,6 +151,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiSourceInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		vmiTargetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		nodeInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Node{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
 		gracefulShutdownInformer, _ = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
@@ -181,6 +183,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiSourceInformer,
 			vmiTargetInformer,
 			configMapInformer,
+			nodeInformer,
 			domainInformer,
 			gracefulShutdownInformer,
 			1,

@@ -414,6 +414,8 @@ rules:
   - nodes
   verbs:
   - patch
+  - list
+  - watch
   - get
 - apiGroups:
   - ""
