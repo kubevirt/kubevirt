@@ -157,6 +157,14 @@ func SetDriverCacheMode(disk *Disk) error {
 		if !supportDirectIO {
 			log.Log.Infof("%s file system does not support direct I/O", path)
 		}
+		// when the disk is backed-up by another file, we need to also check if that
+		// file sits on a file system that supports direct I/O
+		if backingFile := disk.BackingStore; backingFile != nil {
+			backingFilePath := backingFile.Source.File
+			backFileDirectIOSupport := checkDirectIOFlag(backingFilePath)
+			log.Log.Infof("%s backing file system does not support direct I/O", backingFilePath)
+			supportDirectIO = supportDirectIO && backFileDirectIOSupport
+		}
 	}
 
 	// if user set a cache mode = 'none' and fs does not support direct I/O then return an error
