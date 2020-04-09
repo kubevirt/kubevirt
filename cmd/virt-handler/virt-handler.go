@@ -279,13 +279,6 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	// Make sure the tun module is loaded on the node
-	// Just opening and closing /dev/net/tun triggers a modprobe on the host if necessary
-	devnettun, err := os.Open("/dev/net/tun")
-	if err == nil {
-		devnettun.Close()
-	}
-
 	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiInformer.HasSynced, factory.CRD().HasSynced)
 
 	go vmController.Run(10, stop)

@@ -59,9 +59,10 @@ type GenericDevicePlugin struct {
 	deviceName string
 	done       chan struct{}
 	deviceRoot string
+	preOpen    bool
 }
 
-func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int) *GenericDevicePlugin {
+func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int, preOpen bool) *GenericDevicePlugin {
 	serverSock := SocketPath(deviceName)
 	dpi := &GenericDevicePlugin{
 		counter:    0,
@@ -71,6 +72,7 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 		deviceName: deviceName,
 		devicePath: devicePath,
 		deviceRoot: util.HostRootMount,
+		preOpen:    preOpen,
 	}
 	for i := 0; i < maxDevices; i++ {
 		dpi.addNewGenericDevice()
@@ -123,6 +125,16 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (err error) {
 	err = dpi.cleanup()
 	if err != nil {
 		return err
+	}
+
+	// The kernel module(s) for some devices, like tun and vhost-net, auto-load when needed.
+	// That need is identified by the first access to their main device node.
+	// Opening and closing the device nodes here will trigger any necessary modprobe.
+	if dpi.preOpen {
+		devnode, err := os.Open(dpi.devicePath)
+		if err == nil {
+			devnode.Close()
+		}
 	}
 
 	sock, err := net.Listen("unix", dpi.socketPath)
