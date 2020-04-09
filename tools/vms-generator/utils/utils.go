@@ -129,6 +129,12 @@ func getBaseVMI(name string) *v1.VirtualMachineInstance {
 	}
 }
 
+func initFedoraWithDisk(spec *v1.VirtualMachineInstanceSpec, containerDisk string) *v1.VirtualMachineInstanceSpec {
+	addContainerDisk(spec, containerDisk, busVirtio)
+	addRNG(spec)
+	return spec
+}
+
 func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
 	addContainerDisk(spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
@@ -624,10 +630,15 @@ func GetVMCirros() *v1.VirtualMachine {
 	return vm
 }
 
-func GetTemplateFedora() *Template {
+func GetTemplateFedoraWithContainerDisk(containerDisk string) *Template {
+	vm := getFedoraVMWithoutDisk()
+	initFedoraWithDisk(&vm.Spec.Template.Spec, containerDisk)
+	return createFedoraTemplateFromVM(vm)
+}
+
+func getFedoraVMWithoutDisk() *v1.VirtualMachine {
 	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "fedora27"})
 	spec := &vm.Spec.Template.Spec
-	initFedora(spec)
 	addNoCloudDiskWitUserData(spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
 	setDefaultNetworkAndInterface(spec, v1.InterfaceBindingMethod{
@@ -639,6 +650,10 @@ func GetTemplateFedora() *Template {
 
 	enableNetworkInterfaceMultiqueue(spec, enableNetworkInterfaceMultiqueueForTemplate)
 
+	return vm
+}
+
+func createFedoraTemplateFromVM(vm *v1.VirtualMachine) *Template {
 	template := getBaseTemplate(vm, "4096Mi", "4")
 	template.ObjectMeta = metav1.ObjectMeta{
 		Name: VmTemplateFedora,
@@ -653,6 +668,12 @@ func GetTemplateFedora() *Template {
 		},
 	}
 	return template
+}
+
+func GetTemplateFedora() *Template {
+	vm := getFedoraVMWithoutDisk()
+	initFedora(&vm.Spec.Template.Spec)
+	return createFedoraTemplateFromVM(vm)
 }
 
 func GetTemplateRHEL7() *Template {
