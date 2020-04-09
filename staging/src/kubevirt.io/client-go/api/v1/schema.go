@@ -1065,7 +1065,6 @@ type Network struct {
 type NetworkSource struct {
 	Pod    *PodNetwork    `json:"pod,omitempty"`
 	Multus *MultusNetwork `json:"multus,omitempty"`
-	Genie  *GenieNetwork  `json:"genie,omitempty"`
 }
 
 // Represents the stock pod network interface.
@@ -1081,14 +1080,6 @@ type PodNetwork struct {
 // ---
 // +k8s:openapi-gen=true
 type Rng struct {
-}
-
-// Represents the genie cni network.
-// ---
-// +k8s:openapi-gen=true
-type GenieNetwork struct {
-	// References the CNI plugin name.
-	NetworkName string `json:"networkName"`
 }
 
 // Represents the multus cni network.

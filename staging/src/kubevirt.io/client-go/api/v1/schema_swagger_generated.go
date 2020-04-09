@@ -524,13 +524,6 @@ func (Rng) SwaggerDoc() map[string]string {
 	}
 }
 
-func (GenieNetwork) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":            "Represents the genie cni network.",
-		"networkName": "References the CNI plugin name.",
-	}
-}
-
 func (MultusNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "Represents the multus cni network.",

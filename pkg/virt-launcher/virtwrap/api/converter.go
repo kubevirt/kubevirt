@@ -1120,10 +1120,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			}
 			numberOfSources++
 		}
-		if network.Genie != nil {
-			cniNetworks[network.Name] = len(cniNetworks)
-			numberOfSources++
-		}
 		if numberOfSources == 0 {
 			return fmt.Errorf("fail network %s must have a network type", network.Name)
 		} else if numberOfSources > 1 {
@@ -1214,8 +1210,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 						} else {
 							prefix = "net"
 						}
-					} else if net.Genie != nil {
-						prefix = "eth"
 					}
 					domainIface.Source = InterfaceSource{
 						Bridge: fmt.Sprintf("k6t-%s%d", prefix, value),

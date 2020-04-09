@@ -58,7 +58,6 @@ const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 const debugLogs = "debugLogs"
 
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
-const GenieNetworksAnnotation = "cni"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
@@ -1211,7 +1210,6 @@ func getIfaceByName(vmi *v1.VirtualMachineInstance, name string) *v1.Interface {
 }
 
 func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[string]string, err error) {
-	ifaceList := make([]string, 0)
 	ifaceListMap := make([]map[string]string, 0)
 	cniAnnotations = make(map[string]string, 0)
 
@@ -1239,9 +1237,6 @@ func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[strin
 			}
 			next_idx = next_idx + 1
 			ifaceListMap = append(ifaceListMap, ifaceMap)
-		} else if network.Genie != nil {
-			// We have to handle Genie separately because it doesn't support JSON format.
-			ifaceList = append(ifaceList, network.Genie.NetworkName)
 		}
 	}
 	if len(ifaceListMap) > 0 {
@@ -1250,8 +1245,6 @@ func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[strin
 			return map[string]string{}, fmt.Errorf("Failed to create JSON list from CNI interface map %s", ifaceListMap)
 		}
 		cniAnnotations[MultusNetworksAnnotation] = fmt.Sprintf("%s", ifaceJsonString)
-	} else if len(ifaceList) > 0 {
-		cniAnnotations[GenieNetworksAnnotation] = strings.Join(ifaceList, ",")
 	}
 	return
 }
