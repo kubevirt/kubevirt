@@ -25,8 +25,6 @@ UPLOADSERVER_IMAGE="${UPLOADSERVER_IMAGE:-cdi-uploadserver}"
 NETWORK_ADDONS_MULTUS_IMAGE="${NETWORK_ADDONS_MULTUS_IMAGE:-}"
 NETWORK_ADDONS_LINUX_BRIDGE_CNI_IMAGE="${NETWORK_ADDONS_LINUX_BRIDGE_CNI_IMAGE:-}"
 NETWORK_ADDONS_LINUX_BRIDGE_MARKER_IMAGE="${NETWORK_ADDONS_LINUX_BRIDGE_MARKER_IMAGE:-}"
-NETWORK_ADDONS_SRIOV_DP_IMAGE="${NETWORK_ADDONS_SRIOV_DP_IMAGE:-}"
-NETWORK_ADDONS_SRIOV_CNI_IMAGE="${NETWORK_ADDONS_SRIOV_CNI_IMAGE:-}"
 NETWORK_ADDONS_KUBEMACPOOL_IMAGE="${NETWORK_ADDONS_KUBEMACPOOL_IMAGE:-}"
 NETWORK_ADDONS_NMSTATE_HANDLER_IMAGE="${NETWORK_ADDONS_NMSTATE_HANDLER_IMAGE:-}"
 NETWORK_ADDONS_OVS_CNI_PLUGIN_IMAGE="${NETWORK_ADDONS_OVS_CNI_PLUGIN_IMAGE:-}"
@@ -67,12 +65,6 @@ function network_addons_sed {
     if [ -n "${NETWORK_ADDONS_LINUX_BRIDGE_MARKER_IMAGE}" ]; then
         sed -i "s|value: .*bridge-marker.*|value: ${NETWORK_ADDONS_LINUX_BRIDGE_MARKER_IMAGE}|g" ${TEMP_DIR}/operator.yaml
     fi
-    if [ -n "${NETWORK_ADDONS_SRIOV_DP_IMAGE}" ]; then
-        sed -i "s|value: .*sriov-device-plugin.*|value: ${NETWORK_ADDONS_SRIOV_DP_IMAGE}|g" ${TEMP_DIR}/operator.yaml
-    fi
-    if [ -n "${NETWORK_ADDONS_SRIOV_CNI_IMAGE}" ]; then
-        sed -i "s|value: .*sriov-cni.*|value: ${NETWORK_ADDONS_SRIOV_CNI_IMAGE}|g" ${TEMP_DIR}/operator.yaml
-    fi
     if [ -n "${NETWORK_ADDONS_KUBEMACPOOL_IMAGE}" ]; then
         sed -i "s|value: .*mac-controller.*|value: ${NETWORK_ADDONS_KUBEMACPOOL_IMAGE}|g" ${TEMP_DIR}/operator.yaml
     fi
@@ -85,8 +77,6 @@ function network_addons_sed {
     if [ -n "${NETWORK_ADDONS_OVS_CNI_MARKER_IMAGE}" ]; then
         sed -i "s|value: .*ovs-cni-marker.*|value: ${NETWORK_ADDONS_OVS_CNI_MARKER_IMAGE}|g" ${TEMP_DIR}/operator.yaml
     fi
-
-    sed -i "s|value: sriov$|value: ${NETWORK_ADDONS_SRIOV_NETWORK_TYPE}|g" ${TEMP_DIR}/operator.yaml
 }
 
 function ssp_sed {
