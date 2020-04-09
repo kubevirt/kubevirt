@@ -929,6 +929,9 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	if domainExists && vmiExists && vmi.IsFinal() {
 		log.Log.Object(vmi).V(3).Info("Removing domain and ephemeral data for finalized vmi.")
 		shouldDelete = true
+	} else if !domainExists && vmiExists && vmi.IsFinal() {
+		log.Log.Object(vmi).V(3).Info("Cleaning up local data for finalized vmi.")
+		shouldCleanUp = true
 	}
 
 	// Determine if an active (or about to be active) VirtualMachineInstance should be updated.
