@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.1.0
-    createdAt: "2020-04-01 10:30:42"
+    createdAt: "2020-04-09 11:13:33"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -1346,19 +1346,19 @@ spec:
                 - name: LINUX_BRIDGE_MARKER_IMAGE
                   value: quay.io/kubevirt/bridge-marker:0.2.0
                 - name: NMSTATE_HANDLER_IMAGE
-                  value: quay.io/nmstate/kubernetes-nmstate-handler:v0.15.3
+                  value: quay.io/nmstate/kubernetes-nmstate-handler:v0.15.5
                 - name: OVS_CNI_IMAGE
                   value: quay.io/kubevirt/ovs-cni-plugin:v0.10.0
                 - name: OVS_MARKER_IMAGE
                   value: quay.io/kubevirt/ovs-cni-marker:v0.10.0
                 - name: KUBEMACPOOL_IMAGE
-                  value: quay.io/kubevirt/kubemacpool:v0.8.2
+                  value: quay.io/kubevirt/kubemacpool:v0.8.3
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/cluster-network-addons-operator:0.27.2
+                  value: quay.io/kubevirt/cluster-network-addons-operator:0.27.7
                 - name: OPERATOR_NAME
                   value: cluster-network-addons-operator
                 - name: OPERATOR_VERSION
-                  value: 0.27.2
+                  value: 0.27.7
                 - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -1372,7 +1372,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: WATCH_NAMESPACE
-                image: quay.io/kubevirt/cluster-network-addons-operator:0.27.2
+                image: quay.io/kubevirt/cluster-network-addons-operator:0.27.7
                 imagePullPolicy: IfNotPresent
                 name: cluster-network-addons-operator
                 resources: {}
