@@ -78,6 +78,7 @@ type LauncherClient interface {
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error
 	CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error
+	SetVirtualMachineGuestTime(vmi *v1.VirtualMachineInstance) error
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
 	GetDomainStats() (*stats.DomainStats, bool, error)
@@ -303,6 +304,10 @@ func (c *VirtLauncherClient) CancelVirtualMachineMigration(vmi *v1.VirtualMachin
 func (c *VirtLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error {
 	return c.genericSendVMICmd("SyncMigrationTarget", c.v1client.SyncMigrationTarget, vmi, &cmdv1.VirtualMachineOptions{})
 
+}
+
+func (c *VirtLauncherClient) SetVirtualMachineGuestTime(vmi *v1.VirtualMachineInstance) error {
+	return c.genericSendVMICmd("SetVirtualMachineGuestTime", c.v1client.SetVirtualMachineGuestTime, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
 func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {

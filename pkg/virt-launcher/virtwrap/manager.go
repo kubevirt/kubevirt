@@ -26,6 +26,7 @@ package virtwrap
 */
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -72,6 +73,11 @@ const LibvirtLocalConnectionPort = 22222
 const gpuEnvPrefix = "GPU_PASSTHROUGH_DEVICES"
 const vgpuEnvPrefix = "VGPU_PASSTHROUGH_DEVICES"
 
+type contextStore struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+}
+
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
 	PauseVMI(*v1.VirtualMachineInstance) error
@@ -87,6 +93,7 @@ type DomainManager interface {
 	GetGuestInfo() (v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() ([]v1.VirtualMachineInstanceGuestOSUser, error)
 	GetFilesystems() ([]v1.VirtualMachineInstanceFileSystem, error)
+	SetGuestTime(*v1.VirtualMachineInstance) error
 }
 
 type LibvirtDomainManager struct {
@@ -94,6 +101,8 @@ type LibvirtDomainManager struct {
 
 	// Anytime a get and a set is done on the domain, this lock must be held.
 	domainModifyLock sync.Mutex
+	// mutex to control access to the guest time context
+	setGuestTimeLock sync.Mutex
 
 	virtShareDir           string
 	notifier               *eventsclient.Notifier
@@ -101,6 +110,7 @@ type LibvirtDomainManager struct {
 	paused                 pausedVMIs
 	agentData              *agentpoller.AsyncAgentStore
 	cloudInitDataStore     *cloudinit.CloudInitData
+	setGuestTimeContextPtr *contextStore
 }
 
 type migrationDisks struct {
@@ -464,6 +474,89 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 		}
 		log.Log.Object(vmi).Infof("Live migration succeeded.")
 	}(l, vmi)
+}
+
+func (l *LibvirtDomainManager) SetGuestTime(vmi *v1.VirtualMachineInstance) error {
+	// Try to set VM time to the current value.  This is typically useful
+	// when clock wasn't running on the VM for some time (e.g. during
+	// suspension or migration), especially if the time delay exceeds NTP
+	// tolerance.
+	// It is not guaranteed that the time is actually set (it depends on guest
+	// environment, especially QEMU agent presence) or that the set time is
+	// very precise (NTP in the guest should take care of it if needed).
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to sync guest time")
+		return err
+	}
+	// try setting the guest time. Fail early if agent is not configured.
+	l.setGuestTime(vmi, dom)
+	return nil
+}
+
+func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
+	l.setGuestTimeLock.Lock()
+	defer l.setGuestTimeLock.Unlock()
+
+	// cancel the already running setGuestTime go-routine if such exist
+	if l.setGuestTimeContextPtr != nil {
+		l.setGuestTimeContextPtr.cancel()
+	}
+	// create a new context and store it
+	ctx, cancel := context.WithCancel(context.Background())
+	l.setGuestTimeContextPtr = &contextStore{ctx: ctx, cancel: cancel}
+	return ctx
+}
+
+func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) {
+	// get new context
+	ctx := l.getGuestTimeContext()
+
+	go func(ctx context.Context, vmi *v1.VirtualMachineInstance, dom cli.VirDomain) {
+		timeout := time.After(60 * time.Second)
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-timeout:
+				log.Log.Object(vmi).Error("failed to sync guest time")
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				currTime := time.Now()
+				secs := currTime.Unix()
+				nsecs := uint(currTime.Nanosecond())
+				err := dom.SetTime(secs, nsecs, libvirt.DOMAIN_TIME_SYNC)
+				if err != nil {
+					libvirtError, ok := err.(libvirt.Error)
+					if !ok {
+						log.Log.Object(vmi).Reason(err).Warning("failed to sync guest time")
+						return
+					}
+
+					switch libvirtError.Code {
+					case libvirt.ERR_AGENT_UNRESPONSIVE:
+						log.Log.Object(vmi).Reason(err).Warning("failed to set time: QEMU agent unresponsive")
+					case libvirt.ERR_OPERATION_UNSUPPORTED:
+						// no need to retry as this opertaion is not supported
+						log.Log.Object(vmi).Reason(err).Warning("failed to set time: not supported")
+						return
+					case libvirt.ERR_ARGUMENT_UNSUPPORTED:
+						// no need to retry as the agent is not configured
+						log.Log.Object(vmi).Reason(err).Warning("failed to set time: agent not configured")
+						return
+					default:
+						log.Log.Object(vmi).Reason(err).Warning("failed to sync guest time")
+					}
+				} else {
+					return
+				}
+			}
+		}
+	}(ctx, vmi, dom)
 }
 
 func getVMIEphemeralDisksTotalSize() *resource.Quantity {
@@ -1271,6 +1364,9 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 		}
 		logger.Infof("Signaled unpause for %s", vmi.GetObjectMeta().GetName())
 		l.paused.remove(vmi.UID)
+		// Try to set guest time after this commands execution.
+		// This operation is not disruptive.
+		l.setGuestTime(vmi, dom)
 
 	} else {
 		logger.Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())

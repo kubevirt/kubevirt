@@ -443,7 +443,6 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		}
 
 		targetNodeDetectedDomain, timeLeft := d.hasTargetDetectedDomain(vmi)
-
 		// If we can't detect where the migration went to, then we have no
 		// way of transfering ownership. The only option here is to move the
 		// vmi to failed.  The cluster vmi controller will then tear down the
@@ -524,7 +523,6 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			vmi.Status.MigrationMethod = v1.LiveMigration
 		}
 	}
-
 	// Update the condition when GA is connected
 	channelConnected := false
 	if domain != nil {
@@ -794,41 +792,43 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 			return err
 		}
 
-		if domainExists && vmi.Status.MigrationState != nil {
+		// Handle post migration
+		if domainExists && vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.TargetNodeDomainDetected {
 			// record that we've see the domain populated on the target's node
 			log.Log.Object(vmi).Info("The target node received the migrated domain")
 			vmiCopy.Status.MigrationState.TargetNodeDomainDetected = true
+			d.setVMIGuestTime(vmi)
 		}
+		if !isMigrating(vmi) {
 
-		destSrcPortsMap := d.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
-		if len(destSrcPortsMap) == 0 {
-			msg := "target migration listener is not up for this vmi"
-			log.Log.Object(vmi).Error(msg)
-			return fmt.Errorf(msg)
-		}
-
-		hostAddress := ""
-
-		// advertise the listener address to the source node
-		if vmi.Status.MigrationState != nil {
-			hostAddress = vmi.Status.MigrationState.TargetNodeAddress
-		}
-		if hostAddress != d.ipAddress {
-			portsList := make([]int, 0, len(destSrcPortsMap))
-
-			for value, _ := range destSrcPortsMap {
-				portsList = append(portsList, value)
+			destSrcPortsMap := d.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
+			if len(destSrcPortsMap) == 0 {
+				msg := "target migration listener is not up for this vmi"
+				log.Log.Object(vmi).Error(msg)
+				return fmt.Errorf(msg)
 			}
-			portsStrList := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(portsList)), ","), "[]")
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s, on ports: %s", d.ipAddress, portsStrList))
-			vmiCopy.Status.MigrationState.TargetNodeAddress = d.ipAddress
-			vmiCopy.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
+
+			hostAddress := ""
+
+			// advertise the listener address to the source node
+			if vmi.Status.MigrationState != nil {
+				hostAddress = vmi.Status.MigrationState.TargetNodeAddress
+			}
+			if hostAddress != d.ipAddress {
+				portsList := make([]int, 0, len(destSrcPortsMap))
+
+				for value, _ := range destSrcPortsMap {
+					portsList = append(portsList, value)
+				}
+				portsStrList := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(portsList)), ","), "[]")
+				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s, on ports: %s", d.ipAddress, portsStrList))
+				vmiCopy.Status.MigrationState.TargetNodeAddress = d.ipAddress
+				vmiCopy.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
+			}
 		}
 
 		// update the VMI if necessary
 		if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
-			vmiCopy.Status.MigrationState.TargetNodeAddress = d.ipAddress
-			vmiCopy.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
 			_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmiCopy)
 			if err != nil {
 				return err
@@ -1735,6 +1735,20 @@ func (d *VirtualMachineController) updateNodeCpuManagerLabel(cpuManagerPath stri
 	}
 	log.DefaultLogger().V(4).Infof("Node has CPU Manager running")
 
+}
+
+func (d *VirtualMachineController) setVMIGuestTime(vmi *v1.VirtualMachineInstance) error {
+	// update the vmi guest with the current time
+	client, err := d.getVerifiedLauncherClient(vmi)
+	if err != nil {
+		return err
+	}
+	err = client.SetVirtualMachineGuestTime(vmi)
+	if err != nil {
+		log.Log.Reason(err).Error("failed to set vmi guest time to the current")
+		return err
+	}
+	return nil
 }
 
 func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {

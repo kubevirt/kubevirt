@@ -44,6 +44,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
@@ -518,6 +519,67 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
+		})
+		Context("with setting guest time", func() {
+			It("should set an updated time after a migration", func() {
+				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
+				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				Expect(expecterErr).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				// Need to wait for cloud init to finnish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Set wrong time on the guest")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "date +%T -s 23:26:00\n"},
+				}, 15*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should set guest time")
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigration(vmi, migrationUID)
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				By("Checking that the migrated VirtualMachineInstance has an updated time")
+				expecterNew, err := tests.ReLoggedInFedoraExpecter(vmi, 60)
+				defer expecterNew.Close()
+				if err != nil {
+					// session was probably disconnected, try to login
+					expecterNew, expecterErr = tests.LoggedInFedoraExpecter(vmi)
+					Expect(expecterErr).ToNot(HaveOccurred())
+				}
+
+				By("Waiting for the agent to set the right time")
+				Eventually(func() bool {
+					// get current time on the node
+					output := tests.RunCommandOnVmiPod(vmi, []string{"date", "+%H:%M"})
+					expectedTime := strings.TrimSpace(output)
+					log.DefaultLogger().Infof("expoected time: %v", expectedTime)
+
+					By("Checking that the guest has an updated time")
+					resp, err := expecterNew.ExpectBatch([]expect.Batcher{
+						&expect.BSnd{S: "date +%H:%M\n"},
+						&expect.BExp{R: expectedTime},
+					}, 30*time.Second)
+					if err != nil {
+						log.DefaultLogger().Infof("time in the guest %v", resp)
+						return false
+					}
+					return true
+				}, 240*time.Second, 1*time.Second).Should(BeTrue())
 			})
 		})
 		Context("with a shared ISCSI Filesystem PVC", func() {
