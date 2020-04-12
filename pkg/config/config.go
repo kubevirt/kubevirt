@@ -88,6 +88,7 @@ func defaultCreateIsoImage(output string, files []string) error {
 	var args []string
 	args = append(args, "-output")
 	args = append(args, output)
+	args = append(args, "-follow-links")
 	args = append(args, "-volid")
 	args = append(args, "cfgdata")
 	args = append(args, "-joliet")
