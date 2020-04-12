@@ -511,38 +511,82 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			serviceAccountName = volume.ServiceAccount.ServiceAccountName
 		}
 
-		if volume.CloudInitNoCloud != nil && volume.CloudInitNoCloud.UserDataSecretRef != nil {
-			// attach a secret referenced by the user
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					Secret: &k8sv1.SecretVolumeSource{
-						SecretName: volume.CloudInitNoCloud.UserDataSecretRef.Name,
+		if volume.CloudInitNoCloud != nil {
+			if volume.CloudInitNoCloud.UserDataSecretRef != nil {
+				// attach a secret referenced by the user
+				volumeName := volume.Name + "-udata"
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: volume.CloudInitNoCloud.UserDataSecretRef.Name,
+						},
 					},
-				},
-			})
-			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
-				ReadOnly:  true,
-			})
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userdata"),
+					SubPath:   "userdata",
+					ReadOnly:  true,
+				})
+			}
+			if volume.CloudInitNoCloud.NetworkDataSecretRef != nil {
+				// attach a secret referenced by the networkdata
+				volumeName := volume.Name + "-ndata"
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: volume.CloudInitNoCloud.NetworkDataSecretRef.Name,
+						},
+					},
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkdata"),
+					SubPath:   "networkdata",
+					ReadOnly:  true,
+				})
+			}
 		}
 
-		if volume.CloudInitConfigDrive != nil && volume.CloudInitConfigDrive.UserDataSecretRef != nil {
-			// attach a secret referenced by the user
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					Secret: &k8sv1.SecretVolumeSource{
-						SecretName: volume.CloudInitConfigDrive.UserDataSecretRef.Name,
+		if volume.CloudInitConfigDrive != nil {
+			if volume.CloudInitConfigDrive.UserDataSecretRef != nil {
+				// attach a secret referenced by the user
+				volumeName := volume.Name + "-udata"
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: volume.CloudInitConfigDrive.UserDataSecretRef.Name,
+						},
 					},
-				},
-			})
-			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
-				ReadOnly:  true,
-			})
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userdata"),
+					SubPath:   "userdata",
+					ReadOnly:  true,
+				})
+			}
+			if volume.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+				// attach a secret referenced by the networkdata
+				volumeName := volume.Name + "-ndata"
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: volume.CloudInitConfigDrive.NetworkDataSecretRef.Name,
+						},
+					},
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkdata"),
+					SubPath:   "networkdata",
+					ReadOnly:  true,
+				})
+			}
 		}
 	}
 
