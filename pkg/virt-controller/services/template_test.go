@@ -290,7 +290,7 @@ var _ = Describe("Template", func() {
 								Name: "cloud-init-network-data-secret-ref",
 								VolumeSource: v1.VolumeSource{
 									CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-										UserDataSecretRef: &kubev1.LocalObjectReference{
+										NetworkDataSecretRef: &kubev1.LocalObjectReference{
 											Name: "some-secret",
 										},
 									},
