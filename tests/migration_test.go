@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -64,7 +65,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 	tests.BeforeAll(func() {
 
-		originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+		originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -72,7 +73,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 		if errors.IsNotFound(err) {
 			// create an empty kubevirt-config configmap if none exists.
 			cfgMap := &k8sv1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt-config"},
+				ObjectMeta: metav1.ObjectMeta{Name: virtconfig.ConfigMapName},
 				Data: map[string]string{
 					"feature-gates": "",
 				},
@@ -101,7 +102,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 	})
 
 	AfterEach(func() {
-		curKubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+		curKubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
 		if err != nil {
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -113,7 +114,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			Expect(err).ToNot(HaveOccurred())
 			data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
 
-			newConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
+			newConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch(virtconfig.ConfigMapName, types.JSONPatchType, []byte(data))
 			Expect(err).ToNot(HaveOccurred())
 
 			// update the restored originalKubeVirtConfig
@@ -421,13 +422,12 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			var options metav1.GetOptions
 			var cfgMap *k8sv1.ConfigMap
 			var originalMigrationConfig string
-			var kubevirtConfig = "kubevirt-config"
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
 
 				// set autoconverge flag
 				options = metav1.GetOptions{}
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
 				Expect(err).ToNot(HaveOccurred())
 				originalMigrationConfig = cfgMap.Data["migrations"]
 
@@ -475,7 +475,6 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			var options metav1.GetOptions
 			var cfgMap *k8sv1.ConfigMap
 			var originalMigrationConfig string
-			var kubevirtConfig = "kubevirt-config"
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
 				if !tests.HasCDI() {
@@ -486,7 +485,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// set unsafe migration flag
 				options = metav1.GetOptions{}
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
 				Expect(err).ToNot(HaveOccurred())
 				originalMigrationConfig = cfgMap.Data["migrations"]
 				tests.UpdateClusterConfigValueAndWait("migrations", `{"unsafeMigrationOverride": true}`)
@@ -823,12 +822,11 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			var options metav1.GetOptions
 			var cfgMap *k8sv1.ConfigMap
 			var originalMigrationConfig string
-			var kubevirtConfig = "kubevirt-config"
 
 			BeforeEach(func() {
 				// update migration timeouts
 				options = metav1.GetOptions{}
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
 				Expect(err).ToNot(HaveOccurred())
 				originalMigrationConfig = cfgMap.Data["migrations"]
 				tests.UpdateClusterConfigValueAndWait("migrations", `{"bandwidthPerMigration" : "1Mi"}`)
@@ -933,12 +931,11 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			var options metav1.GetOptions
 			var cfgMap *k8sv1.ConfigMap
 			var originalMigrationConfig string
-			var kubevirtConfig = "kubevirt-config"
 
 			BeforeEach(func() {
 				// update migration timeouts
 				options = metav1.GetOptions{}
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
 				Expect(err).ToNot(HaveOccurred())
 				originalMigrationConfig = cfgMap.Data["migrations"]
 				tests.UpdateClusterConfigValueAndWait("migrations", `{"progressTimeout" : 5, "completionTimeoutPerGiB": 5}`)
@@ -1304,9 +1301,9 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 					runStressTest(expecter)
 
 					// Taint Node.
-					By("Tainting node with kubevirt.io/drain=NoSchedule")
+					By("Tainting node with node drain key")
 					node := vmi.Status.NodeName
-					tests.Taint(node, "kubevirt.io/drain", k8sv1.TaintEffectNoSchedule)
+					tests.Taint(node, tests.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
 
 					// Drain Node using cli client
 					k8sClient := tests.GetK8sCmdClient()
@@ -1342,7 +1339,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 					vmi = cirrosVMIWithEvictionStrategy()
 
 					By("Configuring a custom nodeDrainTaintKey in kubevirt-config")
-					cfg, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+					cfg, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					// set a custom taint value
@@ -1352,7 +1349,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 					Expect(err).ToNot(HaveOccurred())
 					data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
 
-					_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
+					_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch(virtconfig.ConfigMapName, types.JSONPatchType, []byte(data))
 					Expect(err).ToNot(HaveOccurred())
 					// this sleep is to allow the config to stick. The informers on virt-controller have to
 					// be notified of the config change.
@@ -1460,9 +1457,9 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 					Expect(vmi_evict1.Status.NodeName).To(Equal(vmi_noevict.Status.NodeName))
 
 					// Taint Node.
-					By("Tainting node with kubevirt.io/drain=NoSchedule")
+					By("Tainting node with the node drain key")
 					node := vmi_evict1.Status.NodeName
-					tests.Taint(node, "kubevirt.io/drain", k8sv1.TaintEffectNoSchedule)
+					tests.Taint(node, tests.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
 
 					// Drain Node using cli client
 					By("Draining using kubectl drain")
@@ -1541,7 +1538,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				tests.AddLabelToNode(targetNode.Name, "tests.kubevirt.io", "target")
 
 				By("tainting the source node as non-schedulabele")
-				tests.Taint(sourceNode.Name, "kubevirt.io/drain", k8sv1.TaintEffectNoSchedule)
+				tests.Taint(sourceNode.Name, tests.GetNodeDrainKey(), k8sv1.TaintEffectNoSchedule)
 
 				By("waiting until migration kicks in")
 				Eventually(func() int {
