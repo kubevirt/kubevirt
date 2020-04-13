@@ -1921,7 +1921,7 @@ var _ = Describe("Configurations", func() {
 				By("Checking if pod memory usage is > 80Mi")
 				Expect(m > 83886080).To(BeTrue(), "83886080 B = 80 Mi")
 			})
-			It("should start a vmi with dedicated cpus and isolated emulator thread", func() {
+			It("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func() {
 
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -1992,7 +1992,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should fail the vmi creation if IsolateEmulatorThread requested without dedicated cpus", func() {
+			It("[test_id:4024]should fail the vmi creation if IsolateEmulatorThread requested without dedicated cpus", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
