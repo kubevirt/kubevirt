@@ -336,7 +336,7 @@ var _ = Describe("Storage", func() {
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
-							[]string{"find", hostdisk.GetMountedHostDiskDir("host-disk"), "-name", diskName, "-size", "1G"},
+							[]string{"find", hostdisk.GetMountedHostDiskDir("host-disk"), "-name", diskName, "-size", "1G", "-o", "-size", "+1G"},
 						)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("host-disk", diskPath)))
@@ -359,7 +359,7 @@ var _ = Describe("Storage", func() {
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
-							[]string{"find", hostdisk.GetMountedHostDiskDir("anotherdisk"), "-size", "1G"},
+							[]string{"find", hostdisk.GetMountedHostDiskDir("anotherdisk"), "-size", "1G", "-o", "-size", "+1G"},
 						)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("anotherdisk", filepath.Join(hostDiskDir, "another.img"))))
@@ -369,7 +369,7 @@ var _ = Describe("Storage", func() {
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
-							[]string{"find", hostdisk.GetMountedHostDiskDir("host-disk"), "-size", "1G"},
+							[]string{"find", hostdisk.GetMountedHostDiskDir("host-disk"), "-size", "1G", "-o", "-size", "+1G"},
 						)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath("host-disk", diskPath)))
@@ -466,12 +466,14 @@ var _ = Describe("Storage", func() {
 
 						By("Checking if disk.img exists")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-						output, _ := tests.ExecuteCommandOnPod(
+						output, err := tests.ExecuteCommandOnPod(
 							virtClient,
 							vmiPod,
 							vmiPod.Spec.Containers[0].Name,
-							[]string{"find", "/var/run/kubevirt-private/vmi-disks/disk0/", "-name", "disk.img", "-size", "1G"},
+							[]string{"find", "/var/run/kubevirt-private/vmi-disks/disk0/", "-name", "disk.img", "-size", "1G", "-o", "-size", "+1G"},
 						)
+						Expect(err).ToNot(HaveOccurred())
+
 						By("Checking if a disk image for PVC has been created")
 						Expect(strings.Contains(output, "disk.img")).To(BeTrue())
 					}
