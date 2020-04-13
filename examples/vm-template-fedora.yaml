@@ -35,10 +35,10 @@ objects:
             disks:
             - disk:
                 bus: virtio
-              name: containerdisk
+              name: cloudinitdisk
             - disk:
                 bus: virtio
-              name: cloudinitdisk
+              name: containerdisk
             interfaces:
             - masquerade: {}
               model: virtio
@@ -55,15 +55,15 @@ objects:
           pod: {}
         terminationGracePeriodSeconds: 0
         volumes:
-        - containerDisk:
-            image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
-          name: containerdisk
         - cloudInitNoCloud:
             userData: |-
               #cloud-config
               password: fedora
               chpasswd: { expire: False }
           name: cloudinitdisk
+        - containerDisk:
+            image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
+          name: containerdisk
   status: {}
 parameters:
 - description: Name for the new VM
