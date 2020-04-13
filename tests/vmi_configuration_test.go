@@ -2295,12 +2295,12 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[test_id:2752]test custom SMBios values", func() {
-
 			// Set a custom test SMBios
 			test_smbios := &cmdv1.SMBios{Family: "test", Product: "test", Manufacturer: "None", Sku: "1.0", Version: "1.0"}
 			smbiosJson, err := json.Marshal(test_smbios)
 			Expect(err).ToNot(HaveOccurred())
-			tests.UpdateClusterConfigValueAndWait("smbios", string(smbiosJson))
+			tests.UpdateClusterConfigValueAndWait(virtconfig.SmbiosConfigKey, string(smbiosJson))
+			defer tests.ClearKubeVirtConfigMap(virtconfig.SmbiosConfigKey)
 
 			By("Starting a VirtualMachineInstance")
 			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
