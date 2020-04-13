@@ -7,6 +7,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
@@ -32,11 +34,15 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 		tests.StartVirtualMachine(vm)
 	})
 
+	AfterEach(func() {
+		virtCli.VirtualMachine(tests.NamespaceTestDefault).Delete(vm.Name, &metav1.DeleteOptions{})
+	})
+
 	table.DescribeTable("should verify set of columns for", func(verb, resource string, expectedHeader []string) {
-		result, _, err = tests.RunCommand(k8sClient, verb, resource)
+		result, _, err = tests.RunCommand(k8sClient, verb, resource, vm.Name)
 		// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
 		if err != nil {
-			result, _, err = tests.RunCommand(k8sClient, verb, resource)
+			result, _, err = tests.RunCommand(k8sClient, verb, resource, vm.Name)
 		}
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(result)).ToNot(Equal(0))
@@ -55,10 +61,10 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 
 	table.DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
 
-		result, _, _ := tests.RunCommand(k8sClient, verb, resource, "-o", option)
+		result, _, _ := tests.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
 		// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
 		if err != nil {
-			result, _, err = tests.RunCommand(k8sClient, verb, resource, "-o", option)
+			result, _, err = tests.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
 		}
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(result)).ToNot(Equal(0))
