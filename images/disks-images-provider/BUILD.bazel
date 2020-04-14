@@ -8,11 +8,13 @@ genrule(
     name = "alpine-img",
     srcs = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@alpine_image_ppc64le//file"],
+        "@io_bazel_rules_go//go/platform:linux_arm64": ["@alpine_image_aarch64//file"],
         "//conditions:default": ["@alpine_image//file"],
     }),
     outs = ["images/alpine/disk.img"],
     cmd = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "mkdir -p images/alpine && cat $(location @alpine_image_ppc64le//file) > $@",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "mkdir -p images/alpine && cat $(location @alpine_image_aarch64//file) > $@",
         "//conditions:default": "mkdir -p images/alpine && cat $(location @alpine_image//file) > $@",
     }),
 )
@@ -21,11 +23,13 @@ genrule(
     name = "cirros-img",
     srcs = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@cirros_image_ppc64le//file"],
+        "@io_bazel_rules_go//go/platform:linux_arm64": ["@cirros_image_aarch64//file"],
         "//conditions:default": ["@cirros_image//file"],
     }),
     outs = ["images/cirros/disk.img"],
     cmd = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "mkdir -p images/cirros && cat $(location @cirros_image_ppc64le//file) > $@",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "mkdir -p images/cirros && cat $(location @cirros_image_aarch64//file) > $@",
         "//conditions:default": "mkdir -p images/cirros && cat $(location @cirros_image//file) > $@",
     }),
 )
@@ -34,11 +38,13 @@ genrule(
     name = "fedora-img",
     srcs = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@fedora_image_ppc64le//file"],
+        "@io_bazel_rules_go//go/platform:linux_arm64": ["@fedora_image_aarch64//file"],
         "//conditions:default": ["@fedora_image//file"],
     }),
     outs = ["images/fedora-cloud/disk.qcow2"],
     cmd = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "mkdir -p images/fedora-cloud && cat $(location @fedora_image_ppc64le//file) > $@",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "mkdir -p images/fedora-cloud && cat $(location @fedora_image_aarch64//file) > $@",
         "//conditions:default": "mkdir -p images/fedora-cloud && cat $(location @fedora_image//file) > $@",
     }),
 )

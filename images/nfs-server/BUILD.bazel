@@ -11,6 +11,7 @@ container_image(
     }),
     base = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "@nfs-server_ppc64le//image",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@nfs-server_aarch64//image",
         "//conditions:default": "@nfs-server//image",
     }),
     ports = [

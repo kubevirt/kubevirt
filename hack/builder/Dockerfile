@@ -2,6 +2,10 @@ ARG ARCH
 FROM ${ARCH}/fedora:32
 
 COPY qemu-ppc64le-static /usr/bin/qemu-ppc64le-static
+COPY qemu-aarch64-static /usr/bin/qemu-aarch64-static
+
+ARG SONOBUOY_ARCH
+ARG BAZEL_ARCH
 
 ENV BAZEL_VERSION 3.7.2
 
@@ -96,8 +100,8 @@ RUN pip3 install --upgrade j2cli operator-courier==2.1.11
 
 ENV SONOBUOY_VERSION=0.19.0
 RUN set -x && \
-    wget https://github.com/vmware-tanzu/sonobuoy/releases/download/v${SONOBUOY_VERSION}/sonobuoy_${SONOBUOY_VERSION}_linux_amd64.tar.gz && \
-    tar xvf sonobuoy_${SONOBUOY_VERSION}_linux_amd64.tar.gz && \
+    wget https://github.com/vmware-tanzu/sonobuoy/releases/download/v${SONOBUOY_VERSION}/sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz && \
+    tar xvf sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz && \
     chmod +x sonobuoy && \
     mv sonobuoy /usr/bin
 
@@ -107,6 +111,6 @@ COPY entrypoint.sh /entrypoint.sh
 
 COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
 
-RUN curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-x86_64 && chmod u+x /usr/bin/bazel
+RUN curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && chmod u+x /usr/bin/bazel
 
 ENTRYPOINT [ "/entrypoint.sh" ]

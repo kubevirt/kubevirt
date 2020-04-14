@@ -38,7 +38,9 @@ if [ -n "${TRAVIS_JOB_ID}" ]; then
     cat >ci.bazelrc <<EOF
 common --noshow_progress --noshow_loading_progress
 build:ppc64le --jobs=1
+build:aarch64 --jobs=1
 run:ppc64le --jobs=1
+run:aarch64 --jobs=1
 EOF
 fi
 
