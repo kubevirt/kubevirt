@@ -60,17 +60,11 @@ var _ = Describe("Node-labeller config", func() {
 			configMapInformer: cmInformer,
 		}
 		nlController.configMapInformer.GetStore().Add(cm)
-		os.Mkdir("/tmp/cpu_map", 0777)
+		os.MkdirAll(nodeLabellerVolumePath+"/cpu_map", 0777)
 	})
 
 	AfterSuite(func() {
-		os.RemoveAll("/tmp/cpu_map")
-	})
-
-	BeforeEach(func() {
-		domCapabilitiesFilePath = "/tmp/virsh-domcapabilities.xml"
-
-		configPath = "/tmp/cpu-plugin-configmap.yaml"
+		os.Remove(nodeLabellerVolumePath + "/cpu_map")
 	})
 
 	AfterEach(func() {
@@ -84,7 +78,6 @@ var _ = Describe("Node-labeller config", func() {
 	})
 
 	It("should load cpu features", func() {
-		nodeLabellerVolumePath = "/tmp"
 		cpuName := "Penryn"
 
 		path := getPathCPUFefatures(cpuName)
@@ -140,19 +133,16 @@ var _ = Describe("Node-labeller config", func() {
 })
 
 func prepareFileDomCapabilities() {
-	domCapabilitiesFilePath := "/tmp/virsh-domcapabilities.xml"
 	err := writeMockDataFile(domCapabilitiesFilePath, domainCapabilities)
 	Expect(err).ToNot(HaveOccurred())
 }
 
 func prepareFileDomCapabilitiesNothingUsable() {
-	domCapabilitiesFilePath := "/tmp/virsh-domcapabilities.xml"
 	err := writeMockDataFile(domCapabilitiesFilePath, domainCapabilitiesNothingUsable)
 	Expect(err).ToNot(HaveOccurred())
 }
 
 func prepareFilesFeatures() {
-	nodeLabellerVolumePath = "/tmp"
 	penrynPath := getPathCPUFefatures("Penryn")
 	err := writeMockDataFile(penrynPath, cpuModelPenrynFeatures)
 	Expect(err).ToNot(HaveOccurred())
@@ -167,7 +157,6 @@ func prepareFilesFeatures() {
 }
 
 func deleteFiles() {
-	nodeLabellerVolumePath = "/tmp/"
 	deleteMockFile(getPathCPUFefatures("Penryn"))
 	deleteMockFile(getPathCPUFefatures("Haswell"))
 	deleteMockFile(getPathCPUFefatures("IvyBridge"))

@@ -31,8 +31,6 @@ type Config struct {
 	MinCPU       string   `yaml:"minCPU"`
 }
 
-var configPath = "/var/lib/kubevirt-node-labeller/cpu-plugin-configmap.yaml"
-
 //LoadConfig loads config yaml file with obsolete cpus and minimal baseline cpus
 func (n *NodeLabeller) loadConfig() (Config, error) {
 	config := Config{}

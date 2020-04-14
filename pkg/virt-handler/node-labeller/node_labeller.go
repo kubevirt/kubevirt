@@ -152,27 +152,6 @@ func (n *NodeLabeller) run() error {
 	return err
 }
 
-func convertMapToText(m map[string]string) string {
-	text := ""
-	lenMap := len(m)
-	i := 0
-	for key, value := range m {
-		if strings.Contains(key, string("\"")) {
-			key = strings.ReplaceAll(key, string("\""), string("\\\""))
-		}
-		if strings.Contains(value, string("\"")) {
-			value = strings.ReplaceAll(value, string("\""), string("\\\""))
-		}
-		text += fmt.Sprintf(`"%s":"%s"`, key, value)
-
-		if i != (lenMap - 1) {
-			text += ", "
-		}
-		i++
-	}
-	return text
-}
-
 func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 	originalLabelsBytes, err := json.Marshal(originalNode.Labels)
 	if err != nil {
