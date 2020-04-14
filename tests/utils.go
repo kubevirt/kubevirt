@@ -4220,3 +4220,18 @@ func GetKubeVirtConfigMap() (*k8sv1.ConfigMap, error) {
 
 	return cfgMap, err
 }
+
+func ClearKubeVirtConfigMap(key string) error {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	cfgMap, err := GetKubeVirtConfigMap()
+	if err == nil {
+		if _, ok := cfgMap.Data[key]; ok {
+			data := fmt.Sprintf(`[{ "op": "remove", "path": "/data/%s"}]`, key)
+			_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Patch(virtconfig.ConfigMapName, types.JSONPatchType, []byte(data))
+		}
+	}
+
+	return err
+}
