@@ -386,5 +386,5 @@ func (app *VirtOperatorApp) AddFlags() {
 }
 
 func (app *VirtOperatorApp) prepareCertManagers() {
-	app.operatorCertManager = bootstrap.NewFileCertificateManager("/etc/virt-operator/certificates")
+	app.operatorCertManager = bootstrap.NewFallbackCertificateManager(bootstrap.NewFileCertificateManager("/etc/virt-operator/certificates"))
 }
