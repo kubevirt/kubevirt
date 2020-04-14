@@ -27,6 +27,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -549,6 +550,35 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 	case !channelConnected:
 		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceAgentConnected)
+	}
+
+	if condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected) {
+		client, err := d.getLauncherClient(vmi)
+		if err != nil {
+			return err
+		}
+
+		guestInfo, err := client.GetGuestInfo()
+		if err != nil {
+			return err
+		}
+
+		var match = false
+		for _, version := range d.clusterConfig.GetSupportedAgentVersions() {
+			match = match || regexp.MustCompile(version).MatchString(guestInfo.GAVersion)
+		}
+
+		if !match && !condManager.HasCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent) {
+			agentCondition := v1.VirtualMachineInstanceCondition{
+				Type:          v1.VirtualMachineInstanceUnsupportedAgent,
+				LastProbeTime: v12.Now(),
+				Status:        k8sv1.ConditionTrue,
+			}
+			vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
+		} else {
+			condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent)
+		}
+
 	}
 
 	// Update paused condition in case VMI was paused / unpaused

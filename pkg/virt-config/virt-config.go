@@ -57,6 +57,7 @@ const (
 	SmbiosConfigDefaultProduct                      = "None"
 	DefaultPermitBridgeInterfaceOnPodNetwork        = true
 	DefaultSELinuxLauncherType                      = ""
+	SupportedGuestAgentVersions                     = "3.*,4.*"
 )
 
 // Set default machine type and supported emulated machines based on architecture
@@ -127,4 +128,8 @@ func (c *ClusterConfig) IsBridgeInterfaceOnPodNetworkEnabled() bool {
 
 func (c *ClusterConfig) GetSELinuxLauncherType() string {
 	return c.getConfig().SELinuxLauncherType
+}
+
+func (c *ClusterConfig) GetSupportedAgentVersions() []string {
+	return c.getConfig().SupportedGuestAgentVersions
 }

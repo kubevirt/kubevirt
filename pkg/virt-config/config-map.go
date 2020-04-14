@@ -61,6 +61,7 @@ const (
 	NodeDrainTaintDefaultKey          = "kubevirt.io/drain"
 	SmbiosConfigKey                   = "smbios"
 	SELinuxLauncherTypeKey            = "selinuxLauncherType"
+	SupportedGuestAgentVersionsKey    = "supported-guest-agent"
 )
 
 type ConfigModifiedFn func()
@@ -190,6 +191,7 @@ func defaultClusterConfig() *Config {
 		Manufacturer: SmbiosConfigDefaultManufacturer,
 		Product:      SmbiosConfigDefaultProduct,
 	}
+	supportedQEMUGuestAgentVersions := strings.Split(strings.TrimRight(SupportedGuestAgentVersions, ","), ",")
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: DefaultImagePullPolicy,
@@ -215,6 +217,7 @@ func defaultClusterConfig() *Config {
 		PermitBridgeInterfaceOnPodNetwork: DefaultPermitBridgeInterfaceOnPodNetwork,
 		SmbiosConfig:                      SmbiosDefaultConfig,
 		SELinuxLauncherType:               DefaultSELinuxLauncherType,
+		SupportedGuestAgentVersions:       supportedQEMUGuestAgentVersions,
 	}
 }
 
@@ -236,6 +239,7 @@ type Config struct {
 	PermitBridgeInterfaceOnPodNetwork bool
 	SmbiosConfig                      *cmdv1.SMBios
 	SELinuxLauncherType               string
+	SupportedGuestAgentVersions       []string
 }
 
 type MigrationConfig struct {
@@ -410,6 +414,14 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 
 	if selinuxLauncherType := strings.TrimSpace(configMap.Data[SELinuxLauncherTypeKey]); selinuxLauncherType != "" {
 		config.SELinuxLauncherType = selinuxLauncherType
+	}
+
+	if supportedGuestAgentVersions := strings.TrimSpace(configMap.Data[SupportedGuestAgentVersionsKey]); supportedGuestAgentVersions != "" {
+		vals := strings.Split(strings.TrimRight(supportedGuestAgentVersions, ","), ",")
+		for i := range vals {
+			vals[i] = strings.TrimSpace(vals[i])
+		}
+		config.SupportedGuestAgentVersions = vals
 	}
 
 	return nil

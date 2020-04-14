@@ -480,6 +480,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 					LastProbeTime: metav1.Now(),
 					Status:        k8sv1.ConditionTrue,
 				},
+				{
+					Type:          v1.VirtualMachineInstanceUnsupportedAgent,
+					LastProbeTime: metav1.Now(),
+					Status:        k8sv1.ConditionTrue,
+				},
 			}
 
 			vmiFeeder.Add(vmi)
@@ -491,6 +496,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
 			})
 			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+			client.EXPECT().GetGuestInfo().Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
 
 			controller.Execute()
 		})

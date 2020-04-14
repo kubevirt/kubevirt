@@ -1152,6 +1152,39 @@ var _ = Describe("Configurations", func() {
 					"Agent condition should be gone")
 			})
 
+			Context("with cluster config changes", func() {
+				supportedGuestAgentKey := "supported-guest-agent"
+
+				BeforeEach(func() {
+					tests.UpdateClusterConfigValueAndWait(supportedGuestAgentKey, "X.*")
+				})
+
+				AfterEach(func() {
+					tests.UpdateClusterConfigValueAndWait(supportedGuestAgentKey, "3.*,4.*")
+				})
+
+				It("[test_id:]VMI condition should signal unsupported agent presence", func() {
+
+					agentVMI := prepareAgentVM()
+					getOptions := metav1.GetOptions{}
+
+					freshVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+
+					Eventually(func() []v1.VirtualMachineInstanceCondition {
+						freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+						Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+						return freshVMI.Status.Conditions
+					}, 240*time.Second, 2).Should(
+						ContainElement(
+							MatchFields(
+								IgnoreExtras,
+								Fields{"Type": Equal(v1.VirtualMachineInstanceUnsupportedAgent)})),
+						"Should have unsupported agent connected condition")
+
+				})
+			})
+
 			It("should have guestosinfo in status when agent is present", func() {
 				agentVMI := prepareAgentVM()
 				getOptions := metav1.GetOptions{}
