@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func mockCreateISOImage(output string, files []string) error {
+func mockCreateISOImage(output string, volID string, files []string) error {
 	_, err := os.Create(output)
 	if err != nil {
 		panic(err)
@@ -73,7 +73,7 @@ var _ = Describe("Creating config images", func() {
 
 		It("Should create an iso image", func() {
 			imgPath := filepath.Join(tempISODir, "volume1.iso")
-			err := createIsoConfigImage(imgPath, expectedLayout)
+			err := createIsoConfigImage(imgPath, "", expectedLayout)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = os.Stat(imgPath)
 			Expect(err).NotTo(HaveOccurred())

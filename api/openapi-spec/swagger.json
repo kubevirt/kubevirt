@@ -4549,6 +4549,10 @@
      "optional": {
       "description": "Specify whether the ConfigMap or it's keys must be defined\n+optional",
       "type": "boolean"
+     },
+     "volumeLabel": {
+      "description": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).\n+optional",
+      "type": "string"
      }
     }
    },
@@ -5960,6 +5964,10 @@
      },
      "secretName": {
       "description": "Name of the secret in the pod's namespace to use.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#secret\n+optional",
+      "type": "string"
+     },
+     "volumeLabel": {
+      "description": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).\n+optional",
       "type": "string"
      }
     }

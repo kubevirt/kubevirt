@@ -66,6 +66,11 @@ type ConfigMapVolumeSource struct {
 	// Specify whether the ConfigMap or it's keys must be defined
 	// +optional
 	Optional *bool `json:"optional,omitempty"`
+	// The volume label of the resulting disk inside the VMI.
+	// Different bootstrapping mechanisms require different values.
+	// Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
+	// +optional
+	VolumeLabel string `json:"volumeLabel,omitempty"`
 }
 
 // SecretVolumeSource adapts a Secret into a volume.
@@ -79,6 +84,11 @@ type SecretVolumeSource struct {
 	// Specify whether the Secret or it's keys must be defined
 	// +optional
 	Optional *bool `json:"optional,omitempty"`
+	// The volume label of the resulting disk inside the VMI.
+	// Different bootstrapping mechanisms require different values.
+	// Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
+	// +optional
+	VolumeLabel string `json:"volumeLabel,omitempty"`
 }
 
 // ServiceAccountVolumeSource adapts a ServiceAccount into a volume.
