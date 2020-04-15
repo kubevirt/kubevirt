@@ -3321,9 +3321,15 @@ func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions
 	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	fieldSelector := fields.ParseSelectorOrDie(
-		"status.phase!=" + string(k8sv1.PodFailed) +
-			",status.phase!=" + string(k8sv1.PodSucceeded))
+	fieldSelectorStr := "status.phase!=" + string(k8sv1.PodFailed) +
+		",status.phase!=" + string(k8sv1.PodSucceeded)
+
+	if vmi.Status.NodeName != "" {
+		fieldSelectorStr = fieldSelectorStr +
+			",spec.nodeName=" + vmi.Status.NodeName
+	}
+
+	fieldSelector := fields.ParseSelectorOrDie(fieldSelectorStr)
 	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + string(vmi.GetUID())))
 	if err != nil {
 		panic(err)
