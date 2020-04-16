@@ -561,6 +561,14 @@ http_file(
     ],
 )
 
+http_file(
+    name = "which",
+    sha256 = "a7557e0f91d7d710bb7cd939d4263ebbc84aeec9594d7dc4e062ace4b090e3b6",
+    urls = [
+        "https://dl.fedoraproject.org/pub/archive/fedora/linux/releases/28/Everything/x86_64/os/Packages/w/which-2.21-8.fc28.x86_64.rpm",
+    ],
+)
+
 # some repos which are not part of go_rules anymore
 go_repository(
     name = "com_github_golang_glog",
