@@ -66,7 +66,21 @@ func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
 		AddFunc: func(_ interface{}) {
 			n.Queue.Add(n.host)
 		},
-		DeleteFunc: func(_ interface{}) {
+		DeleteFunc: func(obj interface{}) {
+			_, ok := obj.(*v1.ConfigMap)
+			if !ok {
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+					return
+				}
+				_, ok = tombstone.Obj.(*v1.ConfigMap)
+				if !ok {
+					log.Log.Reason(fmt.Errorf("tombstone contained object that is not a config map %#v", obj)).Error("Failed to process delete notification")
+					return
+				}
+			}
+
 			n.Queue.Add(n.host)
 		},
 		UpdateFunc: func(_, _ interface{}) {

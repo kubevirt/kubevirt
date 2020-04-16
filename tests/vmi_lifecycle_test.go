@@ -854,36 +854,60 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			var options metav1.GetOptions
 			var node *k8sv1.Node
-			var originalLabels map[string]string
 			var cfgMap *k8sv1.ConfigMap
 			var originalFeatureGates string
-			var supportedCPUModels = make([]string, 0)
-			var supportedCPUFeatures = make([]string, 0)
-			var featureOnNodes = make([]string, 0)
+			var supportedCPUModels = make(map[string]string)
+			var supportedCPUFeatures = make(map[string]string)
+			var supportedCPU string
+			var supportedFeature string
 
 			BeforeEach(func() {
 				nodes := tests.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node = &nodes.Items[0]
-				originalLabels = node.GetObjectMeta().GetLabels()
-				for key, _ := range originalLabels {
-					if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
-						supportedCPUFeatures = append(supportedCPUFeatures, strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX))
+				for i, n := range nodes.Items {
+					// take all cpu models and features from first node
+					if i == 0 {
+						for key, _ := range n.Labels {
+							if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
+								supportedCPUFeatures[strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)] = "true"
+							}
+
+							if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
+								supportedCPUModels[strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)] = "true"
+							}
+						}
+						continue
 					}
 
-					if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
-						supportedCPUModels = append(supportedCPUModels, strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX))
-					}
-				}
-
-				for _, n := range nodes.Items {
-					for key, _ := range n.Labels {
-						if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX+supportedCPUFeatures[0]) {
-							featureOnNodes = append(featureOnNodes, n.Name)
-							break
+					//If there are more nodes available, iterate over each node
+					//and take only model and features which are supported on all nodes
+					newSupportedFeatures := make(map[string]string)
+					for cpuFeature, _ := range supportedCPUFeatures {
+						if _, ok := node.Labels[services.NFD_CPU_FEATURE_PREFIX+cpuFeature]; ok {
+							newSupportedFeatures[cpuFeature] = "true"
 						}
 					}
+					supportedCPUFeatures = newSupportedFeatures
 
+					newSupportedCPUModels := make(map[string]string)
+					for cpuModel, _ := range supportedCPUModels {
+						if _, ok := node.Labels[services.NFD_CPU_MODEL_PREFIX+cpuModel]; ok {
+							newSupportedCPUModels[cpuModel] = "true"
+						}
+					}
+					supportedCPUModels = newSupportedCPUModels
+
+				}
+				//get first supported cpu model
+				for model, _ := range supportedCPUModels {
+					supportedCPU = model
+					break
+				}
+				//get first supported cpu feature
+				for feature, _ := range supportedCPUFeatures {
+					supportedFeature = feature
+					break
 				}
 
 				options = metav1.GetOptions{}
@@ -896,15 +920,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			AfterEach(func() {
 				tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, originalFeatureGates)
-
-				Expect(err).ToNot(HaveOccurred())
-				labelBytes, err := json.Marshal(originalLabels)
-				Expect(err).ToNot(HaveOccurred())
-
-				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType,
-					[]byte(fmt.Sprintf(`{"metadata": { "labels": %s}}`, labelBytes)))
-				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
-
 				time.Sleep(5 * time.Second)
 			})
 
@@ -912,25 +927,15 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
-					Model: supportedCPUModels[0],
+					Model: supportedCPU,
 				}
-
-				Expect(err).ToNot(HaveOccurred(), "CPU model label should have been retrieved successfully")
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				scheduledOnCorrectNode := false
-				for _, nodeName := range featureOnNodes {
-					if nodeName == curVMI.Status.NodeName {
-						scheduledOnCorrectNode = true
-						break
-					}
-				}
-				Expect(scheduledOnCorrectNode).To(Equal(true), "VMI should run on a node with matching NFD CPU features labels")
 			})
 
 			It("[test_id:1640]the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", func() {
@@ -965,7 +970,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Cores: 1,
 					Features: []v1.CPUFeature{
 						{
-							Name:   supportedCPUFeatures[0],
+							Name:   supportedFeature,
 							Policy: "require",
 						},
 						{
@@ -979,16 +984,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				scheduledOnCorrectNode := false
-				for _, nodeName := range featureOnNodes {
-					if nodeName == curVMI.Status.NodeName {
-						scheduledOnCorrectNode = true
-						break
-					}
-				}
-				Expect(scheduledOnCorrectNode).To(Equal(true), "VMI should run on a node with matching NFD CPU features labels")
 
 			})
 
@@ -1033,7 +1030,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Cores: 1,
 					Features: []v1.CPUFeature{
 						{
-							Name:   supportedCPUFeatures[0],
+							Name:   supportedFeature,
 							Policy: "forbid",
 						},
 					},

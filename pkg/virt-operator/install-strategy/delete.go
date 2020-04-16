@@ -299,24 +299,6 @@ func DeleteAll(kv *v1.KubeVirt,
 		}
 	}
 
-	// delete ConfigMaps
-	objects = stores.ConfigMapCache.List()
-	for _, obj := range objects {
-		if cm, ok := obj.(*corev1.ConfigMap); ok && cm.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(cm); err == nil {
-				expectations.ConfigMap.AddExpectedDeletion(kvkey, key)
-				err := clientset.CoreV1().ConfigMaps(cm.Namespace).Delete(cm.Name, deleteOptions)
-				if err != nil {
-					log.Log.Errorf("Failed to delete config maps %+v: %v", cm, err)
-					expectations.ConfigMap.DeletionObserved(kvkey, key)
-					return err
-				}
-			}
-		} else if !ok {
-			log.Log.Errorf("Cast failed! obj: %+v", obj)
-			return nil
-		}
-	}
 	// delete RBAC
 	objects = stores.ClusterRoleBindingCache.List()
 	for _, obj := range objects {
