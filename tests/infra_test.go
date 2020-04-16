@@ -820,6 +820,37 @@ var _ = Describe("Infrastructure", func() {
 		})
 
 	})
+
+	Describe("Node-labeller", func() {
+		var nodesWithKVM []*k8sv1.Node
+
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+			nodesWithKVM = tests.GetNodesWithKVM()
+		})
+		It("label nodes with cpu model and cpu features", func() {
+			for _, node := range nodesWithKVM {
+				node, err := virtClient.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				cpuModelLabelPresent := false
+				cpuFeatureLabelPresent := false
+				for key := range node.Labels {
+					if strings.Contains(key, "cpu-model") {
+						cpuModelLabelPresent = true
+					}
+					if strings.Contains(key, "cpu-feature") {
+						cpuFeatureLabelPresent = true
+					}
+
+					if cpuModelLabelPresent && cpuFeatureLabelPresent {
+						break
+					}
+				}
+				Expect(cpuModelLabelPresent).To(Equal(true), "node "+node.Name+" doesn't contain cpu label")
+				Expect(cpuFeatureLabelPresent).To(Equal(true), "node "+node.Name+" doesn't contain feature label")
+			}
+		})
+	})
 })
 
 func getLeader() string {

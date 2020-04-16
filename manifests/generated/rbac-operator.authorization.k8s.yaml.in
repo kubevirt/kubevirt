@@ -96,6 +96,12 @@ rules:
   - delete
   - patch
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - patch
+- apiGroups:
   - batch
   resources:
   - jobs
@@ -408,6 +414,15 @@ rules:
   - nodes
   verbs:
   - patch
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:

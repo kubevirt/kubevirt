@@ -128,6 +128,17 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
+					"configmaps",
+				},
+				Verbs: []string{
+					"patch",
+				},
+			},
+			{
+				APIGroups: []string{
 					"batch",
 				},
 				Resources: []string{

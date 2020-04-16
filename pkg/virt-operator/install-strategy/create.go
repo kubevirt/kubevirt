@@ -658,6 +658,75 @@ func createOrUpdateClusterRole(cr *rbacv1.ClusterRole,
 	return nil
 }
 
+func createOrUpdateConfigMaps(kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	core := clientset.CoreV1()
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	version := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+
+	for _, cm := range targetStrategy.configMaps {
+		var cachedCM *corev1.ConfigMap
+
+		cm := cm.DeepCopy()
+		obj, exists, _ := stores.ConfigMapCache.Get(cm)
+		if exists {
+			cachedCM = obj.(*corev1.ConfigMap)
+		}
+
+		injectOperatorMetadata(kv, &cm.ObjectMeta, version, imageRegistry, id)
+		if !exists {
+			// Create non existent
+			expectations.ConfigMap.RaiseExpectations(kvkey, 1, 0)
+			_, err := core.ConfigMaps(cm.Namespace).Create(cm)
+			if err != nil {
+				expectations.ConfigMap.LowerExpectations(kvkey, 1, 0)
+				return fmt.Errorf("unable to create config map %+v: %v", cm, err)
+			}
+			log.Log.V(2).Infof("config map %v created", cm.GetName())
+
+		} else if !objectMatchesVersion(&cachedCM.ObjectMeta, version, imageRegistry, id) {
+			// Patch if old version
+			var ops []string
+
+			// Add Labels and Annotations Patches
+			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&cm.ObjectMeta)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, labelAnnotationPatch...)
+
+			// Add Spec Patch
+			newSpec, err := json.Marshal(cm.Data)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+
+			_, err = core.ConfigMaps(cm.Namespace).Patch(cm.Name, types.JSONPatchType, generatePatchBytes(ops))
+			if err != nil {
+				return fmt.Errorf("unable to patch config map %+v: %v", cm, err)
+			}
+			log.Log.V(2).Infof("config map %v updated", cm.GetName())
+
+		} else {
+			log.Log.V(4).Infof("config map %v is up-to-date", cm.GetName())
+		}
+	}
+
+	return nil
+}
+
 func createOrUpdateCrds(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
@@ -2257,6 +2326,12 @@ func SyncAll(queue workqueue.RateLimitingInterface, kv *v1.KubeVirt, prevStrateg
 
 	// create/update CRDs
 	err = createOrUpdateCrds(kv, targetStrategy, stores, clientset, expectations)
+	if err != nil {
+		return false, err
+	}
+
+	// create/update config maps
+	err = createOrUpdateConfigMaps(kv, targetStrategy, stores, clientset, expectations)
 	if err != nil {
 		return false, err
 	}

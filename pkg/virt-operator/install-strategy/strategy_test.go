@@ -158,6 +158,16 @@ var _ = Describe("Install Strategy", func() {
 				}
 				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
 			}
+
+			for _, original := range strategy.configMaps {
+				var converted *corev1.ConfigMap
+				for _, converted = range newStrategy.configMaps {
+					if converted.Name == original.Name {
+						break
+					}
+				}
+				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
+			}
 		})
 	})
 

@@ -56,7 +56,7 @@ func NewDeviceController(host string, maxDevices int) *DeviceController {
 	}
 }
 
-func (c *DeviceController) nodeHasDevice(devicePath string) bool {
+func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 	_, err := os.Stat(devicePath)
 	// Since this is a boolean question, any error means "no"
 	return (err == nil)

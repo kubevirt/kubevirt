@@ -63,6 +63,7 @@ import (
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -83,6 +84,7 @@ func NewController(
 	virtPrivateDir string,
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
+	nLConfigMapInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	gracefulShutdownInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
@@ -91,6 +93,7 @@ func NewController(
 	serverTLSConfig *tls.Config,
 	clientTLSConfig *tls.Config,
 	podIsolationDetector isolation.PodIsolationDetector,
+	namespace string,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -144,6 +147,7 @@ func NewController(
 	c.domainNotifyPipes = make(map[string]string)
 
 	c.kvmController = device_manager.NewDeviceController(c.host, maxDevices)
+	c.nodeLabeller = nodelabeller.NewNodeLabeller(c.kvmController, nLConfigMapInformer, c.clientset, host, namespace)
 
 	return c
 }
@@ -169,6 +173,7 @@ type VirtualMachineController struct {
 	podIsolationDetector     isolation.PodIsolationDetector
 	containerDiskMounter     container_disk.Mounter
 	clusterConfig            *virtconfig.ClusterConfig
+	nodeLabeller             *nodelabeller.NodeLabeller
 
 	// records if pod network phase1 has completed
 	// phase1 involves cycling an entire posix thread
@@ -713,6 +718,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced)
 
 	go c.kvmController.Run(stopCh)
+
+	go c.nodeLabeller.Run(threadiness, stopCh)
 
 	// Poplulate the VirtualMachineInstance store with known Domains on the host, to get deletes since the last run
 	for _, domain := range c.domainInformer.GetStore().List() {

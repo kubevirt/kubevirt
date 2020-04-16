@@ -275,6 +275,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.InstallStrategyConfigMap, installStrategyConfigMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		stores.InstallStrategyConfigMapCache = informers.InstallStrategyConfigMap.GetStore()
 
+		informers.ConfigMap, configMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		stores.ConfigMapCache = informers.ConfigMap.GetStore()
+
 		informers.InstallStrategyJob, installStrategyJobSource = testutils.NewFakeInformerFor(&batchv1.Job{})
 		stores.InstallStrategyJobCache = informers.InstallStrategyJob.GetStore()
 
@@ -475,6 +478,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	addConfigMap := func(c *k8sv1.ConfigMap) {
+		mockQueue.ExpectAdds(1)
+		configMapSource.Add(c)
+		mockQueue.Wait()
+	}
+
 	addInstallStrategyJob := func(job *batchv1.Job) {
 		mockQueue.ExpectAdds(1)
 		installStrategyJobSource.Add(job)
@@ -569,8 +578,14 @@ var _ = Describe("KubeVirt Operator", func() {
 			injectMetadata(&obj.(*batchv1.Job).ObjectMeta, config)
 			addInstallStrategyJob(resource)
 		case *k8sv1.ConfigMap:
-			injectMetadata(&obj.(*k8sv1.ConfigMap).ObjectMeta, config)
-			addConfigMap(resource)
+			cm := obj.(*k8sv1.ConfigMap)
+			injectMetadata(&cm.ObjectMeta, config)
+
+			if strings.Contains(cm.Name, "kubevirt-cpu-plugin-configmap") {
+				addConfigMap(resource)
+			} else {
+				addInstallStrategyConfigMap(resource)
+			}
 		case *k8sv1.Pod:
 			injectMetadata(&obj.(*k8sv1.Pod).ObjectMeta, config)
 			addPod(resource)
@@ -674,7 +689,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		injectMetadata(&pod.ObjectMeta, config)
 		addPod(pod)
 
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 		pod = &k8sv1.Pod{
 			ObjectMeta: handler.Spec.Template.ObjectMeta,
 			Spec:       handler.Spec.Template.Spec,
@@ -839,6 +854,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		// sccs
 		all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
 		all = append(all, components.NewKubeVirtHandlerSCC(NAMESPACE))
+		//configmap
+		all = append(all, components.NewNodeLabellerConfigMap(NAMESPACE))
 		// services and deployments
 		all = append(all, components.NewOperatorWebhookService(NAMESPACE))
 		all = append(all, components.NewPrometheusService(NAMESPACE))
@@ -847,8 +864,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
 		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 		controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
-		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		configMap := components.NewNodeLabellerConfigMap(NAMESPACE)
+		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler, configMap)
 
 		all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespace(), config.GetMonitorServiceAccount())...)
 		all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetMonitorNamespace(), true))
@@ -1073,6 +1091,14 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	deleteConfigMap := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.ConfigMap.GetStore().GetByKey(key); exists {
+			configMapSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
+
 	deletePodDisruptionBudget := func(key string) {
 		mockQueue.ExpectAdds(1)
 		if obj, exists, _ := informers.PodDisruptionBudget.GetStore().GetByKey(key); exists {
@@ -1154,7 +1180,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		case "jobs":
 			deleteInstallStrategyJob(key)
 		case "configmaps":
-			deleteConfigMap(key)
+			if strings.Contains(key, "kubevirt-cpu-plugin-configmap") {
+				deleteConfigMap(key)
+			} else {
+				deleteInstallStrategyConfigMap(key)
+			}
 		case "poddisruptionbudgets":
 			deletePodDisruptionBudget(key)
 		case "secrets":
@@ -1237,7 +1267,6 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	shouldExpectInstallStrategyDeletion := func() {
 		kubeClient.Fake.PrependReactor("delete", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-
 			deleted, ok := action.(testing.DeleteAction)
 			Expect(ok).To(BeTrue())
 			if deleted.GetName() == "kubevirt-ca" {
@@ -1248,6 +1277,12 @@ var _ = Describe("KubeVirt Operator", func() {
 				key = deleted.GetNamespace() + "/"
 			}
 			key += deleted.GetName()
+
+			if strings.Contains(key, "kubevirt-cpu-plugin-configmap") {
+				genericDeleteFunc(action)
+				return true, nil, nil
+			}
+
 			deleteResource(deleted.GetResource().Resource, key)
 			return true, nil, nil
 		})
@@ -1306,6 +1341,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("patch", "services", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "daemonsets", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "deployments", genericPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "configmaps", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", genericPatchFunc)
 		secClient.Fake.PrependReactor("update", "securitycontextconstraints", genericUpdateFunc)
 		promClient.Fake.PrependReactor("patch", "servicemonitors", genericPatchFunc)
@@ -1339,6 +1375,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "services", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "deployments", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "configmaps", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "validatingwebhookconfigurations", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "mutatingwebhookconfigurations", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "secrets", genericCreateFunc)
@@ -1861,6 +1898,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.SCCCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ServiceMonitorCache.List())).To(Equal(1))
 			Expect(len(controller.stores.PrometheusRuleCache.List())).To(Equal(1))
+			Expect(len(controller.stores.ConfigMapCache.List())).To(Equal(1))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
 
