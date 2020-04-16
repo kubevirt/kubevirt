@@ -221,7 +221,7 @@ var _ = Describe("IOThreads", func() {
 
 		// IOThread with Emulator Thread
 
-		It("Should place io and emulator threads on the same pcpu with auto ioThreadsPolicy", func() {
+		It("[test_id:4025]Should place io and emulator threads on the same pcpu with auto ioThreadsPolicy", func() {
 			policy := v1.IOThreadsPolicyAuto
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 			vmi.Spec.Domain.CPU = &v1.CPU{
