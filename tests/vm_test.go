@@ -1150,6 +1150,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						return vm.Status.Created
 					}, 240*time.Second, 1*time.Second).Should(BeFalse())
 
+					By("Waiting state change request to clear for stopped VM")
+					Eventually(func() int {
+						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return len(virtualMachine.Status.StateChangeRequests)
+					}, 240*time.Second, 1*time.Second).Should(Equal(0))
+
 					By("Invoking virtctl start")
 					err = startCommand()
 					Expect(err).ToNot(HaveOccurred())

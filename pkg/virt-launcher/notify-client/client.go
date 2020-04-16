@@ -3,6 +3,7 @@ package eventsclient
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/libvirt/libvirt-go"
@@ -18,6 +19,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
@@ -36,8 +38,11 @@ var (
 )
 
 type Notifier struct {
-	v1client notifyv1.NotifyClient
-	conn     *grpc.ClientConn
+	v1client         notifyv1.NotifyClient
+	conn             *grpc.ClientConn
+	connLock         sync.Mutex
+	pipeSocketPath   string
+	legacySocketPath string
 }
 
 type libvirtEvent struct {
@@ -46,42 +51,83 @@ type libvirtEvent struct {
 	AgentEvent *libvirt.DomainEventAgentLifecycle
 }
 
-func NewNotifier(virtShareDir string) (*Notifier, error) {
-	// dial socket
-	socketPath := filepath.Join(virtShareDir, "domain-notify.sock")
-	conn, err := grpcutil.DialSocket(socketPath)
-	if err != nil {
-		log.Log.Reason(err).Infof("failed to dial notify socket: %s", socketPath)
-		return nil, err
+func NewNotifier(virtShareDir string) *Notifier {
+	return &Notifier{
+		pipeSocketPath:   filepath.Join(virtShareDir, "domain-notify-pipe.sock"),
+		legacySocketPath: filepath.Join(virtShareDir, "domain-notify.sock"),
 	}
-
-	// create info v1client and find cmd version to use
-	infoClient := info.NewNotifyInfoClient(conn)
-	return NewNotifierWithInfoClient(infoClient, conn)
-
 }
 
-func NewNotifierWithInfoClient(infoClient info.NotifyInfoClient, conn *grpc.ClientConn) (*Notifier, error) {
-
+func negotiateVersion(infoClient info.NotifyInfoClient) (uint32, error) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	info, err := infoClient.Info(ctx, &info.NotifyInfoRequest{})
 	if err != nil {
-		return nil, fmt.Errorf("could not check cmd server version: %v", err)
+		return 0, fmt.Errorf("could not check cmd server version: %v", err)
 	}
 	version, err := com.GetHighestCompatibleVersion(info.SupportedNotifyVersions, supportedNotifyVersions)
 	if err != nil {
-		return nil, err
+		return 0, err
+	}
+
+	switch version {
+	case 1:
+		// fall-through for all supported versions
+	default:
+		return 0, fmt.Errorf("cmd v1client version %v not implemented yet", version)
+	}
+
+	return version, nil
+}
+
+func (n *Notifier) detectSocketPath() string {
+
+	// use the legacy domain socket if it exists. This would
+	// occur if the vmi was started with a hostPath shared mount
+	// using our old method for virt-handler to virt-launcher communication
+	exists, _ := diskutils.FileExists(n.legacySocketPath)
+	if exists {
+		return n.legacySocketPath
+	}
+
+	// default to using the new pipe socket
+	return n.pipeSocketPath
+}
+
+func (n *Notifier) connect() error {
+	n.connLock.Lock()
+	defer n.connLock.Unlock()
+	if n.conn != nil {
+		// already connected
+		return nil
+	}
+
+	socketPath := n.detectSocketPath()
+
+	// dial socket
+	conn, err := grpcutil.DialSocket(socketPath)
+	if err != nil {
+		log.Log.Reason(err).Infof("failed to dial notify socket: %s", socketPath)
+		return err
+	}
+
+	version, err := negotiateVersion(info.NewNotifyInfoClient(conn))
+	if err != nil {
+		conn.Close()
+		return err
 	}
 
 	// create cmd v1client
 	switch version {
 	case 1:
 		client := notifyv1.NewNotifyClient(conn)
-		return newV1Notifier(client, conn), nil
+		n.v1client = client
+		n.conn = conn
 	default:
-		return nil, fmt.Errorf("cmd v1client version %v not implemented yet", version)
+		conn.Close()
+		return fmt.Errorf("cmd v1client version %v not implemented yet", version)
 	}
 
+	return nil
 }
 
 func newV1Notifier(client notifyv1.NotifyClient, conn *grpc.ClientConn) *Notifier {
@@ -96,6 +142,11 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 	var domainJSON []byte
 	var statusJSON []byte
 	var err error
+
+	err = n.connect()
+	if err != nil {
+		return err
+	}
 
 	if event.Type == watch.Error {
 		status := event.Object.(*metav1.Status)
@@ -182,7 +233,9 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 
 	switch domain.Status.Reason {
 	case api.ReasonNonExistent:
-		watchEvent := watch.Event{Type: watch.Deleted, Object: domain}
+		now := metav1.Now()
+		domain.ObjectMeta.DeletionTimestamp = &now
+		watchEvent := watch.Event{Type: watch.Modified, Object: domain}
 		client.SendDomainEvent(watchEvent)
 		events <- watchEvent
 	default:
@@ -209,7 +262,10 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 			client.SendDomainEvent(event)
 			events <- event
 		}
-		client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+		err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+		if err != nil {
+			log.Log.Reason(err).Error("Could not send domain notify event.")
+		}
 	}
 }
 
@@ -224,6 +280,7 @@ func (n *Notifier) StartDomainNotifier(
 	qemuAgentUserInterval time.Duration,
 	qemuAgentVersionInterval time.Duration,
 ) error {
+
 	eventChan := make(chan libvirtEvent, 10)
 
 	reconnectChan := make(chan bool, 10)
@@ -318,6 +375,11 @@ func (n *Notifier) StartDomainNotifier(
 
 func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
 
+	err := n.connect()
+	if err != nil {
+		return err
+	}
+
 	vmiRef, err := reference.GetReference(v1.Scheme, vmi)
 	if err != nil {
 		return err
@@ -354,5 +416,11 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 }
 
 func (n *Notifier) Close() {
-	n.conn.Close()
+	n.connLock.Lock()
+	defer n.connLock.Unlock()
+
+	if n.conn != nil {
+		n.conn.Close()
+		n.conn = nil
+	}
 }

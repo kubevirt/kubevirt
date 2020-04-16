@@ -28,83 +28,27 @@ import (
 	"strings"
 	"time"
 
-	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/client-go/precond"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 type OnShutdownCallback func(pid int)
+type OnGracefulShutdownCallback func()
 
 type monitor struct {
-	timeout                     time.Duration
-	pid                         int
-	cmdlineMatchStr             string
-	start                       time.Time
-	isDone                      bool
-	gracePeriod                 int
-	gracePeriodStartTime        int64
-	gracefulShutdownTriggerFile string
-	shutdownCallback            OnShutdownCallback
+	timeout                  time.Duration
+	pid                      int
+	cmdlineMatchStr          string
+	start                    time.Time
+	isDone                   bool
+	gracePeriod              int
+	gracePeriodStartTime     int64
+	finalShutdownCallback    OnShutdownCallback
+	gracefulShutdownCallback OnGracefulShutdownCallback
 }
 
 type ProcessMonitor interface {
 	RunForever(startTimeout time.Duration, signalStopChan chan struct{})
-}
-
-func GracefulShutdownTriggerDir(baseDir string) string {
-	return filepath.Join(baseDir, "graceful-shutdown-trigger")
-}
-
-func GracefulShutdownTriggerFromNamespaceName(baseDir string, namespace string, name string) string {
-	triggerFile := namespace + "_" + name
-	return filepath.Join(baseDir, "graceful-shutdown-trigger", triggerFile)
-}
-
-func VmGracefulShutdownTriggerClear(baseDir string, vmi *v1.VirtualMachineInstance) error {
-	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
-
-	triggerFile := GracefulShutdownTriggerFromNamespaceName(baseDir, namespace, domain)
-
-	return diskutils.RemoveFile(triggerFile)
-}
-
-func GracefulShutdownTriggerClear(triggerFile string) error {
-	return diskutils.RemoveFile(triggerFile)
-}
-
-func VmHasGracefulShutdownTrigger(baseDir string, vmi *v1.VirtualMachineInstance) (bool, error) {
-	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
-
-	return hasGracefulShutdownTrigger(baseDir, namespace, domain)
-}
-
-func hasGracefulShutdownTrigger(baseDir string, namespace string, name string) (bool, error) {
-	triggerFile := GracefulShutdownTriggerFromNamespaceName(baseDir, namespace, name)
-
-	return diskutils.FileExists(triggerFile)
-}
-
-func GracefulShutdownTriggerInitiate(triggerFile string) error {
-	exists, err := diskutils.FileExists(triggerFile)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return nil
-	}
-
-	f, err := os.Create(triggerFile)
-	if err != nil {
-		return err
-	}
-	f.Close()
-
-	return nil
 }
 
 func InitializePrivateDirectories(baseDir string) error {
@@ -134,32 +78,15 @@ func InitializeDisksDirectories(baseDir string) error {
 	return nil
 }
 
-func InitializeSharedDirectories(baseDir string) error {
-	err := os.MkdirAll(watchdog.WatchdogFileDirectory(baseDir), 0755)
-	if err != nil {
-		return err
-	}
-
-	err = os.MkdirAll(GracefulShutdownTriggerDir(baseDir), 0755)
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(cmdclient.SocketsDirectory(baseDir), 0755)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func NewProcessMonitor(cmdlineMatchStr string,
-	gracefulShutdownTriggerFile string,
 	gracePeriod int,
-	shutdownCallback OnShutdownCallback) ProcessMonitor {
+	finalShutdownCallback OnShutdownCallback,
+	gracefulShutdownCallback OnGracefulShutdownCallback) ProcessMonitor {
 	return &monitor{
-		cmdlineMatchStr:             cmdlineMatchStr,
-		gracePeriod:                 gracePeriod,
-		gracefulShutdownTriggerFile: gracefulShutdownTriggerFile,
-		shutdownCallback:            shutdownCallback,
+		cmdlineMatchStr:          cmdlineMatchStr,
+		gracePeriod:              gracePeriod,
+		finalShutdownCallback:    finalShutdownCallback,
+		gracefulShutdownCallback: gracefulShutdownCallback,
 	}
 }
 
@@ -220,7 +147,7 @@ func (mon *monitor) refresh() {
 
 	if expired {
 		log.Log.Infof("Grace Period expired, shutting down.")
-		mon.shutdownCallback(mon.pid)
+		mon.finalShutdownCallback(mon.pid)
 	}
 
 	return
@@ -251,10 +178,7 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan 
 				continue
 			}
 
-			err := GracefulShutdownTriggerInitiate(mon.gracefulShutdownTriggerFile)
-			if err != nil {
-				log.Log.Reason(err).Errorf("Error detected attempting to initialize graceful shutdown using trigger file %s.", mon.gracefulShutdownTriggerFile)
-			}
+			mon.gracefulShutdownCallback()
 			mon.gracePeriodStartTime = time.Now().UTC().Unix()
 		}
 	}

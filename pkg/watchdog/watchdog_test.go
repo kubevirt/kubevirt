@@ -27,6 +27,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/precond"
 )
@@ -123,6 +125,17 @@ var _ = Describe("Watchdog", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(domains)).To(Equal(0))
 			}
+		})
+
+		It("should be able to get uid from watchdog", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = types.UID("1234")
+
+			fileName := tmpVirtShareDir + "/watchdog-files/" + vmi.Namespace + "_" + vmi.Name
+			WatchdogFileUpdate(fileName, string(vmi.UID))
+
+			uid := WatchdogFileGetUID(tmpVirtShareDir, vmi)
+			Expect(uid).To(Equal(string(vmi.UID)))
 		})
 
 		It("should provide file in watchdog subdirectory", func() {

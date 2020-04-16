@@ -7,6 +7,7 @@ import (
 const ExtensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentication"
 const RequestHeaderClientCAFileKey = "requestheader-client-ca-file"
 const VirtShareDir = "/var/run/kubevirt"
+const VirtPrivateDir = "/var/run/kubevirt-private"
 const VirtLibDir = "/var/lib/kubevirt"
 const HostRootMount = "/proc/1/root/"
 const CPUManagerOS3Path = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"

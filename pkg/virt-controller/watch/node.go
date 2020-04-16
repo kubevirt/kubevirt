@@ -239,9 +239,26 @@ func (c *NodeController) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
 		if controllerRef := controller.GetControllerOf(pod); !isControlledByVMI(controllerRef) {
 			continue
 		}
+
+		// Some pods get stuck in a pending Termination during shutdown
+		// due to virt-handler not being available to unmount container disk
+		// mount propagation. A pod with all containers terminated is not
+		// considered alive
+		allContainersTerminated := false
+		if len(pod.Status.ContainerStatuses) > 0 {
+			allContainersTerminated = true
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.State.Terminated == nil {
+					allContainersTerminated = false
+					break
+				}
+			}
+		}
+
 		phase := pod.Status.Phase
-		if phase != v1.PodFailed && phase != v1.PodSucceeded {
+		if !allContainersTerminated && phase != v1.PodFailed && phase != v1.PodSucceeded {
 			pods = append(pods, pod)
+			continue
 		}
 	}
 	return pods, nil

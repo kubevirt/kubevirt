@@ -80,8 +80,7 @@ var _ = Describe("Notify", func() {
 
 			time.Sleep(1 * time.Second)
 
-			client, err = NewNotifier(shareDir)
-			Expect(err).ToNot(HaveOccurred())
+			client = NewNotifier(shareDir)
 		})
 
 		AfterEach(func() {
@@ -145,7 +144,9 @@ var _ = Describe("Notify", func() {
 					timedOut = true
 				case e := <-eventChan:
 					Expect(e.Object.(*api.Domain).Status.Status).To(Equal(api.NoState))
-					Expect(e.Type).To(Equal(watch.Deleted))
+					Expect(e.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
+					Expect(e.Type).To(Equal(watch.Modified))
+
 				}
 				Expect(timedOut).To(BeFalse())
 
@@ -253,8 +254,7 @@ var _ = Describe("Notify", func() {
 
 			time.Sleep(1 * time.Second)
 
-			client, err = NewNotifier(shareDir)
-			Expect(err).ToNot(HaveOccurred())
+			client = NewNotifier(shareDir)
 		})
 
 		AfterEach(func() {
@@ -298,7 +298,6 @@ var _ = Describe("Notify", func() {
 		AfterEach(func() {
 			ctrl.Finish()
 		})
-
 		It("Should report error when server version mismatches", func() {
 
 			fakeResponse := info.NotifyInfoResponse{
@@ -307,12 +306,11 @@ var _ = Describe("Notify", func() {
 			infoClient.EXPECT().Info(gomock.Any(), gomock.Any()).Return(&fakeResponse, nil)
 
 			By("Initializing the notifier")
-			_, err = NewNotifierWithInfoClient(infoClient, nil)
+			_, err = negotiateVersion(infoClient)
 
 			Expect(err).To(HaveOccurred(), "Should have returned error about incompatible versions")
 			Expect(err.Error()).To(ContainSubstring("no compatible version found"), "Expected error message to contain 'no compatible version found'")
 
 		})
-
 	})
 })

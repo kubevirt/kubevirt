@@ -57,15 +57,16 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 const (
-	defaultWatchdogTimeout = 15 * time.Second
+	defaultWatchdogTimeout = 30 * time.Second
 
 	// Default port that virt-handler listens on.
 	defaultPort = 8185
@@ -90,6 +91,7 @@ type virtHandlerApp struct {
 	HostOverride            string
 	PodIpAddress            string
 	VirtShareDir            string
+	VirtPrivateDir          string
 	VirtLibDir              string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
@@ -184,7 +186,32 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	virtlauncher.InitializeSharedDirectories(app.VirtShareDir)
+	// Legacy directory for watchdog files
+	err = os.MkdirAll(watchdog.WatchdogFileDirectory(app.VirtShareDir), 0755)
+	if err != nil {
+		panic(err)
+	}
+
+	// Legacy Directory for graceful shutdown trigger files.
+	err = os.MkdirAll(filepath.Join(app.VirtShareDir, "graceful-shutdown-trigger"), 0755)
+	if err != nil {
+		panic(err)
+	}
+
+	// We keep a record on disk of every VMI virt-handler starts.
+	// That record isn't deleted from this node until the VMI
+	// is completely torn down.
+	err = virtcache.InitializeGhostRecordCache(filepath.Join(app.VirtPrivateDir, "ghost-records"))
+	if err != nil {
+		panic(err)
+	}
+
+	cmdclient.SetPodsBaseDir("/pods")
+	cmdclient.SetLegacyBaseDir(app.VirtShareDir)
+	err = os.MkdirAll(cmdclient.LegacySocketsDirectory(), 0755)
+	if err != nil {
+		panic(err)
+	}
 
 	app.namespace, err = clientutil.GetNamespace()
 	if err != nil {
@@ -201,9 +228,10 @@ func (app *virtHandlerApp) Run() {
 		glog.Fatalf("Error constructing migration tls config: %v", err)
 	}
 
+	// Legacy support, Remove this informer once we no longer support
+	// VMIs with graceful shutdown trigger
 	gracefulShutdownInformer := cache.NewSharedIndexInformer(
-		inotifyinformer.NewFileListWatchFromClient(
-			virtlauncher.GracefulShutdownTriggerDir(app.VirtShareDir)),
+		inotifyinformer.NewFileListWatchFromClient(filepath.Join(app.VirtShareDir, "graceful-shutdown-trigger")),
 		&virt_api.Domain{},
 		0,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
@@ -218,6 +246,7 @@ func (app *virtHandlerApp) Run() {
 		app.HostOverride,
 		app.PodIpAddress,
 		app.VirtShareDir,
+		app.VirtPrivateDir,
 		vmSourceSharedInformer,
 		vmTargetSharedInformer,
 		domainSharedInformer,
@@ -339,6 +368,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", util.VirtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
+
+	flag.StringVar(&app.VirtPrivateDir, "kubevirt-private-dir", util.VirtPrivateDir,
+		"private directory for virt-handler state")
 
 	flag.StringVar(&app.VirtLibDir, "kubevirt-lib-dir", util.VirtLibDir,
 		"Shared lib directory between virt-handler and virt-launcher")

@@ -20,6 +20,12 @@
 package cache
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -27,15 +33,19 @@ import (
 
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
+
+const socketDialTimeout = 5
 
 func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store) cache.ListerWatcher {
 	d := &DomainWatcher{
@@ -44,6 +54,7 @@ func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder r
 		watchdogTimeout:          watchdogTimeout,
 		recorder:                 recorder,
 		vmiStore:                 vmiStore,
+		unresponsiveSockets:      make(map[string]int64),
 	}
 
 	return d
@@ -59,6 +70,218 @@ type DomainWatcher struct {
 	watchdogTimeout          int
 	recorder                 record.EventRecorder
 	vmiStore                 cache.Store
+
+	watchDogLock        sync.Mutex
+	unresponsiveSockets map[string]int64
+}
+
+type ghostRecord struct {
+	Name       string    `json:"name"`
+	Namespace  string    `json:"namespace"`
+	SocketFile string    `json:"socketFile"`
+	UID        types.UID `json:"uid"`
+}
+
+var ghostRecordGlobalCache map[string]ghostRecord
+var ghostRecordGlobalMutex sync.Mutex
+var ghostRecordDir string
+
+// this function is only used by unit tests
+func clearGhostRecordCache() {
+	ghostRecordGlobalMutex.Lock()
+	defer ghostRecordGlobalMutex.Unlock()
+	ghostRecordGlobalCache = make(map[string]ghostRecord)
+}
+
+func InitializeGhostRecordCache(directoryPath string) error {
+	ghostRecordGlobalMutex.Lock()
+	defer ghostRecordGlobalMutex.Unlock()
+
+	ghostRecordGlobalCache = make(map[string]ghostRecord)
+	ghostRecordDir = directoryPath
+	err := os.MkdirAll(ghostRecordDir, 0755)
+	if err != nil {
+		return err
+	}
+
+	files, err := ioutil.ReadDir(ghostRecordDir)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		recordPath := filepath.Join(ghostRecordDir, file.Name())
+
+		fileBytes, err := ioutil.ReadFile(recordPath)
+		if err != nil {
+			log.Log.Reason(err).Errorf("Unable to read ghost record file at path %s", recordPath)
+			continue
+		}
+
+		ghostRecord := ghostRecord{}
+		err = json.Unmarshal(fileBytes, &ghostRecord)
+		if err != nil {
+			log.Log.Reason(err).Errorf("Unable to unmarshal json contents of ghost record file at path %s", recordPath)
+			continue
+		}
+
+		key := ghostRecord.Namespace + "/" + ghostRecord.Name
+		ghostRecordGlobalCache[key] = ghostRecord
+		log.Log.Infof("Added ghost record for key %s", key)
+	}
+
+	return nil
+}
+
+func LastKnownUIDFromGhostRecordCache(key string) types.UID {
+	ghostRecordGlobalMutex.Lock()
+	defer ghostRecordGlobalMutex.Unlock()
+
+	record, ok := ghostRecordGlobalCache[key]
+	if !ok {
+		return ""
+	}
+
+	return record.UID
+}
+
+func getGhostRecords() ([]ghostRecord, error) {
+	ghostRecordGlobalMutex.Lock()
+	defer ghostRecordGlobalMutex.Unlock()
+
+	var records []ghostRecord
+
+	for _, record := range ghostRecordGlobalCache {
+		records = append(records, record)
+	}
+
+	return records, nil
+}
+
+func findGhostRecordBySocket(socketFile string) (ghostRecord, bool) {
+	ghostRecordGlobalMutex.Lock()
+	defer ghostRecordGlobalMutex.Unlock()
+
+	for _, record := range ghostRecordGlobalCache {
+		if record.SocketFile == socketFile {
+			return record, true
+		}
+	}
+
+	return ghostRecord{}, false
+}
+
+func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) error {
+	ghostRecordGlobalMutex.Lock()
+	defer ghostRecordGlobalMutex.Unlock()
+	if name == "" {
+		return fmt.Errorf("can not add ghost record when 'name' is not provided")
+	} else if namespace == "" {
+		return fmt.Errorf("can not add ghost record when 'namespace' is not provided")
+	} else if string(uid) == "" {
+		return fmt.Errorf("Unable to add ghost record with empty UID")
+	} else if socketFile == "" {
+		return fmt.Errorf("Unable to add ghost record without a socketFile")
+	}
+
+	key := namespace + "/" + name
+	recordPath := filepath.Join(ghostRecordDir, string(uid))
+
+	record, ok := ghostRecordGlobalCache[key]
+	if !ok {
+		// record doesn't exist, so add new one.
+		record := ghostRecord{
+			Name:       name,
+			Namespace:  namespace,
+			SocketFile: socketFile,
+			UID:        uid,
+		}
+
+		fileBytes, err := json.Marshal(&record)
+		if err != nil {
+			return err
+		}
+		f, err := os.Create(recordPath)
+		if err != nil {
+			return err
+		}
+
+		defer f.Close()
+
+		_, err = f.Write(fileBytes)
+		if err != nil {
+			return err
+		}
+		ghostRecordGlobalCache[key] = record
+	}
+
+	// This protects us from stomping on a previous ghost record
+	// that was not cleaned up properly. A ghost record that was
+	// not deleted indicates that the VMI shutdown process did not
+	// properly handle cleanup of local data.
+	if ok && record.UID != uid {
+		return fmt.Errorf("can not add ghost record when entry already exists with differing UID")
+	}
+
+	return nil
+}
+
+func DeleteGhostRecord(namespace string, name string) error {
+	ghostRecordGlobalMutex.Lock()
+	defer ghostRecordGlobalMutex.Unlock()
+	key := namespace + "/" + name
+	record, ok := ghostRecordGlobalCache[key]
+	if !ok {
+		// already deleted
+		return nil
+	}
+
+	if string(record.UID) == "" {
+		return fmt.Errorf("Unable to remove ghost record with empty UID")
+	}
+
+	recordPath := filepath.Join(ghostRecordDir, string(record.UID))
+	err := os.RemoveAll(recordPath)
+	if err != nil {
+		return nil
+	}
+
+	delete(ghostRecordGlobalCache, key)
+
+	return nil
+}
+
+func listSockets() ([]string, error) {
+	var sockets []string
+
+	knownSocketFiles, err := cmdclient.ListAllSockets()
+	if err != nil {
+		return sockets, err
+	}
+	ghostRecords, err := getGhostRecords()
+	if err != nil {
+		return sockets, err
+	}
+
+	sockets = append(sockets, knownSocketFiles...)
+
+	for _, record := range ghostRecords {
+		exists := false
+		for _, socket := range knownSocketFiles {
+			if record.SocketFile == socket {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			sockets = append(sockets, record.SocketFile)
+		}
+	}
+
+	return sockets, nil
 }
 
 func (d *DomainWatcher) startBackground() error {
@@ -76,7 +299,10 @@ func (d *DomainWatcher) startBackground() error {
 	go func() {
 		defer d.wg.Done()
 
-		expiredWatchdogTicker := time.NewTicker(time.Duration(d.watchdogTimeout) * time.Second).C
+		// Divide the watchdogTimeout by 3 for our ticker.
+		// This ensures we always have at least 2 response failures
+		// in a row before we mark the socket as unavailable (which results in shutdown of VMI)
+		expiredWatchdogTicker := time.NewTicker(time.Duration((d.watchdogTimeout/3)+1) * time.Second).C
 		srvErr := make(chan error)
 		go func() {
 			defer close(srvErr)
@@ -88,6 +314,7 @@ func (d *DomainWatcher) startBackground() error {
 			select {
 			case <-expiredWatchdogTicker:
 				d.handleStaleWatchdogFiles()
+				d.handleStaleSocketConnections()
 			case err := <-srvErr:
 				if err != nil {
 					log.Log.Reason(err).Errorf("Unexpected err encountered with Domain Notify aggregation server")
@@ -103,6 +330,8 @@ func (d *DomainWatcher) startBackground() error {
 	return nil
 }
 
+// TODO remove watchdog file usage eventually and only rely on detecting stale socket connections
+// for now we have to keep watchdog files around for backwards compatiblity with old VMIs
 func (d *DomainWatcher) handleStaleWatchdogFiles() error {
 	domains, err := watchdog.GetExpiredDomains(d.watchdogTimeout, d.virtShareDir)
 	if err != nil {
@@ -112,19 +341,124 @@ func (d *DomainWatcher) handleStaleWatchdogFiles() error {
 
 	for _, domain := range domains {
 		log.Log.Object(domain).Warning("detected expired watchdog for domain")
-		d.eventChan <- watch.Event{Type: watch.Deleted, Object: domain}
+		now := k8sv1.Now()
+		domain.ObjectMeta.DeletionTimestamp = &now
+		d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
 	}
+	return nil
+}
+
+func (d *DomainWatcher) handleStaleSocketConnections() error {
+	var unresponsive []string
+
+	socketFiles, err := listSockets()
+	if err != nil {
+		log.Log.Reason(err).Error("failed to list sockets")
+		return err
+	}
+
+	for _, socket := range socketFiles {
+		if !cmdclient.SocketMonitoringEnabled(socket) {
+			// don't process legacy sockets here. They still use the
+			// old watchdog file method
+			continue
+		}
+
+		sock, err := net.DialTimeout("unix", socket, time.Duration(socketDialTimeout)*time.Second)
+		if err == nil {
+			// socket is alive still
+			sock.Close()
+			continue
+		}
+		unresponsive = append(unresponsive, socket)
+	}
+
+	d.watchDogLock.Lock()
+	defer d.watchDogLock.Unlock()
+
+	now := time.Now().UTC().Unix()
+
+	// Add new unresponsive sockets
+	for _, socket := range unresponsive {
+		_, ok := d.unresponsiveSockets[socket]
+		if !ok {
+			d.unresponsiveSockets[socket] = now
+		}
+	}
+
+	for key, timeStamp := range d.unresponsiveSockets {
+		found := false
+		for _, socket := range unresponsive {
+			if socket == key {
+				found = true
+				break
+			}
+		}
+		// reap old unresponsive sockets
+		// remove from unresponsive list if not found unresponsive this iteration
+		if !found {
+			delete(d.unresponsiveSockets, key)
+			break
+		}
+
+		diff := now - timeStamp
+
+		if diff > int64(d.watchdogTimeout) {
+
+			record, exists := findGhostRecordBySocket(key)
+
+			if !exists {
+				// ignore if info file doesn't exist
+				// this is possible with legacy VMIs that haven't
+				// been updated. The watchdog file will catch these.
+			} else {
+				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
+				domain.ObjectMeta.UID = record.UID
+				domain.Spec.Metadata.KubeVirt.UID = record.UID
+				now := k8sv1.Now()
+				domain.ObjectMeta.DeletionTimestamp = &now
+				log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)
+				d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
+
+				err := cmdclient.MarkSocketUnresponsive(key)
+				if err != nil {
+					log.Log.Reason(err).Errorf("Unable to mark vmi as unresponsive socket %s", key)
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
 func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 	var domains []*api.Domain
 
-	socketFiles, err := cmdclient.ListAllSockets(d.virtShareDir)
+	socketFiles, err := listSockets()
 	if err != nil {
 		return nil, err
 	}
 	for _, socketFile := range socketFiles {
+
+		exists, err := diskutils.FileExists(socketFile)
+		if err != nil {
+			log.Log.Reason(err).Error("failed access cmd client socket")
+			continue
+		}
+
+		if !exists {
+			record, recordExists := findGhostRecordBySocket(socketFile)
+			if recordExists {
+				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
+				domain.ObjectMeta.UID = record.UID
+				now := k8sv1.Now()
+				domain.ObjectMeta.DeletionTimestamp = &now
+				log.Log.Object(domain).Warning("detected stale domain from ghost record")
+				domains = append(domains, domain)
+			}
+			continue
+		}
+
 		log.Log.V(3).Infof("List domains from sock %s", socketFile)
 		client, err := cmdclient.NewClient(socketFile)
 		if err != nil {

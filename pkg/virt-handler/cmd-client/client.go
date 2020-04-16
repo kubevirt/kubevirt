@@ -33,6 +33,7 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -59,7 +60,13 @@ var (
 	// add older version when supported
 	// don't use the variable in pkg/handler-launcher-com/cmd/v1/version.go in order to detect version mismatches early
 	supportedCmdVersions = []uint32{1}
+	legacyBaseDir        = "/var/run/kubevirt"
+	podsBaseDir          = "/pods"
 )
+
+const StandardLauncherSocketFileName = "launcher-sock"
+const StandardLauncherInfoFileName = "launcher-info"
+const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 
 type MigrationOptions struct {
 	Bandwidth               resource.Quantity
@@ -99,11 +106,19 @@ const (
 	longTimeout  time.Duration = 20 * time.Second
 )
 
-func ListAllSockets(baseDir string) ([]string, error) {
+func SetLegacyBaseDir(baseDir string) {
+	legacyBaseDir = baseDir
+}
+
+func SetPodsBaseDir(baseDir string) {
+	podsBaseDir = baseDir
+}
+
+func ListAllSockets() ([]string, error) {
 	var socketFiles []string
 
-	fileDir := filepath.Join(baseDir, "sockets")
-	exists, err := diskutils.FileExists(fileDir)
+	socketsDir := filepath.Join(legacyBaseDir, "sockets")
+	exists, err := diskutils.FileExists(socketsDir)
 	if err != nil {
 		return nil, err
 	}
@@ -112,23 +127,132 @@ func ListAllSockets(baseDir string) ([]string, error) {
 		return socketFiles, nil
 	}
 
-	files, err := ioutil.ReadDir(fileDir)
+	files, err := ioutil.ReadDir(socketsDir)
 	if err != nil {
 		return nil, err
 	}
 	for _, file := range files {
-		socketFiles = append(socketFiles, filepath.Join(fileDir, file.Name()))
+		if file.IsDir() || !strings.Contains(file.Name(), "_sock") {
+			continue
+		}
+		// legacy support.
+		// The old way of handling launcher sockets was to
+		// dump them all in the same directory. So if we encounter
+		// a legacy socket, still process it. This is necessary
+		// for update support.
+		socketFiles = append(socketFiles, filepath.Join(socketsDir, file.Name()))
 	}
+
+	podsDir := podsBaseDir
+	dirs, err := ioutil.ReadDir(podsDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, dir := range dirs {
+		if !dir.IsDir() {
+			continue
+		}
+
+		socketPath := SocketFilePathOnHost(dir.Name())
+		exists, err = diskutils.FileExists(socketPath)
+		if err != nil {
+			return socketFiles, err
+		}
+
+		if exists {
+			socketFiles = append(socketFiles, socketPath)
+		}
+	}
+
 	return socketFiles, nil
 }
 
-func SocketsDirectory(baseDir string) string {
-	return filepath.Join(baseDir, "sockets")
+func LegacySocketsDirectory() string {
+	return filepath.Join(legacyBaseDir, "sockets")
 }
 
-func SocketFromUID(baseDir string, uid string) string {
-	sockFile := uid + "_sock"
-	return filepath.Join(SocketsDirectory(baseDir), sockFile)
+func IsLegacySocket(socket string) bool {
+	if filepath.Base(socket) == StandardLauncherSocketFileName {
+		return false
+	}
+
+	return true
+}
+
+func SocketMonitoringEnabled(socket string) bool {
+	if filepath.Base(socket) == StandardLauncherSocketFileName {
+		return true
+	}
+	return false
+}
+
+func IsSocketUnresponsive(socket string) bool {
+	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
+	exists, _ := diskutils.FileExists(file)
+	// if the unresponsive socket monitor marked this socket
+	// as being unresponsive, return true
+	if exists {
+		return true
+	}
+
+	exists, _ = diskutils.FileExists(socket)
+	// if the socket file doesn't exist, it's definitely unresponsive as well
+	if !exists {
+		return true
+	}
+
+	return false
+}
+
+func MarkSocketUnresponsive(socket string) error {
+	file := filepath.Join(filepath.Dir(socket), StandardLauncherUnresponsiveFileName)
+	f, err := os.Create(file)
+	if err != nil {
+		return err
+	}
+	f.Close()
+	return nil
+}
+
+func SocketDirectoryOnHost(podUID string) string {
+	return fmt.Sprintf("/%s/%s/volumes/kubernetes.io~empty-dir/sockets", podsBaseDir, string(podUID))
+}
+
+func SocketFilePathOnHost(podUID string) string {
+	return fmt.Sprintf("%s/%s", SocketDirectoryOnHost(podUID), StandardLauncherSocketFileName)
+}
+
+// gets the cmd socket for a VMI
+func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
+	if string(vmi.UID) != "" {
+		legacySockFile := string(vmi.UID) + "_sock"
+		legacySock := filepath.Join(LegacySocketsDirectory(), legacySockFile)
+		exists, _ := diskutils.FileExists(legacySock)
+		if exists {
+			return legacySock, nil
+		}
+	}
+
+	// It is possible for multiple pods to be active on a single VMI
+	// during migrations. This loop will discover the active pod on
+	// this particular local node if it exists. A active pod not
+	// running on this node will not have a kubelet pods directory,
+	// so it will not be found.
+	for podUID, _ := range vmi.Status.ActivePods {
+		socket := SocketFilePathOnHost(string(podUID))
+		exists, _ := diskutils.FileExists(socket)
+		if exists {
+			return socket, nil
+		}
+	}
+
+	return "", fmt.Errorf("No command socket found for vmi %s", vmi.UID)
+
+}
+
+func SocketOnGuest() string {
+	sockFile := StandardLauncherSocketFileName
+	return filepath.Join(LegacySocketsDirectory(), sockFile)
 }
 
 func NewClient(socketPath string) (LauncherClient, error) {

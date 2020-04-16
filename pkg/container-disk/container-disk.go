@@ -38,17 +38,43 @@ import (
 
 var containerDiskOwner = "qemu"
 
+var podsBaseDir = "/var/lib/kubelet/pods"
+
 var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
-func GenerateVolumeMountDir(vmi *v1.VirtualMachineInstance) string {
+func GetLegacyVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(mountBaseDir, string(vmi.UID))
 }
 
-func GenerateDiskTargetPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex int) string {
-	return filepath.Join(GenerateVolumeMountDir(vmi), fmt.Sprintf("disk_%d.img", volumeIndex))
+func GetVolumeMountDirOnGuest(vmi *v1.VirtualMachineInstance) string {
+	return filepath.Join(mountBaseDir, string(vmi.UID))
 }
 
-func GenerateDiskTargetPathFromLauncherView(volumeIndex int) string {
+func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (string, bool, error) {
+	for podUID, _ := range vmi.Status.ActivePods {
+		basepath := fmt.Sprintf("%s/%s/volumes/kubernetes.io~empty-dir/container-disks", podsBaseDir, string(podUID))
+		exists, err := diskutils.FileExists(basepath)
+		if err != nil {
+			return "", false, err
+		} else if exists {
+			return basepath, true, nil
+		}
+	}
+	return "", false, nil
+}
+
+func GetDiskTargetPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+	basepath, found, err := GetVolumeMountDirOnHost(vmi)
+	if err != nil {
+		return "", err
+	} else if !found {
+		return "", fmt.Errorf("container disk volume for vmi not found")
+	}
+
+	return fmt.Sprintf("%s/disk_%d.img", basepath, volumeIndex), nil
+}
+
+func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
 	return filepath.Join(mountBaseDir, fmt.Sprintf("disk_%d.img", volumeIndex))
 }
 
@@ -57,15 +83,20 @@ func SetLocalDirectory(dir string) error {
 	return os.MkdirAll(dir, 0755)
 }
 
+func setPodsDirectory(dir string) error {
+	podsBaseDir = dir
+	return os.MkdirAll(dir, 0755)
+}
+
 // The unit test suite uses this function
-func SetLocalDataOwner(user string) {
+func setLocalDataOwner(user string) {
 	containerDiskOwner = user
 }
 
 // GetDiskTargetPartFromLauncherView returns (path to disk image, image type, and error)
 func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
 
-	path := GenerateDiskTargetPathFromLauncherView(volumeIndex)
+	path := GetDiskTargetPathFromLauncherView(volumeIndex)
 	exists, err := diskutils.FileExists(path)
 	if err != nil {
 		return "", err
@@ -76,8 +107,15 @@ func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
 	return "", fmt.Errorf("no supported file disk found for volume with index %d", volumeIndex)
 }
 
-func GenerateSocketPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex int) string {
-	return fmt.Sprintf("%s/%s/disk_%d.sock", mountBaseDir, vmi.UID, volumeIndex)
+func GetSocketPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+	for podUID, _ := range vmi.Status.ActivePods {
+		basepath := fmt.Sprintf("/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", string(podUID))
+		exists, _ := diskutils.FileExists(basepath)
+		if exists {
+			return filepath.Join(basepath, fmt.Sprintf("disk_%d.sock", volumeIndex)), nil
+		}
+	}
+	return "", fmt.Errorf("container disk socket path not found for vmi")
 }
 
 func GetImage(root string, imagePath string) (string, error) {
@@ -119,7 +157,7 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, bi
 	for index, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
 
-			volumeMountDir := GenerateVolumeMountDir(vmi)
+			volumeMountDir := GetVolumeMountDirOnGuest(vmi)
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
 			diskContainerImage := volume.ContainerDisk.Image
 			resources := kubev1.ResourceRequirements{}

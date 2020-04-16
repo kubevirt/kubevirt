@@ -21,7 +21,6 @@ package virtlauncher
 
 import (
 	"flag"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,14 +50,14 @@ var _ = Describe("VirtLauncher", func() {
 
 	uuid := "123-123-123-123"
 
-	tmpDir, _ := ioutil.TempDir("", "monitortest")
-
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	dir := os.Getenv("PWD")
 	dir = strings.TrimSuffix(dir, "pkg/virt-launcher")
 
 	processStarted := false
+
+	gracefulShutdownCallbackTriggered := false
 
 	StartProcess := func() {
 		cmdLock.Lock()
@@ -116,21 +115,22 @@ var _ = Describe("VirtLauncher", func() {
 	}
 
 	BeforeEach(func() {
-		InitializeSharedDirectories(tmpDir)
-		triggerFile := GracefulShutdownTriggerFromNamespaceName(tmpDir, "fakenamespace", "fakedomain")
+		gracefulShutdownCallbackTriggered = false
 		shutdownCallback := func(pid int) {
 			syscall.Kill(pid, syscall.SIGTERM)
 		}
+		gracefulShutdownCallback := func() {
+			gracefulShutdownCallbackTriggered = true
+		}
 		mon = &monitor{
-			cmdlineMatchStr:             uuid,
-			gracePeriod:                 30,
-			gracefulShutdownTriggerFile: triggerFile,
-			shutdownCallback:            shutdownCallback,
+			cmdlineMatchStr:          uuid,
+			gracePeriod:              30,
+			finalShutdownCallback:    shutdownCallback,
+			gracefulShutdownCallback: gracefulShutdownCallback,
 		}
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(tmpDir)
 		if processStarted == true {
 			cmdLock.Lock()
 			defer cmdLock.Unlock()
@@ -206,18 +206,11 @@ var _ = Describe("VirtLauncher", func() {
 				}()
 
 				time.Sleep(time.Second)
-
-				exists, err := hasGracefulShutdownTrigger(tmpDir, "fakenamespace", "fakedomain")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(exists).To(BeFalse())
-
+				Expect(gracefulShutdownCallbackTriggered).To(BeFalse())
 				close(stopChan)
 
 				time.Sleep(time.Second)
-
-				exists, err = hasGracefulShutdownTrigger(tmpDir, "fakenamespace", "fakedomain")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(exists).To(BeTrue())
+				Expect(gracefulShutdownCallbackTriggered).To(BeTrue())
 			})
 
 			It("verify grace period works", func() {

@@ -216,6 +216,21 @@ var _ = Describe("Node controller with", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
 		})
+		It("should set a vmi without a pod containing all terminated containers in a failed state", func() {
+			node := NewUnhealthyNode("testnode")
+			vmi := NewRunningVirtualMachine("vmi1", node)
+
+			vmiFeeder.Add(vmi)
+			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, &k8sv1.PodList{Items: []k8sv1.Pod{*NewUnhealthyStuckTerminatingPodForVirtualMachine("whatever", vmi)}}, nil
+			})
+
+			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
+		})
 		It("should set a vmi without a pod to failed state, triggered by node update", func() {
 			node := NewUnhealthyNode("testnode")
 			vmi := NewRunningVirtualMachine("vmi1", node)
@@ -372,6 +387,19 @@ func NewRunningVirtualMachine(vmiName string, node *k8sv1.Node) *virtv1.VirtualM
 		virtv1.NodeNameLabel: node.Name,
 	}
 	return vmi
+}
+
+func NewUnhealthyStuckTerminatingPodForVirtualMachine(podName string, vmi *virtv1.VirtualMachineInstance) *k8sv1.Pod {
+	pod := NewHealthyPodForVirtualMachine(podName, vmi)
+	pod.Status.Phase = k8sv1.PodPending
+	pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{
+		k8sv1.ContainerStatus{
+			State: k8sv1.ContainerState{
+				Terminated: &k8sv1.ContainerStateTerminated{},
+			},
+		},
+	}
+	return pod
 }
 
 func NewUnhealthyPodForVirtualMachine(podName string, vmi *virtv1.VirtualMachineInstance) *k8sv1.Pod {

@@ -44,7 +44,7 @@ func WatchdogFileFromNamespaceName(baseDir string, namespace string, name string
 }
 
 // attempts to retrieve vmi uid from watchdog file if it exists
-func WatchdogFileGetUid(baseDir string, vmi *v1.VirtualMachineInstance) string {
+func WatchdogFileGetUID(baseDir string, vmi *v1.VirtualMachineInstance) string {
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
@@ -133,9 +133,15 @@ func isExpired(now int64, timeoutSeconds int, stat os.FileInfo) bool {
 
 func GetExpiredDomains(timeoutSeconds int, virtShareDir string) ([]*api.Domain, error) {
 
+	var domains []*api.Domain
+
 	fileDir := WatchdogFileDirectory(virtShareDir)
 
-	var domains []*api.Domain
+	exists, _ := diskutils.FileExists(fileDir)
+	if !exists {
+		return domains, nil
+	}
+
 	files, err := ioutil.ReadDir(fileDir)
 	if err != nil {
 		return nil, err

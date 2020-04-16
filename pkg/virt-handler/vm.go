@@ -24,8 +24,11 @@ import (
 	"encoding/json"
 	goerror "errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -48,21 +51,28 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	clusterutils "kubevirt.io/kubevirt/pkg/util/cluster"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
+
+type launcherClientInfo struct {
+	client     cmdclient.LauncherClient
+	socketFile string
+	domainPipe net.Listener
+}
 
 func NewController(
 	recorder record.EventRecorder,
@@ -70,6 +80,7 @@ func NewController(
 	host string,
 	ipAddress string,
 	virtShareDir string,
+	virtPrivateDir string,
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -97,9 +108,9 @@ func NewController(
 		gracefulShutdownInformer: gracefulShutdownInformer,
 		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
-		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir, serverTLSConfig, clientTLSConfig),
+		migrationProxy:           migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
 		podIsolationDetector:     podIsolationDetector,
-		containerDiskMounter:     &container_disk.Mounter{PodIsolationDetector: podIsolationDetector},
+		containerDiskMounter:     container_disk.NewMounter(podIsolationDetector, virtPrivateDir+"/container-disk-mount-state"),
 		clusterConfig:            clusterConfig,
 	}
 
@@ -127,8 +138,10 @@ func NewController(
 		UpdateFunc: c.updateFunc,
 	})
 
-	c.launcherClients = make(map[string]cmdclient.LauncherClient)
+	c.launcherClients = make(map[types.UID]*launcherClientInfo)
 	c.phase1NetworkSetupCache = make(map[types.UID]int)
+
+	c.domainNotifyPipes = make(map[string]string)
 
 	c.kvmController = device_manager.NewDeviceController(c.host, maxDevices)
 
@@ -141,19 +154,20 @@ type VirtualMachineController struct {
 	host                     string
 	ipAddress                string
 	virtShareDir             string
+	virtPrivateDir           string
 	Queue                    workqueue.RateLimitingInterface
 	vmiSourceInformer        cache.SharedIndexInformer
 	vmiTargetInformer        cache.SharedIndexInformer
 	domainInformer           cache.SharedInformer
 	gracefulShutdownInformer cache.SharedIndexInformer
-	launcherClients          map[string]cmdclient.LauncherClient
+	launcherClients          map[types.UID]*launcherClientInfo
 	launcherClientLock       sync.Mutex
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
 	kvmController            *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
-	containerDiskMounter     *container_disk.Mounter
+	containerDiskMounter     container_disk.Mounter
 	clusterConfig            *virtconfig.ClusterConfig
 
 	// records if pod network phase1 has completed
@@ -162,6 +176,73 @@ type VirtualMachineController struct {
 	// prevents cycling an unncessary posix thread.
 	phase1NetworkSetupCache     map[types.UID]int
 	phase1NetworkSetupCacheLock sync.Mutex
+
+	domainNotifyPipes map[string]string
+}
+
+func (d *VirtualMachineController) startDomainNotifyPipe(vmi *v1.VirtualMachineInstance) (net.Listener, error) {
+
+	res, err := d.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
+	}
+
+	// inject the domain-notify.sock into the VMI pod.
+	socketPath := filepath.Join(res.MountRoot(), d.virtShareDir, "domain-notify-pipe.sock")
+
+	os.RemoveAll(socketPath)
+	err = os.MkdirAll(filepath.Dir(socketPath), 0755)
+	if err != nil {
+		log.Log.Reason(err).Error("unable to create directory for unix socket")
+		return nil, err
+	}
+
+	listener, err := net.Listen("unix", socketPath)
+	if err != nil {
+		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
+		return nil, err
+	}
+
+	// pipe the VMI domain-notify.sock to the virt-handler domain-notify.sock
+	// so virt-handler receives notifications from the VMI
+	conn, err := net.Dial("unix", filepath.Join(d.virtShareDir, "domain-notify.sock"))
+	if err != nil {
+		listener.Close()
+		return nil, err
+	}
+
+	go func(d *VirtualMachineController, ln net.Listener, socketPath string, vmi *v1.VirtualMachineInstance) {
+		defer conn.Close()
+		for {
+			fd, err := ln.Accept()
+			if err != nil {
+				log.Log.Reason(err).Error("domain pipe listener closed.")
+				break
+			}
+
+			go func(vmi *v1.VirtualMachineInstance) {
+				log.Log.Object(vmi).V(3).Infof("Accepted new notify pipe connection for vmi")
+				defer fd.Close()
+				copyErr := make(chan error)
+				go func() {
+					_, err := io.Copy(fd, conn)
+					copyErr <- err
+				}()
+				go func() {
+					_, err := io.Copy(conn, fd)
+					copyErr <- err
+				}()
+
+				// wait until one of the copy routines exit then
+				// let the fd close
+				err := <-copyErr
+				log.Log.Object(vmi).V(3).Infof("closing notify pipe connection for vmi: %v", err)
+
+			}(vmi)
+		}
+	}(d, listener, socketPath, vmi)
+
+	return listener, nil
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -711,18 +792,26 @@ func (d *VirtualMachineController) getVMIFromCache(key string) (vmi *v1.VirtualM
 	return vmi, exists, nil
 }
 
-func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.Domain, exists bool, err error) {
+func (d *VirtualMachineController) getDomainFromCache(key string) (domain *api.Domain, exists bool, cachedUID types.UID, err error) {
 
 	obj, exists, err := d.domainInformer.GetStore().GetByKey(key)
 
 	if err != nil {
-		return nil, false, err
+		return nil, false, "", err
 	}
 
 	if exists {
 		domain = obj.(*api.Domain)
+		cachedUID = domain.Spec.Metadata.KubeVirt.UID
+
+		// We're using the DeletionTimestamp to signify that the
+		// Domain is deleted rather than sending the DELETE watch event.
+		if domain.ObjectMeta.DeletionTimestamp != nil {
+			exists = false
+			domain = nil
+		}
 	}
-	return domain, exists, nil
+	return domain, exists, cachedUID, nil
 }
 
 func (d *VirtualMachineController) migrationOrphanedSourceNodeExecute(key string,
@@ -871,6 +960,43 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 	return nil
 }
 
+// Legacy, remove once we're certain we are no longer supporting
+// VMIs running with the old graceful shutdown trigger logic
+func gracefulShutdownTriggerFromNamespaceName(baseDir string, namespace string, name string) string {
+	triggerFile := namespace + "_" + name
+	return filepath.Join(baseDir, "graceful-shutdown-trigger", triggerFile)
+}
+
+// Legacy, remove once we're certain we are no longer supporting
+// VMIs running with the old graceful shutdown trigger logic
+func vmGracefulShutdownTriggerClear(baseDir string, vmi *v1.VirtualMachineInstance) error {
+	triggerFile := gracefulShutdownTriggerFromNamespaceName(baseDir, vmi.Namespace, vmi.Name)
+	return diskutils.RemoveFile(triggerFile)
+}
+
+// Legacy, remove once we're certain we are no longer supporting
+// VMIs running with the old graceful shutdown trigger logic
+func vmHasGracefulShutdownTrigger(baseDir string, vmi *v1.VirtualMachineInstance) (bool, error) {
+	triggerFile := gracefulShutdownTriggerFromNamespaceName(baseDir, vmi.Namespace, vmi.Name)
+	return diskutils.FileExists(triggerFile)
+}
+
+// Determine if gracefulShutdown has been triggered by virt-launcher
+func (d *VirtualMachineController) hasGracefulShutdownTrigger(vmi *v1.VirtualMachineInstance, domain *api.Domain) (bool, error) {
+
+	// This is the new way of reporting GracefulShutdown, via domain metadata.
+	if domain != nil &&
+		domain.Spec.Metadata.KubeVirt.GracePeriod != nil &&
+		domain.Spec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown != nil &&
+		*domain.Spec.Metadata.KubeVirt.GracePeriod.MarkedForGracefulShutdown == true {
+		return true, nil
+	}
+
+	// Fallback to detecting the old way of reporting gracefulshutdown, via file.
+	// We keep this around in order to ensure backwards compatibility
+	return vmHasGracefulShutdownTrigger(d.virtShareDir, vmi)
+}
+
 func (d *VirtualMachineController) defaultExecute(key string,
 	vmi *v1.VirtualMachineInstance,
 	vmiExists bool,
@@ -907,8 +1033,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	domainMigrated := domainExists && domainMigrated(domain)
 
-	// Determine if gracefulShutdown has been triggered by virt-launcher
-	gracefulShutdown, err := virtlauncher.VmHasGracefulShutdownTrigger(d.virtShareDir, vmi)
+	gracefulShutdown, err := d.hasGracefulShutdownTrigger(vmi, domain)
 	if err != nil {
 		return err
 	} else if gracefulShutdown && vmi.IsRunning() {
@@ -1053,36 +1178,53 @@ func (d *VirtualMachineController) execute(key string) error {
 		return err
 	}
 
-	domain, domainExists, err := d.getDomainFromCache(key)
+	domain, domainExists, domainCachedUID, err := d.getDomainFromCache(key)
 	if err != nil {
 		return err
 	}
 
-	if !vmiExists && domainExists {
-		vmi.UID = domain.Spec.Metadata.KubeVirt.UID
+	if !vmiExists && string(domainCachedUID) != "" {
+		// it's possible to discover the UID from cache even if the domain
+		// doesn't techincally exist anymore
+		vmi.UID = domainCachedUID
+		log.Log.Object(vmi).Infof("Using cached UID for vmi found in domain cache")
 	}
 
 	// As a last effort, if the UID still can't be determined attempt
-	// to retrieve it from the watchdog file
+	// to retrieve it from the ghost record
 	if string(vmi.UID) == "" {
-		uid := watchdog.WatchdogFileGetUid(d.virtShareDir, vmi)
+		uid := virtcache.LastKnownUIDFromGhostRecordCache(key)
 		if uid != "" {
-			log.Log.Object(vmi).V(3).Infof("Watchdog file provided %s as UID", uid)
-			vmi.UID = types.UID(uid)
+			log.Log.Object(vmi).V(3).Infof("ghost record cache provided %s as UID", uid)
+			vmi.UID = uid
+		} else {
+			// legacy support, attempt to find UID from watchdog file it exists.
+			uid := watchdog.WatchdogFileGetUID(d.virtShareDir, vmi)
+			if uid != "" {
+				log.Log.Object(vmi).V(3).Infof("watchdog file provided %s as UID", uid)
+				vmi.UID = types.UID(uid)
+			}
 		}
 	}
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
 		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
 		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
-		expired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, oldVMI)
+		expired, err := d.isLauncherClientUnresponsive(oldVMI)
 		if err != nil {
 			return err
 		}
 		// If we found an outdated domain which is also not alive anymore, clean up
 		if expired {
-			return d.processVmCleanup(oldVMI)
+			log.Log.Object(oldVMI).Infof("Detected stale vmi %s that still needs cleanup before new vmi %s with identical name/namespace can be processed", oldVMI.UID, vmi.UID)
+			err = d.processVmCleanup(oldVMI)
+			if err != nil {
+				return err
+			}
+			// Make sure we re-enqueue the key to ensure this new VMI is processed
+			// after the stale domain is removed
+			d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*5)
 		}
-		// if the watchdog still gets updated, we are not allowed to clean up
+
 		return nil
 	}
 
@@ -1122,14 +1264,16 @@ func (d *VirtualMachineController) execute(key string) error {
 }
 
 func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstance) error {
-	err := virtlauncher.VmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
+
+	vmiId := string(vmi.UID)
+
+	log.Log.Object(vmi).Infof("Performing final local cleanup for vmi with uid %s", vmiId)
+	// If the VMI is using the old graceful shutdown trigger on
+	// a hostmount, make sure to clear that file still.
+	err := vmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
 	if err != nil {
 		return err
 	}
-
-	d.closeLauncherClient(vmi)
-
-	vmiId := string(vmi.UID)
 
 	d.migrationProxy.StopTargetListener(vmiId)
 	d.migrationProxy.StopSourceListener(vmiId)
@@ -1142,62 +1286,150 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	d.clearPodNetworkPhase1(vmi)
 
-	// Watch dog file must be the last thing removed here
-	err = watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
+	// Watch dog file and command client must be the last things removed here
+	err = d.closeLauncherClient(vmi)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	// Remove the domain from cache in the event that we're performing
+	// a final cleanup and never received the "DELETE" event. This is
+	// possible if the VMI pod goes away before we receive the final domain
+	// "DELETE"
+	domain := api.NewDomainReferenceFromName(vmi.Namespace, vmi.Name)
+	log.Log.Object(domain).Infof("Removing domain from cache during final cleanup")
+	return d.domainInformer.GetStore().Delete(domain)
 }
 
-func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineInstance) {
+func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineInstance) error {
+
+	// UID is required in order to close socket
+	if string(vmi.GetUID()) == "" {
+		return nil
+	}
+
 	// maps require locks for concurrent access
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 
-	sockFile := cmdclient.SocketFromUID(d.virtShareDir, string(vmi.GetUID()))
-
-	client, ok := d.launcherClients[sockFile]
-	if ok == false {
-		return
+	clientInfo, ok := d.launcherClients[vmi.UID]
+	if ok {
+		clientInfo.client.Close()
+		if clientInfo.domainPipe != nil {
+			clientInfo.domainPipe.Close()
+		}
+		// With legacy sockets on hostpaths, we have to cleanup the sockets ourselves.
+		if cmdclient.IsLegacySocket(clientInfo.socketFile) {
+			err := os.RemoveAll(clientInfo.socketFile)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
-	client.Close()
-	delete(d.launcherClients, sockFile)
+	// for legacy support, ensure watchdog is removed when client is removed
+	// in the event that watchdog VMIs are still in use
+	err := watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
+	if err != nil {
+		return err
+	}
 
-	os.RemoveAll(sockFile)
+	virtcache.DeleteGhostRecord(vmi.Namespace, vmi.Name)
+
+	delete(d.launcherClients, vmi.UID)
+	return nil
 }
 
 // used by unit tests to add mock clients
-func (d *VirtualMachineController) addLauncherClient(client cmdclient.LauncherClient, sockFile string) error {
+func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, client cmdclient.LauncherClient, socketFile string, domainPipe net.Listener) error {
 	// maps require locks for concurrent access
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 
-	d.launcherClients[sockFile] = client
+	d.launcherClients[vmUID] = &launcherClientInfo{
+		client:     client,
+		socketFile: socketFile,
+		domainPipe: domainPipe,
+	}
 
 	return nil
 }
 
+func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (bool, error) {
+	var socketFile string
+	var err error
+
+	d.launcherClientLock.Lock()
+	defer d.launcherClientLock.Unlock()
+
+	clientInfo, ok := d.launcherClients[vmi.UID]
+	if ok {
+		// use cached socket if we previously established a connection
+		socketFile = clientInfo.socketFile
+	} else {
+		// attempt to find the socket if the established connection doesn't currently exist.
+		socketFile, err = cmdclient.FindSocketOnHost(vmi)
+		// no socket file, no VMI, so it's unresponsive
+		if err != nil {
+			return true, nil
+		}
+	}
+	// The new way of detecting unresponsive VMIs monitors the
+	// cmd socket. This requires an updated VMI image. Old VMIs
+	// still use the watchdog method.
+	watchDogExists, _ := watchdog.WatchdogFileExists(d.virtShareDir, vmi)
+	if cmdclient.SocketMonitoringEnabled(socketFile) && !watchDogExists {
+		isUnresponsive := cmdclient.IsSocketUnresponsive(socketFile)
+		return isUnresponsive, nil
+	}
+
+	// fall back to legacy watchdog support for backwards compatiblity
+	return watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
+}
+
 func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
+	var domainPipe net.Listener
+	var err error
+
 	// maps require locks for concurrent access
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 
-	sockFile := cmdclient.SocketFromUID(d.virtShareDir, string(vmi.GetUID()))
-
-	client, ok := d.launcherClients[sockFile]
+	clientInfo, ok := d.launcherClients[vmi.UID]
 	if ok {
-		return client, nil
+		return clientInfo.client, nil
 	}
 
-	client, err := cmdclient.NewClient(sockFile)
+	socketFile, err := cmdclient.FindSocketOnHost(vmi)
 	if err != nil {
 		return nil, err
 	}
 
-	d.launcherClients[sockFile] = client
+	err = virtcache.AddGhostRecord(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := cmdclient.NewClient(socketFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// if this isn't a legacy socket, we need to
+	// pipe in the domain socket into the VMI's filesystem
+	if !cmdclient.IsLegacySocket(socketFile) {
+		domainPipe, err = d.startDomainNotifyPipe(vmi)
+		if err != nil {
+			client.Close()
+			return nil, err
+		}
+	}
+
+	d.launcherClients[vmi.UID] = &launcherClientInfo{
+		client:     client,
+		socketFile: socketFile,
+		domainPipe: domainPipe,
+	}
 
 	return client, nil
 }
@@ -1307,17 +1539,15 @@ func (d *VirtualMachineController) removeStaleClientConnections(vmi *v1.VirtualM
 	// maps require locks for concurrent access
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
-	sockFile := cmdclient.SocketFromUID(d.virtShareDir, string(vmi.GetUID()))
 
-	client, ok := d.launcherClients[sockFile]
+	clientInfo, ok := d.launcherClients[vmi.UID]
 	if !ok {
 		// no client connection to reap
 		return
 	}
 
-	// close the connection but do not delete the file
-	client.Close()
-	delete(d.launcherClients, sockFile)
+	clientInfo.client.Close()
+	delete(d.launcherClients, vmi.UID)
 }
 
 func (d *VirtualMachineController) getVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error) {
@@ -1428,6 +1658,9 @@ func (d *VirtualMachineController) handlePostSyncMigrationProxy(vmi *v1.VirtualM
 
 	// Get the libvirt connection socket file on the destination pod.
 	socketFile := fmt.Sprintf("/proc/%d/root/var/run/libvirt/libvirt-sock", res.Pid())
+	// the migration-proxy is no longer shared via host mount, so we
+	// pass in the virt-launcher's baseDir to reach the unix sockets.
+	baseDir := fmt.Sprintf("/proc/%d/root/var/run/kubevirt", res.Pid())
 	migrationTargetSockets = append(migrationTargetSockets, socketFile)
 
 	isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
@@ -1435,7 +1668,7 @@ func (d *VirtualMachineController) handlePostSyncMigrationProxy(vmi *v1.VirtualM
 	for _, port := range migrationPortsRange {
 		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 		// a proxy between the target direct qemu channel and the connector in the destination pod
-		destSocketFile := migrationproxy.SourceUnixFile(d.virtShareDir, key)
+		destSocketFile := migrationproxy.SourceUnixFile(baseDir, key)
 		migrationTargetSockets = append(migrationTargetSockets, destSocketFile)
 	}
 	err = d.migrationProxy.StartTargetListener(string(vmi.UID), migrationTargetSockets)
@@ -1450,15 +1683,23 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 	// start the source proxy once we know the target address
 
 	if d.isMigrationSource(vmi) {
+		res, err := d.podIsolationDetector.Detect(vmi)
+		if err != nil {
+			return err
+		}
+		// the migration-proxy is no longer shared via host mount, so we
+		// pass in the virt-launcher's baseDir to reach the unix sockets.
+		baseDir := fmt.Sprintf("/proc/%d/root/var/run/kubevirt", res.Pid())
 		d.migrationProxy.StopTargetListener(string(vmi.UID))
 		if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
 			msg := "No migration proxy has been created for this vmi"
 			return fmt.Errorf("%s", msg)
 		}
-		err := d.migrationProxy.StartSourceListener(
+		err = d.migrationProxy.StartSourceListener(
 			string(vmi.UID),
 			vmi.Status.MigrationState.TargetNodeAddress,
 			vmi.Status.MigrationState.TargetDirectMigrationNodePorts,
+			baseDir,
 		)
 		if err != nil {
 			return err
@@ -1473,12 +1714,12 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
 	vmi := origVMI.DeepCopy()
 
-	isExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
-
+	isUnresponsive, err := d.isLauncherClientUnresponsive(vmi)
 	if err != nil {
 		return err
-	} else if isExpired {
-		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with expired watchdog."))
+	}
+	if isUnresponsive {
+		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
 	}
 
 	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
@@ -1597,13 +1838,13 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 	if domain == nil {
 		switch {
 		case vmi.IsScheduled():
-			isExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
+			isUnresponsive, err := d.isLauncherClientUnresponsive(vmi)
 
 			if err != nil {
 				return vmi.Status.Phase, err
 			}
 
-			if isExpired {
+			if isUnresponsive {
 				// virt-launcher is gone and VirtualMachineInstance never transitioned
 				// from scheduled to Running.
 				return v1.Failed, nil
@@ -1698,6 +1939,11 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 	if oldDomain.Status.Status != newDomain.Status.Status || oldDomain.Status.Reason != newDomain.Status.Reason {
 		log.Log.Object(newDomain).Infof("Domain is in state %s reason %s", newDomain.Status.Status, newDomain.Status.Reason)
 	}
+
+	if newDomain.ObjectMeta.DeletionTimestamp != nil {
+		log.Log.Object(newDomain).Info("Domain is marked for deletion")
+	}
+
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		d.Queue.Add(key)

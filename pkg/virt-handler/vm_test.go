@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -36,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
@@ -44,15 +46,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -88,8 +92,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var err error
 	var shareDir string
-	var testUUID types.UID
+	var privateDir string
+	var vmiShareDir string
+	var podsDir string
+	var ghostCacheDir string
+	var vmiTestUUID types.UID
+	var podTestUUID types.UID
 	var stop chan struct{}
+	var eventChan chan watch.Event
 
 	var host string
 
@@ -99,10 +109,27 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	BeforeEach(func() {
 		stop = make(chan struct{})
-		shareDir, err = ioutil.TempDir("", "kubevirt-share")
+		eventChan = make(chan watch.Event, 100)
+		shareDir, err = ioutil.TempDir("", "")
+		Expect(err).ToNot(HaveOccurred())
+		privateDir, err = ioutil.TempDir("", "")
+		Expect(err).ToNot(HaveOccurred())
+		podsDir, err = ioutil.TempDir("", "")
 		Expect(err).ToNot(HaveOccurred())
 		certDir, err = ioutil.TempDir("", "migrationproxytest")
 		Expect(err).ToNot(HaveOccurred())
+		vmiShareDir, err = ioutil.TempDir("", "")
+		Expect(err).ToNot(HaveOccurred())
+		ghostCacheDir, err = ioutil.TempDir("", "")
+		Expect(err).ToNot(HaveOccurred())
+
+		err = virtcache.InitializeGhostRecordCache(ghostCacheDir)
+		Expect(err).ToNot(HaveOccurred())
+
+		os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)
+
+		cmdclient.SetLegacyBaseDir(shareDir)
+		cmdclient.SetPodsBaseDir(podsDir)
 
 		store, err := certificates.GenerateSelfSignedCert(certDir, "test", "test")
 
@@ -137,6 +164,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
 		mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).AnyTimes()
 		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
+		mockIsolationResult.EXPECT().MountRoot().Return(vmiShareDir).AnyTimes()
 
 		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
@@ -147,6 +175,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			host,
 			podIpAddress,
 			shareDir,
+			privateDir,
 			vmiSourceInformer,
 			vmiTargetInformer,
 			domainInformer,
@@ -159,10 +188,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockIsolationDetector,
 		)
 
-		testUUID = uuid.NewUUID()
-		client = cmdclient.NewMockLauncherClient(ctrl)
-		sockFile := cmdclient.SocketFromUID(shareDir, string(testUUID))
-		controller.addLauncherClient(client, sockFile)
+		vmiTestUUID = uuid.NewUUID()
+		podTestUUID = uuid.NewUUID()
+		sockFile := cmdclient.SocketFilePathOnHost(string(podTestUUID))
+		os.MkdirAll(filepath.Dir(sockFile), 0755)
+		f, err := os.Create(sockFile)
+		Expect(err).ToNot(HaveOccurred())
+		f.Close()
 
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
@@ -177,13 +209,28 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
 
 		StubOutNetworkForTest()
+
+		go func() {
+			notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
+		}()
+		time.Sleep(1 * time.Second)
+
+		client = cmdclient.NewMockLauncherClient(ctrl)
+		domainPipe, err := controller.startDomainNotifyPipe(nil)
+		Expect(err).ToNot(HaveOccurred())
+		controller.addLauncherClient(vmiTestUUID, client, sockFile, domainPipe)
+
 	})
 
 	AfterEach(func() {
 		close(stop)
 		ctrl.Finish()
 		os.RemoveAll(shareDir)
+		os.RemoveAll(privateDir)
+		os.RemoveAll(vmiShareDir)
+		os.RemoveAll(podsDir)
 		os.RemoveAll(certDir)
+		os.RemoveAll(ghostCacheDir)
 	})
 
 	initGracePeriodHelper := func(gracePeriod int64, vmi *v1.VirtualMachineInstance, dom *api.Domain) {
@@ -198,40 +245,97 @@ var _ = Describe("VirtualMachineInstance", func() {
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
 
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domainFeeder.Add(domain)
 
 			client.EXPECT().Ping()
-			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
+			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
 			controller.Execute()
 		})
 
 		It("should delete running Domains if no cluster wide equivalent exists and no grace period info exists", func() {
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 			domainFeeder.Add(domain)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
 
 			controller.Execute()
 		})
 
-		It("should perform cleanup of local ephemeral data if domain and vmi are deleted", func() {
-			mockSockFile := cmdclient.SocketFromUID(shareDir, "")
-			controller.addLauncherClient(client, mockSockFile)
+		It("should handle cleanup of legacy graceful shutdown and watchdog files", func() {
 
-			mockQueue.Add("default/testvmi")
+			name := "testvmi"
+			namespace := "default"
+			uid := "1234"
+
+			legacyMockSockFile := filepath.Join(shareDir, "sockets", uid+"_sock")
+
+			controller.addLauncherClient(types.UID(uid), client, legacyMockSockFile, nil)
+			err := virtcache.AddGhostRecord(namespace, name, legacyMockSockFile, types.UID(uid))
+			Expect(err).ToNot(HaveOccurred())
+
+			os.MkdirAll(filepath.Dir(legacyMockSockFile), 0755)
+			os.MkdirAll(filepath.Join(shareDir, "watchdog-files"), 0755)
+			os.MkdirAll(filepath.Join(shareDir, "graceful-shutdown-trigger"), 0755)
+
+			watchdogFile := filepath.Join(shareDir, "watchdog-files", namespace+"_"+name)
+			gracefulTrigger := filepath.Join(shareDir, "graceful-shutdown-trigger", namespace+"_"+name)
+
+			f, err := os.Create(legacyMockSockFile)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+
+			f, err = os.Create(watchdogFile)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = f.WriteString(uid)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+
+			f, err = os.Create(gracefulTrigger)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+
+			exists, err := diskutils.FileExists(filepath.Join(shareDir, "sockets"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			mockQueue.Add(namespace + "/" + name)
 			client.EXPECT().Close()
 			controller.Execute()
+
+			exists, err = diskutils.FileExists(filepath.Join(shareDir, "sockets"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			exists, err = diskutils.FileExists(filepath.Join(shareDir, "graceful-shutdown-trigger"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			exists, err = diskutils.FileExists(filepath.Join(shareDir, "watchdog-files"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+
+			exists, err = diskutils.FileExists(legacyMockSockFile)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+
+			exists, err = diskutils.FileExists(watchdogFile)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
+
+			exists, err = diskutils.FileExists(gracefulTrigger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
 		})
 
 		It("should not attempt graceful shutdown of Domain if domain is already down.", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Running
 
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Crashed
 
 			initGracePeriodHelper(1, vmi, domain)
@@ -239,17 +343,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockGracefulShutdown.TriggerShutdown(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
+			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
 		}, 3)
 		It("should attempt graceful shutdown of Domain if trigger file exists.", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Running
 
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vmi, domain)
@@ -257,7 +361,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockGracefulShutdown.TriggerShutdown(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
+			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
@@ -265,15 +369,15 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			vmi.UID = vmiTestUUID
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vmi, domain)
 			mockWatchdog.CreateFile(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
+			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
@@ -281,10 +385,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should do nothing if vmi and domain do not match", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = "other uuid"
 			oldVMI := v1.NewMinimalVMI("testvmi")
-			oldVMI.UID = "other uuid"
-			domain := api.NewMinimalDomainWithUUID("testvmi", "other uuid")
+			oldVMI.UID = vmiTestUUID
+			domain := api.NewMinimalDomainWithUUID("testvmi", oldVMI.UID)
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vmi, domain)
@@ -301,7 +405,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should cleanup if vmi and domain do not match and watchdog is expired", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			oldVMI := v1.NewMinimalVMI("testvmi")
 			oldVMI.UID = "other uuid"
 			domain := api.NewMinimalDomainWithUUID("testvmi", "other uuid")
@@ -325,7 +429,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should cleanup if vmi is finalized and domain does not exist", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Succeeded
 
 			mockWatchdog.CreateFile(vmi)
@@ -344,8 +448,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should attempt force terminate Domain if grace period expires", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			vmi.UID = vmiTestUUID
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vmi, domain)
@@ -357,24 +461,24 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockGracefulShutdown.TriggerShutdown(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
 		}, 3)
 
 		It("should immediately kill domain with grace period of 0", func() {
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 
 			initGracePeriodHelper(0, vmi, domain)
 			mockWatchdog.CreateFile(vmi)
 			mockGracefulShutdown.TriggerShutdown(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
 			domainFeeder.Add(domain)
 			controller.Execute()
 		}, 3)
@@ -388,7 +492,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should create the Domain if it sees the first time on a new VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
@@ -397,6 +501,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 			}
+			vmi = addActivePods(vmi, podTestUUID, host)
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
@@ -411,9 +516,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
+			vmi = addActivePods(vmi, podTestUUID, host)
 
 			updatedVMI := vmi.DeepCopy()
 			updatedVMI.Status.Phase = v1.Running
@@ -426,7 +532,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVMI.Status.MigrationMethod = v1.LiveMigration
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
@@ -451,13 +557,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should add guest agent condition when sees the channel connected", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
 
 			mockWatchdog.CreateFile(vmi)
 
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 			domain.Spec.Devices.Channels = []api.Channel{
 				{
@@ -503,7 +610,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should remove guest agent condition when there is no channel connected", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
@@ -517,10 +624,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 			}
+			vmi = addActivePods(vmi, podTestUUID, host)
 
 			mockWatchdog.CreateFile(vmi)
 
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 			domain.Spec.Devices.Channels = []api.Channel{
 				{
@@ -555,13 +663,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should add and remove paused condition", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
 
 			mockWatchdog.CreateFile(vmi)
 
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 
 			By("pausing domain")
 			domain.Status.Status = api.Paused
@@ -647,7 +756,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should remove an error condition if a synchronization run succeeds", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
@@ -656,6 +765,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionFalse,
 				},
 			}
+			vmi = addActivePods(vmi, podTestUUID, host)
 
 			updatedVMI := vmi.DeepCopy()
 			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
@@ -707,7 +817,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should prepare migration target", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
@@ -718,24 +828,21 @@ var _ = Describe("VirtualMachineInstance", func() {
 				SourceNode:   "othernode",
 				MigrationUID: "123",
 			}
+			vmi = addActivePods(vmi, podTestUUID, host)
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
 
 			// something has to be listening to the cmd socket
 			// for the proxy to work.
-			os.MkdirAll(cmdclient.SocketsDirectory(shareDir), os.ModePerm)
-			portsList := []int{0, 49152}
-			for _, port := range portsList {
-				key := string(vmi.UID)
-				if port != 0 {
-					key += fmt.Sprintf("-%d", port)
-				}
-				socketFile := cmdclient.SocketFromUID(shareDir, key)
-				socket, err := net.Listen("unix", socketFile)
-				Expect(err).NotTo(HaveOccurred())
-				defer socket.Close()
-			}
+			os.MkdirAll(cmdclient.SocketDirectoryOnHost(string(podTestUUID)), os.ModePerm)
+
+			socketFile := cmdclient.SocketFilePathOnHost(string(podTestUUID))
+			os.RemoveAll(socketFile)
+			socket, err := net.Listen("unix", socketFile)
+			Expect(err).NotTo(HaveOccurred())
+			defer socket.Close()
+
 			// since a random port is generated, we have to create the proxy
 			// here in order to know what port will be in the update.
 			err = controller.handleMigrationProxy(vmi)
@@ -757,7 +864,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should migrate vmi once target address is known", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
@@ -776,9 +883,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 			}
+			vmi = addActivePods(vmi, podTestUUID, host)
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 			domainFeeder.Add(domain)
 			vmiFeeder.Add(vmi)
@@ -794,7 +902,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should abort vmi migration vmi when migration object indicates deletion", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
@@ -814,9 +922,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 			}
+			vmi = addActivePods(vmi, podTestUUID, host)
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
 			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
@@ -833,7 +942,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("Handoff domain to other node after completed migration", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
@@ -848,7 +957,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Shutoff
 			domain.Status.Reason = api.ReasonMigrated
 
@@ -875,7 +984,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}, 3)
 		It("update guest time after completed migration", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
@@ -892,7 +1001,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 
 			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
@@ -1306,7 +1415,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	Context("VirtualMachineInstance controller gets informed about interfaces in a Domain", func() {
 		It("should update existing interface with MAC", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 
@@ -1321,7 +1430,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 
 			new_MAC := "1C:CE:C0:01:BE:E7"
@@ -1347,7 +1456,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should update existing interface with IPs", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 
@@ -1365,7 +1474,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 
 			domain.Spec.Devices.Interfaces = []api.Interface{
@@ -1399,7 +1508,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should update Guest OS Information in VMI status", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 			guestOSName := "TestGuestOS"
@@ -1409,7 +1518,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 
 			domain.Status.OSInfo = api.GuestOSInfo{Name: guestOSName}
@@ -1426,7 +1535,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should add new vmi interfaces for new domain interfaces", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 
@@ -1442,7 +1551,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 
 			new_interface_name := "new_interface_name"
@@ -1475,7 +1584,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should update name on status interfaces with no name", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.UID = testUUID
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 
@@ -1489,7 +1598,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 
 			new_MAC := "1C:CE:C0:01:BE:E7"
@@ -1531,13 +1640,14 @@ type MockGracefulShutdown struct {
 }
 
 func (m *MockGracefulShutdown) TriggerShutdown(vmi *v1.VirtualMachineInstance) {
-	Expect(os.MkdirAll(virtlauncher.GracefulShutdownTriggerDir(m.baseDir), os.ModePerm)).To(Succeed())
+	Expect(os.MkdirAll(filepath.Join(m.baseDir, "graceful-shutdown-trigger"), os.ModePerm)).To(Succeed())
 
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
-	triggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(m.baseDir, namespace, domain)
-	err := virtlauncher.GracefulShutdownTriggerInitiate(triggerFile)
+	triggerFile := gracefulShutdownTriggerFromNamespaceName(m.baseDir, namespace, domain)
+	f, err := os.Create(triggerFile)
 	Expect(err).NotTo(HaveOccurred())
+	f.Close()
 }
 
 type MockWatchdog struct {
@@ -1591,4 +1701,16 @@ func (m *vmiCondMatcher) Matches(x interface{}) bool {
 
 func (m *vmiCondMatcher) String() string {
 	return "conditions matches on vmis"
+}
+
+func addActivePods(vmi *v1.VirtualMachineInstance, podUID types.UID, hostName string) *v1.VirtualMachineInstance {
+
+	if vmi.Status.ActivePods != nil {
+		vmi.Status.ActivePods[podUID] = hostName
+	} else {
+		vmi.Status.ActivePods = map[types.UID]string{
+			podUID: hostName,
+		}
+	}
+	return vmi
 }

@@ -33,6 +33,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -53,11 +54,9 @@ import (
 	virtcli "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 const defaultStartTimeout = 3 * time.Minute
-const defaultWatchdogInterval = 5 * time.Second
 
 func init() {
 	// must registry the event impl before doing anything else.
@@ -146,34 +145,6 @@ func startDomainEventMonitoring(
 	}
 }
 
-func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, stopChan chan struct{}, uid string) (done chan struct{}) {
-	err := watchdog.WatchdogFileUpdate(watchdogFile, uid)
-	if err != nil {
-		panic(err)
-	}
-
-	log.Log.Infof("Watchdog file created at %s", watchdogFile)
-	done = make(chan struct{})
-
-	go func() {
-		defer close(done)
-
-		ticker := time.NewTicker(watchdogInterval).C
-		for {
-			select {
-			case <-stopChan:
-				return
-			case <-ticker:
-				err := watchdog.WatchdogFileUpdate(watchdogFile, uid)
-				if err != nil {
-					panic(err)
-				}
-			}
-		}
-	}()
-	return done
-}
-
 func initializeDirs(virtShareDir string,
 	ephemeralDiskDir string,
 	containerDiskDir string,
@@ -183,12 +154,8 @@ func initializeDirs(virtShareDir string,
 	mask := syscall.Umask(0)
 	defer syscall.Umask(mask)
 
-	err := virtlauncher.InitializeSharedDirectories(virtShareDir)
-	if err != nil {
-		panic(err)
-	}
+	err := virtlauncher.InitializePrivateDirectories(filepath.Join("/var/run/kubevirt-private", uid))
 
-	err = virtlauncher.InitializePrivateDirectories(filepath.Join("/var/run/kubevirt-private", uid))
 	if err != nil {
 		panic(err)
 	}
@@ -241,14 +208,15 @@ func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan
 	case <-ticker:
 		panic(fmt.Errorf("timed out waiting for domain to be defined"))
 	case e := <-events:
-		if e.Type == watch.Deleted {
-			// we are done already
-			return nil
-		}
 		if e.Object != nil && e.Type == watch.Added {
 			domain := e.Object.(*api.Domain)
 			log.Log.Infof("Detected domain with UUID %s", domain.Spec.UUID)
 			return domain
+		} else if e.Type == watch.Modified {
+			domain, ok := e.Object.(*api.Domain)
+			if ok && domain.ObjectMeta.DeletionTimestamp != nil {
+				return nil
+			}
 		}
 	case <-stop:
 		return nil
@@ -265,16 +233,19 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	// First attempt to wait for domain event to occur as a part of the normal shutdown flow.
 	// If that fails, call Kill on the domain and wait for the event again.
 	// If that that fails, exit. We did our best to shutdown the domain gracefully. We can't block
-	// the pod forever. Virt-handler will learn of the domain's exit through the watchdog file expire.
+	// the pod forever. Virt-handler will learn of the domain's exit through monitoring cmd server socket.
 
 	killTimeout := time.After(15 * time.Second)
 	timedOut := false
 	for timedOut == false {
 		select {
 		case e := <-deleteNotificationSent:
-			if e.Type == watch.Deleted {
-				log.Log.Info("Final Delete notification sent")
-				return
+			if e.Object != nil && e.Type == watch.Modified {
+				domain, ok := e.Object.(*api.Domain)
+				if ok && domain.ObjectMeta.DeletionTimestamp != nil {
+					log.Log.Info("Final Delete notification sent")
+					return
+				}
 			}
 		case <-killTimeout:
 			log.Log.Info("Timed out waiting for final delete notification. Attempting to kill domain")
@@ -297,9 +268,12 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	for {
 		select {
 		case e := <-deleteNotificationSent:
-			if e.Type == watch.Deleted {
-				log.Log.Info("Final Delete notification sent after calling kill.")
-				return
+			if e.Object != nil && e.Type == watch.Modified {
+				domain, ok := e.Object.(*api.Domain)
+				if ok && domain.ObjectMeta.DeletionTimestamp != nil {
+					log.Log.Info("Final Delete notification sent after calling kill.")
+					return
+				}
 			}
 			return
 		case <-finalTimeout:
@@ -325,7 +299,6 @@ func main() {
 	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
 	uid := pflag.String("uid", "", "UID of the VirtualMachineInstance")
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
-	watchdogInterval := pflag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
 	readinessFile := pflag.String("readiness-file", "/var/run/kubevirt-infra/healthy", "Pod looks for this file to determine when virt-launcher is initialized")
 	gracePeriodSeconds := pflag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
 	useEmulation := pflag.Bool("use-emulation", false, "Use software emulation")
@@ -368,11 +341,6 @@ func main() {
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
 
-	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir,
-		*namespace,
-		*name)
-	watchdogDone := startWatchdogTicker(watchdogFile, *watchdogInterval, stopChan, *uid)
-
 	err = util.SetupLibvirt()
 	if err != nil {
 		panic(err)
@@ -388,10 +356,7 @@ func main() {
 
 	var agentStore = agentpoller.NewAsyncAgentStore()
 
-	notifier, err := notifyclient.NewNotifier(*virtShareDir)
-	if err != nil {
-		panic(err)
-	}
+	notifier := notifyclient.NewNotifier(*virtShareDir)
 	defer notifier.Close()
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration, &agentStore)
@@ -406,19 +371,29 @@ func main() {
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
 	options := cmdserver.NewServerOptions(*useEmulation)
-	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid)
+	cmdclient.SetLegacyBaseDir(*virtShareDir)
+	socketPath := cmdclient.SocketOnGuest()
 	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
 
-	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir,
-		*namespace,
-		*name)
-	err = virtlauncher.GracefulShutdownTriggerClear(gracefulShutdownTriggerFile)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Error clearing shutdown trigger file %s.", gracefulShutdownTriggerFile)
-		panic(err)
+	gracefulShutdownCallback := func() {
+		err := wait.PollImmediate(time.Second, 15*time.Second, func() (bool, error) {
+			err := domainManager.MarkGracefulShutdownVMI(vm)
+			if err != nil {
+				log.Log.Reason(err).Errorf("Unable to signal graceful shutdown")
+				return false, err
+			}
+
+			return true, nil
+		})
+
+		if err != nil {
+			log.Log.Reason(err).Errorf("Gave up attempting to signal graceful shutdown")
+		}
+
+		log.Log.Object(vm).Info("Successfully signaled graceful shutdown")
 	}
 
-	shutdownCallback := func(pid int) {
+	finalShutdownCallback := func(pid int) {
 		err := domainManager.KillVMI(vm)
 		if err != nil {
 			log.Log.Reason(err).Errorf("Unable to stop qemu with libvirt, falling back to SIGTERM")
@@ -453,9 +428,9 @@ func main() {
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
 	if domain != nil {
 		mon := virtlauncher.NewProcessMonitor(domain.Spec.UUID,
-			gracefulShutdownTriggerFile,
 			*gracePeriodSeconds,
-			shutdownCallback)
+			finalShutdownCallback,
+			gracefulShutdownCallback)
 
 		// This is a wait loop that monitors the qemu pid. When the pid
 		// exits, the wait loop breaks.
@@ -469,7 +444,6 @@ func main() {
 
 	close(stopChan)
 	<-cmdServerDone
-	<-watchdogDone
 
 	log.Log.Info("Exiting...")
 }

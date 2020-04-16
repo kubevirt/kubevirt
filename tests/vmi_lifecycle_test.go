@@ -1114,7 +1114,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					data, err := logsQuery.DoRaw()
 					Expect(err).ToNot(HaveOccurred(), "Should get the virthandler logs")
 					return string(data)
-				}, 30, 0.5).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain deleted","name":"%s"`, vmi.GetObjectMeta().GetName()), "Logs should confirm pod deletion")
+				}, 30, 0.5).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is marked for deletion","name":"%s"`, vmi.GetObjectMeta().GetName()), "Logs should confirm pod deletion")
 
 			},
 				table.Entry("[test_id:1641]"+tests.NamespaceTestDefault, tests.NamespaceTestDefault),

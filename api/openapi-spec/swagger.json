@@ -6961,6 +6961,10 @@
    "v1.VirtualMachineInstanceStatus": {
     "description": "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.",
     "properties": {
+     "activePods": {
+      "description": "ActivePods is a mapping of pod UID to node name.\nIt is possible for multiple pods to be running for a single VMI during migration.",
+      "type": "object"
+     },
      "conditions": {
       "description": "Conditions are specific points in VirtualMachineInstance's pod runtime.",
       "type": "array",

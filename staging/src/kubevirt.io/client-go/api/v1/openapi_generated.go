@@ -3682,6 +3682,21 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							Format:      "",
 						},
 					},
+					"activePods": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ActivePods is a mapping of pod UID to node name. It is possible for multiple pods to be running for a single VMI during migration.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
