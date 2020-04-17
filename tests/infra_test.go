@@ -65,9 +65,9 @@ var _ = Describe("Infrastructure", func() {
 
 	aggregatorClient := aggregatorclient.NewForConfigOrDie(config)
 
-	Describe("certificates", func() {
+	Describe("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates", func() {
 
-		It("should be rotated when a new CA is created", func() {
+		It("[test_id:4099]should be rotated when a new CA is created", func() {
 			By("checking that the config-map gets the new CA bundle attached")
 			Eventually(func() int {
 				_, crts := tests.GetBundleFromConfigMap(components.KubeVirtCASecretName)
@@ -131,7 +131,7 @@ var _ = Describe("Infrastructure", func() {
 			defer expecter.Close()
 		})
 
-		It("should be valid during the whole rotation process", func() {
+		It("[test_id:4100]should be valid during the whole rotation process", func() {
 			oldAPICert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), tests.KubeVirtInstallNamespace, "8443")
 			oldHandlerCert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), tests.KubeVirtInstallNamespace, "8186")
 			Expect(err).ToNot(HaveOccurred())
@@ -172,11 +172,11 @@ var _ = Describe("Infrastructure", func() {
 				return tests.GetCertFromSecret(secretName)
 			}, 10*time.Second, 1*time.Second).Should(Not(BeEmpty()))
 		},
-			table.Entry("virt-operator", components.VirtOperatorCertSecretName),
-			table.Entry("virt-api", components.VirtApiCertSecretName),
-			table.Entry("virt-controller", components.VirtControllerCertSecretName),
-			table.Entry("virt-handlers client side", components.VirtHandlerCertSecretName),
-			table.Entry("virt-handlers server side", components.VirtHandlerServerCertSecretName),
+			table.Entry("[test_id:4101] virt-operator", components.VirtOperatorCertSecretName),
+			table.Entry("[test_id:4103] virt-api", components.VirtApiCertSecretName),
+			table.Entry("[test_id:4104] virt-controller", components.VirtControllerCertSecretName),
+			table.Entry("[test_id:4105] virt-handlers client side", components.VirtHandlerCertSecretName),
+			table.Entry("[test_id:4106] virt-handlers server side", components.VirtHandlerServerCertSecretName),
 		)
 	})
 
