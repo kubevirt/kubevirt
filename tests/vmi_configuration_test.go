@@ -1558,6 +1558,16 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
+	Context("with a custom scheduler", func() {
+		It("schould set the custom scheduler on the pod", func() {
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.SchedulerName = "my-custom-scheduler"
+			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+			launcherPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			Expect(launcherPod.Spec.SchedulerName).To(Equal("my-custom-scheduler"))
+		})
+	})
+
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU request settings", func() {
 		defaultCPURequestKey := "cpu-request"
 

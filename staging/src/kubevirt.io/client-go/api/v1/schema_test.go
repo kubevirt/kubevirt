@@ -397,6 +397,7 @@ var _ = Describe("Schema", func() {
 				},
 			},
 		}
+
 		policy := IOThreadsPolicyShared
 		exampleVMI.Spec.Domain.IOThreadsPolicy = &policy
 

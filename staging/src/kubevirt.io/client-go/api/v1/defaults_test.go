@@ -7,6 +7,18 @@ import (
 
 var _ = Describe("Defaults", func() {
 
+	It("should leave the scheduler name unset by default", func() {
+		vmi := &VirtualMachineInstance{}
+		SetObjectDefaults_VirtualMachineInstance(vmi)
+		Expect(vmi.Spec.SchedulerName).To(BeEmpty())
+	})
+
+	It("should take a custom scheduler if specified", func() {
+		vmi := &VirtualMachineInstance{Spec: VirtualMachineInstanceSpec{SchedulerName: "custom-one"}}
+		SetObjectDefaults_VirtualMachineInstance(vmi)
+		Expect(vmi.Spec.SchedulerName).To(Equal("custom-one"))
+	})
+
 	It("should add ACPI feature if it is unspecified", func() {
 		vmi := &VirtualMachineInstance{}
 		SetObjectDefaults_VirtualMachineInstance(vmi)

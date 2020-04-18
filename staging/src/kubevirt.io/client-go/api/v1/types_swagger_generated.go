@@ -23,6 +23,7 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"domain":                        "Specification of the desired behavior of the VirtualMachineInstance on the host.",
 		"nodeSelector":                  "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
 		"affinity":                      "If affinity is specifies, obey all the affinity rules",
+		"schedulerName":                 "If specified, the VMI will be dispatched by specified scheduler.\nIf not specified, the VMI will be dispatched by default scheduler.\n+optional",
 		"tolerations":                   "If toleration is specified, obey all the toleration rules.",
 		"evictionStrategy":              "EvictionStrategy can be set to \"LiveMigrate\" if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain.",
 		"terminationGracePeriodSeconds": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",

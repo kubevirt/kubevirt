@@ -3501,6 +3501,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref common.Re
 							Ref:         ref("k8s.io/api/core/v1.Affinity"),
 						},
 					},
+					"schedulerName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"tolerations": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If toleration is specified, obey all the toleration rules.",

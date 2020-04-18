@@ -828,6 +828,19 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Tolerations).To(BeEquivalentTo([]kubev1.Toleration{{Key: podToleration.Key, TolerationSeconds: &tolerationSeconds}}))
 			})
 
+			It("should add the scheduler name to the pod", func() {
+				vm := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Spec: v1.VirtualMachineInstanceSpec{
+						SchedulerName: "test-scheduler",
+						Domain:        v1.DomainSpec{},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.SchedulerName).To(Equal("test-scheduler"))
+			})
+
 			It("should use the hostname and subdomain if specified on the vm", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm",
