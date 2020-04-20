@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"k8s.io/client-go/util/certificate"
+
+	"kubevirt.io/kubevirt/pkg/certificates/triple"
 
 	"kubevirt.io/client-go/log"
 
@@ -27,6 +30,60 @@ type FileCertificateManager struct {
 	cert               *tls.Certificate
 	certDir            string
 	errorRetryInterval time.Duration
+}
+
+// NewFallbackCertificateManager returns a certificate manager which can fall back to a self signed certificate,
+// if there is currently no kubevirt installation present on the cluster. This helps dealing with situations where e.g.
+// readiness probes try to access an API which can't right now provide a fully managed certificate.
+// virt-operator is the main recipient of this manager, since the certificate management infrastructure is not always
+// already present when virt-operator gets created.
+func NewFallbackCertificateManager(certManager certificate.Manager) *FallbackCertificateManager {
+	caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour*24*7)
+	keyPair, _ := triple.NewServerKeyPair(
+		caKeyPair,
+		"fallback.certificate.kubevirt.io",
+		"fallback",
+		"fallback",
+		"cluster.local",
+		nil,
+		nil,
+		time.Hour*24*356*10,
+	)
+	crt, err := tls.X509KeyPair(cert.EncodeCertPEM(keyPair.Cert), cert.EncodePrivateKeyPEM(keyPair.Key))
+	if err != nil {
+		log.DefaultLogger().Reason(err).Critical("Failed to generate a fallback certificate.")
+	}
+	crt.Leaf = keyPair.Cert
+
+	return &FallbackCertificateManager{
+		certManager:         certManager,
+		fallbackCertificate: &crt,
+	}
+}
+
+type FallbackCertificateManager struct {
+	certManager         certificate.Manager
+	fallbackCertificate *tls.Certificate
+}
+
+func (f *FallbackCertificateManager) Start() {
+	f.certManager.Start()
+}
+
+func (f *FallbackCertificateManager) Stop() {
+	f.certManager.Stop()
+}
+
+func (f *FallbackCertificateManager) Current() *tls.Certificate {
+	crt := f.certManager.Current()
+	if crt != nil {
+		return crt
+	}
+	return f.fallbackCertificate
+}
+
+func (f *FallbackCertificateManager) ServerHealthy() bool {
+	return f.certManager.ServerHealthy()
 }
 
 func NewFileCertificateManager(certDir string) *FileCertificateManager {

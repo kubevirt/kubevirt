@@ -9,7 +9,9 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/tools/cache"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
@@ -69,6 +71,25 @@ var _ = Describe("cert-manager", func() {
 			return certManager.Current()
 		}, 2*time.Second).ShouldNot(BeNil())
 	})
+	Context("with fallback handling", func() {
+		It("should return a fallback certificate if the is no certificate", func() {
+			certManager := NewFallbackCertificateManager(NewFileCertificateManager(certDir))
+			go certManager.Start()
+			defer certManager.Stop()
+			Expect(certManager.Current().Leaf.Subject.CommonName).To(Equal("fallback.certificate.kubevirt.io"))
+		})
+		It("should return the real certificate if the is one", func() {
+			kubevirtCache := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+			kubevirtCache.Add(&v1.KubeVirt{})
+			certManager := NewFallbackCertificateManager(NewFileCertificateManager(certDir))
+			writeCertsToDir(certDir)
+			go certManager.Start()
+			defer certManager.Stop()
+			Eventually(func() string {
+				return certManager.Current().Leaf.Subject.CommonName
+			}, time.Second).Should(Equal("loaded.certificate.kubevirt.io"))
+		})
+	})
 
 	AfterEach(func() {
 		os.RemoveAll(certDir)
@@ -79,7 +100,7 @@ func writeCertsToDir(dir string) {
 	caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour*24*7)
 	keyPair, _ := triple.NewServerKeyPair(
 		caKeyPair,
-		"not",
+		"loaded.certificate.kubevirt.io",
 		"important",
 		"this is",
 		"cluster.local",
