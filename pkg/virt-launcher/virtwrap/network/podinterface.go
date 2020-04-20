@@ -45,7 +45,7 @@ var bridgeFakeIP = "169.254.75.1%d/32"
 
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
-	preparePodNetworkInterfaces() error
+	preparePodNetworkInterfaces(isMultiqueue bool) error
 
 	loadCachedInterface(pid, name string) (bool, error)
 	setCachedInterface(pid, name string) error
@@ -146,7 +146,8 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 			return err
 		}
 
-		if err := driver.preparePodNetworkInterfaces(); err != nil {
+		isMultiqueue := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
+		if err := driver.preparePodNetworkInterfaces(isMultiqueue); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
 			return createCriticalNetworkError(err)
 		}
@@ -367,7 +368,7 @@ func (b *BridgePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
+func (b *BridgePodInterface) preparePodNetworkInterfaces(isMultiqueue bool) error {
 	// Set interface link to down to change its MAC address
 	if err := Handler.LinkSetDown(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podInterfaceName)
@@ -388,7 +389,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 	}
 
 	tapDeviceName := generateTapDeviceName(podInterfaceName)
-	err := createAndBindTapToBridge(b.vif, tapDeviceName, b.bridgeInterfaceName)
+	err := createAndBindTapToBridge(b.vif, tapDeviceName, b.bridgeInterfaceName, isMultiqueue)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -640,7 +641,7 @@ func (p *MasqueradePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error
 	return Handler.StartDHCP(p.vif, fakeServerAddr, p.bridgeInterfaceName, p.iface.DHCPOptions)
 }
 
-func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
+func (p *MasqueradePodInterface) preparePodNetworkInterfaces(isMultiqueue bool) error {
 	// Create an master bridge interface
 	bridgeNicName := fmt.Sprintf("%s-nic", p.bridgeInterfaceName)
 	bridgeNic := &netlink.Dummy{
@@ -673,7 +674,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 	}
 
 	tapDeviceName := generateTapDeviceName(podInterfaceName)
-	err = createAndBindTapToBridge(p.vif, tapDeviceName, p.bridgeInterfaceName)
+	err = createAndBindTapToBridge(p.vif, tapDeviceName, p.bridgeInterfaceName, isMultiqueue)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
@@ -1014,7 +1015,7 @@ func (s *SlirpPodInterface) discoverPodNetworkInterface() error {
 	return nil
 }
 
-func (s *SlirpPodInterface) preparePodNetworkInterfaces() error {
+func (s *SlirpPodInterface) preparePodNetworkInterfaces(isMultiqueue bool) error {
 	return nil
 }
 
@@ -1066,8 +1067,8 @@ func (s *SlirpPodInterface) setCachedInterface(pid, name string) error {
 	return nil
 }
 
-func createAndBindTapToBridge(virtualInterface *VIF, deviceName string, bridgeIfaceName string) error {
-	err := Handler.CreateTapDevice(deviceName)
+func createAndBindTapToBridge(virtualInterface *VIF, deviceName string, bridgeIfaceName string, isMultiqueue bool) error {
+	err := Handler.CreateTapDevice(deviceName, isMultiqueue)
 	if err != nil {
 		return err
 	}
