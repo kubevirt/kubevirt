@@ -73,6 +73,7 @@ var _ = Describe("Pod Network", func() {
 	var masqueradeVmIpv6 string
 	var pid int
 	var tapDeviceName string
+	var isTapDeviceMultiqueued bool
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -164,6 +165,8 @@ var _ = Describe("Pod Network", func() {
 		return ipString
 	}
 
+	isTapDeviceMultiqueued = false
+
 	TestPodInterfaceIPBinding := func(vm *v1.VirtualMachineInstance, domain *api.Domain) {
 
 		//For Bridge tests
@@ -184,7 +187,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
 		mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
 		mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr, api.DefaultBridgeName, nil)
-		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName).Return(nil)
+		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, isTapDeviceMultiqueued).Return(nil)
 		mockNetwork.EXPECT().ConfigureTapDevice(tapDeviceName, "k6t-eth0").Return(nil)
 
 		// For masquerade tests
@@ -204,7 +207,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().StartDHCP(masqueradeTestNic, masqueradeGwAddr, api.DefaultBridgeName, nil)
 		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMCIDR).Return(masqueradeGwStr, masqueradeVmStr, nil)
 		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMIpv6CIDR).Return(masqueradeIpv6GwStr, masqueradeIpv6VmStr, nil)
-		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName).Return(nil)
+		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, isTapDeviceMultiqueued).Return(nil)
 		// Global nat rules using iptables
 		mockNetwork.EXPECT().ConfigureIpv6Forwarding().Return(nil)
 		mockNetwork.EXPECT().GetNFTIPString(iptables.ProtocolIPv4).Return("ip").AnyTimes()
@@ -249,7 +252,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND", "counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil)
 
 		}
-		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName).Return(nil)
+		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, isTapDeviceMultiqueued).Return(nil)
 		mockNetwork.EXPECT().ConfigureTapDevice(tapDeviceName, "k6t-eth0").Return(nil)
 
 		err := SetupPodNetworkPhase1(vm, pid)
@@ -266,7 +269,7 @@ var _ = Describe("Pod Network", func() {
 		err := driver.discoverPodNetworkInterface()
 		Expect(err).ToNot(HaveOccurred())
 
-		err = driver.preparePodNetworkInterfaces()
+		err = driver.preparePodNetworkInterfaces(false)
 		Expect(err).ToNot(HaveOccurred())
 
 		err = driver.decorateConfig()
@@ -305,7 +308,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
 			mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
 			mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
-			mockNetwork.EXPECT().CreateTapDevice(tapDeviceName).Return(nil)
+			mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, isTapDeviceMultiqueued).Return(nil)
 			mockNetwork.EXPECT().ConfigureTapDevice(tapDeviceName, "k6t-eth0").Return(nil)
 
 			err := SetupPodNetworkPhase1(vm, pid)
