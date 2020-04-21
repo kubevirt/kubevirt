@@ -52,7 +52,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			BeforeEach(func() {
 				configMapName = "configmap-" + uuid.NewRandom().String()
-				configMapPath = config.GetConfigMapSourcePath(configMapName + "-disk")
+				configMapPath = config.GetConfigMapSourcePath(configMapName)
 
 				data := map[string]string{
 					"option1": "value1",
@@ -130,8 +130,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			It("[test_id:783]Should start VMI with multiple ConfigMaps", func() {
 				vmi := tests.NewRandomVMIWithConfigMap(configMaps[0])
-				tests.AddConfigMapDisk(vmi, configMaps[1])
-				tests.AddConfigMapDisk(vmi, configMaps[2])
+				tests.AddConfigMapDisk(vmi, configMaps[1], configMaps[1])
+				tests.AddConfigMapDisk(vmi, configMaps[2], configMaps[2])
 
 				tests.RunVMIAndExpectLaunch(vmi, 90)
 			})
@@ -148,7 +148,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			BeforeEach(func() {
 				secretName = "secret-" + uuid.NewRandom().String()
-				secretPath = config.GetSecretSourcePath(secretName + "-disk")
+				secretPath = config.GetSecretSourcePath(secretName)
 
 				data := map[string]string{
 					"user":     "admin",
@@ -224,8 +224,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			It("[test_id:780]Should start VMI with multiple Secrets", func() {
 				vmi := tests.NewRandomVMIWithSecret(secrets[0])
-				tests.AddSecretDisk(vmi, secrets[1])
-				tests.AddSecretDisk(vmi, secrets[2])
+				tests.AddSecretDisk(vmi, secrets[1], secrets[1])
+				tests.AddSecretDisk(vmi, secrets[2], secrets[2])
 
 				tests.RunVMIAndExpectLaunch(vmi, 90)
 			})
@@ -302,9 +302,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			BeforeEach(func() {
 				configMapName = "configmap-" + uuid.NewRandom().String()
-				configMapPath = config.GetConfigMapSourcePath(configMapName + "-disk")
+				configMapPath = config.GetConfigMapSourcePath(configMapName)
 				secretName = "secret-" + uuid.NewRandom().String()
-				secretPath = config.GetSecretSourcePath(secretName + "-disk")
+				secretPath = config.GetSecretSourcePath(secretName)
 
 				configData := map[string]string{
 					"config1": "value1",
@@ -336,8 +336,10 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(
 					tests.ContainerDiskFor(
 						tests.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
-				tests.AddConfigMapDisk(vmi, configMapName)
-				tests.AddSecretDisk(vmi, secretName)
+				tests.AddConfigMapDisk(vmi, configMapName, configMapName)
+				tests.AddSecretDisk(vmi, secretName, secretName)
+				tests.AddConfigMapDiskWithCustomLabel(vmi, configMapName, "random1", "configlabel")
+				tests.AddSecretDiskWithCustomLabel(vmi, secretName, "random2", "secretlabel")
 				tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Checking if ConfigMap has been attached to the pod")
@@ -360,7 +362,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				res1, err := expecter.ExpectBatch([]expect.Batcher{
+				res, err := expecter.ExpectBatch([]expect.Batcher{
 					// mount ConfigMap image
 					&expect.BSnd{S: "sudo su -\n"},
 					&expect.BExp{R: "#"},
@@ -370,7 +372,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					&expect.BSnd{S: "cat /mnt/config1 /mnt/config2 /mnt/config3\n"},
 					&expect.BExp{R: expectedOutputCfgMap},
 				}, 200*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res1)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking if Secret has also been attached to the same pod")
@@ -388,7 +390,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Checking mounted secret image")
 
-				res2, err := expecter.ExpectBatch([]expect.Batcher{
+				res, err = expecter.ExpectBatch([]expect.Batcher{
 					// mount Secret image
 					&expect.BSnd{S: "mount /dev/sdb /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
@@ -396,7 +398,21 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
 					&expect.BExp{R: expectedOutputSecret},
 				}, 200*time.Second)
-				log.DefaultLogger().Object(vmi).Infof("%v", res2)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("checking that all disk labels match the expectations")
+				res, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "blkid -s LABEL -o value /dev/sda\n"},
+					&expect.BExp{R: "cfgdata"}, // default value
+					&expect.BSnd{S: "blkid -s LABEL -o value /dev/sdb\n"},
+					&expect.BExp{R: "cfgdata"}, // default value
+					&expect.BSnd{S: "blkid -s LABEL -o value /dev/sdc\n"},
+					&expect.BExp{R: "configlabel"}, // custom value
+					&expect.BSnd{S: "blkid -s LABEL -o value /dev/sdd\n"},
+					&expect.BExp{R: "secretlabel"}, // custom value
+				}, 200*time.Second)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -417,7 +433,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			BeforeEach(func() {
 				secretName = "secret-" + uuid.NewRandom().String()
-				secretPath = config.GetSecretSourcePath(secretName + "-disk")
+				secretPath = config.GetSecretSourcePath(secretName)
 
 				data := map[string]string{
 					"ssh-privatekey": string(privateKeyBytes),
@@ -438,7 +454,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(
 					tests.ContainerDiskFor(
 						tests.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
-				tests.AddSecretDisk(vmi, secretName)
+				tests.AddSecretDisk(vmi, secretName, secretName)
 				tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Checking if Secret has been attached to the pod")

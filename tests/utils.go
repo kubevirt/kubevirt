@@ -2324,43 +2324,53 @@ func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
 
 func NewRandomVMIWithConfigMap(configMapName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
-	AddConfigMapDisk(vmi, configMapName)
+	AddConfigMapDisk(vmi, configMapName, configMapName)
 	return vmi
 }
 
-func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string) {
+func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string, volumeName string) {
+	AddConfigMapDiskWithCustomLabel(vmi, configMapName, volumeName, "")
+
+}
+func AddConfigMapDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, configMapName string, volumeName string, volumeLabel string) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: configMapName + "-disk",
+		Name: volumeName,
 		VolumeSource: v1.VolumeSource{
 			ConfigMap: &v1.ConfigMapVolumeSource{
 				LocalObjectReference: k8sv1.LocalObjectReference{
 					Name: configMapName,
 				},
+				VolumeLabel: volumeLabel,
 			},
 		},
 	})
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: configMapName + "-disk",
+		Name: volumeName,
 	})
 }
 
 func NewRandomVMIWithSecret(secretName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
-	AddSecretDisk(vmi, secretName)
+	AddSecretDisk(vmi, secretName, secretName)
 	return vmi
 }
 
-func AddSecretDisk(vmi *v1.VirtualMachineInstance, secretName string) {
+func AddSecretDisk(vmi *v1.VirtualMachineInstance, secretName string, volumeName string) {
+	AddSecretDiskWithCustomLabel(vmi, secretName, volumeName, "")
+}
+
+func AddSecretDiskWithCustomLabel(vmi *v1.VirtualMachineInstance, secretName string, volumeName string, volumeLabel string) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: secretName + "-disk",
+		Name: volumeName,
 		VolumeSource: v1.VolumeSource{
 			Secret: &v1.SecretVolumeSource{
-				SecretName: secretName,
+				SecretName:  secretName,
+				VolumeLabel: volumeLabel,
 			},
 		},
 	})
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: secretName + "-disk",
+		Name: volumeName,
 	})
 }
 

@@ -549,6 +549,13 @@ func schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref common.Referen
 							Format:      "",
 						},
 					},
+					"volumeLabel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -2411,6 +2418,13 @@ func schema_kubevirtio_client_go_api_v1_SecretVolumeSource(ref common.ReferenceC
 						SchemaProps: spec.SchemaProps{
 							Description: "Specify whether the Secret or it's keys must be defined",
 							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"volumeLabel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).",
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},

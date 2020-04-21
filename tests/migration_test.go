@@ -1287,8 +1287,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 			tests.AddUserData(vmi, "cloud-init", "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n")
-			tests.AddConfigMapDisk(vmi, configMapName)
-			tests.AddSecretDisk(vmi, secretName)
+			tests.AddConfigMapDisk(vmi, configMapName, configMapName)
+			tests.AddSecretDisk(vmi, secretName, secretName)
 			tests.AddServiceAccountDisk(vmi, "default")
 			vmi.Spec.Domain.Devices = v1.Devices{Interfaces: []v1.Interface{{Name: "default", Tag: "testnic",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
