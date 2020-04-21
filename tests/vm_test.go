@@ -1483,15 +1483,15 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		Context("as ordinary OCP user trough test service account", func() {
 			var testUser string
-			var token string
 
 			BeforeEach(func() {
-				tests.SkipIfNoCmd("oc")
 				testUser = "testuser-" + uuid.NewRandom().String()
 			})
 
 			Context("should succeed with right rights", func() {
 				BeforeEach(func() {
+					// kubectl doesn't have "adm" subcommand -- only oc does
+					tests.SkipIfNoCmd("oc")
 					By("Ensuring the cluster has new test serviceaccount")
 					stdOut, stdErr, err := tests.RunCommand(k8sClient, "create", "serviceaccount", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
@@ -1499,9 +1499,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					By("Ensuring user has the admin rights for the test namespace project")
 					// This simulates the ordinary user as an admin in his project
 					stdOut, stdErr, err = tests.RunCommand(k8sClient, "adm", "policy", "add-role-to-user", "admin", fmt.Sprintf("system:serviceaccount:%s:%s", tests.NamespaceTestDefault, testUser))
-					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-
-					token, stdErr, err = tests.RunCommand(k8sClient, "serviceaccounts", "get-token", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
 				})
 
@@ -1520,29 +1517,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vmJson, err = tests.GenerateVMJson(vm, workDir)
 					Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
 
-					By("Creating VM using k8s client binary")
-					stdOut, stdErr, err := tests.RunCommand(k8sClient, "--token", token, "create", "-f", vmJson)
-					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-
-					By("Waiting for VMI to start")
-					waitForVMIStart(virtClient, vmi)
-
-					By("Listing running pods")
-					stdout, _, err := tests.RunCommand(k8sClient, "--token", token, "get", "pods")
+					By("Checking VM creation permission using k8s client binary")
+					stdOut, _, err := tests.RunCommand(k8sClient, "auth", "can-i", "create", "vms", "--as", testUser)
 					Expect(err).ToNot(HaveOccurred())
-
-					By("Ensuring pod is running")
-					expectedPodName := getExpectedPodName(vm)
-					podRunningRe, err := regexp.Compile(fmt.Sprintf("%s.*Running", expectedPodName))
-					Expect(err).ToNot(HaveOccurred())
-
-					Expect(podRunningRe.FindString(stdout)).ToNot(Equal(""), "Pod is not Running")
-
-					By("Checking that VM is running")
-					stdout, _, err = tests.RunCommand(k8sClient, "--token", token, "describe", "vmis", vm.GetName())
-					Expect(err).ToNot(HaveOccurred())
-
-					Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+					Expect(strings.TrimSpace(stdOut)).To(Equal("yes"))
 				})
 			})
 
@@ -1551,11 +1529,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					By("Ensuring the cluster has new test serviceaccount")
 					stdOut, stdErr, err := tests.RunCommandWithNS(tests.NamespaceTestDefault, k8sClient, "create", "serviceaccount", testUser)
 					Expect(err).ToNot(HaveOccurred(), "ERR: %s", stdOut+stdErr)
-
-					Eventually(func() error {
-						token, stdErr, err = tests.RunCommandWithNS(tests.NamespaceTestDefault, k8sClient, "serviceaccounts", "get-token", testUser)
-						return err
-					}, 30*time.Second, time.Second).Should(BeNil())
 				})
 
 				AfterEach(func() {
@@ -1570,12 +1543,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					vmJson, err = tests.GenerateVMJson(vm, workDir)
 					Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
 
-					By("Creating VM using k8s client binary")
-					stdOut, stdErr, err := tests.RunCommand(k8sClient, "--token", token, "create", "-f", vmJson)
-					Expect(err).To(HaveOccurred(), "The call for VM creation should fail")
-
-					expectedError := fmt.Sprintf("User \"system:serviceaccount:%s:testuser\" cannot create", tests.NamespaceTestDefault)
-					Expect(stdOut+stdErr).To(ContainSubstring(expectedError), "should be rejected due to not access rights")
+					By("Checking VM creation permission using k8s client binary")
+					stdOut, _, err := tests.RunCommand(k8sClient, "auth", "can-i", "create", "vms", "--as", testUser)
+					// non-zero exit code
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("exit status 1"))
+					Expect(strings.TrimSpace(stdOut)).To(Equal("no"))
 				})
 			})
 		})
