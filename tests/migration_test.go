@@ -1224,7 +1224,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 			},
 				table.Entry("[test_id:2226]with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-				table.Entry("[test_id:2731]with OCS Disk", newVirtualMachineInstanceWithFedoraOCSDisk),
+				table.PEntry("[test_id:2731] [flaky] with OCS Disk", newVirtualMachineInstanceWithFedoraOCSDisk),
 			)
 			It("[test_id:3241]should be able to cancel a migration right after posting it", func() {
 				tests.SkipMigrationTestIfRunnigOnKindInfra()

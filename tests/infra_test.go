@@ -507,7 +507,7 @@ var _ = Describe("Infrastructure", func() {
 			metricsURL = fmt.Sprintf("https://%s:%d/metrics", tests.FormatIPForURL(pod.Status.PodIP), 8443)
 		})
 
-		It("should find one leading virt-controller and two ready", func() {
+		PIt(" [flaky] should find one leading virt-controller and two ready", func() {
 			endpoint, err := virtClient.CoreV1().
 				Endpoints(tests.KubeVirtInstallNamespace).
 				Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
