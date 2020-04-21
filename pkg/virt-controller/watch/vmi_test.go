@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"runtime"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -35,7 +36,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
@@ -79,7 +80,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	shouldExpectMatchingPodCreation := func(uid types.UID, matchers ...gomegaTypes.GomegaMatcher) {
 		// Expect pod creation
-		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			update, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.CreatedByLabel]).To(Equal(string(uid)))
@@ -90,7 +91,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	shouldExpectPodCreation := func(uid types.UID) {
 		// Expect pod creation
-		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			update, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.CreatedByLabel]).To(Equal(string(uid)))
@@ -100,7 +101,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	shouldExpectMultiplePodDeletions := func(pod *k8sv1.Pod, deletionCount *int) {
 		// Expect pod deletion
-		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			update, ok := action.(testing.DeleteAction)
 			Expect(ok).To(BeTrue())
 			Expect(pod.Namespace).To(Equal(update.GetNamespace()))
@@ -111,7 +112,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	shouldExpectPodDeletion := func(pod *k8sv1.Pod) {
 		// Expect pod deletion
-		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			update, ok := action.(testing.DeleteAction)
 			Expect(ok).To(BeTrue())
 			Expect(pod.Namespace).To(Equal(update.GetNamespace()))
@@ -128,7 +129,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	ignorePodUpdates := func() {
-		kubeClient.Fake.PrependReactor("update", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		kubeClient.Fake.PrependReactor("update", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			update, _ := action.(testing.UpdateAction)
 			return true, update.GetObject(), nil
 		})
@@ -157,7 +158,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 	shouldExpectHotplugPod := func() {
 		// Expect pod creation
-		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			update, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 			Expect(update.GetObject().(*k8sv1.Pod).GenerateName).To(Equal("hp-volume-"))
@@ -192,7 +193,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		controller = NewVMIController(
-			services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid),
+			services.NewTemplateService("a", "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, runtime.GOARCH),
 			vmiInformer,
 			podInformer,
 			pvcInformer,
@@ -214,7 +215,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 
 		// Make sure that all unexpected calls to kubeClient will fail
-		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 			Expect(action).To(BeNil())
 			return true, nil, nil
 		})
@@ -297,7 +298,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 				Equal("/bin/bash -c echo bound PVCs"))
 			shouldExpectMatchingPodCreation(vmi.UID, IsPodWithoutVmPayload)
-			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				Fail("here")
 				return true, dvPVC, nil
 			})
@@ -341,7 +342,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						Status: k8sv1.ConditionTrue,
 					}))
 			}).Return(vmi, nil)
-			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, dvPVC, nil
 			})
 			controller.Execute()
@@ -372,7 +373,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			dataVolumeFeeder.Add(dataVolume)
 			shouldExpectPodDeletion(pod)
 
-			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, dvPVC, nil
 			})
 			controller.Execute()
@@ -409,7 +410,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 					Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(expectedPhase))
 				}).Return(vmi, nil)
-				kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 					return true, dvPVC, nil
 				})
 
@@ -579,7 +580,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addActivePods(vmi, pod.UID, "")
 			dataVolumeFeeder.Add(dataVolume)
 			shouldExpectPodDeletion(pod)
-			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, dvPVC, nil
 			})
 
@@ -745,7 +746,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 
-			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, nil, fmt.Errorf("random error")
 			})
 
@@ -762,7 +763,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			addVirtualMachine(vmi)
 
-			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, nil, fmt.Errorf("random error")
 			})
 
@@ -783,7 +784,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 
 			// Expect pod creation
-			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				update, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
 				Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.CreatedByLabel]).To(Equal(string(vmi.UID)))
@@ -1046,7 +1047,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			// Expect pod delete
-			kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, nil, fmt.Errorf("random error")
 			})
 
@@ -1094,7 +1095,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 
 			// Expect pod creation
-			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, nil, fmt.Errorf("random error")
 			})
 
@@ -1493,7 +1494,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("CreateAttachmentPodTemplate should return error if volume has PVC that doesn't exist", func() {
-			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, nil, k8serrors.NewNotFound(k8sv1.Resource("persistentvolumeclaim"), "noclaim")
 			})
 			vmi := NewPendingVirtualMachine("testvmi")
@@ -1515,13 +1516,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		})
 
 		It("CreateAttachmentPodTemplate should return error if DV owning PVC doesn't exist", func() {
-			kubeClient.Fake.PrependReactor("get", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("get", "datavolumes", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, nil, k8serrors.NewNotFound(k8sv1.Resource("datavolumes"), "test-dv")
 			})
 			vmi := NewPendingVirtualMachine("testvmi")
 			virtlauncherPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			pvc := NewHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimPending)
-			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, pvc, nil
 			})
 			addVirtualMachine(vmi)
@@ -1766,7 +1767,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		preparePVC := func(indexes ...int) {
 			for _, index := range indexes {
 				pvc := NewHotplugPVC(fmt.Sprintf("claim%d", index), k8sv1.NamespaceDefault, k8sv1.ClaimBound)
-				kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 					return true, pvc, nil
 				})
 				dv := &cdiv1.DataVolume{
@@ -1802,7 +1803,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		makePositiveCreatePod := func(virtlauncherPod *k8sv1.Pod, indexes ...int) {
 			for i := 0; i < len(indexes); i++ {
-				kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 					update, ok := action.(testing.CreateAction)
 					Expect(ok).To(BeTrue())
 					Expect(update.GetObject().(*k8sv1.Pod).GenerateName).To(Equal("hp-volume-"))
@@ -1815,7 +1816,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		makeExistingCreatePod := func(virtlauncherPod *k8sv1.Pod, indexes ...int) {
 			for i := 0; i < len(indexes); i++ {
-				kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 					return true, nil, k8serrors.NewAlreadyExists(k8sv1.Resource("pod"), "hp-volume")
 				})
 			}
@@ -1823,7 +1824,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		makeFailureCreatePod := func(virtlauncherPod *k8sv1.Pod, indexes ...int) {
 			for i := 0; i < len(indexes); i++ {
-				kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 					return true, nil, fmt.Errorf("Error creating pod")
 				})
 			}
@@ -1831,7 +1832,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		makePositiveDeletePod := func(virtlauncherPod *k8sv1.Pod, indexes ...int) {
 			for i := 0; i < len(indexes); i++ {
-				kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 					_, ok := action.(testing.DeleteAction)
 					Expect(ok).To(BeTrue())
 					return true, nil, nil
@@ -1841,7 +1842,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		makeFailureDeletePod := func(virtlauncherPod *k8sv1.Pod, indexes ...int) {
 			for i := 0; i < len(indexes); i++ {
-				kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 					_, ok := action.(testing.DeleteAction)
 					Expect(ok).To(BeTrue())
 					return true, nil, fmt.Errorf("Error deleting pod")
@@ -2195,7 +2196,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 			pvcInformer.GetIndexer().Add(existingPVC)
 			pvcInformer.GetIndexer().Add(hpPVC)
-			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, existingPVC, nil
 			})
 			shouldExpectHotplugPod()
@@ -2284,7 +2285,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			podInformer.GetIndexer().Add(hpPod)
 			pvcInformer.GetIndexer().Add(existingPVC)
 			pvcInformer.GetIndexer().Add(hpPVC)
-			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, existingPVC, nil
 			})
 			shouldExpectPodDeletion(hpPod)

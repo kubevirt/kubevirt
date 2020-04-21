@@ -103,6 +103,15 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			log.Log.V(2).Infof("Failed to set HyperV dependencies: %s", err)
 		}
 
+		// Do some specific setting for Arm64 Arch. It should put before SetObjectDefaults_VirtualMachineInstance
+		if webhooks.IsARM64() {
+			log.Log.V(4).Info("Apply Arm64 specific setting")
+			err = webhooks.SetVirtualMachineInstanceArm64Defaults(newVMI)
+			if err != nil {
+				// if SetVirtualMachineInstanceArm64Defaults fails, it's due to a validation error, which will get caught in the validation webhook after mutation finishes.
+				log.Log.V(2).Infof("Failed to setting for Arm64: %s", err)
+			}
+		}
 		// Add foreground finalizer
 		newVMI.Finalizers = append(newVMI.Finalizers, v1.VirtualMachineInstanceFinalizer)
 

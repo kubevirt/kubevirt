@@ -20,7 +20,6 @@ package mutators
 
 import (
 	"encoding/json"
-	rt "runtime"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -32,6 +31,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -86,8 +86,10 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 	It("should apply defaults on VM create", func() {
 		vmSpec, _ := getVMSpecMetaFromResponse()
-		if rt.GOARCH == "ppc64le" {
+		if webhooks.IsPPC64() {
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("pseries"))
+		} else if webhooks.IsARM64() {
+			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("virt"))
 		} else {
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("q35"))
 		}

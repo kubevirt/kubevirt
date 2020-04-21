@@ -204,12 +204,17 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			},
 		)
 		vmiSpec, _ := getVMISpecMetaFromResponse()
-		if rt.GOARCH == "ppc64le" {
+		if webhooks.IsPPC64() {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("pseries"))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
+		} else if webhooks.IsARM64() {
+			Expect(vmiSpec.Domain.Machine.Type).To(Equal("virt"))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal("host-passthrough"))
 		} else {
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
 		}
-		Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
+
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal("100m"))
 		// no default for requested memory when no memory is specified
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))
@@ -756,4 +761,20 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		table.Entry("if our service accounts modfies it", privilegedUser, true),
 		table.Entry("not if the user is not one of ours", "unknown", false),
 	)
+
+	// Check following convert for ARM64
+	// 1. should convert CPU model to host-passthrough
+	// 2. should convert default AutoattachGraphicsDevice to false
+	// 3. should convert default bootloader to UEFI non secureboot
+	It("should convert cpu model, AutoattachGraphicsDevice and UEFI boot on ARM64", func() {
+		// turn on arm validation/mutation
+		webhooks.Arch = "arm64"
+		defer func() {
+			webhooks.Arch = rt.GOARCH
+		}()
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(*(vmiSpec.Domain.Firmware.Bootloader.EFI.SecureBoot)).To(BeFalse())
+		Expect(*(vmiSpec.Domain.Devices.AutoattachGraphicsDevice)).To(BeFalse())
+		Expect(vmiSpec.Domain.CPU.Model).To(Equal("host-passthrough"))
+	})
 })

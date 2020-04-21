@@ -20,6 +20,25 @@ import (
 
 var _ = Describe("ConfigMap", func() {
 
+	table.DescribeTable("when CPU Architecture is", func(value string, result1 string, result2 string) {
+		machineType, emulatedMachine := virtconfig.NewDefaultArch(value).GetDefaultMachinesForArch()
+		Expect(machineType).To(Equal(result1))
+		Expect(emulatedMachine).To(Equal(result2))
+	},
+		table.Entry("amd64, GetDefaultMachinesForArch should return q35, q35*,pc-q35*", "amd64", virtconfig.DefaultAMD64MachineType, virtconfig.DefaultAMD64EmulatedMachines),
+		table.Entry("ppc64le, GetDefaultMachinesForArch should return pseries, pseries*", "ppc64le", virtconfig.DefaultPPC64LEMachineType, virtconfig.DefaultPPC64LEEmulatedMachines),
+		table.Entry("arm64, GetDefaultMachinesForArch should return virt, virt*", "arm64", virtconfig.DefaultAARCH64MachineType, virtconfig.DefaultAARCH64EmulatedMachines),
+	)
+
+	table.DescribeTable("when CPU Architecture is", func(value string, result string) {
+		ovmfPath := virtconfig.NewDefaultArch(value).GetDefaultOVMFPathForArch()
+		Expect(ovmfPath).To(Equal(result))
+	},
+		table.Entry("amd64, GetDefaultOVMFPathForArch should return", "amd64", virtconfig.DefaultARCHOVMFPath),
+		table.Entry("ppc64le, GetDefaultOVMFPathForArch should return", "ppc64le", virtconfig.DefaultARCHOVMFPath),
+		table.Entry("arm64, GetDefaultOVMFPathForArch should return", "arm64", virtconfig.DefaultAARCH64OVMFPath),
+	)
+
 	table.DescribeTable("when memBalloonStatsPeriod", func(value string, result uint32) {
 		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{"memBalloonStatsPeriod": value},

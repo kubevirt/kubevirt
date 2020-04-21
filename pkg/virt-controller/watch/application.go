@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/emicklei/go-restful"
@@ -442,6 +443,7 @@ func (vca *VirtControllerApp) initCommon() {
 		virtClient,
 		vca.clusterConfig,
 		vca.launcherSubGid,
+		runtime.GOARCH,
 	)
 
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.persistentVolumeClaimInformer, vca.vmiRecorder, vca.clientSet, vca.dataVolumeInformer)

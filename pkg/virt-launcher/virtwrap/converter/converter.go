@@ -54,16 +54,20 @@ import (
 
 type HostDeviceType string
 
+// The location of uefi boot loader on ARM64 is different from that on x86
 const (
 	defaultIOThread                  = uint(1)
 	EFICode                          = "OVMF_CODE.fd"
 	EFIVars                          = "OVMF_VARS.fd"
+	EFICodeAARCH64                   = "AAVMF_CODE.fd"
+	EFIVarsAARCH64                   = "AAVMF_VARS.fd"
 	EFICodeSecureBoot                = "OVMF_CODE.secboot.fd"
 	EFIVarsSecureBoot                = "OVMF_VARS.secboot.fd"
 	HostDevicePCI     HostDeviceType = "pci"
 	HostDeviceMDEV    HostDeviceType = "mdev"
 	resolvConf                       = "/etc/resolv.conf"
 )
+
 const (
 	multiQueueMaxQueues  = uint32(256)
 	QEMUSeaBiosDebugPipe = "/QEMUSeaBiosDebugPipe"
@@ -107,6 +111,20 @@ func contains(volumes []string, name string) bool {
 		if name == v {
 			return true
 		}
+	}
+	return false
+}
+
+func isPPC64(arch string) bool {
+	if arch == "ppc64le" {
+		return true
+	}
+	return false
+}
+
+func isARM64(arch string) bool {
+	if arch == "arm64" {
+		return true
 	}
 	return false
 }
@@ -989,6 +1007,17 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 
 		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
+			// The location of uefi boot loader on ARM64 is different from that on x86 and ppc64le
+			efiCode := ""
+			efiVars := ""
+			if isARM64(c.Architecture) {
+				efiCode = EFICodeAARCH64
+				efiVars = EFIVarsAARCH64
+			} else {
+				efiCode = EFICode
+				efiVars = EFIVars
+			}
+
 			if vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot {
 				domain.Spec.OS.BootLoader = &api.Loader{
 					Path:     filepath.Join(c.OVMFPath, EFICodeSecureBoot),
@@ -1003,7 +1032,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				}
 			} else {
 				domain.Spec.OS.BootLoader = &api.Loader{
-					Path:     filepath.Join(c.OVMFPath, EFICode),
+					Path:     filepath.Join(c.OVMFPath, efiCode),
 					ReadOnly: "yes",
 					Secure:   "no",
 					Type:     "pflash",
@@ -1011,7 +1040,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 				domain.Spec.OS.NVRam = &api.NVRam{
 					NVRam:    filepath.Join("/tmp", domain.Spec.Name),
-					Template: filepath.Join(c.OVMFPath, EFIVars),
+					Template: filepath.Join(c.OVMFPath, efiVars),
 				}
 			}
 		}
@@ -1056,7 +1085,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	// Take SMBios values from the VirtualMachineOptions
 	// SMBios option does not work in Power, attempting to set it will result in the following error message:
 	// "Option not supported for this target" issued by qemu-system-ppc64, so don't set it in case GOARCH is ppc64le
-	if c.Architecture != "ppc64le" {
+	// ARM64 use UEFI boot by default, set SMBios is unnecessory.
+	if !isPPC64(c.Architecture) && !isARM64(c.Architecture) {
 		domain.Spec.OS.SMBios = &api.SMBios{
 			Mode: "sysinfo",
 		}
@@ -1554,8 +1584,18 @@ func CheckEFI_OVMFRoms(vmi *v1.VirtualMachineInstance, c *ConverterContext) (err
 					return fmt.Errorf("EFI OVMF roms missing for secure boot")
 				}
 			} else {
-				_, err1 := os.Stat(filepath.Join(c.OVMFPath, EFICode))
-				_, err2 := os.Stat(filepath.Join(c.OVMFPath, EFIVars))
+				// the EFICode and EFIVars have different path and name on Arm64
+				efiCode := ""
+				efiVars := ""
+				if isARM64(c.Architecture) {
+					efiCode = EFICodeAARCH64
+					efiVars = EFIVarsAARCH64
+				} else {
+					efiCode = EFICode
+					efiVars = EFIVars
+				}
+				_, err1 := os.Stat(filepath.Join(c.OVMFPath, efiCode))
+				_, err2 := os.Stat(filepath.Join(c.OVMFPath, efiVars))
 				if os.IsNotExist(err1) || os.IsNotExist(err2) {
 					log.Log.Reason(err).Error("EFI OVMF roms missing for insecure boot")
 					return fmt.Errorf("EFI OVMF roms missing for insecure boot")

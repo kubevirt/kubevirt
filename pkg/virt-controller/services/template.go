@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -99,6 +98,9 @@ type TemplateService interface {
 	RenderHotplugAttachmentPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	GetLauncherImage() string
+	GetCpuArch() string
+	IsPPC64() bool
+	IsARM64() bool
 }
 
 type templateService struct {
@@ -113,6 +115,7 @@ type templateService struct {
 	virtClient                 kubecli.KubevirtClient
 	clusterConfig              *virtconfig.ClusterConfig
 	launcherSubGid             int64
+	cpuArch                    string
 }
 
 type PvcNotFoundError error
@@ -357,6 +360,28 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	return t.renderLaunchManifest(vmi, false)
 }
 
+func (t *templateService) GetCpuArch() string {
+	return t.getCpuArch()
+}
+
+func (t *templateService) getCpuArch() string {
+	return t.cpuArch
+}
+
+func (t *templateService) IsPPC64() bool {
+	if t.cpuArch == "ppc64le" {
+		return true
+	}
+	return false
+}
+
+func (t *templateService) IsARM64() bool {
+	if t.cpuArch == "arm64" {
+		return true
+	}
+	return false
+}
+
 func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, tempPod bool) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -371,7 +396,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
 	// Need to run in privileged mode in Power or libvirt will fail to lock memory for VMI
-	if runtime.GOARCH == "ppc64le" {
+	if t.IsPPC64() {
 		privileged = true
 	}
 
@@ -737,7 +762,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, t
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	// Get memory overhead
-	memoryOverhead := getMemoryOverhead(vmi)
+	memoryOverhead := getMemoryOverhead(vmi, t.cpuArch)
 
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
@@ -1443,7 +1468,7 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 //
 // Note: This is the best estimation we were able to come up with
 //       and is still not 100% accurate
-func getMemoryOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
+func getMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string) *resource.Quantity {
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
@@ -1490,6 +1515,13 @@ func getMemoryOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
 	// Add video RAM overhead
 	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice == true {
 		overhead.Add(resource.MustParse("16Mi"))
+	}
+
+	// When use uefi boot on aarch64 with edk2 package, qemu will create 2 pflash(64Mi each, 128Mi in total)
+	// it should be considered for memory overhead
+	// Additional information can be found here: https://github.com/qemu/qemu/blob/master/hw/arm/virt.c#L120
+	if cpuArch == "arm64" {
+		overhead.Add(resource.MustParse("128Mi"))
 	}
 
 	// Additional overhead of 1G for VFIO devices. VFIO requires all guest RAM to be locked
@@ -1587,7 +1619,8 @@ func NewTemplateService(launcherImage string,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
-	launcherSubGid int64) TemplateService {
+	launcherSubGid int64,
+	cpuArch string) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
@@ -1602,6 +1635,7 @@ func NewTemplateService(launcherImage string,
 		virtClient:                 virtClient,
 		clusterConfig:              clusterConfig,
 		launcherSubGid:             launcherSubGid,
+		cpuArch:                    cpuArch,
 	}
 	return &svc
 }
