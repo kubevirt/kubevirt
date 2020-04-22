@@ -47,6 +47,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+// TODO: The memory module is different in different cpu arch, apply multi-arch testing for memory contraint
 var _ = Describe("Template", func() {
 	var qemuGid int64 = 107
 
