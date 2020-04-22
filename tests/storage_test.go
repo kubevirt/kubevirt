@@ -324,7 +324,7 @@ var _ = Describe("Storage", func() {
 
 			Context("With a HostDisk defined", func() {
 
-				const hostDiskDir = "/tmp/kubevirt-hostdisks"
+				hostDiskDir := tests.RandTmpDir()
 				var nodeName string
 
 				BeforeEach(func() {
@@ -517,10 +517,12 @@ var _ = Describe("Storage", func() {
 				BeforeEach(func() {
 
 					By("Creating a hostPath pod which prepares a mounted directory which goes away when the pod dies")
-					tmpDir := "/tmp/kubevirt/" + rand.String(10)
+					tmpDir := tests.RandTmpDir()
 					mountDir = filepath.Join(tmpDir, "mount")
 					diskPath = filepath.Join(mountDir, "disk.img")
-					pod = tests.RenderHostPathJob("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{"/usr/bin/bash", "-c"}, []string{fmt.Sprintf("mkdir -p %s && mkdir -p /tmp/yyy  && mount --bind /tmp/yyy %s && while true; do sleep 1; done", mountDir, mountDir)})
+					srcDir := filepath.Join(tmpDir, "src")
+					cmd := "mkdir -p " + mountDir + " && mkdir -p " + srcDir + " && chcon -t container_file_t " + srcDir + " && mount --bind " + srcDir + " " + mountDir + " && while true; do sleep 1; done"
+					pod = tests.RenderHostPathJob("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{"/usr/bin/bash", "-c"}, []string{cmd})
 					pod.Spec.Containers[0].Lifecycle = &k8sv1.Lifecycle{
 						PreStop: &k8sv1.Handler{
 							Exec: &k8sv1.ExecAction{
