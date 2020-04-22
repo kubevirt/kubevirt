@@ -45,6 +45,8 @@ type NewClusterServiceVersionData struct {
 	VirtControllerSha    string
 	VirtHandlerSha       string
 	VirtLauncherSha      string
+	KubernetesSvcHost    string
+	KubernetesSvcPort    string
 	Replicas             int
 	IconBase64           string
 	ReplacesCsvVersion   string
@@ -141,7 +143,9 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.VirtApiSha,
 		data.VirtControllerSha,
 		data.VirtHandlerSha,
-		data.VirtLauncherSha)
+		data.VirtLauncherSha,
+		data.KubernetesSvcHost,
+		data.KubernetesSvcPort)
 	if err != nil {
 		return nil, err
 	}

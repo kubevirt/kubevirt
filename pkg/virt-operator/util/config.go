@@ -71,6 +71,10 @@ const (
 
 	// the regex used to parse the operator image
 	operatorImageRegex = "^(.*)/(.*)virt-operator([@:].*)?$"
+
+	// The kubernetes configuration environment vars
+	KubernetesServiceHost = "KUBERNETES_SERVICE_HOST"
+	KubernetesServicePort = "KUBERNETES_SERVICE_PORT"
 )
 
 type KubeVirtDeploymentConfig struct {
@@ -90,6 +94,10 @@ type KubeVirtDeploymentConfig struct {
 	VirtControllerSha string `json:"virtControllerSha,omitempty" optional:"true"`
 	VirtHandlerSha    string `json:"virtHandlerSha,omitempty" optional:"true"`
 	VirtLauncherSha   string `json:"virtLauncherSha,omitempty" optional:"true"`
+
+	// the api server host and port (overrides for default in-cluster vars)
+	KubernetesServiceHost string `json:"kubernetesServiceHost,omitempty" optional:"true"`
+	KubernetesServicePort string `json:"kubernetesServicePort,omitempty" optional:"true"`
 
 	// everything else, which can e.g. come from KubeVirt CR spec
 	AdditionalProperties map[string]string `json:"additionalProperties,omitempty" optional:"true"`
@@ -214,7 +222,10 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 		}
 	}
 
-	config := newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, additionalProperties)
+	kubernetesServiceHost := os.Getenv(KubernetesServiceHost)
+	kubernetesServicePort := os.Getenv(KubernetesServicePort)
+
+	config := newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, kubernetesServiceHost, kubernetesServicePort, additionalProperties)
 	if skipShasums {
 		return config
 	}
@@ -226,7 +237,7 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	launcherSha := os.Getenv(VirtLauncherShasumEnvName)
 	kubeVirtVersion := os.Getenv(KubeVirtVersionEnvName)
 	if operatorSha != "" && apiSha != "" && controllerSha != "" && handlerSha != "" && launcherSha != "" && kubeVirtVersion != "" {
-		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace, additionalProperties)
+		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace, kubernetesServiceHost, kubernetesServicePort, additionalProperties)
 	}
 
 	return config
@@ -261,30 +272,34 @@ func VerifyEnv() error {
 	return nil
 }
 
-func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace string, kvSpec map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, kubernetesServiceHost, kubernetesServicePort string, kvSpec map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
-		Registry:             registry,
-		ImagePrefix:          imagePrefix,
-		KubeVirtVersion:      tag,
-		Namespace:            namespace,
-		AdditionalProperties: kvSpec,
+		Registry:              registry,
+		ImagePrefix:           imagePrefix,
+		KubeVirtVersion:       tag,
+		Namespace:             namespace,
+		AdditionalProperties:  kvSpec,
+		KubernetesServiceHost: kubernetesServiceHost,
+		KubernetesServicePort: kubernetesServicePort,
 	}
 	c.generateInstallStrategyID()
 	return c
 }
 
-func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace string, additionalProperties map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace, kubernetesServiceHost, kubernetesServicePort string, additionalProperties map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
-		Registry:             registry,
-		ImagePrefix:          imagePrefix,
-		KubeVirtVersion:      kubeVirtVersion,
-		VirtOperatorSha:      operatorSha,
-		VirtApiSha:           apiSha,
-		VirtControllerSha:    controllerSha,
-		VirtHandlerSha:       handlerSha,
-		VirtLauncherSha:      launcherSha,
-		Namespace:            namespace,
-		AdditionalProperties: additionalProperties,
+		Registry:              registry,
+		ImagePrefix:           imagePrefix,
+		KubeVirtVersion:       kubeVirtVersion,
+		VirtOperatorSha:       operatorSha,
+		VirtApiSha:            apiSha,
+		VirtControllerSha:     controllerSha,
+		VirtHandlerSha:        handlerSha,
+		VirtLauncherSha:       launcherSha,
+		KubernetesServiceHost: kubernetesServiceHost,
+		KubernetesServicePort: kubernetesServicePort,
+		Namespace:             namespace,
+		AdditionalProperties:  additionalProperties,
 	}
 	c.generateInstallStrategyID()
 	return c
@@ -335,6 +350,27 @@ func (c *KubeVirtDeploymentConfig) GetImageRegistry() string {
 
 func (c *KubeVirtDeploymentConfig) GetImagePrefix() string {
 	return c.ImagePrefix
+}
+
+func (c *KubeVirtDeploymentConfig) GetKubernetesServiceHost() string {
+	return c.KubernetesServiceHost
+}
+
+func (c *KubeVirtDeploymentConfig) GetKubernetesServicePort() string {
+	return c.KubernetesServicePort
+}
+
+func (c *KubeVirtDeploymentConfig) GetExtraEnv() map[string]string {
+	extraEnv := make(map[string]string)
+
+	if c.GetKubernetesServiceHost() != "" {
+		extraEnv[KubernetesServiceHost] = c.GetKubernetesServiceHost()
+	}
+	if c.GetKubernetesServicePort() != "" {
+		extraEnv[KubernetesServicePort] = c.GetKubernetesServicePort()
+	}
+
+	return extraEnv
 }
 
 func (c *KubeVirtDeploymentConfig) UseShasums() bool {

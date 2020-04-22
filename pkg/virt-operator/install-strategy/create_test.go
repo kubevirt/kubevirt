@@ -111,7 +111,7 @@ var _ = Describe("Create", func() {
 			clientset.EXPECT().PolicyV1beta1().Return(kubeClient.PolicyV1beta1()).AnyTimes()
 			kv = &v1.KubeVirt{}
 
-			deployment, err = components.NewApiServerDeployment(Namespace, Registry, "", Version, corev1.PullIfNotPresent, "verbosity")
+			deployment, err = components.NewApiServerDeployment(Namespace, Registry, "", Version, corev1.PullIfNotPresent, "verbosity", map[string]string{})
 			Expect(err).ToNot(HaveOccurred())
 
 			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)

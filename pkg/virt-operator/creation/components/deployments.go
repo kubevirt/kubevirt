@@ -103,11 +103,11 @@ func NewApiServerService(namespace string) *corev1.Service {
 	}
 }
 
-func newPodTemplateSpec(podName string, imageName string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*corev1.PodTemplateSpec, error) {
+func newPodTemplateSpec(podName string, imageName string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*corev1.PodTemplateSpec, error) {
 
 	version = AddVersionSeparatorPrefix(version)
 
-	return &corev1.PodTemplateSpec{
+	podTemplateSpec := &corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				virtv1.AppLabel:          podName,
@@ -130,7 +130,13 @@ func newPodTemplateSpec(podName string, imageName string, repository string, ver
 				},
 			},
 		},
-	}, nil
+	}
+
+	if envVars != nil && len(*envVars) != 0 {
+		podTemplateSpec.Spec.Containers[0].Env = *envVars
+	}
+
+	return podTemplateSpec, nil
 }
 
 func attachCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath string) {
@@ -154,9 +160,9 @@ func attachCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath 
 	spec.Containers[0].VolumeMounts = append(spec.Containers[0].VolumeMounts, secretVolumeMount)
 }
 
-func newBaseDeployment(deploymentName string, imageName string, namespace string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*appsv1.Deployment, error) {
+func newBaseDeployment(deploymentName string, imageName string, namespace string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*appsv1.Deployment, error) {
 
-	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, pullPolicy, podAffinity)
+	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, pullPolicy, podAffinity, envVars)
 	if err != nil {
 		return nil, err
 	}
@@ -209,11 +215,22 @@ func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOp
 	}
 }
 
-func NewApiServerDeployment(namespace string, repository string, imagePrefix string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+func newExtraEnv(envMap map[string]string) *[]corev1.EnvVar {
+	env := []corev1.EnvVar{}
+
+	for k, v := range envMap {
+		env = append(env, corev1.EnvVar{Name: k, Value: v})
+	}
+
+	return &env
+}
+
+func NewApiServerDeployment(namespace string, repository string, imagePrefix string, version string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-api"})
 	deploymentName := "virt-api"
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
-	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, pullPolicy, podAntiAffinity)
+	env := newExtraEnv(extraEnv)
+	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, pullPolicy, podAntiAffinity, env)
 	if err != nil {
 		return nil, err
 	}
@@ -266,11 +283,12 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	return deployment, nil
 }
 
-func NewControllerDeployment(namespace string, repository string, imagePrefix string, controllerVersion string, launcherVersion string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+func NewControllerDeployment(namespace string, repository string, imagePrefix string, controllerVersion string, launcherVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-controller"})
 	deploymentName := "virt-controller"
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
-	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, controllerVersion, pullPolicy, podAntiAffinity)
+	env := newExtraEnv(extraEnv)
+	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, controllerVersion, pullPolicy, podAntiAffinity, env)
 	if err != nil {
 		return nil, err
 	}
@@ -334,11 +352,12 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	return deployment, nil
 }
 
-func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, launcherVersion string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.DaemonSet, error) {
+func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, launcherVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.DaemonSet, error) {
 
 	deploymentName := "virt-handler"
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
-	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, pullPolicy, nil)
+	env := newExtraEnv(extraEnv)
+	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, pullPolicy, nil, env)
 	if err != nil {
 		return nil, err
 	}
@@ -421,7 +440,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	container.SecurityContext = &corev1.SecurityContext{
 		Privileged: boolPtr(true),
 	}
-	container.Env = []corev1.EnvVar{
+	containerEnv := []corev1.EnvVar{
 		{
 			Name: "NODE_NAME",
 			ValueFrom: &corev1.EnvVarSource{
@@ -439,6 +458,8 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 			},
 		},
 	}
+
+	container.Env = append(container.Env, containerEnv...)
 
 	container.VolumeMounts = []corev1.VolumeMount{}
 	pod.Volumes = []corev1.Volume{}
@@ -492,7 +513,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 func NewOperatorDeployment(namespace string, repository string, imagePrefix string, version string,
 	pullPolicy corev1.PullPolicy, verbosity string,
 	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
-	virtHandlerShaEnv string, virtLauncherShaEnv string) (*appsv1.Deployment, error) {
+	virtHandlerShaEnv string, virtLauncherShaEnv string, kubernetesServiceHost string, kubernetesServicePort string) (*appsv1.Deployment, error) {
 
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-operator"})
 	name := "virt-operator"
@@ -622,8 +643,35 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 				Value: virtLauncherShaEnv,
 			},
 		}
+
 		env := deployment.Spec.Template.Spec.Containers[0].Env
 		env = append(env, shaSums...)
+		deployment.Spec.Template.Spec.Containers[0].Env = env
+	}
+
+	if kubernetesServiceHost != "" {
+		kubernetesDetails := []corev1.EnvVar{
+			{
+				Name:  operatorutil.KubernetesServiceHost,
+				Value: kubernetesServiceHost,
+			},
+		}
+
+		env := deployment.Spec.Template.Spec.Containers[0].Env
+		env = append(env, kubernetesDetails...)
+		deployment.Spec.Template.Spec.Containers[0].Env = env
+	}
+
+	if kubernetesServicePort != "" {
+		kubernetesDetails := []corev1.EnvVar{
+			{
+				Name:  operatorutil.KubernetesServicePort,
+				Value: kubernetesServicePort,
+			},
+		}
+
+		env := deployment.Spec.Template.Spec.Containers[0].Env
+		env = append(env, kubernetesDetails...)
 		deployment.Spec.Template.Spec.Containers[0].Env = env
 	}
 

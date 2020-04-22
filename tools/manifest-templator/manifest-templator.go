@@ -65,6 +65,8 @@ type templateData struct {
 	VirtHandlerSha         string
 	VirtLauncherSha        string
 	PriorityClassSpec      string
+	KubernetesServiceHost  string
+	KubernetesServicePort  string
 	GeneratedManifests     map[string]string
 }
 
@@ -91,6 +93,8 @@ func main() {
 	virtControllerSha := flag.String("virt-controller-sha", "", "")
 	virtHandlerSha := flag.String("virt-handler-sha", "", "")
 	virtLauncherSha := flag.String("virt-launcher-sha", "", "")
+	kubernetesServiceHost := flag.String("kubernetes-service-host", "", "")
+	kubernetesServicePort := flag.String("kubernetes-service-port", "", "")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -120,6 +124,8 @@ func main() {
 		data.VirtControllerSha = *virtControllerSha
 		data.VirtHandlerSha = *virtHandlerSha
 		data.VirtLauncherSha = *virtLauncherSha
+		data.KubernetesServiceHost = *kubernetesServiceHost
+		data.KubernetesServicePort = *kubernetesServicePort
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
 		data.PackageName = *packageName
@@ -238,7 +244,9 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.VirtApiSha,
 		data.VirtControllerSha,
 		data.VirtHandlerSha,
-		data.VirtLauncherSha)
+		data.VirtLauncherSha,
+		data.KubernetesServiceHost,
+		data.KubernetesServicePort)
 	if err != nil {
 		panic(err)
 	}

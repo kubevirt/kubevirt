@@ -645,7 +645,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		// virt-api
 		// virt-controller
 		// virt-handler
-		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 
 		pod := &k8sv1.Pod{
 			ObjectMeta: apiDeployment.Spec.Template.ObjectMeta,
@@ -661,7 +661,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		pod.Name = "virt-api-xxxx"
 		addPod(pod)
 
-		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		pod = &k8sv1.Pod{
 			ObjectMeta: controller.Spec.Template.ObjectMeta,
 			Spec:       controller.Spec.Template.Spec,
@@ -676,7 +676,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		injectMetadata(&pod.ObjectMeta, config)
 		addPod(pod)
 
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		pod = &k8sv1.Pod{
 			ObjectMeta: handler.Spec.Template.ObjectMeta,
 			Spec:       handler.Spec.Template.Spec,
@@ -847,11 +847,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewOperatorWebhookService(NAMESPACE))
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
-		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 		all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespace(), config.GetMonitorServiceAccount())...)
@@ -1731,6 +1731,174 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectJobCreation()
 			controller.Execute()
 
+		}, 15)
+
+		It("should create an install strategy creation job without KUBERNETES_SERVICE_HOST, if not provided", func(done Done) {
+			defer close(done)
+			kubehost := fmt.Sprintf("rand-host-%s", rand.String(10))
+			config := getConfig("registry", "v1.1.1")
+			job, err := controller.generateInstallStrategyJob(config)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(job.Spec.Template.Spec.Containers[0].Env).To(Not(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServiceHost, Value: kubehost})))
+		}, 15)
+
+		It("should create an install strategy creation job with KUBERNETES_SERVICE_HOST, if provided", func(done Done) {
+			defer close(done)
+			kubehost := fmt.Sprintf("rand-host-%s", rand.String(10))
+			config := getConfig("registry", "v1.1.1")
+			config.KubernetesServiceHost = kubehost
+			job, err := controller.generateInstallStrategyJob(config)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(job.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServiceHost, Value: kubehost}))
+		}, 15)
+
+		It("should create an install strategy creation job without KUBERNETES_SERVICE_PORT, if not provided", func(done Done) {
+			defer close(done)
+			kubeport := fmt.Sprintf("%d", rand.Intn(65535))
+			config := getConfig("registry", "v1.1.1")
+			job, err := controller.generateInstallStrategyJob(config)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(job.Spec.Template.Spec.Containers[0].Env).To(Not(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServicePort, Value: kubeport})))
+		}, 15)
+
+		It("should create an install strategy creation job with KUBERNETES_SERVICE_PORT, if provided", func(done Done) {
+			defer close(done)
+			kubeport := fmt.Sprintf("%d", rand.Intn(65535))
+			config := getConfig("registry", "v1.1.1")
+			config.KubernetesServicePort = kubeport
+			job, err := controller.generateInstallStrategyJob(config)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(job.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServicePort, Value: kubeport}))
+		}, 15)
+
+		It("Should create an api server deployment without KUBERNETES_SERVICE_HOST, if not provided", func(done Done) {
+			defer close(done)
+			kubehost := fmt.Sprintf("rand-host-%s", rand.String(10))
+			config := getConfig("registry", "v1.1.1")
+			apiDeployment, err := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Env).To(Not(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServiceHost, Value: kubehost})))
+		}, 15)
+
+		It("Should create an api server deployment with KUBERNETES_SERVICE_HOST, if provided", func(done Done) {
+			defer close(done)
+			kubehost := fmt.Sprintf("rand-host-%s", rand.String(10))
+			config := getConfig("registry", "v1.1.1")
+			config.KubernetesServiceHost = kubehost
+			apiDeployment, err := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServiceHost, Value: kubehost}))
+		}, 15)
+
+		It("should create an api server deployment without KUBERNETES_SERVICE_PORT, if not provided", func(done Done) {
+			defer close(done)
+			kubeport := fmt.Sprintf("%d", rand.Intn(65535))
+			config := getConfig("registry", "v1.1.1")
+			apiDeployment, err := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Env).To(Not(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServicePort, Value: kubeport})))
+		}, 15)
+
+		It("should create an api server deployment with KUBERNETES_SERVICE_PORT, if provided", func(done Done) {
+			defer close(done)
+			kubeport := fmt.Sprintf("%d", rand.Intn(65535))
+			config := getConfig("registry", "v1.1.1")
+			config.KubernetesServicePort = kubeport
+			apiDeployment, err := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServicePort, Value: kubeport}))
+		}, 15)
+
+		It("Should create a controller deployment without KUBERNETES_SERVICE_HOST, if not provided", func(done Done) {
+			defer close(done)
+			kubehost := fmt.Sprintf("rand-host-%s", rand.String(10))
+			config := getConfig("registry", "v1.1.1")
+			controllerDeployment, err := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(Not(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServiceHost, Value: kubehost})))
+		}, 15)
+
+		It("Should create a controller deployment with KUBERNETES_SERVICE_HOST, if provided", func(done Done) {
+			defer close(done)
+			kubehost := fmt.Sprintf("rand-host-%s", rand.String(10))
+			config := getConfig("registry", "v1.1.1")
+			config.KubernetesServiceHost = kubehost
+			controllerDeployment, err := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServiceHost, Value: kubehost}))
+		}, 15)
+
+		It("should create a controller deployment without KUBERNETES_SERVICE_PORT, if not provided", func(done Done) {
+			defer close(done)
+			kubeport := fmt.Sprintf("%d", rand.Intn(65535))
+			config := getConfig("registry", "v1.1.1")
+			controllerDeployment, err := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(Not(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServicePort, Value: kubeport})))
+		}, 15)
+
+		It("should create a controller deployment with KUBERNETES_SERVICE_PORT, if provided", func(done Done) {
+			defer close(done)
+			kubeport := fmt.Sprintf("%d", rand.Intn(65535))
+			config := getConfig("registry", "v1.1.1")
+			config.KubernetesServicePort = kubeport
+			controllerDeployment, err := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServicePort, Value: kubeport}))
+		}, 15)
+
+		It("Should create a handler daemonset without KUBERNETES_SERVICE_HOST, if not provided", func(done Done) {
+			defer close(done)
+			kubehost := fmt.Sprintf("rand-host-%s", rand.String(10))
+			config := getConfig("registry", "v1.1.1")
+			handlerDaemonset, err := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(Not(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServiceHost, Value: kubehost})))
+		}, 15)
+
+		It("Should create a handler daemonset with KUBERNETES_SERVICE_HOST, if provided", func(done Done) {
+			defer close(done)
+			kubehost := fmt.Sprintf("rand-host-%s", rand.String(10))
+			config := getConfig("registry", "v1.1.1")
+			config.KubernetesServiceHost = kubehost
+			handlerDaemonset, err := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServiceHost, Value: kubehost}))
+		}, 15)
+
+		It("should create a handler daemonset without KUBERNETES_SERVICE_PORT, if not provided", func(done Done) {
+			defer close(done)
+			kubeport := fmt.Sprintf("%d", rand.Intn(65535))
+			config := getConfig("registry", "v1.1.1")
+			handlerDaemonset, err := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(Not(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServicePort, Value: kubeport})))
+		}, 15)
+
+		It("should create a handler daemonset with KUBERNETES_SERVICE_PORT, if provided", func(done Done) {
+			defer close(done)
+			kubeport := fmt.Sprintf("%d", rand.Intn(65535))
+			config := getConfig("registry", "v1.1.1")
+			config.KubernetesServicePort = kubeport
+			handlerDaemonset, err := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: util.KubernetesServicePort, Value: kubeport}))
 		}, 15)
 
 		It("should generate install strategy creation job if no install strategy exists", func(done Done) {
