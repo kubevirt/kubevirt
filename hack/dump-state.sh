@@ -45,6 +45,7 @@ EOF
 RunCmd "${CMD} get pods -n kubevirt-hyperconverged"
 RunCmd "${CMD} get subscription -n kubevirt-hyperconverged -o yaml"
 RunCmd "${CMD} get deployment/hco-operator -n kubevirt-hyperconverged -o yaml"
+RunCmd "${CMD} get hyperconvergeds -n kubevirt-hyperconverged kubevirt-hyperconverged -o yaml"
 
 ShowOperatorSummary  hyperconvergeds.hco.kubevirt.io kubevirt-hyperconverged kubevirt-hyperconverged
 
@@ -70,6 +71,16 @@ OperatorGroups
 EOF
 
 RunCmd "${CMD} get operatorgroups -n kubevirt-hyperconverged -o yaml"
+
+
+cat <<EOF
+
+============
+InstallPlans
+============
+EOF
+
+RunCmd "${CMD} get installplans -n kubevirt-hyperconverged -o yaml"
 
 
 cat <<EOF

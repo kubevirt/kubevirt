@@ -30,6 +30,8 @@ RUN \
     go install ./... ) && \
     ( go get -u golang.org/x/lint/golint ) && \
     ( go get -u github.com/rmohr/go-swagger-utils/swagger-doc ) && \
+    ( go get -u -d k8s.io/klog ) && \
+    ( ln -s /go/src/k8s.io/klog /go/src/k8s.io/klog/v2 ) && \
     ( go get -u -d k8s.io/code-generator/cmd/deepcopy-gen && \
     go get -u -d k8s.io/kube-openapi/cmd/openapi-gen ) && \
     ( cd $GOPATH/src/k8s.io/code-generator/cmd/deepcopy-gen && \

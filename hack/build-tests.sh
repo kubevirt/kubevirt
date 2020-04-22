@@ -2,18 +2,20 @@
 
 set -euo pipefail
 
-go get github.com/mattn/goveralls
-go get -v github.com/onsi/ginkgo/ginkgo
-go get -v github.com/onsi/gomega
 export PATH=$PATH:$HOME/gopath/bin
 JOB_TYPE="${JOB_TYPE:-}"
 
 if [ "${JOB_TYPE}" == "travis" ]; then
     go get -v -t ./...
+    go get github.com/mattn/goveralls
+    go get -v github.com/onsi/ginkgo/ginkgo
+    go get -v github.com/onsi/gomega
     go get -u github.com/evanphx/json-patch
     PACKAGE_PATH="pkg/controller/hyperconverged/"
     ginkgo -r -cover ${PACKAGE_PATH}
-else 
+else
+    GOFLAGS= go get github.com/onsi/ginkgo/ginkgo
+    GOFLAGS= go get github.com/onsi/gomega/...
     test_path="tests/func-tests"
     test_out_path=${test_path}/_out
     mkdir -p ${test_out_path}

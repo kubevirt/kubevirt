@@ -14,8 +14,9 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/imdario/mergo v0.3.8
 	github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200407142152-d77a0c6a95e3
-	github.com/onsi/ginkgo v1.10.1
-	github.com/onsi/gomega v1.7.0
+	github.com/mattn/goveralls v0.0.5 // indirect
+	github.com/onsi/ginkgo v1.12.0
+	github.com/onsi/gomega v1.9.0
 	github.com/openshift/custom-resource-status v0.0.0-20190822192428-e62f2f3b79f3
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20191220211133-23f5c0292434
 	github.com/operator-framework/operator-sdk v0.10.0
