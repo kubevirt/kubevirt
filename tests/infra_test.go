@@ -196,9 +196,9 @@ var _ = Describe("Infrastructure", func() {
 		return tests.WaitForSuccessfulVMIStart(obj)
 	}
 
-	Describe("Taints and toleration", func() {
+	Describe("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
 
-		It("should tolerate CriticalAddonsOnly toleration", func() {
+		It("[test_id:4134]should tolerate CriticalAddonsOnly toleration", func() {
 
 			var kvPods *k8sv1.PodList
 			By("finding all nodes that are running kubevirt components", func() {
@@ -297,7 +297,7 @@ var _ = Describe("Infrastructure", func() {
 
 	})
 
-	Describe("Prometheus scraped metrics", func() {
+	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", func() {
 
 		/*
 			This test is querying the metrics from Prometheus *after* they were
@@ -313,7 +313,7 @@ var _ = Describe("Infrastructure", func() {
 			}
 		})
 
-		It("should find VMI namespace on namespace label of the metric", func() {
+		It("[test_id:4135]should find VMI namespace on namespace label of the metric", func() {
 
 			/*
 				This test is required because in cases of misconfigurations on
@@ -396,7 +396,7 @@ var _ = Describe("Infrastructure", func() {
 		})
 	})
 
-	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component] Prometheus Endpoints", func() {
+	Describe("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
 		var preparedVMIs []*v1.VirtualMachineInstance
 		var pod *k8sv1.Pod
 		var metricsURL string
@@ -507,7 +507,7 @@ var _ = Describe("Infrastructure", func() {
 			metricsURL = fmt.Sprintf("https://%s:%d/metrics", tests.FormatIPForURL(pod.Status.PodIP), 8443)
 		})
 
-		It("should find one leading virt-controller and two ready", func() {
+		It("[test_id:4136]should find one leading virt-controller and two ready", func() {
 			endpoint, err := virtClient.CoreV1().
 				Endpoints(tests.KubeVirtInstallNamespace).
 				Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
@@ -548,7 +548,7 @@ var _ = Describe("Infrastructure", func() {
 			Expect(foundMetrics["leading"]).To(Equal(1), "expected 1 leading virt-controller")
 		})
 
-		It("should find one leading virt-operator and two ready", func() {
+		It("[test_id:4137]should find one leading virt-operator and two ready", func() {
 			endpoint, err := virtClient.CoreV1().
 				Endpoints(tests.KubeVirtInstallNamespace).
 				Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
@@ -589,7 +589,7 @@ var _ = Describe("Infrastructure", func() {
 			Expect(foundMetrics["leading"]).To(Equal(1), "expected 1 leading virt-operator")
 		})
 
-		It("should be exposed and registered on the metrics endpoint", func() {
+		It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			l, err := labels.Parse("prometheus.kubevirt.io")
@@ -615,7 +615,7 @@ var _ = Describe("Infrastructure", func() {
 				Expect(ips).To(HaveKey(pod.Status.PodIP), fmt.Sprintf("IP of Pod %s not found in metrics endpoint", pod.Name))
 			}
 		})
-		It("should return Prometheus metrics", func() {
+		It("[test_id:4139]should return Prometheus metrics", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, ep := range endpoint.Subsets[0].Addresses {
@@ -633,7 +633,7 @@ var _ = Describe("Infrastructure", func() {
 			}
 		})
 
-		It("should throttle the Prometheus metrics access", func() {
+		It("[test_id:4140]should throttle the Prometheus metrics access", func() {
 			By("Scraping the Prometheus endpoint")
 			concurrency := 100 // random value "much higher" than maxRequestsInFlight
 
@@ -675,7 +675,7 @@ var _ = Describe("Infrastructure", func() {
 			Expect(errorCount).To(BeNumerically(">", 0))
 		})
 
-		It("should include the metrics for a running VM", func() {
+		It("[test_id:4141]should include the metrics for a running VM", func() {
 			By("Scraping the Prometheus endpoint")
 			Eventually(func() string {
 				out := getKubevirtVMMetrics()
@@ -684,7 +684,7 @@ var _ = Describe("Infrastructure", func() {
 			}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
 		})
 
-		It("should include the storage metrics for a running VM", func() {
+		It("[test_id:4142]should include the storage metrics for a running VM", func() {
 			metrics := collectMetrics("kubevirt_vmi_storage_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
@@ -696,7 +696,7 @@ var _ = Describe("Infrastructure", func() {
 			}
 		})
 
-		It("should include the network metrics for a running VM", func() {
+		It("[test_id:4143]should include the network metrics for a running VM", func() {
 			metrics := collectMetrics("kubevirt_vmi_network_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
@@ -706,7 +706,7 @@ var _ = Describe("Infrastructure", func() {
 			}
 		})
 
-		It("should include the memory metrics for a running VM", func() {
+		It("[test_id:4144]should include the memory metrics for a running VM", func() {
 			metrics := collectMetrics("kubevirt_vmi_memory")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
@@ -717,7 +717,7 @@ var _ = Describe("Infrastructure", func() {
 			}
 		})
 
-		It("should include VMI infos for a running VM", func() {
+		It("[test_id:4145]should include VMI infos for a running VM", func() {
 			metrics := collectMetrics("kubevirt_vmi_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
@@ -747,7 +747,7 @@ var _ = Describe("Infrastructure", func() {
 			}
 		})
 
-		It("should include VMI phase metrics for few running VMs", func() {
+		It("[test_id:4146]should include VMI phase metrics for few running VMs", func() {
 			// this tests requires at least two running VMis. To ensure this condition,
 			// the simplest way is just always run an additional VMI.
 			By("Creating another VirtualMachineInstance")
