@@ -241,11 +241,11 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				vmi.Spec.Domain.Devices.AutoattachSerialConsole = &f
 			})
 
-			It("should create the vmi without any issue", func() {
+			It("[test_id:4116]should create the vmi without any issue", func() {
 				tests.RunVMIAndExpectLaunch(vmi, 30)
 			})
 
-			It("should not have the  serial console in xml", func() {
+			It("[test_id:4117]should not have the  serial console in xml", func() {
 				tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
@@ -255,7 +255,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				Expect(len(runningVMISpec.Devices.Consoles)).To(Equal(0), "should not have any virtio console for serial consoles")
 			})
 
-			It("should not connect to the serial console", func() {
+			It("[test_id:4118]should not connect to the serial console", func() {
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				_, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kubecli.SerialConsoleOptions{})

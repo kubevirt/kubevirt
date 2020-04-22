@@ -1322,7 +1322,7 @@ var _ = Describe("Configurations", func() {
 				Expect(domXML).To(ContainSubstring("<entry name='serial'>4b2f5496-f3a3-460b-a375-168223f68845</entry>"), "Should have serial-number present")
 			})
 
-			It("should not have serial-number set when not present", func() {
+			It("[test_id:3122]should not have serial-number set when not present", func() {
 				By("Starting a VirtualMachineInstance")
 				snVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(snVmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -1734,7 +1734,7 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:1683]should configure custom Pci address", func() {
+		It("[test_id:3906]should configure custom Pci address", func() {
 			By("checking disk1 Pci address")
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:00:10.0"
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "virtio"
