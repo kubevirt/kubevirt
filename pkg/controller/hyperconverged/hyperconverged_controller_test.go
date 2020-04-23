@@ -590,7 +590,6 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 				Expect(foundResource.Spec.Multus).To(Equal(&networkaddonsv1alpha1.Multus{}))
 				Expect(foundResource.Spec.LinuxBridge).To(Equal(&networkaddonsv1alpha1.LinuxBridge{}))
-				Expect(foundResource.Spec.KubeMacPool).To(Equal(&networkaddonsv1alpha1.KubeMacPool{}))
 			})
 
 			It("should find if present", func() {

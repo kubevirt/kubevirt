@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"encoding/json"
+
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -641,7 +642,6 @@ func newNetworkAddonsForCR(cr *hcov1alpha1.HyperConverged, namespace string) *ne
 		Spec: networkaddonsv1alpha1.NetworkAddonsConfigSpec{
 			Multus:      &networkaddonsv1alpha1.Multus{},
 			LinuxBridge: &networkaddonsv1alpha1.LinuxBridge{},
-			KubeMacPool: &networkaddonsv1alpha1.KubeMacPool{},
 			Ovs:         &networkaddonsv1alpha1.Ovs{},
 			NMState:     &networkaddonsv1alpha1.NMState{},
 		},

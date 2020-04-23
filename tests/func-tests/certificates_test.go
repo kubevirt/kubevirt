@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+
 	//	"io"
 	//	"net/http"
 	//	"os"
@@ -16,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+
 	//	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -35,25 +37,6 @@ var _ = Describe("Certificates", func() {
 
 	AfterEach(func() {
 		close(stopChan)
-	})
-
-	It("should rotate kubemacpool certificates", func() {
-		By("getting the kubemacpool-service certificate")
-		oldCert, err := GetCertForService("kubemacpool-service", testscore.KubeVirtInstallNamespace, "443")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(oldCert).ToNot(BeEmpty())
-
-		By("invoking the rotation script")
-		Expect(RotateCeritifcates(testscore.KubeVirtInstallNamespace, testscore.ContainerizedDataImporterNamespace)).To(Succeed())
-		By("waiting for all pods to become ready again")
-		WaitForAllPodsToBecomeReady()
-
-		By("getting the ceritifcate again after doing the rotation")
-		newCert, err := GetCertForService("kubemacpool-service", testscore.KubeVirtInstallNamespace, "443")
-		Expect(newCert).ToNot(BeEmpty())
-
-		By("verifying that the ceritificate indeed changed")
-		Expect(newCert).ToNot(Equal(oldCert))
 	})
 
 	It("should rotate cdi certificates", func() {
