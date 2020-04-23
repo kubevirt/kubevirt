@@ -816,7 +816,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal("fake.domain.resources.requests.memory '64Mi' " +
 				"is not a multiple of the page size fake.domain.hugepages.size '10Mi'"))
 		})
-		It("should reject setting guest memory and hugepages", func() {
+		It("should allow setting guest memory and hugepages", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			guestMemory := resource.MustParse("64Mi")
 
@@ -831,11 +831,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(len(causes)).To(Equal(1))
-			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
-			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
-			Expect(causes[0].Message).To(ContainSubstring("'fake.domain.memory.guest' and " +
-				"'fake.domain.memory.hugepages.size' must not be set at the same time"))
+			Expect(len(causes)).To(Equal(0))
 		})
 		table.DescribeTable("should verify LUN is mapped to PVC volume",
 			func(volume *v1.Volume, expectedErrors int) {
