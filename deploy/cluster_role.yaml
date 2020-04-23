@@ -1161,7 +1161,7 @@ rules:
   - get
   - create
 - apiGroups:
-  - kubevirt.io
+  - nodemaintenance.kubevirt.io
   resources:
   - '*'
   verbs:
