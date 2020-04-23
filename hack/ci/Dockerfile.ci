@@ -83,19 +83,16 @@ RUN pip3 install j2cli && pip3 install operator-courier==1.3.0
 WORKDIR /tmp/kubevirt
 COPY . .
 
-# TODO: remove patching of external provider, after kubevirtci#199 has been merged and kubevirt updates
 RUN \
-    export DOCKER_PREFIX='dhiller' && \
+    export DOCKER_PREFIX='kubevirtnightlybuilds' && \
     export DOCKER_TAG="latest" && \
     export KUBEVIRT_PROVIDER=external && \
     export GIMME_GO_VERSION=1.12.8 && \
     export GOPATH="/go" && \
     export GOBIN="/usr/bin" && \
     source /etc/profile.d/gimme.sh && \
-    (cd cluster-up/cluster/external && curl -L -O -o provider.sh https://raw.githubusercontent.com/dhiller/kubevirtci/fix-external-provider/cluster-up/cluster/external/provider.sh) && \
     bash -x ./hack/build-manifests.sh && \
-    bash -x ./hack/build-func-tests.sh && \
-    curl -L -O -o kvm-ds.yaml https://raw.githubusercontent.com/kubevirt/kubernetes-device-plugins/master/manifests/kvm-ds.yml
+    bash -x ./hack/build-func-tests.sh
 FROM centos:7
 
 COPY --from=builder /etc/profile.d/gimme.sh /etc/profile.d/gimme.sh
