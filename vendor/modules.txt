@@ -2,7 +2,7 @@
 cloud.google.com/go/compute/metadata
 # github.com/BurntSushi/toml v0.3.1
 github.com/BurntSushi/toml
-# github.com/MarSik/kubevirt-ssp-operator v1.0.29
+# github.com/MarSik/kubevirt-ssp-operator v1.0.30
 github.com/MarSik/kubevirt-ssp-operator/pkg/apis
 github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1
 # github.com/PuerkitoBio/purell v1.1.1

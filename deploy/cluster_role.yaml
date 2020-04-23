@@ -784,6 +784,7 @@ rules:
   - clusterroles
   verbs:
   - create
+  - list
   - watch
   - patch
 - apiGroups:
@@ -817,6 +818,7 @@ rules:
   - serviceaccounts
   - configmaps
   - services
+  - services/finalizers
   verbs:
   - create
   - update
