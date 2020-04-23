@@ -4570,6 +4570,10 @@ func SkipMigrationTestIfRunnigOnKindInfra() {
 	}
 }
 
+func IsUsingBuiltinNodeDrainKey() bool {
+	return GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
+}
+
 func GetNodeDrainKey() string {
 	var data map[string]string
 
