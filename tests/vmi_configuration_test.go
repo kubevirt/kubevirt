@@ -360,6 +360,11 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:1665]should map cores to virtio net queues", func() {
+				// HACK: run virt-launcher as spc_t for this test.
+				// This should be removed once multiqueue works with container_t
+				// Note: It's ok for the value associated with SELinuxLauncherTypeKey to go from not present to "" since "" is its default value.
+				originalContext := tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, "spc_t")
+				defer tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, originalContext)
 				if shouldUseEmulation(virtClient) {
 					Skip("Software emulation should not be enabled for this test to run")
 				}

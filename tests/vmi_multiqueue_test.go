@@ -32,6 +32,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -51,6 +52,11 @@ var _ = Describe("MultiQueue", func() {
 		availableCPUs := tests.GetHighestCPUNumberAmongNodes(virtClient)
 
 		It("should be able to successfully boot fedora to the login prompt with networking mutiqueues enabled without being blocked by selinux", func() {
+			// HACK: run virt-launcher as spc_t for this test.
+			// This should be removed once multiqueue works with container_t
+			// Note: It's ok for the value associated with SELinuxLauncherTypeKey to go from not present to "" since "" is its default value.
+			originalContext := tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, "spc_t")
+			defer tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, originalContext)
 			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 			numCpus := 3
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
