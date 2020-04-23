@@ -112,14 +112,14 @@ func (_mr *_MockBindMechanismRecorder) startDHCP(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "startDHCP", arg0)
 }
 
-func (_m *MockBindMechanism) createTapDevice(isMultiqueue bool) error {
-	ret := _m.ctrl.Call(_m, "createTapDevice", isMultiqueue)
+func (_m *MockBindMechanism) createTapDevice(tapDeviceName string, isMultiqueue bool) error {
+	ret := _m.ctrl.Call(_m, "createTapDevice", tapDeviceName, isMultiqueue)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) createTapDevice(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "createTapDevice", arg0)
+func (_mr *_MockBindMechanismRecorder) createTapDevice(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "createTapDevice", arg0, arg1)
 }
 
 func (_m *MockBindMechanism) configureTapDevice() error {
