@@ -52,10 +52,10 @@ const (
 	CPUModeHostPassthrough = "host-passthrough"
 	CPUModeHostModel       = "host-model"
 	defaultIOThread        = uint(1)
-	EFIPath                = "/usr/share/OVMF/OVMF_CODE.fd"
-	EFIVarsPath            = "/usr/share/OVMF/OVMF_VARS.fd"
-	EFIPathSecureBoot      = "/usr/share/OVMF/OVMF_CODE.secboot.fd"
-	EFIVarsPathSecureBoot  = "/usr/share/OVMF/OVMF_VARS.secboot.fd"
+	EFICode                = "OVMF_CODE.fd"
+	EFIVars                = "OVMF_VARS.fd"
+	EFICodeSecureBoot      = "OVMF_CODE.secboot.fd"
+	EFIVarsSecureBoot      = "OVMF_VARS.secboot.fd"
 )
 
 // +k8s:deepcopy-gen=false
@@ -73,6 +73,7 @@ type ConverterContext struct {
 	GpuDevices        []string
 	VgpuDevices       []string
 	EmulatorThreadCpu *int
+	OVMFPath          string
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -706,7 +707,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
 			if vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot != nil && *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot {
 				domain.Spec.OS.BootLoader = &Loader{
-					Path:     EFIPathSecureBoot,
+					Path:     filepath.Join(c.OVMFPath, EFICodeSecureBoot),
 					ReadOnly: "yes",
 					Secure:   "yes",
 					Type:     "pflash",
@@ -714,11 +715,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 				domain.Spec.OS.NVRam = &NVRam{
 					NVRam:    filepath.Join("/tmp", domain.Spec.Name),
-					Template: EFIVarsPathSecureBoot,
+					Template: filepath.Join(c.OVMFPath, EFIVarsSecureBoot),
 				}
 			} else {
 				domain.Spec.OS.BootLoader = &Loader{
-					Path:     EFIPath,
+					Path:     filepath.Join(c.OVMFPath, EFICode),
 					ReadOnly: "yes",
 					Secure:   "no",
 					Type:     "pflash",
@@ -726,7 +727,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 				domain.Spec.OS.NVRam = &NVRam{
 					NVRam:    filepath.Join("/tmp", domain.Spec.Name),
-					Template: EFIVarsPath,
+					Template: filepath.Join(c.OVMFPath, EFIVars),
 				}
 			}
 		}

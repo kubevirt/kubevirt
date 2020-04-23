@@ -163,7 +163,8 @@ var _ = Describe("Template", func() {
 					"--readiness-file", "/var/run/kubevirt-infra/healthy",
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
-					"--less-pvc-space-toleration", "10"}))
+					"--less-pvc-space-toleration", "10",
+					"--ovmf-path", "/usr/share/OVMF"}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
@@ -535,7 +536,8 @@ var _ = Describe("Template", func() {
 					"--readiness-file", "/var/run/kubevirt-infra/healthy",
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
-					"--less-pvc-space-toleration", "10"}))
+					"--less-pvc-space-toleration", "10",
+					"--ovmf-path", "/usr/share/OVMF"}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))

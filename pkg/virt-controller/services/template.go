@@ -706,6 +706,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	lessPVCSpaceToleration := t.clusterConfig.GetLessPVCSpaceToleration()
+	ovmfPath := t.clusterConfig.GetOVMFPath()
 
 	command := []string{"/usr/bin/virt-launcher",
 		"--qemu-timeout", "5m",
@@ -719,6 +720,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 		"--less-pvc-space-toleration", strconv.Itoa(lessPVCSpaceToleration),
+		"--ovmf-path", ovmfPath,
 	}
 
 	useEmulation := t.clusterConfig.IsUseEmulation()

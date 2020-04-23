@@ -23,6 +23,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"path"
 	"reflect"
 
 	. "github.com/onsi/ginkgo"
@@ -2177,8 +2178,8 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
 				Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
 				Expect(domainSpec.OS.BootLoader.Secure).To(Equal("no"))
-				Expect(domainSpec.OS.BootLoader.Path).To(Equal(EFIPath))
-				Expect(domainSpec.OS.NVRam.Template).To(Equal(EFIVarsPath))
+				Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal(EFICode))
+				Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(EFIVars))
 				Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/tmp/mynamespace_testvmi"))
 			})
 
@@ -2194,8 +2195,8 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
 				Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
 				Expect(domainSpec.OS.BootLoader.Secure).To(Equal("yes"))
-				Expect(domainSpec.OS.BootLoader.Path).To(Equal(EFIPathSecureBoot))
-				Expect(domainSpec.OS.NVRam.Template).To(Equal(EFIVarsPathSecureBoot))
+				Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal(EFICodeSecureBoot))
+				Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(EFIVarsSecureBoot))
 				Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/tmp/mynamespace_testvmi"))
 			})
 		})

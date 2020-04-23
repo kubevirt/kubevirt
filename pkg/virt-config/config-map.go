@@ -62,6 +62,7 @@ const (
 	SmbiosConfigKey                   = "smbios"
 	SELinuxLauncherTypeKey            = "selinuxLauncherType"
 	SupportedGuestAgentVersionsKey    = "supported-guest-agent"
+	OVMFPathKey                       = "ovmfPath"
 )
 
 type ConfigModifiedFn func()
@@ -218,6 +219,7 @@ func defaultClusterConfig() *Config {
 		SmbiosConfig:                      SmbiosDefaultConfig,
 		SELinuxLauncherType:               DefaultSELinuxLauncherType,
 		SupportedGuestAgentVersions:       supportedQEMUGuestAgentVersions,
+		OVMFPath:                          DefaultOVMFPath,
 	}
 }
 
@@ -240,6 +242,7 @@ type Config struct {
 	SmbiosConfig                      *cmdv1.SMBios
 	SELinuxLauncherType               string
 	SupportedGuestAgentVersions       []string
+	OVMFPath                          string
 }
 
 type MigrationConfig struct {
@@ -422,6 +425,10 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 			vals[i] = strings.TrimSpace(vals[i])
 		}
 		config.SupportedGuestAgentVersions = vals
+	}
+
+	if ovmfPath := strings.TrimSpace(configMap.Data[OVMFPathKey]); ovmfPath != "" {
+		config.OVMFPath = ovmfPath
 	}
 
 	return nil
