@@ -579,7 +579,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						return false
 					}
 					return true
-				}, 240*time.Second, 1*time.Second).Should(BeTrue())
+				}, 320*time.Second, 1*time.Second).Should(BeTrue())
 			})
 		})
 		Context("with a shared ISCSI Filesystem PVC", func() {
