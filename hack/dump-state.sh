@@ -65,13 +65,21 @@ done
 
 cat <<EOF
 
+============
+InstallPlans
+============
+EOF
+
+RunCmd "${CMD} get installplans -n kubevirt-hyperconverged -o yaml"
+
+cat <<EOF
+
 ==============
 OperatorGroups
 ==============
 EOF
 
 RunCmd "${CMD} get operatorgroups -n kubevirt-hyperconverged -o yaml"
-
 
 cat <<EOF
 

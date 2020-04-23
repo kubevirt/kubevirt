@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/testing"
 
@@ -46,6 +47,12 @@ type fakeClient struct {
 
 var _ client.Client = &fakeClient{}
 
+const (
+	maxNameLength          = 63
+	randomLength           = 5
+	maxGeneratedNameLength = maxNameLength - randomLength
+)
+
 // NewFakeClient creates a new fake client for testing.
 // You can choose to initialize it with a slice of runtime.Object.
 // Deprecated: use NewFakeClientWithScheme.  You should always be
@@ -62,7 +69,7 @@ func NewFakeClientWithScheme(clientScheme *runtime.Scheme, initObjs ...runtime.O
 	for _, obj := range initObjs {
 		err := tracker.Add(obj)
 		if err != nil {
-			panic(fmt.Errorf("failed to add object %v to fake client: %v", obj, err))
+			panic(fmt.Errorf("failed to add object %v to fake client: %w", obj, err))
 		}
 	}
 	return &fakeClient{
@@ -202,6 +209,15 @@ func (c *fakeClient) Create(ctx context.Context, obj runtime.Object, opts ...cli
 	if err != nil {
 		return err
 	}
+
+	if accessor.GetName() == "" && accessor.GetGenerateName() != "" {
+		base := accessor.GetGenerateName()
+		if len(base) > maxGeneratedNameLength {
+			base = base[:maxGeneratedNameLength]
+		}
+		accessor.SetName(fmt.Sprintf("%s%s", base, utilrand.String(randomLength)))
+	}
+
 	return c.tracker.Create(gvr, obj, accessor.GetNamespace())
 }
 

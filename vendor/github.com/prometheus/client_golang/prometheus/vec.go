@@ -24,7 +24,7 @@ import (
 // their label values. metricVec is not used directly (and therefore
 // unexported). It is used as a building block for implementations of vectors of
 // a given metric type, like GaugeVec, CounterVec, SummaryVec, and HistogramVec.
-// It also handles label currying.
+// It also handles label currying. It uses basicMetricVec internally.
 type metricVec struct {
 	*metricMap
 

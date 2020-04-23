@@ -1,7 +1,6 @@
 package tests_test
 
 import (
-	"flag"
 	"time"
 
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
@@ -18,7 +17,7 @@ const timeout = 360 * time.Second
 const pollingInterval = 5 * time.Second
 
 var _ = Describe("Virtual Machines", func() {
-	flag.Parse()
+	tests.FlagParse()
 	client, err := kubecli.GetKubevirtClient()
 	testscore.PanicOnError(err)
 

@@ -25,7 +25,7 @@ import (
 // client is a client.Client that reads and writes directly from/to an API server.  It lazily initializes
 // new clients at the time they are used, and caches the client.
 type typedClient struct {
-	cache      clientCache
+	cache      *clientCache
 	paramCodec runtime.ParameterCodec
 }
 

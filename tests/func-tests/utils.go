@@ -25,12 +25,15 @@ var KubeVirtStorageClassLocal string
 
 func init() {
 	flag.StringVar(&KubeVirtStorageClassLocal, "storage-class-local", "local", "Storage provider to use for tests which want local storage")
-	flag.Parse()
 }
 
 //GetJobTypeEnvVar returns "JOB_TYPE" enviroment varibale
 func GetJobTypeEnvVar() string {
 	return (os.Getenv("JOB_TYPE"))
+}
+
+func FlagParse() {
+	flag.Parse()
 }
 
 func ForwardPortsFromService(service *k8sv1.Service, ports []string, stop chan struct{}, readyTimeout time.Duration) error {

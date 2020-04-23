@@ -3,7 +3,6 @@ package tests_test
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"flag"
 	"fmt"
 	//	"io"
 	//	"net/http"
@@ -26,8 +25,7 @@ import (
 )
 
 var _ = Describe("Certificates", func() {
-	flag.Parse()
-
+	tests.FlagParse()
 	var stopChan chan struct{}
 
 	BeforeEach(func() {

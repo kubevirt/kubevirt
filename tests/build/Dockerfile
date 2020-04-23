@@ -6,7 +6,7 @@ RUN echo "diskspacecheck=0" >> /etc/dnf/dnf.conf && dnf update -y && dnf install
 
 RUN pip3 install j2cli && pip3 install operator-courier
 
-ENV GIMME_GO_VERSION=1.11.5 GOPATH="/go" KUBEBUILDER_VERSION="1.0.8" ARCH="amd64"
+ENV GIMME_GO_VERSION=1.13.8 GOPATH="/go" KUBEBUILDER_VERSION="2.3.1" ARCH="amd64"
 
 RUN mkdir -p /gimme && curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | HOME=/gimme bash >> /etc/profile.d/gimme.sh
 
@@ -35,7 +35,7 @@ RUN \
     ( go get -u -d k8s.io/code-generator/cmd/deepcopy-gen && \
     go get -u -d k8s.io/kube-openapi/cmd/openapi-gen ) && \
     ( cd $GOPATH/src/k8s.io/code-generator/cmd/deepcopy-gen && \
-    git checkout kubernetes-1.12.4 && \
+    git checkout kubernetes-1.16.4 && \
     go install ./... ) && \
     ( cd $GOPATH/src/k8s.io/kube-openapi/cmd/openapi-gen && \
     git checkout a01b7d5d6c2258c80a4a10070f3dee9cd575d9c7 && \
