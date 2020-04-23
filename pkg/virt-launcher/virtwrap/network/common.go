@@ -104,7 +104,7 @@ type NetworkHandler interface {
 	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesLoad(fnName string) error
 	GetNFTIPString(proto iptables.Protocol) string
-	CreateTapDevice(isMultiqueue bool) (string, error)
+	CreateTapDevice(tapName string, isMultiqueue bool) error
 	ConfigureTapDevice(tapName string, bridgeName string) error
 }
 
@@ -345,8 +345,7 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 	return net.HardwareAddr(append(prefix, suffix...)), nil
 }
 
-func (h *NetworkUtilsHandler) CreateTapDevice(isMultiqueue bool) (string, error) {
-	tapName := "tap0"
+func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool) error {
 	tapDeviceArgs := []string{"tuntap", "add", "mode", "tap", "user", "qemu", "group", "qemu", "name", tapName}
 	if isMultiqueue {
 		tapDeviceArgs = append(tapDeviceArgs, "multi_queue")
@@ -355,10 +354,10 @@ func (h *NetworkUtilsHandler) CreateTapDevice(isMultiqueue bool) (string, error)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Log.Reason(err).Criticalf("Failed to create tap device %s. Reason: %s", tapName, out)
-		return "", err
+		return err
 	}
 	log.Log.Infof("Created tap device: %s", tapName)
-	return tapName, nil
+	return nil
 }
 
 func (h *NetworkUtilsHandler) ConfigureTapDevice(tapName string, bridgeName string) error {

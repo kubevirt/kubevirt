@@ -180,7 +180,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
 		mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
 		mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr, api.DefaultBridgeName, nil)
-		mockNetwork.EXPECT().CreateTapDevice(false).Return(tapDeviceName, nil)
+		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, false).Return(nil)
 		mockNetwork.EXPECT().ConfigureTapDevice(tapDeviceName, "k6t-eth0").Return(nil)
 
 		// For masquerade tests
@@ -198,7 +198,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().StartDHCP(masqueradeTestNic, masqueradeGwAddr, api.DefaultBridgeName, nil)
 		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMCIDR).Return(masqueradeGwStr, masqueradeVmStr, nil)
 		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMIpv6CIDR).Return(masqueradeIpv6GwStr, masqueradeIpv6VmStr, nil)
-		mockNetwork.EXPECT().CreateTapDevice(false).Return(tapDeviceName, nil)
+		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, false).Return(nil)
 		// Global nat rules using iptables
 		mockNetwork.EXPECT().ConfigureIpv6Forwarding().Return(nil)
 		mockNetwork.EXPECT().GetNFTIPString(iptables.ProtocolIPv4).Return("ip").AnyTimes()
@@ -243,7 +243,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().NftablesAppendRule(proto, "nat", "KUBEVIRT_PREINBOUND", "counter", "dnat", "to", GetMasqueradeVmIp(proto)).Return(nil)
 
 		}
-		mockNetwork.EXPECT().CreateTapDevice(false).Return(tapDeviceName, nil)
+		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, false).Return(nil)
 		mockNetwork.EXPECT().ConfigureTapDevice(tapDeviceName, "k6t-eth0").Return(nil)
 
 		err := SetupPodNetworkPhase1(vm, pid)
@@ -297,7 +297,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
 			mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
 			mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
-			mockNetwork.EXPECT().CreateTapDevice(false).Return(tapDeviceName, nil)
+			mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, false).Return(nil)
 			mockNetwork.EXPECT().ConfigureTapDevice(tapDeviceName, "k6t-eth0").Return(nil)
 
 			err := SetupPodNetworkPhase1(vm, pid)
@@ -743,6 +743,7 @@ func ipProtocols() [2]iptables.Protocol {
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMIWithNS(namespace, name)
+	vmi.UID = "012345678901"
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	return vmi
 }

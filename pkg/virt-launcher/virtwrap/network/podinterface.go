@@ -63,7 +63,7 @@ type BindMechanism interface {
 	decorateConfig() error
 	startDHCP(vmi *v1.VirtualMachineInstance) error
 
-	createTapDevice(isMultiqueue bool) error
+	createTapDevice(tapDeviceName string, isMultiqueue bool) error
 	configureTapDevice() error
 }
 
@@ -350,7 +350,8 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces(isMultiqueue bool) erro
 		return err
 	}
 
-	if err := b.createTapDevice(isMultiqueue); err != nil {
+	tapDeviceName := generateTapDeviceName(b.podInterfaceName)
+	if err := b.createTapDevice(tapDeviceName, isMultiqueue); err != nil {
 		return err
 	}
 
@@ -499,8 +500,8 @@ func (b *BridgePodInterface) createBridge() error {
 	return nil
 }
 
-func (b *BridgePodInterface) createTapDevice(isMultiqueue bool) error {
-	tapDeviceName, err := Handler.CreateTapDevice(isMultiqueue)
+func (b *BridgePodInterface) createTapDevice(tapDeviceName string, isMultiqueue bool) error {
+	err := Handler.CreateTapDevice(tapDeviceName, isMultiqueue)
 	b.vif.TapDevice = tapDeviceName
 	return err
 }
@@ -646,7 +647,8 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces(isMultiqueue bool) 
 		return err
 	}
 
-	if err := p.createTapDevice(isMultiqueue); err != nil {
+	tapDeviceName := generateTapDeviceName(p.podInterfaceName)
+	if err := p.createTapDevice(tapDeviceName, isMultiqueue); err != nil {
 		return err
 	}
 
@@ -978,8 +980,8 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Prot
 	return nil
 }
 
-func (m *MasqueradePodInterface) createTapDevice(isMultiqueue bool) error {
-	tapDeviceName, err := Handler.CreateTapDevice(isMultiqueue)
+func (m *MasqueradePodInterface) createTapDevice(tapDeviceName string, isMultiqueue bool) error {
+	err := Handler.CreateTapDevice(tapDeviceName, isMultiqueue)
 	m.vif.TapDevice = tapDeviceName
 	return err
 }
@@ -1051,10 +1053,24 @@ func (s *SlirpPodInterface) setCachedInterface(pid, name string) error {
 	return nil
 }
 
-func (s *SlirpPodInterface) createTapDevice(isMultiqueue bool) error {
+func (s *SlirpPodInterface) createTapDevice(tapDeviceName string, isMultiqueue bool) error {
 	return nil
 }
 
 func (s *SlirpPodInterface) configureTapDevice() error {
 	return nil
+}
+
+func generateTapDeviceName(podInterfaceName string) string {
+	// we must make sure that interfaces connecting multus networks generate
+	// different tap device names.
+	// The generated interface names will be:
+	// eth0 => tap0
+	// net1 => tap1 (1st multus network)
+	// netN => tapN (nth multus network)
+	interfaceIndex := "0"
+	if strings.HasPrefix(podInterfaceName, "net") {
+		interfaceIndex = strings.ReplaceAll(podInterfaceName, "net", "")
+	}
+	return fmt.Sprintf("tap%s", interfaceIndex)
 }
