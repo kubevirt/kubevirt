@@ -188,7 +188,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
 		mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr, api.DefaultBridgeName, nil)
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, isTapDeviceMultiqueued).Return(nil)
-		mockNetwork.EXPECT().ConfigureTapDevice(tapDeviceName, "k6t-eth0").Return(nil)
+		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
 
 		// For masquerade tests
 		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
@@ -253,7 +253,7 @@ var _ = Describe("Pod Network", func() {
 
 		}
 		mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, isTapDeviceMultiqueued).Return(nil)
-		mockNetwork.EXPECT().ConfigureTapDevice(tapDeviceName, "k6t-eth0").Return(nil)
+		mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
 
 		err := SetupPodNetworkPhase1(vm, pid)
 		Expect(err).To(BeNil())
@@ -309,7 +309,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
 			mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
 			mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, isTapDeviceMultiqueued).Return(nil)
-			mockNetwork.EXPECT().ConfigureTapDevice(tapDeviceName, "k6t-eth0").Return(nil)
+			mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
 
 			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(HaveOccurred(), "SetupPodNetworkPhase1 should return an error")
