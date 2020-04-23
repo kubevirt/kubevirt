@@ -77,10 +77,10 @@ var _ = Describe("Common Methods", func() {
 		})
 		It("Should return 2 IPV6 addresses", func() {
 			networkHandler := NetworkUtilsHandler{}
-			gw, vm, err := networkHandler.GetHostAndGwAddressesFromCIDR("fd2e:f1fe:9490:a8ff::/120")
+			gw, vm, err := networkHandler.GetHostAndGwAddressesFromCIDR("fd10:0:2::/120")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(gw).To(Equal("fd2e:f1fe:9490:a8ff::1/120"))
-			Expect(vm).To(Equal("fd2e:f1fe:9490:a8ff::2/120"))
+			Expect(gw).To(Equal("fd10:0:2::1/120"))
+			Expect(vm).To(Equal("fd10:0:2::2/120"))
 		})
 		It("Should fail when the subnet is too small", func() {
 			networkHandler := NetworkUtilsHandler{}
@@ -89,7 +89,7 @@ var _ = Describe("Common Methods", func() {
 		})
 		It("Should fail when the IPV6 subnet is too small", func() {
 			networkHandler := NetworkUtilsHandler{}
-			_, _, err := networkHandler.GetHostAndGwAddressesFromCIDR("fd2e:f1fe:9490:a8ff::/127")
+			_, _, err := networkHandler.GetHostAndGwAddressesFromCIDR("fd10:0:2::/127")
 			Expect(err).To(HaveOccurred())
 		})
 	})
