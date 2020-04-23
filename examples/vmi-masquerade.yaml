@@ -40,9 +40,9 @@ spec:
       userData: |-
         #!/bin/bash
         echo "fedora" |passwd fedora --stdin
-        ip -6 addr add fd2e:f1fe:9490:a8ff::2/120 dev eth0
+        ip -6 addr add fd10:0:2::2/120 dev eth0
         sleep 5
-        ip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2
+        ip -6 route add default via fd10:0:2::1 src fd10:0:2::2
         yum install -y nginx
         systemctl enable nginx
         systemctl start nginx

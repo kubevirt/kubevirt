@@ -385,7 +385,7 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nip -6 addr add fd2e:f1fe:9490:a8ff::2/120 dev eth0\nsleep 5\nip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
+	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nip -6 addr add fd10:0:2::2/120 dev eth0\nsleep 5\nip -6 route add default via fd10:0:2::1 src fd10:0:2::2\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
 
 	masquerade := &v1.InterfaceMasquerade{}
 	ports := []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80}}
