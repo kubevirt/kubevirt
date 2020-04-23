@@ -535,7 +535,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(expecterErr).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				// Need to wait for cloud init to finnish and start the agent inside the vmi.
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Set wrong time on the guest")
@@ -567,7 +567,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					// get current time on the node
 					output := tests.RunCommandOnVmiPod(vmi, []string{"date", "+%H:%M"})
 					expectedTime := strings.TrimSpace(output)
-					log.DefaultLogger().Infof("expoected time: %v", expectedTime)
+					log.DefaultLogger().Infof("expected time: %v", expectedTime)
 
 					By("Checking that the guest has an updated time")
 					resp, err := expecterNew.ExpectBatch([]expect.Batcher{
