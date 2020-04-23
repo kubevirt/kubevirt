@@ -27,8 +27,10 @@ import (
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	vmsnapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -66,21 +68,49 @@ func (admitter *VMSnapshotAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.
 	case v1beta1.Create:
 		sourceField := k8sfield.NewPath("spec", "source")
 
-		switch {
-		case vmSnapshot.Spec.Source.VirtualMachineName != nil:
-			causes, err = admitter.validateCreateVM(sourceField.Child("virtualMachineName"), ar.Request.Namespace, *vmSnapshot.Spec.Source.VirtualMachineName)
-			if err != nil {
-				return webhookutils.ToAdmissionResponseError(err)
+		if vmSnapshot.Spec.Source.APIGroup == nil {
+			causes = []metav1.StatusCause{
+				{
+					Type:    metav1.CauseTypeFieldValueNotFound,
+					Message: "missing apiGroup",
+					Field:   sourceField.Child("apiGroup").String(),
+				},
+			}
+			break
+		}
+
+		gv, err := schema.ParseGroupVersion(*vmSnapshot.Spec.Source.APIGroup)
+		if err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
+
+		switch gv.Group {
+		case v1.GroupName:
+			switch vmSnapshot.Spec.Source.Kind {
+			case "VirtualMachine":
+				causes, err = admitter.validateCreateVM(sourceField.Child("name"), ar.Request.Namespace, vmSnapshot.Spec.Source.Name)
+				if err != nil {
+					return webhookutils.ToAdmissionResponseError(err)
+				}
+			default:
+				causes = []metav1.StatusCause{
+					{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: "invalid kind",
+						Field:   sourceField.Child("kind").String(),
+					},
+				}
 			}
 		default:
 			causes = []metav1.StatusCause{
 				{
-					Type:    metav1.CauseTypeFieldValueNotFound,
-					Message: "missing source name",
-					Field:   sourceField.String(),
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "invalid apiGroup",
+					Field:   sourceField.Child("apiGroup").String(),
 				},
 			}
 		}
+
 	case v1beta1.Update:
 		prevObj := &vmsnapshotv1alpha1.VirtualMachineSnapshot{}
 		err = json.Unmarshal(ar.Request.OldObject.Raw, prevObj)

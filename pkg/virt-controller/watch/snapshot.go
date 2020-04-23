@@ -303,8 +303,8 @@ func (ctrl *SnapshotController) updateVMSnapshotContent(content *vmsnapshotv1alp
 }
 
 func (ctrl *SnapshotController) getSnapshotSource(vmSnapshot *vmsnapshotv1alpha1.VirtualMachineSnapshot) (snapshotSource, error) {
-	switch {
-	case vmSnapshot.Spec.Source.VirtualMachineName != nil:
+	switch vmSnapshot.Spec.Source.Kind {
+	case "VirtualMachine":
 		vm, err := ctrl.getVM(vmSnapshot)
 		if err != nil {
 			return nil, err
@@ -565,12 +565,9 @@ func (ctrl *SnapshotController) updateSnapshotStatus(vmSnapshot *vmsnapshotv1alp
 }
 
 func (ctrl *SnapshotController) getVM(vmSnapshot *vmsnapshotv1alpha1.VirtualMachineSnapshot) (*kubevirtv1.VirtualMachine, error) {
-	vmName := vmSnapshot.Spec.Source.VirtualMachineName
-	if vmName == nil {
-		return nil, fmt.Errorf("VirtualMachine name not specified")
-	}
+	vmName := vmSnapshot.Spec.Source.Name
 
-	obj, exists, err := ctrl.vmInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, *vmName))
+	obj, exists, err := ctrl.vmInformer.GetStore().GetByKey(cacheKeyFunc(vmSnapshot.Namespace, vmName))
 	if err != nil {
 		return nil, err
 	}

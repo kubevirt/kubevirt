@@ -55,18 +55,10 @@ const (
 
 // VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource
 type VirtualMachineSnapshotSpec struct {
-	Source VirtualMachineSnapshotSource `json:"source"`
+	Source corev1.TypedLocalObjectReference `json:"source"`
 
 	// +optional
 	DeletionPolicy *DeletionPolicy `json:"time,omitempty"`
-}
-
-// VirtualMachineSnapshotSource is the source of a snapshot
-// currently only supporting VirtualMachines, but may be addiional sources
-// in the future like VirtualMachineInstances
-type VirtualMachineSnapshotSource struct {
-	// +optional
-	VirtualMachineName *string `json:"virtualMachineName,omitempty"`
 }
 
 // VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource

@@ -40,6 +40,7 @@ var _ = Describe("Snapshot controlleer", func() {
 	)
 
 	var (
+		vmAPIGroup              = "kubevirt.io"
 		timeStamp               = metav1.Now()
 		vmName                  = "testvm"
 		vmSnapshotName          = "test-snapshot"
@@ -63,8 +64,10 @@ var _ = Describe("Snapshot controlleer", func() {
 				UID:       vnSnapshotUID,
 			},
 			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
-				Source: vmsnapshotv1alpha1.VirtualMachineSnapshotSource{
-					VirtualMachineName: &vmName,
+				Source: corev1.TypedLocalObjectReference{
+					APIGroup: &vmAPIGroup,
+					Kind:     "VirtualMachine",
+					Name:     vmName,
 				},
 			},
 		}
@@ -342,8 +345,10 @@ var _ = Describe("Snapshot controlleer", func() {
 			vmSnapshotInformer, vmSnapshotSource = testutils.NewFakeInformerWithIndexersFor(&vmsnapshotv1alpha1.VirtualMachineSnapshot{}, cache.Indexers{
 				"vm": func(obj interface{}) ([]string, error) {
 					vms := obj.(*vmsnapshotv1alpha1.VirtualMachineSnapshot)
-					if vms.Spec.Source.VirtualMachineName != nil {
-						return []string{*vms.Spec.Source.VirtualMachineName}, nil
+					if vms.Spec.Source.APIGroup != nil &&
+						*vms.Spec.Source.APIGroup == v1.GroupName &&
+						vms.Spec.Source.Kind == "VirtualMachine" {
+						return []string{vms.Spec.Source.Name}, nil
 					}
 					return nil, nil
 				},

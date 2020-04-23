@@ -350,8 +350,10 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 				if !ok {
 					return nil, fmt.Errorf("unexpected object")
 				}
-				if vms.Spec.Source.VirtualMachineName != nil {
-					return []string{*vms.Spec.Source.VirtualMachineName}, nil
+				if vms.Spec.Source.APIGroup != nil &&
+					*vms.Spec.Source.APIGroup == kubev1.GroupName &&
+					vms.Spec.Source.Kind == "VirtualMachine" {
+					return []string{vms.Spec.Source.Name}, nil
 				}
 				return nil, nil
 			},

@@ -16,13 +16,6 @@ func (VirtualMachineSnapshotSpec) SwaggerDoc() map[string]string {
 	}
 }
 
-func (VirtualMachineSnapshotSource) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":                   "VirtualMachineSnapshotSource is the source of a snapshot\ncurrently only supporting VirtualMachines, but may be addiional sources\nin the future like VirtualMachineInstances",
-		"virtualMachineName": "+optional",
-	}
-}
-
 func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                                  "VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource",

@@ -268,7 +268,8 @@ func NewVirtualMachineSnapshotCrd() *extv1beta1.CustomResourceDefinition {
 			},
 		},
 		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
-			{Name: "VirtualMachine", Type: "string", JSONPath: ".spec.source.virtualMachineName"},
+			{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
+			{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
 			{Name: "ReadyToUse", Type: "boolean", JSONPath: ".status.readyToUse"},
 			{Name: "CreationTime", Type: "date", JSONPath: ".status.creationTime"},
 			{Name: "Error", Type: "string", JSONPath: ".status.error.message"},

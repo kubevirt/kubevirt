@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -24,6 +25,8 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
+
+	groupName := "kubevirt.io/v1alpha3"
 
 	Context("With simple VM", func() {
 		var vm *v1.VirtualMachine
@@ -45,8 +48,10 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 					Namespace: vm.Namespace,
 				},
 				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
-					Source: vmsnapshotv1alpha1.VirtualMachineSnapshotSource{
-						VirtualMachineName: &vm.Name,
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &groupName,
+						Kind:     "VirtualMachine",
+						Name:     vm.Name,
 					},
 				},
 			}
@@ -58,7 +63,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 				snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(snapshotName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
-			}, 60*time.Second, time.Second).Should(BeTrue())
+			}, 180*time.Second, time.Second).Should(BeTrue())
 
 			contentName := *snapshot.Status.VirtualMachineSnapshotContentName
 			content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(contentName, metav1.GetOptions{})
@@ -81,8 +86,10 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 					Namespace: vm.Namespace,
 				},
 				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
-					Source: vmsnapshotv1alpha1.VirtualMachineSnapshotSource{
-						VirtualMachineName: &vm.Name,
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &groupName,
+						Kind:     "VirtualMachine",
+						Name:     vm.Name,
 					},
 				},
 			}
@@ -126,7 +133,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(dv.Status.Phase).ShouldNot(Equal(cdiv1.Failed))
 					return dv.Status.Phase == cdiv1.Succeeded
-				}, 60*time.Second, time.Second).Should(BeTrue())
+				}, 180*time.Second, time.Second).Should(BeTrue())
 			}
 
 			snapshotName := "snapshot-" + vm.Name
@@ -136,8 +143,10 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 					Namespace: vm.Namespace,
 				},
 				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
-					Source: vmsnapshotv1alpha1.VirtualMachineSnapshotSource{
-						VirtualMachineName: &vm.Name,
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &groupName,
+						Kind:     "VirtualMachine",
+						Name:     vm.Name,
 					},
 				},
 			}
@@ -149,7 +158,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 				snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(snapshotName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
-			}, 60*time.Second, time.Second).Should(BeTrue())
+			}, 180*time.Second, time.Second).Should(BeTrue())
 
 			Expect(snapshot.Status.CreationTime).ToNot(BeNil())
 			contentName := *snapshot.Status.VirtualMachineSnapshotContentName

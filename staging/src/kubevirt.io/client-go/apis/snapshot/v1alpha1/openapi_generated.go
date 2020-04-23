@@ -37,7 +37,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotContentStatus": schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError":         schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotError(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotList":          schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotList(ref),
-		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotSource":        schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSource(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotSpec":          schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotStatus":        schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeBackup":                        schema_client_go_apis_snapshot_v1alpha1_VolumeBackup(ref),
@@ -344,25 +343,6 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotList(ref comm
 	}
 }
 
-func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineSnapshotSource is the source of a snapshot currently only supporting VirtualMachines, but may be addiional sources in the future like VirtualMachineInstances",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"virtualMachineName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -372,7 +352,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref comm
 				Properties: map[string]spec.Schema{
 					"source": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotSource"),
+							Ref: ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
 						},
 					},
 					"time": {
@@ -386,7 +366,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref comm
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotSource"},
+			"k8s.io/api/core/v1.TypedLocalObjectReference"},
 	}
 }
 

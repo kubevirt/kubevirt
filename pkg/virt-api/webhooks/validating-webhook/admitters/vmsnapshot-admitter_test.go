@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k8s.io/api/admission/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,6 +41,7 @@ import (
 
 var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	vmName := "vm"
+	apiGroup := "kubevirt.io/v1alpha3"
 
 	It("should reject invalid request resource", func() {
 		ar := &v1beta1.AdmissionReview{
@@ -53,7 +55,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 		Expect(resp.Result.Message).Should(ContainSubstring("Unexpected Resource"))
 	})
 
-	It("should reject invalid kind", func() {
+	It("should reject missing apigroup", func() {
 		snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
 			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{},
 		}
@@ -62,14 +64,16 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 		resp := createTestVMSnapshotAdmitter(nil).Admit(ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source"))
+		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.apiGroup"))
 	})
 
 	It("should reject when VM does not exist", func() {
 		snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
 			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
-				Source: vmsnapshotv1alpha1.VirtualMachineSnapshotSource{
-					VirtualMachineName: &vmName,
+				Source: corev1.TypedLocalObjectReference{
+					APIGroup: &apiGroup,
+					Kind:     "VirtualMachine",
+					Name:     vmName,
 				},
 			},
 		}
@@ -78,23 +82,26 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 		resp := createTestVMSnapshotAdmitter(nil).Admit(ar)
 		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.virtualMachineName"))
+		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.name"))
 	})
 
 	It("should reject spec update", func() {
 		snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
 			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
-				Source: vmsnapshotv1alpha1.VirtualMachineSnapshotSource{
-					VirtualMachineName: &vmName,
+				Source: corev1.TypedLocalObjectReference{
+					APIGroup: &apiGroup,
+					Kind:     "VirtualMachine",
+					Name:     vmName,
 				},
 			},
 		}
 
-		s := "baz"
 		oldSnapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
 			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
-				Source: vmsnapshotv1alpha1.VirtualMachineSnapshotSource{
-					VirtualMachineName: &s,
+				Source: corev1.TypedLocalObjectReference{
+					APIGroup: &apiGroup,
+					Kind:     "VirtualMachine",
+					Name:     "baz",
 				},
 			},
 		}
@@ -109,8 +116,10 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	It("should allow metadata update", func() {
 		oldSnapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
 			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
-				Source: vmsnapshotv1alpha1.VirtualMachineSnapshotSource{
-					VirtualMachineName: &vmName,
+				Source: corev1.TypedLocalObjectReference{
+					APIGroup: &apiGroup,
+					Kind:     "VirtualMachine",
+					Name:     vmName,
 				},
 			},
 		}
@@ -120,8 +129,10 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 				Finalizers: []string{"finalizer"},
 			},
 			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
-				Source: vmsnapshotv1alpha1.VirtualMachineSnapshotSource{
-					VirtualMachineName: &vmName,
+				Source: corev1.TypedLocalObjectReference{
+					APIGroup: &apiGroup,
+					Kind:     "VirtualMachine",
+					Name:     vmName,
 				},
 			},
 		}
@@ -145,8 +156,10 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 		It("should reject when VM is running", func() {
 			snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
 				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
-					Source: vmsnapshotv1alpha1.VirtualMachineSnapshotSource{
-						VirtualMachineName: &vmName,
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "VirtualMachine",
+						Name:     vmName,
 					},
 				},
 			}
@@ -158,14 +171,59 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			resp := createTestVMSnapshotAdmitter(vm).Admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.virtualMachineName"))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.name"))
+		})
+
+		It("should reject invalid kind", func() {
+			snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
+				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "VirtualMachineInstance",
+						Name:     vmName,
+					},
+				},
+			}
+
+			t := true
+			vm.Spec.Running = &t
+
+			ar := createAdmissionReview(snapshot)
+			resp := createTestVMSnapshotAdmitter(vm).Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.kind"))
+		})
+
+		It("should reject invalid apiGroup", func() {
+			g := "foo.bar"
+			snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
+				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &g,
+						Kind:     "VirtualMachine",
+						Name:     vmName,
+					},
+				},
+			}
+
+			t := true
+			vm.Spec.Running = &t
+
+			ar := createAdmissionReview(snapshot)
+			resp := createTestVMSnapshotAdmitter(vm).Admit(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.apiGroup"))
 		})
 
 		It("should accept when VM is not running", func() {
 			snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
 				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
-					Source: vmsnapshotv1alpha1.VirtualMachineSnapshotSource{
-						VirtualMachineName: &vmName,
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "VirtualMachine",
+						Name:     vmName,
 					},
 				},
 			}
