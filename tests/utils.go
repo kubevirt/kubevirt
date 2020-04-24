@@ -618,8 +618,7 @@ func CleanNodes() {
 
 			if taint.Key == clusterDrainKey && taint.Effect == k8sv1.TaintEffectNoSchedule {
 				found = true
-			}
-			if taint.Key == "kubevirt.io/drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
+			} else if taint.Key == "kubevirt.io/drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
 				// this key is used as a fallback if the original drain key is built-in
 				found = true
 			} else if taint.Key == "kubevirt.io/alt-drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
