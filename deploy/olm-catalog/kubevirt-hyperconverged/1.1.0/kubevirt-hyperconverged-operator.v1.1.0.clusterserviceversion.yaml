@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.1.0
-    createdAt: "2020-04-24 10:40:26"
+    createdAt: "2020-04-24 15:55:51"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -986,8 +986,6 @@ spec:
           resources:
           - clusterrolebindings
           - clusterroles
-          - rolebindings
-          - roles
           verbs:
           - '*'
         - apiGroups:
@@ -999,6 +997,7 @@ spec:
           - list
           - watch
           - update
+          - create
         - apiGroups:
           - ""
           resources:
@@ -1014,11 +1013,7 @@ spec:
           resources:
           - customresourcedefinitions
           verbs:
-          - get
-          - list
-          - watch
-          - create
-          - update
+          - '*'
         - apiGroups:
           - cdi.kubevirt.io
           - upload.cdi.kubevirt.io
@@ -1027,48 +1022,18 @@ spec:
           verbs:
           - '*'
         - apiGroups:
-          - ""
-          resources:
-          - serviceaccounts
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - apps
-          resources:
-          - deployments
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - authorization.k8s.io
-          resources:
-          - subjectaccessreviews
-          verbs:
-          - create
-        - apiGroups:
           - admissionregistration.k8s.io
           resources:
           - validatingwebhookconfigurations
           - mutatingwebhookconfigurations
           verbs:
-          - get
-          - list
-          - watch
-          - create
-          - update
+          - '*'
         - apiGroups:
           - apiregistration.k8s.io
           resources:
           - apiservices
           verbs:
-          - get
-          - list
-          - watch
-          - create
-          - update
+          - '*'
         - apiGroups:
           - authorization.k8s.io
           resources:
@@ -1489,22 +1454,22 @@ spec:
                   value: "true"
                 - name: OPERATOR_VERSION
                 - name: CONTROLLER_IMAGE
-                  value: docker.io/kubevirt/cdi-controller:v1.13.1
+                  value: docker.io/kubevirt/cdi-controller:v1.16.0
                 - name: IMPORTER_IMAGE
-                  value: docker.io/kubevirt/cdi-importer:v1.13.1
+                  value: docker.io/kubevirt/cdi-importer:v1.16.0
                 - name: CLONER_IMAGE
-                  value: docker.io/kubevirt/cdi-cloner:v1.13.1
+                  value: docker.io/kubevirt/cdi-cloner:v1.16.0
                 - name: APISERVER_IMAGE
-                  value: docker.io/kubevirt/cdi-apiserver:v1.13.1
+                  value: docker.io/kubevirt/cdi-apiserver:v1.16.0
                 - name: UPLOAD_SERVER_IMAGE
-                  value: docker.io/kubevirt/cdi-uploadserver:v1.13.1
+                  value: docker.io/kubevirt/cdi-uploadserver:v1.16.0
                 - name: UPLOAD_PROXY_IMAGE
-                  value: docker.io/kubevirt/cdi-uploadproxy:v1.13.1
+                  value: docker.io/kubevirt/cdi-uploadproxy:v1.16.0
                 - name: VERBOSITY
                   value: "1"
                 - name: PULL_POLICY
                   value: IfNotPresent
-                image: docker.io/kubevirt/cdi-operator:v1.13.1
+                image: docker.io/kubevirt/cdi-operator:v1.16.0
                 imagePullPolicy: IfNotPresent
                 name: cdi-operator
                 ports:
@@ -1595,6 +1560,7 @@ spec:
           - configmaps
           - events
           - secrets
+          - services
           verbs:
           - '*'
         - apiGroups:

@@ -54,6 +54,7 @@ rules:
   - configmaps
   - events
   - secrets
+  - services
   verbs:
   - '*'
 - apiGroups:
@@ -881,8 +882,6 @@ rules:
   resources:
   - clusterrolebindings
   - clusterroles
-  - rolebindings
-  - roles
   verbs:
   - '*'
 - apiGroups:
@@ -894,6 +893,7 @@ rules:
   - list
   - watch
   - update
+  - create
 - apiGroups:
   - ""
   resources:
@@ -909,11 +909,7 @@ rules:
   resources:
   - customresourcedefinitions
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
+  - '*'
 - apiGroups:
   - cdi.kubevirt.io
   - upload.cdi.kubevirt.io
@@ -922,48 +918,18 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - ""
-  resources:
-  - serviceaccounts
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - authorization.k8s.io
-  resources:
-  - subjectaccessreviews
-  verbs:
-  - create
-- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - validatingwebhookconfigurations
   - mutatingwebhookconfigurations
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
+  - '*'
 - apiGroups:
   - apiregistration.k8s.io
   resources:
   - apiservices
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
+  - '*'
 - apiGroups:
   - authorization.k8s.io
   resources:

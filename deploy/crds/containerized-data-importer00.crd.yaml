@@ -28,12 +28,6 @@ spec:
   validation:
     openAPIV3Schema:
       properties:
-        apiVersion:
-          type: string
-        kind:
-          type: string
-        metadata:
-          type: object
         spec:
           properties:
             imagePullPolicy:
@@ -48,6 +42,46 @@ spec:
               - BlockUninstallIfWorkloadsExist
               type: string
           type: object
+        status:
+          description: The most recently observed status of the CDI resource
+          properties:
+            conditions:
+              description: A list of current conditions of the CDI resource
+              items:
+                properties:
+                  lastHeartbeatTime:
+                    description: Last time the state of the condition was checked
+                    format: date-time
+                    type: string
+                  lastTransitionTime:
+                    description: Last time the state of the condition changed
+                    format: date-time
+                    type: string
+                  message:
+                    description: Message related to the last condition change
+                    type: string
+                  reason:
+                    description: Reason the last condition changed
+                    type: string
+                  status:
+                    description: Current status of the condition, True, False, Unknown
+                    type: string
+                type: object
+              type: array
+            observedVersion:
+              description: The observed version of the CDI resource
+              type: string
+            operatorVersion:
+              description: The version of the CDI resource as defined by the operator
+              type: string
+            phase:
+              description: The current phase of the CDI resource
+              type: string
+            targetVersion:
+              description: The desired version of the CDI resource
+              type: string
+          type: object
+      type: object
   version: v1alpha1
   versions:
   - name: v1alpha1

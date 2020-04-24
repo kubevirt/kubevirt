@@ -19,7 +19,7 @@ func (DataVolumeSpec) SwaggerDoc() map[string]string {
 
 func (DataVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, S3, Registry or an existing PVC",
+		"": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, Registry or an existing PVC",
 	}
 }
 
@@ -64,6 +64,16 @@ func (DataVolumeSourceHTTP) SwaggerDoc() map[string]string {
 		"url":           "URL is the URL of the http source",
 		"secretRef":     "SecretRef provides the secret reference needed to access the HTTP source",
 		"certConfigMap": "CertConfigMap provides a reference to the Registry certs",
+	}
+}
+
+func (DataVolumeSourceImageIO) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "DataVolumeSourceImageIO provides the parameters to create a Data Volume from an imageio source",
+		"url":           "URL is the URL of the ovirt-engine",
+		"diskId":        "DiskID provides id of a disk to be imported",
+		"secretRef":     "SecretRef provides the secret reference needed to access the ovirt-engine",
+		"certConfigMap": "CertConfigMap provides a reference to the CA cert",
 	}
 }
 
