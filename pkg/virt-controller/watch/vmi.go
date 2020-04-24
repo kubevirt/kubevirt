@@ -269,6 +269,30 @@ func (c *VMIController) execute(key string) error {
 
 }
 
+// verifies all conditions match even if they are not in the same order
+func conditionsEqual(a []virtv1.VirtualMachineInstanceCondition, b []virtv1.VirtualMachineInstanceCondition) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for _, aVal := range a {
+		found := false
+
+		for _, bVal := range b {
+			if reflect.DeepEqual(aVal, bVal) {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
 
 	hasFailedDataVolume := false
@@ -391,7 +415,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		patchOps := []string{}
 
 		// We don't own the object anymore, so patch instead of update
-		if !reflect.DeepEqual(vmiCopy.Status.Conditions, vmi.Status.Conditions) {
+		if !conditionsEqual(vmiCopy.Status.Conditions, vmi.Status.Conditions) {
 
 			newConditions, err := json.Marshal(vmiCopy.Status.Conditions)
 			if err != nil {
