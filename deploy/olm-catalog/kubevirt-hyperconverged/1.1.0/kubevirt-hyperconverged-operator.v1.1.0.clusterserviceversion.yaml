@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.1.0
-    createdAt: "2020-04-24 15:55:51"
+    createdAt: "2020-04-24 17:28:39"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -487,6 +487,19 @@ spec:
           - admissionregistration.k8s.io
           resources:
           - validatingwebhookconfigurations
+          - mutatingwebhookconfigurations
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
+          - update
+          - patch
+        - apiGroups:
+          - apiregistration.k8s.io
+          resources:
+          - apiservices
           verbs:
           - get
           - list
@@ -1356,12 +1369,23 @@ spec:
             metadata:
               annotations:
                 scheduler.alpha.kubernetes.io/critical-pod: ""
-                scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly","operator":"Exists"}]'
               labels:
                 kubevirt.io: virt-operator
                 prometheus.kubevirt.io: ""
               name: virt-operator
             spec:
+              affinity:
+                podAntiAffinity:
+                  preferredDuringSchedulingIgnoredDuringExecution:
+                  - podAffinityTerm:
+                      labelSelector:
+                        matchExpressions:
+                        - key: kubevirt.io
+                          operator: In
+                          values:
+                          - virt-operator
+                      topologyKey: kubernetes.io/hostname
+                    weight: 1
               containers:
               - command:
                 - virt-operator
@@ -1371,12 +1395,12 @@ spec:
                 - "2"
                 env:
                 - name: OPERATOR_IMAGE
-                  value: docker.io/kubevirt/virt-operator:v0.26.0
+                  value: docker.io/kubevirt/virt-operator:v0.28.0
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: docker.io/kubevirt/virt-operator:v0.26.0
+                image: docker.io/kubevirt/virt-operator:v0.28.0
                 imagePullPolicy: IfNotPresent
                 name: virt-operator
                 ports:
@@ -1397,6 +1421,9 @@ spec:
               securityContext:
                 runAsNonRoot: true
               serviceAccountName: kubevirt-operator
+              tolerations:
+              - key: CriticalAddonsOnly
+                operator: Exists
       - name: kubevirt-ssp-operator
         spec:
           replicas: 1

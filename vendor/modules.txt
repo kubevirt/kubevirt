@@ -696,7 +696,7 @@ kubevirt.io/containerized-data-importer/pkg/apis/core
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/apis/upload
 kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1
-# kubevirt.io/kubevirt v0.26.0 => kubevirt.io/kubevirt v0.26.0
+# kubevirt.io/kubevirt v0.28.0 => kubevirt.io/kubevirt v0.26.0
 kubevirt.io/kubevirt/pkg/cloud-init
 kubevirt.io/kubevirt/pkg/config
 kubevirt.io/kubevirt/pkg/container-disk

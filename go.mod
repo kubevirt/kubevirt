@@ -24,11 +24,11 @@ require (
 	k8s.io/kube-openapi v0.0.0-20200204173128-addea2498afe
 	kubevirt.io/client-go v0.26.0
 	kubevirt.io/containerized-data-importer v1.16.0
-	kubevirt.io/kubevirt v0.26.0
+	kubevirt.io/kubevirt v0.28.0
 	sigs.k8s.io/controller-runtime v0.5.1
 )
 
-// Pinned to kubernetes-1.16.4 to kubevirt.io/kubevirt v0.26.0
+// Pinned to kubernetes-1.16.4 to kubevirt.io/kubevirt v0.28.0
 replace (
 	k8s.io/api => k8s.io/api v0.16.4
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.16.4
