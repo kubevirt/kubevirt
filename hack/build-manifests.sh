@@ -262,13 +262,15 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --smbios="${SMBIOS}" \
   --csv-overrides="$(<${csvOverrides})" \
   --operator-image-name="${OPERATOR_IMAGE}" > "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}"
-(cd ${PROJECT_ROOT}/tools/csv-merger/ && go clean)
 
 # Copy all CRDs into the CRD and CSV directories
 rm -f ${CRD_DIR}/*
 cp -f ${TEMPDIR}/*.${CRD_EXT} ${CRD_DIR}
 cp -f ${TEMPDIR}/*.${CRD_EXT} ${CSV_DIR}
 
+# Check there are not API Groups overlap between different CNV operators
+${PROJECT_ROOT}/tools/csv-merger/csv-merger --crds-dir=${CRD_DIR}
+(cd ${PROJECT_ROOT}/tools/csv-merger/ && go clean)
 
 # Intentionally removing last so failure leaves around the templates
 rm -rf ${TEMPDIR}
