@@ -66,7 +66,16 @@ The aforementioned flow translates into the following calls of the specific
 - `decorateConfig`
 
 ## Binding Mechanisms
-A `BindMechanism` in an interface which collects the following methods:
+A binding mechanism can be seen as the translation service between KubeVirt's
+API and Libvirt's domain xml. It also features methods to set up the required
+networking infrastructure.
+
+Each interface type has a different binding mechanism, since it will lead to a
+different libvirt domain xml specification. It may also require different
+networking infrastructure to be created / configured - e.g. a bridge for the 
+`bridge` or `masquerade` `BindMechanism`s. 
+
+Code-wise, a `BindMechanism` in an interface which collects the following methods:
 
 ```golang
 type BindMechanism interface {
@@ -85,3 +94,8 @@ type BindMechanism interface {
 	startDHCP(vmi *v1.VirtualMachineInstance) error
 }
 ```
+
+As of now, the existent binding mechanisms are:
+- [bridge](#bridge-binding-mechanism)
+- [masquerade](#masquerade-binding-mechanism)
+- [slirp](#slirp-binding-mechanism)
