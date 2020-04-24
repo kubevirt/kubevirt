@@ -856,8 +856,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var node *k8sv1.Node
 			var cfgMap *k8sv1.ConfigMap
 			var originalFeatureGates string
-			var supportedCPUModels = make(map[string]string)
-			var supportedCPUFeatures = make(map[string]string)
+			var cpuModelSupportedNodes = make([]string, 0)
+			var cpuFeatureSupportedNodes = make([]string, 0)
 			var supportedCPU string
 			var supportedFeature string
 
@@ -865,51 +865,34 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				nodes := tests.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node = &nodes.Items[0]
-				for i, n := range nodes.Items {
-					// take all cpu models and features from first node
-					if i == 0 {
-						for key, _ := range n.Labels {
-							if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
-								supportedCPUFeatures[strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)] = "true"
-							}
 
-							if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
-								supportedCPUModels[strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)] = "true"
-							}
-						}
-						continue
+				for key, _ := range node.Labels {
+					if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) && supportedFeature == "" {
+						supportedFeature = strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
 					}
 
-					//If there are more nodes available, iterate over each node
-					//and take only model and features which are supported on all nodes
-					newSupportedFeatures := make(map[string]string)
-					for cpuFeature, _ := range supportedCPUFeatures {
-						if _, ok := node.Labels[services.NFD_CPU_FEATURE_PREFIX+cpuFeature]; ok {
-							newSupportedFeatures[cpuFeature] = "true"
+					if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) && supportedCPU == "" {
+						supportedCPU = strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
+					}
+					if supportedCPU != "" && supportedFeature != "" {
+						break
+					}
+				}
+
+				for _, n := range nodes.Items {
+					for key, _ := range n.Labels {
+						if strings.Contains(key, supportedFeature) {
+							cpuFeatureSupportedNodes = append(cpuFeatureSupportedNodes, n.Name)
+						}
+
+						if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
+							cpuModelSupportedNodes = append(cpuModelSupportedNodes, n.Name)
 						}
 					}
-					supportedCPUFeatures = newSupportedFeatures
-
-					newSupportedCPUModels := make(map[string]string)
-					for cpuModel, _ := range supportedCPUModels {
-						if _, ok := node.Labels[services.NFD_CPU_MODEL_PREFIX+cpuModel]; ok {
-							newSupportedCPUModels[cpuModel] = "true"
-						}
-					}
-					supportedCPUModels = newSupportedCPUModels
 
 				}
-				//get first supported cpu model
-				for model, _ := range supportedCPUModels {
-					supportedCPU = model
-					break
-				}
-				//get first supported cpu feature
-				for feature, _ := range supportedCPUFeatures {
-					supportedFeature = feature
-					break
-				}
-
+				Expect(supportedFeature).ToNot(Equal(""))
+				Expect(supportedCPU).ToNot(Equal(""))
 				options = metav1.GetOptions{}
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
 				Expect(err).ToNot(HaveOccurred())
@@ -934,8 +917,19 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+
+				found := false
+				for _, nodeName := range cpuFeatureSupportedNodes {
+					if curVMI.Status.NodeName == nodeName {
+						found = true
+						break
+					}
+				}
+
+				Expect(found).To(Equal(true), "VMI should run on a node with matching NFD CPU features labels")
+
 			})
 
 			It("[test_id:1640]the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", func() {
@@ -964,7 +958,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			It("[test_id:3202]the vmi with cpu.features matching nfd labels on a node should be scheduled", func() {
 
-				By("adding a node-feature-discovery CPU model label to a node")
+				By("adding a node-feature-discovery CPU features label to a node")
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
@@ -984,8 +978,18 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+
+				found := false
+				for _, nodeName := range cpuFeatureSupportedNodes {
+					if curVMI.Status.NodeName == nodeName {
+						found = true
+						break
+					}
+				}
+
+				Expect(found).To(Equal(true), "VMI should run on a node with matching NFD CPU features labels")
 
 			})
 
