@@ -4540,7 +4540,13 @@ func FormatIPForURL(ip string) string {
 }
 
 func getClusterDnsServiceIP(virtClient kubecli.KubevirtClient) (string, error) {
-	kubeDNSService, err := virtClient.CoreV1().Services("kube-system").Get("kube-dns", metav1.GetOptions{})
+	dnsServiceName := "kube-dns"
+	dnsNamespace := "kube-system"
+	if IsOpenShift() {
+		dnsServiceName = "dns-default"
+		dnsNamespace = "openshift-dns"
+	}
+	kubeDNSService, err := virtClient.CoreV1().Services(dnsNamespace).Get(dnsServiceName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
