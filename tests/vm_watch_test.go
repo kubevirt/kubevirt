@@ -205,7 +205,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		tests.BeforeTestCleanup()
 	})
 
-	PIt("[test_id:3468] [flaky] Should update vm status with the proper columns using 'kubectl get vm -w'", func() {
+	It("[test_id:3468] Should update vm status with the proper columns using 'kubectl get vm -w'", func() {
 		By("Creating a new VM spec")
 		vm := tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 		Expect(vm).ToNot(BeNil())
