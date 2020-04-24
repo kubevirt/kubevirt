@@ -649,13 +649,15 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			match = match || regexp.MustCompile(version).MatchString(guestInfo.GAVersion)
 		}
 
-		if !match && !condManager.HasCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent) {
-			agentCondition := v1.VirtualMachineInstanceCondition{
-				Type:          v1.VirtualMachineInstanceUnsupportedAgent,
-				LastProbeTime: v12.Now(),
-				Status:        k8sv1.ConditionTrue,
+		if !match {
+			if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent) {
+				agentCondition := v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstanceUnsupportedAgent,
+					LastProbeTime: v12.Now(),
+					Status:        k8sv1.ConditionTrue,
+				}
+				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 			}
-			vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 		} else {
 			condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent)
 		}
