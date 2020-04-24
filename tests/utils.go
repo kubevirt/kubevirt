@@ -604,6 +604,8 @@ func CleanNodes() {
 	PanicOnError(err)
 	nodes := GetAllSchedulableNodes(virtCli).Items
 
+	clusterDrainKey := GetNodeDrainKey()
+
 	for _, node := range nodes {
 
 		old, err := json.Marshal(node)
@@ -614,7 +616,11 @@ func CleanNodes() {
 		taints := []k8sv1.Taint{}
 		for _, taint := range node.Spec.Taints {
 
+			if taint.Key == clusterDrainKey && taint.Effect == k8sv1.TaintEffectNoSchedule {
+				found = true
+			}
 			if taint.Key == "kubevirt.io/drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
+				// this key is used as a fallback if the original drain key is built-in
 				found = true
 			} else if taint.Key == "kubevirt.io/alt-drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
 				// this key is used in testing as a custom alternate drain key
