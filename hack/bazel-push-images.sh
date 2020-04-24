@@ -22,8 +22,10 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
+PUSH_TARGETS=(${PUSH_TARGETS:-other-images virt-operator virt-api virt-controller virt-handler virt-launcher})
+
 for tag in ${docker_tag} ${docker_tag_alt}; do
-    for target in other-images virt-operator virt-api virt-controller virt-handler virt-launcher; do
+    for target in ${PUSH_TARGETS[@]}; do
 
         bazel run \
             --config=${ARCHITECTURE} \
@@ -37,7 +39,7 @@ done
 
 # for the imagePrefix operator test
 if [[ $image_prefix_alt ]]; then
-    for target in other-images virt-operator virt-api virt-controller virt-handler virt-launcher; do
+    for target in ${PUSH_TARGETS[@]}; do
 
         bazel run \
             --config=${ARCHITECTURE} \
