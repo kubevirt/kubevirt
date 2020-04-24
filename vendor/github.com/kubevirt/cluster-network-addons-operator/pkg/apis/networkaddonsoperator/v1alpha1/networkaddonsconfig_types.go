@@ -15,6 +15,7 @@ type NetworkAddonsConfigSpec struct {
 	KubeMacPool     *KubeMacPool      `json:"kubeMacPool,omitempty"`
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 	NMState         *NMState          `json:"nmstate,omitempty"`
+	MacvtapCni      *MacvtapCni       `json:"macvtap,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -34,6 +35,9 @@ type KubeMacPool struct {
 	RangeStart string `json:"rangeStart,omitempty"`
 	RangeEnd   string `json:"rangeEnd,omitempty"`
 }
+
+// +k8s:openapi-gen=true
+type MacvtapCni struct{}
 
 // NetworkAddonsConfigStatus defines the observed state of NetworkAddonsConfig
 // +k8s:openapi-gen=true

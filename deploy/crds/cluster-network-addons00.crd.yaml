@@ -26,6 +26,7 @@ spec:
           type: object
         status:
           type: object
+      type: object
   version: v1alpha1
   versions:
   - name: v1alpha1
