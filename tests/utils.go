@@ -604,6 +604,8 @@ func CleanNodes() {
 	PanicOnError(err)
 	nodes := GetAllSchedulableNodes(virtCli).Items
 
+	clusterDrainKey := GetNodeDrainKey()
+
 	for _, node := range nodes {
 
 		old, err := json.Marshal(node)
@@ -614,7 +616,10 @@ func CleanNodes() {
 		taints := []k8sv1.Taint{}
 		for _, taint := range node.Spec.Taints {
 
-			if taint.Key == "kubevirt.io/drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
+			if taint.Key == clusterDrainKey && taint.Effect == k8sv1.TaintEffectNoSchedule {
+				found = true
+			} else if taint.Key == "kubevirt.io/drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
+				// this key is used as a fallback if the original drain key is built-in
 				found = true
 			} else if taint.Key == "kubevirt.io/alt-drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
 				// this key is used in testing as a custom alternate drain key
@@ -4568,6 +4573,10 @@ func SkipMigrationTestIfRunnigOnKindInfra() {
 	if IsRunningOnKindInfra() {
 		Skip("Skip migration tests till PR https://github.com/kubevirt/kubevirt/pull/3221 is merged")
 	}
+}
+
+func IsUsingBuiltinNodeDrainKey() bool {
+	return GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
 }
 
 func GetNodeDrainKey() string {
