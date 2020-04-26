@@ -27,9 +27,6 @@ package network
 
 import (
 	"fmt"
-	"os"
-
-	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -135,19 +132,4 @@ func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
 		return new(PodInterface), nil
 	}
 	return nil, fmt.Errorf("Network not implemented")
-}
-
-// IsIpv6Enabled returns if IPv6 is enabled
-func IsIpv6Enabled() bool {
-	podIP := os.Getenv("MY_POD_IP")
-	return netutils.IsIPv6String(podIP)
-}
-
-// GetLoopbackAddress returns loopback address
-func GetLoopbackAddress() string {
-	if IsIpv6Enabled() {
-		return "[::1]"
-	}
-
-	return "127.0.0.1"
 }

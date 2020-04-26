@@ -32,7 +32,6 @@ import (
 	netutils "k8s.io/utils/net"
 
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 )
 
 const (
@@ -97,7 +96,8 @@ func SourceUnixFile(baseDir string, key string) string {
 }
 
 func ipBindAddress() string {
-	if network.IsIpv6Enabled() {
+	podIP := os.Getenv("MY_POD_IP")
+	if netutils.IsIPv6String(podIP) {
 		return "[::]"
 	}
 
