@@ -1636,7 +1636,7 @@ spec:
 		patchData := []byte(fmt.Sprint(`[{ "op": "replace", "path": "/metadata/labels", "value": {} }]`))
 		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(components.VirtApiCertSecretName, types.JSONPatchType, patchData)
 		Expect(err).ToNot(HaveOccurred())
-		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Patch("v1alpha3.subresources.kubevirt.io", types.JSONPatchType, patchData)
+		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Patch(fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), types.JSONPatchType, patchData)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = virtClient.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(components.VirtAPIValidatingWebhookName, types.JSONPatchType, patchData)
 		Expect(err).ToNot(HaveOccurred())
@@ -1650,7 +1650,7 @@ spec:
 			return secret.Labels
 		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))
 		Eventually(func() map[string]string {
-			apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get("v1alpha3.subresources.kubevirt.io", metav1.GetOptions{})
+			apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get(fmt.Sprintf("%s.subresources.kubevirt.io", v1.ApiLatestVersion), metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return apiService.Labels
 		}, 20*time.Second, 1*time.Second).Should(HaveKeyWithValue(v1.ManagedByLabel, v1.ManagedByLabelOperatorValue))

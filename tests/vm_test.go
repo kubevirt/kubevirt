@@ -75,6 +75,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			newVM := tests.NewRandomVirtualMachine(template, false)
+			// because we're marshaling this ourselves, we have to make sure
+			// we're using the same version the virtClient is using.
+			newVM.APIVersion = "kubevirt.io/" + v1.ApiStorageVersion
 
 			jsonBytes, err := json.Marshal(newVM)
 			Expect(err).To(BeNil())
