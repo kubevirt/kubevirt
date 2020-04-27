@@ -45,7 +45,7 @@ import (
 )
 
 const (
-	virtOperatorJobAppLabel = "virt-operator"
+	virtOperatorJobAppLabel = "virt-operator-strategy-dumper"
 )
 
 type KubeVirtController struct {
