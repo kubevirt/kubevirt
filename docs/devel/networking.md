@@ -109,3 +109,99 @@ As of now, the existent binding mechanisms are:
 - [bridge](#bridge-binding-mechanism)
 - [masquerade](#masquerade-binding-mechanism)
 - [slirp](#slirp-binding-mechanism)
+
+### Bridge binding mechanism
+Using the bridge `BindMechanism` requires a VMI configuration featuring a
+network whose interface type is `bridge` - the yaml file below can be used
+as reference, but please refer to the
+[user guide](https://kubevirt.io/user-guide/#/creation/interfaces-and-networks?id=bridge)
+for more information.
+```yaml
+kind: VM
+spec:
+  domain:
+    devices:
+      interfaces:
+        - name: default
+          bridge: {}
+  networks:
+  - name: default
+    pod: {} # Stock pod network
+```
+
+Let's refer to the image below to get a better understanding of how this
+`BindMechanism` works.
+
+Bridge binding mechanism diagram
+
+![alt text](https://github.com/kubevirt/kubevirt.github.io/blob/source/assets/images/diagram.png)
+
+As can be seen in the diagram above, there are three actors at play: CNI,
+libvirt, and DHCP. For completeness sake, let's add one more actor that is
+implicit in the picture: KubeVirt.
+
+As indicated in [the introduction](#vmi-networking), the pod networking
+configuration step - performed by CNI - is out of scope of this guide. The
+focus will be instead on how KubeVirt performs bridge binding.
+
+The bridge `BindMechanism` starts off by reading the pod networking interface
+configured by CNI. It caches the assigned MAC address and the link MTU in the
+VIF structure. When CNI has configured IP address(es) on the pod networking
+interface, the bridge `BindMechanism` also caches the **first** IP address in
+the VIF, along with any routes CNI has configured.
+
+In the `preparePodNetworkInterfaces` method, KubeVirt randomizes the in-pod
+veth mac-address; the original one, will be plugged into the VM. It also
+creates an in-pod bridge, and sets the pod networking interface as a slave to
+this bridge. This happens in phase#1 - i.e. performed by virt-handler on
+behalf of virt-launcher.
+
+The `preparePodNetworkInterfaces` method performs one other operation: **if**
+the pod networking interface featured any IP address, it will delete the first
+one; remember this address is cached in the VIF structure It will be needed
+for phase#2.
+
+In phase#2 (executed by virt-launcher, unprivileged) the domain xml which will
+create the VMI is generated. It first creates a rough domxml of each interface
+of the VM, whose sole purpose is to instruct how to connect to the in-pod
+bridge. The generated interface xml element looks like:
+
+```xml
+ <interface type='bridge'>
+    <source bridge='k6t-eth0'/>
+    <model type='virtio'/>
+ </interface>
+```
+
+Afterwards, but still in phase#2, KubeVirt will decorate the aforementioned
+interface xml, specifying both the link MTU and MAC address through the
+`decorateConfig` `BindMechanism` method. In it, the MAC and MTU of the pod
+interface are copied over to the interface dom xml definition, which, at this
+stage, will look like:
+
+```xml
+<interface type='bridge'>
+  <mac address='8e:61:55:c2:4a:bd'/>
+  <source bridge='k6t-eth0'/>
+  <target dev='vnet0'/>
+  <model type='virtio'/>
+  <mtu size='1440'/>
+  <alias name='ua-bridge'/>
+  <address type='pci' domain='0x0000' bus='0x01' slot='0x00' function='0x0'/>
+</interface>
+```
+
+Once the VM is booted, libvirt will consume the interface xml definition and
+create a tap device - named after the `target` parameter. That tap device will
+have the in-pod bridge as its master, and the tap device's MAC address, and
+link MTU will be configured according to the values set in the domain xml.
+
+Finally, and depending if the pod networking interface had configured IP
+address(es), an in-pod DHCP server will be created to advertise the IP address
+and routes which are cached on the VIF structure. This last step effectively
+carries over the pod interface configuration to the VM interface, transparently
+to the user. 
+
+When the pod networking interface does not feature an IP address, the in-pod
+DHCP server will not be started, leaving the VM with plain L2 connection via
+the in-pod bridge.
