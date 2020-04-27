@@ -2,21 +2,23 @@
 
 set -e
 
-source hack/common.sh
-HCO_DIR="$(readlink -f $(dirname $0)/../)"
-BUILD_DIR=${HCO_DIR}/tests/build
-BUILD_TAG="hco-test-build"
-REGISTRY="docker.io/kubevirtci"
-TAG=$(get_image_tag)
-TEST_BUILD_TAG="${REGISTRY}/${BUILD_TAG}:${TAG}"
+main() {
+  local HCO_DIR
+  HCO_DIR="$(readlink -f $(dirname $0)/../)"
+  local BUILD_DIR=${HCO_DIR}/tests/build
+  local BUILD_TAG="hco-test-build"
+  local REGISTRY="docker.io/kubevirtci"
+  local TAG
+  TAG="$(get_image_tag)"
+  local TEST_BUILD_TAG="${REGISTRY}/${BUILD_TAG}:${TAG}"
 
+  # Build the encapsulated compile and test container
+  (cd "${BUILD_DIR}" && docker build --tag "${TEST_BUILD_TAG}" .)
 
-# Build the encapsulated compile and test container
-(cd ${BUILD_DIR} && docker build --tag ${TEST_BUILD_TAG} .)
+  docker push "${TEST_BUILD_TAG}"
 
-docker push ${TEST_BUILD_TAG}
-
-echo "Successfully created and pushed new test utils image: ${TEST_BUILD_TAG}"
+  echo "Successfully created and pushed new test utils image: ${TEST_BUILD_TAG}"
+}
 
 get_image_tag() {
     local current_commit today
@@ -24,3 +26,6 @@ get_image_tag() {
     today="$(date +%Y%m%d)"
     echo "v${today}-${current_commit:0:7}"
 }
+
+source hack/common.sh
+main "$@"

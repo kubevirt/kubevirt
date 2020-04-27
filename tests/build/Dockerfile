@@ -13,7 +13,8 @@ ENV GIMME_GO_VERSION=1.13.8 \
     PATH=$PATH:${GOPATH}/go/bin \
     GO111MODULE=on
 
-RUN mkdir -p /gimme && curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | HOME=/gimme bash >> /etc/profile.d/gimme.sh
+RUN mkdir -p /gimme && \
+    curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | HOME=/gimme bash >> /etc/profile.d/gimme.sh
 
 RUN \
     mkdir -p ${GOPATH} && \
