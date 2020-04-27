@@ -734,6 +734,8 @@ func BeforeTestSuitSetup() {
 	Config, err = loadConfig()
 	Expect(err).ToNot(HaveOccurred())
 
+	disableKubectlCache()
+
 	createNamespaces()
 	createServiceAccounts()
 	if DeployTestingInfrastructureFlag {
@@ -769,6 +771,52 @@ func BeforeTestSuitSetup() {
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 
 	AdjustKubeVirtResource()
+}
+
+func disableKubectlCache() {
+	cachePaths := []string{
+		os.ExpandEnv("$HOME/.kube/cache/"),
+		os.ExpandEnv("$HOME/.kube/http-cache/"),
+	}
+
+	for _, cachePath := range cachePaths {
+		err := createDirectoryWithoutPermissions(cachePath)
+		PanicOnError(err)
+	}
+}
+
+func createDirectoryWithoutPermissions(path string) error {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = os.Mkdir(path, 0777)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	openDir, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+
+	dirContent, err := openDir.Readdir(0)
+	if err != nil {
+		return err
+	}
+
+	for i := range dirContent {
+		err = os.RemoveAll(path + dirContent[i].Name())
+		if err != nil {
+			return err
+		}
+	}
+
+	err = os.Chmod(path, 0000)
+	return err
 }
 
 var originalKV *v1.KubeVirt
