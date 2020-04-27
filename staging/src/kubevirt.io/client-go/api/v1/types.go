@@ -953,6 +953,9 @@ const (
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	VirtualMachineFailure VirtualMachineConditionType = "Failure"
 
+	// VirtualMachineReady is copied to the virtual machine from its vmi
+	VirtualMachineReady VirtualMachineConditionType = "Ready"
+
 	// VirtualMachinePaused is added in a virtual machine when its vmi
 	// signals with its own condition that it is paused.
 	VirtualMachinePaused VirtualMachineConditionType = "Paused"

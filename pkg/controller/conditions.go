@@ -28,7 +28,41 @@ import (
 type VirtualMachineConditionManager struct {
 }
 
-func (d *VirtualMachineConditionManager) CheckFailure(vmi *v1.VirtualMachineInstance, syncErr error, reason string) (changed bool) {
+func NewVirtualMachineConditionManager() *VirtualMachineConditionManager {
+	return &VirtualMachineConditionManager{}
+}
+
+func (d *VirtualMachineConditionManager) GetCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) *v1.VirtualMachineCondition {
+	if vm == nil {
+		return nil
+	}
+	for _, c := range vm.Status.Conditions {
+		if c.Type == cond {
+			return &c
+		}
+	}
+	return nil
+}
+
+func (d *VirtualMachineConditionManager) HasCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) bool {
+	return d.GetCondition(vm, cond) != nil
+}
+
+func (d *VirtualMachineConditionManager) RemoveCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) {
+	var conds []v1.VirtualMachineCondition
+	for _, c := range vm.Status.Conditions {
+		if c.Type == cond {
+			continue
+		}
+		conds = append(conds, c)
+	}
+	vm.Status.Conditions = conds
+}
+
+type VirtualMachineInstanceConditionManager struct {
+}
+
+func (d *VirtualMachineInstanceConditionManager) CheckFailure(vmi *v1.VirtualMachineInstance, syncErr error, reason string) (changed bool) {
 	if syncErr != nil && !d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstanceSynchronized,
@@ -45,31 +79,28 @@ func (d *VirtualMachineConditionManager) CheckFailure(vmi *v1.VirtualMachineInst
 	return false
 }
 
-func (d *VirtualMachineConditionManager) HasCondition(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) bool {
+func (d *VirtualMachineInstanceConditionManager) GetCondition(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) *v1.VirtualMachineInstanceCondition {
 	if vmi == nil {
-		return false
+		return nil
 	}
 	for _, c := range vmi.Status.Conditions {
 		if c.Type == cond {
-			return true
+			return &c
 		}
 	}
-	return false
+	return nil
 }
 
-func (d *VirtualMachineConditionManager) HasConditionWithStatus(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType, status k8sv1.ConditionStatus) bool {
-	for _, c := range vmi.Status.Conditions {
-		if c.Type == cond {
-			if c.Status == status {
-				return true
-			}
-			return false
-		}
-	}
-	return false
+func (d *VirtualMachineInstanceConditionManager) HasCondition(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) bool {
+	return d.GetCondition(vmi, cond) != nil
 }
 
-func (d *VirtualMachineConditionManager) RemoveCondition(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) {
+func (d *VirtualMachineInstanceConditionManager) HasConditionWithStatus(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType, status k8sv1.ConditionStatus) bool {
+	c := d.GetCondition(vmi, cond)
+	return c != nil && c.Status == status
+}
+
+func (d *VirtualMachineInstanceConditionManager) RemoveCondition(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) {
 	var conds []v1.VirtualMachineInstanceCondition
 	for _, c := range vmi.Status.Conditions {
 		if c.Type == cond {
@@ -81,7 +112,7 @@ func (d *VirtualMachineConditionManager) RemoveCondition(vmi *v1.VirtualMachineI
 }
 
 // AddPodCondition add pod condition to the VM.
-func (d *VirtualMachineConditionManager) AddPodCondition(vmi *v1.VirtualMachineInstance, cond *k8sv1.PodCondition) {
+func (d *VirtualMachineInstanceConditionManager) AddPodCondition(vmi *v1.VirtualMachineInstance, cond *k8sv1.PodCondition) {
 	if !d.HasCondition(vmi, v1.VirtualMachineInstanceConditionType(cond.Type)) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
 			LastProbeTime:      cond.LastProbeTime,
@@ -94,7 +125,7 @@ func (d *VirtualMachineConditionManager) AddPodCondition(vmi *v1.VirtualMachineI
 	}
 }
 
-func (d *VirtualMachineConditionManager) PodHasCondition(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType, status k8sv1.ConditionStatus) bool {
+func (d *VirtualMachineInstanceConditionManager) PodHasCondition(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType, status k8sv1.ConditionStatus) bool {
 	for _, cond := range pod.Status.Conditions {
 		if cond.Type == conditionType {
 			if cond.Status == status {
@@ -107,7 +138,7 @@ func (d *VirtualMachineConditionManager) PodHasCondition(pod *k8sv1.Pod, conditi
 	return false
 }
 
-func (d *VirtualMachineConditionManager) GetPodConditionWithStatus(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType, status k8sv1.ConditionStatus) *k8sv1.PodCondition {
+func (d *VirtualMachineInstanceConditionManager) GetPodConditionWithStatus(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType, status k8sv1.ConditionStatus) *k8sv1.PodCondition {
 	for _, cond := range pod.Status.Conditions {
 		if cond.Type == conditionType {
 			if cond.Status == status {
@@ -120,7 +151,7 @@ func (d *VirtualMachineConditionManager) GetPodConditionWithStatus(pod *k8sv1.Po
 	return nil
 }
 
-func (d *VirtualMachineConditionManager) GetPodCondition(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType) *k8sv1.PodCondition {
+func (d *VirtualMachineInstanceConditionManager) GetPodCondition(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType) *k8sv1.PodCondition {
 	for _, cond := range pod.Status.Conditions {
 		if cond.Type == conditionType {
 			return &cond
@@ -129,8 +160,8 @@ func (d *VirtualMachineConditionManager) GetPodCondition(pod *k8sv1.Pod, conditi
 	return nil
 }
 
-func NewVirtualMachineInstanceConditionManager() *VirtualMachineConditionManager {
-	return &VirtualMachineConditionManager{}
+func NewVirtualMachineInstanceConditionManager() *VirtualMachineInstanceConditionManager {
+	return &VirtualMachineInstanceConditionManager{}
 }
 
 type VirtualMachineInstanceMigrationConditionManager struct {

@@ -30,7 +30,7 @@ import (
 var _ = Describe("VirtualMachineInstance ConditionManager", func() {
 
 	var vmi *v1.VirtualMachineInstance
-	var cm *VirtualMachineConditionManager
+	var cm *VirtualMachineInstanceConditionManager
 	var pc1 *v12.PodCondition
 	var pc2 *v12.PodCondition
 
