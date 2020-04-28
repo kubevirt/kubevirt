@@ -179,16 +179,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		})
 	}
 
-	if spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil && spec.Domain.Memory.Guest != nil {
-		causes = append(causes, metav1.StatusCause{
-			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("'%s' and '%s' must not be set at the same time",
-				field.Child("domain", "memory", "guest").String(),
-				field.Child("domain", "memory", "hugepages", "size").String()),
-			Field: field.Child("domain", "resources", "requests", "memory").String(),
-		})
-	}
-
 	// Validate hugepages
 	if spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil {
 		hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize)
