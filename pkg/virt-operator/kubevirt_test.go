@@ -1754,6 +1754,24 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		}, 15)
 
+		It("should label install strategy creation job", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{},
+			}
+
+			job, err := controller.generateInstallStrategyJob(util.GetTargetConfigFromKV(kv))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(job.Spec.Template.ObjectMeta.Labels).Should(HaveKeyWithValue(v1.AppLabel, virtOperatorJobAppLabel))
+		}, 15)
+
 		It("should delete install strategy creation job if job has failed", func(done Done) {
 			defer close(done)
 

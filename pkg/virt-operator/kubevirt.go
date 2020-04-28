@@ -44,6 +44,10 @@ import (
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
+const (
+	virtOperatorJobAppLabel = "virt-operator-strategy-dumper"
+)
+
 type KubeVirtController struct {
 	clientset            kubecli.KubevirtClient
 	queue                workqueue.RateLimitingInterface
@@ -677,7 +681,11 @@ func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.Kub
 		},
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
-
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						v1.AppLabel: virtOperatorJobAppLabel,
+					},
+				},
 				Spec: k8sv1.PodSpec{
 					ServiceAccountName: "kubevirt-operator",
 					RestartPolicy:      k8sv1.RestartPolicyNever,
