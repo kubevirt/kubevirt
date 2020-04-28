@@ -3,10 +3,10 @@
 set -e
 
 declare -A IMAGES
-IMAGES[gocli]="gocli@sha256:220f55f6b1bcb3975d535948d335bd0e6b6297149a3eba1a4c14cad9ac80f80d"
+IMAGES[gocli]="gocli@sha256:c9abd3eb50abc339214a95db6e48828c562db8b3801854b8b4ed9fddbf87b7f3"
 if [ -z $KUBEVIRTCI_PROVISION_CHECK ]; then
     IMAGES[k8s-fedora-1.17.0]="k8s-fedora-1.17.0@sha256:aebf67b8b1b499c721f4d98a7ab9542c680553a14cbc144d1fa701fe611f3c0d"
-    IMAGES[k8s-1.17]="k8s-1.17@sha256:e25886fb45b4886800eafb5060919b72ef632648a24c1f464e83e257153a41af"
+    IMAGES[k8s-1.17]="k8s-1.17@sha256:c56cece694d21370de10322780c358898f65bf5ffca9fce0837e9d807dd395b0"
     IMAGES[k8s-1.16]="k8s-1.16@sha256:31b404aecda635b561bf681508edea2316388ddacaaa10db5c789f4b58f155ce"
     IMAGES[k8s-1.15]="k8s-1.15@sha256:3df97b7bfba57c0f159b4b3c50a5638e534b6200bf20781bfd6c5d53aff41d23"
     IMAGES[k8s-1.14]="k8s-1.14@sha256:cb6b37bffffa3e2e2a351d972a09445f1a9f4dab72d3cd5fcdd533f81961e0bb"
