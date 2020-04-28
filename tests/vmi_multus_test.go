@@ -750,7 +750,7 @@ var _ = Describe("SRIOV", func() {
 			Expect(rootPortController).To(HaveLen(0), "libvirt should not add additional buses to the root one")
 		})
 
-		It("should create a virtual machine with sriov interface and dedicatedCPUs", func() {
+		It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", func() {
 			// In addition to verifying that we can start a VMI with CPU pinning
 			// this also tests if we've correctly calculated the overhead for VFIO devices.
 			vmi := getSriovVmi([]string{"sriov"})
@@ -781,7 +781,7 @@ var _ = Describe("SRIOV", func() {
 
 		})
 
-		It("should create a virtual machine with sriov interface with custom MAC address", func() {
+		It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
 			vmi := getSriovVmi([]string{"sriov"})
 			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = "de:ad:00:00:be:ef"
 			startVmi(vmi)
@@ -861,11 +861,11 @@ var _ = Describe("SRIOV", func() {
 			pingVirtualMachine(vmi2, cidrToIP(cidrB), "#")
 		}
 
-		It("should connect to another machine with sriov interface over IPv4", func() {
+		It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
 			pingThroughSriov("192.168.1.1/24", "192.168.1.2/24")
 		})
 
-		It("should connect to another machine with sriov interface over IPv6", func() {
+		It("[test_id:3957]should connect to another machine with sriov interface over IPv6", func() {
 			pingThroughSriov("fc00::1/64", "fc00::2/64")
 		})
 	})
