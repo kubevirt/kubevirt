@@ -20,6 +20,7 @@
 package vnc
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -39,7 +40,7 @@ import (
 )
 
 const (
-	LISTEN_TIMEOUT = 60 * time.Second
+	LISTEN_TIMEOUT = 180 * time.Second
 	FLAG           = "vnc"
 
 	//#### Tiger VNC ####
@@ -59,6 +60,8 @@ const (
 	TIGER_VNC     = "vncviewer"
 )
 
+var proxyOnly bool
+
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "vnc (VMI)",
@@ -70,6 +73,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(cmd, args)
 		},
 	}
+	cmd.Flags().BoolVar(&proxyOnly, "proxy-only", proxyOnly, "--proxy-only=false: Setting this true will run only the virtctl vnc proxy and show the localhost port where VNC viewers can connect")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -165,78 +169,21 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		listenResChan <- err
 	}()
 
-	// execute VNC
-	go func() {
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	if proxyOnly {
 		defer close(doneChan)
-		port := ln.Addr().(*net.TCPAddr).Port
-		args := []string{}
-
-		vncBin := ""
-		osType := runtime.GOOS
-		switch osType {
-		case "darwin":
-			if matches, err := filepath.Glob(MACOS_TIGER_VNC_PATTERN); err == nil && len(matches) > 0 {
-				// Always use the latest version
-				vncBin = matches[len(matches)-1]
-				args = tigerVncArgs(port)
-			} else if err == filepath.ErrBadPattern {
-				viewResChan <- err
-				return
-			} else if _, err := os.Stat(MACOS_CHICKEN_VNC); err == nil {
-				vncBin = MACOS_CHICKEN_VNC
-				args = chickenVncArgs(port)
-			} else if !os.IsNotExist(err) {
-				viewResChan <- err
-				return
-			} else if _, err := os.Stat(MACOS_REAL_VNC); err == nil {
-				vncBin = MACOS_REAL_VNC
-				args = realVncArgs(port)
-			} else if !os.IsNotExist(err) {
-				viewResChan <- err
-				return
-			} else if _, err := exec.LookPath(REMOTE_VIEWER); err == nil {
-				// fall back to user supplied script/binary in path
-				vncBin = REMOTE_VIEWER
-				args = remoteViewerArgs(port)
-			} else if !os.IsNotExist(err) {
-				viewResChan <- err
-				return
-			}
-		case "linux", "windows":
-			if _, err := exec.LookPath(REMOTE_VIEWER); err == nil {
-				vncBin = REMOTE_VIEWER
-				args = remoteViewerArgs(port)
-			} else if _, err := exec.LookPath(TIGER_VNC); err == nil {
-				vncBin = TIGER_VNC
-				args = tigerVncArgs(port)
-			} else {
-				viewResChan <- fmt.Errorf("could not find %s or %s binary in $PATH",
-					REMOTE_VIEWER, TIGER_VNC)
-				viewResChan <- err
-				return
-			}
-		default:
-			viewResChan <- fmt.Errorf("virtctl does not support VNC on %v", osType)
-			return
-		}
-
-		if vncBin == "" {
-			glog.Errorf("No supported VNC app found in %s", osType)
-			err = fmt.Errorf("No supported VNC app found in %s", osType)
+		optionString, err := json.Marshal(struct {
+			Port int `json:"port"`
+		}{port})
+		if err != nil {
+			return fmt.Errorf("Error encountered: %s", err.Error())
+			fmt.Println(string(optionString))
 		} else {
-			if glog.V(4) {
-				glog.Infof("Executing commandline: '%s %v'", vncBin, args)
-			}
-			cmnd := exec.Command(vncBin, args...)
-			output, err := cmnd.CombinedOutput()
-			if err != nil {
-				glog.Errorf("%s execution failed: %v, output: %v", vncBin, err, string(output))
-			} else {
-				glog.V(2).Infof("remote-viewer output: %v", string(output))
-			}
+			// execute VNC Viewer
+			go checkAndRunVNCViewer(doneChan, viewResChan, port)
 		}
-		viewResChan <- err
-	}()
+	}
 
 	go func() {
 		defer close(stopChan)
@@ -258,6 +205,78 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Error encountered: %s", err.Error())
 	}
 	return nil
+}
+
+func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port int) {
+	defer close(doneChan)
+	var err error
+	args := []string{}
+
+	vncBin := ""
+	osType := runtime.GOOS
+	switch osType {
+	case "darwin":
+		if matches, err := filepath.Glob(MACOS_TIGER_VNC_PATTERN); err == nil && len(matches) > 0 {
+			// Always use the latest version
+			vncBin = matches[len(matches)-1]
+			args = tigerVncArgs(port)
+		} else if err == filepath.ErrBadPattern {
+			viewResChan <- err
+			return
+		} else if _, err := os.Stat(MACOS_CHICKEN_VNC); err == nil {
+			vncBin = MACOS_CHICKEN_VNC
+			args = chickenVncArgs(port)
+		} else if !os.IsNotExist(err) {
+			viewResChan <- err
+			return
+		} else if _, err := os.Stat(MACOS_REAL_VNC); err == nil {
+			vncBin = MACOS_REAL_VNC
+			args = realVncArgs(port)
+		} else if !os.IsNotExist(err) {
+			viewResChan <- err
+			return
+		} else if _, err := exec.LookPath(REMOTE_VIEWER); err == nil {
+			// fall back to user supplied script/binary in path
+			vncBin = REMOTE_VIEWER
+			args = remoteViewerArgs(port)
+		} else if !os.IsNotExist(err) {
+			viewResChan <- err
+			return
+		}
+	case "linux", "windows":
+		if _, err := exec.LookPath(REMOTE_VIEWER); err == nil {
+			vncBin = REMOTE_VIEWER
+			args = remoteViewerArgs(port)
+		} else if _, err := exec.LookPath(TIGER_VNC); err == nil {
+			vncBin = TIGER_VNC
+			args = tigerVncArgs(port)
+		} else {
+			viewResChan <- fmt.Errorf("could not find %s or %s binary in $PATH",
+				REMOTE_VIEWER, TIGER_VNC)
+			viewResChan <- err
+			return
+		}
+	default:
+		viewResChan <- fmt.Errorf("virtctl does not support VNC on %v", osType)
+		return
+	}
+
+	if vncBin == "" {
+		glog.Errorf("No supported VNC app found in %s", osType)
+		err = fmt.Errorf("No supported VNC app found in %s", osType)
+	} else {
+		if glog.V(4) {
+			glog.Infof("Executing commandline: '%s %v'", vncBin, args)
+		}
+		cmnd := exec.Command(vncBin, args...)
+		output, err := cmnd.CombinedOutput()
+		if err != nil {
+			glog.Errorf("%s execution failed: %v, output: %v", vncBin, err, string(output))
+		} else {
+			glog.V(2).Infof("remote-viewer output: %v", string(output))
+		}
+	}
+	viewResChan <- err
 }
 
 func tigerVncArgs(port int) (args []string) {
