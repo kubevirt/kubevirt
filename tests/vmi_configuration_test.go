@@ -2382,6 +2382,6 @@ var _ = Describe("Configurations", func() {
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Should successfully get VMI")
 			return vmi.Status.Interfaces[0].IP == vmiPod.Status.PodIP
-		}, 180*time.Second, 1*time.Second).Should(BeTrue(), "VMI status IP should match VMI Pod IP")
+		}, 30*time.Second, 1*time.Second).Should(BeTrue(), "VMI status IP should match VMI Pod IP")
 	})
 })
