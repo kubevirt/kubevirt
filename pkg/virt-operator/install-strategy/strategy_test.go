@@ -158,6 +158,20 @@ var _ = Describe("Install Strategy", func() {
 				}
 				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
 			}
+
+			for _, original := range strategy.configMaps {
+				var converted *corev1.ConfigMap
+				for _, converted = range newStrategy.configMaps {
+					if converted.Name == original.Name {
+						break
+					}
+				}
+				//delete ManagedByLabel labels from original config map.
+				//dumpInstallStrategyToBytes function deletes it, and then
+				//original and converted configmaps are not the same
+				delete(original.Labels, v1.ManagedByLabel)
+				Expect(reflect.DeepEqual(original, converted)).To(BeTrue())
+			}
 		})
 	})
 

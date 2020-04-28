@@ -876,6 +876,27 @@ func EnsureKVMPresent() {
 	}
 }
 
+func GetNodesWithKVM() []*k8sv1.Node {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
+	virtHandlerPods, err := virtClient.CoreV1().Pods(KubeVirtInstallNamespace).List(listOptions)
+	Expect(err).ToNot(HaveOccurred())
+
+	nodes := make([]*k8sv1.Node, 0)
+	// cluster is not ready until all nodes are ready.
+	for _, pod := range virtHandlerPods.Items {
+		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		_, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+		if ok {
+			nodes = append(nodes, virtHandlerNode)
+		}
+	}
+	return nodes
+}
+
 func CreateConfigMap(name string, data map[string]string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)

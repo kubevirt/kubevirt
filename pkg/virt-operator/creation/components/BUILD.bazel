@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "apiservices.go",
+        "config_maps.go",
         "crds.go",
         "deployments.go",
         "scc.go",

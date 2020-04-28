@@ -33,6 +33,10 @@ import (
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
+const (
+	nodeLabellerVolumePath = "/var/lib/kubevirt-node-labeller"
+)
+
 func NewPrometheusService(namespace string) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -330,7 +334,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	return deployment, nil
 }
 
-func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.DaemonSet, error) {
+func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string, version string, launcherVersion string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.DaemonSet, error) {
 
 	deploymentName := "virt-handler"
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
@@ -367,6 +371,29 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	pod := &daemonset.Spec.Template.Spec
 	pod.ServiceAccountName = rbac.HandlerServiceAccountName
 	pod.HostPID = true
+	launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
+	pod.InitContainers = []corev1.Container{
+		{
+			Command: []string{
+				"/bin/sh",
+				"-c",
+			},
+			Image: fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
+			Name:  "virt-launcher",
+			Args: []string{
+				"/bin/node-labeller.sh",
+			},
+			SecurityContext: &corev1.SecurityContext{
+				Privileged: boolPtr(true),
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "node-labeller",
+					MountPath: nodeLabellerVolumePath,
+				},
+			},
+		},
+	}
 
 	container := &pod.Containers[0]
 	container.Command = []string{
@@ -438,6 +465,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 		{"device-plugin", "/var/lib/kubelet/device-plugins", "/var/lib/kubelet/device-plugins", nil},
 		{"kubelet-pods-shortened", "/var/lib/kubelet/pods", "/pods", nil},
 		{"kubelet-pods", "/var/lib/kubelet/pods", "/var/lib/kubelet/pods", &bidi},
+		{"node-labeller", "/var/lib/kubevirt-node-labeller", "/var/lib/kubevirt-node-labeller", nil},
 	}
 
 	for _, volume := range volumes {

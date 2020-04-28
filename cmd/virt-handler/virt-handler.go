@@ -180,6 +180,19 @@ func (app *virtHandlerApp) Run() {
 		cache.Indexers{},
 	)
 
+	nodeLabellerConfigMapSharedInformer := cache.NewSharedIndexInformer(
+		cache.NewListWatchFromClient(app.virtCli.CoreV1().RESTClient(), "configmaps", app.namespace, fields.OneTermEqualSelector("metadata.name", "kubevirt-cpu-plugin-configmap")),
+		&k8sv1.ConfigMap{},
+		(24 * time.Hour),
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+	)
+
+	nodeSharedInformer := cache.NewSharedIndexInformer(
+		cache.NewListWatchFromClient(app.virtCli.CoreV1().RESTClient(), "nodes", k8sv1.NamespaceAll, fields.OneTermEqualSelector("metadata.name", app.HostOverride)),
+		&k8sv1.Node{},
+		(24 * time.Hour),
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
+	)
 	// Wire Domain controller
 	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmSourceSharedInformer.GetStore())
 	if err != nil {
@@ -249,6 +262,8 @@ func (app *virtHandlerApp) Run() {
 		app.VirtPrivateDir,
 		vmSourceSharedInformer,
 		vmTargetSharedInformer,
+		nodeLabellerConfigMapSharedInformer,
+		nodeSharedInformer,
 		domainSharedInformer,
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
@@ -257,6 +272,7 @@ func (app *virtHandlerApp) Run() {
 		app.serverTLSConfig,
 		app.clientTLSConfig,
 		podIsolationDetector,
+		app.namespace,
 	)
 
 	consoleHandler := rest.NewConsoleHandler(

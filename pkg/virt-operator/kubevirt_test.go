@@ -142,8 +142,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 	var resourceChanges map[string]map[string]int
 
-	resourceCount := 49
-	patchCount := 30
+	resourceCount := 50
+	patchCount := 31
 	updateCount := 20
 
 	deleteFromCache := true
@@ -305,6 +305,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		informers.Secrets, secretsSource = testutils.NewFakeInformerFor(&k8sv1.Secret{})
 		stores.SecretCache = informers.Secrets.GetStore()
+
 		informers.ConfigMap, configMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		stores.ConfigMapCache = informers.ConfigMap.GetStore()
 
@@ -506,6 +507,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		} else {
 			configMapSource.Add(configMap)
 		}
+
 		mockQueue.Wait()
 	}
 
@@ -674,7 +676,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		injectMetadata(&pod.ObjectMeta, config)
 		addPod(pod)
 
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 		pod = &k8sv1.Pod{
 			ObjectMeta: handler.Spec.Template.ObjectMeta,
 			Spec:       handler.Spec.Template.Spec,
@@ -839,6 +841,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		// sccs
 		all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
 		all = append(all, components.NewKubeVirtHandlerSCC(NAMESPACE))
+		//configmap
+		all = append(all, components.NewNodeLabellerConfigMap(NAMESPACE))
 		// services and deployments
 		all = append(all, components.NewOperatorWebhookService(NAMESPACE))
 		all = append(all, components.NewPrometheusService(NAMESPACE))
@@ -847,7 +851,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
 		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 		controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
 		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 		all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespace(), config.GetMonitorServiceAccount())...)
@@ -1237,7 +1241,6 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	shouldExpectInstallStrategyDeletion := func() {
 		kubeClient.Fake.PrependReactor("delete", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-
 			deleted, ok := action.(testing.DeleteAction)
 			Expect(ok).To(BeTrue())
 			if deleted.GetName() == "kubevirt-ca" {
@@ -1248,6 +1251,12 @@ var _ = Describe("KubeVirt Operator", func() {
 				key = deleted.GetNamespace() + "/"
 			}
 			key += deleted.GetName()
+
+			if strings.Contains(key, "kubevirt-cpu-plugin-configmap") {
+				genericDeleteFunc(action)
+				return true, nil, nil
+			}
+
 			deleteResource(deleted.GetResource().Resource, key)
 			return true, nil, nil
 		})
@@ -1339,10 +1348,10 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "services", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "deployments", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "configmaps", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "validatingwebhookconfigurations", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "mutatingwebhookconfigurations", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "secrets", genericCreateFunc)
-		kubeClient.Fake.PrependReactor("create", "configmaps", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", genericCreateFunc)
 		secClient.Fake.PrependReactor("create", "securitycontextconstraints", genericCreateFunc)
 		promClient.Fake.PrependReactor("create", "servicemonitors", genericCreateFunc)
@@ -1861,6 +1870,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.SCCCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ServiceMonitorCache.List())).To(Equal(1))
 			Expect(len(controller.stores.PrometheusRuleCache.List())).To(Equal(1))
+			Expect(len(controller.stores.ConfigMapCache.List())).To(Equal(2))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
 
