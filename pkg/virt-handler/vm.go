@@ -1875,13 +1875,7 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 			case api.ReasonCrashed, api.ReasonPanicked:
 				return v1.Failed, nil
 			case api.ReasonDestroyed:
-				// When ACPI is available, the domain was tried to be shutdown,
-				// and destroyed means that the domain was destroyed after the graceperiod expired.
-				// Without ACPI a destroyed domain is ok.
-				if isACPIEnabled(vmi, domain) {
-					return v1.Failed, nil
-				}
-				return v1.Succeeded, nil
+				return v1.Failed, nil
 			case api.ReasonShutdown, api.ReasonSaved, api.ReasonFromSnapshot:
 				return v1.Succeeded, nil
 			case api.ReasonMigrated:
