@@ -19,6 +19,11 @@ func GetImageInfo(imagePath string, context IsolationResult) (*containerdisk.Dis
 		QEMUIMGPath, "info", imagePath, "--output", "json",
 	).Output()
 	if err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			if len(e.Stderr) > 0 {
+				return nil, fmt.Errorf("failed to invoke qemu-img: %v: '%v'", err, string(e.Stderr))
+			}
+		}
 		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
 	}
 
