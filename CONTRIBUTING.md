@@ -35,7 +35,7 @@ at [kubevirt/kubevirt](https://github.com/kubevirt/kubevirt).
 For bigger changes, please create a tracker Issue, describing what you want to
 do. Then either as the first commit in a Pull Request, or as an independent
 Pull Request, provide an **informal** design proposal of your intended changes.
-The location for such propoals is
+The location for such proposals is
 [/docs](docs/) in the KubeVirt
 core repository. Make sure that all your Pull Requests link back to the
 relevant Issues.
