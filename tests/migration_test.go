@@ -539,6 +539,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 		Context("with setting guest time", func() {
 			It("should set an updated time after a migration", func() {
+				tests.SkipMigrationTestIfRunnigOnKindInfra()
+
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
