@@ -1811,7 +1811,9 @@ var _ = Describe("Configurations", func() {
 				By("adding a cpumanger=true label to a node")
 				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(nodes.Items)).To(BeNumerically(">=", 1))
+				if len(nodes.Items) == 0 {
+					Skip("Skip CPU manager test on clusters where CPU manager is running on all worker/compute nodes")
+				}
 
 				node := &nodes.Items[0]
 				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, v1.CPUManager)))
