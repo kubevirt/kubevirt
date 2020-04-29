@@ -92,6 +92,17 @@ Maintainers are:
  * @stu-gott
  * @vladikr
 
+### Becoming a memeber
+
+Contributors that frequently contribute to the project may ask to join the
+kubevirt organization.
+Please send a request to join by sending an email to our
+[Google Group](https://groups.google.com/forum/#!forum/kubevirt-dev).
+The request should include a self-introduction, and an explanation why you
+should become a member.
+
+Responses will be provided privately by one of the organization owners.
+
 ## Projects & Communities
 
 ### [KubeVirt](https://github.com/kubevirt/)
