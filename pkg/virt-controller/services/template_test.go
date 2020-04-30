@@ -730,14 +730,9 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[1].Resources.Limits.Memory().Cmp(mem)).To(BeZero())
 				Expect(pod.Spec.Containers[1].Resources.Limits.Cpu().Cmp(cpu)).To(BeZero())
 
-				found := false
-				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
-				for _, cap := range caps.Add {
-					if cap == CAP_SYS_NICE {
-						found = true
-					}
-				}
-				Expect(found).To(BeTrue(), "Expected compute container to be granted SYS_NICE capability")
+				podCaps := pod.Spec.Containers[0].SecurityContext.Capabilities.Add
+				Expect(podCaps).To(ContainElement(kubev1.Capability(CAP_SYS_NICE)))
+
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUManager, "true"))
 			})
 			It("should allocate 1 more cpu when isolateEmulatorThread requested", func() {
@@ -1517,14 +1512,8 @@ var _ = Describe("Template", func() {
 				Expect(ok).To(BeTrue())
 				Expect(int(tun.Value())).To(Equal(1))
 
-				found := false
-				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
-				for _, cap := range caps.Add {
-					if cap == CAP_NET_ADMIN {
-						found = true
-					}
-				}
-				Expect(found).To(BeTrue(), "Expected compute container to be granted NET_ADMIN capability")
+				podCaps := pod.Spec.Containers[0].SecurityContext.Capabilities.Add
+				Expect(podCaps).To(ContainElement(kubev1.Capability(CAP_NET_ADMIN)))
 			})
 
 			It("Should require tun device if explicitly requested", func() {
@@ -1545,14 +1534,8 @@ var _ = Describe("Template", func() {
 				Expect(ok).To(BeTrue())
 				Expect(int(tun.Value())).To(Equal(1))
 
-				found := false
-				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
-				for _, cap := range caps.Add {
-					if cap == CAP_NET_ADMIN {
-						found = true
-					}
-				}
-				Expect(found).To(BeTrue(), "Expected compute container to be granted NET_ADMIN capability")
+				podCaps := pod.Spec.Containers[0].SecurityContext.Capabilities.Add
+				Expect(podCaps).To(ContainElement(kubev1.Capability(CAP_NET_ADMIN)))
 			})
 
 			It("Should not require tun device if explicitly rejected", func() {
@@ -1572,14 +1555,8 @@ var _ = Describe("Template", func() {
 				_, ok := pod.Spec.Containers[0].Resources.Limits[TunDevice]
 				Expect(ok).To(BeFalse())
 
-				found := false
-				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
-				for _, cap := range caps.Add {
-					if cap == CAP_NET_ADMIN {
-						found = true
-					}
-				}
-				Expect(found).To(BeFalse(), "Expected compute container to not be granted NET_ADMIN capability")
+				podCaps := pod.Spec.Containers[0].SecurityContext.Capabilities.Add
+				Expect(podCaps).To(Not(ContainElement(kubev1.Capability(CAP_NET_ADMIN))))
 			})
 		})
 
