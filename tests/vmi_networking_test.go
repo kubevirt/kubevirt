@@ -111,6 +111,8 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	}
 
 	Describe("Multiple virtual machines connectivity using bridge binding interface", func() {
+		var screenCommandPresent bool
+
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
 
@@ -160,7 +162,22 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			inboundVMIWithPodNetworkSet = tests.WaitUntilVMIReady(inboundVMIWithPodNetworkSet, tests.LoggedInCirrosExpecter)
 			inboundVMIWithCustomMacAddress = tests.WaitUntilVMIReady(inboundVMIWithCustomMacAddress, tests.LoggedInCirrosExpecter)
 
-			tests.StartTCPServer(inboundVMI, testPort)
+			// Sanity check one of the images. console is already logged in for inboundVMI
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, inboundVMI, 10*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			screenCommandPresent = tests.IsCommandPresent(inboundVMI, expecter, "screen")
+			if screenCommandPresent {
+				tests.StartTCPServer(inboundVMI, testPort)
+			}
+
+		})
+
+		BeforeEach(func() {
+			if !screenCommandPresent {
+				Skip("Skip test that requires GNU Screen to be present in Cirros VMI image")
+			}
 		})
 
 		table.DescribeTable("should be able to reach", func(destination string) {

@@ -57,8 +57,38 @@ var _ = Describe("Configurations", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
+	imageCommandMap := map[tests.ContainerDisk]map[string]bool{}
+
+	skipIfCommandMissing := func(image tests.ContainerDisk, command string) {
+		commands, ok := imageCommandMap[image]
+		if !ok {
+			imageCommandMap[image] = map[string]bool{}
+			commands = imageCommandMap[image]
+		}
+		commandPresent, ok := commands[command]
+		if ok && (!commandPresent) {
+			Skip(fmt.Sprintf("Skip tests requiring '%s' command to be present in image: %s", command, image))
+		}
+	}
+
+	checkCommandPresentAndSkipIfMissing := func(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, image tests.ContainerDisk, command string) {
+		commandPresent := tests.IsCommandPresent(vmi, expecter, command)
+
+		commands, ok := imageCommandMap[image]
+		if !ok {
+			imageCommandMap[image] = map[string]bool{}
+			commands = imageCommandMap[image]
+		}
+		commands[command] = commandPresent
+		if !commandPresent {
+			Skip(fmt.Sprintf("Skip tests requiring '%s' command to be present in image: %s", command, image))
+		}
+
+	}
+
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+		imageCommandMap[tests.ContainerDiskCirros] = map[string]bool{"grep": false}
 	})
 
 	Context("with all devices on the root PCI bus", func() {
@@ -179,6 +209,8 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:1659]should report 3 cpu cores under guest OS", func() {
+				skipIfCommandMissing(tests.ContainerDiskAlpine, "grep")
+
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 3,
 				}
@@ -197,6 +229,8 @@ var _ = Describe("Configurations", func() {
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
+
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskAlpine, "grep")
 
 				By("Checking the number of CPU cores under guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -225,6 +259,8 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:1660]should report 3 sockets under guest OS", func() {
+				skipIfCommandMissing(tests.ContainerDiskAlpine, "grep")
+
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets: 3,
 					Cores:   2,
@@ -245,6 +281,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskAlpine, "grep")
+
 				By("Checking the number of sockets under guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
@@ -254,6 +292,8 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:1661]should report 2 sockets from spec.domain.resources.requests under guest OS ", func() {
+				skipIfCommandMissing(tests.ContainerDiskAlpine, "grep")
+
 				vmi.Spec.Domain.CPU = nil
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
@@ -272,6 +312,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskAlpine, "grep")
+
 				By("Checking the number of sockets under guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
@@ -281,6 +323,8 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:1662]should report 2 sockets from spec.domain.resources.limits under guest OS ", func() {
+				skipIfCommandMissing(tests.ContainerDiskAlpine, "grep")
+
 				vmi.Spec.Domain.CPU = nil
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
@@ -301,6 +345,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskAlpine, "grep")
+
 				By("Checking the number of sockets under guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
@@ -310,6 +356,8 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:1663]should report 4 vCPUs under guest OS", func() {
+				skipIfCommandMissing(tests.ContainerDiskAlpine, "grep")
+
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Threads: 2,
 					Sockets: 2,
@@ -330,6 +378,8 @@ var _ = Describe("Configurations", func() {
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
+
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskAlpine, "grep")
 
 				By("Checking the number of vCPUs under guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -456,6 +506,8 @@ var _ = Describe("Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
 			It("[test_id:1669]should show the requested guest memory inside the VMI", func() {
+				skipIfCommandMissing(tests.ContainerDiskCirros, "free")
+
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
 				guestMemory := resource.MustParse("128M")
@@ -471,6 +523,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskCirros, "free")
+
 				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
 					&expect.BExp{R: "105"},
@@ -483,6 +537,8 @@ var _ = Describe("Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging memory limit from memory request and no guest memory", func() {
 			It("[test_id:3115]should show the memory limit inside the VMI", func() {
+				skipIfCommandMissing(tests.ContainerDiskCirros, "free")
+
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
 				vmi.Spec.Domain.Resources.Limits = kubev1.ResourceList{
@@ -496,6 +552,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskCirros, "free")
+
 				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
 					&expect.BExp{R: "105"},
@@ -508,6 +566,9 @@ var _ = Describe("Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with support memory over commitment", func() {
 			It("[test_id:755]should show the requested memory different than guest memory", func() {
+				skipIfCommandMissing(tests.ContainerDiskCirros, "free")
+				skipIfCommandMissing(tests.ContainerDiskCirros, "swapoff")
+
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				guestMemory := resource.MustParse("256Mi")
 				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64Mi")
@@ -523,6 +584,9 @@ var _ = Describe("Configurations", func() {
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
+
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskCirros, "free")
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskCirros, "swapoff")
 
 				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass' || echo 'fail'\n"},
@@ -573,10 +637,14 @@ var _ = Describe("Configurations", func() {
 				Expect(overcommitVmi.Spec.Domain.Resources.OvercommitGuestOverhead).To(BeTrue())
 			})
 			It("[test_id:732]Check Free memory on the VMI", func() {
+				skipIfCommandMissing(tests.ContainerDiskCirros, "free")
+
 				By("Expecting console")
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
+
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskCirros, "free")
 
 				// Check on the VM, if the Free memory is roughly what we expected
 				res, err := expecter.ExpectBatch([]expect.Batcher{
@@ -693,6 +761,8 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:3072]should start the VMI with tablet input device with virtio bus", func() {
+				skipIfCommandMissing(tests.ContainerDiskAlpine, "grep")
+
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
@@ -711,6 +781,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskAlpine, "grep")
+
 				By("Checking the tablet input under guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "grep -rs '^QEMU Virtio Tablet' /sys/devices | wc -l\n"},
@@ -720,6 +792,8 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:3073]should start the VMI with tablet input device with usb bus", func() {
+				skipIfCommandMissing(tests.ContainerDiskAlpine, "grep")
+
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
@@ -737,6 +811,8 @@ var _ = Describe("Configurations", func() {
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
+
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskAlpine, "grep")
 
 				By("Checking the tablet input under guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -1015,6 +1091,8 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:1674]should have the virtio rng device present when present", func() {
+				skipIfCommandMissing(tests.ContainerDiskAlpine, "grep")
+
 				rngVmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 
 				By("Starting a VirtualMachineInstance")
@@ -1026,6 +1104,8 @@ var _ = Describe("Configurations", func() {
 				expecter, err := tests.LoggedInAlpineExpecter(rngVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
+
+				checkCommandPresentAndSkipIfMissing(rngVmi, expecter, tests.ContainerDiskAlpine, "grep")
 
 				By("Checking the virtio rng presence")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -1412,6 +1492,8 @@ var _ = Describe("Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
 			It("[test_id:1678]should report defined CPU model", func() {
+				skipIfCommandMissing(tests.ContainerDiskCirros, "grep")
+
 				vmiModel := "Conroe"
 				if libvirtCpuVendor == "AMD" {
 					vmiModel = "Opteron_G1"
@@ -1430,6 +1512,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(cpuVmi, expecter, tests.ContainerDiskCirros, "grep")
+
 				By("Checking the CPU model under the guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", vmiModel)},
@@ -1440,6 +1524,8 @@ var _ = Describe("Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model equals to passthrough", func() {
 			It("[test_id:1679]should report exactly the same model as node CPU", func() {
+				skipIfCommandMissing(tests.ContainerDiskCirros, "grep")
+
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Model: "host-passthrough",
 				}
@@ -1454,6 +1540,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(cpuVmi, expecter, tests.ContainerDiskCirros, "grep")
 				By("Checking the CPU model under the guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuModelName)},
@@ -1464,6 +1551,8 @@ var _ = Describe("Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model not defined", func() {
 			It("[test_id:1680]should report CPU model from libvirt capabilities", func() {
+				skipIfCommandMissing(tests.ContainerDiskCirros, "grep")
+
 				By("Starting a VirtualMachineInstance")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -1474,6 +1563,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(cpuVmi, expecter, tests.ContainerDiskCirros, "grep")
 				By("Checking the CPU model under the guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", libvirtCpuModel)},
@@ -1484,6 +1574,8 @@ var _ = Describe("Configurations", func() {
 
 		Context("when CPU features defined", func() {
 			It("[test_id:3123]should start a Virtaul Machine with matching features", func() {
+				skipIfCommandMissing(tests.ContainerDiskCirros, "grep")
+
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
 						{
@@ -1502,6 +1594,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(cpuVmi, expecter, tests.ContainerDiskCirros, "grep")
 				By("Checking the CPU features under the guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuFeatures[0])},
@@ -1735,6 +1828,8 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[test_id:1683]should configure custom Pci address", func() {
+			skipIfCommandMissing(tests.ContainerDiskCirros, "grep")
+
 			By("checking disk1 Pci address")
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:00:10.0"
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "virtio"
@@ -1837,6 +1932,8 @@ var _ = Describe("Configurations", func() {
 				Expect(cpuManagerEnabled).To(BeTrue())
 			})
 			It("[test_id:991]should be scheduled on a node with running cpu manager", func() {
+				skipIfCommandMissing(tests.ContainerDiskCirros, "grep")
+
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
@@ -1895,6 +1992,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskCirros, "grep")
+
 				By("Checking the number of CPU cores under guest OS")
 				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
@@ -1904,6 +2003,9 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should be able to start a vm with guest memory different from requested and keed guaranteed qos", func() {
+				skipIfCommandMissing(tests.ContainerDiskCirros, "free")
+				skipIfCommandMissing(tests.ContainerDiskCirros, "swapoff")
+
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets:               2,
@@ -1941,6 +2043,9 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskCirros, "free")
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskCirros, "swapoff")
+
 				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass' || echo 'fail'\n"},
 					&expect.BExp{R: "pass"},
@@ -1965,6 +2070,7 @@ var _ = Describe("Configurations", func() {
 				Expect(m > 83886080).To(BeTrue(), "83886080 B = 80 Mi")
 			})
 			It("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func() {
+				skipIfCommandMissing(tests.ContainerDiskCirros, "grep")
 
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -2026,6 +2132,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
+				checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskCirros, "grep")
+
 				By("Checking the number of CPU cores under guest OS")
 				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
@@ -2053,6 +2161,8 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:802]should configure correct number of vcpus with requests.cpus", func() {
+				skipIfCommandMissing(tests.ContainerDiskCirros, "grep")
+
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
@@ -2073,6 +2183,8 @@ var _ = Describe("Configurations", func() {
 				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
+
+				checkCommandPresentAndSkipIfMissing(cpuVmi, expecter, tests.ContainerDiskCirros, "grep")
 
 				By("Checking the number of CPU cores under guest OS")
 				res, err := expecter.ExpectBatch([]expect.Batcher{
@@ -2265,6 +2377,9 @@ var _ = Describe("Configurations", func() {
 	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check Chassis value", func() {
 
 		It("[test_id:2927]Test Chassis value in a newly created VM", func() {
+			skipIfCommandMissing(tests.ContainerDiskFedora, "sudo")
+			skipIfCommandMissing(tests.ContainerDiskFedora, "dmidecode")
+
 			vmi := tests.NewRandomFedoraVMIWithDmidecode()
 			vmi.Spec.Domain.Chassis = &v1.Chassis{
 				Asset: "Test-123",
@@ -2284,6 +2399,9 @@ var _ = Describe("Configurations", func() {
 			expecter, err := tests.LoggedInFedoraExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
+
+			checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskFedora, "sudo")
+			checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskFedora, "dmidecode")
 
 			By("Check value in VM with dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
@@ -2305,6 +2423,8 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[test_id:2751]test default SMBios", func() {
+			skipIfCommandMissing(tests.ContainerDiskFedora, "sudo")
+			skipIfCommandMissing(tests.ContainerDiskFedora, "dmidecode")
 
 			By("Starting a VirtualMachineInstance")
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -2323,6 +2443,9 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
+			checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskFedora, "sudo")
+			checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskFedora, "dmidecode")
+
 			By("Check values in dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
 			res, err := expecter.ExpectBatch([]expect.Batcher{
@@ -2338,6 +2461,9 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[test_id:2752]test custom SMBios values", func() {
+			skipIfCommandMissing(tests.ContainerDiskFedora, "sudo")
+			skipIfCommandMissing(tests.ContainerDiskFedora, "dmidecode")
+
 			// Set a custom test SMBios
 			test_smbios := &cmdv1.SMBios{Family: "test", Product: "test", Manufacturer: "None", Sku: "1.0", Version: "1.0"}
 			smbiosJson, err := json.Marshal(test_smbios)
@@ -2363,8 +2489,10 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
-			By("Check values in dmidecode")
+			checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskFedora, "sudo")
+			checkCommandPresentAndSkipIfMissing(vmi, expecter, tests.ContainerDiskFedora, "dmidecode")
 
+			By("Check values in dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
 			res, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') -eq test ] && echo 'pass' || echo 'fail'\n"},

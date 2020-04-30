@@ -2745,7 +2745,45 @@ func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batc
 	return err
 }
 
+func IsCommandPresent(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, command string) bool {
+	prompt := "[#\\$] "
+	checkCommand := func(cmd string) (bool, error) {
+		checkCommandBatch := append([]expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: prompt},
+			&expect.BSnd{S: fmt.Sprintf("which '%s'\n", cmd)},
+			// we could check the result here, but then we have to wait for a timeout
+			// if it's not present. much faster to skip ahead parse the output later.
+			&expect.BExp{R: prompt},
+		})
+		resp, err := expecter.ExpectBatch(checkCommandBatch, 60*time.Second)
+		if err != nil {
+			return false, fmt.Errorf("error while attempting to locate '%s' command in %s: %v", cmd, vmi.GetName(), err)
+		}
+
+		// regex is a '/' char and any number of non-whitespace chars then the command of interest
+		re := regexp.MustCompile(fmt.Sprintf(".*/\\S*%s.*", cmd))
+		lastEntry := resp[len(resp)-1]
+		return re.MatchString(lastEntry.Output), nil
+	}
+
+	found, err := checkCommand("which")
+	Expect(err).ToNot(HaveOccurred())
+	if found {
+		found, err = checkCommand(command)
+		Expect(err).ToNot(HaveOccurred())
+	} else if command != "which" {
+		Fail(fmt.Sprintf("'which' command is not present in VMI: %s", vmi.GetName()))
+	}
+	return found
+}
+
 func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, virtClient kubecli.KubevirtClient, prompt string) error {
+	found := IsCommandPresent(vmi, expecter, "ip")
+	if !found {
+		Skip("Skip test requiring ip command (from iputils package) to be present")
+	}
+
 	shouldConfigureIpv6 := func(vmi *v1.VirtualMachineInstance) bool {
 		shouldConfigureIpv6Batch := append([]expect.Batcher{
 			&expect.BSnd{S: "\n"},

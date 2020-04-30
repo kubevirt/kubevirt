@@ -63,6 +63,15 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmiReady(vmi)).To(Equal(v1.ConditionFalse))
 
+			expecter, err := tests.LoggedInCirrosExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			found := tests.IsCommandPresent(vmi, expecter, "screen")
+			if !found {
+				Skip("Skip test that requires GNU Screen to be present in Cirros VMI image")
+			}
+
 			By("Starting the server inside the VMI")
 			serverStarter(vmi, 1500)
 
@@ -136,6 +145,15 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			Expect(err).ToNot(HaveOccurred())
 			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+
+			expecter, err := tests.LoggedInCirrosExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			found := tests.IsCommandPresent(vmi, expecter, "screen")
+			if !found {
+				Skip("Skip test that requires GNU Screen to be present in Cirros VMI image")
+			}
 
 			By("Starting the server inside the VMI")
 			serverStarter(vmi, 1500)
