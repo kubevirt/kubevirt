@@ -1,0 +1,11 @@
+apiVersion: operators.coreos.com/v1
+kind: OperatorSource
+metadata:
+  name: kubevirt-hyperconverged
+  namespace: openshift-marketplace
+spec:
+  type: appregistry
+  endpoint: https://quay.io/cnr
+  registryNamespace: kubevirt-hyperconverged
+  displayName: kubevirt-hyperconverged
+  publisher: Kubevirt

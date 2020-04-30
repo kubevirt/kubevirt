@@ -1,0 +1,11 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: hco-catalogsource
+  namespace: openshift-marketplace
+  imagePullPolicy: Always
+spec:
+  sourceType: grpc
+  image: quay.io/kubevirt/hco-container-registry:latest
+  displayName: KubeVirt HyperConverged
+  publisher: KubeVirt Project

@@ -1,0 +1,7 @@
+apiVersion: operators.coreos.com/v1
+kind: OperatorSource
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  authorizationToken:
+    secretName: "quay-registry-kubevirt-hyperconverged"

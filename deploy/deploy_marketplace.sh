@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "WARNING: THIS SCRIPT WILL BE DEPRECATED SOON. PLEASE USE kustomize/deploy_kustomize.sh INSTEAD."
+
 set -ex
 
 RED='\033[0;31m'

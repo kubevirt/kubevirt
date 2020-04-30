@@ -1,0 +1,12 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: hco-operatorhub
+  namespace: kubevirt-hyperconverged
+spec:
+  source: hco-catalogsource-config
+  sourceNamespace: openshift-marketplace
+  name: kubevirt-hyperconverged
+  startingCSV: kubevirt-hyperconverged-operator.v1.1.0
+  channel: "1.1.0"
+  

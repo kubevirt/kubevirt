@@ -26,6 +26,11 @@ tab or deploy from the commandline:
 $ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/hco.yaml | kubectl create -f -
 ```
 
+## Installing HCO using kustomize (Openshift OLM Only)
+Refer to [kustomize deployment documentation](deploy/kustomize/README.md).
+
+**NOTE**: `deploy/deploy_marketplace.sh` and `deploy/deploy_imageregistry.sh` will be deprecated soon.
+
 ## Installing Unreleased Bundles Using Marketplace
 The hyperconverged cluster operator will publish the lastest bundles to [quay/kubevirt-hyperconvered/hco-operatohub](https://quay.io/application/kubevirt-hyperconverged/hco-operatorhub)
 before publishing to operatorhub.io.

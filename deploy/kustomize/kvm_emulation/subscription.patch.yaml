@@ -1,0 +1,12 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: hco-operatorhub
+spec:
+  config:
+    selector:
+      matchLabels:
+        name: hyperconverged-cluster-operator
+    env:
+      - name: KVM_EMULATION
+        value: "true"
