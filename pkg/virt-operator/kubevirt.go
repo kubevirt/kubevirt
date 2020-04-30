@@ -726,15 +726,9 @@ func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.Kub
 		},
 	}
 
-	if config.GetKubernetesServiceHost() != "" {
-		env := job.Spec.Template.Spec.Containers[0].Env
-		job.Spec.Template.Spec.Containers[0].Env = append(env, k8sv1.EnvVar{Name: util.KubernetesServiceHost, Value: config.GetKubernetesServiceHost()})
-	}
-
-	if config.GetKubernetesServicePort() != "" {
-		env := job.Spec.Template.Spec.Containers[0].Env
-		job.Spec.Template.Spec.Containers[0].Env = append(env, k8sv1.EnvVar{Name: util.KubernetesServicePort, Value: config.GetKubernetesServicePort()})
-	}
+	env := job.Spec.Template.Spec.Containers[0].Env
+	extraEnv := util.NewEnvVarMap(config.GetExtraEnv())
+	job.Spec.Template.Spec.Containers[0].Env = append(env, *extraEnv...)
 
 	return job, nil
 }

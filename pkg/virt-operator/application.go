@@ -131,6 +131,11 @@ func Execute() {
 		golog.Fatal(err)
 	}
 
+	// apply any passthrough environment to this operator as well
+	for k, v := range util.GetPassthroughEnv() {
+		os.Setenv(k, v)
+	}
+
 	config, err := kubecli.GetConfig()
 	if err != nil {
 		panic(err)

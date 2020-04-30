@@ -215,21 +215,11 @@ func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOp
 	}
 }
 
-func newExtraEnv(envMap map[string]string) *[]corev1.EnvVar {
-	env := []corev1.EnvVar{}
-
-	for k, v := range envMap {
-		env = append(env, corev1.EnvVar{Name: k, Value: v})
-	}
-
-	return &env
-}
-
 func NewApiServerDeployment(namespace string, repository string, imagePrefix string, version string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-api"})
 	deploymentName := "virt-api"
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
-	env := newExtraEnv(extraEnv)
+	env := operatorutil.NewEnvVarMap(extraEnv)
 	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, pullPolicy, podAntiAffinity, env)
 	if err != nil {
 		return nil, err
@@ -287,7 +277,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-controller"})
 	deploymentName := "virt-controller"
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
-	env := newExtraEnv(extraEnv)
+	env := operatorutil.NewEnvVarMap(extraEnv)
 	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, controllerVersion, pullPolicy, podAntiAffinity, env)
 	if err != nil {
 		return nil, err
@@ -356,7 +346,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 
 	deploymentName := "virt-handler"
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
-	env := newExtraEnv(extraEnv)
+	env := operatorutil.NewEnvVarMap(extraEnv)
 	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, pullPolicy, nil, env)
 	if err != nil {
 		return nil, err
@@ -513,7 +503,7 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 func NewOperatorDeployment(namespace string, repository string, imagePrefix string, version string,
 	pullPolicy corev1.PullPolicy, verbosity string,
 	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
-	virtHandlerShaEnv string, virtLauncherShaEnv string, kubernetesServiceHost string, kubernetesServicePort string) (*appsv1.Deployment, error) {
+	virtHandlerShaEnv string, virtLauncherShaEnv string) (*appsv1.Deployment, error) {
 
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-operator"})
 	name := "virt-operator"
@@ -646,32 +636,6 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 
 		env := deployment.Spec.Template.Spec.Containers[0].Env
 		env = append(env, shaSums...)
-		deployment.Spec.Template.Spec.Containers[0].Env = env
-	}
-
-	if kubernetesServiceHost != "" {
-		kubernetesDetails := []corev1.EnvVar{
-			{
-				Name:  operatorutil.KubernetesServiceHost,
-				Value: kubernetesServiceHost,
-			},
-		}
-
-		env := deployment.Spec.Template.Spec.Containers[0].Env
-		env = append(env, kubernetesDetails...)
-		deployment.Spec.Template.Spec.Containers[0].Env = env
-	}
-
-	if kubernetesServicePort != "" {
-		kubernetesDetails := []corev1.EnvVar{
-			{
-				Name:  operatorutil.KubernetesServicePort,
-				Value: kubernetesServicePort,
-			},
-		}
-
-		env := deployment.Spec.Template.Spec.Containers[0].Env
-		env = append(env, kubernetesDetails...)
 		deployment.Spec.Template.Spec.Containers[0].Env = env
 	}
 

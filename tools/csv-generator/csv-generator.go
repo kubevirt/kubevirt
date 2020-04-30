@@ -40,8 +40,6 @@ func main() {
 	controllerSha := flag.String("controllerSha", "", "virt-controller image sha")
 	handlerSha := flag.String("handlerSha", "", "virt-handler image sha")
 	launcherSha := flag.String("launcherSha", "", "virt-launcher image sha")
-	kubernetesServiceHost := flag.String("kubernetes-service-host", "", "")
-	kubernetesServicePort := flag.String("kubernetes-service-port", "", "")
 	kubeVirtLogo := flag.String("kubevirtLogo", "", "kubevirt logo data in base64")
 	csvVersion := flag.String("csvVersion", "", "the CSV version being generated")
 	replacesCsvVersion := flag.String("replacesCsvVersion", "", "the CSV version being replaced by this generated CSV")
@@ -67,8 +65,6 @@ func main() {
 		IconBase64:           *kubeVirtLogo,
 		Replicas:             2,
 		CreatedAtTimestamp:   *csvCreatedAtTimestamp,
-		KubernetesSvcHost:    *kubernetesServiceHost,
-		KubernetesSvcPort:    *kubernetesServicePort,
 	}
 
 	operatorCsv, err := csv.NewClusterServiceVersion(&csvData)
