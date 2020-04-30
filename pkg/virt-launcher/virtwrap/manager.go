@@ -530,7 +530,7 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance, dom 
 				currTime := time.Now()
 				secs := currTime.Unix()
 				nsecs := uint(currTime.Nanosecond())
-				err := dom.SetTime(secs, nsecs, libvirt.DOMAIN_TIME_SYNC)
+				err := dom.SetTime(secs, nsecs, 0)
 				if err != nil {
 					libvirtError, ok := err.(libvirt.Error)
 					if !ok {
