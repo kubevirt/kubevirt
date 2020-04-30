@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	k8ssnapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
+	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	vmsnapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	vmssv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -218,7 +218,7 @@ func (ctrl *SnapshotController) processVMSnapshotWorkItem() bool {
 		}
 
 		if exists {
-			vmSnapshot, ok := storeObj.(*vmsnapshotv1alpha1.VirtualMachineSnapshot)
+			vmSnapshot, ok := storeObj.(*vmssv1alpha1.VirtualMachineSnapshot)
 			if !ok {
 				return fmt.Errorf("unexpected resource %+v", storeObj)
 			}
@@ -242,7 +242,7 @@ func (ctrl *SnapshotController) processVMSnapshotContentWorkItem() bool {
 		}
 
 		if exists {
-			vmSnapshotContent, ok := storeObj.(*vmsnapshotv1alpha1.VirtualMachineSnapshotContent)
+			vmSnapshotContent, ok := storeObj.(*vmssv1alpha1.VirtualMachineSnapshotContent)
 			if !ok {
 				return fmt.Errorf("unexpected resource %+v", storeObj)
 			}
@@ -328,7 +328,7 @@ func (ctrl *SnapshotController) handleVMSnapshot(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	if vmSnapshot, ok := obj.(*vmsnapshotv1alpha1.VirtualMachineSnapshot); ok {
+	if vmSnapshot, ok := obj.(*vmssv1alpha1.VirtualMachineSnapshot); ok {
 		objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(vmSnapshot)
 		if err != nil {
 			log.Log.Errorf("failed to get key from object: %v, %v", err, vmSnapshot)
@@ -344,7 +344,7 @@ func (ctrl *SnapshotController) handleVMSnapshotContent(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	if content, ok := obj.(*vmsnapshotv1alpha1.VirtualMachineSnapshotContent); ok {
+	if content, ok := obj.(*vmssv1alpha1.VirtualMachineSnapshotContent); ok {
 		objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(content)
 		if err != nil {
 			log.Log.Errorf("failed to get key from object: %v, %v", err, content)
@@ -418,7 +418,7 @@ func (ctrl *SnapshotController) handleVolumeSnapshot(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	if volumeSnapshot, ok := obj.(*k8ssnapshotv1beta1.VolumeSnapshot); ok {
+	if volumeSnapshot, ok := obj.(*vsv1beta1.VolumeSnapshot); ok {
 		keys, err := ctrl.vmSnapshotContentInformer.GetIndexer().IndexKeys("volumeSnapshot", volumeSnapshot.Name)
 		if err != nil {
 			utilruntime.HandleError(err)
@@ -431,7 +431,7 @@ func (ctrl *SnapshotController) handleVolumeSnapshot(obj interface{}) {
 	}
 }
 
-func (ctrl *SnapshotController) getVolumeSnapshot(namespace, name string) (*k8ssnapshotv1beta1.VolumeSnapshot, error) {
+func (ctrl *SnapshotController) getVolumeSnapshot(namespace, name string) (*vsv1beta1.VolumeSnapshot, error) {
 	di := ctrl.dynamicInformerMap[volumeSnapshotCRD]
 	di.mutex.Lock()
 	defer di.mutex.Unlock()
@@ -446,10 +446,10 @@ func (ctrl *SnapshotController) getVolumeSnapshot(namespace, name string) (*k8ss
 		return nil, err
 	}
 
-	return obj.(*k8ssnapshotv1beta1.VolumeSnapshot), nil
+	return obj.(*vsv1beta1.VolumeSnapshot), nil
 }
 
-func (ctrl *SnapshotController) getVolumeSnapshotClasses() []k8ssnapshotv1beta1.VolumeSnapshotClass {
+func (ctrl *SnapshotController) getVolumeSnapshotClasses() []vsv1beta1.VolumeSnapshotClass {
 	di := ctrl.dynamicInformerMap[volumeSnapshotClassCRD]
 	di.mutex.Lock()
 	defer di.mutex.Unlock()
@@ -458,10 +458,10 @@ func (ctrl *SnapshotController) getVolumeSnapshotClasses() []k8ssnapshotv1beta1.
 		return nil
 	}
 
-	var vscs []k8ssnapshotv1beta1.VolumeSnapshotClass
+	var vscs []vsv1beta1.VolumeSnapshotClass
 	objs := di.informer.GetStore().List()
 	for _, obj := range objs {
-		vsc := obj.(*k8ssnapshotv1beta1.VolumeSnapshotClass)
+		vsc := obj.(*vsv1beta1.VolumeSnapshotClass)
 		vscs = append(vscs, *vsc)
 	}
 

@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	vmsnapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	vmssv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/tests"
@@ -42,12 +42,12 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 
 		It("should successfully create a snapshot", func() {
 			snapshotName := "snapshot-" + vm.Name
-			snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
+			snapshot := &vmssv1alpha1.VirtualMachineSnapshot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      snapshotName,
 					Namespace: vm.Namespace,
 				},
-				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+				Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &groupName,
 						Kind:     "VirtualMachine",
@@ -80,12 +80,12 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			snapshotName := "snapshot-" + vm.Name
-			snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
+			snapshot := &vmssv1alpha1.VirtualMachineSnapshot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      snapshotName,
 					Namespace: vm.Namespace,
 				},
-				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+				Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &groupName,
 						Kind:     "VirtualMachine",
@@ -137,12 +137,12 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 			}
 
 			snapshotName := "snapshot-" + vm.Name
-			snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
+			snapshot := &vmssv1alpha1.VirtualMachineSnapshot{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      snapshotName,
 					Namespace: vm.Namespace,
 				},
-				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+				Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &groupName,
 						Kind:     "VirtualMachine",

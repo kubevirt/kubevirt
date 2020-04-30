@@ -31,6 +31,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 	return map[string]common.OpenAPIDefinition{
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.SourceSpec":                          schema_client_go_apis_snapshot_v1alpha1_SourceSpec(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshot":              schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshot(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotCondition":     schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotCondition(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotContent":       schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContent(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotContentList":   schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentList(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotContentSpec":   schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentSpec(ref),
@@ -40,6 +41,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotSpec":          schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotStatus":        schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeBackup":                        schema_client_go_apis_snapshot_v1alpha1_VolumeBackup(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeSnapshotStatus":                schema_client_go_apis_snapshot_v1alpha1_VolumeSnapshotStatus(ref),
 	}
 }
 
@@ -105,6 +107,56 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshot(ref common.R
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotSpec", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotStatus"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineSnapshotCondition defines snapshot conditions",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"lastProbeTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -262,11 +314,23 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus
 							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"),
 						},
 					},
+					"volumeSnapshotStatus": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeSnapshotStatus"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VolumeSnapshotStatus"},
 	}
 }
 
@@ -399,11 +463,23 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotStatus(ref co
 							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"),
 						},
 					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotCondition"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotCondition", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotError"},
 	}
 }
 
@@ -437,5 +513,43 @@ func schema_client_go_apis_snapshot_v1alpha1_VolumeBackup(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.PersistentVolumeClaim"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VolumeSnapshotStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VolumeSnapshotStatus is the status of a VolumeSnapshot",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeSnapshotName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"creationTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"readyToUse": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1.VolumeSnapshotError"),
+						},
+					},
+				},
+				Required: []string{"volumeSnapshotName"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1.VolumeSnapshotError", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }

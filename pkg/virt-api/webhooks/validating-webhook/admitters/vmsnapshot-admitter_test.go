@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	vmsnapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	vmssv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
@@ -56,8 +56,8 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	})
 
 	It("should reject missing apigroup", func() {
-		snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
-			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{},
+		snapshot := &vmssv1alpha1.VirtualMachineSnapshot{
+			Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{},
 		}
 
 		ar := createAdmissionReview(snapshot)
@@ -68,8 +68,8 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	})
 
 	It("should reject when VM does not exist", func() {
-		snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
-			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+		snapshot := &vmssv1alpha1.VirtualMachineSnapshot{
+			Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{
 				Source: corev1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachine",
@@ -86,8 +86,8 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	})
 
 	It("should reject spec update", func() {
-		snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
-			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+		snapshot := &vmssv1alpha1.VirtualMachineSnapshot{
+			Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{
 				Source: corev1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachine",
@@ -96,8 +96,8 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			},
 		}
 
-		oldSnapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
-			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+		oldSnapshot := &vmssv1alpha1.VirtualMachineSnapshot{
+			Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{
 				Source: corev1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachine",
@@ -114,8 +114,8 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	})
 
 	It("should allow metadata update", func() {
-		oldSnapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
-			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+		oldSnapshot := &vmssv1alpha1.VirtualMachineSnapshot{
+			Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{
 				Source: corev1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachine",
@@ -124,11 +124,11 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			},
 		}
 
-		snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
+		snapshot := &vmssv1alpha1.VirtualMachineSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Finalizers: []string{"finalizer"},
 			},
-			Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+			Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{
 				Source: corev1.TypedLocalObjectReference{
 					APIGroup: &apiGroup,
 					Kind:     "VirtualMachine",
@@ -154,8 +154,8 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 		})
 
 		It("should reject when VM is running", func() {
-			snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
-				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+			snapshot := &vmssv1alpha1.VirtualMachineSnapshot{
+				Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
 						Kind:     "VirtualMachine",
@@ -175,8 +175,8 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 		})
 
 		It("should reject invalid kind", func() {
-			snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
-				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+			snapshot := &vmssv1alpha1.VirtualMachineSnapshot{
+				Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
 						Kind:     "VirtualMachineInstance",
@@ -197,8 +197,8 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 
 		It("should reject invalid apiGroup", func() {
 			g := "foo.bar"
-			snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
-				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+			snapshot := &vmssv1alpha1.VirtualMachineSnapshot{
+				Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &g,
 						Kind:     "VirtualMachine",
@@ -218,8 +218,8 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 		})
 
 		It("should accept when VM is not running", func() {
-			snapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{
-				Spec: vmsnapshotv1alpha1.VirtualMachineSnapshotSpec{
+			snapshot := &vmssv1alpha1.VirtualMachineSnapshot{
+				Spec: vmssv1alpha1.VirtualMachineSnapshotSpec{
 					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &apiGroup,
 						Kind:     "VirtualMachine",
@@ -238,7 +238,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	})
 })
 
-func createAdmissionReview(snapshot *vmsnapshotv1alpha1.VirtualMachineSnapshot) *v1beta1.AdmissionReview {
+func createAdmissionReview(snapshot *vmssv1alpha1.VirtualMachineSnapshot) *v1beta1.AdmissionReview {
 	bytes, _ := json.Marshal(snapshot)
 
 	ar := &v1beta1.AdmissionReview{
@@ -258,7 +258,7 @@ func createAdmissionReview(snapshot *vmsnapshotv1alpha1.VirtualMachineSnapshot) 
 	return ar
 }
 
-func createUpdateAdmissionReview(old, current *vmsnapshotv1alpha1.VirtualMachineSnapshot) *v1beta1.AdmissionReview {
+func createUpdateAdmissionReview(old, current *vmssv1alpha1.VirtualMachineSnapshot) *v1beta1.AdmissionReview {
 	oldBytes, _ := json.Marshal(old)
 	currentBytes, _ := json.Marshal(current)
 

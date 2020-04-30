@@ -20,6 +20,7 @@
 package v1alpha1
 
 import (
+	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -74,6 +75,9 @@ type VirtualMachineSnapshotStatus struct {
 
 	// +optional
 	Error *VirtualMachineSnapshotError `json:"error,omitempty"`
+
+	// +optional
+	Conditions []VirtualMachineSnapshotCondition `json:"conditions,omitempty"`
 }
 
 // VirtualMachineSnapshotError is the last error encountered while creating the snapshot
@@ -83,6 +87,36 @@ type VirtualMachineSnapshotError struct {
 
 	// +optional
 	Message *string `json:"message,omitempty"`
+}
+
+// VirtualMachineSnapshotConditionType is the const type for VirtualMachineSnapshotConditions
+type VirtualMachineSnapshotConditionType string
+
+const (
+	// VirtualMachineSnapshotConditionReady is the "ready" condition type
+	VirtualMachineSnapshotConditionReady VirtualMachineSnapshotConditionType = "Ready"
+
+	// VirtualMachineSnapshotConditionProgressing is the "progressing" condition type
+	VirtualMachineSnapshotConditionProgressing VirtualMachineSnapshotConditionType = "Progressing"
+)
+
+// VirtualMachineSnapshotCondition defines snapshot conditions
+type VirtualMachineSnapshotCondition struct {
+	Type VirtualMachineSnapshotConditionType `json:"type"`
+
+	Status corev1.ConditionStatus `json:"status"`
+
+	// +optional
+	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"`
+
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+
+	// +optional
+	Reason string `json:"reason,omitempty"`
+
+	// +optional
+	Message string `json:"message,omitempty"`
 }
 
 // VirtualMachineSnapshotList is a list of VirtualMachineSnapshot resources
@@ -143,6 +177,9 @@ type VirtualMachineSnapshotContentStatus struct {
 
 	// +optional
 	Error *VirtualMachineSnapshotError `json:"error,omitempty"`
+
+	// +optional
+	VolumeSnapshotStatus []VolumeSnapshotStatus `json:"volumeSnapshotStatus,omitempty"`
 }
 
 // VirtualMachineSnapshotContentList is a list of VirtualMachineSnapshot resources
@@ -152,4 +189,18 @@ type VirtualMachineSnapshotContentList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []VirtualMachineSnapshotContent `json:"items"`
+}
+
+// VolumeSnapshotStatus is the status of a VolumeSnapshot
+type VolumeSnapshotStatus struct {
+	VolumeSnapshotName string `json:"volumeSnapshotName"`
+
+	// +optional
+	CreationTime *metav1.Time `json:"creationTime,omitempty"`
+
+	// +optional
+	ReadyToUse *bool `json:"readyToUse,omitempty"`
+
+	// +optional
+	Error *vsv1beta1.VolumeSnapshotError `json:"error,omitempty"`
 }

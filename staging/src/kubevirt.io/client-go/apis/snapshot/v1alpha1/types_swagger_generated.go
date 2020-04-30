@@ -23,6 +23,7 @@ func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
 		"creationTime":                      "+optional",
 		"readyToUse":                        "+optional",
 		"error":                             "+optional",
+		"conditions":                        "+optional",
 	}
 }
 
@@ -31,6 +32,16 @@ func (VirtualMachineSnapshotError) SwaggerDoc() map[string]string {
 		"":        "VirtualMachineSnapshotError is the last error encountered while creating the snapshot",
 		"time":    "+optional",
 		"message": "+optional",
+	}
+}
+
+func (VirtualMachineSnapshotCondition) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                   "VirtualMachineSnapshotCondition defines snapshot conditions",
+		"lastProbeTime":      "+optional",
+		"lastTransitionTime": "+optional",
+		"reason":             "+optional",
+		"message":            "+optional",
 	}
 }
 
@@ -70,15 +81,25 @@ func (VolumeBackup) SwaggerDoc() map[string]string {
 
 func (VirtualMachineSnapshotContentStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":             "VirtualMachineSnapshotContentStatus is the status for a VirtualMachineSnapshotStatus resource",
-		"creationTime": "+optional",
-		"readyToUse":   "+optional",
-		"error":        "+optional",
+		"":                     "VirtualMachineSnapshotContentStatus is the status for a VirtualMachineSnapshotStatus resource",
+		"creationTime":         "+optional",
+		"readyToUse":           "+optional",
+		"error":                "+optional",
+		"volumeSnapshotStatus": "+optional",
 	}
 }
 
 func (VirtualMachineSnapshotContentList) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "VirtualMachineSnapshotContentList is a list of VirtualMachineSnapshot resources\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+	}
+}
+
+func (VolumeSnapshotStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":             "VolumeSnapshotStatus is the status of a VolumeSnapshot",
+		"creationTime": "+optional",
+		"readyToUse":   "+optional",
+		"error":        "+optional",
 	}
 }

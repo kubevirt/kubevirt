@@ -26,7 +26,7 @@ import (
 	"time"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	k8ssnapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
+	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -41,6 +41,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -350,11 +351,19 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 				if !ok {
 					return nil, fmt.Errorf("unexpected object")
 				}
-				if vms.Spec.Source.APIGroup != nil &&
-					*vms.Spec.Source.APIGroup == kubev1.GroupName &&
-					vms.Spec.Source.Kind == "VirtualMachine" {
-					return []string{vms.Spec.Source.Name}, nil
+
+				if vms.Spec.Source.APIGroup != nil {
+					gv, err := schema.ParseGroupVersion(*vms.Spec.Source.APIGroup)
+					if err != nil {
+						return nil, err
+					}
+
+					if gv.Group == kubev1.GroupName &&
+						vms.Spec.Source.Kind == "VirtualMachine" {
+						return []string{vms.Spec.Source.Name}, nil
+					}
 				}
+
 				return nil, nil
 			},
 		})
@@ -758,12 +767,12 @@ func (f *kubeInformerFactory) StorageClass() cache.SharedIndexInformer {
 func VolumeSnapshotInformer(clientSet kubecli.KubevirtClient, resyncPeriod time.Duration) cache.SharedIndexInformer {
 	restClient := clientSet.KubernetesSnapshotClient().SnapshotV1beta1().RESTClient()
 	lw := cache.NewListWatchFromClient(restClient, "volumesnapshots", k8sv1.NamespaceAll, fields.Everything())
-	return cache.NewSharedIndexInformer(lw, &k8ssnapshotv1beta1.VolumeSnapshot{}, resyncPeriod, cache.Indexers{})
+	return cache.NewSharedIndexInformer(lw, &vsv1beta1.VolumeSnapshot{}, resyncPeriod, cache.Indexers{})
 }
 
 // VolumeSnapshotClassInformer returns an informer for VolumeSnapshotClasses
 func VolumeSnapshotClassInformer(clientSet kubecli.KubevirtClient, resyncPeriod time.Duration) cache.SharedIndexInformer {
 	restClient := clientSet.KubernetesSnapshotClient().SnapshotV1beta1().RESTClient()
 	lw := cache.NewListWatchFromClient(restClient, "volumesnapshotclasses", k8sv1.NamespaceAll, fields.Everything())
-	return cache.NewSharedIndexInformer(lw, &k8ssnapshotv1beta1.VolumeSnapshotClass{}, resyncPeriod, cache.Indexers{})
+	return cache.NewSharedIndexInformer(lw, &vsv1beta1.VolumeSnapshotClass{}, resyncPeriod, cache.Indexers{})
 }

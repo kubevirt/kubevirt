@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/emicklei/go-restful"
-	k8ssnapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
+	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
-	vmsnapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	vmssv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
@@ -75,7 +75,7 @@ const (
 	defaultControllerThreads = 3
 
 	defaultLauncherSubGid                 = 107
-	defaultSnapshotControllerResyncPeriod = 60 * time.Second
+	defaultSnapshotControllerResyncPeriod = 5 * time.Minute
 )
 
 var (
@@ -172,8 +172,8 @@ type VirtControllerApp struct {
 var _ service.Service = &VirtControllerApp{}
 
 func init() {
-	k8ssnapshotv1beta1.AddToScheme(scheme.Scheme)
-	vmsnapshotv1alpha1.AddToScheme(scheme.Scheme)
+	vsv1beta1.AddToScheme(scheme.Scheme)
+	vmssv1alpha1.AddToScheme(scheme.Scheme)
 
 	prometheus.MustRegister(leaderGauge)
 	prometheus.MustRegister(readyGauge)

@@ -31,7 +31,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	vmsnapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	vmssv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
@@ -50,12 +50,12 @@ func NewVMSnapshotAdmitter(client kubecli.KubevirtClient) *VMSnapshotAdmitter {
 
 // Admit validates an AdmissionReview
 func (admitter *VMSnapshotAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	if ar.Request.Resource.Group != vmsnapshotv1alpha1.SchemeGroupVersion.Group ||
+	if ar.Request.Resource.Group != vmssv1alpha1.SchemeGroupVersion.Group ||
 		ar.Request.Resource.Resource != "virtualmachinesnapshots" {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Unexpected Resource %+v", ar.Request.Resource))
 	}
 
-	vmSnapshot := &vmsnapshotv1alpha1.VirtualMachineSnapshot{}
+	vmSnapshot := &vmssv1alpha1.VirtualMachineSnapshot{}
 	// TODO ideally use UniversalDeserializer here
 	err := json.Unmarshal(ar.Request.Object.Raw, vmSnapshot)
 	if err != nil {
@@ -112,7 +112,7 @@ func (admitter *VMSnapshotAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.
 		}
 
 	case v1beta1.Update:
-		prevObj := &vmsnapshotv1alpha1.VirtualMachineSnapshot{}
+		prevObj := &vmssv1alpha1.VirtualMachineSnapshot{}
 		err = json.Unmarshal(ar.Request.OldObject.Raw, prevObj)
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
