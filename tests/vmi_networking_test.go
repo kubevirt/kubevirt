@@ -553,14 +553,10 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					_, ok = container.Resources.Limits[services.TunDevice]
 					Expect(ok).To(BeFalse())
 
-					netAdminCap := false
 					caps := container.SecurityContext.Capabilities
-					for _, cap := range caps.Add {
-						if cap == "NET_ADMIN" {
-							netAdminCap = true
-						}
-					}
-					Expect(netAdminCap).To(BeFalse(), "Compute container should not have NET_ADMIN capability")
+
+					Expect(caps).To(Not(ContainElement(k8sv1.Capability("NET_ADMIN"))), "Compute container should not have NET_ADMIN capability")
+					Expect(caps).To(Not(ContainElement(k8sv1.Capability("NET_RAW"))), "Compute container should not have NET_RAW capability")
 				}
 			}
 
