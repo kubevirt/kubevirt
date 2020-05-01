@@ -615,7 +615,11 @@ monitorLoop:
 		case passedErr := <-migrationErr:
 			if passedErr != nil {
 				logger.Reason(passedErr).Error("Live migration failed")
-				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", passedErr), "")
+				var abortStatus v1.MigrationAbortStatus
+				if strings.Contains(passedErr.Error(), "canceled by client") {
+					abortStatus = v1.MigrationAbortSucceeded
+				}
+				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", passedErr), abortStatus)
 				break monitorLoop
 			}
 		default:
