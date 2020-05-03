@@ -734,7 +734,7 @@ func BeforeTestSuitSetup() {
 	Config, err = loadConfig()
 	Expect(err).ToNot(HaveOccurred())
 
-	disableKubectlCache()
+	//disableKubectlCache()
 
 	createNamespaces()
 	createServiceAccounts()
@@ -771,6 +771,19 @@ func BeforeTestSuitSetup() {
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 
 	AdjustKubeVirtResource()
+
+	// Make sure kubectl cache is updated with vm/vmi resources
+	// to circumvent the issue of 'server doesn't have a resource type "vm"'
+	// that I suspect happens because the local kubectl cache is not updated and
+	// kubectl fails to access the api-server to update it.
+	Eventually(func() bool {
+		_, getVM, err := CreateCommandWithNS(NamespaceTestDefault, GetK8sCmdClient(), "get", "vm")
+		Expect(err).ToNot(HaveOccurred())
+		_, getVMI, err := CreateCommandWithNS(NamespaceTestDefault, GetK8sCmdClient(), "get", "vmi")
+		Expect(err).ToNot(HaveOccurred())
+
+		return getVM.Start() == nil && getVMI.Start() == nil
+	}, 10*time.Second, 1*time.Second).Should(BeTrue())
 }
 
 func disableKubectlCache() {
