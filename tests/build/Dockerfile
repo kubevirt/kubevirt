@@ -23,10 +23,10 @@ RUN \
     go get github.com/onsi/ginkgo/ginkgo && \
     go get github.com/onsi/gomega && \
     go get golang.org/x/tools/cmd/goimports && \
-    go get github.com/mattn/goveralls && \
-    go get mvdan.cc/sh/v3/cmd/shfmt && \
     go get -u golang.org/x/lint/golint&& \
     go get -u github.com/rmohr/go-swagger-utils/swagger-doc && \
+    go get github.com/mattn/goveralls && \
+    go get mvdan.cc/sh/v3/cmd/shfmt && \
     go get -u -d k8s.io/code-generator/cmd/deepcopy-gen && \
     go get -u -d k8s.io/kube-openapi/cmd/openapi-gen && \
     GO111MODULE=off go get -u -d github.com/Masterminds/glide && \
