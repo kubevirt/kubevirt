@@ -340,6 +340,16 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - scheduling.k8s.io
+          resources:
+          - priorityclasses
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - delete
         serviceAccountName: hyperconverged-cluster-operator
       - rules:
         - apiGroups:

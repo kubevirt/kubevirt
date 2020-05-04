@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -euox pipefail
 
 source hack/common.sh
 source cluster/kubevirtci.sh
 
 CSV_FILE=
+KUBECONFIG=$(kubevirtci::kubeconfig)
 
 if [ "${JOB_TYPE}" == "stdci" ]; then
-    KUBECONFIG=$(kubevirtci::kubeconfig)
     source ./hack/upgrade-stdci-config
 
     # check if CSV test is requested (if this is run right after upgrade-test.sh)
