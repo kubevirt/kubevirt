@@ -120,11 +120,13 @@ spec:
           - -c
           - |
             while true; do
-              for i in $(seq 100); do
+              for i in $(seq 0 100); do
                 if ! [ -e /dev/loop$i ]; then
                   mknod /dev/loop$i b 7 $i
                 fi
               done
+              # XXX: we can't finish running because we're a DaemonSet
+              # Switch to being a Pod!
               sleep 100000000
             done
           image: {{.DockerPrefix}}/disks-images-provider:{{.DockerTag}}
