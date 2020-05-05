@@ -32,6 +32,7 @@ import (
 	netutils "k8s.io/utils/net"
 
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -95,15 +96,6 @@ func SourceUnixFile(baseDir string, key string) string {
 	return filepath.Join(baseDir, "migrationproxy", key+"-source.sock")
 }
 
-func ipBindAddress() string {
-	podIP := os.Getenv("MY_POD_IP")
-	if netutils.IsIPv6String(podIP) {
-		return "[::]"
-	}
-
-	return "0.0.0.0"
-}
-
 func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles []string) error {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
@@ -140,7 +132,7 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles 
 	proxiesList := []*migrationProxy{}
 	for _, targetUnixFile := range targetUnixFiles {
 		// 0 means random port is used
-		proxy := NewTargetProxy(ipBindAddress(), 0, m.serverTLSConfig, m.clientTLSConfig, targetUnixFile)
+		proxy := NewTargetProxy(util.GetIPBindAddress(), 0, m.serverTLSConfig, m.clientTLSConfig, targetUnixFile)
 
 		err := proxy.StartListening()
 		if err != nil {
