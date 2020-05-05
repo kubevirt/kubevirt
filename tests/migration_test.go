@@ -22,6 +22,7 @@ package tests_test
 import (
 	"crypto/tls"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -1034,6 +1035,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				i := 0
 				errors := make(chan error, len(vmi.Status.MigrationState.TargetDirectMigrationNodePorts))
 				for port, _ := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
+					portI, _ := strconv.Atoi(port)
 					go func(i int, port int) {
 						defer GinkgoRecover()
 						defer wg.Done()
@@ -1043,7 +1045,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						_, err = tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), tlsConfig)
 						Expect(err).To(HaveOccurred())
 						errors <- err
-					}(i, port)
+					}(i, portI)
 					i++
 				}
 				wg.Wait()
