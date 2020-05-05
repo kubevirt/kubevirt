@@ -958,10 +958,10 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 				hostAddress = vmi.Status.MigrationState.TargetNodeAddress
 			}
 			if hostAddress != d.ipAddress {
-				portsList := make([]int, 0, len(destSrcPortsMap))
+				portsList := make([]string, 0, len(destSrcPortsMap))
 
-				for value, _ := range destSrcPortsMap {
-					portsList = append(portsList, value)
+				for k := range destSrcPortsMap {
+					portsList = append(portsList, k)
 				}
 				portsStrList := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(portsList)), ","), "[]")
 				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s, on ports: %s", d.ipAddress, portsStrList))
