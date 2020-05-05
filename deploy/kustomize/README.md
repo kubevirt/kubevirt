@@ -12,7 +12,7 @@ The directory tree consists of kustomize-based manifests with default values, su
 There are two distinct options to deliver HCO operator to OLM - Marketplace and Image Registry.
 
 ### Marketplace
-This method is taking advantage of CatalogSourceConfig, pointing to an OperatorSource, which makes the operator available on OLM OperatorHub.
+This method is taking advantage of OperatorSource, which makes the operator available on OLM OperatorHub (implicitly creating a CatalogSource with the same name).
 To manually deliver HCO using marketplace, edit `spec.registryNamespace` of `marketplace/operator_source.yaml` to the desired value (default is "kubevirt-hyperconverged"), and run:
 ```
 oc apply -k marketplace
@@ -126,4 +126,4 @@ spec:
 
 #### Deploy
 When customizations are ready, run `./deploy_kustomize.sh`.
-The script will prepare and submit kustimized manifests directories to the cluster. It will also check whenever deployment is complete (HCO CR reports Condition "Available" True), and finish successfully.
+The script will prepare and submit kustomize manifests to the cluster. It will also check whenever deployment is complete (HCO CR reports Condition "Available" True), and finish successfully.

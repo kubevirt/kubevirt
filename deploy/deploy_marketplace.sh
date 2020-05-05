@@ -12,7 +12,6 @@ echo "Global Namespace: ${globalNamespace}"
 
 APP_REGISTRY="${APP_REGISTRY:-kubevirt-hyperconverged}"
 PACKAGE="${PACKAGE:-kubevirt-hyperconverged}"
-CSC_SOURCE="${CSC_SOURCE:-hco-catalogsource-config}"
 TARGET_NAMESPACE="${TARGET_NAMESPACE:-kubevirt-hyperconverged}"
 CLUSTER="${CLUSTER:-OPENSHIFT}"
 MARKETPLACE_NAMESPACE="${MARKETPLACE_NAMESPACE:-openshift-marketplace}"
@@ -112,26 +111,11 @@ ${AUTH_TOKEN}
 EOF
 fi
 
-echo "Give the cluster 30 seconds to create the catalogSourceConfig..."
+echo "Give the cluster 30 seconds to create the catalogSource..."
 sleep 30
+echo "Wait for the catalogSource to be available"
+oc wait deploy "${APP_REGISTRY}" --for condition=available -n $MARKETPLACE_NAMESPACE --timeout="360s"
 
-cat <<EOF | oc apply -f -
-apiVersion: operators.coreos.com/v1
-kind: CatalogSourceConfig
-metadata:
-  name: "${CSC_SOURCE}"
-  namespace: "${MARKETPLACE_NAMESPACE}"
-spec:
-  source: "${APP_REGISTRY}"
-  targetNamespace: "${GLOBAL_NAMESPACE}"
-  packages: "${PACKAGE}"
-  csDisplayName: "HCO Operator"
-  csPublisher: "Red Hat"
-EOF
-
-echo "Give the cluster 30 seconds to process catalogSourceConfig..."
-sleep 30
-oc wait deploy $CSC_SOURCE --for condition=available -n $MARKETPLACE_NAMESPACE --timeout="360s"
 
 for i in $(seq 1 $RETRIES); do
     echo "Waiting for packagemanifest '${PACKAGE}' to be created in namespace '${TARGET_NAMESPACE}'..."
@@ -182,7 +166,7 @@ metadata:
   name: hco-operatorhub
   namespace: "${TARGET_NAMESPACE}"
 spec:
-  source: "${CSC_SOURCE}"
+  source: "${APP_REGISTRY}"
   sourceNamespace: "${GLOBAL_NAMESPACE}"
   name: kubevirt-hyperconverged
   startingCSV: "kubevirt-hyperconverged-operator.v${HCO_VERSION}"

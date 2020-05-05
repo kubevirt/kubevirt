@@ -5,7 +5,6 @@ TARGET_NAMESPACE="${TARGET_NAMESPACE:-kubevirt-hyperconverged}"
 APP_REGISTRY="${APP_REGISTRY:-kubevirt-hyperconverged}"
 HCO_VERSION="${HCO_VERSION:-1.0.0}"
 
-oc delete csc hco-catalogsource-config -n $MARKETPLACE
 oc delete catalogsource $APP_REGISTRY -n $MARKETPLACE
 oc delete operatorsource $APP_REGISTRY -n $MARKETPLACE
 oc delete hco kubevirt-hyperconverged -n $TARGET_NAMESPACE

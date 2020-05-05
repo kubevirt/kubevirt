@@ -2,19 +2,6 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: kubevirt-hyperconverged
-
----
-apiVersion: operators.coreos.com/v1
-kind: CatalogSourceConfig
-metadata:
-  name: installed-community-kubevirt-hyperconverged
-  namespace: openshift-marketplace
-spec:
-  csDisplayName: Community Operators
-  csPublisher: Community
-  packages: hco-operatorhub
-  targetNamespace: kubevirt-hyperconverged
-
 ---
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription

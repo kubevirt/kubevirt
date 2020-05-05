@@ -54,19 +54,3 @@ spec:
   authorizationToken:
     secretName: "quay-registry-${APP_REGISTRY_NAMESPACE}"
 EOF
-
-cat <<EOF | oc create -f -
-apiVersion: operators.coreos.com/v1
-kind: CatalogSourceConfig
-metadata:
-  name: hco-catalogsource-config
-  namespace: "${MARKETPLACE_NAMESPACE}"
-spec:
-  source: "${APP_REGISTRY_NAMESPACE}"
-  targetNamespace: "${TARGET_NAMESPACE}"
-  packages: "${PACKAGE}"
-  csDisplayName: "CNV Operators"
-  csPublisher: "Red Hat"
-  packageRepositioryVersions:
-    kubevirt-hyperconverged: "${PACKAGE_VERSION}"
-EOF

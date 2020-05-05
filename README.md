@@ -39,7 +39,6 @@ Make the unreleased bundles available in Marketplace by adding the app registry:
 ```bash
 # Remove the hco-bundle from the community-operators sources
 $ kubectl get operatorsource -n openshift-marketplace community-operators -o yaml | sed "s/hco-operatorhub,//" | kubectl apply -f -
-$ kubectl get catalogsourceconfig -n openshift-marketplace community-operators  -o yaml | sed "s/hco-operatorhub,//" | sed "s/hco-operatorhub\:*,//" | kubectl apply -f -
 
 # Add the unreleases bundle source
 $ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/tools/quay-registry.sh | bash -s $QUAY_USERNAME $QUAY_PASSWORD
