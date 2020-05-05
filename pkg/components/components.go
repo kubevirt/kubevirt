@@ -373,21 +373,6 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 				"watch",
 			},
 		},
-		{
-			APIGroups: []string{
-				"scheduling.k8s.io",
-			},
-			Resources: []string{
-				"priorityclasses",
-			},
-			Verbs: []string{
-				"get",
-				"list",
-				"watch",
-				"create",
-				"delete",
-			},
-		},
 	}
 }
 

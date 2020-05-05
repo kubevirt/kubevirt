@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
-	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,7 +39,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/scheme"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
@@ -113,7 +111,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&sspv1.KubevirtNodeLabellerBundle{},
 		&sspv1.KubevirtTemplateValidator{},
 		&sspv1.KubevirtMetricsAggregation{},
-		&schedulingv1.PriorityClass{},
 	} {
 		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestsFromMapFunc{
 			ToRequests: handler.ToRequestsFunc(
@@ -249,7 +246,6 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 				ensureCDIDeleted,
 				ensureNetworkAddonsDeleted,
 				ensureKubeVirtCommonTemplateBundleDeleted,
-				ensureKubeVirtPriorityClassDeleted,
 			} {
 				err = f(r.client, instance)
 				if err != nil {
@@ -295,7 +291,6 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	for _, f := range []func(*hcov1alpha1.HyperConverged, logr.Logger, reconcile.Request) error{
-		r.ensureKubeVirtPriorityClass,
 		r.ensureKubeVirtConfig,
 		r.ensureKubeVirtStorageConfig,
 		r.ensureKubeVirt,
@@ -510,66 +505,6 @@ func newKubeVirtForCR(cr *hcov1alpha1.HyperConverged, namespace string) *kubevir
 			UninstallStrategy: kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
 		},
 	}
-}
-
-func newKubeVirtPriorityClass() *schedulingv1.PriorityClass {
-	return &schedulingv1.PriorityClass{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "scheduling.k8s.io/v1",
-			Kind:       "PriorityClass",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-cluster-critical",
-		},
-		// 1 billion is the highest value we can set
-		// https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
-		Value:         1000000000,
-		GlobalDefault: false,
-		Description:   "This priority class should be used for KubeVirt core components only.",
-	}
-}
-
-func (r *ReconcileHyperConverged) ensureKubeVirtPriorityClass(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
-	logger.Info("Reconciling KubeVirt PriorityClass")
-	pc := newKubeVirtPriorityClass()
-
-	key, err := client.ObjectKeyFromObject(pc)
-	if err != nil {
-		logger.Error(err, "Failed to get object key for KubeVirt PriorityClass")
-		return err
-	}
-
-	found := &schedulingv1.PriorityClass{}
-	err = r.client.Get(context.TODO(), key, found)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			// create the new object
-			return r.client.Create(context.TODO(), pc, &client.CreateOptions{})
-		}
-		return err
-	}
-
-	// at this point we found the object in the cache and we check if something was changed
-	if pc.Name == found.Name && pc.Value == found.Value && pc.Description == found.Description {
-		logger.Info("KubeVirt PriorityClass already exists", pc.Name)
-		objectRef, err := reference.GetReference(scheme.Scheme, found)
-		if err != nil {
-			log.Error(err, "failed getting object reference for found object")
-			return err
-		}
-		objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
-		return nil
-	}
-
-	// something was changed but since we can't patch a priority class object, we remove it
-	err = r.client.Delete(context.TODO(), found, &client.DeleteOptions{})
-	if err != nil {
-		return err
-	}
-
-	// create the new object
-	return r.client.Create(context.TODO(), pc, &client.CreateOptions{})
 }
 
 func (r *ReconcileHyperConverged) ensureKubeVirt(instance *hcov1alpha1.HyperConverged, logger logr.Logger, request reconcile.Request) error {
@@ -1257,29 +1192,6 @@ func componentResourceRemoval(o interface{}, c client.Client, cr *hcov1alpha1.Hy
 
 	err = c.Delete(context.TODO(), resource)
 	return err
-}
-
-func ensureKubeVirtPriorityClassDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) error {
-	pc := newKubeVirtPriorityClass()
-	key, err := client.ObjectKeyFromObject(pc)
-	if err != nil {
-		log.Error(err, "Failed to get object key for KubeVirt PriorityClass")
-		return err
-	}
-
-	found := &schedulingv1.PriorityClass{}
-	err = c.Get(context.TODO(), key, found)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Info("KubeVirt Priority Class resource doesn't exist, there is nothing to remove")
-			return nil
-		}
-		log.Error(err, "Failed to get KubeVirt Priority Class from kubernetes")
-		return err
-	}
-
-	return componentResourceRemoval(found, c, instance)
 }
 
 func ensureKubeVirtDeleted(c client.Client, instance *hcov1alpha1.HyperConverged) error {

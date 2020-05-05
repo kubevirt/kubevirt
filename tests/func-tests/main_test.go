@@ -3,7 +3,7 @@ package tests_test
 import (
 	"testing"
 
-	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
+	"github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
