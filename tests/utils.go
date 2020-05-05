@@ -3013,14 +3013,14 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		return "", fmt.Errorf("could not find compute container for pod")
 	}
 
-	stdout, _, err := ExecuteCommandOnPodV2(
+	stdout, stderr, err := ExecuteCommandOnPodV2(
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[containerIdx].Name,
 		[]string{"virsh", "dumpxml", vmi.Namespace + "_" + vmi.Name},
 	)
 	if err != nil {
-		return "", fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v", err)
+		return "", fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)
 	}
 	return stdout, err
 }
