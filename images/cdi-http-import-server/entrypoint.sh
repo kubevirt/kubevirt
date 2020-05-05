@@ -57,9 +57,10 @@ elif [ -n "$AS_EMPTY" ]; then
     touch /tmp/healthy
     bash expose-as-iscsi.sh "${IMAGE_PATH}/disk.raw"
 else
-    # Expose qemu-guest-agent via nginx server
-    cp /usr/bin/qemu-ga /usr/share/nginx/html/
-    cp /usr/bin/stress /usr/share/nginx/html/
-    cp /usr/bin/dmidecode /usr/share/nginx/html/
+    # Expose binaries via nginx server
+    for executable in qemu-ga stress dmidecode; do
+        cp $(which $executable) /usr/share/nginx/html/
+    done
+
     /usr/sbin/nginx
 fi
