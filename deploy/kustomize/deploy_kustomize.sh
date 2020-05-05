@@ -19,14 +19,14 @@ OC_TOOL="${OC_TOOL:-oc}"
 main() {
   SCRIPT_DIR="$(dirname "$0")"
   TARGET_NAMESPACE=$(grep name: $SCRIPT_DIR/namespace.yaml | awk '{print $2}')
+  sed -i "s/- kubevirt-hyperconverged/- $TARGET_NAMESPACE/" $SCRIPT_DIR/base/operator_group.yaml
 
   TMPDIR=$(mktemp -d)
   cp -r $SCRIPT_DIR/* $TMPDIR
 
   if [ "$PRIVATE_REPO" = 'true' ]; then
     get_quay_token
-    oc create secret generic quay-registry-kubevirt-hyperconverged --from-literal=token="$QUAY_TOKEN" -n openshift-marketplace
-
+    oc create secret generic quay-registry-kubevirt-hyperconverged --from-literal="token=$QUAY_TOKEN" -n openshift-marketplace
     cat <<EOF >$TMPDIR/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -106,7 +106,7 @@ get_quay_token() {
     echo [ERROR] Got invalid Token from Quay. Please check your credentials in QUAY_USERNAME and QUAY_PASSWORD.
     exit 1
   else
-    QUAY_TOKEN=\"$token\";
+    QUAY_TOKEN=$token;
   fi
 }
 

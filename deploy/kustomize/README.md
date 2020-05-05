@@ -57,8 +57,30 @@ Set "PRIVATE_REPO" to "true" and provide credentials using "QUAY_USERNAME" and "
 #### Image Registry
 Set environment variable "MARKETPLACE_MODE" to "false".
 
+#### Examples
+##### Deliver Content using Marketplace (appregistry)
+```
+CONTENT_ONLY=true \
+MARKETPLACE_MODE=true \ |
+./deploy/kustomize/deploy_kustomize.sh
+```
+
+##### Deploy HCO using Image Registry with KVM Emulation enabled
+```
+MARKETPLACE_MODE=false \
+KVM_EMULATION=true \
+CONTENT_ONLY=false \ |
+./deploy/kustomize/deploy_kustomize.sh
+```
+
+In order to change the default HCO bundle image, use the following command prior to executing the script:
+```
+DESIRED_IMAGE=< a URL to hco bundle image>
+sed "s/\(image: \)\(.*\)/\1${DESIRED_IMAGE}/" deploy/kustomize/image_registry/catalog_source.yaml
+```
+
 ## Deployment
-The deployment phase is consisting of 3 resources, located in `base` directory:
+The deployment phase consists of 3 resources, located in `base` directory:
 * OperatorGroup
 * Subscription
 * HyperConverged Custom Resource
@@ -122,6 +144,17 @@ metadata:
 spec:
   startingCSV: kubevirt-hyperconverged-operator.v${HCO_VERSION}
   channel: "${HCO_CHANNEL}"
+```
+and then update the `kustomization.yaml` to include the patch:
+```
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+bases:
+  - base
+
+patchesStrategicMerge:
+  - subscription.patch.yaml
 ```
 
 #### Deploy
