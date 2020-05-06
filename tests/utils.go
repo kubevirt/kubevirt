@@ -4637,7 +4637,7 @@ func IsRunningOnKindInfraIPv6() bool {
 }
 
 func SkipStressTestIfRunnigOnKindInfraIPv6() {
-	if IsRunningOnKindInfraIPv6() {
+	if IsRunningOnKindInfra() {
 		Skip("Skip stress test till issue https://github.com/kubevirt/kubevirt/issues/3323 is fixed")
 	}
 }
