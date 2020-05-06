@@ -59,10 +59,10 @@ Once all three steps have been completed, you are able to
   `kubelet` - to launch the VMI and configure it until it matches the required
   state.
 
-One a final note it is to say that both, the controllers and daemons are running
-as Pods (or similar) _on top of_ the Kubernetes cluster, and are not installed
-alongside it. The type is - as said before - even defined inside the
-Kubernetes API server. This allows users to speak to Kubernetes, but modify VMIs.
+One final note; both controllers and daemons are running as Pods (or similar)
+_on top of_ the Kubernetes cluster, and are not installed alongside it. The type
+is - as said before - even defined inside the Kubernetes API server. This allows
+users to speak to Kubernetes, but modify VMIs.
 
 The following diagram illustrates how the additional controllers and daemons
 communicate with Kubernetes and where the additional types are stored:
@@ -128,5 +128,5 @@ To decide these dilemmas we came up with the **KubeVirt Razor**:
 For example, we debated how we should connect VMs to external network
 resources. The quickest way seems to introduce KubeVirt-specific code,
 attaching a VM to a host bridge.
-However, we chose the longer path, of integrating with [Multus](https://github.com/intel/multus-cni)
+However, we chose the longer path of integrating with [Multus](https://github.com/intel/multus-cni)
 and [CNI](https://github.com/containernetworking) and improving them.
