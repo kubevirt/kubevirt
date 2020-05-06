@@ -199,3 +199,13 @@ func (_m *MockDomainManager) SetGuestTime(_param0 *v1.VirtualMachineInstance) er
 func (_mr *_MockDomainManagerRecorder) SetGuestTime(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetGuestTime", arg0)
 }
+
+func (_m *MockDomainManager) GetLoopbackAddress() string {
+	ret := _m.ctrl.Call(_m, "GetLoopbackAddress")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) GetLoopbackAddress() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetLoopbackAddress")
+}

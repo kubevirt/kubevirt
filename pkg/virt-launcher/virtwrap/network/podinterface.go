@@ -33,6 +33,7 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 
 	"github.com/vishvananda/netlink"
+	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -491,6 +492,11 @@ type MasqueradePodInterface struct {
 	gatewayIpv6Addr     *netlink.Addr
 }
 
+func isIpv6Enabled() bool {
+	podIP := os.Getenv("MY_POD_IP")
+	return netutils.IsIPv6String(podIP)
+}
+
 func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 	link, err := Handler.LinkByName(p.podInterfaceName)
 	if err != nil {
@@ -511,7 +517,7 @@ func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 		return err
 	}
 
-	if Handler.IsIpv6Enabled() {
+	if isIpv6Enabled() {
 		err = configureVifV6Addresses(p, err)
 		if err != nil {
 			return err
@@ -620,7 +626,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 			return err
 		}
 	}
-	if Handler.IsIpv6Enabled() && (Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil) {
+	if isIpv6Enabled() && (Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil) {
 		err = Handler.ConfigureIpv6Forwarding()
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to turn on net.ipv6.conf.all.forwarding")
@@ -733,7 +739,7 @@ func (p *MasqueradePodInterface) createBridge() error {
 		return err
 	}
 
-	if Handler.IsIpv6Enabled() {
+	if isIpv6Enabled() {
 		if err := Handler.AddrAdd(bridge, p.gatewayIpv6Addr); err != nil {
 			log.Log.Reason(err).Errorf("failed to set bridge IPv6")
 			return err

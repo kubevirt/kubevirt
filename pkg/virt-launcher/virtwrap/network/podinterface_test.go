@@ -378,7 +378,6 @@ var _ = Describe("Pod Network", func() {
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
 				}
-				mockNetwork.EXPECT().IsIpv6Enabled().Return(true).Times(3)
 
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -388,8 +387,6 @@ var _ = Describe("Pod Network", func() {
 			})
 			It("should define a new VIF bind to a bridge and create a specific nat rule using iptables", func() {
 				// Forward a specific port
-				mockNetwork.EXPECT().IsIpv6Enabled().Return(true).Times(3)
-
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
 					mockNetwork.EXPECT().IptablesAppendRule(proto, "nat",
@@ -425,7 +422,6 @@ var _ = Describe("Pod Network", func() {
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
 				}
-				mockNetwork.EXPECT().IsIpv6Enabled().Return(true).Times(3)
 
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -435,8 +431,6 @@ var _ = Describe("Pod Network", func() {
 			})
 			It("should define a new VIF bind to a bridge and create a specific nat rule using nftables", func() {
 				// Forward a specific port
-				mockNetwork.EXPECT().IsIpv6Enabled().Return(true).Times(3)
-
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(false).Times(2)
 

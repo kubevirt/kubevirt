@@ -1,6 +1,8 @@
 package util
 
 import (
+	"os/exec"
+
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
@@ -28,4 +30,19 @@ func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
 		return true
 	}
 	return false
+}
+
+// IsIpv6Disabled returns if IPv6 is disabled according sysctl
+func IsIpv6Disabled() bool {
+	ipv6Disabled, err := exec.Command("cat", "/proc/sys/net/ipv6/conf/default/disable_ipv6").Output()
+	return err != nil || string(ipv6Disabled) == "1"
+}
+
+// GetIPBindAddress returns IP bind address (either 0.0.0.0 or [::] according sysctl disable_ipv6)
+func GetIPBindAddress() string {
+	if IsIpv6Disabled() {
+		return "0.0.0.0"
+	}
+
+	return "[::]"
 }
