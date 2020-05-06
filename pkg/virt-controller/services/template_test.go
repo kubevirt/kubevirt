@@ -203,6 +203,52 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.SecurityContext.SELinuxOptions).ToNot(BeNil())
 				Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal("spc_t"))
 			})
+			It("should have a level of s0 on all but compute if a type is specified", func() {
+				testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
+					Data: map[string]string{virtconfig.SELinuxLauncherTypeKey: "spc_t"},
+				})
+				volumes := []v1.Volume{
+					{
+						Name: "containerdisk",
+						VolumeSource: v1.VolumeSource{
+							ContainerDisk: &v1.ContainerDiskSource{
+								Image: "my-image-1",
+							},
+						},
+					},
+				}
+				annotations := map[string]string{
+					hooks.HookSidecarListAnnotationName: `
+[
+  {
+    "image": "some-image:v1",
+    "imagePullPolicy": "IfNotPresent"
+  },
+  {
+    "image": "another-image:v1",
+    "imagePullPolicy": "Always"
+  }
+]
+`,
+				}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+						Annotations: annotations,
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Volumes: volumes,
+						Domain:  v1.DomainSpec{},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				for _, c := range pod.Spec.Containers {
+					if c.Name != "compute" {
+						Expect(c.SecurityContext.SELinuxOptions.Level).To(Equal("s0"))
+					}
+				}
+			})
 		})
 		Context("with debug log annotation", func() {
 			It("should add the corresponding environment variable", func() {
