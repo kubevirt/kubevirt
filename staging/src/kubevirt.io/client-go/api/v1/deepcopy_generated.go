@@ -2134,7 +2134,7 @@ func (in *VirtualMachineInstanceMigrationState) DeepCopyInto(out *VirtualMachine
 	}
 	if in.TargetDirectMigrationNodePorts != nil {
 		in, out := &in.TargetDirectMigrationNodePorts, &out.TargetDirectMigrationNodePorts
-		*out = make(map[int]int, len(*in))
+		*out = make(map[string]int, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
 		}

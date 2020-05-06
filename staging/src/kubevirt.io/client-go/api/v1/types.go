@@ -355,7 +355,7 @@ type VirtualMachineInstanceMigrationState struct {
 	// The address of the target node to use for the migration
 	TargetNodeAddress string `json:"targetNodeAddress,omitempty"`
 	// The list of ports opened for live migration on the destination node
-	TargetDirectMigrationNodePorts map[int]int `json:"targetDirectMigrationNodePorts,omitempty"`
+	TargetDirectMigrationNodePorts map[string]int `json:"targetDirectMigrationNodePorts,omitempty"`
 	// The target node that the VMI is moving to
 	TargetNode string `json:"targetNode,omitempty"`
 	// The target pod that the VMI is moving to

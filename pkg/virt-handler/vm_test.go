@@ -932,7 +932,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				TargetNodeAddress:              "127.0.0.1:12345",
 				SourceNode:                     host,
 				MigrationUID:                   "123",
-				TargetDirectMigrationNodePorts: map[int]int{49152: 12132},
+				TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
 			}
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
@@ -971,7 +971,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				TargetNodeAddress:              "127.0.0.1:12345",
 				SourceNode:                     host,
 				MigrationUID:                   "123",
-				TargetDirectMigrationNodePorts: map[int]int{49152: 12132},
+				TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
 			}
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
