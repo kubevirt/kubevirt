@@ -82,6 +82,9 @@ kind: OperatorGroup
 metadata:
   name: hco-operatorgroup
   namespace: kubevirt-hyperconverged
+spec:
+  targetNamespaces:
+  - "kubevirt-hyperconverged"
 EOF
 ```
 
