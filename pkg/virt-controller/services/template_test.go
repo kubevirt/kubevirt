@@ -1517,14 +1517,10 @@ var _ = Describe("Template", func() {
 				Expect(ok).To(BeTrue())
 				Expect(int(tun.Value())).To(Equal(1))
 
-				found := false
 				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
-				for _, cap := range caps.Add {
-					if cap == CAP_NET_ADMIN {
-						found = true
-					}
-				}
-				Expect(found).To(BeTrue(), "Expected compute container to be granted NET_ADMIN capability")
+
+				Expect(caps.Add).To(ContainElement(kubev1.Capability(CAP_NET_ADMIN)), "Expected compute container to be granted NET_ADMIN capability")
+				Expect(caps.Add).To(ContainElement(kubev1.Capability(CAP_NET_RAW)), "Expected compute container to be granted NET_RAW capability")
 			})
 
 			It("Should require tun device if explicitly requested", func() {
@@ -1545,14 +1541,10 @@ var _ = Describe("Template", func() {
 				Expect(ok).To(BeTrue())
 				Expect(int(tun.Value())).To(Equal(1))
 
-				found := false
 				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
-				for _, cap := range caps.Add {
-					if cap == CAP_NET_ADMIN {
-						found = true
-					}
-				}
-				Expect(found).To(BeTrue(), "Expected compute container to be granted NET_ADMIN capability")
+
+				Expect(caps.Add).To(ContainElement(kubev1.Capability(CAP_NET_ADMIN)), "Expected compute container to be granted NET_ADMIN capability")
+				Expect(caps.Add).To(ContainElement(kubev1.Capability(CAP_NET_RAW)), "Expected compute container to be granted NET_RAW capability")
 			})
 
 			It("Should not require tun device if explicitly rejected", func() {
@@ -1572,14 +1564,10 @@ var _ = Describe("Template", func() {
 				_, ok := pod.Spec.Containers[0].Resources.Limits[TunDevice]
 				Expect(ok).To(BeFalse())
 
-				found := false
 				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
-				for _, cap := range caps.Add {
-					if cap == CAP_NET_ADMIN {
-						found = true
-					}
-				}
-				Expect(found).To(BeFalse(), "Expected compute container to not be granted NET_ADMIN capability")
+
+				Expect(caps.Add).To(Not(ContainElement(kubev1.Capability(CAP_NET_ADMIN))), "Expected compute container not to be granted NET_ADMIN capability")
+				Expect(caps.Add).To(Not(ContainElement(kubev1.Capability(CAP_NET_RAW))), "Expected compute container not to be granted NET_RAW capability")
 			})
 		})
 
