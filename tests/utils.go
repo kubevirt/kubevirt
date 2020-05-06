@@ -2027,8 +2027,8 @@ func GetGuestAgentUserData() string {
 
 	ipv6UserDataString := ""
 	if netutils.IsIPv6String(dnsServerIP) {
-		ipv6UserDataString = fmt.Sprintf(`sudo ip -6 addr add fd2e:f1fe:9490:a8ff::2/120 dev eth0
-                             sudo ip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2
+		ipv6UserDataString = fmt.Sprintf(`sudo ip -6 addr add fd10:0:2::2/120 dev eth0
+                             sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2
                              echo "nameserver %s" >> /etc/resolv.conf`, dnsServerIP)
 	}
 	return fmt.Sprintf(`#!/bin/bash
@@ -2779,13 +2779,13 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 	ipv6Batch := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "sudo ip -6 addr add fd2e:f1fe:9490:a8ff::2/120 dev eth0\n"},
+		&expect.BSnd{S: "sudo ip -6 addr add fd10:0:2::2/120 dev eth0\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 		&expect.BSnd{S: "sleep 5\n"},
 		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "sudo ip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2\n"},
+		&expect.BSnd{S: "sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
