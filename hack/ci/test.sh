@@ -13,6 +13,5 @@ bash -x ./hack/cluster-deploy.sh
 
 echo "testing"
 mkdir -p "$ARTIFACT_DIR"
-TESTS_TO_FOCUS=$(grep -E -o '\[crit\:high\]' tests/*_test.go | sort | uniq | sed -E 's/tests\/([a-z_]+)\.go\:.*/\1/' | tr '\n' '|' | sed 's/|$//')
-FUNC_TEST_ARGS='--ginkgo.noColor --ginkgo.focus='"$TESTS_TO_FOCUS"' --ginkgo.regexScansFilePath=true --junit-output='"$ARTIFACT_DIR"'/junit.functest.xml' \
+FUNC_TEST_ARGS='--ginkgo.noColor --ginkgo.focus=\[crit:high\] --junit-output='"$ARTIFACT_DIR"'/junit.functest.xml' \
     bash -x ./hack/functests.sh

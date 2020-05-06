@@ -1,12 +1,5 @@
 #!/usr/bin/env bash
 
-# poor mans replacement for PULL_PULL_SHA provided by prow - use the second parent commit id from the merge commit
-mkdir -p _out/
-merge_commit=$(git --no-pager log -1 --merges --format=%H)
-git --no-pager show ${merge_commit} --format=%P | tr -d '\n' | cut -d ' ' -f 2 >_out/PULL_PULL_SHA
-PULL_PULL_SHA=$(cat _out/PULL_PULL_SHA)
-export PULL_PULL_SHA
-
 export DOCKER_PREFIX='kubevirtnightlybuilds'
 export DOCKER_TAG="latest"
 export KUBEVIRT_PROVIDER=external
