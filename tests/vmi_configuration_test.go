@@ -2407,7 +2407,7 @@ var _ = Describe("Configurations", func() {
 		)
 	})
 
-	It("VMI with masquerade binding and guest agent should expose Pod IP as its public address", func() {
+	It("[test_id:4153]VMI with masquerade binding and guest agent should expose Pod IP as its public address", func() {
 		vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 
 		By("Starting a VirtualMachineInstance")
