@@ -2,6 +2,8 @@ FROM registry.svc.ci.openshift.org/ci/kubevirt-builder:30-5.8.1 AS builder
 WORKDIR /go/src/github.com/kubevirt.io/kubevirt
 COPY . .
 
+ENV KUBEVIRT_RUN_UNNESTED=true
+
 RUN source /etc/profile.d/gimme.sh && \
     export GOPATH="/root/go" && \
     ./hack/ci/build.sh
