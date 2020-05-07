@@ -351,7 +351,7 @@ func getPhase2Binding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, netwo
 			domain:              domain,
 			podInterfaceName:    podInterfaceName,
 			vmNetworkCIDR:       network.Pod.VMNetworkCIDR,
-			vmIpv6NetworkCIDR:   "", // TODO add ipv6 cidr to PodNetwork schema
+			vmIPv6NetworkCIDR:   network.Pod.VMIPv6NetworkCIDR,
 			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName),
 			storeFactory:        storeFactory,
 		}, nil
@@ -704,7 +704,7 @@ type MasqueradeBindMechanism struct {
 	podInterfaceName    string
 	bridgeInterfaceName string
 	vmNetworkCIDR       string
-	vmIpv6NetworkCIDR   string
+	vmIPv6NetworkCIDR   string
 	gatewayAddr         *netlink.Addr
 	gatewayIpv6Addr     *netlink.Addr
 	storeFactory        cache.InterfaceCacheFactory
@@ -771,13 +771,13 @@ func configureVifV4Addresses(b *MasqueradeBindMechanism, err error) error {
 }
 
 func configureVifV6Addresses(b *MasqueradeBindMechanism, err error) error {
-	if b.vmIpv6NetworkCIDR == "" {
-		b.vmIpv6NetworkCIDR = api.DefaultVMIpv6CIDR
+	if b.vmIPv6NetworkCIDR == "" {
+		b.vmIPv6NetworkCIDR = api.DefaultVMIpv6CIDR
 	}
 
-	defaultGatewayIpv6, vmIpv6, err := Handler.GetHostAndGwAddressesFromCIDR(b.vmIpv6NetworkCIDR)
+	defaultGatewayIpv6, vmIpv6, err := Handler.GetHostAndGwAddressesFromCIDR(b.vmIPv6NetworkCIDR)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get gw and vm available ipv6 addresses from CIDR %s", b.vmIpv6NetworkCIDR)
+		log.Log.Reason(err).Errorf("failed to get gw and vm available ipv6 addresses from CIDR %s", b.vmIPv6NetworkCIDR)
 		return err
 	}
 

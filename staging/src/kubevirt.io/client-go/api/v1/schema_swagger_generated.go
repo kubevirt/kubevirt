@@ -709,8 +709,9 @@ func (NetworkSource) SwaggerDoc() map[string]string {
 
 func (PodNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "Represents the stock pod network interface.\n\n+k8s:openapi-gen=true",
-		"vmNetworkCIDR": "CIDR for vm network.\nDefault 10.0.2.0/24 if not specified.",
+		"":                  "Represents the stock pod network interface.\n\n+k8s:openapi-gen=true",
+		"vmNetworkCIDR":     "CIDR for vm network.\nDefault 10.0.2.0/24 if not specified.",
+		"vmIPv6NetworkCIDR": "IPv6 CIDR for the vm network.\nDefaults to fd10:0:2::/120 if not specified.",
 	}
 }
 
