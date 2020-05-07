@@ -280,12 +280,12 @@ able to post it and get a machine attached to an SR-IOV device via VFIO. Note
 that the `NetworkAttachmentDefinition` resource should also refer, in its
 annotations, to a correct resource name as reported by SR-IOV device plugin for
 all this to work. More details on usage can be found in
-[KubeVirt](https://kubevirt.io/user-guide/docs/latest/creating-virtual-machines/interfaces-and-networks.html#sriov)
+[KubeVirt](https://kubevirt.io/user-guide/#/creation/interfaces-and-networks?id=sriov)
 and [SR-IOV operator](https://github.com/openshift/sriov-network-operator/blob/master/doc/quickstart.md)
 user documentation.
 
 # External resources
 
-* [User guide section on SR-IOV](https://kubevirt.io/user-guide/docs/latest/creating-virtual-machines/interfaces-and-networks.html#sriov)
+* [User guide section on SR-IOV](https://kubevirt.io/user-guide/#/creation/interfaces-and-networks?id=sriov)
 * [OpenShift user docs on SR-IOV](https://docs.openshift.com/container-platform/4.2/networking/multiple-networks/configuring-sr-iov.html)
 * [Doug Smith's blog post on deploying and testing SR-IOV](https://dougbtv.com/nfvpe/2019/05/15/kubevirt-sriov/)
