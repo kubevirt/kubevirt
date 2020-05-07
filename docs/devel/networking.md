@@ -1,4 +1,14 @@
 # VMI Networking
+Before we explain how KubeVirt performs VM networking configuration, it is
+paramount we separate the pod networking configuration and the  VM networking
+configuration concepts. The underlying configuration of the pod network
+interface is out of the scope of this document; Kubernetes is responsible to
+set up pod networking according to its configuration, via CNI. It is safe to
+assume it will simply plug a configured network interface into the pod, and
+through it, the pod connects to the outside world.
+
+The relevant part for KubeVirt is VM networking configuration, which will be
+casually referred to as `binding` throughout this developer's guide.
 
 ## VMI networking configuration
 In this section we'll explain how VM networking is configured. In order to
