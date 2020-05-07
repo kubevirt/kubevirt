@@ -38,5 +38,6 @@ aliases:
   test-reviewers:
       - jerry7z
       - ILpinto
+      - rnetser
   ci-approvers:
       - dhiller
