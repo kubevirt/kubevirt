@@ -71,6 +71,9 @@ const (
 
 	// the regex used to parse the operator image
 	operatorImageRegex = "^(.*)/(.*)virt-operator([@:].*)?$"
+
+	// Prefix for env vars that will be passed along
+	PassthroughEnvPrefix = "KV_IO_EXTRA_ENV_"
 )
 
 type KubeVirtDeploymentConfig struct {
@@ -93,6 +96,9 @@ type KubeVirtDeploymentConfig struct {
 
 	// everything else, which can e.g. come from KubeVirt CR spec
 	AdditionalProperties map[string]string `json:"additionalProperties,omitempty" optional:"true"`
+
+	// environment variables from virt-operator to pass along
+	PassthroughEnvVars map[string]string `json:"passthroughEnvVars,omitempty" optional:"true"`
 }
 
 func GetConfigFromEnv() (*KubeVirtDeploymentConfig, error) {
@@ -214,7 +220,9 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 		}
 	}
 
-	config := newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, additionalProperties)
+	passthroughEnv := GetPassthroughEnv()
+
+	config := newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, additionalProperties, passthroughEnv)
 	if skipShasums {
 		return config
 	}
@@ -226,7 +234,7 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	launcherSha := os.Getenv(VirtLauncherShasumEnvName)
 	kubeVirtVersion := os.Getenv(KubeVirtVersionEnvName)
 	if operatorSha != "" && apiSha != "" && controllerSha != "" && handlerSha != "" && launcherSha != "" && kubeVirtVersion != "" {
-		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace, additionalProperties)
+		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace, additionalProperties, passthroughEnv)
 	}
 
 	return config
@@ -261,19 +269,33 @@ func VerifyEnv() error {
 	return nil
 }
 
-func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace string, kvSpec map[string]string) *KubeVirtDeploymentConfig {
+func GetPassthroughEnv() map[string]string {
+	passthroughEnv := map[string]string{}
+
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, PassthroughEnvPrefix) {
+			split := strings.Split(env, "=")
+			passthroughEnv[strings.TrimPrefix(split[0], PassthroughEnvPrefix)] = split[1]
+		}
+	}
+
+	return passthroughEnv
+}
+
+func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:             registry,
 		ImagePrefix:          imagePrefix,
 		KubeVirtVersion:      tag,
 		Namespace:            namespace,
 		AdditionalProperties: kvSpec,
+		PassthroughEnvVars:   passthroughEnv,
 	}
 	c.generateInstallStrategyID()
 	return c
 }
 
-func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace string, additionalProperties map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace string, additionalProperties, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:             registry,
 		ImagePrefix:          imagePrefix,
@@ -285,6 +307,7 @@ func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, oper
 		VirtLauncherSha:      launcherSha,
 		Namespace:            namespace,
 		AdditionalProperties: additionalProperties,
+		PassthroughEnvVars:   passthroughEnv,
 	}
 	c.generateInstallStrategyID()
 	return c
@@ -335,6 +358,10 @@ func (c *KubeVirtDeploymentConfig) GetImageRegistry() string {
 
 func (c *KubeVirtDeploymentConfig) GetImagePrefix() string {
 	return c.ImagePrefix
+}
+
+func (c *KubeVirtDeploymentConfig) GetExtraEnv() map[string]string {
+	return c.PassthroughEnvVars
 }
 
 func (c *KubeVirtDeploymentConfig) UseShasums() bool {
@@ -455,4 +482,14 @@ func (c *KubeVirtDeploymentConfig) GetJson() (string, error) {
 		return "", err
 	}
 	return string(json), nil
+}
+
+func NewEnvVarMap(envMap map[string]string) *[]k8sv1.EnvVar {
+	env := []k8sv1.EnvVar{}
+
+	for k, v := range envMap {
+		env = append(env, k8sv1.EnvVar{Name: k, Value: v})
+	}
+
+	return &env
 }

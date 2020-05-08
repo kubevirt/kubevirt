@@ -19,6 +19,7 @@
 package util
 
 import (
+	"fmt"
 	"os"
 
 	. "github.com/onsi/ginkgo"
@@ -26,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 var _ = Describe("Operator Config", func() {
@@ -131,6 +133,51 @@ var _ = Describe("Operator Config", func() {
 			getConfig("kubevirt", "v123"),
 			false, false),
 	)
+
+	Describe("GetPassthroughEnv()", func() {
+		It("should eturn environment variables matching the passthrough prefix (and only those vars)", func() {
+			realKey := rand.String(10)
+			passthroughKey := fmt.Sprintf("%s%s", PassthroughEnvPrefix, realKey)
+			otherKey := rand.String(10)
+			val := rand.String(10)
+
+			err := os.Setenv(passthroughKey, val)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = os.Setenv(otherKey, val)
+			Expect(err).ToNot(HaveOccurred())
+
+			envMap := GetPassthroughEnv()
+
+			err = os.Unsetenv(passthroughKey)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = os.Unsetenv(otherKey)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(envMap).To(Equal(map[string]string{realKey: val}))
+
+		})
+	})
+
+	Describe("NewEnvVarMap()", func() {
+		It("Should convert a map to a list of EnvVar objects", func() {
+			key1 := rand.String(10)
+			val1 := rand.String(10)
+			key2 := rand.String(10)
+			val2 := rand.String(10)
+
+			envMap := map[string]string{key1: val1, key2: val2}
+
+			envObjects := NewEnvVarMap(envMap)
+			expected := []k8sv1.EnvVar{
+				{Name: key1, Value: val1},
+				{Name: key2, Value: val2},
+			}
+
+			Expect(*envObjects).To(BeEquivalentTo(expected))
+		})
+	})
 
 	Describe("Config json from env var", func() {
 		It("should be parsed", func() {

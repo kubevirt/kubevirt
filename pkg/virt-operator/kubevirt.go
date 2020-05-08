@@ -726,6 +726,10 @@ func (c *KubeVirtController) generateInstallStrategyJob(config *operatorutil.Kub
 		},
 	}
 
+	env := job.Spec.Template.Spec.Containers[0].Env
+	extraEnv := util.NewEnvVarMap(config.GetExtraEnv())
+	job.Spec.Template.Spec.Containers[0].Env = append(env, *extraEnv...)
+
 	return job, nil
 }
 

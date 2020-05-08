@@ -645,7 +645,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		// virt-api
 		// virt-controller
 		// virt-handler
-		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 
 		pod := &k8sv1.Pod{
 			ObjectMeta: apiDeployment.Spec.Template.ObjectMeta,
@@ -661,7 +661,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		pod.Name = "virt-api-xxxx"
 		addPod(pod)
 
-		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		pod = &k8sv1.Pod{
 			ObjectMeta: controller.Spec.Template.ObjectMeta,
 			Spec:       controller.Spec.Template.Spec,
@@ -676,7 +676,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		injectMetadata(&pod.ObjectMeta, config)
 		addPod(pod)
 
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		pod = &k8sv1.Pod{
 			ObjectMeta: handler.Spec.Template.ObjectMeta,
 			Spec:       handler.Spec.Template.Spec,
@@ -847,11 +847,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewOperatorWebhookService(NAMESPACE))
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
-		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity())
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 		all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetMonitorNamespace(), config.GetMonitorServiceAccount())...)
@@ -1731,6 +1731,57 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectJobCreation()
 			controller.Execute()
 
+		}, 15)
+
+		It("should create an install strategy creation job with passthrough env vars, if provided in config", func(done Done) {
+			defer close(done)
+			config := getConfig("registry", "v1.1.1")
+			envKey := rand.String(10)
+			envVal := rand.String(10)
+			config.PassthroughEnvVars = map[string]string{envKey: envVal}
+			job, err := controller.generateInstallStrategyJob(config)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(job.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
+		}, 15)
+
+		It("should create an api server deployment with passthrough env vars, if provided in config", func(done Done) {
+			defer close(done)
+			config := getConfig("registry", "v1.1.1")
+			envKey := rand.String(10)
+			envVal := rand.String(10)
+			config.PassthroughEnvVars = map[string]string{envKey: envVal}
+
+			apiDeployment, err := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
+		}, 15)
+
+		It("should create a controller deployment with passthrough env vars, if provided in config", func(done Done) {
+			defer close(done)
+			config := getConfig("registry", "v1.1.1")
+			envKey := rand.String(10)
+			envVal := rand.String(10)
+			config.PassthroughEnvVars = map[string]string{envKey: envVal}
+
+			controllerDeployment, err := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
+		}, 15)
+
+		It("should create a handler daemonset with passthrough env vars, if provided in config", func(done Done) {
+			defer close(done)
+			config := getConfig("registry", "v1.1.1")
+			envKey := rand.String(10)
+			envVal := rand.String(10)
+			config.PassthroughEnvVars = map[string]string{envKey: envVal}
+
+			handlerDaemonset, err := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		}, 15)
 
 		It("should generate install strategy creation job if no install strategy exists", func(done Done) {
