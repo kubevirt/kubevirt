@@ -56,7 +56,7 @@ var _ = Describe("IOThreads", func() {
 
 		availableCPUs := tests.GetHighestCPUNumberAmongNodes(virtClient)
 
-		It("Should honor shared ioThreadsPolicy for single disk", func() {
+		It("[test_id:4122]Should honor shared ioThreadsPolicy for single disk", func() {
 			policy := v1.IOThreadsPolicyShared
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 

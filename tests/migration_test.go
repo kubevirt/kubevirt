@@ -405,7 +405,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 		Context("with a Cirros disk", func() {
-			It("should be successfully migrate with cloud-init disk with devices on the root bus", func() {
+			It("[test_id:4113]should be successfully migrate with cloud-init disk with devices on the root bus", func() {
 				tests.SkipMigrationTestIfRunnigOnKindInfra()
 
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
@@ -539,7 +539,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 		Context("with setting guest time", func() {
-			It("should set an updated time after a migration", func() {
+			It("[test_id:4114]should set an updated time after a migration", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}

@@ -420,7 +420,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(len(vmis.Items)).Should(Equal(2))
 	})
 
-	It("should create and verify kubectl/oc output for vm replicaset", func() {
+	It("[test_id:4121]should create and verify kubectl/oc output for vm replicaset", func() {
 		k8sClient := tests.GetK8sCmdClient()
 		tests.SkipIfNoCmd(k8sClient)
 

@@ -71,7 +71,7 @@ var _ = Describe("VMIDefaults", func() {
 
 	Context("Disk defaults", func() {
 
-		It("Should be applied to VMIs", func() {
+		It("[test_id:4115]Should be applied to VMIs", func() {
 			// create the VMI first
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
