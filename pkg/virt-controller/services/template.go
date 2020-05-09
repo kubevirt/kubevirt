@@ -1047,8 +1047,25 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	// If an SELinux type was specified, use that--otherwise don't set an SELinux type
 	selinuxType := t.clusterConfig.GetSELinuxLauncherType()
-	if selinuxType != virtconfig.DefaultSELinuxLauncherType {
+	if selinuxType != "" {
 		pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
+		// By setting an SELinux option on the virt-launcher pod, we trigger this:
+		// https://github.com/kubernetes/kubernetes/issues/90759
+		// Since the compute container needs to be able to communicate with the rest of the pod,
+		//   we loop over all the containers and remove their SELinux categories.
+		for i := range pod.Spec.Containers {
+			container := &pod.Spec.Containers[i]
+			if container.Name != "compute" {
+				if container.SecurityContext == nil {
+					container.SecurityContext = &k8sv1.SecurityContext{}
+				}
+				if container.SecurityContext.SELinuxOptions == nil {
+					container.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{}
+				}
+				container.SecurityContext.SELinuxOptions.Type = selinuxType
+				container.SecurityContext.SELinuxOptions.Level = "s0"
+			}
+		}
 	}
 
 	if vmi.Spec.PriorityClassName != "" {
