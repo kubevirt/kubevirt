@@ -168,6 +168,7 @@ const (
 	GuestAgentHttpUrl
 	StressHttpUrl
 	DmidecodeHttpUrl
+	DummyFileHttpUrl
 )
 
 const (
@@ -4429,6 +4430,8 @@ func GetUrl(urlIndex int) string {
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/stress", KubeVirtInstallNamespace)
 	case DmidecodeHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dmidecode", KubeVirtInstallNamespace)
+	case DummyFileHttpUrl:
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/dummy.file", KubeVirtInstallNamespace)
 	default:
 		str = ""
 	}

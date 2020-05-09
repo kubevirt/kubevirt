@@ -43,6 +43,7 @@ import (
 )
 
 const InvalidDataVolumeUrl = "http://127.0.0.1/invalid"
+const DummyFilePath = "/usr/share/nginx/html/dummy.file"
 
 var _ = Describe("DataVolume Integration", func() {
 	tests.FlagParse()
@@ -110,6 +111,58 @@ var _ = Describe("DataVolume Integration", func() {
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with an invalid DataVolume", func() {
 		Context("using DataVolume with invalid URL", func() {
+			deleteDataVolume := func(dv *cdiv1.DataVolume) {
+				By("Deleting the DataVolume")
+				ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+			}
+
+			waitForDv := func(dataVolume *cdiv1.DataVolume) {
+				Eventually(func() cdiv1.DataVolumePhase {
+					dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Get(dataVolume.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					return dv.Status.Phase
+				}, 10*time.Second, 1*time.Second).
+					Should(Equal(cdiv1.ImportInProgress), "Timed out waiting for DataVolume to enter ImportInProgress phase")
+			}
+
+			deleteDummyFile := func(fileName string) {
+				httpPod, err := tests.GetRunningPodByLabel("cdi-http-import-server", "kubevirt.io", tests.KubeVirtInstallNamespace, "")
+				Expect(err).ToNot(HaveOccurred())
+				By("Deleting dummy file")
+				_, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					httpPod,
+					httpPod.Spec.Containers[0].Name,
+					[]string{"rm", fileName},
+				)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			createDummyFile := func(fileName string, sizeInMB string) {
+				httpPod, err := tests.GetRunningPodByLabel("cdi-http-import-server", "kubevirt.io", tests.KubeVirtInstallNamespace, "")
+				Expect(err).ToNot(HaveOccurred())
+				_, _, err = tests.ExecuteCommandOnPodV2(
+					virtClient,
+					httpPod,
+					httpPod.Spec.Containers[0].Name,
+					[]string{"dd", "if=/dev/urandom", "of=" + fileName, "bs=1M", "count=" + sizeInMB},
+				)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			waitForVM := func(vm *v1.VirtualMachine, phase v1.VirtualMachineInstancePhase, message string) {
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.GetName(), &metav1.GetOptions{})
+					if err != nil {
+						Expect(err.Error()).To(ContainSubstring("not found"),
+							"A 404 while VMI is being created would be normal. All other errors are unexpected")
+						return v1.VmPhaseUnset
+					}
+					return vmi.Status.Phase
+				}, 100*time.Second, 1*time.Second).Should(Equal(phase), message)
+			}
+
 			It("[test_id:3190]should correctly handle invalid DataVolumes", func() {
 				// Don't actually create the DataVolume since it's invalid.
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(InvalidDataVolumeUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
@@ -123,16 +176,44 @@ var _ = Describe("DataVolume Integration", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for VMI to be created")
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.GetName(), &metav1.GetOptions{})
-					if err != nil {
-						Expect(err.Error()).To(ContainSubstring("not found"),
-							"A 404 while VMI is being created would be normal. All other errors are unexpected")
-						return v1.VmPhaseUnset
-					}
-					return vmi.Status.Phase
+				waitForVM(vm, v1.Pending, "VMI with invalid DataVolume should not be scheduled")
+			})
+			It("[test_id:3190]should correctly handle eventually consistent DataVolumes", func() {
+				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.DummyFileHttpUrl),
+					tests.NamespaceTestDefault,
+					k8sv1.ReadWriteOnce,
+				)
+				defer deleteDataVolume(dataVolume)
 
-				}, 100*time.Second, 5*time.Second).Should(Equal(v1.Pending), "VMI with invalid DataVolume should not be scheduled")
+				By("Creating DataVolume with invalid URL")
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				Expect(err).To(BeNil())
+				waitForDv(dataVolume)
+
+				By("Creating a VM with an invalid DataVolume")
+				//  Add the invalid DataVolume to a VMI
+				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+				// Create a VM for this VMI
+				vm := tests.NewRandomVirtualMachine(vmi, true)
+				_, err = virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi, _ = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.GetName(), &metav1.GetOptions{})
+				waitForVM(vm, v1.Pending, "VMI with inconsistent DV should be created")
+
+				By("Fix DataVolume URL")
+				createDummyFile(DummyFilePath, "1")
+				defer deleteDummyFile(DummyFilePath)
+
+				By("Wait for DataVolume to complete")
+				Eventually(func() cdiv1.DataVolumePhase {
+					dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Get(dataVolume.Name, metav1.GetOptions{})
+					Expect(err).ShouldNot(HaveOccurred())
+					return dataVolume.Status.Phase
+				}, 160*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded))
+
+				By("Waiting for VMI to be created")
+				waitForVM(vm, v1.Running, "VMI with eventually consistent DataVolume should have been started")
 			})
 		})
 	})

@@ -2,8 +2,6 @@ package watch
 
 import (
 	"fmt"
-	"strconv"
-	"time"
 
 	"github.com/go-openapi/errors"
 
@@ -114,26 +112,6 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		}
 
-		shouldExpectDataVolumeUpdate := func(uid types.UID, name string) {
-			cdiClient.Fake.PrependReactor("update", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				dataVolume := update.GetObject().(*cdiv1.DataVolume)
-
-				Expect(dataVolume.Name).To(Equal(name))
-				now := time.Now().UTC().Unix()
-				deleteAfterStr, ok := dataVolume.Annotations[dataVolumeDeleteAfterTimestampAnno]
-				Expect(ok).To(BeTrue())
-
-				deleteAfterTimestamp, err := strconv.ParseInt(deleteAfterStr, 10, 64)
-				Expect(err).To(BeNil())
-
-				Expect(deleteAfterTimestamp > now).To(BeTrue())
-
-				return true, update.GetObject(), nil
-			})
-		}
-
 		addVirtualMachine := func(vm *v1.VirtualMachine) {
 			syncCaches(stop)
 			mockQueue.ExpectAdds(1)
@@ -184,7 +162,7 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 		})
 
-		It("should not delete failed DataVolume for VirtualMachineInstance until after timeout", func() {
+		It("should not delete failed DataVolume for VirtualMachineInstance", func() {
 			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
@@ -218,62 +196,6 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 			existingDataVolume1.Namespace = "default"
 			existingDataVolume1.Status.Phase = cdiv1.Failed
-
-			// set the delete after timestamp way into the future
-			existingDataVolume1.Annotations[dataVolumeDeleteAfterTimestampAnno] = strconv.FormatInt(time.Now().UTC().Unix()+60, 10)
-
-			existingDataVolume2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
-			existingDataVolume2.Namespace = "default"
-			existingDataVolume2.Status.Phase = cdiv1.Succeeded
-
-			dataVolumeFeeder.Add(existingDataVolume1)
-			dataVolumeFeeder.Add(existingDataVolume2)
-
-			deletionCount := 0
-
-			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(vm, nil)
-
-			controller.Execute()
-
-			Expect(deletionCount).To(Equal(0))
-			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
-		})
-
-		It("should delete failed DataVolume for VirtualMachineInstance", func() {
-			vm, _ := DefaultVirtualMachine(true)
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
-				},
-			})
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv2",
-					},
-				},
-			})
-
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
-			})
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv2",
-				},
-			})
-			addVirtualMachine(vm)
-
-			existingDataVolume1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
-			existingDataVolume1.Namespace = "default"
-			existingDataVolume1.Status.Phase = cdiv1.Failed
-			existingDataVolume1.Annotations[dataVolumeDeleteAfterTimestampAnno] = strconv.FormatInt(time.Now().UTC().Unix(), 10)
 
 			existingDataVolume2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume2.Namespace = "default"
@@ -289,7 +211,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			controller.Execute()
 
-			Expect(deletionCount).To(Equal(1))
+			Expect(deletionCount).To(Equal(0))
 			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
 		})
 
@@ -334,8 +256,6 @@ var _ = Describe("VirtualMachine", func() {
 
 			dataVolumeFeeder.Add(existingDataVolume1)
 			dataVolumeFeeder.Add(existingDataVolume2)
-
-			shouldExpectDataVolumeUpdate(vm.UID, existingDataVolume1.Name)
 
 			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(vm, nil)
 
@@ -388,8 +308,6 @@ var _ = Describe("VirtualMachine", func() {
 
 			dataVolumeFeeder.Add(existingDataVolume1)
 			dataVolumeFeeder.Add(existingDataVolume2)
-
-			shouldExpectDataVolumeUpdate(vm.UID, existingDataVolume1.Name)
 
 			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(vm, nil)
 
