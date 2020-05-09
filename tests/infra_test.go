@@ -67,6 +67,10 @@ var _ = Describe("Infrastructure", func() {
 
 	Describe("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates", func() {
 
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+
 		It("[test_id:4099]should be rotated when a new CA is created", func() {
 			By("checking that the config-map gets the new CA bundle attached")
 			Eventually(func() int {
