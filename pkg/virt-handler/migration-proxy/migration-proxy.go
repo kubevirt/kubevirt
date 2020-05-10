@@ -30,6 +30,8 @@ import (
 	"strings"
 	"sync"
 
+	netutils "k8s.io/utils/net"
+
 	"kubevirt.io/client-go/log"
 )
 
@@ -213,6 +215,10 @@ func (m *migrationProxyManager) StopTargetListener(key string) {
 func (m *migrationProxyManager) StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, baseDir string) error {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
+
+	if netutils.IsIPv6String(targetAddress) {
+		targetAddress = "[" + targetAddress + "]"
+	}
 
 	isExistingProxy := func(curProxies []*migrationProxy, targetAddress string, destSrcPortMap map[string]int) bool {
 		if len(curProxies) != len(destSrcPortMap) {
