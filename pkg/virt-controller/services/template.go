@@ -953,8 +953,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	for k, v := range vmi.Annotations {
-		if strings.Contains(k, "kubernetes.io") || strings.Contains(k, "kubevirt.io") {
-			// skip kubernetes and kubevirt internal annotations
+		// filtering so users will not see this on pod and in confusion
+		if strings.HasPrefix(k, "kubectl.kubernetes.io") ||
+			strings.HasPrefix(k, "kubevirt.io/storage-observed-api-version") ||
+			strings.HasPrefix(k, "kubevirt.io/latest-observed-api-version") {
 			continue
 		}
 		annotationsList[k] = v
