@@ -3,10 +3,12 @@ package hyperconverged
 import (
 	"context"
 	"fmt"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"os"
 	"time"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	k8sTime "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +32,7 @@ import (
 	// networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
@@ -51,6 +54,91 @@ var request = reconcile.Request{
 var _ = Describe("HyperconvergedController", func() {
 
 	Describe("HyperConverged Components", func() {
+
+		Context("KubeVirt Priority Classes", func() {
+
+			var hco *hcov1alpha1.HyperConverged
+
+			BeforeEach(func() {
+				hco = &hcov1alpha1.HyperConverged{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: namespace,
+					},
+					Spec: hcov1alpha1.HyperConvergedSpec{},
+				}
+			})
+
+			It("should create if not present", func() {
+				expectedResource := newKubeVirtPriorityClass()
+				cl := initClient([]runtime.Object{})
+				r := initReconciler(cl)
+				Expect(r.ensureKubeVirtPriorityClass(hco, log, request)).To(BeNil())
+
+				key, err := client.ObjectKeyFromObject(expectedResource)
+				Expect(err).ToNot(HaveOccurred())
+				foundResource := &schedulingv1.PriorityClass{}
+				Expect(cl.Get(context.TODO(), key, foundResource)).To(BeNil())
+				Expect(foundResource.Name).To(Equal(expectedResource.Name))
+				Expect(foundResource.Value).To(Equal(expectedResource.Value))
+				Expect(foundResource.GlobalDefault).To(Equal(expectedResource.GlobalDefault))
+			})
+
+			It("should do nothing if already exists", func() {
+				expectedResource := newKubeVirtPriorityClass()
+				cl := initClient([]runtime.Object{expectedResource})
+				r := initReconciler(cl)
+				Expect(r.ensureKubeVirtPriorityClass(hco, log, request)).To(BeNil())
+
+				objectRef, err := reference.GetReference(r.scheme, expectedResource)
+				Expect(err).To(BeNil())
+				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+			})
+
+			DescribeTable("should update if something changed", func(modifiedResource *schedulingv1.PriorityClass) {
+				cl := initClient([]runtime.Object{modifiedResource})
+				r := initReconciler(cl)
+				Expect(r.ensureKubeVirtPriorityClass(hco, log, request)).To(BeNil())
+
+				expectedResource := newKubeVirtPriorityClass()
+				key, err := client.ObjectKeyFromObject(expectedResource)
+				Expect(err).ToNot(HaveOccurred())
+				foundResource := &schedulingv1.PriorityClass{}
+				Expect(cl.Get(context.TODO(), key, foundResource))
+				Expect(foundResource.Name).To(Equal(expectedResource.Name))
+				Expect(foundResource.Value).To(Equal(expectedResource.Value))
+				Expect(foundResource.GlobalDefault).To(Equal(expectedResource.GlobalDefault))
+			},
+				Entry("with modified value",
+					&schedulingv1.PriorityClass{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: "scheduling.k8s.io/v1",
+							Kind:       "PriorityClass",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "kubevirt-cluster-critical",
+						},
+						Value:         1,
+						GlobalDefault: false,
+						Description:   "",
+					}),
+				Entry("with modified global default",
+					&schedulingv1.PriorityClass{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: "scheduling.k8s.io/v1",
+							Kind:       "PriorityClass",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "kubevirt-cluster-critical",
+						},
+						Value:         1000000000,
+						GlobalDefault: true,
+						Description:   "",
+					}),
+			)
+
+		})
+
 		Context("KubeVirt Config", func() {
 
 			BeforeEach(func() {
