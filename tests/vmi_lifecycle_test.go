@@ -121,7 +121,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		It("[test_id:3195]should carry annotations to pod", func() {
 			vmi.Annotations = map[string]string{
-				"testannotation": "test",
+				"testannotation": "annotation from vmi",
 			}
 
 			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -131,10 +131,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(pod).NotTo(BeNil())
 
-			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "test"), "annotation should be carried to the pod")
+			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "annotation from vmi"), "annotation should be carried to the pod")
 		})
 
-		It("[test_id:3196]should not carry kubernetes and kubevirt annotations to pod", func() {
+		It("[test_id:3196]should carry kubernetes and kubevirt annotations to pod", func() {
 			vmi.Annotations = map[string]string{
 				"kubevirt.io/test":   "test",
 				"kubernetes.io/test": "test",
@@ -147,8 +147,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(pod).NotTo(BeNil())
 
-			Expect(pod.Annotations).ToNot(HaveKey("kubevirt.io/test"), "kubevirt annotation should not be carried to the pod")
-			Expect(pod.Annotations).ToNot(HaveKey("kubernetes.io/test"), "kubernetes annotation should not be carried to the pod")
+			Expect(pod.Annotations).To(HaveKey("kubevirt.io/test"), "kubevirt annotation should not be carried to the pod")
+			Expect(pod.Annotations).To(HaveKey("kubernetes.io/test"), "kubernetes annotation should not be carried to the pod")
 		})
 
 		It("[test_id:1622]should log libvirtd logs", func() {

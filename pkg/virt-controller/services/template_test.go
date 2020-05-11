@@ -121,13 +121,94 @@ var _ = Describe("Template", func() {
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
+			table.DescribeTable("should check annotations", func(vmiAnnotation, podExpectedAnnotation map[string]string) {
+				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "testvmi",
+						Namespace:   "testns",
+						UID:         "1234",
+						Annotations: vmiAnnotation,
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{},
+					},
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.ObjectMeta.Annotations).To(Equal(podExpectedAnnotation))
+			},
+				table.Entry("and don't contain kubectl annotation",
+					map[string]string{
+						"kubectl.kubernetes.io/last-applied-configuration": "open",
+					},
+					map[string]string{"kubevirt.io/domain": "testvmi"},
+				),
+				table.Entry("and don't contain kubevirt annotation added by apiserver",
+					map[string]string{
+						"kubevirt.io/latest-observed-api-version": "source",
+					},
+					map[string]string{"kubevirt.io/domain": "testvmi"},
+				),
+				table.Entry("and don't contain kubevirt annotation added by apiserver",
+					map[string]string{
+						"kubevirt.io/storage-observed-api-version": ".com",
+					},
+					map[string]string{"kubevirt.io/domain": "testvmi"},
+				),
+				table.Entry("and contain kubevirt domain annotation",
+					map[string]string{
+						"kubevirt.io/domain": "fedora",
+					},
+					map[string]string{
+						"kubevirt.io/domain": "fedora",
+					},
+				),
+				table.Entry("and contain kubernetes annotation",
+					map[string]string{
+						"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
+					},
+					map[string]string{
+						"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
+						"kubevirt.io/domain":                             "testvmi",
+					},
+				),
+				table.Entry("and contain kubevirt ignitiondata annotation",
+					map[string]string{
+						"kubevirt.io/ignitiondata": `{
+							"ignition" :  {
+								"version": "3"
+							 },
+						}`,
+					},
+					map[string]string{
+						"kubevirt.io/domain": "testvmi",
+						"kubevirt.io/ignitiondata": `{
+							"ignition" :  {
+								"version": "3"
+							 },
+						}`,
+					},
+				),
+			)
+
 			It("should work", func() {
 				trueVar := true
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
-					"test/test":                         "shouldwork",
+					"test":                              "shouldBeInPod",
 				}
-				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns", UID: "1234", Annotations: annotations}, Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}})
+
+				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "testvmi",
+						Namespace:   "testns",
+						UID:         "1234",
+						Annotations: annotations,
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{},
+					},
+				})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(pod.Spec.Containers)).To(Equal(2))
@@ -137,8 +218,9 @@ var _ = Describe("Template", func() {
 					v1.CreatedByLabel: "1234",
 				}))
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
-					v1.DomainAnnotation: "testvmi",
-					"test/test":         "shouldwork",
+					v1.DomainAnnotation:                 "testvmi",
+					"test":                              "shouldBeInPod",
+					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
 				}))
 				Expect(pod.ObjectMeta.OwnerReferences).To(Equal([]metav1.OwnerReference{{
 					APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
@@ -273,6 +355,7 @@ var _ = Describe("Template", func() {
 				for _, ev := range pod.Spec.Containers[0].Env {
 					if ev.Name == ENV_VAR_LIBVIRT_DEBUG_LOGS {
 						debugLogsValue = ev.Value
+						break
 					}
 				}
 				Expect(debugLogsValue).To(Equal("1"))
