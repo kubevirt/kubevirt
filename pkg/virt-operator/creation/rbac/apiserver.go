@@ -96,6 +96,17 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					"kubevirt.io",
 				},
 				Resources: []string{
+					"virtualmachineinstances",
+				},
+				Verbs: []string{
+					"create",
+				},
+			},
+			{
+				APIGroups: []string{
+					"kubevirt.io",
+				},
+				Resources: []string{
 					"virtualmachineinstancemigrations",
 				},
 				Verbs: []string{

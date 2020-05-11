@@ -215,7 +215,7 @@ func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOp
 	}
 }
 
-func NewApiServerDeployment(namespace string, repository string, imagePrefix string, version string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
+func NewApiServerDeployment(namespace string, repository string, imagePrefix string, version string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string, launcherVersion string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-api"})
 	deploymentName := "virt-api"
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
@@ -233,6 +233,8 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 		RunAsNonRoot: boolPtr(true),
 	}
 
+	launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
+
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
 		"virt-api",
@@ -243,6 +245,8 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 		"--subresources-only",
 		"-v",
 		verbosity,
+		"--launcher-image",
+		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
 	}
 	container.Ports = []corev1.ContainerPort{
 		{

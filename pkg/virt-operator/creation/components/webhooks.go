@@ -92,6 +92,7 @@ func NewOpertorValidatingWebhookConfiguration(operatorNamespace string) *v1beta1
 func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.MutatingWebhookConfiguration {
 	vmPath := VMMutatePath
 	vmiPath := VMIMutatePath
+	vmiPodPath := VMIPodMutatePath
 	migrationPath := MigrationMutatePath
 
 	return &v1beta1.MutatingWebhookConfiguration{
@@ -148,6 +149,26 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &vmiPath,
+					},
+				},
+			},
+			{
+				Name: "virtualmachineinstance-pods-mutator.kubevirt.io",
+				Rules: []v1beta1.RuleWithOperations{{
+					Operations: []v1beta1.OperationType{
+						v1beta1.Create,
+					},
+					Rule: v1beta1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				}},
+				ClientConfig: v1beta1.WebhookClientConfig{
+					Service: &v1beta1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmiPodPath,
 					},
 				},
 			},
@@ -370,6 +391,8 @@ const VMIPresetValidatePath = "/vmipreset-validate"
 const MigrationCreateValidatePath = "/migration-validate-create"
 
 const MigrationUpdateValidatePath = "/migration-validate-update"
+
+const VMIPodMutatePath = "/virtualmachineinstance-pods-mutate"
 
 const VMMutatePath = "/virtualmachines-mutate"
 

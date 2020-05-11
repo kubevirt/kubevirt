@@ -89,6 +89,8 @@ type virtAPIApp struct {
 	certsDirectory   string
 	clusterConfig    *virtconfig.ClusterConfig
 
+	launcherVersion string
+
 	namespace               string
 	tlsConfig               *tls.Config
 	certificate             *tls.Certificate
@@ -564,6 +566,9 @@ func (app *virtAPIApp) registerValidatingWebhooks() {
 
 func (app *virtAPIApp) registerMutatingWebhook() {
 
+	http.HandleFunc(components.VMIPodMutatePath, func(w http.ResponseWriter, r *http.Request) {
+		mutating_webhook.ServeVMIPods(w, r, app.clusterConfig, app.virtCli, app.launcherVersion)
+	})
 	http.HandleFunc(components.VMMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeVMs(w, r, app.clusterConfig)
 	})
@@ -684,6 +689,8 @@ func (app *virtAPIApp) AddFlags() {
 
 	app.AddCommonFlags()
 
+	flag.StringVar(&app.launcherVersion, "launcher-image", "virt-launcher",
+		"Shim container for containerized VMIs")
 	flag.StringVar(&app.SwaggerUI, "swagger-ui", "third_party/swagger-ui",
 		"swagger-ui location")
 	flag.BoolVar(&app.SubresourcesOnly, "subresources-only", false,

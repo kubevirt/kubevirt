@@ -26,6 +26,8 @@ import (
 	"k8s.io/api/admission/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/client-go/log"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
@@ -69,6 +71,14 @@ func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
 
 func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
 	serve(resp, req, &mutators.VMsMutator{ClusterConfig: clusterConfig})
+}
+
+func ServeVMIPods(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, launcherVersion string) {
+	serve(resp, req, &mutators.VMIPodsMutator{
+		ClusterConfig:   clusterConfig,
+		VirtCli:         virtCli,
+		LauncherVersion: launcherVersion,
+	})
 }
 
 func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {

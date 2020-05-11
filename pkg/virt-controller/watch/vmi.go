@@ -49,6 +49,9 @@ const (
 	// SuccessfulCreatePodReason is added in an event when a pod for a vmi controller
 	// is successfully created.
 	SuccessfulCreatePodReason = "SuccessfulCreate"
+	// WaitingCreatePodReason is added in an event when a pod for a vmi controller
+	// is waiting for the pod to be created.
+	WaitingCreatePodReason = "WaitingCreate"
 	// FailedDeletePodReason is added in an event and in a vmi controller condition
 	// when a pod for a vmi controller failed to be deleted.
 	FailedDeletePodReason = "FailedDelete"
@@ -566,6 +569,12 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	if !podExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
+			return nil
+		}
+
+		_, ok := vmi.Annotations["kubevirt.io/ignore-pod-create"]
+		if ok {
+			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, WaitingCreatePodReason, "Waiting on virtual machine pod to be created")
 			return nil
 		}
 
