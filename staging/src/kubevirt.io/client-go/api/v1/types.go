@@ -1085,6 +1085,9 @@ type KubeVirtCertificateRotateStrategy struct {
 // ---
 // +k8s:openapi-gen=true
 type KubeVirtSpec struct {
+	// Configure the value used for each flag in the KubeVirt controller.
+	VirtControllerFlags map[string]string `json:"VirtControllerFlags,omitempty"`
+
 	// The image tag to use for the continer images installed.
 	// Defaults to the same tag as the operator's container image.
 	ImageTag string `json:"imageTag,omitempty"`

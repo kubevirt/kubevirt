@@ -273,7 +273,7 @@ func NewApiServerDeployment(namespace string, repository string, imagePrefix str
 	return deployment, nil
 }
 
-func NewControllerDeployment(namespace string, repository string, imagePrefix string, controllerVersion string, launcherVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
+func NewControllerDeployment(namespace string, repository string, imagePrefix string, controllerVersion string, launcherVersion string, pullPolicy corev1.PullPolicy, verbosity string, extraEnv map[string]string, flags []string) (*appsv1.Deployment, error) {
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-controller"})
 	deploymentName := "virt-controller"
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
@@ -292,7 +292,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 	launcherVersion = AddVersionSeparatorPrefix(launcherVersion)
 
 	container := &deployment.Spec.Template.Spec.Containers[0]
-	container.Command = []string{
+	container.Command = append([]string{
 		"virt-controller",
 		"--launcher-image",
 		fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", launcherVersion),
@@ -300,7 +300,7 @@ func NewControllerDeployment(namespace string, repository string, imagePrefix st
 		"8443",
 		"-v",
 		verbosity,
-	}
+	}, flags...)
 	container.Ports = []corev1.ContainerPort{
 		{
 			Name:          "metrics",

@@ -99,6 +99,9 @@ type KubeVirtDeploymentConfig struct {
 
 	// environment variables from virt-operator to pass along
 	PassthroughEnvVars map[string]string `json:"passthroughEnvVars,omitempty" optional:"true"`
+
+	// generic mapping for the controller deployments flags
+	VirtControllerFlags map[string]string `json:"virtControllerFlags,omitempty" optional:"true"`
 }
 
 func GetConfigFromEnv() (*KubeVirtDeploymentConfig, error) {
@@ -126,14 +129,14 @@ func GetConfigFromEnv() (*KubeVirtDeploymentConfig, error) {
 	pullPolicy := os.Getenv(TargetImagePullPolicy)
 	additionalProperties := make(map[string]string)
 	additionalProperties[AdditionalPropertiesNamePullPolicy] = pullPolicy
-	return getConfig("", "", ns, additionalProperties), nil
+	return getConfig("", "", ns, additionalProperties, map[string]string{}), nil
 
 }
 
 func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
-	return getConfig(kv.Spec.ImageRegistry, kv.Spec.ImageTag, kv.Namespace, getKVMapFromSpec(kv.Spec))
+	return getConfig(kv.Spec.ImageRegistry, kv.Spec.ImageTag, kv.Namespace, getKVMapFromSpec(kv.Spec), kv.Spec.VirtControllerFlags)
 }
 
 func GetObservedConfigFromKV(kv *v1.KubeVirt) (*KubeVirtDeploymentConfig, error) {
@@ -145,7 +148,7 @@ func GetObservedConfigFromKV(kv *v1.KubeVirt) (*KubeVirtDeploymentConfig, error)
 		return nil, fmt.Errorf("unable to load observed config from kubevirt custom resource: %v", err)
 	}
 	additionalProperties[ImagePrefixKey] = imagePrefix
-	return getConfig(kv.Status.ObservedKubeVirtRegistry, kv.Status.ObservedKubeVirtVersion, kv.Namespace, additionalProperties), nil
+	return getConfig(kv.Status.ObservedKubeVirtRegistry, kv.Status.ObservedKubeVirtVersion, kv.Namespace, additionalProperties, kv.Spec.VirtControllerFlags), nil
 }
 
 // retrieve imagePrefix from an existing deployment config (which is stored as JSON)
@@ -168,7 +171,7 @@ func getKVMapFromSpec(spec v1.KubeVirtSpec) map[string]string {
 	v := reflect.ValueOf(spec)
 	for i := 0; i < v.NumField(); i++ {
 		name := v.Type().Field(i).Name
-		if name == "ImageTag" || name == "ImageRegistry" {
+		if name == "ImageTag" || name == "ImageRegistry" || name == "VirtControllerFlags" {
 			// these are handled in the root deployment config already
 			continue
 		}
@@ -178,7 +181,7 @@ func getKVMapFromSpec(spec v1.KubeVirtSpec) map[string]string {
 	return kvMap
 }
 
-func getConfig(registry, tag, namespace string, additionalProperties map[string]string) *KubeVirtDeploymentConfig {
+func getConfig(registry, tag, namespace string, additionalProperties, vcf map[string]string) *KubeVirtDeploymentConfig {
 
 	// get registry and tag/shasum from operator image
 	imageString := os.Getenv(OperatorImageEnvName)
@@ -222,7 +225,7 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 
 	passthroughEnv := GetPassthroughEnv()
 
-	config := newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, additionalProperties, passthroughEnv)
+	config := newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, additionalProperties, passthroughEnv, vcf)
 	if skipShasums {
 		return config
 	}
@@ -234,7 +237,7 @@ func getConfig(registry, tag, namespace string, additionalProperties map[string]
 	launcherSha := os.Getenv(VirtLauncherShasumEnvName)
 	kubeVirtVersion := os.Getenv(KubeVirtVersionEnvName)
 	if operatorSha != "" && apiSha != "" && controllerSha != "" && handlerSha != "" && launcherSha != "" && kubeVirtVersion != "" {
-		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace, additionalProperties, passthroughEnv)
+		config = newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace, additionalProperties, passthroughEnv, vcf)
 	}
 
 	return config
@@ -282,7 +285,7 @@ func GetPassthroughEnv() map[string]string {
 	return passthroughEnv
 }
 
-func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace string, kvSpec, passthroughEnv, vcf map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:             registry,
 		ImagePrefix:          imagePrefix,
@@ -290,12 +293,13 @@ func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace string, kv
 		Namespace:            namespace,
 		AdditionalProperties: kvSpec,
 		PassthroughEnvVars:   passthroughEnv,
+		VirtControllerFlags:  vcf,
 	}
 	c.generateInstallStrategyID()
 	return c
 }
 
-func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace string, additionalProperties, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, operatorSha, apiSha, controllerSha, handlerSha, launcherSha, namespace string, additionalProperties, passthroughEnv, vcf map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:             registry,
 		ImagePrefix:          imagePrefix,
@@ -308,6 +312,7 @@ func newDeploymentConfigWithShasums(registry, imagePrefix, kubeVirtVersion, oper
 		Namespace:            namespace,
 		AdditionalProperties: additionalProperties,
 		PassthroughEnvVars:   passthroughEnv,
+		VirtControllerFlags:  vcf,
 	}
 	c.generateInstallStrategyID()
 	return c
@@ -417,6 +422,23 @@ func (c *KubeVirtDeploymentConfig) GetNamespace() string {
 func (c *KubeVirtDeploymentConfig) GetVerbosity() string {
 	// not configurable yet
 	return "2"
+}
+
+func (c *KubeVirtDeploymentConfig) GetVirtControllerFlags() map[string]string {
+	return c.VirtControllerFlags
+}
+
+func (c *KubeVirtDeploymentConfig) GetVirtControllerFlagsAsArray() []string {
+	flags := make([]string, 0)
+
+	for flag, v := range c.GetVirtControllerFlags() {
+		flags = append(flags, fmt.Sprintf("--%s", strings.ToLower(flag)))
+		if v != "" {
+			flags = append(flags, v)
+		}
+	}
+
+	return flags
 }
 
 func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {

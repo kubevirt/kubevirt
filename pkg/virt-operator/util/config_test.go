@@ -195,6 +195,19 @@ var _ = Describe("Operator Config", func() {
 		})
 	})
 
+	Describe("Config controller flags", func() {
+		It("should return flags in the proper format", func() {
+			config := getConfig("", "")
+			config.VirtControllerFlags = map[string]string{
+				"flag-one":  "1",
+				"flag":      "3",
+				"bool-flag": "",
+			}
+			fa := config.GetVirtControllerFlagsAsArray()
+			Expect(fa).To(Equal([]string{"--flag-one", "1", "--flag", "3", "--bool-flag"}))
+		})
+	})
+
 	Describe("parsing ObservedDeploymentConfig", func() {
 		It("should retrieve imagePrefix if present", func() {
 			prefix := "test-prefix-"

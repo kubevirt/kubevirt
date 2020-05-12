@@ -661,7 +661,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		pod.Name = "virt-api-xxxx"
 		addPod(pod)
 
-		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv(), config.GetVirtControllerFlagsAsArray())
 		pod = &k8sv1.Pod{
 			ObjectMeta: controller.Spec.Template.ObjectMeta,
 			Spec:       controller.Spec.Template.Spec,
@@ -849,7 +849,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, components.NewApiServerService(NAMESPACE))
 		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+		controller, _ := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv(), config.GetVirtControllerFlagsAsArray())
 		controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
 		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetLauncherVersion(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 		all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
@@ -1422,6 +1422,30 @@ var _ = Describe("KubeVirt Operator", func() {
 		))
 	}
 
+	shouldExpectDeploymentSetFlags := func(config *util.KubeVirtDeploymentConfig) {
+		obj, _, _ := controller.stores.DeploymentCache.GetByKey(NAMESPACE + "/virt-controller")
+		depl, _ := obj.(*appsv1.Deployment)
+
+		var command []string
+		for _, cont := range depl.Spec.Template.Spec.Containers {
+			if cont.Name == "virt-controller" {
+				command = cont.Command
+				break
+			}
+		}
+
+		commandStr := strings.Join(command, " ")
+		expectedFlags := config.GetVirtControllerFlags()
+		for flag, value := range expectedFlags {
+			expectedSubString := flag
+			if value != "" {
+				expectedSubString += " " + value
+			}
+
+			Expect(commandStr).To(ContainSubstring(expectedSubString))
+		}
+	}
+
 	fakeNamespaceModificationEvent := func() {
 		// Add modification event for namespace w/o the labels we need
 		mockQueue.ExpectAdds(1)
@@ -1546,6 +1570,57 @@ var _ = Describe("KubeVirt Operator", func() {
 			kv = getLatestKubeVirt(kv)
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
 
+		}, 15)
+
+		It("should deploy custom flags to controller deployment", func(done Done) {
+			defer close(done)
+			defer GinkgoRecover()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Spec: v1.KubeVirtSpec{
+					VirtControllerFlags: map[string]string{
+						"node-controller-threads": "2",
+						"bool-flag":               "",
+					},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase:           v1.KubeVirtPhaseDeployed,
+					OperatorVersion: version.Get().String(),
+				},
+			}
+
+			// create all resources which should already exist
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			addKubeVirt(kv)
+
+			version := fmt.Sprintf("rand-%s", rand.String(10))
+			registry := fmt.Sprintf("rand-%s", rand.String(10))
+			customConfig := getConfig(version, registry)
+			customConfig.VirtControllerFlags = kv.Spec.VirtControllerFlags
+
+			job, err := controller.generateInstallStrategyJob(util.GetTargetConfigFromKV(kv))
+			Expect(err).ToNot(HaveOccurred())
+
+			job.Status.CompletionTime = now()
+			addInstallStrategyJob(job)
+
+			// ensure completed jobs are garbage collected once install strategy
+			// is loaded
+			deleteFromCache = false
+			shouldExpectJobDeletion()
+			shouldExpectKubeVirtUpdate(1)
+			shouldExpectCreations()
+
+			addAll(customConfig)
+
+			controller.Execute()
+
+			shouldExpectDeploymentSetFlags(customConfig)
 		}, 15)
 
 		It("delete temporary validation webhook once virt-api is deployed", func(done Done) {
@@ -1765,7 +1840,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			controllerDeployment, err := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+			controllerDeployment, err := components.NewControllerDeployment(NAMESPACE, config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv(), config.GetVirtControllerFlagsAsArray())
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))

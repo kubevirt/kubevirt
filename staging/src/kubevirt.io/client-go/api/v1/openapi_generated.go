@@ -15259,6 +15259,21 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"VirtControllerFlags": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configure the value used for each flag in the KubeVirt controller.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"imageTag": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The image tag to use for the continer images installed. Defaults to the same tag as the operator's container image.",
