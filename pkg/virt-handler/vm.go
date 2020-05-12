@@ -1738,6 +1738,22 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
 	vmi := origVMI.DeepCopy()
 
+	if vmi.Spec.Domain.CPU != nil {
+		if vmi.Spec.Domain.CPU.Model != "" &&
+			vmi.Spec.Domain.CPU.Model != "host-passthrough" &&
+			vmi.Spec.Domain.CPU.Model != "host-model" &&
+			!d.nodeLabeller.IsCPUModelSupported(vmi.Spec.Domain.CPU.Model) {
+
+			return goerror.New(fmt.Sprintf("vmi requested unsupported cpu model " + vmi.Spec.Domain.CPU.Model))
+		}
+		if len(vmi.Spec.Domain.CPU.Features) > 0 {
+			unsupportedVMFeatures := d.nodeLabeller.GetUnsupportedCPUFeatures(vmi.Spec.Domain.CPU.Features)
+			if len(unsupportedVMFeatures) > 0 {
+				return goerror.New(fmt.Sprintf("vmi requested unsupported cpu features " + strings.Join(unsupportedVMFeatures, ", ")))
+			}
+		}
+	}
+
 	isUnresponsive, err := d.isLauncherClientUnresponsive(vmi)
 	if err != nil {
 		return err

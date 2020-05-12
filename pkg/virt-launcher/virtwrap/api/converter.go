@@ -994,6 +994,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			} else {
 				domain.Spec.CPU.Mode = "custom"
 				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+				domain.Spec.CPU.Check = "none" // TODO https://bugzilla.redhat.com/show_bug.cgi?id=1834714
 			}
 		}
 
@@ -1005,6 +1006,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 					Policy: feature.Policy,
 				})
 			}
+
+			domain.Spec.CPU.Check = "none" // TODO https://bugzilla.redhat.com/show_bug.cgi?id=1834714
 		}
 
 		// Adjust guest vcpu config. Currenty will handle vCPUs to pCPUs pinning

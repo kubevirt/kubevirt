@@ -14,7 +14,7 @@ var domCapabilitiesFilePath = nodeLabellerVolumePath + "/virsh_domcapabilities.x
 // getCPUInfo retrieves xml data from file and parse them.
 // Output of this function is slice of usable cpu models and features.
 // Only models with tag usable yes will be used.
-func (n *NodeLabeller) getCPUInfo() ([]string, map[string]bool, error) {
+func (n *NodeLabeller) getCPUInfo() (map[string]bool, map[string]bool, error) {
 	hostDomCapabilities := HostDomCapabilities{}
 	err := getStructureFromXMLFile(domCapabilitiesFilePath, &hostDomCapabilities)
 	if err != nil {
@@ -30,7 +30,7 @@ func (n *NodeLabeller) getCPUInfo() ([]string, map[string]bool, error) {
 	obsoleteCPUsx86 := c.getObsoleteCPUMap()
 
 	basicFeaturesMap := make(map[string]bool)
-	cpus := make([]string, 0)
+	cpus := make(map[string]bool)
 	features := make(map[string]bool)
 	var newFeatures map[string]bool
 
@@ -56,7 +56,7 @@ func (n *NodeLabeller) getCPUInfo() ([]string, map[string]bool, error) {
 
 			features = unionMap(features, newFeatures)
 
-			cpus = append(cpus, model.Name)
+			cpus[model.Name] = true
 		}
 	}
 	return cpus, features, nil

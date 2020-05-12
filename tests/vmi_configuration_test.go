@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -1346,13 +1347,10 @@ var _ = Describe("Configurations", func() {
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU spec", func() {
 		libvirtCPUModelRegexp := regexp.MustCompile(`<model>(\w+)\-*\w*</model>`)
 		libvirtCPUVendorRegexp := regexp.MustCompile(`<vendor>(\w+)</vendor>`)
-		libvirtCPUFeatureRegexp := regexp.MustCompile(`<feature name='(\w+)'/>`)
 		cpuModelNameRegexp := regexp.MustCompile(`Model name:\s*([\s\w\-@\.\(\)]+)`)
 
 		var libvirtCpuModel string
-		var libvirtCpuVendor string
 		var cpuModelName string
-		var cpuFeatures []string
 		var cpuVmi *v1.VirtualMachineInstance
 
 		// Collect capabilities once for all tests
@@ -1370,13 +1368,6 @@ var _ = Describe("Configurations", func() {
 
 			vendor := libvirtCPUVendorRegexp.FindStringSubmatch(virshCaps)
 			Expect(len(vendor)).To(Equal(2))
-			libvirtCpuVendor = vendor[1]
-
-			cpuFeaturesList := libvirtCPUFeatureRegexp.FindAllStringSubmatch(virshCaps, -1)
-
-			for _, cpuFeature := range cpuFeaturesList {
-				cpuFeatures = append(cpuFeatures, cpuFeature[1])
-			}
 
 			cpuInfo := tests.GetNodeCPUInfo(vmi)
 			modelName := cpuModelNameRegexp.FindStringSubmatch(cpuInfo)
@@ -1412,12 +1403,20 @@ var _ = Describe("Configurations", func() {
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
 			It("[test_id:1678]should report defined CPU model", func() {
-				vmiModel := "Conroe"
-				if libvirtCpuVendor == "AMD" {
-					vmiModel = "Opteron_G1"
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+				supportedCPU := ""
+				for key, _ := range nodes.Items[0].Labels {
+					if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
+						supportedCPU = strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
+						break
+					}
 				}
+
+				Expect(supportedCPU).ToNot(Equal(""))
+
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					Model: vmiModel,
+					Model: supportedCPU,
 				}
 
 				By("Starting a VirtualMachineInstance")
@@ -1432,7 +1431,7 @@ var _ = Describe("Configurations", func() {
 
 				By("Checking the CPU model under the guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", vmiModel)},
+					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", supportedCPU)},
 					&expect.BExp{R: "model name"},
 				}, 10*time.Second)
 			})
@@ -1484,10 +1483,22 @@ var _ = Describe("Configurations", func() {
 
 		Context("when CPU features defined", func() {
 			It("[test_id:3123]should start a Virtaul Machine with matching features", func() {
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+				supportedCPUFeature := ""
+				for key, _ := range nodes.Items[0].Labels {
+					if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
+						supportedCPUFeature = strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
+						break
+					}
+				}
+
+				Expect(supportedCPUFeature).ToNot(Equal(""))
+
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Features: []v1.CPUFeature{
 						{
-							Name: cpuFeatures[0],
+							Name: supportedCPUFeature,
 						},
 					},
 				}
@@ -1504,7 +1515,7 @@ var _ = Describe("Configurations", func() {
 
 				By("Checking the CPU features under the guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuFeatures[0])},
+					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", supportedCPUFeature)},
 					&expect.BExp{R: "flags"},
 				}, 10*time.Second)
 				Expect(err).ToNot(HaveOccurred())

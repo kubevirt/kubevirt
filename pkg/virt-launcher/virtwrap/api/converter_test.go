@@ -1135,6 +1135,33 @@ var _ = Describe("Converter", func() {
 				table.Entry(v1.CPUModeHostPassthrough, v1.CPUModeHostPassthrough),
 				table.Entry(v1.CPUModeHostModel, v1.CPUModeHostModel),
 			)
+
+			table.DescribeTable("should set check CPU", func(model, result string) {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Model: model,
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Check).To(Equal(result), "Expect check")
+			},
+				table.Entry(" to empty string when host-passthrough is set", v1.CPUModeHostPassthrough, ""),
+				table.Entry(" to empty string when host-model is set", v1.CPUModeHostModel, ""),
+				table.Entry(" to none string when cpu-model is set", "Conroe", "none"),
+			)
+
+			table.DescribeTable("should set check CPU", func(features []v1.CPUFeature, result string) {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Features: features,
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Check).To(Equal(result), "Expect check")
+			},
+				table.Entry(" to empty string when no features are set", nil, ""),
+				table.Entry(" to none string when cpu features are set", []v1.CPUFeature{{Name: "svm"}}, "none"),
+			)
 		})
 
 		Context("when CPU spec defined and model not", func() {

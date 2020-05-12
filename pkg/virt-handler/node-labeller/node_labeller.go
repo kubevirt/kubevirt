@@ -6,14 +6,16 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
-	v1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
@@ -28,14 +30,21 @@ var nodeLabellerVolumePath = "/var/lib/kubevirt-node-labeller"
 
 //NodeLabeller struct holds informations needed to run node-labeller
 type NodeLabeller struct {
-	kvmController     *device_manager.DeviceController
-	configMapInformer cache.SharedIndexInformer
-	nodeInformer      cache.SharedIndexInformer
-	clientset         kubecli.KubevirtClient
-	Queue             workqueue.RateLimitingInterface
-	host              string
-	namespace         string
-	logger            *log.FilteredLogger
+	kvmController        *device_manager.DeviceController
+	configMapInformer    cache.SharedIndexInformer
+	nodeInformer         cache.SharedIndexInformer
+	clientset            kubecli.KubevirtClient
+	Queue                workqueue.RateLimitingInterface
+	host                 string
+	namespace            string
+	logger               *log.FilteredLogger
+	supportedCPUs        supportedMap
+	supportedCPUFeatures supportedMap
+}
+
+type supportedMap struct {
+	sync.RWMutex
+	items map[string]bool
 }
 
 func NewNodeLabeller(kvmController *device_manager.DeviceController, nodeInformer, configMapInformer cache.SharedIndexInformer, clientset kubecli.KubevirtClient, host, namespace string) *NodeLabeller {
@@ -67,14 +76,14 @@ func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
 			n.Queue.Add(n.host)
 		},
 		DeleteFunc: func(obj interface{}) {
-			_, ok := obj.(*v1.ConfigMap)
+			_, ok := obj.(*k8sv1.ConfigMap)
 			if !ok {
 				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 				if !ok {
 					log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
 					return
 				}
-				_, ok = tombstone.Obj.(*v1.ConfigMap)
+				_, ok = tombstone.Obj.(*k8sv1.ConfigMap)
 				if !ok {
 					log.Log.Reason(fmt.Errorf("tombstone contained object that is not a config map %#v", obj)).Error("Failed to process delete notification")
 					return
@@ -127,10 +136,34 @@ func (n *NodeLabeller) Execute() bool {
 	return true
 }
 
-func (n *NodeLabeller) run() error {
-	cpuFeatures := make(map[string]bool)
-	cpuModels := make([]string, 0)
+// IsCPUModelSupported returns if cpu is supported or not
+func (n *NodeLabeller) IsCPUModelSupported(cpuModel string) bool {
+	n.supportedCPUs.Lock()
+	defer n.supportedCPUs.Unlock()
+	if _, ok := n.supportedCPUs.items[cpuModel]; ok {
+		return true
+	}
+	return false
+}
 
+// GetUnsupportedCPUFeatures returns slice of unsupported features
+func (n *NodeLabeller) GetUnsupportedCPUFeatures(cpuFeatures []v1.CPUFeature) []string {
+	n.supportedCPUFeatures.Lock()
+	defer n.supportedCPUFeatures.Unlock()
+	unsupportedFeature := make([]string, 0)
+	for _, feature := range cpuFeatures {
+		//only check features which have empty or require policy
+		if feature.Policy == "" || feature.Policy == "require" {
+			if _, ok := n.supportedCPUFeatures.items[feature.Name]; !ok {
+				unsupportedFeature = append(unsupportedFeature, feature.Name)
+			}
+		}
+	}
+
+	return unsupportedFeature
+}
+
+func (n *NodeLabeller) run() error {
 	//parse all informations
 	cpuModels, cpuFeatures, err := n.getCPUInfo()
 	if err != nil {
@@ -146,9 +179,9 @@ func (n *NodeLabeller) run() error {
 	}
 	var (
 		ok           bool
-		originalNode *v1.Node
+		originalNode *k8sv1.Node
 	)
-	if originalNode, ok = nodeObj.(*v1.Node); !ok {
+	if originalNode, ok = nodeObj.(*k8sv1.Node); !ok {
 		n.logger.Infof("node-labeller cannot convert node " + n.host)
 		return fmt.Errorf("Could not convert node " + n.host)
 	}
@@ -163,10 +196,22 @@ func (n *NodeLabeller) run() error {
 	n.addNodeLabels(node, newLabels)
 	//patch node only if there is change in labels
 	err = n.patchNode(originalNode, node)
-	return err
+	if err != nil {
+		return err
+	}
+	//update supported cpus
+	n.supportedCPUs.Lock()
+	n.supportedCPUs.items = cpuModels
+	n.supportedCPUs.Unlock()
+
+	n.supportedCPUFeatures.Lock()
+	n.supportedCPUFeatures.items = cpuFeatures
+	n.supportedCPUFeatures.Unlock()
+
+	return nil
 }
 
-func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
+func (n *NodeLabeller) patchNode(originalNode, node *k8sv1.Node) error {
 	originalLabelsBytes, err := json.Marshal(originalNode.Labels)
 	if err != nil {
 		return err
@@ -204,20 +249,20 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 
 // prepareLabels converts cpu models + features to map[string]string format
 // e.g. "/cpu-model-Penryn": "true"
-func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures map[string]bool) map[string]string {
+func (n *NodeLabeller) prepareLabels(cpuModels, cpuFeatures map[string]bool) map[string]string {
 	newLabels := make(map[string]string)
 	for key, value := range cpuFeatures {
 		newLabels["/cpu-feature-"+key] = strconv.FormatBool(value)
 	}
-	for _, value := range cpuModels {
-		newLabels["/cpu-model-"+value] = "true"
+	for key, value := range cpuModels {
+		newLabels["/cpu-model-"+key] = strconv.FormatBool(value)
 	}
 	return newLabels
 }
 
 // addNodeLabels adds labels and special annotation to node.
 // annotations are needed because we need to know which labels were set by kubevirt.
-func (n *NodeLabeller) addNodeLabels(node *v1.Node, labels map[string]string) {
+func (n *NodeLabeller) addNodeLabels(node *k8sv1.Node, labels map[string]string) {
 	for name := range labels {
 		node.Labels[labelNamespace+name] = "true"
 		node.Annotations[labellerNamespace+"-"+labelNamespace+name] = "true"
@@ -225,7 +270,7 @@ func (n *NodeLabeller) addNodeLabels(node *v1.Node, labels map[string]string) {
 }
 
 // getNodeLabellerLabels gets all labels which were created by kubevirt-node-labeller
-func (n *NodeLabeller) getNodeLabellerLabels(node *v1.Node) map[string]bool {
+func (n *NodeLabeller) getNodeLabellerLabels(node *k8sv1.Node) map[string]bool {
 	labellerLabels := make(map[string]bool)
 	for key := range node.Annotations {
 		if strings.Contains(key, labellerNamespace) {
@@ -237,7 +282,7 @@ func (n *NodeLabeller) getNodeLabellerLabels(node *v1.Node) map[string]bool {
 }
 
 // removeCPULabels removes labels from node
-func (n *NodeLabeller) removeCPULabels(node *v1.Node, oldLabels map[string]bool) {
+func (n *NodeLabeller) removeCPULabels(node *k8sv1.Node, oldLabels map[string]bool) {
 	for label := range node.Labels {
 		if ok := oldLabels[label]; ok || strings.Contains(label, labelNamespace+"/cpu-model-") || strings.Contains(label, labelNamespace+"/cpu-feature-") {
 			delete(node.Labels, label)
