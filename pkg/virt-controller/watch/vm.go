@@ -49,6 +49,7 @@ type CloneAuthFunc func(pvcNamespace, pvcName, saNamespace, saName string) (bool
 func NewVMController(vmiInformer cache.SharedIndexInformer,
 	vmiVMInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
+	pvcInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient) *VMController {
 
@@ -57,6 +58,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		vmiInformer:            vmiInformer,
 		vmiVMInformer:          vmiVMInformer,
 		dataVolumeInformer:     dataVolumeInformer,
+		pvcInformer:            pvcInformer,
 		recorder:               recorder,
 		clientset:              clientset,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -93,6 +95,7 @@ type VMController struct {
 	vmiInformer            cache.SharedIndexInformer
 	vmiVMInformer          cache.SharedIndexInformer
 	dataVolumeInformer     cache.SharedIndexInformer
+	pvcInformer            cache.SharedIndexInformer
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
@@ -648,6 +651,11 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("Failed to extract vmKey from VirtualMachine.")
 		return nil
+	}
+
+	// Check that PVCs are not used when DataVolmes should
+	if err := handlePVCMisuseInVM(c.pvcInformer, c.recorder, vm); err != nil {
+		return err
 	}
 
 	// start it

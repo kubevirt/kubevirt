@@ -97,7 +97,7 @@ var _ = Describe("ImageUpload", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Start VM")
-			vmi := tests.NewRandomVMIWithPVC(dvName)
+			vmi := tests.NewRandomVMIWithDataVolume(dvName)
 			vmi, err = virtClient.VirtualMachineInstance(namespace).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)

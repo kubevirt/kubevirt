@@ -97,11 +97,14 @@ const (
 	SuccessfulAbortMigrationReason = "SuccessfulAbortMigration"
 	// FailedAbortMigrationReason is added when an attempt to abort migration fails
 	FailedAbortMigrationReason = "FailedAbortMigration"
+	// FailedPVCVolumeSourceMisusedReason is added when PVC volume source is used where Data Volume should be used
+	FailedPVCVolumeSourceMisusedReason = "PVCVolumeSourceMisused"
 )
 
 func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
+	pvcInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	dataVolumeInformer cache.SharedIndexInformer) *VMIController {
@@ -111,6 +114,7 @@ func NewVMIController(templateService services.TemplateService,
 		Queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		vmiInformer:        vmiInformer,
 		podInformer:        podInformer,
+		pvcInformer:        pvcInformer,
 		recorder:           recorder,
 		clientset:          clientset,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -162,6 +166,7 @@ type VMIController struct {
 	Queue              workqueue.RateLimitingInterface
 	vmiInformer        cache.SharedIndexInformer
 	podInformer        cache.SharedIndexInformer
+	pvcInformer        cache.SharedIndexInformer
 	recorder           record.EventRecorder
 	podExpectations    *controller.UIDTrackingControllerExpectations
 	dataVolumeInformer cache.SharedIndexInformer
@@ -566,6 +571,10 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 
 	if vmi.IsFinal() {
 		return nil
+	}
+
+	if err := handlePVCMisuseInVMI(c.pvcInformer, c.recorder, vmi); err != nil {
+		return &syncErrorImpl{err, FailedPVCVolumeSourceMisusedReason}
 	}
 
 	if !podExists(pod) {
