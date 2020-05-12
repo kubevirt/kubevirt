@@ -781,6 +781,51 @@ var _ = Describe("SRIOV", func() {
 
 		})
 
+		It("[test_id:4215]should create a virtual machine with recommended performance settings (CPU pinning and hugepages)", func() {
+			vmi := getSriovVmi([]string{"sriov"})
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Sockets:               6,
+				Cores:                 1,
+				Threads:               1,
+				DedicatedCPUPlacement: true,
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{
+					PageSize: "1Gi",
+				},
+			}
+			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceMemory: resource.MustParse("4Gi"),
+				},
+				Limits: k8sv1.ResourceList{
+					k8sv1.ResourceMemory: resource.MustParse("4Gi"),
+				},
+			}
+
+			startVmi(vmi)
+			waitVmi(vmi)
+
+			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			out, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				"compute",
+				[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedSriovResourceName := fmt.Sprintf("%s\n", sriovResourceName)
+			Expect(out).To(Equal(expectedSriovResourceName))
+
+			checkDefaultInterfaceInPod(vmi)
+
+			By("checking virtual machine instance has two interfaces")
+			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
+
+		})
+
 		It("[test_id:3985]should create a virtual machine with sriov interface with custom MAC address", func() {
 			vmi := getSriovVmi([]string{"sriov"})
 			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = "de:ad:00:00:be:ef"

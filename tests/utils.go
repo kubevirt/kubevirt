@@ -4278,7 +4278,7 @@ func UpdateClusterConfigValueAndWait(key string, value string) string {
 
 func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
 	By("Waiting for guest agent connection")
-	WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceAgentConnected, 12*60)
+	WaitForVMICondition(virtClient, vmi, v1.VirtualMachineInstanceAgentConnected, 25*60)
 }
 
 func WaitForVMICondition(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType, timeoutSec int) {
