@@ -1,0 +1,37 @@
+{
+  "spec": {
+    "containers": [
+      {
+        "name": "test-runner",
+        "image": "@OPERATOR_IMAGE_URL@",
+        "command": [
+          "/bin/kubevirt.test",
+          "--installed-namespace=openshift-cnv",
+          "--cdi-namespace=openshift-cnv",
+          "--config=/etc/config/test-config.json",
+          "--ginkgo.seed=0",
+          "--ginkgo.focus=\\[crit:high\\]",
+          "--ginkgo.skip=(Slirp Networking)|(with CPU spec)|(with TX offload disabled)|(with cni flannel and ptp plugin interface)|(with ovs-cni plugin)|(test_id:1752)|(SRIOV)|(with EFI)|(Operator)|(GPU)|(test_id:3466)"
+        ],
+        "volumeMounts": [
+          {
+            "name": "kubevirt-test-config",
+            "mountPath": "/etc/config"
+          }
+        ]
+      }
+    ],
+    "securityContext": {
+      "privileged": true
+    },
+    "serviceAccountName": "kubevirt-testing",
+    "volumes": [
+      {
+        "name": "kubevirt-test-config",
+        "configMap": {
+          "name": "kubevirt-test-config"
+        }
+      }
+    ]
+  }
+}

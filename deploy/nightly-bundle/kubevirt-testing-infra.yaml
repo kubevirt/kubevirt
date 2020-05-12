@@ -1,0 +1,187 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: host-path-disk-alpine
+  labels:
+    kubevirt.io: ""
+    os: "alpine"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /tmp/hostImages/alpine
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: host-path-disk-custom
+  labels:
+    kubevirt.io: ""
+    os: "custom"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /tmp/hostImages/custom
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cdi-http-import-server
+  namespace: openshift-cnv
+  labels:
+    kubevirt.io: "cdi-http-import-server"
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+  selector:
+    kubevirt.io: cdi-http-import-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdi-http-import-server
+  namespace: openshift-cnv
+  labels:
+    kubevirt.io: "cdi-http-import-server"
+spec:
+  selector:
+    matchLabels:
+      kubevirt.io: "cdi-http-import-server"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        kubevirt.io: cdi-http-import-server
+    spec:
+      serviceAccountName: kubevirt-testing
+      containers:
+        - name: cdi-http-import-server
+          image: kubevirt/cdi-http-import-server:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: "http"
+              protocol: "TCP"
+          readinessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: disks-images-provider
+  namespace: openshift-cnv
+  labels:
+    kubevirt.io: "disks-images-provider"
+spec:
+  selector:
+    matchLabels:
+      kubevirt.io: "disks-images-provider"
+  template:
+    metadata:
+      labels:
+        name: disks-images-provider
+        kubevirt.io: disks-images-provider
+      name: disks-images-provider
+    spec:
+      serviceAccountName: kubevirt-testing
+      containers:
+        - name: target
+          image: kubevirt/disks-images-provider:latest
+          imagePullPolicy: Always
+          volumeMounts:
+          - name: images
+            mountPath: /hostImages
+          - name: local-storage
+            mountPath: /local-storage
+          securityContext:
+            privileged: true
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /ready
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: images
+          hostPath:
+            path: /tmp/hostImages
+            type: DirectoryOrCreate
+        - name: local-storage
+          hostPath:
+            path: /mnt/local-storage
+            type: DirectoryOrCreate
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-block-storage-cirros
+  labels:
+    kubevirt.io: ""
+    blockstorage: "cirros"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 1Gi
+  local:
+    path: /mnt/local-storage/cirros-block-device
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - node01
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-block
+  volumeMode: Block
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubevirt-testing
+  namespace: openshift-cnv
+  labels:
+    kubevirt.io: ""
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubevirt-testing-cluster-admin
+  labels:
+    kubevirt.io: ""
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: kubevirt-testing
+    namespace: openshift-cnv
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: kubevirt-test-config
+  namespace: openshift-cnv
+data:
+  test-config.json: |
+    {
+     "storageClassLocal": "hostpath-provisioner",
+     "storageClassHostPath": "hostpath-provisioner",
+     "storageClassRhel": "hostpath-provisioner",
+     "storageClassWindows": "hostpath-provisioner",
+     "manageStorageClasses": false
+    }

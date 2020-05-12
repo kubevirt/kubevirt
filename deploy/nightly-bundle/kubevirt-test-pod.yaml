@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bundle-tester
+  labels:
+    app: cnv-testing
+  namespace: openshift-cnv
+spec:
+  containers:
+    - name: test-runner
+      image: @OPERATOR_IMAGE_URL@
+      command:
+        - /bin/kubevirt.test
+        - --installed-namespace=openshift-cnv
+        - --cdi-namespace=openshift-cnv
+        - --config=/etc/config/test-config.json
+        - --ginkgo.seed=0
+      volumeMounts:
+        - name: test-config
+          mountPath: /etc/config
+  securityContext:
+    privileged: true
+  serviceAccountName: kubevirt-testing
+  volumes:
+    - name: test-config
+      configMap:
+        name: kubevirt-test-config
