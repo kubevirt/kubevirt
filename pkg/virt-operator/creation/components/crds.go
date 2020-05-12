@@ -102,7 +102,6 @@ func NewVirtualMachineCrd() *extv1beta1.CustomResourceDefinition {
 		},
 		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
 			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
-			{Name: "Running", Type: "boolean", JSONPath: ".spec.running"},
 			{Name: "Volume", Description: "Primary Volume", Type: "string", JSONPath: ".spec.volumes[0].name"},
 			{Name: "Created", Type: "boolean", JSONPath: ".status.created", Priority: 1},
 		},

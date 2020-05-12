@@ -1319,7 +1319,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			res, err := getChangeRequestJson(vm, stopRequest)
 			Expect(err).ToNot(HaveOccurred())
 
-			ref := fmt.Sprintf(`[{ "op": "add", "path": "/status", "value": {"stateChangeRequests":[{"action":"Stop","uid":"%s"}]}}]`, uid)
+			ref := fmt.Sprintf(`[{ "op": "add", "path": "/status", "value": {"created":false,"ready":false,"stateChangeRequests":[{"action":"Stop","uid":"%s"}]}}]`, uid)
 			Expect(res).To(Equal(ref))
 		})
 
@@ -1356,7 +1356,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			res, err := getChangeRequestJson(vm, stopRequest, startRequest)
 			Expect(err).ToNot(HaveOccurred())
 
-			ref := fmt.Sprintf(`[{ "op": "add", "path": "/status", "value": {"stateChangeRequests":[{"action":"Stop","uid":"%s"},{"action":"Start"}]}}]`, uid)
+			ref := fmt.Sprintf(`[{ "op": "add", "path": "/status", "value": {"created":false,"ready":false,"stateChangeRequests":[{"action":"Stop","uid":"%s"},{"action":"Start"}]}}]`, uid)
 			Expect(res).To(Equal(ref))
 		})
 
@@ -1385,7 +1385,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			res, err := getChangeRequestJson(vm, startRequest)
 			Expect(err).ToNot(HaveOccurred())
 
-			ref := fmt.Sprintf(`[{ "op": "add", "path": "/status", "value": {"stateChangeRequests":[{"action":"Start"}]}}]`)
+			ref := fmt.Sprintf(`[{ "op": "add", "path": "/status", "value": {"created":false,"ready":false,"stateChangeRequests":[{"action":"Start"}]}}]`)
 			Expect(res).To(Equal(ref))
 		})
 

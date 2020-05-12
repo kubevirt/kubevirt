@@ -55,7 +55,7 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 		// Name will be there in all the cases, so verify name
 		Expect(resultFields[len(expectedHeader)]).To(Equal(vm.Name))
 	},
-		table.Entry("[test_id:3464]virtualmachine", "get", "vm", []string{"NAME", "AGE", "RUNNING", "VOLUME"}),
+		table.Entry("[test_id:3464]virtualmachine", "get", "vm", []string{"NAME", "AGE", "VOLUME", "STRATEGY", "READY"}),
 		table.Entry("[test_id:3465]virtualmachineinstance", "get", "vmi", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME"}),
 	)
 
@@ -79,7 +79,7 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 		// Verify one of the wide column output field
 		Expect(resultFields[len(resultFields)-verifyPos]).To(Equal(expectedData))
 	},
-		table.Entry("[test_id:3468]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "RUNNING", "VOLUME", "CREATED"}, 1, "true"),
+		table.Entry("[test_id:3468]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "VOLUME", "STRATEGY", "READY", "CREATED"}, 1, "true"),
 		table.Entry("[test_id:3466]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "LIVE-MIGRATABLE"}, 1, "True"),
 	)
 })

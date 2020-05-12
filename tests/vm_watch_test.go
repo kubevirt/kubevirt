@@ -208,7 +208,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		// Read column titles
 		titles, err := readNewStatus(stdout, nil, readTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(titles).To(Equal([]string{"NAME", "AGE", "RUNNING", "VOLUME"}),
+		Expect(titles).To(Equal([]string{"NAME", "AGE", "VOLUME", "STRATEGY", "READY"}),
 			"Output should have the proper columns")
 
 		// Read first status of the vm
