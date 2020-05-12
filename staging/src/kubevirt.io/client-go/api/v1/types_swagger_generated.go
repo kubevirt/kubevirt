@@ -4,7 +4,7 @@ package v1
 
 func (VirtualMachineInstance) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+		"":       "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 		"spec":   "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
 		"status": "Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.",
 	}
@@ -12,20 +12,20 @@ func (VirtualMachineInstance) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineInstanceList is a list of VirtualMachines",
+		"": "VirtualMachineInstanceList is a list of VirtualMachines\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 	}
 }
 
 func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                              "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
+		"":                              "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.\n\n+k8s:openapi-gen=true",
 		"priorityClassName":             "If specified, indicates the pod's priority.\nIf not specified, the pod priority will be default or zero if there is no\ndefault.\n+optional",
 		"domain":                        "Specification of the desired behavior of the VirtualMachineInstance on the host.",
 		"nodeSelector":                  "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
 		"affinity":                      "If affinity is specifies, obey all the affinity rules",
 		"schedulerName":                 "If specified, the VMI will be dispatched by specified scheduler.\nIf not specified, the VMI will be dispatched by default scheduler.\n+optional",
 		"tolerations":                   "If toleration is specified, obey all the toleration rules.",
-		"evictionStrategy":              "EvictionStrategy can be set to \"LiveMigrate\" if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain.",
+		"evictionStrategy":              "EvictionStrategy can be set to \"LiveMigrate\" if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain.\n\n+optional",
 		"terminationGracePeriodSeconds": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
 		"volumes":                       "List of volumes that can be mounted by disks belonging to the vmi.",
 		"livenessProbe":                 "Periodic probe of VirtualMachineInstance liveness.\nVirtualmachineInstances will be stopped if the probe fails.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
@@ -40,7 +40,7 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.",
+		"":                "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.\n\n+k8s:openapi-gen=true",
 		"nodeName":        "NodeName is the name where the VirtualMachineInstance is currently running.",
 		"reason":          "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",
 		"conditions":      "Conditions are specific points in VirtualMachineInstance's pod runtime.",
@@ -55,15 +55,24 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 }
 
 func (VirtualMachineInstanceCondition) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"":                   "+k8s:openapi-gen=true",
+		"lastProbeTime":      "+nullable",
+		"lastTransitionTime": "+nullable",
+	}
 }
 
 func (VirtualMachineInstanceMigrationCondition) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"":                   "+k8s:openapi-gen=true",
+		"lastProbeTime":      "+nullable",
+		"lastTransitionTime": "+nullable",
+	}
 }
 
 func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":              "+k8s:openapi-gen=true",
 		"ipAddress":     "IP address of a Virtual Machine interface",
 		"mac":           "Hardware address of a Virtual Machine interface",
 		"name":          "Name of the interface, corresponds to name of the network assigned to the interface",
@@ -74,6 +83,7 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceGuestOSInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":              "+k8s:openapi-gen=true",
 		"name":          "Name of the Guest OS",
 		"kernelRelease": "Guest OS Kernel Release",
 		"version":       "Guest OS Version",
@@ -87,6 +97,7 @@ func (VirtualMachineInstanceGuestOSInfo) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":                               "+k8s:openapi-gen=true",
 		"startTimestamp":                 "The time the migration action began",
 		"endTimestamp":                   "The time the migration action ended",
 		"targetNodeDomainDetected":       "The Target Node has seen the Domain Start Event",
@@ -111,20 +122,21 @@ func (VMISelector) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceReplicaSet) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.",
+		"":       "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 		"spec":   "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
-		"status": "Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.",
+		"status": "Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.\n+nullable",
 	}
 }
 
 func (VirtualMachineInstanceReplicaSetList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VMIList is a list of VMIs",
+		"": "VMIList is a list of VMIs\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 	}
 }
 
 func (VirtualMachineInstanceReplicaSetSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":         "+k8s:openapi-gen=true",
 		"replicas": "Number of desired pods. This is a pointer to distinguish between explicit\nzero and not specified. Defaults to 1.\n+optional",
 		"selector": "Label selector for pods. Existing ReplicaSets whose pods are\nselected by this will be the ones affected by this deployment.",
 		"template": "Template describes the pods that will be created.",
@@ -134,6 +146,7 @@ func (VirtualMachineInstanceReplicaSetSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceReplicaSetStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":              "+k8s:openapi-gen=true",
 		"replicas":      "Total number of non-terminated pods targeted by this deployment (their labels match the selector).\n+optional",
 		"readyReplicas": "The number of ready replicas for this replica set.\n+optional",
 		"labelSelector": "Canonical form of the label selector for HPA which consumes it through the scale subresource.",
@@ -141,53 +154,62 @@ func (VirtualMachineInstanceReplicaSetStatus) SwaggerDoc() map[string]string {
 }
 
 func (VirtualMachineInstanceReplicaSetCondition) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"":                   "+k8s:openapi-gen=true",
+		"lastProbeTime":      "+nullable",
+		"lastTransitionTime": "+nullable",
+	}
 }
 
 func (VirtualMachineInstanceTemplateSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"spec": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
+		"":         "+k8s:openapi-gen=true",
+		"metadata": "+nullable",
+		"spec":     "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
 	}
 }
 
 func (VirtualMachineInstanceMigration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineInstanceMigration represents the object tracking a VMI's migration\nto another host in the cluster",
+		"": "VirtualMachineInstanceMigration represents the object tracking a VMI's migration\nto another host in the cluster\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 	}
 }
 
 func (VirtualMachineInstanceMigrationList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineInstanceMigrationList is a list of VirtualMachineMigrations",
+		"": "VirtualMachineInstanceMigrationList is a list of VirtualMachineMigrations\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 	}
 }
 
 func (VirtualMachineInstanceMigrationSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":        "+k8s:openapi-gen=true",
 		"vmiName": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
 	}
 }
 
 func (VirtualMachineInstanceMigrationStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.",
+		"": "VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.\n\n+k8s:openapi-gen=true",
 	}
 }
 
 func (VirtualMachineInstancePreset) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":     "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 		"spec": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
 	}
 }
 
 func (VirtualMachineInstancePresetList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineInstancePresetList is a list of VirtualMachinePresets",
+		"": "VirtualMachineInstancePresetList is a list of VirtualMachinePresets\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 	}
 }
 
 func (VirtualMachineInstancePresetSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":         "+k8s:openapi-gen=true",
 		"selector": "Selector is a label query over a set of VMIs.\nRequired.",
 		"domain":   "Domain is the same object type as contained in VirtualMachineInstanceSpec",
 	}
@@ -195,7 +217,7 @@ func (VirtualMachineInstancePresetSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachine) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "VirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe VirtualMachine contains the template to create the\nVirtualMachineInstance. It also mirrors the running state of the created\nVirtualMachineInstance in its status.",
+		"":       "VirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe VirtualMachine contains the template to create the\nVirtualMachineInstance. It also mirrors the running state of the created\nVirtualMachineInstance in its status.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 		"spec":   "Spec contains the specification of VirtualMachineInstance created",
 		"status": "Status holds the current state of the controller and brief information\nabout its associated VirtualMachineInstance",
 	}
@@ -203,13 +225,13 @@ func (VirtualMachine) SwaggerDoc() map[string]string {
 
 func (VirtualMachineList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineList is a list of virtualmachines",
+		"": "VirtualMachineList is a list of virtualmachines\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 	}
 }
 
 func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                    "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
+		"":                    "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like\n\n+k8s:openapi-gen=true",
 		"running":             "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy",
 		"runStrategy":         "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running",
 		"template":            "Template is the direct specification of VirtualMachineInstance",
@@ -219,7 +241,7 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                    "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
+		"":                    "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing\n\n+k8s:openapi-gen=true",
 		"created":             "Created indicates if the virtual machine is created in the cluster",
 		"ready":               "Ready indicates if the virtual machine is running and ready",
 		"conditions":          "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
@@ -229,6 +251,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 
 func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"":       "+k8s:openapi-gen=true",
 		"action": "Indicates the type of action that is requested. e.g. Start or Stop",
 		"data":   "Provides additional data in order to perform the Action",
 		"uid":    "Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable",
@@ -237,7 +260,9 @@ func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
 
 func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineCondition represents the state of VirtualMachine",
+		"":                   "VirtualMachineCondition represents the state of VirtualMachine\n\n+k8s:openapi-gen=true",
+		"lastProbeTime":      "+nullable",
+		"lastTransitionTime": "+nullable",
 	}
 }
 
@@ -251,7 +276,7 @@ func (Handler) SwaggerDoc() map[string]string {
 
 func (Probe) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                    "Probe describes a health check to be performed against a VirtualMachineInstance to determine whether it is\nalive or ready to receive traffic.",
+		"":                    "Probe describes a health check to be performed against a VirtualMachineInstance to determine whether it is\nalive or ready to receive traffic.\n+k8s:openapi-gen=true",
 		"initialDelaySeconds": "Number of seconds after the VirtualMachineInstance has started before liveness probes are initiated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
 		"timeoutSeconds":      "Number of seconds after which the probe times out.\nDefaults to 1 second. Minimum value is 1.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
 		"periodSeconds":       "How often (in seconds) to perform the probe.\nDefault to 10 seconds. Minimum value is 1.\n+optional",
@@ -262,13 +287,13 @@ func (Probe) SwaggerDoc() map[string]string {
 
 func (KubeVirt) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "KubeVirt represents the object deploying all KubeVirt resources",
+		"": "KubeVirt represents the object deploying all KubeVirt resources\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 	}
 }
 
 func (KubeVirtList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "KubeVirtList is a list of KubeVirts",
+		"": "KubeVirtList is a list of KubeVirts\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 	}
 }
 
@@ -293,26 +318,28 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 
 func (KubeVirtStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "KubeVirtStatus represents information pertaining to a KubeVirt deployment.",
+		"": "KubeVirtStatus represents information pertaining to a KubeVirt deployment.\n\n+k8s:openapi-gen=true",
 	}
 }
 
 func (KubeVirtCondition) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "KubeVirtCondition represents a condition of a KubeVirt deployment",
+		"":                   "KubeVirtCondition represents a condition of a KubeVirt deployment\n\n+k8s:openapi-gen=true",
+		"lastProbeTime":      "+optional\n+nullable",
+		"lastTransitionTime": "+optional\n+nullable",
 	}
 }
 
 func (RestartOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                   "RestartOptions may be provided when deleting an API object.",
+		"":                   "RestartOptions may be provided when deleting an API object.\n\n+k8s:openapi-gen=true",
 		"gracePeriodSeconds": "The duration in seconds before the object should be force-restared. Value must be non-negative integer.\nThe value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the\nspecified type will be used to determine on how much time to give the VMI to restart.\nDefaults to a per object value if not specified. zero means restart immediately.\nAllowed Values: nil and 0\n+optional",
 	}
 }
 
 func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent",
+		"":                  "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 		"guestAgentVersion": "GAVersion is a version of currently installed guest agent",
 		"hostname":          "Hostname represents FQDN of a guest",
 		"os":                "OS contains the guest operating system information",
@@ -324,31 +351,31 @@ func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceGuestOSUserList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineInstanceGuestOSUserList comprises the list of all active users on guest machine",
+		"": "VirtualMachineInstanceGuestOSUserList comprises the list of all active users on guest machine\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 	}
 }
 
 func (VirtualMachineInstanceGuestOSUser) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineGuestOSUser is the single user of the guest os",
+		"": "VirtualMachineGuestOSUser is the single user of the guest os\n+k8s:openapi-gen=true",
 	}
 }
 
 func (VirtualMachineInstanceFileSystemInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineInstanceFileSystemInfo represents information regarding single guest os filesystem",
+		"": "VirtualMachineInstanceFileSystemInfo represents information regarding single guest os filesystem\n+k8s:openapi-gen=true",
 	}
 }
 
 func (VirtualMachineInstanceFileSystemList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineInstanceFileSystemList comprises the list of all filesystems on guest machine",
+		"": "VirtualMachineInstanceFileSystemList comprises the list of all filesystems on guest machine\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
 	}
 }
 
 func (VirtualMachineInstanceFileSystem) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "VirtualMachineInstanceFileSystem represents guest os disk",
+		"": "VirtualMachineInstanceFileSystem represents guest os disk\n+k8s:openapi-gen=true",
 	}
 }
 

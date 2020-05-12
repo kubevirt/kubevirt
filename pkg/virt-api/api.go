@@ -28,7 +28,6 @@ import (
 	"sync"
 
 	restful "github.com/emicklei/go-restful"
-	restfulspec "github.com/emicklei/go-restful-openapi"
 	"github.com/go-openapi/spec"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
@@ -187,9 +186,9 @@ func (app *virtAPIApp) composeSubresources() {
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation("restart").
 			Doc("Restart a VirtualMachine object.").
-			Returns(http.StatusOK, "OK", nil).
-			Returns(http.StatusNotFound, "Not Found", nil).
-			Returns(http.StatusBadRequest, "Bad Request", nil)
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, "Not Found", "").
+			Returns(http.StatusBadRequest, "Bad Request", "")
 		restartRouteBuilder.ParameterNamed("body").Required(false)
 		subws.Route(restartRouteBuilder)
 
@@ -198,45 +197,45 @@ func (app *virtAPIApp) composeSubresources() {
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation("migrate").
 			Doc("Migrate a running VirtualMachine to another node.").
-			Returns(http.StatusOK, "OK", nil).
-			Returns(http.StatusNotFound, "Not Found", nil).
-			Returns(http.StatusBadRequest, "Bad Request", nil))
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, "Not Found", "").
+			Returns(http.StatusBadRequest, "Bad Request", ""))
 
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("start")).
 			To(subresourceApp.StartVMRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation("start").
 			Doc("Start a VirtualMachine object.").
-			Returns(http.StatusOK, "OK", nil).
-			Returns(http.StatusNotFound, "Not Found", nil).
-			Returns(http.StatusBadRequest, "Bad Request", nil))
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, "Not Found", "").
+			Returns(http.StatusBadRequest, "Bad Request", ""))
 
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("stop")).
 			To(subresourceApp.StopVMRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation("stop").
 			Doc("Stop a VirtualMachine object.").
-			Returns(http.StatusOK, "OK", nil).
-			Returns(http.StatusNotFound, "Not Found", nil).
-			Returns(http.StatusBadRequest, "Bad Request", nil))
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, "Not Found", "").
+			Returns(http.StatusBadRequest, "Bad Request", ""))
 
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("pause")).
 			To(subresourceApp.PauseVMIRequestHandler).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation("pause").
 			Doc("Pause a VirtualMachineInstance object.").
-			Returns(http.StatusOK, "OK", nil).
-			Returns(http.StatusNotFound, "Not Found", nil).
-			Returns(http.StatusBadRequest, "Bad Request", nil))
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, "Not Found", "").
+			Returns(http.StatusBadRequest, "Bad Request", ""))
 
 		subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("unpause")).
 			To(subresourceApp.UnpauseVMIRequestHandler). // handles VMIs as well
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation("unpause").
 			Doc("Unpause a VirtualMachineInstance object.").
-			Returns(http.StatusOK, "OK", nil).
-			Returns(http.StatusNotFound, "Not Found", nil).
-			Returns(http.StatusBadRequest, "Bad Request", nil))
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, "Not Found", "").
+			Returns(http.StatusBadRequest, "Bad Request", ""))
 
 		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("console")).
 			To(subresourceApp.ConsoleRequestHandler).
@@ -268,8 +267,8 @@ func (app *virtAPIApp) composeSubresources() {
 			Produces(restful.MIME_JSON).
 			Operation("checkHealth").
 			Doc("Health endpoint").
-			Returns(http.StatusOK, "OK", nil).
-			Returns(http.StatusInternalServerError, "Unhealthy", nil))
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusInternalServerError, "Unhealthy", ""))
 
 		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("guestosinfo")).
 			To(subresourceApp.GuestOSInfo).
@@ -286,10 +285,10 @@ func (app *virtAPIApp) composeSubresources() {
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 			Operation("rename").
 			Doc("Rename a stopped VirtualMachine object.").
-			Returns(http.StatusOK, "OK", nil).
-			Returns(http.StatusAccepted, "Accepted", nil).
-			Returns(http.StatusNotFound, "Not Found", nil).
-			Returns(http.StatusBadRequest, "Bad Request", nil))
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusAccepted, "Accepted", "").
+			Returns(http.StatusNotFound, "Not Found", "").
+			Returns(http.StatusBadRequest, "Bad Request", ""))
 
 		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("userlist")).
 			To(subresourceApp.UserList).
@@ -375,10 +374,10 @@ func (app *virtAPIApp) composeSubresources() {
 
 				response.WriteAsJson(list)
 			}).
-			Operation("getAPIResources").
+			Operation("getAPISubResources").
 			Doc("Get a KubeVirt API resources").
 			Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
-			Returns(http.StatusNotFound, "Not Found", nil))
+			Returns(http.StatusNotFound, "Not Found", ""))
 
 		restful.Add(subws)
 
@@ -405,7 +404,7 @@ func (app *virtAPIApp) composeSubresources() {
 		Operation("getRootPaths").
 		Doc("Get KubeVirt API root paths").
 		Returns(http.StatusOK, "OK", metav1.RootPaths{}).
-		Returns(http.StatusNotFound, "Not Found", nil))
+		Returns(http.StatusNotFound, "Not Found", ""))
 
 	for _, version := range v1.SubresourceGroupVersions {
 		// K8s needs the ability to query info about a specific API group
@@ -414,10 +413,10 @@ func (app *virtAPIApp) composeSubresources() {
 			To(func(request *restful.Request, response *restful.Response) {
 				response.WriteAsJson(subresourceAPIGroup())
 			}).
-			Operation("getAPIGroup").
+			Operation("getSubAPIGroup").
 			Doc("Get a KubeVirt API Group").
 			Returns(http.StatusOK, "OK", metav1.APIGroup{}).
-			Returns(http.StatusNotFound, "Not Found", nil))
+			Returns(http.StatusNotFound, "Not Found", ""))
 	}
 
 	// K8s needs the ability to query the list of API groups this endpoint supports
@@ -432,7 +431,7 @@ func (app *virtAPIApp) composeSubresources() {
 		Operation("getAPIGroupList").
 		Doc("Get a KubeVirt API GroupList").
 		Returns(http.StatusOK, "OK", metav1.APIGroupList{}).
-		Returns(http.StatusNotFound, "Not Found", nil))
+		Returns(http.StatusNotFound, "Not Found", ""))
 
 	once := sync.Once{}
 	var openapispec *spec.Swagger
@@ -473,7 +472,17 @@ func (app *virtAPIApp) Compose() {
 }
 
 func (app *virtAPIApp) ConfigureOpenAPIService() {
-	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(openapi.CreateOpenAPIConfig(restful.RegisteredWebServices())))
+	spec := openapi.LoadOpenAPISpec(restful.RegisteredWebServices())
+	config := openapi.CreateOpenAPIConfig(restful.RegisteredWebServices())
+	ws := new(restful.WebService)
+	ws.Path(config.APIPath)
+	ws.Produces(restful.MIME_JSON)
+	f := func(req *restful.Request, resp *restful.Response) {
+		resp.WriteAsJson(spec)
+	}
+	ws.Route(ws.GET("/").To(f))
+
+	restful.DefaultContainer.Add(ws)
 	http.Handle("/swagger-ui/", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir(app.SwaggerUI))))
 }
 

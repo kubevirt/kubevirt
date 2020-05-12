@@ -149,6 +149,9 @@ var _ = Describe("Validating VM Admitter", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "dv1",
 			},
+			Spec: cdiv1.DataVolumeSpec{
+				PVC: &k8sv1.PersistentVolumeClaimSpec{},
+			},
 		})
 
 		vmBytes, _ := json.Marshal(&vm)
@@ -193,6 +196,10 @@ var _ = Describe("Validating VM Admitter", func() {
 		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "dv1",
+			},
+			// this is needed as we have 'better' openapi spec now
+			Spec: cdiv1.DataVolumeSpec{
+				PVC: &k8sv1.PersistentVolumeClaimSpec{},
 			},
 		})
 
