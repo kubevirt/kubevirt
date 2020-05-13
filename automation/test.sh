@@ -33,6 +33,26 @@ readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
+export KUBEVIRT_LANE_FOCUS="kind-k8s-1.17.0-ipv6"
+
+if [[ $KUBEVIRT_LANE_FOCUS != "" ]]; then
+   FOCUS_ERROR=1
+else
+   FOCUS_ERROR=0
+fi
+
+for aString in ${KUBEVIRT_LANE_FOCUS[@]}; do
+    if [[ ${aString} == $TARGET ]]; then
+        echo "found $aString equal TARGET"
+        FOCUS_ERROR=0
+    fi
+done
+
+if [ $FOCUS_ERROR -eq 1 ]; then
+    echo "Focus detected, TARGET $TARGET not equal $KUBEVIRT_LANE_FOCUS, failing run"
+    exit 1
+fi
+
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
 elif [[ $TARGET =~ cnao ]]; then
