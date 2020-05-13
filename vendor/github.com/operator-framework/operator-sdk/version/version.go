@@ -19,9 +19,11 @@ import (
 	"runtime"
 )
 
+//var needs to be used instead of const for ldflags
 var (
-	Version    = "v0.15.1"
-	GitVersion = "unknown"
-	GitCommit  = "unknown"
-	GoVersion  = fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	Version           = "v0.17.0"
+	GitVersion        = "unknown"
+	GitCommit         = "unknown"
+	KubernetesVersion = "unknown"
+	GoVersion         = fmt.Sprintf("%s %s/%s", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 )

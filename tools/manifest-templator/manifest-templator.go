@@ -20,7 +20,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"os"
 	"path"
@@ -143,8 +142,7 @@ func main() {
 				panic(err)
 			}
 
-			strategySpec := &components.StrategyDetailsDeployment{}
-			json.Unmarshal(csvStruct.Spec.InstallStrategy.StrategySpecRaw, strategySpec)
+			strategySpec := csvStruct.Spec.InstallStrategy.StrategySpec
 
 			// CSVs only contain the deployment spec, we must wrap
 			// the spec with the Type and Object Meta to make it a valid

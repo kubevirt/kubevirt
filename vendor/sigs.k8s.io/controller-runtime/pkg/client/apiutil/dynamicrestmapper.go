@@ -318,5 +318,6 @@ func (b *dynamicLimiter) checkRate() error {
 	if res.Delay() == 0 {
 		return nil
 	}
+	res.Cancel()
 	return ErrRateLimited{res.Delay()}
 }

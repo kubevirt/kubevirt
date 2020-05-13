@@ -38,7 +38,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	"github.com/kubevirt/hyperconverged-cluster-operator/tools/util"
 
-	csvv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -294,8 +294,7 @@ func main() {
 					panic(err)
 				}
 
-				strategySpec := &components.StrategyDetailsDeployment{}
-				json.Unmarshal(csvStruct.Spec.InstallStrategy.StrategySpecRaw, strategySpec)
+				strategySpec := csvStruct.Spec.InstallStrategy.StrategySpec
 
 				installStrategyBase.DeploymentSpecs = append(installStrategyBase.DeploymentSpecs, strategySpec.DeploymentSpecs...)
 				installStrategyBase.ClusterPermissions = append(installStrategyBase.ClusterPermissions, strategySpec.ClusterPermissions...)
@@ -362,13 +361,9 @@ func main() {
 		}
 		csvExtended.Annotations["operators.operatorframework.io/internal-objects"] = string(hidden_crds_j)
 
-		// Re-serialize deployments and permissions into csv strategy.
-		updatedStrat, err := json.Marshal(installStrategyBase)
-		if err != nil {
-			panic(err)
-		}
+		// Update csv strategy.
 		csvExtended.Spec.InstallStrategy.StrategyName = "deployment"
-		csvExtended.Spec.InstallStrategy.StrategySpecRaw = updatedStrat
+		csvExtended.Spec.InstallStrategy.StrategySpec = *installStrategyBase
 
 		if *metadataDescription != "" {
 			csvExtended.Annotations["description"] = *metadataDescription

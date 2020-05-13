@@ -8,8 +8,8 @@ import (
 
 	"github.com/blang/semver"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
-	csvv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
-	csvVersion "github.com/operator-framework/operator-lifecycle-manager/pkg/lib/version"
+	csvVersion "github.com/operator-framework/api/pkg/lib/version"
+	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -17,28 +17,6 @@ import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// Taking this from "github.com/operator-framework/operator-lifecycle-manager/pkg/controller/install"
-// to avoid adding the additional dependencies
-// StrategyDeploymentPermissions describe the rbac rules and service account needed by the install strategy
-type StrategyDeploymentPermissions struct {
-	ServiceAccountName string              `json:"serviceAccountName"`
-	Rules              []rbacv1.PolicyRule `json:"rules"`
-}
-
-// StrategyDeploymentSpec contains the name and spec for the deployment ALM should create
-type StrategyDeploymentSpec struct {
-	Name string                `json:"name"`
-	Spec appsv1.DeploymentSpec `json:"spec"`
-}
-
-// StrategyDetailsDeployment represents the parsed details of a Deployment
-// InstallStrategy.
-type StrategyDetailsDeployment struct {
-	DeploymentSpecs    []StrategyDeploymentSpec        `json:"deployments"`
-	Permissions        []StrategyDeploymentPermissions `json:"permissions,omitempty"`
-	ClusterPermissions []StrategyDeploymentPermissions `json:"clusterPermissions,omitempty"`
-}
 
 const hcoName = "hyperconverged-cluster-operator"
 
@@ -544,17 +522,17 @@ func GetOperatorCR() *hcov1alpha1.HyperConverged {
 }
 
 // GetInstallStrategyBase returns the basics of an HCO InstallStrategy
-func GetInstallStrategyBase(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion string) *StrategyDetailsDeployment {
-	return &StrategyDetailsDeployment{
-		DeploymentSpecs: []StrategyDeploymentSpec{
-			StrategyDeploymentSpec{
+func GetInstallStrategyBase(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion string) *csvv1alpha1.StrategyDetailsDeployment {
+	return &csvv1alpha1.StrategyDetailsDeployment{
+		DeploymentSpecs: []csvv1alpha1.StrategyDeploymentSpec{
+			csvv1alpha1.StrategyDeploymentSpec{
 				Name: "hco-operator",
 				Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion),
 			},
 		},
-		Permissions: []StrategyDeploymentPermissions{},
-		ClusterPermissions: []StrategyDeploymentPermissions{
-			StrategyDeploymentPermissions{
+		Permissions: []csvv1alpha1.StrategyDeploymentPermissions{},
+		ClusterPermissions: []csvv1alpha1.StrategyDeploymentPermissions{
+			csvv1alpha1.StrategyDeploymentPermissions{
 				ServiceAccountName: hcoName,
 				Rules:              GetClusterPermissions(),
 			},

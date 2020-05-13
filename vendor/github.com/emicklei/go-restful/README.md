@@ -43,7 +43,7 @@ func (u UserResource) findUser(request *restful.Request, response *restful.Respo
 		
 ### Features
 
-- Routes for request &#8594; function mapping with path parameter (e.g. {id} but also prefix_{var} and {var}_suffix) support
+- Routes for request &#8594; function mapping with path parameter (e.g. {id}) support
 - Configurable router:
 	- (default) Fast routing algorithm that allows static elements, [google custom method](https://cloud.google.com/apis/design/custom_methods), regular expressions and dynamic parameters in the URL path (e.g. /resource/name:customVerb, /meetings/{id} or /static/{subpath:*})
 	- Routing algorithm after [JSR311](http://jsr311.java.net/nonav/releases/1.1/spec/spec.html) that is implemented using (but does **not** accept) regular expressions
