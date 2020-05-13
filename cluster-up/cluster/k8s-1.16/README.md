@@ -1,6 +1,6 @@
-# Kubernetes 1.16.2 in ephemeral containers
+# Kubernetes 1.16 in ephemeral containers
 
-Provides a pre-deployed Kubernetes with version 1.16.2 purely in docker
+Provides a pre-deployed Kubernetes with version 1.16 purely in docker
 containers with qemu. The provided VMs are completely ephemeral and are
 recreated on every cluster restart. The KubeVirt containers are built on the
 local machine and are then pushed to a registry which is exposed at
@@ -9,7 +9,7 @@ local machine and are then pushed to a registry which is exposed at
 ## Bringing the cluster up
 
 ```bash
-export KUBEVIRT_PROVIDER=k8s-1.16.2
+export KUBEVIRT_PROVIDER=k8s-1.16
 export KUBEVIRT_NUM_NODES=2 # master + one node
 make cluster-up
 ```
@@ -19,14 +19,14 @@ The cluster can be accessed as usual:
 ```bash
 $ cluster/kubectl.sh get nodes
 NAME      STATUS     ROLES     AGE       VERSION
-node01    NotReady   master    31s       v1.16.2
-node02    NotReady   <none>    5s        v1.16.2
+node01    NotReady   master    31s       v1.16
+node02    NotReady   <none>    5s        v1.16
 ```
 
 ## Bringing the cluster down
 
 ```bash
-export KUBEVIRT_PROVIDER=k8s-1.16.2
+export KUBEVIRT_PROVIDER=k8s-1.16
 make cluster-down
 ```
 

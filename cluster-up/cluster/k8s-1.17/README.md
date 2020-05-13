@@ -19,8 +19,8 @@ The cluster can be accessed as usual:
 ```bash
 $ cluster/kubectl.sh get nodes
 NAME      STATUS     ROLES     AGE       VERSION
-node01    NotReady   master    31s       v1.17.1
-node02    NotReady   <none>    5s        v1.17.1
+node01    NotReady   master    31s       v1.17
+node02    NotReady   <none>    5s        v1.17
 ```
 
 ## Bringing the cluster up with cluster-network-addons-operator provisioned
