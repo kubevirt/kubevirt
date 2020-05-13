@@ -4636,15 +4636,21 @@ func IsRunningOnKindInfraIPv6() bool {
 	return strings.HasPrefix(provider, "kind-k8s-1.17.0-ipv6")
 }
 
+func SkipStressTestIfRunnigOnKindInfra() {
+	if IsRunningOnKindInfra() {
+		Skip("Skip stress test till issue https://github.com/kubevirt/kubevirt/issues/3323 is fixed")
+	}
+}
+
 func SkipPVCTestIfRunnigOnKindInfra() {
 	if IsRunningOnKindInfra() {
 		Skip("Skip PVC tests till PR https://github.com/kubevirt/kubevirt/pull/3171 is merged")
 	}
 }
 
-func SkipMigrationTestIfRunnigOnKindInfra() {
+func SkipNFSTestIfRunnigOnKindInfra() {
 	if IsRunningOnKindInfra() {
-		Skip("Skip migration tests till PR https://github.com/kubevirt/kubevirt/pull/3221 is merged")
+		Skip("Skip NFS tests till issue https://github.com/kubevirt/kubevirt/issues/3322 is fixed")
 	}
 }
 
