@@ -32,6 +32,7 @@ import (
 	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	version "github.com/kubevirt/hyperconverged-cluster-operator/version"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -72,6 +73,8 @@ const (
 	uninstallVirtErrorMsg = "The uninstall request failed on virt component: "
 	ErrHCOUninstall       = "ErrHCOUninstall"
 	uninstallHCOErrorMsg  = "The uninstall request failed on dependent components, please check their logs."
+
+	hcoVersionName = "operator"
 )
 
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -82,7 +85,19 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileHyperConverged{client: mgr.GetClient(), scheme: mgr.GetScheme(), recorder: mgr.GetEventRecorderFor(hcov1alpha1.HyperConvergedName)}
+
+	ownVersion := os.Getenv(hcoutil.HcoKvIoVersionName)
+	if ownVersion == "" {
+		ownVersion = version.Version
+	}
+
+	return &ReconcileHyperConverged{
+		client:      mgr.GetClient(),
+		scheme:      mgr.GetScheme(),
+		recorder:    mgr.GetEventRecorderFor(hcov1alpha1.HyperConvergedName),
+		upgradeMode: false,
+		ownVersion:  ownVersion,
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -138,10 +153,12 @@ var _ reconcile.Reconciler = &ReconcileHyperConverged{}
 type ReconcileHyperConverged struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client     client.Client
-	scheme     *runtime.Scheme
-	recorder   record.EventRecorder
-	conditions []conditionsv1.Condition
+	client      client.Client
+	scheme      *runtime.Scheme
+	recorder    record.EventRecorder
+	conditions  []conditionsv1.Condition
+	upgradeMode bool
+	ownVersion  string
 }
 
 // Reconcile reads that state of the cluster for a HyperConverged object and makes changes based on the state read
@@ -190,6 +207,8 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	var init bool
 	if instance.Status.Conditions == nil {
 		init = true
+
+		instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
 
 		conditionsv1.SetStatusCondition(&instance.Status.Conditions, conditionsv1.Condition{
 			Type:    hcov1alpha1.ConditionReconcileComplete,
@@ -294,6 +313,15 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		}
 	}
 
+	// If the current image is not updated in CR ,then we're updating. This is also works when updating from
+	// an old version, since instance.ObjectMeta.Annotations[operatorImageCr] will be empty.
+	knownHcoVersion, _ := instance.Status.GetVersion(hcoVersionName)
+
+	if !r.upgradeMode && !init && knownHcoVersion != r.ownVersion {
+		r.upgradeMode = true
+		reqLogger.Info(fmt.Sprintf("Start upgrating from version %s to version %s", knownHcoVersion, r.ownVersion))
+	}
+
 	for _, f := range []func(*hcov1alpha1.HyperConverged, logr.Logger, reconcile.Request) error{
 		r.ensureKubeVirtPriorityClass,
 		r.ensureKubeVirtConfig,
@@ -363,6 +391,12 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 			Reason:  reconcileCompleted,
 			Message: reconcileCompletedMessage,
 		})
+
+		if r.upgradeMode { // update the new image only when upgrade is completed
+			instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
+			r.upgradeMode = false
+			reqLogger.Info(fmt.Sprintf("Successfuly upgraded to version %s", r.ownVersion))
+		}
 
 		// If no operator whose conditions we are watching reports an error, then it is safe
 		// to set readiness.

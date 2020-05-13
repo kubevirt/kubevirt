@@ -52,6 +52,7 @@ var (
 	imsVMWareImage     = flag.String("ims-vmware-image-name", "", "IMS VMWare image")
 	smbios             = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
 	machinetype        = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap")
+	hcoKvIoVersion     = flag.String("hco-kv-io-version", "", "KubeVirt version")
 )
 
 // check handles errors
@@ -116,6 +117,7 @@ func main() {
 			*imsVMWareImage,
 			*smbios,
 			*machinetype,
+			*hcoKvIoVersion,
 		),
 	}
 	serviceAccounts := map[string]v1.ServiceAccount{

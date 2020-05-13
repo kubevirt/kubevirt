@@ -42,6 +42,8 @@ spec:
             Manufacturer: KubeVirt
             Product: None
         - name: MACHINETYPE
+        - name: HCO_KV_IO_VERSION
+          value: 1.1.0
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.1.0
         imagePullPolicy: IfNotPresent
         name: hyperconverged-cluster-operator

@@ -16,8 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const OperatorNamespaceEnv = "OPERATOR_NAMESPACE"
-
 func GetOperatorNamespaceFromEnv() (string, error) {
 	if namespace, ok := os.LookupEnv(OperatorNamespaceEnv); ok {
 		return namespace, nil

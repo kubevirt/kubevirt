@@ -3,6 +3,7 @@ package components
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"time"
 
 	"github.com/blang/semver"
@@ -41,7 +42,7 @@ type StrategyDetailsDeployment struct {
 
 const hcoName = "hyperconverged-cluster-operator"
 
-func GetDeployment(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype string) appsv1.Deployment {
+func GetDeployment(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion string) appsv1.Deployment {
 	return appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -53,11 +54,11 @@ func GetDeployment(namespace, image, imagePullPolicy, conversionContainer, vmwar
 				"name": hcoName,
 			},
 		},
-		Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype),
+		Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion),
 	}
 }
 
-func GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype string) appsv1.DeploymentSpec {
+func GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion string) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
 		Replicas: int32Ptr(1),
 		Selector: &metav1.LabelSelector{
@@ -137,6 +138,10 @@ func GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, v
 							{
 								Name:  "MACHINETYPE",
 								Value: machinetype,
+							},
+							{
+								Name:  util.HcoKvIoVersionName,
+								Value: hcoKvIoVersion,
 							},
 						},
 					},
@@ -539,12 +544,12 @@ func GetOperatorCR() *hcov1alpha1.HyperConverged {
 }
 
 // GetInstallStrategyBase returns the basics of an HCO InstallStrategy
-func GetInstallStrategyBase(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype string) *StrategyDetailsDeployment {
+func GetInstallStrategyBase(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion string) *StrategyDetailsDeployment {
 	return &StrategyDetailsDeployment{
 		DeploymentSpecs: []StrategyDeploymentSpec{
 			StrategyDeploymentSpec{
 				Name: "hco-operator",
-				Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype),
+				Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion),
 			},
 		},
 		Permissions: []StrategyDeploymentPermissions{},

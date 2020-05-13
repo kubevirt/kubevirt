@@ -42,6 +42,50 @@ type HyperConvergedStatus struct {
 	// been created AND found in the cluster.
 	// +optional
 	RelatedObjects []corev1.ObjectReference `json:"relatedObjects,omitempty"`
+
+	// Versions is a list of HCO component versions, as name/version pairs. The version with a name of "operator"
+	// is the HCO version itself, as described here:
+	// https://github.com/openshift/cluster-version-operator/blob/master/docs/dev/clusteroperator.md#version
+	// +optional
+	Versions Versions `json:"versions,omitempty"`
+}
+
+func (hcs *HyperConvergedStatus) UpdateVersion(name, version string) {
+	hcs.Versions.updateVersion(name, version)
+}
+
+func (hcs *HyperConvergedStatus) GetVersion(name string) (string, bool) {
+	return hcs.Versions.getVersion(name)
+}
+
+type Version struct {
+	Name    string `json:"name,omitempty"`
+	Version string `json:"version,omitempty"`
+}
+
+func newVersion(name, version string) Version {
+	return Version{Name: name, Version: version}
+}
+
+type Versions []Version
+
+func (vs *Versions) updateVersion(name, version string) {
+	for i, v := range *vs {
+		if v.Name == name {
+			(*vs)[i].Version = version
+			return
+		}
+	}
+	*vs = append(*vs, newVersion(name, version))
+}
+
+func (vs *Versions) getVersion(name string) (string, bool) {
+	for _, v := range *vs {
+		if v.Name == name {
+			return v.Version, true
+		}
+	}
+	return "", false
 }
 
 // ConditionReconcileComplete communicates the status of the HyperConverged resource's

@@ -242,6 +242,7 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --ims-vmware-image-name="${VMWARE_CONTAINER}" \
   --operator-namespace="${OPERATOR_NAMESPACE}" \
   --smbios="${SMBIOS}" \
+  --hco-kv-io-version="${CSV_VERSION}" \
   --operator-image="${OPERATOR_IMAGE}"
 (cd ${PROJECT_ROOT}/tools/manifest-templator/ && go clean)
 
@@ -256,6 +257,7 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --ims-vmware-image-name="${VMWARE_CONTAINER}" \
   --csv-version=${CSV_VERSION} \
   --replaces-csv-version=${REPLACES_CSV_VERSION} \
+  --hco-kv-io-version="${CSV_VERSION}" \
   --spec-displayname="KubeVirt HyperConverged Cluster Operator" \
   --spec-description="$(<${PROJECT_ROOT}/docs/operator_description.md)" \
   --crd-display="HyperConverged Cluster Operator" \

@@ -94,7 +94,8 @@ var (
 		"Comma separated list of all the CRDs that should be visible in OLM console")
 	relatedImagesList = flag.String("related-images-list", "",
 		"Comma separated list of all the images referred in the CSV (just the image pull URLs or eventually a set of 'image|name' collations)")
-	crdDir = flag.String("crds-dir", "", "the directory containing the CRDs for apigroup validation. The validation will be performed if and only if the value is non-empty.")
+	crdDir         = flag.String("crds-dir", "", "the directory containing the CRDs for apigroup validation. The validation will be performed if and only if the value is non-empty.")
+	hcoKvIoVersion = flag.String("hco-kv-io-version", "", "KubeVirt version")
 )
 
 func gen_hco_crds() {
@@ -259,6 +260,7 @@ func main() {
 			*imsVMWareImage,
 			*smbios,
 			*machinetype,
+			*hcoKvIoVersion,
 		)
 
 		for _, image := range strings.Split(*relatedImagesList, ",") {
