@@ -40,9 +40,11 @@ func IsIpv6Disabled() bool {
 
 // GetIPBindAddress returns IP bind address (either 0.0.0.0 or [::] according sysctl disable_ipv6)
 func GetIPBindAddress() string {
-	if IsIpv6Disabled() {
-		return "0.0.0.0"
-	}
+	//DBG
 
-	return "[::]"
+	//if IsIpv6Disabled() {
+	return "0.0.0.0"
+	//}
+
+	//return "[::]"
 }
