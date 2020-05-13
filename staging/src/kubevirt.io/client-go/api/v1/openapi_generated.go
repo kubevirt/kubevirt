@@ -17643,6 +17643,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineStatus(ref common.Referenc
 				Description: "VirtualMachineStatus represents the status returned by the controller to describe how the VirtualMachine is doing",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"snapshotInProgress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"created": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Created indicates if the virtual machine is created in the cluster",

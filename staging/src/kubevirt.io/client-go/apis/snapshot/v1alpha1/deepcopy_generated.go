@@ -21,7 +21,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -387,7 +386,7 @@ func (in *VolumeSnapshotStatus) DeepCopyInto(out *VolumeSnapshotStatus) {
 	}
 	if in.Error != nil {
 		in, out := &in.Error, &out.Error
-		*out = new(v1beta1.VolumeSnapshotError)
+		*out = new(VirtualMachineSnapshotError)
 		(*in).DeepCopyInto(*out)
 	}
 	return

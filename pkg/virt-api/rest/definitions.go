@@ -112,7 +112,7 @@ func GroupVersionProxyBase(gv schema.GroupVersion) (*restful.WebService, error) 
 	ws.Route(
 		ws.GET("/").Produces(mime.MIME_JSON).Writes(metav1.APIResourceList{}).
 			To(Noop).
-			Operation("getAPIResources").
+			Operation(fmt.Sprintf("getAPIResources-%s-%s", gv.Group, gv.Version)).
 			Doc("Get KubeVirt API Resources").
 			Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
 			Returns(http.StatusNotFound, "Not Found", ""),
@@ -247,7 +247,7 @@ func ResourceProxyAutodiscovery(gvr schema.GroupVersionResource) (*restful.WebSe
 		Produces(mime.MIME_JSON).Writes(metav1.APIGroup{}).
 		To(Noop).
 		Doc("Get a KubeVirt API group").
-		Operation("getAPIGroup").
+		Operation("getAPIGroup-"+gvr.Group).
 		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
 		Returns(http.StatusNotFound, "Not Found", ""))
 	return ws, nil

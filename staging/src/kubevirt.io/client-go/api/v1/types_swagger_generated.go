@@ -242,6 +242,7 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                    "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing\n\n+k8s:openapi-gen=true",
+		"snapshotInProgress":  "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
 		"created":             "Created indicates if the virtual machine is created in the cluster",
 		"ready":               "Ready indicates if the virtual machine is running and ready",
 		"conditions":          "Hold the state information of the VirtualMachine and its VirtualMachineInstance",

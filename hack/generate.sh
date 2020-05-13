@@ -16,7 +16,7 @@ deepcopy-gen --input-dirs kubevirt.io/client-go/apis/snapshot/v1alpha1 \
     --bounding-dirs kubevirt.io/client-go/apis \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
-openapi-gen --input-dirs kubevirt.io/client-go/apis/snapshot/v1alpha1 \
+openapi-gen --input-dirs kubevirt.io/client-go/apis/snapshot/v1alpha1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,kubevirt.io/client-go/api/v1 \
     --output-base ${KUBEVIRT_DIR}/staging/src \
     --output-package kubevirt.io/client-go/apis/snapshot/v1alpha1 \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt

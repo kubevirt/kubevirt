@@ -20,7 +20,6 @@
 package v1alpha1
 
 import (
-	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -202,5 +201,5 @@ type VolumeSnapshotStatus struct {
 	ReadyToUse *bool `json:"readyToUse,omitempty"`
 
 	// +optional
-	Error *vsv1beta1.VolumeSnapshotError `json:"error,omitempty"`
+	Error *VirtualMachineSnapshotError `json:"error,omitempty"`
 }

@@ -95,6 +95,17 @@ func getVMSnapshotContentName(vmSnapshot *vmssv1alpha1.VirtualMachineSnapshot) s
 	return fmt.Sprintf("%s-%s", "vmsnapshot-content", vmSnapshot.UID)
 }
 
+func translateError(e *vsv1beta1.VolumeSnapshotError) *vmssv1alpha1.VirtualMachineSnapshotError {
+	if e == nil {
+		return nil
+	}
+
+	return &vmssv1alpha1.VirtualMachineSnapshotError{
+		Message: e.Message,
+		Time:    e.Time,
+	}
+}
+
 // variable so can be overridden in tests
 var currentTime = func() *metav1.Time {
 	t := metav1.Now()
@@ -221,7 +232,7 @@ func (ctrl *SnapshotController) updateVMSnapshotContent(content *vmssv1alpha1.Vi
 		if volumeSnapshot.Status != nil {
 			vss.ReadyToUse = volumeSnapshot.Status.ReadyToUse
 			vss.CreationTime = volumeSnapshot.Status.CreationTime
-			vss.Error = volumeSnapshot.Status.Error
+			vss.Error = translateError(volumeSnapshot.Status.Error)
 		}
 
 		volueSnapshotStatus = append(volueSnapshotStatus, vss)

@@ -796,7 +796,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						VolumeSnapshotName: volumeSnapshots[i].Name,
 						ReadyToUse:         volumeSnapshots[i].Status.ReadyToUse,
 						CreationTime:       volumeSnapshots[i].Status.CreationTime,
-						Error:              volumeSnapshots[i].Status.Error,
+						Error:              translateError(volumeSnapshots[i].Status.Error),
 					}
 					updatedContent.Status.VolumeSnapshotStatus = append(updatedContent.Status.VolumeSnapshotStatus, vss)
 				}
@@ -853,7 +853,7 @@ var _ = Describe("Snapshot controlleer", func() {
 						VolumeSnapshotName: volumeSnapshots[i].Name,
 						ReadyToUse:         volumeSnapshots[i].Status.ReadyToUse,
 						CreationTime:       volumeSnapshots[i].Status.CreationTime,
-						Error:              volumeSnapshots[i].Status.Error,
+						Error:              translateError(volumeSnapshots[i].Status.Error),
 					}
 					updatedContent.Status.VolumeSnapshotStatus = append(updatedContent.Status.VolumeSnapshotStatus, vss)
 				}
