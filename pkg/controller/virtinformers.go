@@ -49,7 +49,7 @@ import (
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	kubev1 "kubevirt.io/client-go/api/v1"
-	snapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
@@ -345,9 +345,9 @@ func (f *kubeInformerFactory) VirtualMachine() cache.SharedIndexInformer {
 func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer {
 	return f.getInformer("vmSnapshotInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1alpha1().RESTClient(), "virtualmachinesnapshots", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &snapshotv1alpha1.VirtualMachineSnapshot{}, f.defaultResync, cache.Indexers{
+		return cache.NewSharedIndexInformer(lw, &snapshotv1.VirtualMachineSnapshot{}, f.defaultResync, cache.Indexers{
 			"vm": func(obj interface{}) ([]string, error) {
-				vms, ok := obj.(*snapshotv1alpha1.VirtualMachineSnapshot)
+				vms, ok := obj.(*snapshotv1.VirtualMachineSnapshot)
 				if !ok {
 					return nil, fmt.Errorf("unexpected object")
 				}
@@ -373,9 +373,9 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 func (f *kubeInformerFactory) VirtualMachineSnapshotContent() cache.SharedIndexInformer {
 	return f.getInformer("vmSnapshotContentInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1alpha1().RESTClient(), "virtualmachinesnapshotcontents", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &snapshotv1alpha1.VirtualMachineSnapshotContent{}, f.defaultResync, cache.Indexers{
+		return cache.NewSharedIndexInformer(lw, &snapshotv1.VirtualMachineSnapshotContent{}, f.defaultResync, cache.Indexers{
 			"volumeSnapshot": func(obj interface{}) ([]string, error) {
-				vmsc, ok := obj.(*snapshotv1alpha1.VirtualMachineSnapshotContent)
+				vmsc, ok := obj.(*snapshotv1.VirtualMachineSnapshotContent)
 				if !ok {
 					return nil, fmt.Errorf("unexpected object")
 				}

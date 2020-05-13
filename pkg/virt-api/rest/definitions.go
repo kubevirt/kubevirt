@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	snapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	mime "kubevirt.io/kubevirt/pkg/rest"
 )
 
@@ -43,8 +43,8 @@ func ComposeAPIDefinitions() []*restful.WebService {
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
 	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancemigrations"}
 
-	vmsGVR := snapshotv1alpha1.SchemeGroupVersion.WithResource("virtualmachinesnapshots")
-	vmscGVR := snapshotv1alpha1.SchemeGroupVersion.WithResource("virtualmachinesnapshotcontents")
+	vmsGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots")
+	vmscGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshotcontents")
 
 	ws, err := GroupVersionProxyBase(v1.GroupVersion)
 	if err != nil {
@@ -81,17 +81,17 @@ func ComposeAPIDefinitions() []*restful.WebService {
 		panic(err)
 	}
 
-	ws2, err := GroupVersionProxyBase(schema.GroupVersion{Group: snapshotv1alpha1.SchemeGroupVersion.Group, Version: snapshotv1alpha1.SchemeGroupVersion.Version})
+	ws2, err := GroupVersionProxyBase(schema.GroupVersion{Group: snapshotv1.SchemeGroupVersion.Group, Version: snapshotv1.SchemeGroupVersion.Version})
 	if err != nil {
 		panic(err)
 	}
 
-	ws2, err = GenericResourceProxy(ws2, vmsGVR, &snapshotv1alpha1.VirtualMachineSnapshot{}, "VirtualMachineSnapshot", &snapshotv1alpha1.VirtualMachineSnapshotList{})
+	ws2, err = GenericResourceProxy(ws2, vmsGVR, &snapshotv1.VirtualMachineSnapshot{}, "VirtualMachineSnapshot", &snapshotv1.VirtualMachineSnapshotList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws2, err = GenericResourceProxy(ws2, vmscGVR, &snapshotv1alpha1.VirtualMachineSnapshotContent{}, "VirtualMachineSnapshotContent", &snapshotv1alpha1.VirtualMachineSnapshotContentList{})
+	ws2, err = GenericResourceProxy(ws2, vmscGVR, &snapshotv1.VirtualMachineSnapshotContent{}, "VirtualMachineSnapshotContent", &snapshotv1.VirtualMachineSnapshotContentList{})
 	if err != nil {
 		panic(err)
 	}

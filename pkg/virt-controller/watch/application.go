@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
-	vmssv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
@@ -173,7 +173,7 @@ var _ service.Service = &VirtControllerApp{}
 
 func init() {
 	vsv1beta1.AddToScheme(scheme.Scheme)
-	vmssv1alpha1.AddToScheme(scheme.Scheme)
+	snapshotv1.AddToScheme(scheme.Scheme)
 
 	prometheus.MustRegister(leaderGauge)
 	prometheus.MustRegister(readyGauge)

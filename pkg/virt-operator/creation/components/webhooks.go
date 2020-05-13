@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
-	snapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 )
 
 func NewOperatorWebhookService(operatorNamespace string) *corev1.Service {
@@ -364,8 +364,8 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 						v1beta1.Update,
 					},
 					Rule: v1beta1.Rule{
-						APIGroups:   []string{snapshotv1alpha1.SchemeGroupVersion.Group},
-						APIVersions: []string{snapshotv1alpha1.SchemeGroupVersion.Version},
+						APIGroups:   []string{snapshotv1.SchemeGroupVersion.Group},
+						APIVersions: []string{snapshotv1.SchemeGroupVersion.Version},
 						Resources:   []string{"virtualmachinesnapshots"},
 					},
 				}},

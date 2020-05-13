@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
-	vmssv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -218,7 +218,7 @@ func (ctrl *SnapshotController) processVMSnapshotWorkItem() bool {
 		}
 
 		if exists {
-			vmSnapshot, ok := storeObj.(*vmssv1alpha1.VirtualMachineSnapshot)
+			vmSnapshot, ok := storeObj.(*snapshotv1.VirtualMachineSnapshot)
 			if !ok {
 				return fmt.Errorf("unexpected resource %+v", storeObj)
 			}
@@ -242,7 +242,7 @@ func (ctrl *SnapshotController) processVMSnapshotContentWorkItem() bool {
 		}
 
 		if exists {
-			vmSnapshotContent, ok := storeObj.(*vmssv1alpha1.VirtualMachineSnapshotContent)
+			vmSnapshotContent, ok := storeObj.(*snapshotv1.VirtualMachineSnapshotContent)
 			if !ok {
 				return fmt.Errorf("unexpected resource %+v", storeObj)
 			}
@@ -328,7 +328,7 @@ func (ctrl *SnapshotController) handleVMSnapshot(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	if vmSnapshot, ok := obj.(*vmssv1alpha1.VirtualMachineSnapshot); ok {
+	if vmSnapshot, ok := obj.(*snapshotv1.VirtualMachineSnapshot); ok {
 		objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(vmSnapshot)
 		if err != nil {
 			log.Log.Errorf("failed to get key from object: %v, %v", err, vmSnapshot)
@@ -344,7 +344,7 @@ func (ctrl *SnapshotController) handleVMSnapshotContent(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	if content, ok := obj.(*vmssv1alpha1.VirtualMachineSnapshotContent); ok {
+	if content, ok := obj.(*snapshotv1.VirtualMachineSnapshotContent); ok {
 		objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(content)
 		if err != nil {
 			log.Log.Errorf("failed to get key from object: %v, %v", err, content)

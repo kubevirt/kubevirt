@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
-	snapshotv1alpha1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
+	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 )
 
 const (
@@ -246,13 +246,13 @@ func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 func NewVirtualMachineSnapshotCrd() *extv1beta1.CustomResourceDefinition {
 	crd := newBlankCrd()
 
-	crd.ObjectMeta.Name = "virtualmachinesnapshots." + snapshotv1alpha1.SchemeGroupVersion.Group
+	crd.ObjectMeta.Name = "virtualmachinesnapshots." + snapshotv1.SchemeGroupVersion.Group
 	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
-		Group:   snapshotv1alpha1.SchemeGroupVersion.Group,
-		Version: snapshotv1alpha1.SchemeGroupVersion.Version,
+		Group:   snapshotv1.SchemeGroupVersion.Group,
+		Version: snapshotv1.SchemeGroupVersion.Version,
 		Versions: []extv1beta1.CustomResourceDefinitionVersion{
 			{
-				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
+				Name:    snapshotv1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
 			},
@@ -282,13 +282,13 @@ func NewVirtualMachineSnapshotCrd() *extv1beta1.CustomResourceDefinition {
 func NewVirtualMachineSnapshotContentCrd() *extv1beta1.CustomResourceDefinition {
 	crd := newBlankCrd()
 
-	crd.ObjectMeta.Name = "virtualmachinesnapshotcontents." + snapshotv1alpha1.SchemeGroupVersion.Group
+	crd.ObjectMeta.Name = "virtualmachinesnapshotcontents." + snapshotv1.SchemeGroupVersion.Group
 	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
-		Group:   snapshotv1alpha1.SchemeGroupVersion.Group,
-		Version: snapshotv1alpha1.SchemeGroupVersion.Version,
+		Group:   snapshotv1.SchemeGroupVersion.Group,
+		Version: snapshotv1.SchemeGroupVersion.Version,
 		Versions: []extv1beta1.CustomResourceDefinitionVersion{
 			{
-				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
+				Name:    snapshotv1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
 			},
