@@ -37,7 +37,7 @@ import (
 
 var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	migrationUpdateAdmitter := &MigrationUpdateAdmitter{}
-	_, configMapInformer, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	_, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
@@ -74,7 +74,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 		newMigration.Spec.VMIName = "somethingelse"
 		newMigrationBytes, _ := json.Marshal(&newMigration)
 
-		enableFeatureGate("LiveMigration")
+		enableFeatureGate(virtconfig.LiveMigrationGate)
 
 		ar := &v1beta1.AdmissionReview{
 			Request: &v1beta1.AdmissionRequest{
@@ -112,7 +112,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 
 		migrationBytes, _ := json.Marshal(&migration)
 
-		enableFeatureGate("LiveMigration")
+		enableFeatureGate(virtconfig.LiveMigrationGate)
 
 		ar := &v1beta1.AdmissionReview{
 			Request: &v1beta1.AdmissionRequest{

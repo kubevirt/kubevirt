@@ -43,7 +43,7 @@ import (
 )
 
 var _ = Describe("Validating VM Admitter", func() {
-	config, _, crdInformer := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, _, crdInformer, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	var vmsAdmitter *VMsAdmitter
 
 	notRunning := false

@@ -113,6 +113,8 @@ type VirtControllerApp struct {
 	vmiInformer   cache.SharedIndexInformer
 	vmiRecorder   record.EventRecorder
 
+	kubeVirtInformer cache.SharedIndexInformer
+
 	clusterConfig *virtconfig.ClusterConfig
 
 	persistentVolumeClaimCache    cache.Store
@@ -217,10 +219,11 @@ func Execute() {
 
 	configMapInformer := app.informerFactory.ConfigMap()
 	app.crdInformer = app.informerFactory.CRD()
+	app.kubeVirtInformer = app.informerFactory.KubeVirt()
 	app.informerFactory.Start(stopChan)
 
-	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced, app.crdInformer.HasSynced)
-	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, app.crdInformer, app.kubevirtNamespace)
+	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced, app.crdInformer.HasSynced, app.kubeVirtInformer.HasSynced)
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, app.crdInformer, app.kubeVirtInformer, app.kubevirtNamespace)
 
 	app.reInitChan = make(chan string, 10)
 	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()

@@ -159,7 +159,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		mockWatchdog = &MockWatchdog{shareDir}
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
-		config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
 		mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).AnyTimes()

@@ -494,7 +494,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			}
 
 			// XXX: Make this configurable, think about limit per node, bandwidth per migration, and so on.
-			if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfig().ParallelMigrationsPerCluster) {
+			if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster) {
 				// Let's wait until some migrations are done
 				c.Queue.AddAfter(key, time.Second*5)
 				return nil
@@ -506,7 +506,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				return err
 			}
 
-			if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode) {
+			if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode) {
 				// Let's ensure that we only have two outbound migrations per node
 				// XXX: Make this configurebale, thinkg about inbout migration limit, bandwidh per migration, and so on.
 				c.Queue.AddAfter(key, time.Second*5)

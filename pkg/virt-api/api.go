@@ -657,12 +657,14 @@ func (app *virtAPIApp) Run() {
 	crdInformer := kubeInformerFactory.CRD()
 	authConfigMapInformer := kubeInformerFactory.ApiAuthConfigMap()
 	kubevirtCAConfigInformer := kubeInformerFactory.KubeVirtCAConfigMap()
+	kubeVirtInformer := kubeInformerFactory.KubeVirt()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
 	go webhookInformers.VMIInformer.Run(stopChan)
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
+	go kubeVirtInformer.Run(stopChan)
 	go configMapInformer.Run(stopChan)
 	go crdInformer.Run(stopChan)
 	go authConfigMapInformer.Run(stopChan)
@@ -671,12 +673,13 @@ func (app *virtAPIApp) Run() {
 		crdInformer.HasSynced,
 		authConfigMapInformer.HasSynced,
 		kubevirtCAConfigInformer.HasSynced,
+		kubeVirtInformer.HasSynced,
 		webhookInformers.VMIInformer.HasSynced,
 		webhookInformers.VMIPresetInformer.HasSynced,
 		webhookInformers.NamespaceLimitsInformer.HasSynced,
 		configMapInformer.HasSynced)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, app.namespace)
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, app.namespace)
 
 	go app.certmanager.Start()
 	go app.handlerCertManager.Start()

@@ -46,7 +46,7 @@ import (
 )
 
 var _ = Describe("Validating VMICreate Admitter", func() {
-	config, configMapInformer, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config}
 
 	dnsConfigTestOption := "test"
@@ -117,7 +117,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		var vmi *v1.VirtualMachineInstance
 		var policy = v1.EvictionStrategyLiveMigrate
 		BeforeEach(func() {
-			enableFeatureGate("LiveMigration")
+			enableFeatureGate(virtconfig.LiveMigrationGate)
 			vmi = v1.NewMinimalVMI("testvmi")
 			vmi.Spec.EvictionStrategy = nil
 		})
@@ -2332,7 +2332,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
-	config, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 	It("should work for empty network list", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}

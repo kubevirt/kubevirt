@@ -37,7 +37,7 @@ import (
 )
 
 var _ = Describe("Validating MigrationCreate Admitter", func() {
-	config, configMapInformer, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	migrationCreateAdmitter := &MigrationCreateAdmitter{ClusterConfig: config}
 
 	enableFeatureGate := func(featureGate string) {
@@ -64,7 +64,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		}
 		migrationBytes, _ := json.Marshal(&migration)
 
-		enableFeatureGate("LiveMigration")
+		enableFeatureGate(virtconfig.LiveMigrationGate)
 
 		ar := &v1beta1.AdmissionReview{
 			Request: &v1beta1.AdmissionRequest{
@@ -97,7 +97,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		}
 		migrationBytes, _ := json.Marshal(&migration)
 
-		enableFeatureGate("LiveMigration")
+		enableFeatureGate(virtconfig.LiveMigrationGate)
 
 		ar := &v1beta1.AdmissionReview{
 			Request: &v1beta1.AdmissionRequest{
@@ -164,7 +164,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		}
 		migrationBytes, _ := json.Marshal(&migration)
 
-		enableFeatureGate("LiveMigration")
+		enableFeatureGate(virtconfig.LiveMigrationGate)
 
 		ar := &v1beta1.AdmissionReview{
 			Request: &v1beta1.AdmissionRequest{
@@ -200,7 +200,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		}
 		migrationBytes, _ := json.Marshal(&migration)
 
-		enableFeatureGate("LiveMigration")
+		enableFeatureGate(virtconfig.LiveMigrationGate)
 
 		ar := &v1beta1.AdmissionReview{
 			Request: &v1beta1.AdmissionRequest{
@@ -232,7 +232,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		}
 		migrationBytes, _ := json.Marshal(&migration)
 
-		enableFeatureGate("LiveMigration")
+		enableFeatureGate(virtconfig.LiveMigrationGate)
 
 		ar := &v1beta1.AdmissionReview{
 			Request: &v1beta1.AdmissionRequest{
@@ -276,7 +276,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 		}
 		migrationBytes, _ := json.Marshal(&migration)
 
-		enableFeatureGate("LiveMigration")
+		enableFeatureGate(virtconfig.LiveMigrationGate)
 
 		ar := &v1beta1.AdmissionReview{
 			Request: &v1beta1.AdmissionRequest{

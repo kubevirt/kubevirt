@@ -241,7 +241,7 @@ func (app *virtHandlerApp) Run() {
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
 	vmiInformer := factory.VMI()
-	clusterConfig := virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), app.namespace)
+	clusterConfig := virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), factory.KubeVirt(), app.namespace)
 
 	vmController := virthandler.NewController(
 		recorder,
