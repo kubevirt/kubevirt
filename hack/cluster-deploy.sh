@@ -43,10 +43,10 @@ EOF
 
 if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.17.* ]]; then
     _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/external-snapshotter
-    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook/common.yaml
-    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook/operator.yaml
-    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook/cluster.yaml
-    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook/pool.yaml
+    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook-ceph/common.yaml
+    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook-ceph/operator.yaml
+    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook-ceph/cluster.yaml
+    _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook-ceph/pool.yaml
 
     # wait for ceph
     until _kubectl get cephblockpools -n rook-ceph replicapool -o jsonpath='{.status.phase}' | grep Ready; do
