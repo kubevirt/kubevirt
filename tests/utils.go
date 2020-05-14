@@ -2085,7 +2085,7 @@ func GetGuestAgentUserData() string {
 	if netutils.IsIPv6String(dnsServerIP) {
 		ipv6UserDataString = fmt.Sprintf(`sudo ip -6 addr add fd10:0:2::2/120 dev eth0
                              sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2
-                             echo "nameserver %s" >> /etc/resolv.conf`, dnsServerIP)
+                             echo "nameserver %s" | sudo tee /etc/resolv.conf`, dnsServerIP)
 	}
 	return fmt.Sprintf(`#!/bin/bash
                 echo "fedora" |passwd fedora --stdin
@@ -2845,7 +2845,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
-		&expect.BSnd{S: fmt.Sprintf(`echo "nameserver %s" >> /etc/resolv.conf\n`, dnsServerIP)},
+		&expect.BSnd{S: fmt.Sprintf("echo \"nameserver %s\" | sudo tee /etc/resolv.conf\n", dnsServerIP)},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"}})
