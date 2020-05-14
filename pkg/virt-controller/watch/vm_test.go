@@ -824,6 +824,48 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
 		})
 
+		It("should copy annotations from spec.template to vmi", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"test": "test"}
+			annotations := map[string]string{"test": "test"}
+
+			addVirtualMachine(vm)
+
+			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(obj interface{}) {
+				Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
+
+		It("should copy kubevirt ignitiondata annotation from spec.template to vmi", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"kubevirt.io/ignitiondata": "test"}
+			annotations := map[string]string{"kubevirt.io/ignitiondata": "test"}
+
+			addVirtualMachine(vm)
+
+			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(obj interface{}) {
+				Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
+
+		It("should copy kubernetes annotations from spec.template to vmi", func() {
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.Spec.Template.ObjectMeta.Annotations = map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true"}
+			annotations := map[string]string{"cluster-autoscaler.kubernetes.io/safe-to-evict": "true"}
+
+			addVirtualMachine(vm)
+
+			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(obj interface{}) {
+				Expect(obj.(*v1.VirtualMachineInstance).ObjectMeta.Annotations).To(Equal(annotations))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
+
 		Context("VM rename", func() {
 			Context("source VM", func() {
 				var vm *v1.VirtualMachine

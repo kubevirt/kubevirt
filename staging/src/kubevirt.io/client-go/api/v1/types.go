@@ -80,6 +80,7 @@ type EvictionStrategy string
 //
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceSpec struct {
+
 	// If specified, indicates the pod's priority.
 	// If not specified, the pod priority will be default or zero if there is no
 	// default.

@@ -327,7 +327,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			err = tests.RetryWithMetadataIfModified(vm.ObjectMeta, func(meta v12.ObjectMeta) error {
 				vm, err = virtClient.VirtualMachine(meta.Namespace).Get(meta.Name, &v12.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vm.Annotations = annotations
+				vm.Spec.Template.ObjectMeta.Annotations = annotations
 				vm, err = virtClient.VirtualMachine(meta.Namespace).Update(vm)
 				return err
 			})
