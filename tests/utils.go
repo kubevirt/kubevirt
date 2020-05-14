@@ -4651,6 +4651,12 @@ func SkipMigrationTestIfRunnigOnKindInfra() {
 	}
 }
 
+func SkipIpv6TestsFailingAfterVmImageUpgradeToFc32() {
+	if IsRunningOnKindInfraIPv6() {
+		Skip("Skip ipv6 tests started to fail after https://github.com/kubevirt/kubevirt/pull/3372 was merged (issue: https://github.com/kubevirt/kubevirt/issues/3421)")
+	}
+}
+
 func IsUsingBuiltinNodeDrainKey() bool {
 	return GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
 }
