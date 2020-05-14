@@ -2,7 +2,6 @@ package openapi
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/emicklei/go-restful"
@@ -13,10 +12,6 @@ import (
 	"github.com/go-openapi/validate"
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/kube-openapi/pkg/builder"
-	"k8s.io/kube-openapi/pkg/common"
-
-	v1 "kubevirt.io/client-go/api/v1"
 )
 
 type Validator struct {
@@ -65,50 +60,8 @@ func addInfoToSwaggerObject(swo *spec.Swagger) {
 	swo.Security[0] = map[string][]string{"BearerToken": {}}
 }
 
-func createConfig() *common.Config {
-	return &common.Config{
-		CommonResponses: map[int]spec.Response{
-			401: {
-				ResponseProps: spec.ResponseProps{
-					Description: "Unauthorized",
-				},
-			},
-		},
-		Info: &spec.Info{
-			InfoProps: spec.InfoProps{
-				Title:       "KubeVirt API",
-				Description: "This is KubeVirt API an add-on for Kubernetes.",
-				Contact: &spec.ContactInfo{
-					Name:  "kubevirt-dev",
-					Email: "kubevirt-dev@googlegroups.com",
-					URL:   "https://github.com/kubevirt/kubevirt",
-				},
-				License: &spec.License{
-					Name: "Apache 2.0",
-					URL:  "https://www.apache.org/licenses/LICENSE-2.0",
-				},
-			},
-		},
-		SecurityDefinitions: &spec.SecurityDefinitions{
-			"BearerToken": &spec.SecurityScheme{
-				SecuritySchemeProps: spec.SecuritySchemeProps{
-					Type:        "apiKey",
-					Name:        "authorization",
-					In:          "header",
-					Description: "Bearer Token authentication",
-				},
-			},
-		},
-		GetDefinitions: v1.GetOpenAPIDefinitions,
-	}
-}
-
 func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
-	config := createConfig()
-	openapispec, err := builder.BuildOpenAPISpec(webServices, config)
-	if err != nil {
-		panic(fmt.Errorf("Failed to build swagger: %s", err))
-	}
+	openapispec := restfulspec.BuildSwagger(CreateOpenAPIConfig(webServices))
 
 	// creationTimestamp, lastProbeTime and lastTransitionTime are deserialized as "null"
 	// Fix it here until
@@ -119,45 +72,26 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 	if exists {
 		prop := objectMeta.Properties["creationTimestamp"]
 		prop.Type = spec.StringOrArray{"string", "null"}
-		// mask v1.Time as in validation v1.Time override sting,null type
-		prop.Ref = spec.Ref{}
 		objectMeta.Properties["creationTimestamp"] = prop
 	}
 
 	for k, s := range openapispec.Definitions {
-		// allow nullable statuses
-		if status, found := s.Properties["status"]; found {
-			if !status.Type.Contains("string") {
-				definitionName := strings.Split(status.Ref.GetPointer().String(), "/")[2]
-				object := openapispec.Definitions[definitionName]
-				object.Nullable = true
-				openapispec.Definitions[definitionName] = object
-			}
-		}
-
 		if strings.HasSuffix(k, "Condition") {
 			prop := s.Properties["lastProbeTime"]
 			prop.Type = spec.StringOrArray{"string", "null"}
-			prop.Ref = spec.Ref{}
 			s.Properties["lastProbeTime"] = prop
-
 			prop = s.Properties["lastTransitionTime"]
 			prop.Type = spec.StringOrArray{"string", "null"}
-			prop.Ref = spec.Ref{}
 			s.Properties["lastTransitionTime"] = prop
 		}
 		if k == "v1.HTTPGetAction" {
 			prop := s.Properties["port"]
 			prop.Type = spec.StringOrArray{"string", "number"}
-			// As intstr.IntOrString, the ref for that must be masked
-			prop.Ref = spec.Ref{}
 			s.Properties["port"] = prop
 		}
 		if k == "v1.TCPSocketAction" {
 			prop := s.Properties["port"]
 			prop.Type = spec.StringOrArray{"string", "number"}
-			// As intstr.IntOrString, the ref for that must be masked
-			prop.Ref = spec.Ref{}
 			s.Properties["port"] = prop
 		}
 		if k == "v1.PersistentVolumeClaimSpec" {
