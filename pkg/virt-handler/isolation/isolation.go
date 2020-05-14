@@ -442,7 +442,7 @@ func (s *socketBasedIsolationDetector) getSlice(pid int) (controller []string, s
 
 	scanner := bufio.NewScanner(cgroups)
 	for scanner.Scan() {
-		cgEntry := strings.Split(scanner.Text(), ":")
+		cgEntry := strings.SplitN(scanner.Text(), ":", 3)
 		// Check if we have a sane cgroup line
 		if len(cgEntry) != 3 {
 			err = fmt.Errorf("Could not extract slice from cgroup line: %s", scanner.Text())
