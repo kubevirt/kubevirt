@@ -1,14 +1,10 @@
 package tests_test
 
 import (
-	"fmt"
 	"io"
-	"net"
 	"os/exec"
 	"strings"
 	"time"
-
-	v12 "kubevirt.io/client-go/api/v1"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -25,348 +21,338 @@ const (
 	relevantk8sVer = "1.16.2"
 
 	// Define a timeout for read opeartions in order to prevent test hanging
-	readTimeout       = 30 * time.Second
-	vmCreationTimeout = 1 * time.Minute
+	readTimeout     = 1 * time.Minute
+	processWaitTime = 2 * time.Minute
 
-	vmAgeRegex = "^[0-9]+[sm]$"
-
-	// Define a buffer size to read errors into
 	bufferSize = 1024
 )
-
-// Reads up to buffSize characters from rc
-func read(rc io.ReadCloser, buffSize int) (string, error) {
-	buf := make([]byte, buffSize)
-
-	n, err := rc.Read(buf)
-	if err != nil {
-		return "", err
-	}
-
-	if n > 0 {
-		return string(buf[:n]), nil
-	}
-
-	return "", nil
-}
-
-// Reads from rc until a newline character is found
-func readLineWithTimeout(rc io.ReadCloser, timeout time.Duration) (string, error) {
-	lineChan := make(chan string)
-	errChan := make(chan error)
-	defer close(errChan)
-
-	go func() {
-		var line strings.Builder
-		buf := make([]byte, 1)
-		defer close(lineChan)
-
-		for {
-			n, err := rc.Read(buf)
-
-			if err != nil && err != io.EOF && !strings.Contains(err.Error(), "file already closed") {
-				errChan <- err
-				return
-			}
-
-			if n > 0 {
-				if buf[0] != '\n' {
-					line.WriteByte(buf[0])
-				} else {
-					break
-				}
-			}
-		}
-
-		lineChan <- line.String()
-	}()
-
-	select {
-	case line := <-lineChan:
-		return line, nil
-	case err := <-errChan:
-		return "", err
-	case <-time.After(timeout):
-		return "", fmt.Errorf("timeout reached on read operation")
-	}
-}
-
-// Reads VM/VMI status from rc and returns a new status.
-// If oldStatus is non-nil, the function will read status lines until
-// newStatus.running != oldStatus.running or newStatus.phase != oldStatus.phase
-// in order to skip duplicated status lines
-func readNewStatus(rc io.ReadCloser, oldStatus []string, timeout time.Duration) ([]string, error) {
-	statusLine, err := readLineWithTimeout(rc, timeout)
-
-	if err != nil {
-		return nil, err
-	}
-
-	newStatus := strings.Fields(statusLine)
-
-	// Skip status line with similar running state for VM or phase state for VMI
-	// newStatus[2] and oldStatus[2] point to the VM running state or VMI phase
-	if oldStatus != nil && len(oldStatus) == len(newStatus) {
-		if len(oldStatus) == 2 {
-			return readNewStatus(rc, newStatus, timeout)
-		} else if len(oldStatus) >= 3 && newStatus[2] == oldStatus[2] {
-			return readNewStatus(rc, newStatus, timeout)
-		}
-	}
-
-	return newStatus, nil
-}
-
-// Create a command with output/error redirection.
-// Returns (cmd, stdout, stderr)
-func createCommandWithNSAndRedirect(namespace, cmdName string, args ...string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
-	cmdName, cmd, err := tests.CreateCommandWithNS(namespace, cmdName, args...)
-
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	// Output redirection
-	stdOut, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	stdErr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	return cmd, stdOut, stdErr, nil
-}
 
 var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component]VmWatch", func() {
 	tests.FlagParse()
 
 	virtCli, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
-	var vm *v12.VirtualMachine
 
-	// Reads an error from stderr and fails the test
-	readFromStderr := func(stderr io.ReadCloser) {
-		defer GinkgoRecover()
-		msg, err := read(stderr, bufferSize)
+	type vmStatus struct {
+		name,
+		age,
+		running,
+		volume string
+	}
 
-		if err != nil {
-			if err.Error() != "EOF" {
-				Fail(fmt.Sprintf("Could not read from `kubectl` stderr: %v", err))
-			}
-		} else {
-			Fail(fmt.Sprintf("Error from stderr: %s", msg))
+	type vmiStatus struct {
+		name,
+		age,
+		phase,
+		ip,
+		node string
+	}
+
+	newVMStatus := func(fields []string) *vmStatus {
+		flen := len(fields)
+		stat := &vmStatus{}
+
+		switch {
+		case flen > 3:
+			stat.volume = fields[3]
+			fallthrough
+		case flen > 2:
+			stat.running = fields[2]
+			fallthrough
+		case flen > 1:
+			stat.age = fields[1]
+			fallthrough
+		case flen > 0:
+			stat.name = fields[0]
 		}
+
+		return stat
+	}
+
+	newVMIStatus := func(fields []string) *vmiStatus {
+		flen := len(fields)
+		stat := &vmiStatus{}
+
+		switch {
+		case flen > 4:
+			stat.node = fields[4]
+			fallthrough
+		case flen > 3:
+			stat.ip = fields[3]
+			fallthrough
+		case flen > 2:
+			stat.phase = fields[2]
+			fallthrough
+		case flen > 1:
+			stat.age = fields[1]
+			fallthrough
+		case flen > 0:
+			stat.name = fields[0]
+		}
+
+		return stat
+	}
+
+	// Fail the test if stderr has something to read
+	failOnError := func(rc io.ReadCloser) {
+		defer GinkgoRecover()
+
+		buf := make([]byte, bufferSize)
+
+		n, err := rc.Read(buf)
+
+		if err != nil && n > 0 {
+			rc.Close()
+			Fail(string(buf[:n]))
+		}
+	}
+
+	// Reads from stdin until a newline character is found
+	readLine := func(rc io.ReadCloser, timeout time.Duration) string {
+		lineChan := make(chan string)
+
+		go func() {
+			defer GinkgoRecover()
+
+			var line strings.Builder
+			buf := make([]byte, 1)
+			defer close(lineChan)
+
+			for {
+				n, err := rc.Read(buf)
+
+				if err != nil && err != io.EOF && !strings.Contains(err.Error(), "file already closed") {
+					Fail(err.Error())
+					return
+				}
+
+				if n > 0 {
+					if buf[0] != '\n' {
+						line.WriteByte(buf[0])
+					} else {
+						break
+					}
+				}
+			}
+
+			lineChan <- line.String()
+		}()
+
+		select {
+		case line := <-lineChan:
+			return line
+		case <-time.After(timeout):
+			err := rc.Close()
+			Expect(err).ToNot(HaveOccurred(), "stdout should have been closed properly")
+
+			Fail("Timeout reached on read operation")
+
+			return ""
+		}
+	}
+
+	// Reads VM status from the given pipe (stdin in this case) and
+	// returns a new status.
+	// if old_status is non-nil, the function will read status lines until
+	// new_status.running != old_status.running in order to skip duplicated status lines
+	readVMStatus := func(rc io.ReadCloser, oldStatus *vmStatus, timeout time.Duration) *vmStatus {
+		newStat := newVMStatus(strings.Fields(readLine(rc, timeout)))
+
+		for oldStatus != nil && newStat.running == oldStatus.running {
+			newStat = newVMStatus(strings.Fields(readLine(rc, timeout)))
+		}
+
+		return newStat
+	}
+
+	// Reads VMI status from the given pipe (stdin in this case) and
+	// returns a new status.
+	// if old_status is non-nil, the function will read status lines until
+	// new_status.phase != old_status.phase in order to skip duplicated lines
+	readVMIStatus := func(rc io.ReadCloser, oldStatus *vmiStatus, timeout time.Duration) *vmiStatus {
+		newStat := newVMIStatus(strings.Fields(readLine(rc, timeout)))
+
+		for oldStatus != nil && newStat.phase == oldStatus.phase {
+			newStat = newVMIStatus(strings.Fields(readLine(rc, timeout)))
+		}
+
+		return newStat
+	}
+
+	// Create a command with output/error redirection.
+	// Returns (cmd, stdout, stderr)
+	createCommandWithNSAndRedirect := func(namespace, cmdName string, args ...string) (*exec.Cmd, io.ReadCloser, io.ReadCloser) {
+		cmdName, cmd, err := tests.CreateCommandWithNS(namespace, cmdName, args...)
+
+		Expect(cmdName).ToNot(Equal(""))
+		Expect(cmd).ToNot(BeNil())
+		Expect(err).ToNot(HaveOccurred(), "Command should have been created with proper kubectl/oc arguments")
+
+		// Output redirection
+		stdOut, err := cmd.StdoutPipe()
+		Expect(err).ToNot(HaveOccurred(), "stdout should have been redirected")
+		Expect(stdOut).ToNot(BeNil())
+
+		stdErr, err := cmd.StderrPipe()
+		Expect(err).ToNot(HaveOccurred(), "stderr should have been redirected")
+		Expect(stdErr).ToNot(BeNil())
+
+		return cmd, stdOut, stdErr
 	}
 
 	BeforeEach(func() {
 		tests.SkipIfVersionBelow("Printing format for `kubectl get -w` on custom resources is only relevant for 1.16.2+", relevantk8sVer)
 		tests.BeforeTestCleanup()
-
-		vm = tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
-		vm, err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Create(vm)
-		tests.PanicOnError(err)
-
-		By("Making sure kubectl cache is updated to contain vm/vmi resources")
-		Eventually(func() bool {
-			_, getVM, err := tests.CreateCommandWithNS(tests.NamespaceTestDefault, tests.GetK8sCmdClient(), "get", "vm")
-			tests.PanicOnError(err)
-			_, getVMI, err := tests.CreateCommandWithNS(tests.NamespaceTestDefault, tests.GetK8sCmdClient(), "get", "vmi")
-			tests.PanicOnError(err)
-
-			return getVM.Run() == nil && getVMI.Run() == nil
-		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
 	})
 
-	AfterEach(func() {
-		err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Delete(vm.Name, &v1.DeleteOptions{})
-		tests.PanicOnError(err)
-	})
-
-	It("[test_id:3468]Should update vm status with the proper columns using 'kubectl get vm -w'", func() {
-		By("Waiting for a VM to be created")
-		Eventually(func() bool {
-			_, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
-			return err == nil
-		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
+	It("[test_id:3468] Should update vm status with the proper columns using 'kubectl get vm -w'", func() {
+		By("Creating a new VM spec")
+		vm := tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+		Expect(vm).ToNot(BeNil())
 
 		By("Setting up the kubectl command")
-		cmd, stdout, stderr, err :=
+		cmd, stdout, stderr :=
 			createCommandWithNSAndRedirect(vm.ObjectMeta.Namespace, tests.GetK8sCmdClient(), "get", "vm", "-w")
-		Expect(err).ToNot(HaveOccurred())
 		Expect(cmd).ToNot(BeNil())
 
 		err = cmd.Start()
 		Expect(err).ToNot(HaveOccurred(), "Command should have started successfully")
 
 		defer cmd.Process.Kill()
-		defer cmd.Process.Release()
-		go readFromStderr(stderr)
+
+		time.Sleep(processWaitTime)
+
+		go failOnError(stderr)
+
+		By("Applying the VM to the cluster")
+		vm, err := virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Create(vm)
+		Expect(err).ToNot(HaveOccurred(), "VM should have been added to the cluster")
 
 		// Read column titles
-		titles, err := readNewStatus(stdout, nil, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(titles).To(Equal([]string{"NAME", "AGE", "RUNNING", "VOLUME"}),
-			"Output should have the proper columns")
+		vmStatus := readVMStatus(stdout, nil, readTimeout)
+		Expect(vmStatus.name).To(Equal("NAME"), "Output should have the NAME column")
+		Expect(vmStatus.age).To(Equal("AGE"), "Output should have the AGE column")
+		Expect(vmStatus.running).To(Equal("RUNNING"), "Output should have the RUNNING column")
+		Expect(vmStatus.volume).To(Equal("VOLUME"), "Output should have the VOLUME column")
 
 		// Read first status of the vm
-		vmStatus, err := readNewStatus(stdout, titles, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), "false"),
-			"VM should not be running")
+		vmStatus = readVMStatus(stdout, vmStatus, readTimeout)
+		Expect(vmStatus.name).To(Equal(vm.Name))
+		By("Expecting vm.running == false")
+		Expect(vmStatus.running).To(Equal("false"))
 
 		By("Starting the VM")
 		vm = tests.StartVirtualMachine(vm)
 
-		vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), "true"),
-			"VM should be running")
+		vmStatus = readVMStatus(stdout, vmStatus, readTimeout)
+		By("Expecting vm.running == true")
+		Expect(vmStatus.running).To(Equal("true"))
 
 		By("Restarting the VM")
 		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Restart(vm.ObjectMeta.Name)
 		Expect(err).ToNot(HaveOccurred(), "VM should have been restarted")
 
-		vmStatus, err = readNewStatus(stdout, nil, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), "true"),
-			"VM should be running")
+		vmStatus = readVMStatus(stdout, nil, readTimeout)
+		By("Expecting vm.running == true")
+		Expect(vmStatus.running).To(Equal("true"))
 
 		By("Stopping the VM")
 		vm = tests.StopVirtualMachine(vm)
 
-		vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), "false"),
-			"VM should be running")
+		vmStatus = readVMStatus(stdout, vmStatus, readTimeout)
+		By("Expecting vm.running == false")
+		Expect(vmStatus.running).To(Equal("false"))
+
+		By("Deleting the VM")
+		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Delete(vm.ObjectMeta.Name, &v1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred(), "VM should have been deleted from the cluster")
 	})
 
 	It("[test_id:3466]Should update vmi status with the proper columns using 'kubectl get vmi -w'", func() {
-		By("Waiting for a VM to be created")
-		Eventually(func() bool {
-			_, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
-			return err == nil
-		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
+		By("Creating a random VMI spec")
+		vm := tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+
+		Expect(vm).ToNot(BeNil())
 
 		By("Setting up the kubectl command")
-		cmd, stdout, stderr, err :=
+		cmd, stdout, stderr :=
 			createCommandWithNSAndRedirect(vm.ObjectMeta.Namespace, tests.GetK8sCmdClient(), "get", "vmi", "-w")
-		Expect(err).ToNot(HaveOccurred())
 		Expect(cmd).ToNot(BeNil())
 
 		err = cmd.Start()
 		Expect(err).ToNot(HaveOccurred(), "Command should have stared successfully")
 
 		defer cmd.Process.Kill()
-		defer cmd.Process.Release()
-		go readFromStderr(stderr)
+
+		time.Sleep(processWaitTime)
+
+		go failOnError(stderr)
+
+		By("Applying vmi to the cluster")
+		vm, err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Create(vm)
+		Expect(err).ToNot(HaveOccurred(), "VMI should have been added to the cluster")
 
 		// Start a VMI
 		vm = tests.StartVirtualMachine(vm)
-		var vmi *v12.VirtualMachineInstance
-
-		By("Waiting for the VMI to be created")
-		Eventually(func() bool {
-			list, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			if len(list.Items) == 0 {
-				return false
-			} else {
-				vmi = &list.Items[0]
-				return true
-			}
-		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
 
 		// Read the column titles
-		titles, err := readNewStatus(stdout, nil, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(titles).To(Equal([]string{"NAME", "AGE", "PHASE", "IP", "NODENAME"}),
-			"Output should have the proper columns")
+		vmiStatus := readVMIStatus(stdout, nil, readTimeout)
+		Expect(vmiStatus.name).To(Equal("NAME"), "Output should have the NAME column")
+		Expect(vmiStatus.age).To(Equal("AGE"), "Output should have the AGE column")
+		Expect(vmiStatus.phase).To(Equal("PHASE"), "Output should have the PHASE column")
+		Expect(vmiStatus.ip).To(Equal("IP"), "Output should have the IP column")
+		Expect(vmiStatus.node).To(Equal("NODENAME"), "Output should have the NODENAME column")
 
-		vmiStatus, err := readNewStatus(stdout, titles, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex)),
-			"VMI should not have a specified phase yet")
+		By("Expecting vmi.phase == ''")
+		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
+		Expect(vmiStatus.phase).To(Equal(""))
 
-		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Pending)),
-			"VMI should be in the Pending phase")
+		By("Expecting vmi.phase == Pending")
+		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
+		Expect(vmiStatus.phase).To(Equal("Pending"))
 
-		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Scheduling)),
-			"VMI should be in the Scheduling phase")
+		By("Expecting vmi.phase == Scheduling")
+		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
+		Expect(vmiStatus.phase).To(Equal("Scheduling"))
 
-		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected propertiesL %v", vmiStatus))
-		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Scheduled), vmiStatus[3], vmi.Status.NodeName),
-			"VMI should be in the Scheduled phase")
+		By("Expecting vmi.phase == Scheduled")
+		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
+		Expect(vmiStatus.phase).To(Equal("Scheduled"))
 
-		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected propertiesL %v", vmiStatus))
-		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Running), vmiStatus[3], vmi.Status.NodeName),
-			"VMI should be in the Running phase")
+		By("Expecting vmi.phase == Running")
+		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
+		Expect(vmiStatus.phase).To(Equal("Running"))
 
 		// Restart the VMI
 		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Restart(vm.ObjectMeta.Name)
 		Expect(err).ToNot(HaveOccurred(), "VMI should have been restarted")
 
-		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected propertiesL %v", vmiStatus))
-		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Failed), vmiStatus[3], vmi.Status.NodeName),
-			"VMI should be in the Failed phase")
+		By("Expecting vmi.phase == Failed")
+		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
+		Expect(vmiStatus.phase).To(Equal("Failed"))
 
-		Eventually(func() bool {
-			list, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
+		By("Expecting vmi.phase == ''")
+		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
+		Expect(vmiStatus.phase).To(Equal(""))
 
-			if len(list.Items) > 0 {
-				if list.Items[0].UID != vmi.UID && list.Items[0].Status.NodeName != "" {
-					vmi = &list.Items[0]
-					return true
-				}
-			}
+		By("Expecting vmi.phase == Pending")
+		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
+		Expect(vmiStatus.phase).To(Equal("Pending"))
 
-			return false
-		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
+		By("Expecting vmi.phase == Scheduling")
+		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
+		Expect(vmiStatus.phase).To(Equal("Scheduling"))
 
-		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex)),
-			"VMI should not have a specified phase yet")
+		By("Expecting vmi.phase == Scheduled")
+		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
+		Expect(vmiStatus.phase).To(Equal("Scheduled"))
 
-		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Pending)),
-			"VMI should be in the Pending phase")
+		By("Expecting vmi.phase == Running")
+		vmiStatus = readVMIStatus(stdout, vmiStatus, readTimeout)
+		Expect(vmiStatus.phase).To(Equal("Running"))
 
-		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Scheduling)),
-			"VMI should be in the Scheduling phase")
-
-		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected propertiesL %v", vmiStatus))
-		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Scheduled), vmiStatus[3], vmi.Status.NodeName),
-			"VMI should be in the Scheduled phase")
-
-		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected propertiesL %v", vmiStatus))
-		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Running), vmiStatus[3], vmi.Status.NodeName),
-			"VMI should be in the Running phase")
+		By("Deleting the VM")
+		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Delete(vm.ObjectMeta.Name, &v1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred(), "VM should have been deleted from the cluster")
 	})
 })
