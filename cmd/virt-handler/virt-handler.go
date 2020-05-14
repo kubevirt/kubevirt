@@ -295,6 +295,7 @@ func (app *virtHandlerApp) Run() {
 	defer close(stop)
 	factory.Start(stop)
 
+	selinuxLauncherType := clusterConfig.GetSELinuxLauncherType()
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
 		for _, dir := range []string{app.VirtShareDir, app.VirtLibDir} {
@@ -311,8 +312,10 @@ func (app *virtHandlerApp) Run() {
 				panic(err)
 			}
 		}
-		// Install KubeVirt's virt-launcher policy
-		err = se.InstallPolicy("/var/run/kubevirt")
+		// Only install KubeVirt's policy if not using a custom one
+		if selinuxLauncherType == "" {
+			err = se.InstallPolicy("/var/run/kubevirt")
+		}
 		if err != nil {
 			panic(fmt.Errorf("failed to install virt-launcher selinux policy: %v", err))
 		}
