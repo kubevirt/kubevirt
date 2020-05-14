@@ -1,0 +1,41 @@
+name: Auto-Bump Component's Versions
+on:
+  schedule:
+    - cron:  '0 11 * * *'
+jobs:
+  build:
+    name: HCO Release Bump Job
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: master
+      - name: Check for new releases and update
+        run: |
+          ./automation/release-bumper/release-bumper.sh
+      - name: Set "UPDATED_COMPONENT" environment variable
+        run: echo "::set-env name=UPDATED_COMPONENT::$(cat updated_component.txt)";
+      - name: Set "UPDATED_VERSION" environment variable
+        run: echo "::set-env name=UPDATED_VERSION::$(cat updated_version.txt)";
+      - name: Remove temporary files
+        run: rm -f updated_component.txt updated_version.txt
+      - uses: peter-evans/create-pull-request@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}
+
+            Signed-off-by: hco_bump_bot <hco_bump_bot@redhat.com>
+          committer: GitHub <noreply@github.com>
+          title: "Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}"
+          body: |
+            Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}
+            Excecuted by HCO Release-Bumper Bot.
+            ```release-note
+            Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}
+            ```
+          assignees: orenc1
+          reviewers: tiraboschi,orenc1
+          team-reviewers: owners, maintainers
+          draft: false
+          branch: bump_${{ env.UPDATED_COMPONENT }}_${{ env.UPDATED_VERSION }}
