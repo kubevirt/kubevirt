@@ -176,7 +176,7 @@ load(
 go_rules_dependencies()
 
 go_register_toolchains(
-    go_version = "1.12.8",
+    go_version = "1.13.4",
     nogo = "@//:nogo_vet",
 )
 

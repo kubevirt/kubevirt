@@ -26,7 +26,7 @@ require (
 	github.com/gogo/protobuf v1.3.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.2.0
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.4.0
 	github.com/google/goexpect v0.0.0-20190425035906-112704a48083
 	github.com/google/gofuzz v1.0.0
 	github.com/google/goterm v0.0.0-20190311235235-ce302be1d114 // indirect
@@ -58,6 +58,7 @@ require (
 	golang.org/x/net v0.0.0-20190930134127-c5a3c61f89f3
 	golang.org/x/sys v0.0.0-20190927073244-c990c680b611
 	google.golang.org/grpc v1.27.1
+	google.golang.org/protobuf v1.22.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	gopkg.in/ini.v1 v1.42.0
 	gopkg.in/yaml.v2 v2.2.4
@@ -76,7 +77,7 @@ require (
 
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v11.0.0+incompatible
-	github.com/coreos/prometheus-operator => github.com/coreos/prometheus-operator v0.0.0-20181206002233-dd6f23e7207c
+	github.com/coreos/prometheus-operator => github.com/coreos/prometheus-operator v0.28.1-0.20190202022740-dd6f23e7207c
 	github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
 	github.com/golang/glog => ./staging/src/github.com/golang/glog
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
@@ -112,3 +113,5 @@ replace (
 
 	kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
 )
+
+go 1.13
