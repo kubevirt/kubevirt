@@ -142,19 +142,37 @@ http_file(
 
 http_file(
     name = "fedora_image",
-    sha256 = "423a4ce32fa32c50c11e3d3ff392db97a762533b81bef9d00599de518a7469c8",
+    sha256 = "a30549d620bf6bf41d30a9a58626e59dfa70bb011fd7d50f6c4511ad2e479a39",
     urls = [
-        "https://download.fedoraproject.org/pub/fedora/linux/releases/32/Cloud/x86_64/images/Fedora-Cloud-Base-32-1.6.x86_64.qcow2",
-        "https://storage.googleapis.com/builddeps/423a4ce32fa32c50c11e3d3ff392db97a762533b81bef9d00599de518a7469c8",
+        "https://download.fedoraproject.org/pub/fedora/linux/releases/29/Cloud/x86_64/images/Fedora-Cloud-Base-29-1.2.x86_64.qcow2",
+        "https://storage.googleapis.com/builddeps/a30549d620bf6bf41d30a9a58626e59dfa70bb011fd7d50f6c4511ad2e479a39",
     ],
 )
 
 http_file(
     name = "fedora_image_ppc64le",
-    sha256 = "dd989a078d641713c55720ba3e4320b204ade6954e2bfe4570c8058dc36e2e5d",
+    sha256 = "e65ad30cd9724d18e669f9c58831ae81c85db733c74071e171583fb24ef750a9",
     urls = [
-        "https://kojipkgs.fedoraproject.org/compose/32/Fedora-32-20200422.0/compose/Cloud/ppc64le/images/Fedora-Cloud-Base-32-1.6.ppc64le.qcow2",
-        "https://storage.googleapis.com/builddeps/dd989a078d641713c55720ba3e4320b204ade6954e2bfe4570c8058dc36e2e5d",
+        "https://kojipkgs.fedoraproject.org/compose/29/Fedora-29-20180919.1/compose/Cloud/ppc64le/images/Fedora-Cloud-Base-29_Beta-1.5.ppc64le.qcow2",
+        "https://storage.googleapis.com/builddeps/e65ad30cd9724d18e669f9c58831ae81c85db733c74071e171583fb24ef750a9",
+    ],
+)
+
+http_file(
+    name = "fedora30_image",
+    sha256 = "72b6ae7b4ed09a4dccd6e966e1b3ac69bd97da419de9760b410e837ba00b4e26",
+    urls = [
+        "https://download.fedoraproject.org/pub/fedora/linux/releases/30/Cloud/x86_64/images/Fedora-Cloud-Base-30-1.2.x86_64.qcow2",
+        "https://storage.googleapis.com/builddeps/72b6ae7b4ed09a4dccd6e966e1b3ac69bd97da419de9760b410e837ba00b4e26",
+    ],
+)
+
+http_file(
+    name = "fedora30_image_ppc64le",
+    sha256 = "53384d8f0e3f1b40215f0e36dc895f10b7651b0d68eb8a5659530cd2c3747555",
+    urls = [
+        "https://kojipkgs.fedoraproject.org/compose/cloud/Fedora-Cloud-30-20200115.0/compose/Cloud/ppc64le/images/Fedora-Cloud-Base-30-20200115.0.ppc64le.qcow2",
+        "https://storage.googleapis.com/builddeps/53384d8f0e3f1b40215f0e36dc895f10b7651b0d68eb8a5659530cd2c3747555",
     ],
 )
 
