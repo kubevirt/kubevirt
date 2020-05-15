@@ -102,6 +102,7 @@ func gen_hco_crds() {
 	// Write out CRDs and CR
 	util.MarshallObject(components.GetOperatorCRD(*namespace), os.Stdout)
 	util.MarshallObject(components.GetV2VCRD(), os.Stdout)
+	util.MarshallObject(components.GetV2VOvirtProviderCRD(), os.Stdout)
 }
 
 func IOReadDir(root string) ([]string, error) {

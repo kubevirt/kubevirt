@@ -77,6 +77,8 @@ func main() {
 	check(err)
 	v2vCrd, err := os.Create(path.Join(*deployDir, "crds/v2vvmware.crd.yaml"))
 	check(err)
+	v2voVirtCrd, err := os.Create(path.Join(*deployDir, "crds/v2vovirt.crd.yaml"))
+	check(err)
 	operatorCr, err := os.Create(path.Join(*deployDir, "hco.cr.yaml"))
 	check(err)
 	defer operatorYaml.Close()
@@ -86,6 +88,7 @@ func main() {
 	defer operatorCrd.Close()
 	defer operatorCr.Close()
 	defer v2vCrd.Close()
+	defer v2voVirtCrd.Close()
 
 	// the CSVs we expect to handle
 	csvs := []string{
@@ -283,6 +286,7 @@ func main() {
 	util.MarshallObject(components.GetOperatorCR(), operatorCr)
 	util.MarshallObject(components.GetOperatorCRD(*operatorNamespace), operatorCrd)
 	util.MarshallObject(components.GetV2VCRD(), v2vCrd)
+	util.MarshallObject(components.GetV2VOvirtProviderCRD(), v2voVirtCrd)
 
 	// Write out deployments
 	for _, deployment := range deployments {

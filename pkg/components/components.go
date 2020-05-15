@@ -3,8 +3,9 @@ package components
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"time"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 
 	"github.com/blang/semver"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
@@ -475,6 +476,8 @@ func GetOperatorCRD(namespace string) *extv1beta1.CustomResourceDefinition {
 	}
 }
 
+// TODO: remove once VMware provider is removed from HCO
+// GetV2VCRD creates CRD for v2v VMWare provider
 func GetV2VCRD() *extv1beta1.CustomResourceDefinition {
 	return &extv1beta1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
@@ -500,6 +503,103 @@ func GetV2VCRD() *extv1beta1.CustomResourceDefinition {
 				Singular: "v2vvmware",
 				Kind:     "V2VVmware",
 				ListKind: "V2VVmwareList",
+			},
+		},
+	}
+}
+
+// TODO: remove once oVirt provider  is removed from HCO
+// GetV2VOvirtProviderCRD creates CRD for v2v oVirt provider
+func GetV2VOvirtProviderCRD() *extv1beta1.CustomResourceDefinition {
+	return &extv1beta1.CustomResourceDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apiextensions.k8s.io/v1beta1",
+			Kind:       "CustomResourceDefinition",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "ovirtproviders.v2v.kubevirt.io",
+		},
+		Spec: extv1beta1.CustomResourceDefinitionSpec{
+			Group:   "v2v.kubevirt.io",
+			Version: "v1alpha1",
+			Scope:   "Namespaced",
+			Versions: []extv1beta1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1alpha1",
+					Served:  true,
+					Storage: true,
+				},
+			},
+			Names: extv1beta1.CustomResourceDefinitionNames{
+				Plural:   "ovirtproviders",
+				Singular: "ovirtprovider",
+				Kind:     "OVirtProvider",
+				ListKind: "OVirtProviderList",
+			},
+			Subresources: &extv1beta1.CustomResourceSubresources{
+				Status: &extv1beta1.CustomResourceSubresourceStatus{},
+			},
+			Validation: &extv1beta1.CustomResourceValidation{
+				OpenAPIV3Schema: &extv1beta1.JSONSchemaProps{
+					Description: "OVirtProvider is the Schema for the ovirtproviders API",
+					Type:        "object",
+					Properties: map[string]extv1beta1.JSONSchemaProps{
+						"apiVersion": {
+							Type: "string",
+							Description: `APIVersion defines the versioned schema of this representation
+                        of an object. Servers should convert recognized schemas to the latest
+                        internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources`,
+						},
+						"kind": {
+							Type: "string",
+							Description: `Kind is a string value representing the REST resource this
+                        object represents. Servers may infer this from the endpoint the client
+                        submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds`,
+						},
+						"metadata": {Type: "object"},
+						"spec": {
+							Description: "OVirtProviderSpec defines the desired state of OVirtProvider",
+							Type:        "object",
+							Properties: map[string]extv1beta1.JSONSchemaProps{
+								"connection": {Type: "string"},
+								"timeToLive": {Type: "string"},
+								"vms": {
+									Items: &extv1beta1.JSONSchemaPropsOrArray{
+										Schema: &extv1beta1.JSONSchemaProps{
+											Description: "OVirtVM aligns with maintained UI interface",
+											Type:        "object",
+											Properties: map[string]extv1beta1.JSONSchemaProps{
+												"cluster": {Type: "string"},
+												"detail": {
+													Description: "OVirtVMDetail contains ovirt vm details as json string",
+													Type:        "object",
+													Properties: map[string]extv1beta1.JSONSchemaProps{
+														"raw": {Type: "string"},
+													},
+												},
+												"detailRequest": {Type: "boolean"},
+												"id":            {Type: "string"},
+												"name":          {Type: "string"},
+											},
+											Required: []string{"cluster", "id", "name"},
+										},
+									},
+									Type: "array",
+								},
+							},
+						},
+						"status": {
+							Description: "OVirtProviderStatus defines the observed state of OVirtProvider",
+							Type:        "object",
+							Properties: map[string]extv1beta1.JSONSchemaProps{
+								"phase": {
+									Description: "VirtualMachineProviderPhase defines provider phase",
+									Type:        "string",
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -581,7 +681,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 			DisplayName: displayName,
 			Description: description,
 			Keywords:    []string{"KubeVirt", "Virtualization"},
-			Version:     csvVersion.OperatorVersion{version},
+			Version:     csvVersion.OperatorVersion{Version: version},
 			Replaces:    replaces,
 			Maintainers: []csvv1alpha1.Maintainer{
 				csvv1alpha1.Maintainer{
@@ -644,19 +744,27 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 			InstallStrategy: csvv1alpha1.NamedInstallStrategy{},
 			CustomResourceDefinitions: csvv1alpha1.CustomResourceDefinitions{
 				Owned: []csvv1alpha1.CRDDescription{
-					csvv1alpha1.CRDDescription{
+					{
 						Name:        "hyperconvergeds.hco.kubevirt.io",
 						Version:     "v1alpha1",
 						Kind:        "HyperConverged",
 						DisplayName: crdDisplay + " Deployment",
 						Description: "Represents the deployment of " + crdDisplay,
 					},
-					csvv1alpha1.CRDDescription{
+					// TODO: remove once oVirt and VMware providers are removed from HCO
+					{
 						Name:        "v2vvmwares.v2v.kubevirt.io",
 						Version:     "v1alpha1",
 						Kind:        "V2VVmware",
 						DisplayName: "V2V Vmware",
 						Description: "V2V Vmware",
+					},
+					{
+						Name:        "ovirtproviders.v2v.kubevirt.io",
+						Version:     "v1alpha1",
+						Kind:        "OVirtProvider",
+						DisplayName: "V2V oVirt",
+						Description: "V2V oVirt",
 					},
 				},
 				Required: []csvv1alpha1.CRDDescription{},
