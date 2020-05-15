@@ -112,6 +112,7 @@ type LibvirtDomainManager struct {
 	agentData              *agentpoller.AsyncAgentStore
 	cloudInitDataStore     *cloudinit.CloudInitData
 	setGuestTimeContextPtr *contextStore
+	ovmfPath               string
 }
 
 type migrationDisks struct {
@@ -142,7 +143,7 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 	return ok
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int, agentStore *agentpoller.AsyncAgentStore) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int, agentStore *agentpoller.AsyncAgentStore, ovmfPath string) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:                connection,
 		virtShareDir:           virtShareDir,
@@ -152,6 +153,7 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 			paused: make(map[types.UID]bool, 0),
 		},
 		agentData: agentStore,
+		ovmfPath:  ovmfPath,
 	}
 
 	return &manager, nil
@@ -831,6 +833,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		IsBlockDV:         isBlockDVMap,
 		DiskType:          diskInfo,
 		EmulatorThreadCpu: emulatorThreadCpu,
+		OVMFPath:          l.ovmfPath,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		return fmt.Errorf("conversion failed: %v", err)
@@ -1170,6 +1173,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		GpuDevices:        getEnvAddressListByPrefix(gpuEnvPrefix),
 		VgpuDevices:       getEnvAddressListByPrefix(vgpuEnvPrefix),
 		EmulatorThreadCpu: emulatorThreadCpu,
+		OVMFPath:          l.ovmfPath,
 	}
 	if options != nil && options.VirtualMachineSMBios != nil {
 		c.SMBios = options.VirtualMachineSMBios

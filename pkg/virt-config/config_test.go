@@ -311,4 +311,15 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when unset, GetSELinuxLauncherType should return the default", virtconfig.DefaultSELinuxLauncherType, virtconfig.DefaultSELinuxLauncherType),
 	)
 
+	table.DescribeTable(" when OVMFPath", func(value string, result string) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.OVMFPathKey: value},
+		})
+		ovmfPath := clusterConfig.GetOVMFPath()
+		Expect(ovmfPath).To(Equal(result))
+	},
+		table.Entry("when set, GetOVMFPath should return the value", "/usr/share/ovmf/x64", "/usr/share/ovmf/x64"),
+		table.Entry("when unset, GetOVMFPath should return the default", "", virtconfig.DefaultOVMFPath),
+	)
+
 })

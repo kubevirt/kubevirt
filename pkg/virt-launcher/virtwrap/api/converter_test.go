@@ -23,6 +23,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"path"
 	"reflect"
 
 	. "github.com/onsi/ginkgo"
@@ -2176,8 +2177,26 @@ var _ = Describe("Converter", func() {
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 				Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
 				Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
-				Expect(domainSpec.OS.BootLoader.Path).To(Equal(EFIPath))
-				Expect(domainSpec.OS.NVRam.Template).To(Equal(EFIVarsPath))
+				Expect(domainSpec.OS.BootLoader.Secure).To(Equal("no"))
+				Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal(EFICode))
+				Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(EFIVars))
+				Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/tmp/mynamespace_testvmi"))
+			})
+
+			It("should configure the EFI bootloader if EFI secure option", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							SecureBoot: True(),
+						},
+					},
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
+				Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
+				Expect(domainSpec.OS.BootLoader.Secure).To(Equal("yes"))
+				Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal(EFICodeSecureBoot))
+				Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal(EFIVarsSecureBoot))
 				Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/tmp/mynamespace_testvmi"))
 			})
 		})

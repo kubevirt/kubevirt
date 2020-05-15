@@ -1139,8 +1139,20 @@ func validateFirmware(field *k8sfield.Path, firmware *v1.Firmware) []metav1.Stat
 
 func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
+
 	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
 	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
+
+	if spec.Firmware != nil && spec.Firmware.Bootloader != nil && spec.Firmware.Bootloader.EFI != nil &&
+		spec.Firmware.Bootloader.EFI.SecureBoot != nil && *spec.Firmware.Bootloader.EFI.SecureBoot &&
+		(spec.Features == nil || spec.Features.SMM == nil || !*spec.Features.SMM.Enabled) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s has EFI SecureBoot enabled. SecureBoot requires SMM, which is currently disabled.", field.String()),
+			Field:   field.String(),
+		})
+	}
+
 	return causes
 }
 
