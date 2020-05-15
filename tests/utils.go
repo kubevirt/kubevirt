@@ -2084,12 +2084,14 @@ func GetGuestAgentUserData() string {
 	ipv6UserDataString := ""
 	if netutils.IsIPv6String(dnsServerIP) {
 		ipv6UserDataString = fmt.Sprintf(`sudo ip -6 addr add fd10:0:2::2/120 dev eth0
-                             sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2
+                             for i in {1..20}; do sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2 && break || sleep 0.1; done
                              echo "nameserver %s" >> /etc/resolv.conf`, dnsServerIP)
 	}
 	return fmt.Sprintf(`#!/bin/bash
                 echo "fedora" |passwd fedora --stdin
-				%s
+                systemctl disable NetworkManager
+                systemctl stop NetworkManager
+                %s
                 mkdir -p /usr/local/bin
                 curl %s > /usr/local/bin/qemu-ga
                 chmod +x /usr/local/bin/qemu-ga
