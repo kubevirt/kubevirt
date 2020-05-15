@@ -15,6 +15,7 @@ install:
 - git reset --hard
 
 script:
+- set -e
 - make generate
 - if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run
   `make generate`. Please run it and commit the changes"; git status --porcelain; false; fi
@@ -36,6 +37,7 @@ script:
 - make manifests DOCKER_PREFIX="docker.io/kubevirt" DOCKER_TAG=$TRAVIS_TAG # skip getting old CSVs here (no QUAY_REPOSITORY), verification might fail because of stricter rules over time; falls back to latest if not on a tag
 - make olm-verify
 - if [[ $TRAVIS_CPU_ARCH == "amd64" ]]; then make prom-rules-verify; fi
+- set +e
 
 deploy:
 - provider: script
