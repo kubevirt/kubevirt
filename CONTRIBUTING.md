@@ -92,7 +92,7 @@ Maintainers are:
  * @stu-gott
  * @vladikr
 
-### Becoming a memeber
+### Becoming a member
 
 Contributors that frequently contribute to the project may ask to join the
 kubevirt organization.
