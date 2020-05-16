@@ -391,7 +391,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		It("[test_id:3090]should be continued after the VMI is unpaused", func() {
-
+			tests.SkipIpv6TestsFailingAfterVmImageUpgradeToFc32()
 			By("Starting a Fedora VMI")
 			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
