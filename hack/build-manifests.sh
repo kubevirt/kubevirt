@@ -238,6 +238,7 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --ssp-csv="$(<${sspCsv})" \
   --cdi-csv="$(<${cdiCsv})" \
   --nmo-csv="$(<${nmoCsv})" \
+  --hpp-csv="$(<${hppCsv})" \
   --ims-conversion-image-name="${CONVERSION_CONTAINER}" \
   --ims-vmware-image-name="${VMWARE_CONTAINER}" \
   --operator-namespace="${OPERATOR_NAMESPACE}" \
@@ -253,6 +254,7 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --ssp-csv="$(<${sspCsv})" \
   --cdi-csv="$(<${cdiCsv})" \
   --nmo-csv="$(<${nmoCsv})" \
+  --hpp-csv="$(<${hppCsv})" \
   --ims-conversion-image-name="${CONVERSION_CONTAINER}" \
   --ims-vmware-image-name="${VMWARE_CONTAINER}" \
   --csv-version=${CSV_VERSION} \

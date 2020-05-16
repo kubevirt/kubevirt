@@ -328,3 +328,44 @@ spec:
       tolerations:
       - effect: NoSchedule
         key: node-role.kubernetes.io/master
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    name: hostpath-provisioner-operator
+  name: hostpath-provisioner-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: hostpath-provisioner-operator
+      operator.hostpath-provisioner.kubevirt.io: ""
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        name: hostpath-provisioner-operator
+        operator.hostpath-provisioner.kubevirt.io: ""
+    spec:
+      containers:
+      - env:
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OPERATOR_NAME
+          value: hostpath-provisioner-operator
+        - name: PROVISIONER_IMAGE
+          value: quay.io/kubevirt/hostpath-provisioner:v0.4.0
+        - name: PULL_POLICY
+          value: IfNotPresent
+        image: quay.io/kubevirt/hostpath-provisioner-operator:v0.4.2
+        imagePullPolicy: IfNotPresent
+        name: hostpath-provisioner-operator
+        resources: {}
+      serviceAccountName: hostpath-provisioner-operator

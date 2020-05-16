@@ -73,6 +73,62 @@ rules:
   - '*'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    name: hostpath-provisioner-operator
+  name: hostpath-provisioner-operator
+rules:
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - list
+  - get
+  - watch
+  - create
+- apiGroups:
+  - apps
+  resourceNames:
+  - hostpath-provisioner
+  resources:
+  - daemonsets
+  verbs:
+  - delete
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - ""
+  resourceNames:
+  - hostpath-provisioner-admin
+  resources:
+  - serviceaccounts
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - list
+  - get
+  - watch
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
@@ -1161,3 +1217,119 @@ rules:
   - '*'
   verbs:
   - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    name: hostpath-provisioner-operator
+  name: hostpath-provisioner-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumes
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - list
+  - watch
+  - create
+  - patch
+  - update
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - hostpath-provisioner
+  resources:
+  - clusterrolebindings
+  verbs:
+  - update
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  verbs:
+  - list
+  - get
+  - watch
+  - create
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - hostpath-provisioner
+  resources:
+  - clusterroles
+  verbs:
+  - update
+  - delete
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - list
+  - get
+  - watch
+  - create
+- apiGroups:
+  - apps
+  resourceNames:
+  - hostpath-provisioner-operator
+  resources:
+  - deployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - hostpathprovisioner.kubevirt.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - list
+  - get
+  - watch
+  - create
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - hostpath-provisioner
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - delete
+  - update
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get

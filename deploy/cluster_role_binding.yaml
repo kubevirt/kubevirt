@@ -32,6 +32,22 @@ subjects:
   namespace: kubevirt-hyperconverged
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    name: hostpath-provisioner-operator
+  name: hostpath-provisioner-operator
+  namespace: kubevirt-hyperconverged
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: hostpath-provisioner-operator
+subjects:
+- kind: ServiceAccount
+  name: hostpath-provisioner-operator
+  namespace: kubevirt-hyperconverged
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   labels:
@@ -119,4 +135,19 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: node-maintenance-operator
+  namespace: kubevirt-hyperconverged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    name: hostpath-provisioner-operator
+  name: hostpath-provisioner-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hostpath-provisioner-operator
+subjects:
+- kind: ServiceAccount
+  name: hostpath-provisioner-operator
   namespace: kubevirt-hyperconverged

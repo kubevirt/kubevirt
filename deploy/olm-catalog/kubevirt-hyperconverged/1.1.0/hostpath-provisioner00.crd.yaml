@@ -18,6 +18,7 @@ spec:
   scope: Cluster
   validation:
     openAPIV3Schema:
+      description: Represents a HostPathProvisioner deployment
       properties:
         apiVersion:
           type: string
@@ -26,6 +27,7 @@ spec:
         metadata:
           type: object
         spec:
+          description: HostPathProvisionerSpec defines the desired state of HostPathProvisioner
           properties:
             imagePullPolicy:
               enum:
@@ -38,16 +40,36 @@ spec:
             imageTag:
               type: string
             pathConfig:
+              description: describes the location and layout of PV storage on nodes
               properties:
                 path:
+                  description: The provisioner will store PVs at this location on
+                    each node
                   type: string
                 useNamingPrefix:
-                  enum:
-                  - "true"
-                  - "false"
-                  type: string
+                  description: Indicates whether the name of the requesting PVC is
+                    included in the directory name when dynamically provisioning a
+                    PV
+                  type: boolean
               type: object
           type: object
+        status:
+          description: HostPathProvisionerStatus defines the observed state of HostPathProvisioner
+          properties:
+            conditions:
+              description: Conditions contains the current conditions observed by
+                the operator
+              type: array
+            observedVersion:
+              description: The observed version of the HostPathProvisioner deployment
+              type: string
+            operatorVersion:
+              description: The version of the HostPathProvisioner Operator
+              type: string
+            targetVersion:
+              description: The targeted version of the HostPathProvisioner deployment
+              type: string
+      type: object
   version: v1alpha1
   versions:
   - name: v1alpha1
