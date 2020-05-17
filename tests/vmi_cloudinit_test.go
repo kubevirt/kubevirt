@@ -541,6 +541,85 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.NetworkDataBase64).To(BeEmpty())
 			})
 
+			It("[test_id:3187]should have cloud-init userdata and network-config from separate k8s secrets", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
+					tests.ContainerDiskFor(tests.ContainerDiskCirros), "", "", false)
+
+				idx := 0
+				for i, volume := range vmi.Spec.Volumes {
+					if volume.CloudInitConfigDrive == nil {
+						continue
+					}
+					idx = i
+
+					uSecretID := fmt.Sprintf("%s-test-secret", uuid.NewRandom().String())
+					spec := volume.CloudInitConfigDrive
+					spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: uSecretID}
+
+					nSecretID := fmt.Sprintf("%s-test-secret", uuid.NewRandom().String())
+					spec.NetworkDataSecretRef = &kubev1.LocalObjectReference{Name: nSecretID}
+
+					// Store cloudinit data as k8s secret
+					By("Creating a secret with userdata")
+					uSecret := kubev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      uSecretID,
+							Namespace: vmi.Namespace,
+							Labels: map[string]string{
+								tests.SecretLabel: uSecretID,
+							},
+						},
+						Type: "Opaque",
+						Data: map[string][]byte{
+							// The client encrypts the secret for us
+							"userdata": []byte(testUserData),
+						},
+					}
+					By("Creating a secret with network data")
+					nSecret := kubev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      nSecretID,
+							Namespace: vmi.Namespace,
+							Labels: map[string]string{
+								tests.SecretLabel: nSecretID,
+							},
+						},
+						Type: "Opaque",
+						Data: map[string][]byte{
+							// The client encrypts the secret for us
+							"networkdata": []byte(testNetworkData),
+						},
+					}
+					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&uSecret)
+					Expect(err).To(BeNil())
+
+					_, err = virtClient.CoreV1().Secrets(vmi.Namespace).Create(&nSecret)
+					Expect(err).To(BeNil())
+
+					break
+				}
+
+				LaunchVMI(vmi)
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+
+				By("mounting cloudinit iso")
+				MountCloudInitConfigDrive(vmi, "#")
+
+				By("checking cloudinit network-config")
+				CheckCloudInitFile(vmi, "#", "openstack/latest/network_data.json", testNetworkData)
+
+				By("checking cloudinit user-data")
+				CheckCloudInitFile(vmi, "#", "openstack/latest/user_data", testUserData)
+
+				// Expect that the secret is not present on the vmi itself
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.UserData).To(BeEmpty())
+				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.UserDataBase64).To(BeEmpty())
+				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.NetworkData).To(BeEmpty())
+				Expect(vmi.Spec.Volumes[idx].CloudInitConfigDrive.NetworkDataBase64).To(BeEmpty())
+			})
+
 		})
 
 	})

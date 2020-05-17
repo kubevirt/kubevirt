@@ -362,7 +362,7 @@ var _ = Describe("Template", func() {
 				Expect(debugLogsValue).To(Equal("1"))
 			})
 		})
-		Context("with cloud-init secret", func() {
+		Context("with cloud-init user secret", func() {
 			It("should add volume with secret referenced by cloud-init user secret ref", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -391,19 +391,63 @@ var _ = Describe("Template", func() {
 
 				cloudInitVolumeFound := false
 				for _, volume := range pod.Spec.Volumes {
-					if volume.Name == "cloud-init-user-data-secret-ref" {
+					if volume.Name == "cloud-init-user-data-secret-ref-udata" {
 						cloudInitVolumeFound = true
 					}
 				}
-				Expect(cloudInitVolumeFound).To(BeTrue(), "could not find cloud init secret volume")
+				Expect(cloudInitVolumeFound).To(BeTrue(), "could not find cloud init user secret volume")
 
 				cloudInitVolumeMountFound := false
 				for _, volumeMount := range pod.Spec.Containers[0].VolumeMounts {
-					if volumeMount.Name == "cloud-init-user-data-secret-ref" {
+					if volumeMount.Name == "cloud-init-user-data-secret-ref-udata" {
 						cloudInitVolumeMountFound = true
 					}
 				}
-				Expect(cloudInitVolumeMountFound).To(BeTrue(), "could not find cloud init secret volume mount")
+				Expect(cloudInitVolumeMountFound).To(BeTrue(), "could not find cloud init user secret volume mount")
+			})
+		})
+		Context("with cloud-init network data secret", func() {
+			It("should add volume with secret referenced by cloud-init network data secret ref", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Volumes: []v1.Volume{
+							{
+								Name: "cloud-init-network-data-secret-ref",
+								VolumeSource: v1.VolumeSource{
+									CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+										NetworkDataSecretRef: &kubev1.LocalObjectReference{
+											Name: "some-secret",
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				cloudInitVolumeFound := false
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Name == "cloud-init-network-data-secret-ref-ndata" {
+						cloudInitVolumeFound = true
+					}
+				}
+				Expect(cloudInitVolumeFound).To(BeTrue(), "could not find cloud init network secret volume")
+
+				cloudInitVolumeMountFound := false
+				for _, volumeMount := range pod.Spec.Containers[0].VolumeMounts {
+					if volumeMount.Name == "cloud-init-network-data-secret-ref-ndata" {
+						cloudInitVolumeMountFound = true
+					}
+				}
+				Expect(cloudInitVolumeMountFound).To(BeTrue(), "could not find cloud init network secret volume mount")
 			})
 		})
 		Context("with container disk", func() {
