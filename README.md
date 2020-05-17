@@ -4,16 +4,16 @@
 
 # Hyperconverged Cluster Operator
 
-A unified operator combining the following projects:
+A unified operator deploying and controlling [KubeVirt](https://github.com/kubevirt/kubevirt) and several adjacent operators:
 
-- [KubeVirt](https://github.com/kubevirt/kubevirt)
 - [Containerized Data Importer](https://github.com/kubevirt/containerized-data-importer)
 - [Scheduling, Scale and Performance](https://github.com/MarSik/kubevirt-ssp-operator)
 - [Cluster Network Addons](https://github.com/kubevirt/cluster-network-addons-operator)
 - [Node Maintenance](https://github.com/kubevirt/node-maintenance-operator)
 
-This operator doesn't replace or interfere with Operator Lifecycle Manager (OLM).
-It only creates operator CustomResources (CRs), which is a user functionality.
+This operator is typically installed from the Operator Lifecycle Manager (OLM),
+and creates operator CustomResources (CRs) for its underlying operators as can be seen in the diagrom below.
+Use it to obtain an opinionated deployment of KubeVirt and its helper operators.
 
 ![](images/HCO-design.jpg)
 
