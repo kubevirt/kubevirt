@@ -44,6 +44,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	netutils "k8s.io/utils/net"
@@ -120,6 +121,9 @@ var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
 
 func init() {
+	// register default testing flags first
+	testing.Init()
+
 	kubecli.Init()
 	flag.StringVar(&KubeVirtUtilityVersionTag, "utility-container-tag", "", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtVersionTag, "container-tag", "latest", "Set the image tag or digest to use")

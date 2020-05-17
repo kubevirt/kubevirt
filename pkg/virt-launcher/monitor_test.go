@@ -27,6 +27,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -38,6 +39,7 @@ import (
 var fakeQEMUBinary string
 
 func init() {
+	testing.Init()
 	flag.StringVar(&fakeQEMUBinary, "fake-qemu-binary-path", "_out/cmd/fake-qemu-process/fake-qemu-process", "path to cirros test image")
 	flag.Parse()
 	fakeQEMUBinary = filepath.Join("../../", fakeQEMUBinary)

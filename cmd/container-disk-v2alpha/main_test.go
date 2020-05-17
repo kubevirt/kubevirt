@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -16,6 +17,7 @@ import (
 var containerDiskBinary string
 
 func init() {
+	testing.Init()
 	flag.StringVar(&containerDiskBinary, "container-disk-binary", "_out/cmd/container-disk-v2alpha/container-disk", "path to container disk binary")
 	flag.Parse()
 	containerDiskBinary = filepath.Join("../../", containerDiskBinary)
