@@ -1108,7 +1108,6 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("[test_id:1677]VMI condition should signal agent presence", func() {
-				tests.SkipIpv6TestsFailingAfterVmImageUpgradeToFc32()
 				agentVMI := prepareAgentVM()
 				getOptions := metav1.GetOptions{}
 
@@ -1124,7 +1123,6 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("should remove condition when agent is off", func() {
-				tests.SkipIpv6TestsFailingAfterVmImageUpgradeToFc32()
 				agentVMI := prepareAgentVM()
 				getOptions := metav1.GetOptions{}
 
@@ -1165,7 +1163,6 @@ var _ = Describe("Configurations", func() {
 				})
 
 				It("[test_id:]VMI condition should signal unsupported agent presence", func() {
-					tests.SkipIpv6TestsFailingAfterVmImageUpgradeToFc32()
 					agentVMI := prepareAgentVM()
 					getOptions := metav1.GetOptions{}
 
@@ -1187,7 +1184,6 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("should have guestosinfo in status when agent is present", func() {
-				tests.SkipIpv6TestsFailingAfterVmImageUpgradeToFc32()
 				agentVMI := prepareAgentVM()
 				getOptions := metav1.GetOptions{}
 				var updatedVmi *v1.VirtualMachineInstance
@@ -1207,7 +1203,6 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("should return the whole data when agent is present", func() {
-				tests.SkipIpv6TestsFailingAfterVmImageUpgradeToFc32()
 				agentVMI := prepareAgentVM()
 
 				By("Expecting the Guest VM information")
@@ -1229,7 +1224,6 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("should not return the whole data when agent is not present", func() {
-				tests.SkipIpv6TestsFailingAfterVmImageUpgradeToFc32()
 				agentVMI := prepareAgentVM()
 
 				By("Expecting the VirtualMachineInstance console")
@@ -1255,7 +1249,6 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("should return user list", func() {
-				tests.SkipIpv6TestsFailingAfterVmImageUpgradeToFc32()
 				agentVMI := prepareAgentVM()
 
 				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
@@ -1280,7 +1273,6 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("should return filesystem list", func() {
-				tests.SkipIpv6TestsFailingAfterVmImageUpgradeToFc32()
 				agentVMI := prepareAgentVM()
 
 				By("Expecting the Guest VM information")
@@ -2412,7 +2404,6 @@ var _ = Describe("Configurations", func() {
 	})
 
 	It("[test_id:4153]VMI with masquerade binding and guest agent should expose Pod IP as its public address", func() {
-		tests.SkipIpv6TestsFailingAfterVmImageUpgradeToFc32()
 		vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 
 		By("Starting a VirtualMachineInstance")

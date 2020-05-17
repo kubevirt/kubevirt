@@ -971,7 +971,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig)
 			})
 			It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
-				tests.SkipIpv6TestsFailingAfterVmImageUpgradeToFc32()
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
 
@@ -1083,7 +1082,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig)
 			})
 			It("[test_id:2227]should abort a vmi migration without progress", func() {
-				tests.SkipIpv6TestsFailingAfterVmImageUpgradeToFc32()
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
