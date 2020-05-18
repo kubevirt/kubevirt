@@ -503,7 +503,8 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 func NewOperatorDeployment(namespace string, repository string, imagePrefix string, version string,
 	pullPolicy corev1.PullPolicy, verbosity string,
 	kubeVirtVersionEnv string, virtApiShaEnv string, virtControllerShaEnv string,
-	virtHandlerShaEnv string, virtLauncherShaEnv string) (*appsv1.Deployment, error) {
+	virtHandlerShaEnv string, virtLauncherShaEnv string,
+	hcoKvIoVersion string) (*appsv1.Deployment, error) {
 
 	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-operator"})
 	name := "virt-operator"
@@ -590,6 +591,10 @@ func NewOperatorDeployment(namespace string, repository string, imagePrefix stri
 								{
 									Name:  operatorutil.OperatorImageEnvName,
 									Value: image,
+								},
+								{
+									Name:  operatorutil.HcoKvIoVersionEnvName,
+									Value: hcoKvIoVersion,
 								},
 								{
 									Name: "WATCH_NAMESPACE", // not used yet

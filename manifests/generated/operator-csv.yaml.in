@@ -685,6 +685,8 @@ spec:
                 env:
                 - name: OPERATOR_IMAGE
                   value: {{.DockerPrefix}}/virt-operator{{if .VirtOperatorSha}}@{{.VirtOperatorSha}}{{else}}:{{.DockerTag}}{{end}}
+                - name: HCO_KV_IO_VERSION
+                  value {{if .hcoKvIoVersion}}{{.hcoKvIoVersion}}{{end}}
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:

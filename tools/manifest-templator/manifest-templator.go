@@ -65,6 +65,7 @@ type templateData struct {
 	VirtHandlerSha         string
 	VirtLauncherSha        string
 	PriorityClassSpec      string
+	HcoKvIoVersion         string
 	GeneratedManifests     map[string]string
 }
 
@@ -91,6 +92,7 @@ func main() {
 	virtControllerSha := flag.String("virt-controller-sha", "", "")
 	virtHandlerSha := flag.String("virt-handler-sha", "", "")
 	virtLauncherSha := flag.String("virt-launcher-sha", "", "")
+	hcoKvIoVersion := flag.String("hco-kv-io-version", "", "")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -127,6 +129,7 @@ func main() {
 		data.ReplacesCsvVersion = ""
 		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data, 2)
 		data.PriorityClassSpec = getPriorityClassSpec(2)
+		data.HcoKvIoVersion = *hcoKvIoVersion
 
 		// operator deployment differs a bit in normal manifest and CSV
 		if strings.Contains(*inputFile, ".clusterserviceversion.yaml") {
@@ -172,6 +175,7 @@ func main() {
 		data.KubeVirtLogo = "{{.KubeVirtLogo}}"
 		data.PackageName = "{{.PackageName}}"
 		data.CreatedAt = "{{.CreatedAt}}"
+		data.HcoKvIoVersion = "{{.HcoKvIoVersion}}"
 	}
 
 	if *processFiles {
@@ -238,7 +242,8 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.VirtApiSha,
 		data.VirtControllerSha,
 		data.VirtHandlerSha,
-		data.VirtLauncherSha)
+		data.VirtLauncherSha,
+		data.HcoKvIoVersion)
 	if err != nil {
 		panic(err)
 	}

@@ -49,6 +49,7 @@ type NewClusterServiceVersionData struct {
 	IconBase64           string
 	ReplacesCsvVersion   string
 	CreatedAtTimestamp   string
+	HcoKvIoVersion       string
 }
 
 type csvClusterPermissions struct {
@@ -141,7 +142,8 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.VirtApiSha,
 		data.VirtControllerSha,
 		data.VirtHandlerSha,
-		data.VirtLauncherSha)
+		data.VirtLauncherSha,
+		data.HcoKvIoVersion)
 	if err != nil {
 		return nil, err
 	}
