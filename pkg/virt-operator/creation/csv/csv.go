@@ -55,6 +55,12 @@ type csvClusterPermissions struct {
 	ServiceAccountName string              `json:"serviceAccountName"`
 	Rules              []rbacv1.PolicyRule `json:"rules"`
 }
+
+type csvPermissions struct {
+	ServiceAccountName string              `json:"serviceAccountName"`
+	Rules              []rbacv1.PolicyRule `json:"rules"`
+}
+
 type csvDeployments struct {
 	Name string                `json:"name"`
 	Spec appsv1.DeploymentSpec `json:"spec,omitempty"`
@@ -62,6 +68,7 @@ type csvDeployments struct {
 
 type csvStrategySpec struct {
 	ClusterPermissions []csvClusterPermissions `json:"clusterPermissions"`
+	Permissions        []csvPermissions        `json:"permissions"`
 	Deployments        []csvDeployments        `json:"deployments"`
 }
 
@@ -153,10 +160,17 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		deployment.Spec.Replicas = &replicas
 	}
 
-	rules := rbac.NewOperatorClusterRole().Rules
+	clusterRules := rbac.NewOperatorClusterRole().Rules
+	rules := rbac.NewOperatorRole(data.Namespace).Rules
 
 	strategySpec := csvStrategySpec{
 		ClusterPermissions: []csvClusterPermissions{
+			{
+				ServiceAccountName: "kubevirt-operator",
+				Rules:              clusterRules,
+			},
+		},
+		Permissions: []csvPermissions{
 			{
 				ServiceAccountName: "kubevirt-operator",
 				Rules:              rules,
