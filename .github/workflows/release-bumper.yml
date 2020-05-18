@@ -1,7 +1,7 @@
 name: Auto-Bump Component's Versions
 on:
   schedule:
-    - cron:  '0 11 * * *'
+    - cron:  '0 5 * * *'
 jobs:
   build:
     name: HCO Release Bump Job
@@ -11,8 +11,7 @@ jobs:
         with:
           ref: master
       - name: Check for new releases and update
-        run: |
-          ./automation/release-bumper/release-bumper.sh
+        run: ./automation/release-bumper/release-bumper.sh
       - name: Set "UPDATED_COMPONENT" environment variable
         run: echo "::set-env name=UPDATED_COMPONENT::$(cat updated_component.txt)";
       - name: Set "UPDATED_VERSION" environment variable
@@ -30,12 +29,11 @@ jobs:
           title: "Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}"
           body: |
             Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}
-            Excecuted by HCO Release-Bumper Bot.
+            Executed by HCO Release-Bumper Bot.
             ```release-note
             Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}
             ```
-          assignees: orenc1
+          assignees: tiraboschi,orenc1
           reviewers: tiraboschi,orenc1
           team-reviewers: owners, maintainers
-          draft: false
           branch: bump_${{ env.UPDATED_COMPONENT }}_${{ env.UPDATED_VERSION }}

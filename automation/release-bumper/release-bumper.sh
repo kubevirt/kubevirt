@@ -8,32 +8,32 @@ function main {
   declare -A COMPONENTS_REPOS
   declare SHOULD_UPDATED
 
-  echo "Getting Components current versions..."
+  echo "INFO: Getting Components current versions..."
   get_current_versions
 
-  echo "Getting Components updated versions..."
+  echo "INFO: Getting Components updated versions..."
   get_updated_versions
 
-  echo "Comparing Versions..."
+  echo "INFO: Comparing Versions..."
   compare_versions
 
   if [ ${#SHOULD_UPDATED[@]} == 0 ]; then
-    echo "All components are already in latest version.";
+    echo "INFO: All components are already in latest version. Job is completed.";
     exit 0;
   fi
 
   update_versions
 
-  echo Executing "build-manifests.sh"...
+  echo INFO: Executing "build-manifests.sh"...
   ./hack/build-manifests.sh
 
-  echo Updating go.mod...
+  echo INFO: Updating go.mod...
   update_go_mod
 
-  echo Executing "go mod vendor"
+  echo INFO: Executing "go mod vendor"
   go mod vendor
 
-  echo Executing "go mod tidy"
+  echo INFO: Executing "go mod tidy"
   go mod tidy
 }
 
@@ -71,8 +71,8 @@ function get_updated_versions {
   UPDATED_VERSIONS=()
   for component in "${!COMPONENTS_REPOS[@]}"; do
     UPDATED_VERSIONS[$component]=\"$(get_latest_release "${COMPONENTS_REPOS[$component]}")\";
-    if [ -z "${UPDATED_VERSIONS[$component]}" ]; then
-      echo "Unable to get an updated version of $component, aborting..."
+    if [ "${UPDATED_VERSIONS[$component]}" == \"\" ]; then
+      echo "ERROR: Unable to get an updated version of $component, aborting..."
       exit 1
     fi
     done;
@@ -85,7 +85,7 @@ function get_latest_release() {
 function compare_versions() {
   for component in "${!UPDATED_VERSIONS[@]}"; do
     if [ ! "${UPDATED_VERSIONS[$component]}" == "${CURRENT_VERSIONS[$component]}" ]; then
-      echo "$component" is outdated. current: "${CURRENT_VERSIONS[$component]}", updated: "${UPDATED_VERSIONS[$component]}"
+      echo "INFO: $component" is outdated. Current: "${CURRENT_VERSIONS[$component]}", Updated: "${UPDATED_VERSIONS[$component]}"
       SHOULD_UPDATED+=( "$component" )
     fi;
   done;
@@ -99,7 +99,7 @@ function update_versions() {
     search_pattern=$(echo "$component.*${UPDATED_VERSIONS[$component]}" | tr -d '"')
     if curl -s -L  https://api.github.com/repos/kubevirt/hyperconverged-cluster-operator/pulls | jq .[].title | \
     grep -q "$search_pattern"; then
-      echo "An existing pull request of bumping $component to version ${UPDATED_VERSIONS[$component]} has been found. \
+      echo "INFO: An existing pull request for bumping $component to version ${UPDATED_VERSIONS[$component]} has been found. \
 Continuing to next component."
       continue
     else
@@ -108,9 +108,15 @@ Continuing to next component."
 
       echo "$component" > updated_component.txt
       echo "${UPDATED_VERSIONS[$component]}" | tr -d '"' > updated_version.txt
+      UPDATING='true'
       break
     fi
   done;
+
+  if [ "${UPDATING}" != 'true' ]; then
+    echo "INFO: There are no more components to update. Finishing Job Successfully."
+    exit 0
+  fi
 }
 
 function update_go_mod() {
@@ -125,7 +131,6 @@ function update_go_mod() {
   fi
 
   sed -E -i "$EXCLUSION s/($MODULE_PATH.*)v[0-9\.]+/\1${UPDATED_VERSION}/" go.mod
-
 }
 
 main
