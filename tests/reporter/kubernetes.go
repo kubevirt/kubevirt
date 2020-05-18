@@ -24,6 +24,14 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
+const (
+	sriovEntityURITemplate       = "/apis/sriovnetwork.openshift.io/v1/namespaces/%s/%s/"
+	sriovNetworksEntity          = "sriovnetworks"
+	sriovNodeNetworkPolicyEntity = "sriovnetworknodepolicies"
+	sriovNodeStateEntity         = "sriovnetworknodestates"
+	sriovOperatorConfigsEntity   = "sriovoperatorconfigs"
+)
+
 type KubernetesReporter struct {
 	failureCount int
 	artifactsDir string
@@ -98,6 +106,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logVMs(virtCli)
 	r.logDomainXMLs(virtCli)
 	r.logLogs(virtCli, since)
+	r.logSRIOVInfo(virtCli)
 }
 
 // Cleanup cleans up the current content of the artifactsDir
@@ -514,6 +523,63 @@ func (r *KubernetesReporter) logEvents(virtCli kubecli.KubevirtClient, since tim
 		return
 	}
 	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) logSRIOVInfo(virtCli kubecli.KubevirtClient) {
+	sriovOutputDir := filepath.Join(r.artifactsDir, "sriov")
+	if err := os.MkdirAll(sriovOutputDir, 0777); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create directory: %v\n", err)
+		return
+	}
+
+	r.logSRIOVNodeState(virtCli, sriovOutputDir)
+	r.logSRIOVNodeNetworkPolicies(virtCli, sriovOutputDir)
+	r.logSRIOVNetworks(virtCli, sriovOutputDir)
+	r.logSRIOVOperatorConfigs(virtCli, sriovOutputDir)
+}
+
+func (r *KubernetesReporter) logSRIOVNodeState(virtCli kubecli.KubevirtClient, outputFolder string) {
+	nodeStateLogPath := filepath.Join(outputFolder, fmt.Sprintf("%d_nodestate.log", r.failureCount))
+	r.dumpK8sEntityToFile(virtCli, sriovNodeStateEntity, v1.NamespaceAll, nodeStateLogPath)
+}
+
+func (r *KubernetesReporter) logSRIOVNodeNetworkPolicies(virtCli kubecli.KubevirtClient, outputFolder string) {
+	nodeNetworkPolicyLogPath := filepath.Join(outputFolder, fmt.Sprintf("%d_nodenetworkpolicies.log", r.failureCount))
+	r.dumpK8sEntityToFile(virtCli, sriovNodeNetworkPolicyEntity, v1.NamespaceAll, nodeNetworkPolicyLogPath)
+}
+
+func (r *KubernetesReporter) logSRIOVNetworks(virtCli kubecli.KubevirtClient, outputFolder string) {
+	networksPath := filepath.Join(outputFolder, fmt.Sprintf("%d_networks.log", r.failureCount))
+	r.dumpK8sEntityToFile(virtCli, sriovNetworksEntity, v1.NamespaceAll, networksPath)
+}
+
+func (r *KubernetesReporter) logSRIOVOperatorConfigs(virtCli kubecli.KubevirtClient, outputFolder string) {
+	operatorConfigPath := filepath.Join(outputFolder, fmt.Sprintf("%d_operatorconfigs.log", r.failureCount))
+	r.dumpK8sEntityToFile(virtCli, sriovOperatorConfigsEntity, v1.NamespaceAll, operatorConfigPath)
+}
+
+func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient, entityName string, namespace string, outputFilePath string) {
+	requestURI := fmt.Sprintf(sriovEntityURITemplate, namespace, entityName)
+	f, err := os.OpenFile(outputFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	response, err := virtCli.RestClient().Get().RequestURI(requestURI).Do().Raw()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to dump entity named [%s]: %v\n", entityName, err)
+		return
+	}
+
+	var prettyJson bytes.Buffer
+	err = json.Indent(&prettyJson, response, "", "    ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to marshall [%s] state objects\n", entityName)
+		return
+	}
+	fmt.Fprintln(f, string(prettyJson.Bytes()))
 }
 
 func (r *KubernetesReporter) AfterSuiteDidRun(setupSummary *types.SetupSummary) {
