@@ -119,9 +119,6 @@ func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("Error getting VirtualMachine %s: %v", resourceName, err)
 			}
 			vmiName := vm.Name
-			if vm.Spec.Template != nil && vm.Spec.Template.ObjectMeta.Name != "" {
-				vmiName = vm.Spec.Template.ObjectMeta.Name
-			}
 			err = virtClient.VirtualMachineInstance(namespace).Pause(vmiName)
 			if err != nil {
 				if errors.IsNotFound(err) {
@@ -153,9 +150,6 @@ func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("Error getting VirtualMachine %s: %v", resourceName, err)
 			}
 			vmiName := vm.Name
-			if vm.Spec.Template != nil && vm.Spec.Template.ObjectMeta.Name != "" {
-				vmiName = vm.Spec.Template.ObjectMeta.Name
-			}
 			err = virtClient.VirtualMachineInstance(namespace).Unpause(vmiName)
 			if err != nil {
 				return fmt.Errorf("Error unpausing VirtualMachineInstance %s: %v", vmiName, err)
