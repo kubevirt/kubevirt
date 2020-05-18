@@ -733,6 +733,31 @@ spec:
                 secret:
                   optional: true
                   secretName: kubevirt-operator-certs
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+          - patch
+          - delete
+        serviceAccountName: kubevirt-operator
     strategy: deployment
   installModes:
   - supported: true
