@@ -26,40 +26,33 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Node-labeller config", func() {
 	var nlController *NodeLabeller
 	var virtClient *kubecli.MockKubevirtClient
-	var cm *k8sv1.ConfigMap
+	clusterConfig, configMapInformer, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 	BeforeSuite(func() {
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		cm = &k8sv1.ConfigMap{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ConfigMap",
-				APIVersion: "v1",
+		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
+			Data: map[string]string{
+				virtconfig.ObsoleteCPUsKey: "486, pentium, pentium2, pentium3, pentiumpro, coreduo, n270, core2duo, Conroe, athlon, phenom",
+				virtconfig.MinCPUKey:       "Penryn",
 			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kubevirt-cpu-plugin-configmap",
-				Namespace: k8sv1.NamespaceDefault,
-			},
-			Data: map[string]string{"cpu-plugin-configmap.yaml": cpuConfig},
-		}
-
-		cmInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		})
 
 		nlController = &NodeLabeller{
 			namespace:         k8sv1.NamespaceDefault,
 			clientset:         virtClient,
-			configMapInformer: cmInformer,
+			configMapInformer: configMapInformer,
+			clusterConfig:     clusterConfig,
 		}
-		nlController.configMapInformer.GetStore().Add(cm)
 		os.MkdirAll(nodeLabellerVolumePath+"/cpu_map", 0777)
 	})
 

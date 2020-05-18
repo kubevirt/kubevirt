@@ -100,20 +100,6 @@ const (
     <feature name='cmov'/>
   </model>
 </cpus>`
-
-	cpuConfig = `obsoleteCPUs:
-  - "486"
-  - "pentium"
-  - "pentium2"
-  - "pentium3"
-  - "pentiumpro"
-  - "coreduo"
-  - "n270"
-  - "core2duo"
-  - "Conroe"
-  - "athlon"
-  - "phenom"
-minCPU: "Penryn"`
 )
 
 var (

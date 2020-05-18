@@ -138,3 +138,13 @@ func (c *ClusterConfig) GetSupportedAgentVersions() []string {
 func (c *ClusterConfig) GetOVMFPath() string {
 	return c.getConfig().OVMFPath
 }
+
+//GetMinCPU return minimal cpu which is used in node-labeller
+func (c *ClusterConfig) GetMinCPU() string {
+	return c.getConfig().MinCPU
+}
+
+//GetObsoleteCPUs return slice of obsolete cpus which are used in node-labeller
+func (c *ClusterConfig) GetObsoleteCPUs() map[string]bool {
+	return c.getConfig().ObsoleteCPUs
+}

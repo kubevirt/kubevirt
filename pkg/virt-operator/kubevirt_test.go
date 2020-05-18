@@ -142,8 +142,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 	var resourceChanges map[string]map[string]int
 
-	resourceCount := 50
-	patchCount := 31
+	resourceCount := 49
+	patchCount := 30
 	updateCount := 20
 
 	deleteFromCache := true
@@ -841,8 +841,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		// sccs
 		all = append(all, components.NewKubeVirtControllerSCC(NAMESPACE))
 		all = append(all, components.NewKubeVirtHandlerSCC(NAMESPACE))
-		//configmap
-		all = append(all, components.NewNodeLabellerConfigMap(NAMESPACE))
 		// services and deployments
 		all = append(all, components.NewOperatorWebhookService(NAMESPACE))
 		all = append(all, components.NewPrometheusService(NAMESPACE))
@@ -1939,7 +1937,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.SCCCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ServiceMonitorCache.List())).To(Equal(1))
 			Expect(len(controller.stores.PrometheusRuleCache.List())).To(Equal(1))
-			Expect(len(controller.stores.ConfigMapCache.List())).To(Equal(2))
+			Expect(len(controller.stores.ConfigMapCache.List())).To(Equal(1))
 
 			Expect(resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
 

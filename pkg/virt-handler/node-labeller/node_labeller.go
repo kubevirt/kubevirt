@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -16,15 +17,19 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 )
 
 const (
-	labelNamespace    = "feature.node.kubernetes.io"
-	labellerNamespace = "node-labeller"
+	labelNamespace        = "feature.node.kubernetes.io"
+	labellerNamespace     = "node-labeller"
+	kvmCapsInfoPluginPath = "/usr/bin/kvm-caps-info-nfd-plugin"
 )
 
-var nodeLabellerVolumePath = "/var/lib/kubevirt-node-labeller"
+var (
+	nodeLabellerVolumePath = "/var/lib/kubevirt-node-labeller"
+)
 
 //NodeLabeller struct holds informations needed to run node-labeller
 type NodeLabeller struct {
@@ -36,9 +41,16 @@ type NodeLabeller struct {
 	host              string
 	namespace         string
 	logger            *log.FilteredLogger
+	clusterConfig     *virtconfig.ClusterConfig
+	kvmInfoLabels     supportedMap
 }
 
-func NewNodeLabeller(kvmController *device_manager.DeviceController, nodeInformer, configMapInformer cache.SharedIndexInformer, clientset kubecli.KubevirtClient, host, namespace string) *NodeLabeller {
+type supportedMap struct {
+	sync.RWMutex
+	items map[string]bool
+}
+
+func NewNodeLabeller(kvmController *device_manager.DeviceController, clusterConfig *virtconfig.ClusterConfig, nodeInformer, configMapInformer cache.SharedIndexInformer, clientset kubecli.KubevirtClient, host, namespace string) *NodeLabeller {
 	return &NodeLabeller{
 		kvmController:     kvmController,
 		configMapInformer: configMapInformer,
@@ -46,9 +58,10 @@ func NewNodeLabeller(kvmController *device_manager.DeviceController, nodeInforme
 		clientset:         clientset,
 		Queue:             workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 
-		host:      host,
-		namespace: namespace,
-		logger:    log.DefaultLogger(),
+		host:          host,
+		namespace:     namespace,
+		logger:        log.DefaultLogger(),
+		clusterConfig: clusterConfig,
 	}
 }
 
@@ -138,6 +151,14 @@ func (n *NodeLabeller) run() error {
 		return err
 	}
 
+	var labels map[string]bool
+	n.kvmInfoLabels.Lock()
+	if len(n.kvmInfoLabels.items) == 0 {
+		capScanner := NewCapScanner()
+		labels = capScanner.getLabels()
+	}
+	n.kvmInfoLabels.Unlock()
+
 	//load node
 	nodeObj, exists, err := n.nodeInformer.GetStore().GetByKey(n.host)
 	if err != nil || !exists {
@@ -156,11 +177,15 @@ func (n *NodeLabeller) run() error {
 	node := originalNode.DeepCopy()
 
 	//prepare new labels
-	newLabels := n.prepareLabels(cpuModels, cpuFeatures)
+	newLabels := n.prepareLabels(cpuModels, labels, cpuFeatures)
 	//remove old labeller labels
 	n.removeCPULabels(node, n.getNodeLabellerLabels(node))
 	//add new labels
 	n.addNodeLabels(node, newLabels)
+
+	n.kvmInfoLabels.Lock()
+	n.kvmInfoLabels.items = labels
+	n.kvmInfoLabels.Unlock()
 	//patch node only if there is change in labels
 	err = n.patchNode(originalNode, node)
 	return err
@@ -204,13 +229,16 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 
 // prepareLabels converts cpu models + features to map[string]string format
 // e.g. "/cpu-model-Penryn": "true"
-func (n *NodeLabeller) prepareLabels(cpuModels []string, cpuFeatures map[string]bool) map[string]string {
+func (n *NodeLabeller) prepareLabels(cpuModels []string, kvmInfoLabels, cpuFeatures map[string]bool) map[string]string {
 	newLabels := make(map[string]string)
 	for key, value := range cpuFeatures {
 		newLabels["/cpu-feature-"+key] = strconv.FormatBool(value)
 	}
 	for _, value := range cpuModels {
 		newLabels["/cpu-model-"+value] = "true"
+	}
+	for key := range kvmInfoLabels {
+		newLabels[key] = "true"
 	}
 	return newLabels
 }

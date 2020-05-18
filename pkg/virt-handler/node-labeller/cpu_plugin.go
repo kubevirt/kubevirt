@@ -20,14 +20,8 @@ func (n *NodeLabeller) getCPUInfo() ([]string, map[string]bool, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	var c Config
 
-	c, err = n.loadConfig()
-	if err != nil {
-		n.logger.Infof("labeller config map not loaded: " + err.Error())
-	}
-
-	obsoleteCPUsx86 := c.getObsoleteCPUMap()
+	obsoleteCPUsx86 := n.clusterConfig.GetObsoleteCPUs()
 
 	basicFeaturesMap := make(map[string]bool)
 	cpus := make([]string, 0)
@@ -36,7 +30,7 @@ func (n *NodeLabeller) getCPUInfo() ([]string, map[string]bool, error) {
 
 	for _, mode := range hostDomCapabilities.CPU.Mode {
 		if mode.Vendor.Name != "" {
-			minCPU := c.getMinCPU()
+			minCPU := n.clusterConfig.GetMinCPU()
 			var err error
 			basicFeaturesMap, err = parseFeatures(basicFeaturesMap, minCPU)
 			if err != nil {

@@ -63,7 +63,24 @@ const (
 	SELinuxLauncherTypeKey            = "selinuxLauncherType"
 	SupportedGuestAgentVersionsKey    = "supported-guest-agent"
 	OVMFPathKey                       = "ovmfPath"
+	ObsoleteCPUsKey                   = "obsolete-cpus"
+	MinCPUKey                         = "min-cpu"
+	DefaultMinCPU                     = "Penryn"
 )
+
+var DefaultObsoleteCPUs = map[string]bool{
+	"486":        true,
+	"pentium":    true,
+	"pentium2":   true,
+	"pentium3":   true,
+	"pentiumpro": true,
+	"coreduo":    true,
+	"n270":       true,
+	"core2duo":   true,
+	"Conroe":     true,
+	"athlon":     true,
+	"phenom":     true,
+}
 
 type ConfigModifiedFn func()
 
@@ -243,6 +260,8 @@ type Config struct {
 	SELinuxLauncherType               string
 	SupportedGuestAgentVersions       []string
 	OVMFPath                          string
+	MinCPU                            string
+	ObsoleteCPUs                      map[string]bool
 }
 
 type MigrationConfig struct {
@@ -360,6 +379,24 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 
 	if featureGates := strings.TrimSpace(configMap.Data[FeatureGatesKey]); featureGates != "" {
 		config.FeatureGates = featureGates
+	}
+
+	config.ObsoleteCPUs = make(map[string]bool)
+	if val, ok := configMap.Data[ObsoleteCPUsKey]; ok {
+		if cpuModels := strings.Replace(strings.TrimSpace(val), " ", "", -1); cpuModels != "" {
+			cpuModels := strings.Split(cpuModels, ",")
+			for _, v := range cpuModels {
+				config.ObsoleteCPUs[v] = true
+			}
+		}
+	} else {
+		config.ObsoleteCPUs = DefaultObsoleteCPUs
+	}
+
+	if val, ok := configMap.Data[MinCPUKey]; ok {
+		config.MinCPU = strings.TrimSpace(val)
+	} else {
+		config.MinCPU = DefaultMinCPU
 	}
 
 	if toleration := strings.TrimSpace(configMap.Data[LessPVCSpaceTolerationKey]); toleration != "" {

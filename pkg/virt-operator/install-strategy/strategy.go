@@ -291,8 +291,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	}
 	strategy.deployments = append(strategy.deployments, controller)
 
-	nodeLabellerConfigMap := components.NewNodeLabellerConfigMap(config.GetNamespace())
-	strategy.configMaps = append(strategy.configMaps, nodeLabellerConfigMap, components.NewKubeVirtCAConfigMap(operatorNamespace))
+	strategy.configMaps = append(strategy.configMaps, components.NewKubeVirtCAConfigMap(operatorNamespace))
 
 	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 	if err != nil {

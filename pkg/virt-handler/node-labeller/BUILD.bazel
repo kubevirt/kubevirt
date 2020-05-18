@@ -3,19 +3,20 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "config.go",
         "cpu_plugin.go",
+        "kvm-caps-info-plugin.go",
         "model.go",
         "node_labeller.go",
         "test-util.go",
     ],
+    cgo = True,
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/device-manager:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/gopkg.in/yaml.v2:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
@@ -27,7 +28,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "config_test.go",
         "cpu_plugin_test.go",
         "node_labeller_suite_test.go",
         "node_labeller_test.go",
@@ -35,6 +35,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/testutils:go_default_library",
+        "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/device-manager:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",

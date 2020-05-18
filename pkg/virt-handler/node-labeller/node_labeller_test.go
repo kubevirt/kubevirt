@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 )
 
@@ -78,7 +79,14 @@ var _ = Describe("Node-labeller ", func() {
 
 		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&v1.Node{})
 		configMapInformer, _ = testutils.NewFakeInformerFor(&v1.ConfigMap{})
-		nlController = NewNodeLabeller(&device_manager.DeviceController{}, nodeInformer, configMapInformer, virtClient, "testNode", k8sv1.NamespaceDefault)
+
+		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&v1.ConfigMap{
+			Data: map[string]string{
+				virtconfig.ObsoleteCPUsKey: "486, pentium, pentium2, pentium3, pentiumpro, coreduo, n270, core2duo, Conroe, athlon, phenom",
+				virtconfig.MinCPUKey:       "Penryn",
+			},
+		})
+		nlController = NewNodeLabeller(&device_manager.DeviceController{}, clusterConfig, nodeInformer, configMapInformer, virtClient, "testNode", k8sv1.NamespaceDefault)
 		mockQueue = testutils.NewMockWorkQueue(nlController.Queue)
 		nlController.Queue = mockQueue
 

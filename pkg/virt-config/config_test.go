@@ -138,6 +138,44 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when unset, GetCPUModel should return empty string", "", ""),
 	)
 
+	table.DescribeTable(" when minCPU", func(value string, result string) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MinCPUKey: value},
+		})
+		Expect(clusterConfig.GetMinCPU()).To(Equal(result))
+	},
+		table.Entry("when set, GetMinCPU should return the value", "Haswell", "Haswell"),
+		table.Entry("when unset, GetMinCPU should return empty string", "", ""),
+	)
+
+	table.DescribeTable(" when minCPU in not set", func(result string) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{},
+		})
+		Expect(clusterConfig.GetMinCPU()).To(Equal(result))
+	},
+		table.Entry("when minCPU is unset, GetMinCPU should return default string", virtconfig.DefaultMinCPU),
+	)
+
+	table.DescribeTable(" when obsoleteCPUs", func(value string, result map[string]bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.ObsoleteCPUsKey: value},
+		})
+		Expect(clusterConfig.GetObsoleteCPUs()).To(Equal(result))
+	},
+		table.Entry("when set, GetObsoleteCPUs should return the value", "Haswell, Penryn", map[string]bool{"Haswell": true, "Penryn": true}),
+		table.Entry("when unset, GetObsoleteCPUs should return empty string", "", map[string]bool{}),
+	)
+
+	table.DescribeTable(" when obsoleteCPUs is not set", func(result map[string]bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{},
+		})
+		Expect(clusterConfig.GetObsoleteCPUs()).To(Equal(result))
+	},
+		table.Entry("when not set, GetObsoleteCPUs should return the value", virtconfig.DefaultObsoleteCPUs),
+	)
+
 	table.DescribeTable(" when cpuRequest", func(value string, result string) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.CpuRequestKey: value},

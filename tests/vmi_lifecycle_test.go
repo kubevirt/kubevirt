@@ -860,39 +860,80 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var cpuFeatureSupportedNodes = make([]string, 0)
 			var supportedCPU string
 			var supportedFeature string
+			var supportedKVMInfoFeature []string
+
+			enableHyperVInVMI := func(label string) v1.FeatureHyperv {
+				features := v1.FeatureHyperv{}
+				trueV := true
+				switch label {
+				case "vpindex":
+					features.VPIndex = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "runtime":
+					features.Runtime = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "reset":
+					features.Reset = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "synic":
+					features.SyNIC = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "frequencies":
+					features.Frequencies = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				case "reenlightenment":
+					features.Reenlightenment = &v1.FeatureState{
+						Enabled: &trueV,
+					}
+				}
+
+				return features
+			}
+
+			nodes := tests.GetAllSchedulableNodes(virtClient)
+			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+			node = &nodes.Items[0]
+
+			for key, _ := range node.Labels {
+				if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) && supportedFeature == "" {
+					supportedFeature = strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
+				}
+
+				if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) && supportedCPU == "" {
+					supportedCPU = strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
+				}
+
+				if strings.Contains(key, services.NFD_KVM_INFO_PREFIX) &&
+					!strings.Contains(key, "tlbflush") &&
+					!strings.Contains(key, "ipi") &&
+					!strings.Contains(key, "synictimer") {
+					supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, services.NFD_KVM_INFO_PREFIX))
+				}
+
+			}
+
+			for _, n := range nodes.Items {
+				for key, _ := range n.Labels {
+					if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX+supportedFeature) {
+						cpuFeatureSupportedNodes = append(cpuFeatureSupportedNodes, n.Name)
+					}
+
+					if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX+supportedCPU) {
+						cpuModelSupportedNodes = append(cpuModelSupportedNodes, n.Name)
+					}
+
+				}
+
+			}
+			Expect(supportedFeature).ToNot(Equal(""))
+			Expect(supportedCPU).ToNot(Equal(""))
 
 			BeforeEach(func() {
-				nodes := tests.GetAllSchedulableNodes(virtClient)
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-				node = &nodes.Items[0]
-
-				for key, _ := range node.Labels {
-					if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) && supportedFeature == "" {
-						supportedFeature = strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
-					}
-
-					if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) && supportedCPU == "" {
-						supportedCPU = strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
-					}
-					if supportedCPU != "" && supportedFeature != "" {
-						break
-					}
-				}
-
-				for _, n := range nodes.Items {
-					for key, _ := range n.Labels {
-						if strings.Contains(key, supportedFeature) {
-							cpuFeatureSupportedNodes = append(cpuFeatureSupportedNodes, n.Name)
-						}
-
-						if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
-							cpuModelSupportedNodes = append(cpuModelSupportedNodes, n.Name)
-						}
-					}
-
-				}
-				Expect(supportedFeature).ToNot(Equal(""))
-				Expect(supportedCPU).ToNot(Equal(""))
 				options = metav1.GetOptions{}
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
 				Expect(err).ToNot(HaveOccurred())
@@ -929,6 +970,26 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 
 				Expect(found).To(Equal(true), "VMI should run on a node with matching NFD CPU features labels")
+
+			})
+
+			It("the vmi with HyperV feature matching a nfd label on a node should be scheduled", func() {
+
+				for _, label := range supportedKVMInfoFeature {
+					fmt.Println("Using " + label)
+					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+					features := enableHyperVInVMI(label)
+					vmi.Spec.Domain.Features = &v1.Features{
+						Hyperv: &features,
+					}
+
+					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+					Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+					tests.WaitForSuccessfulVMIStart(vmi)
+
+					_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
+				}
 
 			})
 

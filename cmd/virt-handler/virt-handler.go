@@ -180,13 +180,6 @@ func (app *virtHandlerApp) Run() {
 		cache.Indexers{},
 	)
 
-	nodeLabellerConfigMapSharedInformer := cache.NewSharedIndexInformer(
-		cache.NewListWatchFromClient(app.virtCli.CoreV1().RESTClient(), "configmaps", app.namespace, fields.OneTermEqualSelector("metadata.name", "kubevirt-cpu-plugin-configmap")),
-		&k8sv1.ConfigMap{},
-		(24 * time.Hour),
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
-	)
-
 	nodeSharedInformer := cache.NewSharedIndexInformer(
 		cache.NewListWatchFromClient(app.virtCli.CoreV1().RESTClient(), "nodes", k8sv1.NamespaceAll, fields.OneTermEqualSelector("metadata.name", app.HostOverride)),
 		&k8sv1.Node{},
@@ -241,6 +234,8 @@ func (app *virtHandlerApp) Run() {
 		glog.Fatalf("Error constructing migration tls config: %v", err)
 	}
 
+	kubevirtConfigMapSharedInformer := factory.ConfigMap()
+
 	// Legacy support, Remove this informer once we no longer support
 	// VMIs with graceful shutdown trigger
 	gracefulShutdownInformer := cache.NewSharedIndexInformer(
@@ -262,7 +257,7 @@ func (app *virtHandlerApp) Run() {
 		app.VirtPrivateDir,
 		vmSourceSharedInformer,
 		vmTargetSharedInformer,
-		nodeLabellerConfigMapSharedInformer,
+		kubevirtConfigMapSharedInformer,
 		nodeSharedInformer,
 		domainSharedInformer,
 		gracefulShutdownInformer,
