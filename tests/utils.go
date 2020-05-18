@@ -3977,7 +3977,7 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:    labels,
-					Name:      name,
+					Name:      name + "makeitinteresting", // this name should have no effect
 					Namespace: namespace,
 				},
 				Spec: vmi.Spec,

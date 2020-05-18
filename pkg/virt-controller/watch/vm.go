@@ -698,12 +698,11 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 
 // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
 func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
-	basename := c.getVirtualMachineBaseName(vm)
 
 	vmi := virtv1.NewVMIReferenceFromNameWithNS(vm.ObjectMeta.Namespace, "")
 	vmi.ObjectMeta = vm.Spec.Template.ObjectMeta
-	vmi.ObjectMeta.Name = basename
-	vmi.ObjectMeta.GenerateName = basename
+	vmi.ObjectMeta.Name = vm.ObjectMeta.Name
+	vmi.ObjectMeta.GenerateName = ""
 	vmi.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
 	vmi.Spec = vm.Spec.Template.Spec
 
@@ -1230,18 +1229,6 @@ func copyConditionDetails(source *virtv1.VirtualMachineInstanceCondition, dest *
 	dest.LastTransitionTime = source.LastTransitionTime
 	dest.Reason = source.Reason
 	dest.Message = source.Message
-}
-
-func (c *VMController) getVirtualMachineBaseName(vm *virtv1.VirtualMachine) string {
-
-	// TODO defaulting should make sure that the right field is set, instead of doing this
-	if len(vm.Spec.Template.ObjectMeta.Name) > 0 {
-		return vm.Spec.Template.ObjectMeta.Name
-	}
-	if len(vm.Spec.Template.ObjectMeta.GenerateName) > 0 {
-		return vm.Spec.Template.ObjectMeta.GenerateName
-	}
-	return vm.ObjectMeta.Name
 }
 
 func (c *VMController) processFailure(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) {
