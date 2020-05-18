@@ -12,6 +12,73 @@ WORKER_NODE_ROOT="${CLUSTER_NAME}-worker"
 
 OPERATOR_GIT_HASH=8d3c30de8ec5a9a0c9eeb84ea0aa16ba2395cd68  # release-4.4
 
+function ensure_cr {
+  crd=$1
+  cr=$2
+  namespace=$3
+
+  intervals=30
+  timeout=3
+
+  if [[ $namespace != "" ]];then
+    namespace="-n $namespace"
+  fi
+
+  count=0
+  until _kubectl get $crd $cr $namespace; do
+      ((count++)) && ((count == intervals)) && echo "$crd CR not found" && exit 1
+      echo "[$count/$intervals] Waiting for $crd CR.."
+      sleep $timeout
+  done
+}
+
+function ensure_caBundle {
+  webhook_configuration_type=$1
+  webhook_configuration=$2
+  hash=$3
+
+  intervals=6
+  timeout=10
+
+  count=0
+  current_cab=$(_kubectl get $webhook_configuration_type $webhook_configuration -ocustom-columns=CAB:.webhooks[*].clientConfig.caBundle --no-headers)
+  target_cab=$hash
+  until [[ $current_cab == $target_cab ]] ; do
+      ((count++)) && ((count == intervals)) && echo "$webhook_configuration_type caBundle did not changed" && exit 1
+      echo "[$count/$intervals] Waiting for $webhook_configuration_type-$webhook_configuration caBundle update.."
+      sleep $timeout
+  done
+}
+function wait_for_taint {
+  taint=$1
+
+  intervals=30
+  timeout=10
+
+  count=0
+  until [[ $(_kubectl  get nodes -ocustom-columns=taints:.spec.taints[*].effect --no-headers | grep -i $taint) != "" ]]; do
+    ((count++)) && ((count == intervals)) && echo "Taint $taint did not removed in after $intervals tries" && exit 1
+    echo "[$count/$intervals] Waiting for taint $taint absence"
+    _kubectl get nodes -ocustom-columns=NAME:.metadata.name,TAINTS:.spec.taints[*].effect --no-headers
+    sleep $timeout
+  done
+}
+
+function wait_for_taint_absence {
+  taint=$1
+
+  intervals=30
+  timeout=10
+
+  count=0
+  until [[ $(_kubectl  get nodes -ocustom-columns=taints:.spec.taints[*].effect --no-headers | grep -i $taint) == "" ]]; do
+    ((count++)) && ((count == intervals)) && echo "Taint $taint did not removed in after $intervals tries" && exit 1
+    echo "[$count/$intervals] Waiting for taint $taint absence"
+    _kubectl get nodes -ocustom-columns=NAME:.metadata.name,TAINTS:.spec.taints[*].effect --no-headers
+    sleep $timeout
+  done
+}
+
 # not using kubectl wait since with the sriov operator the pods get restarted a couple of times and this is
 # more reliable
 function wait_pods_ready {
@@ -110,18 +177,39 @@ _kubectl label node $SRIOV_NODE sriov=true
 
 wait_pods_ready
 
-# we need to sleep as the configurations below need to appear
-sleep 30
+# Ensure webook-configuration object created
+ensure_cr "validatingwebhookconfiguration" "operator-webhook-config"
+ensure_cr "mutatingwebhookconfiguration"   "operator-webhook-config"
+ensure_cr "mutatingwebhookconfiguration"   "network-resources-injector-config"
 
 _kubectl patch validatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
 _kubectl patch mutatingwebhookconfiguration network-resources-injector-config --patch '{"webhooks":[{"name":"network-resources-injector-config.k8s.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/network-resources-injector.cert)"'" }}]}'
 _kubectl patch mutatingwebhookconfiguration operator-webhook-config --patch '{"webhooks":[{"name":"operator-webhook.sriovnetwork.openshift.io", "clientConfig": { "caBundle": "'"$(cat $CSRCREATORPATH/operator-webhook.cert)"'" }}]}'
 
-# we need to sleep to wait for the configuration above the be picked up
-sleep 60
+# Ensure caBundle is configured with new certificates
+ensure_caBundle "validatingwebhookconfiguration" "operator-webhook-config"           "$(cat $CSRCREATORPATH/operator-webhook.cert)"
+ensure_caBundle "mutatingwebhookconfiguration"   "operator-webhook-config"           "$(cat $CSRCREATORPATH/operator-webhook.cert)"
+ensure_caBundle "mutatingwebhookconfiguration"   "network-resources-injector-config" "$(cat $CSRCREATORPATH/network-resources-injector.cert)"
 
+# Wait caBundle reconcile to finish by waiting for the "NoSchedule" taint
+# to present and then absent.
+wait_for_taint "NoSchedule"
+wait_for_taint_absence "NoSchedule"
+
+# Substitute NODE_PF and NODE_PF_NUM_VFS then create SriovNetworkNodePolicy CR
 envsubst < $MANIFESTS_DIR/network_config_policy.yaml | _kubectl create -f -
 
+sriov_operator_namespace="sriov-network-operator"
+
+# Ensure SriovNetworkNodePolicy CR is created
+policy_name=$(cat $MANIFESTS_DIR/network_config_policy.yaml | grep 'name:' | awk '{print $2}')
+ensure_cr "SriovNetworkNodePolicy" $policy_name $sriov_operator_namespace
+
+# Wait for cni and device-plugin pods to be ready
+_kubectl wait pods -n $sriov_operator_namespace -l app=sriov-cni           --for condition=Ready --timeout 300s
+_kubectl wait pods -n $sriov_operator_namespace -l app=sriov-device-plugin --for condition=Ready --timeout 300s
+
+# Wait for nodes NoSchedule taint to be removed
+wait_for_taint_absence "NoSchedule"
 
 ${SRIOV_NODE_CMD} chmod 666 /dev/vfio/vfio
-

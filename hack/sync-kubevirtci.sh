@@ -29,7 +29,7 @@ fi
 if [[ "$download_cluster_up" == true ]]; then
     echo "downloading cluster-up"
     rm -rf cluster-up
-    curl -L https://github.com/kubevirt/kubevirtci/archive/${kubevirtci_git_hash}/kubevirtci.tar.gz | tar xz kubevirtci-${kubevirtci_git_hash}/cluster-up --strip-component 1
+    curl -L https://github.com/phoracek/kubevirtci/archive/${kubevirtci_git_hash}/kubevirtci.tar.gz | tar xz kubevirtci-${kubevirtci_git_hash}/cluster-up --strip-component 1
 
     echo ${kubevirtci_git_hash} >${version_file}
     new_sha=$(getClusterUpShasum)

@@ -33,29 +33,10 @@ readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
-# KUBEVIRT_LANE_FOCUS allows running only selected lanes.
-# Usage: Add lane names, seperated by space.
-# All the other lanes will fail immediately, saving CI resources,
-# but still guarding from getting the PR merged, until the line
-# is restored to an empty string.
-export KUBEVIRT_LANE_FOCUS=""
-
-if [[ $KUBEVIRT_LANE_FOCUS != "" ]]; then
-   FOCUS_ERROR=1
+if [[ $TARGET =~ sriov ]]; then
+  echo "Please work, pretty please"
 else
-   FOCUS_ERROR=0
-fi
-
-for lane in ${KUBEVIRT_LANE_FOCUS[@]}; do
-    if [[ ${lane} == $TARGET ]]; then
-        echo "found $lane equal TARGET"
-        FOCUS_ERROR=0
-    fi
-done
-
-if [ $FOCUS_ERROR -eq 1 ]; then
-    echo "Focus detected, TARGET $TARGET not equal $KUBEVIRT_LANE_FOCUS, failing run"
-    exit 1
+  exit 1
 fi
 
 if [[ $TARGET =~ windows.* ]]; then
