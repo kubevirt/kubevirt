@@ -21,7 +21,6 @@ package util
 import (
 	"fmt"
 	"os"
-	"reflect"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -176,7 +175,7 @@ var _ = Describe("Operator Config", func() {
 				{Name: key2, Value: val2},
 			}
 
-			Expect(reflect.DeepEqual(*envObjects, expected)).To(BeTrue())
+			Expect(*envObjects).To(ConsistOf(expected))
 		})
 	})
 
