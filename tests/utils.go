@@ -2067,14 +2067,6 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, 
 	return vmi
 }
 
-func NewRandomFedora32VMIWithFedoraUser() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedora), `#!/bin/bash
-	    echo "fedora" |passwd fedora --stdin
-        echo `)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
-	return vmi
-}
-
 func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
