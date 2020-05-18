@@ -41,7 +41,7 @@ metadata:
   name: ${namespace}
 EOF
 
-if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.17.* ]]; then
+if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
     _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/external-snapshotter
     _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook-ceph/common.yaml
     _kubectl apply -f ${KUBEVIRT_DIR}/manifests/testing/rook-ceph/operator.yaml
@@ -50,9 +50,9 @@ if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.17.* ]]; then
 
     # wait for ceph
     until _kubectl get cephblockpools -n rook-ceph replicapool -o jsonpath='{.status.phase}' | grep Ready; do
-        ((count++)) && ((count == 20)) && echo "Ceph not ready in time" && exit 1
-        echo "Error waiting for Ceph to be Ready, sleeping 30s and retrying"
-        sleep 30
+        ((count++)) && ((count == 120)) && echo "Ceph not ready in time" && exit 1
+        echo "Error waiting for Ceph to be Ready, sleeping 5s and retrying"
+        sleep 5
     done
 fi
 
