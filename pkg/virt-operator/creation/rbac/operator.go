@@ -30,7 +30,7 @@ import (
 func GetAllOperator(namespace string) []interface{} {
 	return []interface{}{
 		newOperatorServiceAccount(namespace),
-		newOperatorRole(namespace),
+		NewOperatorRole(namespace),
 		newOperatorRoleBinding(namespace),
 		NewOperatorClusterRole(),
 		newOperatorClusterRoleBinding(namespace),
@@ -436,7 +436,8 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
 	}
 }
 
-func newOperatorRole(namespace string) *rbacv1.Role {
+// NewOperatorRole creates a Role object for kubevirt-operator.
+func NewOperatorRole(namespace string) *rbacv1.Role {
 	return &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1",
