@@ -60,7 +60,7 @@ In additional it runs dnsmasq and docker registry containers.
 
 ### Compatibility
 
-The minimum compatible Kubernetes version is 1.11.0. Important features required
+The minimum compatible Kubernetes version is 1.14.0. Important features required
 for scheduling and memory are missing or incompatible with previous versions.
 
 ### Compile and run it
@@ -70,7 +70,7 @@ dockerizied environment, clone the KubeVirt repository, `cd` into it, and:
 
 ```bash
 # Build and deploy KubeVirt on Kubernetes in our vms inside containers
-export KUBEVIRT_PROVIDER=k8s-1.13.3 # this is also the default if no KUBEVIRT_PROVIDER is set
+export KUBEVIRT_PROVIDER=k8s-1.14 # this is also the default if no KUBEVIRT_PROVIDER is set
 make cluster-up
 make cluster-sync
 ```
