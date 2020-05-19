@@ -46,7 +46,7 @@ const (
 
 // simple domain validation regex. Put it here to avoid compiling each time.
 // Note this requires that unicode domains be presented in their ASCII format
-var searchDomainValidationRegex = regexp.MustCompile(`^(?:[_a-z0-9](?:[_a-z0-9-]{0,61}[a-z0-9])?\.)*(?:[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?)?$`)
+var searchDomainValidationRegex = regexp.MustCompile(`^(?:[_a-zA-Z0-9](?:[_a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*(?:[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)?$`)
 
 func SingleClientDHCPServer(
 	clientMAC net.HardwareAddr,
