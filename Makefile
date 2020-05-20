@@ -117,6 +117,9 @@ test-unit:
 
 test: test-unit
 
+charts:
+	./hack/build-charts.sh
+
 .PHONY: start \
 		clean \
 		build \
@@ -140,3 +143,4 @@ test: test-unit
 		build-functest \
 		test-functional \
 		test-functional-prow \
+		charts \
