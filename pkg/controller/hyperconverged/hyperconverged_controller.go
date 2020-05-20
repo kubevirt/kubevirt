@@ -756,7 +756,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtPriorityClass(instance *hcov1alp
 
 	// at this point we found the object in the cache and we check if something was changed
 	if pc.Name == found.Name && pc.Value == found.Value && pc.Description == found.Description {
-		req.logger.Info("KubeVirt PriorityClass already exists", pc.Name)
+		req.logger.Info("KubeVirt PriorityClass already exists", "PriorityClass.Name", pc.Name)
 		objectRef, err := reference.GetReference(scheme.Scheme, found)
 		if err != nil {
 			req.logger.Error(err, "failed getting object reference for found object")
