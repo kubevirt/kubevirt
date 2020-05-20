@@ -175,7 +175,9 @@ done
 set -e
 make bazel-build-images
 
+trap '{ echo "Dump kubevirt state:"; make dump; }' ERR
 make cluster-up
+trap - ERR
 
 # Wait for nodes to become ready
 set +e
