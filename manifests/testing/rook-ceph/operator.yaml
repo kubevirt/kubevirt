@@ -210,7 +210,7 @@ spec:
 
         # Enable the default version of the CSI CephFS driver. To start another version of the CSI driver, see image properties below.
         - name: ROOK_CSI_ENABLE_CEPHFS
-          value: "true"
+          value: "false"
 
         # Enable the default version of the CSI RBD driver. To start another version of the CSI driver, see image properties below.
         - name: ROOK_CSI_ENABLE_RBD

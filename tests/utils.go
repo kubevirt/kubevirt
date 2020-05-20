@@ -4117,7 +4117,8 @@ func GetCephStorageClass() (string, bool) {
 	storageClassList, err := virtClient.StorageV1().StorageClasses().List(metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	for _, storageClass := range storageClassList.Items {
-		if storageClass.Provisioner == "csi-rbdplugin" {
+		switch storageClass.Provisioner {
+		case "rook-ceph.rbd.csi.ceph.com", "csi-rbdplugin":
 			return storageClass.Name, true
 		}
 	}
