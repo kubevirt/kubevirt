@@ -43,12 +43,11 @@ relevant Issues.
 ### Getting started
 
 To make yourself comfortable with the code, you might want to work on some
-Issues marked with one or more of the following labels
-[beginner](https://github.com/kubevirt/kubevirt/issues?q=is%3Aissue+is%3Aopen+label%3Abeginner),
-[help
-wanted](https://github.com/kubevirt/kubevirt/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
-or [bug](https://github.com/kubevirt/kubevirt/labels/bug). Any help is highly
-appreciated.
+Issues marked with one or more of the following labels:
+[good first issue](https://github.com/kubevirt/kubevirt/labels/good%20first%20issue),
+[help wanted](https://github.com/kubevirt/kubevirt/labels/help%20wanted)
+or [kind/bug](https://github.com/kubevirt/kubevirt/labels/kind%2Fbug).
+Any help is highly appreciated.
 
 ### Testing
 
