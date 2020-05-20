@@ -76,6 +76,7 @@ func NewVirtualMachineInstanceCrd() *extv1beta1.CustomResourceDefinition {
 			{Name: "IP", Type: "string", JSONPath: ".status.interfaces[0].ipAddress"},
 			{Name: "NodeName", Type: "string", JSONPath: ".status.nodeName"},
 			{Name: "Live-Migratable", Type: "string", JSONPath: ".status.conditions[?(@.type=='LiveMigratable')].status", Priority: 1},
+			{Name: "Paused", Type: "string", JSONPath: ".status.conditions[?(@.type=='Paused')].status", Priority: 1},
 		},
 	}
 

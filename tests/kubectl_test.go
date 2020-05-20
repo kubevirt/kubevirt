@@ -61,7 +61,7 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 
 	table.DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
 
-		result, _, _ := tests.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
+		result, _, err := tests.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
 		// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
 		if err != nil {
 			result, _, err = tests.RunCommand(k8sClient, verb, resource, vm.Name, "-o", option)
@@ -80,6 +80,6 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 		Expect(resultFields[len(resultFields)-verifyPos]).To(Equal(expectedData))
 	},
 		table.Entry("[test_id:3468]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "VOLUME", "CREATED"}, 1, "true"),
-		table.Entry("[test_id:3466]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "LIVE-MIGRATABLE"}, 1, "True"),
+		table.Entry("[test_id:3466]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
 	)
 })
