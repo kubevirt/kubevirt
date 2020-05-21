@@ -13,7 +13,7 @@ require (
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.9.0
 	github.com/openshift/custom-resource-status v0.0.0-20190822192428-e62f2f3b79f3
-	github.com/operator-framework/api v0.3.1
+	github.com/operator-framework/api v0.3.5
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20200321030439-57b580e57e88
 	github.com/operator-framework/operator-sdk v0.17.0
 	github.com/spf13/pflag v1.0.5
@@ -25,7 +25,7 @@ require (
 	kubevirt.io/client-go v0.26.0
 	kubevirt.io/containerized-data-importer v1.17.0
 	kubevirt.io/kubevirt v0.28.0
-	sigs.k8s.io/controller-runtime v0.5.2
+	sigs.k8s.io/controller-runtime v0.6.0
 )
 
 // Pinned to kubernetes-1.16.4 to kubevirt.io/kubevirt v0.28.0
@@ -75,6 +75,14 @@ replace (
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
 	github.com/openshift/library-go => github.com/mhenriks/library-go v0.0.0-20200116194830-9fcc1a687a9d
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v0.0.0-20190302045857-e85c7b244fd2
+)
+
+// sigs.k8s.io/controller-runtime 0.6.0 requires k8s-* v0.18.2 but we are pinned
+// to kubernetes-1.16.4  as for kubevirt.io/kubevirt v0.28.0 while we explicitly
+// need github.com/operator-framework/api v0.3.5
+replace (
+	github.com/operator-framework/api => github.com/operator-framework/api v0.3.5
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.5.2
 )
 
 replace github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309 // Required by Helm
