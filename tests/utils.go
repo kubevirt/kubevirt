@@ -270,6 +270,11 @@ const (
 	tmpPath         = "/tmp/kubevirt.io/tests"
 )
 
+const (
+	ipv6MasqueradeAddress = "fd10:0:2::2/120"
+	ipv6MasqueradeGateway = "fd10:0:2::1"
+)
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
@@ -2140,6 +2145,25 @@ func GetGuestAgentUserData() string {
                 setenforce 0
                 systemd-run --unit=guestagent /usr/local/bin/qemu-ga
                 `, ipv6UserDataString, GetUrl(GuestAgentHttpUrl), GetUrl(StressHttpUrl))
+}
+
+func GetIPv6NetworkData(ipAddress string, gateway string, dnsServer string, searchDomains []string) string {
+	networkData := fmt.Sprintf(`
+version: 2
+ethernets:
+    eth0:
+        addresses: [ %s ]
+        dhcp4: true
+        gateway6: %s
+        nameservers:
+            addresses: [ %s ]
+            search: [ %s ]
+    `, ipAddress, gateway, dnsServer, strings.Join(searchDomains, " "))
+	return networkData
+}
+
+func getVMISeachDomains() []string {
+	return []string{"default.svc.cluster.local", "svc.cluster.local", "cluster.local"}
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
