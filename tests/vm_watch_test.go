@@ -208,39 +208,8 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		// Read column titles
 		titles, err := readNewStatus(stdout, nil, readTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(titles).To(Equal([]string{"NAME", "AGE", "VOLUME", "STRATEGY", "READY"}),
+		Expect(titles).To(Equal([]string{"NAME", "AGE", "VOLUME"}),
 			"Output should have the proper columns")
-
-		// Read first status of the vm
-		vmStatus, err := readNewStatus(stdout, titles, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), "false"),
-			"VM should not be running")
-
-		By("Starting the VM")
-		vm = tests.StartVirtualMachine(vm)
-
-		vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), "true"),
-			"VM should be running")
-
-		By("Restarting the VM")
-		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Restart(vm.ObjectMeta.Name)
-		Expect(err).ToNot(HaveOccurred(), "VM should have been restarted")
-
-		vmStatus, err = readNewStatus(stdout, nil, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), "true"),
-			"VM should be running")
-
-		By("Stopping the VM")
-		vm = tests.StopVirtualMachine(vm)
-
-		vmStatus, err = readNewStatus(stdout, vmStatus, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vmStatus).To(ConsistOf(vm.Name, MatchRegexp(vmAgeRegex), "false"),
-			"VM should be running")
 	})
 
 	It("[test_id:3466]Should update vmi status with the proper columns using 'kubectl get vmi -w'", func() {
