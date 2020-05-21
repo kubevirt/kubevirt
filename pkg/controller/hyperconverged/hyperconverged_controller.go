@@ -169,6 +169,7 @@ type hcoRequest struct {
 	logger     logr.Logger
 	conditions hcoConditions
 	ctx        context.Context
+	instance   *hcov1alpha1.HyperConverged
 }
 
 // Reconcile reads that state of the cluster for a HyperConverged object and makes changes based on the state read
@@ -188,79 +189,20 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	req.logger.Info("Reconciling HyperConverged operator")
 
 	// Fetch the HyperConverged instance
-	instance := &hcov1alpha1.HyperConverged{}
-	err := r.client.Get(req.ctx, request.NamespacedName, instance)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.logger.Info("No HyperConverged resource")
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
+	instance, err := r.getHcoInstanceFromK8s(req)
+	if instance == nil {
 		return reconcile.Result{}, err
 	}
+	req.instance = instance
 
-	hco, err := getHyperconverged()
-	if err != nil {
-		req.logger.Error(err, "Failed to get HyperConverged namespaced name")
+	valid, err := r.validateNamespace(req)
+	if !valid {
 		return reconcile.Result{}, err
 	}
-
-	// Ignore invalid requests
-	if request.NamespacedName != hco {
-		req.logger.Info("Invalid request", "HyperConverged.Namespace", hco.Namespace, "HyperConverged.Name", hco.Name)
-		req.conditions.setStatusCondition(conditionsv1.Condition{
-			Type:    hcov1alpha1.ConditionReconcileComplete,
-			Status:  corev1.ConditionFalse,
-			Reason:  invalidRequestReason,
-			Message: fmt.Sprintf(invalidRequestMessageFormat, hco.Name, hco.Namespace),
-		})
-		err := r.updateConditions(instance, req)
-		return reconcile.Result{}, err
-	}
-
 	// Add conditions if there are none
-	var init bool
-	if instance.Status.Conditions == nil {
-		init = true
-
-		instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
-
-		req.conditions.setStatusCondition(conditionsv1.Condition{
-			Type:    hcov1alpha1.ConditionReconcileComplete,
-			Status:  corev1.ConditionUnknown, // we just started trying to reconcile
-			Reason:  reconcileInit,
-			Message: reconcileInitMessage,
-		})
-		req.conditions.setStatusCondition(conditionsv1.Condition{
-			Type:    conditionsv1.ConditionAvailable,
-			Status:  corev1.ConditionFalse,
-			Reason:  reconcileInit,
-			Message: reconcileInitMessage,
-		})
-		req.conditions.setStatusCondition(conditionsv1.Condition{
-			Type:    conditionsv1.ConditionProgressing,
-			Status:  corev1.ConditionTrue,
-			Reason:  reconcileInit,
-			Message: reconcileInitMessage,
-		})
-		req.conditions.setStatusCondition(conditionsv1.Condition{
-			Type:    conditionsv1.ConditionDegraded,
-			Status:  corev1.ConditionFalse,
-			Reason:  reconcileInit,
-			Message: reconcileInitMessage,
-		})
-		req.conditions.setStatusCondition(conditionsv1.Condition{
-			Type:    conditionsv1.ConditionUpgradeable,
-			Status:  corev1.ConditionUnknown,
-			Reason:  reconcileInit,
-			Message: reconcileInitMessage,
-		})
-
-		err = r.updateConditions(instance, req)
-
+	init := req.instance.Status.Conditions == nil
+	if init {
+		err = r.setInitialConditions(req)
 		if err != nil {
 			req.logger.Error(err, "Failed to add conditions to status")
 			return reconcile.Result{}, err
@@ -272,76 +214,200 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	req.conditions = newHcoConditions()
 
 	// Handle finalizers
-	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
+	if req.instance.ObjectMeta.DeletionTimestamp.IsZero() {
 		// Add the finalizer if it's not there
-		if !contains(instance.ObjectMeta.Finalizers, FinalizerName) {
-			instance.ObjectMeta.Finalizers = append(instance.ObjectMeta.Finalizers, FinalizerName)
-			err = r.client.Update(req.ctx, instance)
+		if !contains(req.instance.ObjectMeta.Finalizers, FinalizerName) {
+			req.instance.ObjectMeta.Finalizers = append(req.instance.ObjectMeta.Finalizers, FinalizerName)
+			err = r.client.Update(req.ctx, req.instance)
 		}
 	} else {
-		if contains(instance.ObjectMeta.Finalizers, FinalizerName) {
-			for i, f := range []func(c client.Client, cr *hcov1alpha1.HyperConverged, req *hcoRequest) error{
-				// Keep ensuring that we are trying to delete
-				// protected resources first
-				ensureKubeVirtDeleted,
-				ensureCDIDeleted,
-				ensureNetworkAddonsDeleted,
-				ensureKubeVirtCommonTemplateBundleDeleted,
-				ensureKubeVirtPriorityClassDeleted,
-			} {
-				err = f(r.client, instance, req)
-				if err != nil {
-					req.logger.Error(err, "Failed to manually delete objects")
-
-					// TODO: ask to other components to expose something like
-					// func IsDeleteRefused(err error) bool
-					// to be able to clearly distinguish between an explicit
-					// refuse from other operator and any other kind of error that
-					// could potentially happen in the process
-					errT := ErrHCOUninstall
-					errMsg := uninstallHCOErrorMsg
-					switch i {
-					case 0:
-						errT = ErrVirtUninstall
-						errMsg = uninstallVirtErrorMsg + err.Error()
-					case 1:
-						errT = ErrCDIUninstall
-						errMsg = uninstallCDIErrorMsg + err.Error()
-					}
-
-					errE := r.emitEvent(instance, req.logger, corev1.EventTypeWarning, errT, errMsg)
-					if errE != nil {
-						req.logger.Error(errE, "Failed emitting uninstall error event")
-					}
-
-					// TODO: implement a validating webhook to try to delete virt and CDI CRs
-					// in dry run mode before really accepting the deletion request.
-					// This event should still stay here because no strategy can ensure we are
-					// 100% race conditions free
-
-					return reconcile.Result{}, err
-				}
-			}
-
-			// Remove the finalizer
-			instance.ObjectMeta.Finalizers = drop(instance.ObjectMeta.Finalizers, FinalizerName)
-			err = r.client.Update(req.ctx, instance)
-
-			// Need to requeue because finalizer update does not change metadata.generation
-			return reconcile.Result{Requeue: true}, err
+		if contains(req.instance.ObjectMeta.Finalizers, FinalizerName) {
+			return r.ensureHcoDeleted(req)
 		}
 	}
 
-	// If the current image is not updated in CR ,then we're updating. This is also works when updating from
-	// an old version, since instance.ObjectMeta.Annotations[operatorImageCr] will be empty.
-	knownHcoVersion, _ := instance.Status.GetVersion(hcoVersionName)
+	// If the current version is not updated in CR ,then we're updating. This is also works when updating from
+	// an old version, since Status.Versions will be empty.
+	knownHcoVersion, _ := req.instance.Status.GetVersion(hcoVersionName)
 
 	if !r.upgradeMode && !init && knownHcoVersion != r.ownVersion {
 		r.upgradeMode = true
 		req.logger.Info(fmt.Sprintf("Start upgrating from version %s to version %s", knownHcoVersion, r.ownVersion))
 	}
 
-	for _, f := range []func(*hcov1alpha1.HyperConverged, *hcoRequest) error{
+	err = r.ensureHco(req)
+	if err != nil {
+		return reconcile.Result{}, r.updateConditions(req)
+	}
+
+	req.logger.Info("Reconcile complete")
+
+	// Requeue if we just created everything
+	if init {
+		return reconcile.Result{Requeue: true}, err
+	}
+
+	err = r.completeReconciliation(req)
+
+	return reconcile.Result{}, err
+}
+
+func (r *ReconcileHyperConverged) getHcoInstanceFromK8s(req *hcoRequest) (*hcov1alpha1.HyperConverged, error) {
+	instance := &hcov1alpha1.HyperConverged{}
+	err := r.client.Get(req.ctx, req.NamespacedName, instance)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			req.logger.Info("No HyperConverged resource")
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			return nil, nil
+		}
+		// Error reading the object - requeue the request.
+		return nil, err
+	}
+	return instance, nil
+}
+
+func (r *ReconcileHyperConverged) validateNamespace(req *hcoRequest) (bool, error) {
+	hco, err := getHyperconverged()
+	if err != nil {
+		req.logger.Error(err, "Failed to get HyperConverged namespaced name")
+		return false, err
+	}
+
+	// Ignore invalid requests
+	if req.NamespacedName != hco {
+		req.logger.Info("Invalid request", "HyperConverged.Namespace", hco.Namespace, "HyperConverged.Name", hco.Name)
+		req.conditions.setStatusCondition(conditionsv1.Condition{
+			Type:    hcov1alpha1.ConditionReconcileComplete,
+			Status:  corev1.ConditionFalse,
+			Reason:  invalidRequestReason,
+			Message: fmt.Sprintf(invalidRequestMessageFormat, hco.Name, hco.Namespace),
+		})
+		err := r.updateConditions(req)
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *ReconcileHyperConverged) setInitialConditions(req *hcoRequest) error {
+	req.instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
+
+	req.conditions.setStatusCondition(conditionsv1.Condition{
+		Type:    hcov1alpha1.ConditionReconcileComplete,
+		Status:  corev1.ConditionUnknown, // we just started trying to reconcile
+		Reason:  reconcileInit,
+		Message: reconcileInitMessage,
+	})
+	req.conditions.setStatusCondition(conditionsv1.Condition{
+		Type:    conditionsv1.ConditionAvailable,
+		Status:  corev1.ConditionFalse,
+		Reason:  reconcileInit,
+		Message: reconcileInitMessage,
+	})
+	req.conditions.setStatusCondition(conditionsv1.Condition{
+		Type:    conditionsv1.ConditionProgressing,
+		Status:  corev1.ConditionTrue,
+		Reason:  reconcileInit,
+		Message: reconcileInitMessage,
+	})
+	req.conditions.setStatusCondition(conditionsv1.Condition{
+		Type:    conditionsv1.ConditionDegraded,
+		Status:  corev1.ConditionFalse,
+		Reason:  reconcileInit,
+		Message: reconcileInitMessage,
+	})
+	req.conditions.setStatusCondition(conditionsv1.Condition{
+		Type:    conditionsv1.ConditionUpgradeable,
+		Status:  corev1.ConditionUnknown,
+		Reason:  reconcileInit,
+		Message: reconcileInitMessage,
+	})
+
+	return r.updateConditions(req)
+}
+
+func (r *ReconcileHyperConverged) ensureHcoDeleted(req *hcoRequest) (reconcile.Result, error) {
+	for i, f := range []func(c client.Client, req *hcoRequest) error{
+		// Keep ensuring that we are trying to delete
+		// protected resources first
+		ensureKubeVirtDeleted,
+		ensureCDIDeleted,
+		ensureNetworkAddonsDeleted,
+		ensureKubeVirtCommonTemplateBundleDeleted,
+		ensureKubeVirtPriorityClassDeleted,
+	} {
+		err := f(r.client, req)
+		if err != nil {
+			req.logger.Error(err, "Failed to manually delete objects")
+
+			// TODO: ask to other components to expose something like
+			// func IsDeleteRefused(err error) bool
+			// to be able to clearly distinguish between an explicit
+			// refuse from other operator and any other kind of error that
+			// could potentially happen in the process
+			errT := ErrHCOUninstall
+			errMsg := uninstallHCOErrorMsg
+			switch i {
+			case 0:
+				errT = ErrVirtUninstall
+				errMsg = uninstallVirtErrorMsg + err.Error()
+			case 1:
+				errT = ErrCDIUninstall
+				errMsg = uninstallCDIErrorMsg + err.Error()
+			}
+
+			errE := r.emitEvent(req.instance, req.logger, corev1.EventTypeWarning, errT, errMsg)
+			if errE != nil {
+				req.logger.Error(errE, "Failed emitting uninstall error event")
+			}
+
+			// TODO: implement a validating webhook to try to delete virt and CDI CRs
+			// in dry run mode before really accepting the deletion request.
+			// This event should still stay here because no strategy can ensure we are
+			// 100% race conditions free
+
+			return reconcile.Result{}, err
+		}
+	}
+
+	// Remove the finalizer
+	req.instance.ObjectMeta.Finalizers = drop(req.instance.ObjectMeta.Finalizers, FinalizerName)
+	updateErr := r.client.Update(req.ctx, req.instance)
+
+	// Need to requeue because finalizer update does not change metadata.generation
+	return reconcile.Result{Requeue: true}, updateErr
+}
+
+func (r *ReconcileHyperConverged) emitEvent(instance *hcov1alpha1.HyperConverged, logger logr.Logger, kind string, errT string, errMsg string) error {
+	r.recorder.Event(instance, kind, errT, errMsg)
+
+	pod, pod_err := hcoutil.GetPod(r.client, logger)
+	if pod_err != nil {
+		if logger != nil {
+			logger.Error(pod_err, "Failed to identify HCO POD, emitting warning event only on hyperconverged instance")
+		}
+		return pod_err
+	}
+
+	r.recorder.Event(pod, kind, errT, errMsg)
+
+	csv, csv_err := hcoutil.GetCSVfromPod(pod, r.client, logger)
+	if csv_err != nil {
+		if logger != nil {
+			logger.Error(csv_err, "Failed to identify HCO CSV, emitting warning event only on HCO pod and hyperconverged instance")
+		}
+		return csv_err
+	}
+
+	r.recorder.Event(csv, kind, errT, errMsg)
+	return nil
+
+}
+
+func (r *ReconcileHyperConverged) ensureHco(req *hcoRequest) error {
+	for _, f := range []func(*hcoRequest) error{
 		r.ensureKubeVirtPriorityClass,
 		r.ensureKubeVirtConfig,
 		r.ensureKubeVirtStorageConfig,
@@ -354,7 +420,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		r.ensureKubeVirtMetricsAggregation,
 		r.ensureIMSConfig,
 	} {
-		err = f(instance, req)
+		err := f(req)
 		if err != nil {
 			req.conditions.setStatusCondition(conditionsv1.Condition{
 				Type:    hcov1alpha1.ConditionReconcileComplete,
@@ -362,21 +428,13 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 				Reason:  reconcileFailed,
 				Message: fmt.Sprintf("Error while reconciling: %v", err),
 			})
-			// don't want to overwrite the actual reconcile failure
-			err := r.updateConditions(instance, req)
-			return reconcile.Result{}, err
+			return err
 		}
 	}
+	return nil
+}
 
-	req.logger.Info("Reconcile complete")
-
-	// Requeue if we just created everything
-	if init {
-		return reconcile.Result{Requeue: true}, err
-	}
-
-	allComponentsAreUp := req.conditions.empty()
-
+func (r *ReconcileHyperConverged) aggregateComponentConditions(req *hcoRequest) bool {
 	/*
 		See the chart at design/aggregateComponentConditions.svg; The numbers below follows the numbers in the chart
 		Here is the PlantUML code for the chart that describes the aggregation of the sub-components conditions.
@@ -473,16 +531,18 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		@enduml
 	*/
 
-	// If any component operator reports negatively we want to write that to
-	// the instance while preserving it's lastTransitionTime.
-	// For example, consider the KubeVirt resource has the Available condition
-	// type with type "False". When reconciling KubeVirt's resource we would
-	// add it to the in-memory representation of HCO's conditions (r.conditions)
-	// and here we are simply writing it back to the server.
-	// One shortcoming is that only one failure of a particular condition can be
-	// captured at one time (ie. if KubeVirt and CDI are both reporting !Available,
-	// you will only see CDI as it updates last).
-
+	/*
+		    If any component operator reports negatively we want to write that to
+			the instance while preserving it's lastTransitionTime.
+			For example, consider the KubeVirt resource has the Available condition
+			type with type "False". When reconciling KubeVirt's resource we would
+			add it to the in-memory representation of HCO's conditions (r.conditions)
+			and here we are simply writing it back to the server.
+			One shortcoming is that only one failure of a particular condition can be
+			captured at one time (ie. if KubeVirt and CDI are both reporting !Available,
+		    you will only see CDI as it updates last).
+	*/
+	allComponentsAreUp := req.conditions.empty()
 	req.conditions.setStatusCondition(conditionsv1.Condition{
 		Type:    hcov1alpha1.ConditionReconcileComplete,
 		Status:  corev1.ConditionTrue,
@@ -571,12 +631,16 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 			}
 		}
 	}
+	return allComponentsAreUp
+}
 
+func (r *ReconcileHyperConverged) completeReconciliation(req *hcoRequest) error {
+	allComponentsAreUp := r.aggregateComponentConditions(req)
 	if allComponentsAreUp {
 		req.logger.Info("No component operator reported negatively")
 
 		if r.upgradeMode { // update the new image only when upgrade is completed
-			instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
+			req.instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
 			r.upgradeMode = false
 			req.logger.Info(fmt.Sprintf("Successfuly upgraded to version %s", r.ownVersion))
 		}
@@ -584,49 +648,22 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		// If no operator whose conditions we are watching reports an error, then it is safe
 		// to set readiness.
 		r := ready.NewFileReady()
-		err = r.Set()
+		err := r.Set()
 		if err != nil {
 			req.logger.Error(err, "Failed to mark operator ready")
-			return reconcile.Result{}, err
+			return err
 		}
 	} else if cond, conditionFound := req.conditions[conditionsv1.ConditionUpgradeable]; conditionFound && cond.Status == corev1.ConditionFalse {
 		// If for any reason we marked ourselves !upgradeable...then unset readiness
 		r := ready.NewFileReady()
-		err = r.Unset()
+		err := r.Unset()
 		if err != nil {
 			req.logger.Error(err, "Failed to mark operator unready")
-			return reconcile.Result{}, err
+			return err
 		}
 	}
 
-	err = r.updateConditions(instance, req)
-	return reconcile.Result{}, err
-}
-
-func (r *ReconcileHyperConverged) emitEvent(instance *hcov1alpha1.HyperConverged, logger logr.Logger, kind string, errT string, errMsg string) error {
-	r.recorder.Event(instance, kind, errT, errMsg)
-
-	pod, pod_err := hcoutil.GetPod(r.client, logger)
-	if pod_err != nil {
-		if logger != nil {
-			logger.Error(pod_err, "Failed to identify HCO POD, emitting warning event only on hyperconverged instance")
-		}
-		return pod_err
-	}
-
-	r.recorder.Event(pod, kind, errT, errMsg)
-
-	csv, csv_err := hcoutil.GetCSVfromPod(pod, r.client, logger)
-	if csv_err != nil {
-		if logger != nil {
-			logger.Error(csv_err, "Failed to identify HCO CSV, emitting warning event only on HCO pod and hyperconverged instance")
-		}
-		return csv_err
-	}
-
-	r.recorder.Event(csv, kind, errT, errMsg)
-	return nil
-
+	return r.updateConditions(req)
 }
 
 func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
@@ -656,9 +693,9 @@ func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *c
 	return cm
 }
 
-func (r *ReconcileHyperConverged) ensureKubeVirtConfig(instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	kubevirtConfig := newKubeVirtConfigForCR(instance, req.Namespace)
-	if err := controllerutil.SetControllerReference(instance, kubevirtConfig, r.scheme); err != nil {
+func (r *ReconcileHyperConverged) ensureKubeVirtConfig(req *hcoRequest) error {
+	kubevirtConfig := newKubeVirtConfigForCR(req.instance, req.Namespace)
+	if err := controllerutil.SetControllerReference(req.instance, kubevirtConfig, r.scheme); err != nil {
 		return err
 	}
 
@@ -684,7 +721,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtConfig(instance *hcov1alpha1.Hyp
 	if err != nil {
 		return err
 	}
-	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	if !reflect.DeepEqual(found.Data, kubevirtConfig.Data) {
 		req.logger.Info("Updating existing KubeVirt config")
@@ -696,7 +733,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtConfig(instance *hcov1alpha1.Hyp
 		}
 	}
 
-	return r.client.Status().Update(req.ctx, instance)
+	return r.client.Status().Update(req.ctx, req.instance)
 }
 
 // newKubeVirtForCR returns a KubeVirt CR
@@ -733,7 +770,7 @@ func newKubeVirtPriorityClass() *schedulingv1.PriorityClass {
 	}
 }
 
-func (r *ReconcileHyperConverged) ensureKubeVirtPriorityClass(instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
+func (r *ReconcileHyperConverged) ensureKubeVirtPriorityClass(req *hcoRequest) error {
 	req.logger.Info("Reconciling KubeVirt PriorityClass")
 	pc := newKubeVirtPriorityClass()
 
@@ -762,7 +799,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtPriorityClass(instance *hcov1alp
 			req.logger.Error(err, "failed getting object reference for found object")
 			return err
 		}
-		objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+		objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 		return nil
 	}
 
@@ -776,9 +813,9 @@ func (r *ReconcileHyperConverged) ensureKubeVirtPriorityClass(instance *hcov1alp
 	return r.client.Create(req.ctx, pc, &client.CreateOptions{})
 }
 
-func (r *ReconcileHyperConverged) ensureKubeVirt(instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	virt := newKubeVirtForCR(instance, req.Namespace)
-	if err := controllerutil.SetControllerReference(instance, virt, r.scheme); err != nil {
+func (r *ReconcileHyperConverged) ensureKubeVirt(req *hcoRequest) error {
+	virt := newKubeVirtForCR(req.instance, req.Namespace)
+	if err := controllerutil.SetControllerReference(req.instance, virt, r.scheme); err != nil {
 		return err
 	}
 
@@ -813,12 +850,12 @@ func (r *ReconcileHyperConverged) ensureKubeVirt(instance *hcov1alpha1.HyperConv
 	if err != nil {
 		return err
 	}
-	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	// Handle KubeVirt resource conditions
 	handleComponentConditions(r, req, "KubeVirt", translateKubeVirtConds(found.Status.Conditions))
 
-	return r.client.Status().Update(req.ctx, instance)
+	return r.client.Status().Update(req.ctx, req.instance)
 }
 
 // newCDIForCr returns a CDI CR
@@ -839,8 +876,8 @@ func newCDIForCR(cr *hcov1alpha1.HyperConverged, namespace string) *cdiv1alpha1.
 	}
 }
 
-func (r *ReconcileHyperConverged) ensureCDI(instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	cdi := newCDIForCR(instance, UndefinedNamespace)
+func (r *ReconcileHyperConverged) ensureCDI(req *hcoRequest) error {
+	cdi := newCDIForCR(req.instance, UndefinedNamespace)
 
 	key, err := client.ObjectKeyFromObject(cdi)
 	if err != nil {
@@ -889,12 +926,12 @@ func (r *ReconcileHyperConverged) ensureCDI(instance *hcov1alpha1.HyperConverged
 	if err != nil {
 		return err
 	}
-	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	// Handle CDI resource conditions
 	handleComponentConditions(r, req, "CDI", found.Status.Conditions)
 
-	return r.client.Status().Update(req.ctx, instance)
+	return r.client.Status().Update(req.ctx, req.instance)
 }
 
 // newNetworkAddonsForCR returns a NetworkAddonsConfig CR
@@ -917,8 +954,8 @@ func newNetworkAddonsForCR(cr *hcov1alpha1.HyperConverged, namespace string) *ne
 	}
 }
 
-func (r *ReconcileHyperConverged) ensureNetworkAddons(instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	networkAddons := newNetworkAddonsForCR(instance, UndefinedNamespace)
+func (r *ReconcileHyperConverged) ensureNetworkAddons(req *hcoRequest) error {
+	networkAddons := newNetworkAddonsForCR(req.instance, UndefinedNamespace)
 
 	key, err := client.ObjectKeyFromObject(networkAddons)
 	if err != nil {
@@ -962,12 +999,12 @@ func (r *ReconcileHyperConverged) ensureNetworkAddons(instance *hcov1alpha1.Hype
 	if err != nil {
 		return err
 	}
-	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	// Handle conditions
 	handleComponentConditions(r, req, "NetworkAddonsConfig", found.Status.Conditions)
 
-	return r.client.Status().Update(req.ctx, instance)
+	return r.client.Status().Update(req.ctx, req.instance)
 }
 
 func handleComponentConditions(r *ReconcileHyperConverged, req *hcoRequest, component string, componentConds []conditionsv1.Condition) {
@@ -1061,8 +1098,8 @@ func newKubeVirtCommonTemplateBundleForCR(cr *hcov1alpha1.HyperConverged, namesp
 	}
 }
 
-func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	kvCTB := newKubeVirtCommonTemplateBundleForCR(instance, OpenshiftNamespace)
+func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(req *hcoRequest) error {
+	kvCTB := newKubeVirtCommonTemplateBundleForCR(req.instance, OpenshiftNamespace)
 
 	key, err := client.ObjectKeyFromObject(kvCTB)
 	if err != nil {
@@ -1101,12 +1138,12 @@ func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(instance *h
 	if err != nil {
 		return err
 	}
-	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	// TODO: temporary avoid checking conditions on KubevirtCommonTemplatesBundle because it's currently
 	// broken on k8s. Revert this when we will be able to fix it
 	// handleComponentConditions(r, req, "KubevirtCommonTemplatesBundle", found.Status.Conditions)
-	return r.client.Status().Update(req.ctx, instance)
+	return r.client.Status().Update(req.ctx, req.instance)
 }
 
 func newKubeVirtNodeLabellerBundleForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtNodeLabellerBundle {
@@ -1125,9 +1162,9 @@ func newKubeVirtNodeLabellerBundleForCR(cr *hcov1alpha1.HyperConverged, namespac
 	}
 }
 
-func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	kvNLB := newKubeVirtNodeLabellerBundleForCR(instance, req.Namespace)
-	if err := controllerutil.SetControllerReference(instance, kvNLB, r.scheme); err != nil {
+func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(req *hcoRequest) error {
+	kvNLB := newKubeVirtNodeLabellerBundleForCR(req.instance, req.Namespace)
+	if err := controllerutil.SetControllerReference(req.instance, kvNLB, r.scheme); err != nil {
 		return err
 	}
 
@@ -1154,12 +1191,12 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(instance *hco
 	if err != nil {
 		return err
 	}
-	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	// TODO: temporary avoid checking conditions on KubevirtNodeLabellerBundle because it's currently
 	// broken on k8s. Revert this when we will be able to fix it
 	//handleComponentConditions(r, req, "KubevirtNodeLabellerBundle", found.Status.Conditions)
-	return r.client.Status().Update(req.ctx, instance)
+	return r.client.Status().Update(req.ctx, req.instance)
 }
 
 func newIMSConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
@@ -1180,7 +1217,7 @@ func newIMSConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1
 	}
 }
 
-func (r *ReconcileHyperConverged) ensureIMSConfig(instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
+func (r *ReconcileHyperConverged) ensureIMSConfig(req *hcoRequest) error {
 	if os.Getenv("CONVERSION_CONTAINER") == "" {
 		return errors.New("ims-conversion-container not specified")
 	}
@@ -1189,8 +1226,8 @@ func (r *ReconcileHyperConverged) ensureIMSConfig(instance *hcov1alpha1.HyperCon
 		return errors.New("ims-vmware-container not specified")
 	}
 
-	imsConfig := newIMSConfigForCR(instance, req.Namespace)
-	if err := controllerutil.SetControllerReference(instance, imsConfig, r.scheme); err != nil {
+	imsConfig := newIMSConfigForCR(req.instance, req.Namespace)
+	if err := controllerutil.SetControllerReference(req.instance, imsConfig, r.scheme); err != nil {
 		return err
 	}
 
@@ -1217,10 +1254,10 @@ func (r *ReconcileHyperConverged) ensureIMSConfig(instance *hcov1alpha1.HyperCon
 	if err != nil {
 		return err
 	}
-	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	// TODO: Handle conditions
-	return r.client.Status().Update(req.ctx, instance)
+	return r.client.Status().Update(req.ctx, req.instance)
 }
 
 func newKubeVirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtTemplateValidator {
@@ -1236,9 +1273,9 @@ func newKubeVirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged, namespace
 	}
 }
 
-func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	kvTV := newKubeVirtTemplateValidatorForCR(instance, req.Namespace)
-	if err := controllerutil.SetControllerReference(instance, kvTV, r.scheme); err != nil {
+func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(req *hcoRequest) error {
+	kvTV := newKubeVirtTemplateValidatorForCR(req.instance, req.Namespace)
+	if err := controllerutil.SetControllerReference(req.instance, kvTV, r.scheme); err != nil {
 		return err
 	}
 
@@ -1265,12 +1302,12 @@ func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(instance *hcov
 	if err != nil {
 		return err
 	}
-	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	// TODO: temporary avoid checking conditions on KubevirtTemplateValidator because it's currently
 	// broken on k8s. Revert this when we will be able to fix it
 	// handleComponentConditions(r, req, "KubevirtTemplateValidator", found.Status.Conditions)
-	return r.client.Status().Update(req.ctx, instance)
+	return r.client.Status().Update(req.ctx, req.instance)
 }
 
 func newKubeVirtStorageConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
@@ -1297,9 +1334,9 @@ func newKubeVirtStorageConfigForCR(cr *hcov1alpha1.HyperConverged, namespace str
 	}
 }
 
-func (r *ReconcileHyperConverged) ensureKubeVirtStorageConfig(instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	kubevirtStorageConfig := newKubeVirtStorageConfigForCR(instance, req.Namespace)
-	if err := controllerutil.SetControllerReference(instance, kubevirtStorageConfig, r.scheme); err != nil {
+func (r *ReconcileHyperConverged) ensureKubeVirtStorageConfig(req *hcoRequest) error {
+	kubevirtStorageConfig := newKubeVirtStorageConfigForCR(req.instance, req.Namespace)
+	if err := controllerutil.SetControllerReference(req.instance, kubevirtStorageConfig, r.scheme); err != nil {
 		return err
 	}
 
@@ -1325,7 +1362,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtStorageConfig(instance *hcov1alp
 	if err != nil {
 		return err
 	}
-	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	return nil
 }
@@ -1343,9 +1380,9 @@ func newKubeVirtMetricsAggregationForCR(cr *hcov1alpha1.HyperConverged, namespac
 	}
 }
 
-func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	kubevirtMetricsAggregation := newKubeVirtMetricsAggregationForCR(instance, req.Namespace)
-	if err := controllerutil.SetControllerReference(instance, kubevirtMetricsAggregation, r.scheme); err != nil {
+func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(req *hcoRequest) error {
+	kubevirtMetricsAggregation := newKubeVirtMetricsAggregationForCR(req.instance, req.Namespace)
+	if err := controllerutil.SetControllerReference(req.instance, kubevirtMetricsAggregation, r.scheme); err != nil {
 		return err
 	}
 
@@ -1372,19 +1409,15 @@ func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(instance *hco
 	if err != nil {
 		return err
 	}
-	objectreferencesv1.SetObjectReference(&instance.Status.RelatedObjects, *objectRef)
+	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	// TODO: we don't call handleComponentConditions because KubeVirtMetricsAggregation uses non-standard conditions
 	// fix this when KubeVirtMetricsAggregation will be ready for this
-	return r.client.Status().Update(req.ctx, instance)
+	return r.client.Status().Update(req.ctx, req.instance)
 }
 
 // This function is used to exit from the reconcile function, updating the conditions and returns the reconcile result
-func (r *ReconcileHyperConverged) updateConditions(instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-
-	conds := make([]conditionsv1.Condition, len(hcoConditionTypes))
-
-	i := 0
+func (r *ReconcileHyperConverged) updateConditions(req *hcoRequest) error {
 	for _, condType := range hcoConditionTypes {
 		cond, found := req.conditions[condType]
 		if !found {
@@ -1394,13 +1427,10 @@ func (r *ReconcileHyperConverged) updateConditions(instance *hcov1alpha1.HyperCo
 				Message: "Unknown Status",
 			}
 		}
-		//conditionsv1.SetStatusCondition(&instance.Status.Conditions, cond)
-		conds[i] = cond
-		i++
+		conditionsv1.SetStatusCondition(&req.instance.Status.Conditions, cond)
 	}
 
-	instance.Status.Conditions = conds
-	err := r.client.Status().Update(req.ctx, instance)
+	err := r.client.Status().Update(req.ctx, req.instance)
 	req.logger.Info("Failed to update CR status")
 	return err
 }
@@ -1462,7 +1492,7 @@ func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	return u, nil
 }
 
-func componentResourceRemoval(o interface{}, c client.Client, cr *hcov1alpha1.HyperConverged, req *hcoRequest) error {
+func componentResourceRemoval(o interface{}, c client.Client, req *hcoRequest) error {
 	resource, err := toUnstructured(o)
 	if err != nil {
 		req.logger.Error(err, "Failed to convert object to Unstructured")
@@ -1479,7 +1509,7 @@ func componentResourceRemoval(o interface{}, c client.Client, cr *hcov1alpha1.Hy
 	}
 
 	labels := resource.GetLabels()
-	if app, labelExists := labels["app"]; !labelExists || app != cr.Name {
+	if app, labelExists := labels["app"]; !labelExists || app != req.instance.Name {
 		req.logger.Info("Existing resource wasn't deployed by HCO, ignoring", "Kind", resource.GetObjectKind())
 		return nil
 	}
@@ -1488,7 +1518,7 @@ func componentResourceRemoval(o interface{}, c client.Client, cr *hcov1alpha1.Hy
 	return err
 }
 
-func ensureKubeVirtPriorityClassDeleted(c client.Client, instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
+func ensureKubeVirtPriorityClassDeleted(c client.Client, req *hcoRequest) error {
 	pc := newKubeVirtPriorityClass()
 	key, err := client.ObjectKeyFromObject(pc)
 	if err != nil {
@@ -1508,11 +1538,11 @@ func ensureKubeVirtPriorityClassDeleted(c client.Client, instance *hcov1alpha1.H
 		return err
 	}
 
-	return componentResourceRemoval(found, c, instance, req)
+	return componentResourceRemoval(found, c, req)
 }
 
-func ensureKubeVirtDeleted(c client.Client, instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	virt := newKubeVirtForCR(instance, instance.Namespace)
+func ensureKubeVirtDeleted(c client.Client, req *hcoRequest) error {
+	virt := newKubeVirtForCR(req.instance, req.instance.Namespace)
 	key, err := client.ObjectKeyFromObject(virt)
 	if err != nil {
 		req.logger.Error(err, "Failed to get object key for KubeVirt")
@@ -1531,12 +1561,11 @@ func ensureKubeVirtDeleted(c client.Client, instance *hcov1alpha1.HyperConverged
 		return err
 	}
 
-	return componentResourceRemoval(found, c, instance, req)
-
+	return componentResourceRemoval(found, c, req)
 }
 
-func ensureCDIDeleted(c client.Client, instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	cdi := newCDIForCR(instance, UndefinedNamespace)
+func ensureCDIDeleted(c client.Client, req *hcoRequest) error {
+	cdi := newCDIForCR(req.instance, UndefinedNamespace)
 	key, err := client.ObjectKeyFromObject(cdi)
 	if err != nil {
 		req.logger.Error(err, "Failed to get object key for CDI")
@@ -1555,11 +1584,11 @@ func ensureCDIDeleted(c client.Client, instance *hcov1alpha1.HyperConverged, req
 		return err
 	}
 
-	return componentResourceRemoval(found, c, instance, req)
+	return componentResourceRemoval(found, c, req)
 }
 
-func ensureNetworkAddonsDeleted(c client.Client, instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	networkAddons := newNetworkAddonsForCR(instance, UndefinedNamespace)
+func ensureNetworkAddonsDeleted(c client.Client, req *hcoRequest) error {
+	networkAddons := newNetworkAddonsForCR(req.instance, UndefinedNamespace)
 	key, err := client.ObjectKeyFromObject(networkAddons)
 	if err != nil {
 		req.logger.Error(err, "Failed to get object key for Network Addons")
@@ -1578,11 +1607,11 @@ func ensureNetworkAddonsDeleted(c client.Client, instance *hcov1alpha1.HyperConv
 		return err
 	}
 
-	return componentResourceRemoval(found, c, instance, req)
+	return componentResourceRemoval(found, c, req)
 }
 
-func ensureKubeVirtCommonTemplateBundleDeleted(c client.Client, instance *hcov1alpha1.HyperConverged, req *hcoRequest) error {
-	kvCTB := newKubeVirtCommonTemplateBundleForCR(instance, OpenshiftNamespace)
+func ensureKubeVirtCommonTemplateBundleDeleted(c client.Client, req *hcoRequest) error {
+	kvCTB := newKubeVirtCommonTemplateBundleForCR(req.instance, OpenshiftNamespace)
 
 	key, err := client.ObjectKeyFromObject(kvCTB)
 	if err != nil {
@@ -1602,7 +1631,7 @@ func ensureKubeVirtCommonTemplateBundleDeleted(c client.Client, instance *hcov1a
 		return err
 	}
 
-	return componentResourceRemoval(found, c, instance, req)
+	return componentResourceRemoval(found, c, req)
 }
 
 // translateKubeVirtConds translates list of KubeVirt conditions to a list of custom resource

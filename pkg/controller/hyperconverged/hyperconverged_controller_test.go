@@ -56,12 +56,23 @@ var (
 	}
 )
 
-func newReq() *hcoRequest {
+func newHco() *hcov1alpha1.HyperConverged {
+	return &hcov1alpha1.HyperConverged{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: hcov1alpha1.HyperConvergedSpec{},
+	}
+}
+
+func newReq(inst *hcov1alpha1.HyperConverged) *hcoRequest {
 	return &hcoRequest{
 		Request:    request,
 		logger:     log,
 		conditions: newHcoConditions(),
 		ctx:        context.TODO(),
+		instance:   inst,
 	}
 }
 
@@ -72,22 +83,18 @@ var _ = Describe("HyperconvergedController", func() {
 		Context("KubeVirt Priority Classes", func() {
 
 			var hco *hcov1alpha1.HyperConverged
+			var req *hcoRequest
 
 			BeforeEach(func() {
-				hco = &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
+				hco = newHco()
+				req = newReq(hco)
 			})
 
 			It("should create if not present", func() {
 				expectedResource := newKubeVirtPriorityClass()
 				cl := initClient([]runtime.Object{})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtPriorityClass(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtPriorityClass(req)).To(BeNil())
 
 				key, err := client.ObjectKeyFromObject(expectedResource)
 				Expect(err).ToNot(HaveOccurred())
@@ -102,7 +109,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedResource := newKubeVirtPriorityClass()
 				cl := initClient([]runtime.Object{expectedResource})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtPriorityClass(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtPriorityClass(req)).To(BeNil())
 
 				objectRef, err := reference.GetReference(r.scheme, expectedResource)
 				Expect(err).To(BeNil())
@@ -112,7 +119,7 @@ var _ = Describe("HyperconvergedController", func() {
 			DescribeTable("should update if something changed", func(modifiedResource *schedulingv1.PriorityClass) {
 				cl := initClient([]runtime.Object{modifiedResource})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtPriorityClass(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtPriorityClass(req)).To(BeNil())
 
 				expectedResource := newKubeVirtPriorityClass()
 				key, err := client.ObjectKeyFromObject(expectedResource)
@@ -155,24 +162,22 @@ var _ = Describe("HyperconvergedController", func() {
 
 		Context("KubeVirt Config", func() {
 
+			var hco *hcov1alpha1.HyperConverged
+			var req *hcoRequest
+
 			BeforeEach(func() {
+				hco = newHco()
+				req = newReq(hco)
+
 				os.Setenv("SMBIOS", "new-smbios-value-that-we-have-to-set")
 				os.Setenv("MACHINETYPE", "new-machinetype-value-that-we-have-to-set")
 			})
 
 			It("should create if not present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
-				expectedResource := newKubeVirtConfigForCR(hco, namespace)
+				expectedResource := newKubeVirtConfigForCR(req.instance, namespace)
 				cl := initClient([]runtime.Object{})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtConfig(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtConfig(req)).To(BeNil())
 
 				foundResource := &corev1.ConfigMap{}
 				Expect(
@@ -186,19 +191,11 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should find if present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newKubeVirtConfigForCR(hco, namespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				cl := initClient([]runtime.Object{hco, expectedResource})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtConfig(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtConfig(req)).To(BeNil())
 
 				// Check HCO's status
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -209,14 +206,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should update if outdated", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newKubeVirtConfigForCR(hco, namespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				outdatedResource := newKubeVirtConfigForCR(hco, namespace)
@@ -226,7 +215,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				cl := initClient([]runtime.Object{hco, outdatedResource})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtConfig(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtConfig(req)).To(BeNil())
 
 				foundResource := &corev1.ConfigMap{}
 				Expect(
@@ -237,23 +226,22 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(foundResource.Data).To(Not(Equal(outdatedResource.Data)))
 				Expect(foundResource.Data).To(Equal(expectedResource.Data))
 			})
-
 		})
 
 		Context("KubeVirt Storage Config", func() {
-			It("should create if not present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
+			var hco *hcov1alpha1.HyperConverged
+			var req *hcoRequest
 
+			BeforeEach(func() {
+				hco = newHco()
+				req = newReq(hco)
+			})
+
+			It("should create if not present", func() {
 				expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
 				cl := initClient([]runtime.Object{})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtStorageConfig(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtStorageConfig(req)).To(BeNil())
 
 				foundResource := &corev1.ConfigMap{}
 				Expect(
@@ -267,19 +255,11 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should find if present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				cl := initClient([]runtime.Object{hco, expectedResource})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtStorageConfig(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtStorageConfig(req)).To(BeNil())
 
 				// Check HCO's status
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -290,45 +270,21 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("volumeMode should be filesystem when platform is baremetal", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{
-						BareMetalPlatform: true,
-					},
-				}
+				hco.Spec.BareMetalPlatform = true
 
 				expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
 				Expect(expectedResource.Data["volumeMode"]).To(Equal("Filesystem"))
 			})
 
 			It("volumeMode should be filesystem when platform is not baremetal", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{
-						BareMetalPlatform: false,
-					},
-				}
+				hco.Spec.BareMetalPlatform = false
 
 				expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
 				Expect(expectedResource.Data["volumeMode"]).To(Equal("Filesystem"))
 			})
 
 			It("local storage class name should be available when specified", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{
-						LocalStorageClassName: "local",
-					},
-				}
+				hco.Spec.LocalStorageClassName = "local"
 
 				expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
 				Expect(expectedResource.Data["local.accessMode"]).To(Equal("ReadWriteOnce"))
@@ -337,19 +293,19 @@ var _ = Describe("HyperconvergedController", func() {
 		})
 
 		Context("KubeVirt", func() {
-			It("should create if not present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
+			var hco *hcov1alpha1.HyperConverged
+			var req *hcoRequest
 
+			BeforeEach(func() {
+				hco = newHco()
+				req = newReq(hco)
+			})
+
+			It("should create if not present", func() {
 				expectedResource := newKubeVirtForCR(hco, namespace)
 				cl := initClient([]runtime.Object{})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirt(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirt(req)).To(BeNil())
 
 				foundResource := &kubevirtv1.KubeVirt{}
 				Expect(
@@ -363,20 +319,11 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should find if present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newKubeVirtForCR(hco, namespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				cl := initClient([]runtime.Object{hco, expectedResource})
 				r := initReconciler(cl)
-				req := newReq()
-				Expect(r.ensureKubeVirt(hco, req)).To(BeNil())
+				Expect(r.ensureKubeVirt(req)).To(BeNil())
 
 				// Check HCO's status
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -406,14 +353,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should set default UninstallStrategy if missing", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newKubeVirtForCR(hco, namespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				missingUSResource := newKubeVirtForCR(hco, namespace)
@@ -422,7 +361,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				cl := initClient([]runtime.Object{hco, missingUSResource})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirt(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirt(req)).To(BeNil())
 
 				foundResource := &kubevirtv1.KubeVirt{}
 				Expect(
@@ -434,14 +373,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should handle conditions", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newKubeVirtForCR(hco, namespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				expectedResource.Status.Conditions = []kubevirtv1.KubeVirtCondition{
@@ -466,8 +397,7 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 				cl := initClient([]runtime.Object{hco, expectedResource})
 				r := initReconciler(cl)
-				req := newReq()
-				Expect(r.ensureKubeVirt(hco, req)).To(BeNil())
+				Expect(r.ensureKubeVirt(req)).To(BeNil())
 
 				// Check HCO's status
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -504,19 +434,19 @@ var _ = Describe("HyperconvergedController", func() {
 		})
 
 		Context("CDI", func() {
-			It("should create if not present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
+			var hco *hcov1alpha1.HyperConverged
+			var req *hcoRequest
 
+			BeforeEach(func() {
+				hco = newHco()
+				req = newReq(hco)
+			})
+
+			It("should create if not present", func() {
 				expectedResource := newCDIForCR(hco, UndefinedNamespace)
 				cl := initClient([]runtime.Object{})
 				r := initReconciler(cl)
-				Expect(r.ensureCDI(hco, newReq())).To(BeNil())
+				Expect(r.ensureCDI(req)).To(BeNil())
 
 				foundResource := &cdiv1alpha1.CDI{}
 				Expect(
@@ -530,20 +460,11 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should find if present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newCDIForCR(hco, UndefinedNamespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				cl := initClient([]runtime.Object{hco, expectedResource})
 				r := initReconciler(cl)
-				req := newReq()
-				Expect(r.ensureCDI(hco, req)).To(BeNil())
+				Expect(r.ensureCDI(req)).To(BeNil())
 
 				// Check HCO's status
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -573,14 +494,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should set default UninstallStrategy if missing", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newCDIForCR(hco, namespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				missingUSResource := newCDIForCR(hco, namespace)
@@ -589,7 +502,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 				cl := initClient([]runtime.Object{hco, missingUSResource})
 				r := initReconciler(cl)
-				Expect(r.ensureCDI(hco, newReq())).To(BeNil())
+				Expect(r.ensureCDI(req)).To(BeNil())
 
 				foundResource := &cdiv1alpha1.CDI{}
 				Expect(
@@ -601,14 +514,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should handle conditions", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newCDIForCR(hco, UndefinedNamespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				expectedResource.Status.Conditions = []conditionsv1.Condition{
@@ -633,8 +538,7 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 				cl := initClient([]runtime.Object{hco, expectedResource})
 				r := initReconciler(cl)
-				req := newReq()
-				Expect(r.ensureCDI(hco, req)).To(BeNil())
+				Expect(r.ensureCDI(req)).To(BeNil())
 
 				// Check HCO's status
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -671,19 +575,19 @@ var _ = Describe("HyperconvergedController", func() {
 		})
 
 		Context("NetworkAddonsConfig", func() {
-			It("should create if not present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
+			var hco *hcov1alpha1.HyperConverged
+			var req *hcoRequest
 
+			BeforeEach(func() {
+				hco = newHco()
+				req = newReq(hco)
+			})
+
+			It("should create if not present", func() {
 				expectedResource := newNetworkAddonsForCR(hco, UndefinedNamespace)
 				cl := initClient([]runtime.Object{})
 				r := initReconciler(cl)
-				Expect(r.ensureNetworkAddons(hco, newReq())).To(BeNil())
+				Expect(r.ensureNetworkAddons(req)).To(BeNil())
 
 				foundResource := &networkaddonsv1alpha1.NetworkAddonsConfig{}
 				Expect(
@@ -699,20 +603,11 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should find if present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newNetworkAddonsForCR(hco, UndefinedNamespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				cl := initClient([]runtime.Object{hco, expectedResource})
 				r := initReconciler(cl)
-				req := newReq()
-				Expect(r.ensureNetworkAddons(hco, req)).To(BeNil())
+				Expect(r.ensureNetworkAddons(req)).To(BeNil())
 
 				// Check HCO's status
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -742,14 +637,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should handle conditions", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newNetworkAddonsForCR(hco, UndefinedNamespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				expectedResource.Status.Conditions = []conditionsv1.Condition{
@@ -774,8 +661,7 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 				cl := initClient([]runtime.Object{hco, expectedResource})
 				r := initReconciler(cl)
-				req := newReq()
-				Expect(r.ensureNetworkAddons(hco, req)).To(BeNil())
+				Expect(r.ensureNetworkAddons(req)).To(BeNil())
 
 				// Check HCO's status
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -812,19 +698,19 @@ var _ = Describe("HyperconvergedController", func() {
 		})
 
 		Context("KubeVirtCommonTemplatesBundle", func() {
-			It("should create if not present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
+			var hco *hcov1alpha1.HyperConverged
+			var req *hcoRequest
 
+			BeforeEach(func() {
+				hco = newHco()
+				req = newReq(hco)
+			})
+
+			It("should create if not present", func() {
 				expectedResource := newKubeVirtCommonTemplateBundleForCR(hco, OpenshiftNamespace)
 				cl := initClient([]runtime.Object{})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtCommonTemplateBundle(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtCommonTemplateBundle(req)).To(BeNil())
 
 				foundResource := &sspv1.KubevirtCommonTemplatesBundle{}
 				Expect(
@@ -838,19 +724,11 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should find if present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newKubeVirtCommonTemplateBundleForCR(hco, OpenshiftNamespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				cl := initClient([]runtime.Object{hco, expectedResource})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtCommonTemplateBundle(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtCommonTemplateBundle(req)).To(BeNil())
 
 				// Check HCO's status
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -864,14 +742,6 @@ var _ = Describe("HyperconvergedController", func() {
 			// broken on k8s. Revert this when we will be able to fix it
 			/*
 				It("should handle conditions", func() {
-					hco := &hcov1alpha1.HyperConverged{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      name,
-							Namespace: namespace,
-						},
-						Spec: hcov1alpha1.HyperConvergedSpec{},
-					}
-
 					expectedResource := newKubeVirtCommonTemplateBundleForCR(hco, OpenshiftNamespace)
 					expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 					expectedResource.Status.Conditions = []conditionsv1.Condition{
@@ -896,7 +766,7 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 					cl := initClient([]runtime.Object{hco, expectedResource})
 					r := initReconciler(cl)
-					Expect(r.ensureKubeVirtCommonTemplateBundle(hco, newReq())).To(BeNil())
+					Expect(r.ensureKubeVirtCommonTemplateBundle(req)).To(BeNil())
 
 					// Check HCO's status
 					Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -934,19 +804,19 @@ var _ = Describe("HyperconvergedController", func() {
 		})
 
 		Context("KubeVirtNodeLabellerBundle", func() {
-			It("should create if not present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
+			var hco *hcov1alpha1.HyperConverged
+			var req *hcoRequest
 
+			BeforeEach(func() {
+				hco = newHco()
+				req = newReq(hco)
+			})
+
+			It("should create if not present", func() {
 				expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
 				cl := initClient([]runtime.Object{})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtNodeLabellerBundle(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtNodeLabellerBundle(req)).To(BeNil())
 
 				foundResource := &sspv1.KubevirtNodeLabellerBundle{}
 				Expect(
@@ -960,19 +830,11 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should find if present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				cl := initClient([]runtime.Object{hco, expectedResource})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtNodeLabellerBundle(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtNodeLabellerBundle(req)).To(BeNil())
 
 				// Check HCO's status
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -986,14 +848,6 @@ var _ = Describe("HyperconvergedController", func() {
 			// broken on k8s. Revert this when we will be able to fix it
 			/*
 				It("should handle conditions", func() {
-					hco := &hcov1alpha1.HyperConverged{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      name,
-							Namespace: namespace,
-						},
-						Spec: hcov1alpha1.HyperConvergedSpec{},
-					}
-
 					expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
 					expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 					expectedResource.Status.Conditions = []conditionsv1.Condition{
@@ -1018,7 +872,7 @@ var _ = Describe("HyperconvergedController", func() {
 					}
 					cl := initClient([]runtime.Object{hco, expectedResource})
 					r := initReconciler(cl)
-					Expect(r.ensureKubeVirtNodeLabellerBundle(hco, newReq())).To(BeNil())
+					Expect(r.ensureKubeVirtNodeLabellerBundle(req)).To(BeNil())
 
 					// Check HCO's status
 					Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -1055,14 +909,6 @@ var _ = Describe("HyperconvergedController", func() {
 			*/
 
 			It("should request KVM without any extra setting", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				os.Unsetenv("KVM_EMULATION")
 
 				expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
@@ -1070,14 +916,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should not request KVM if emulation requested", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				err := os.Setenv("KVM_EMULATION", "true")
 				Expect(err).NotTo(HaveOccurred())
 				defer os.Unsetenv("KVM_EMULATION")
@@ -1087,14 +925,6 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should request KVM if emulation value not set", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				err := os.Setenv("KVM_EMULATION", "")
 				Expect(err).NotTo(HaveOccurred())
 				defer os.Unsetenv("KVM_EMULATION")
@@ -1102,23 +932,22 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
 				Expect(expectedResource.Spec.UseKVM).To(BeTrue())
 			})
-
 		})
 
 		Context("KubeVirtTemplateValidator", func() {
-			It("should create if not present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
+			var hco *hcov1alpha1.HyperConverged
+			var req *hcoRequest
 
+			BeforeEach(func() {
+				hco = newHco()
+				req = newReq(hco)
+			})
+
+			It("should create if not present", func() {
 				expectedResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
 				cl := initClient([]runtime.Object{})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtTemplateValidator(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtTemplateValidator(req)).To(BeNil())
 
 				foundResource := &sspv1.KubevirtTemplateValidator{}
 				Expect(
@@ -1132,19 +961,11 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should find if present", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				cl := initClient([]runtime.Object{hco, expectedResource})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtTemplateValidator(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtTemplateValidator(req)).To(BeNil())
 
 				// Check HCO's status
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -1157,14 +978,6 @@ var _ = Describe("HyperconvergedController", func() {
 			// TODO: temporary avoid checking conditions on KubevirtTemplateValidator because it's currently
 			// broken on k8s. Revert this when we will be able to fix it
 			/*It("should handle conditions", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
-
 				expectedResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				expectedResource.Status.Conditions = []conditionsv1.Condition{
@@ -1189,7 +1002,7 @@ var _ = Describe("HyperconvergedController", func() {
 				}
 				cl := initClient([]runtime.Object{hco, expectedResource})
 				r := initReconciler(cl)
-				Expect(r.ensureKubeVirtTemplateValidator(hco, newReq())).To(BeNil())
+				Expect(r.ensureKubeVirtTemplateValidator(req)).To(BeNil())
 
 				// Check HCO's status
 				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -1229,17 +1042,11 @@ var _ = Describe("HyperconvergedController", func() {
 			It("should error if environment vars not specified", func() {
 				os.Unsetenv("CONVERSION_CONTAINER")
 				os.Unsetenv("VMWARE_CONTAINER")
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
+				req := newReq(newHco())
 
 				cl := initClient([]runtime.Object{})
 				r := initReconciler(cl)
-				Expect(r.ensureIMSConfig(hco, newReq())).ToNot(BeNil())
+				Expect(r.ensureIMSConfig(req)).ToNot(BeNil())
 			})
 		})
 	})
@@ -1304,13 +1111,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should create all managed resources", func() {
-				hco := &hcov1alpha1.HyperConverged{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: namespace,
-					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-				}
+				hco := newHco()
 				cl := initClient([]runtime.Object{hco})
 				r := initReconciler(cl)
 
