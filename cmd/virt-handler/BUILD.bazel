@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/certificates/bootstrap:go_default_library",
+        "//pkg/container-disk:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/inotify-informer:go_default_library",
         "//pkg/monitoring/client/prometheus:go_default_library",

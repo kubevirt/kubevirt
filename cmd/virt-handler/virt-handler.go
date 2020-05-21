@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
 	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"    // import for prometheus metrics
@@ -93,6 +94,7 @@ type virtHandlerApp struct {
 	VirtShareDir            string
 	VirtPrivateDir          string
 	VirtLibDir              string
+	KubeletPodsDir          string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
 	MaxRequestsInFlight     int
@@ -221,6 +223,7 @@ func (app *virtHandlerApp) Run() {
 
 	cmdclient.SetPodsBaseDir("/pods")
 	cmdclient.SetLegacyBaseDir(app.VirtShareDir)
+	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
 	err = os.MkdirAll(cmdclient.LegacySocketsDirectory(), 0755)
 	if err != nil {
 		panic(err)
@@ -387,6 +390,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.StringVar(&app.VirtLibDir, "kubevirt-lib-dir", util.VirtLibDir,
 		"Shared lib directory between virt-handler and virt-launcher")
+
+	flag.StringVar(&app.KubeletPodsDir, "kubelet-pods-dir", util.KubeletPodsDir,
+		"Path for pod directory (matching host's path for kubelet root)")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
 		"Watchdog file timeout")

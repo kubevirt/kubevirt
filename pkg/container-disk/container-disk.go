@@ -38,7 +38,7 @@ import (
 
 var containerDiskOwner = "qemu"
 
-var podsBaseDir = "/var/lib/kubelet/pods"
+var podsBaseDir = util.KubeletPodsDir
 
 var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
@@ -83,6 +83,11 @@ func SetLocalDirectory(dir string) error {
 	return os.MkdirAll(dir, 0755)
 }
 
+func SetKubeletPodsDirectory(dir string) {
+	podsBaseDir = dir
+}
+
+// used for testing - we don't want to MkdirAll on a production host mount
 func setPodsDirectory(dir string) error {
 	podsBaseDir = dir
 	return os.MkdirAll(dir, 0755)
