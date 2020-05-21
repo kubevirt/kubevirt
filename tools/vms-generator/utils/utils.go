@@ -212,6 +212,28 @@ func addNoCloudDiskWitUserData(spec *v1.VirtualMachineInstanceSpec, data string)
 	return spec
 }
 
+func addNoCloudDiskWitUserDataNetworkData(spec *v1.VirtualMachineInstanceSpec, userData string, networkData string) *v1.VirtualMachineInstanceSpec {
+	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
+		Name: "cloudinitdisk",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: busVirtio,
+			},
+		},
+	})
+
+	spec.Volumes = append(spec.Volumes, v1.Volume{
+		Name: "cloudinitdisk",
+		VolumeSource: v1.VolumeSource{
+			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+				UserData:    userData,
+				NetworkData: networkData,
+			},
+		},
+	})
+	return spec
+}
+
 func addEmptyDisk(spec *v1.VirtualMachineInstanceSpec, size string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
 		Name: "emptydisk",
@@ -410,7 +432,9 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nip -6 addr add fd10:0:2::2/120 dev eth0\nsleep 5\nip -6 route add default via fd10:0:2::1 src fd10:0:2::2\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
+	userData := "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nfor i in {1..20}; do curl -I %s | grep \"200 OK\" && break || sleep 0.1; done\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx"
+	networkData := "version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    gateway6: fd10:0:2::1\n"
+	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, userData, networkData)
 
 	masquerade := &v1.InterfaceMasquerade{}
 	ports := []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80}}
