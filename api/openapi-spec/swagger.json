@@ -8273,7 +8273,7 @@
       "type": "string"
      },
      "ipAddress": {
-      "description": "IP address of a Virtual Machine interface",
+      "description": "IP address of a Virtual Machine interface. It is always the first item of IPs",
       "type": "string"
      },
      "ipAddresses": {

@@ -288,7 +288,7 @@ golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/subtle
 golang.org/x/crypto/cast5
 golang.org/x/crypto/openpgp/elgamal
-# golang.org/x/net v0.0.0-20190930134127-c5a3c61f89f3
+# golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
 golang.org/x/net/context
 golang.org/x/net/trace
 golang.org/x/net/http2
@@ -413,7 +413,6 @@ k8s.io/api/authorization/v1beta1
 k8s.io/api/scheduling/v1
 k8s.io/api/autoscaling/v1
 k8s.io/api/settings/v1alpha1
-k8s.io/api/storage/v1
 k8s.io/api/admissionregistration/v1
 k8s.io/api/apps/v1beta1
 k8s.io/api/apps/v1beta2
