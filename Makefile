@@ -23,7 +23,11 @@ bazel-push-images:
 push: bazel-push-images
 
 bazel-test:
-	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-test.sh"
+	if git diff --name-only | grep -q -v -e "md$$"; then \
+	    hack/dockerized "hack/bazel-fmt.sh && hack/bazel-test.sh"; \
+	else \
+	    echo "No changes detected, skipping tests."; \
+	fi
 
 generate:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
@@ -50,8 +54,12 @@ go-test: go-build
 test: bazel-test
 
 functest:
-	hack/dockerized "hack/build-func-tests.sh"
-	hack/functests.sh
+	if git diff --name-only | grep -q -v -e "md$$"; then \
+	    hack/dockerized "hack/build-func-tests.sh" && \
+	    hack/functests.sh; \
+	else \
+	    echo "No changes detected, skipping tests."; \
+	fi
 
 dump: bazel-build
 	hack/dump.sh
