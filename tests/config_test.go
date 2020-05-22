@@ -26,6 +26,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 
+	v1 "kubevirt.io/client-go/api/v1"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/config"
@@ -340,6 +342,12 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				tests.AddSecretDisk(vmi, secretName, secretName)
 				tests.AddConfigMapDiskWithCustomLabel(vmi, configMapName, "random1", "configlabel")
 				tests.AddSecretDiskWithCustomLabel(vmi, secretName, "random2", "secretlabel")
+
+				// Ensure virtio for consistent order
+				for i, _ := range vmi.Spec.Domain.Devices.Disks {
+					vmi.Spec.Domain.Devices.Disks[i].Disk = &v1.DiskTarget{Bus: "virtio"}
+				}
+
 				tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Checking if ConfigMap has been attached to the pod")
@@ -366,7 +374,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					// mount ConfigMap image
 					&expect.BSnd{S: "sudo su -\n"},
 					&expect.BExp{R: "#"},
-					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+					&expect.BSnd{S: "mount /dev/vdc /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: "0"},
 					&expect.BSnd{S: "cat /mnt/config1 /mnt/config2 /mnt/config3\n"},
@@ -392,7 +400,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				res, err = expecter.ExpectBatch([]expect.Batcher{
 					// mount Secret image
-					&expect.BSnd{S: "mount /dev/sdb /mnt\n"},
+					&expect.BSnd{S: "mount /dev/vdd /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: "0"},
 					&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
@@ -403,13 +411,13 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("checking that all disk labels match the expectations")
 				res, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "blkid -s LABEL -o value /dev/sda\n"},
+					&expect.BSnd{S: "blkid -s LABEL -o value /dev/vdc\n"},
 					&expect.BExp{R: "cfgdata"}, // default value
-					&expect.BSnd{S: "blkid -s LABEL -o value /dev/sdb\n"},
+					&expect.BSnd{S: "blkid -s LABEL -o value /dev/vdd\n"},
 					&expect.BExp{R: "cfgdata"}, // default value
-					&expect.BSnd{S: "blkid -s LABEL -o value /dev/sdc\n"},
+					&expect.BSnd{S: "blkid -s LABEL -o value /dev/vde\n"},
 					&expect.BExp{R: "configlabel"}, // custom value
-					&expect.BSnd{S: "blkid -s LABEL -o value /dev/sdd\n"},
+					&expect.BSnd{S: "blkid -s LABEL -o value /dev/vdf\n"},
 					&expect.BExp{R: "secretlabel"}, // custom value
 				}, 200*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
