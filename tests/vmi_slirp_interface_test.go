@@ -149,7 +149,7 @@ var _ = Describe("Slirp Networking", func() {
 			setSlirpEnabled(true)
 			setDefaultNetworkInterface("bridge")
 		})
-		It("should reject VMIs with deafult interface slirp when it's not permitted", func() {
+		It("should reject VMIs with default interface slirp when it's not permitted", func() {
 			var t int64 = 0
 			vmi := v1.NewMinimalVMIWithNS(tests.NamespaceTestDefault, "testvmi"+rand.String(48))
 			vmi.Spec.TerminationGracePeriodSeconds = &t
