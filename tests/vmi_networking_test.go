@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -42,6 +43,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -691,29 +693,44 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("VirtualMachineInstance with masquerade binding mechanism", func() {
+		const (
+			defaultCIDR = false
+			customCIDR  = true
+		)
+
 		var serverVMI *v1.VirtualMachineInstance
 		var clientVMI *v1.VirtualMachineInstance
 
-		masqueradeVMI := func(Ports []v1.Port) *v1.VirtualMachineInstance {
+		masqueradeVMI := func(Ports []v1.Port, ipv4NetworkCIDR string) *v1.VirtualMachineInstance {
 			containerImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
 			userData := "#!/bin/bash\necho 'hello'\n"
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			net := v1.DefaultPodNetwork()
+			if ipv4NetworkCIDR != "" {
+				net.NetworkSource.Pod.VMNetworkCIDR = ipv4NetworkCIDR
+			}
+			vmi.Spec.Networks = []v1.Network{*net}
 
 			return vmi
 		}
 
-		table.DescribeTable("[test_id:1780]should allow regular network connection", func(ports []v1.Port) {
+		table.DescribeTable("[test_id:1780]should allow regular network connection", func(ports []v1.Port, withCustomCIDR bool) {
+			var ipv4NetworkCIDR string
+
+			if withCustomCIDR {
+				ipv4NetworkCIDR = "10.10.10.0/24"
+			}
+
 			// Create the client only one time
 			if clientVMI == nil {
-				clientVMI = masqueradeVMI([]v1.Port{})
+				clientVMI = masqueradeVMI([]v1.Port{}, ipv4NetworkCIDR)
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
 			}
 
-			serverVMI = masqueradeVMI(ports)
+			serverVMI = masqueradeVMI(ports, ipv4NetworkCIDR)
 			serverVMI.Labels = map[string]string{"expose": "server"}
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
 			Expect(err).ToNot(HaveOccurred())
@@ -732,6 +749,12 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				err := tests.CheckForTextExpecter(serverVMI, createExpectTraceroute6("2001:db8:1::1"), 30)
 				Expect(err).ToNot(HaveOccurred(), "Failed to traceroute to VMI %s within the given timeout", serverVMI.Name)
 			} else {
+				if ipv4NetworkCIDR == "" {
+					ipv4NetworkCIDR = api.DefaultVMCIDR
+				}
+				By("Checking ping to gateway")
+				pingVirtualMachine(serverVMI, gatewayIPFromCIDR(ipv4NetworkCIDR), "\\$ ")
+
 				By("Checking ping to google")
 				pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
 				pingVirtualMachine(clientVMI, "google.com", "\\$ ")
@@ -753,8 +776,9 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(serverVMI.Name, &v13.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-		}, table.Entry("with a specific port number", []v1.Port{{Name: "http", Port: 8080}}),
-			table.Entry("without a specific port number", []v1.Port{}),
+		}, table.Entry("with a specific port number", []v1.Port{{Name: "http", Port: 8080}}, defaultCIDR),
+			table.Entry("without a specific port number", []v1.Port{}, defaultCIDR),
+			table.Entry("with custom CIDR", []v1.Port{}, customCIDR),
 		)
 	})
 
@@ -874,4 +898,13 @@ func createExpectConnectToServer(serverIP, tcpPort string, expectSuccess bool) [
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: expectResult},
 	}
+}
+
+// gatewayIpFromCIDR returns the first address of a network.
+func gatewayIPFromCIDR(cidr string) string {
+	ip, ipnet, _ := net.ParseCIDR(cidr)
+	ip = ip.Mask(ipnet.Mask)
+	oct := len(ip) - 1
+	ip[oct]++
+	return ip.String()
 }
