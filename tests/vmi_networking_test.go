@@ -729,7 +729,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				By("Checking traceroute from vmi to cluster nodes gateway")
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition https://bit.ly/2wZTgMK
-				err := tests.CheckForTextExpecter(serverVMI, createExpectTraceroute6("2001:db8:1::1"), 180)
+				err := tests.CheckForTextExpecter(serverVMI, createExpectTraceroute6("2001:db8:1::1"), 30)
 				Expect(err).ToNot(HaveOccurred(), "Failed to traceroute to VMI %s within the given timeout", serverVMI.Name)
 			} else {
 				By("Checking ping to google")
