@@ -130,7 +130,7 @@ function update_go_mod() {
     MODULE_PATH=$(echo ${COMPONENTS_REPOS[$UPDATED_COMPONENT]} | cut -d "/" -f 2)
   fi
 
-  sed -E -i "$EXCLUSION s/($MODULE_PATH.*)v[0-9\.]+/\1${UPDATED_VERSION}/" go.mod
+  sed -E -i "$EXCLUSION s/($MODULE_PATH.*)v.+/\1${UPDATED_VERSION}/" go.mod
 }
 
 main
