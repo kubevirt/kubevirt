@@ -478,7 +478,7 @@ func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 		virtClient, err := kubecli.GetKubevirtClient()
 		PanicOnError(err)
 
-		podsList, err := virtClient.CoreV1().Pods(k8sv1.NamespaceAll).List(listOptions)
+		podsList, err := virtClient.CoreV1().Pods(KubeVirtInstallNamespace).List(listOptions)
 		PanicOnError(err)
 		for _, pod := range podsList.Items {
 			for _, status := range pod.Status.ContainerStatuses {
