@@ -135,6 +135,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"patch",
+					"delete",
 				},
 			},
 			{
