@@ -259,6 +259,7 @@ spec:
         - name: DEPLOY_CLUSTER_RESOURCES
           value: "true"
         - name: OPERATOR_VERSION
+          value: v1.17.0
         - name: CONTROLLER_IMAGE
           value: docker.io/kubevirt/cdi-controller:v1.17.0
         - name: IMPORTER_IMAGE

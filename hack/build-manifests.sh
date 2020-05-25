@@ -148,6 +148,7 @@ function create_cdi_csv() {
     --importer-image=${containerPrefix}/cdi-importer:${tag} \
     --uploadproxy-image=${containerPrefix}/cdi-uploadproxy:${tag} \
     --uploadserver-image=${containerPrefix}/cdi-uploadserver:${tag} \
+    --operator-version=${CDI_VERSION} \
   "
   gen_csv ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
   echo "${operatorName}"
