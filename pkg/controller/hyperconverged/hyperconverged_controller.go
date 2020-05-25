@@ -129,6 +129,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&cdiv1alpha1.CDI{},
 		&networkaddonsv1alpha1.NetworkAddonsConfig{},
 		&sspv1.KubevirtCommonTemplatesBundle{},
+		&sspv1.KubevirtNodeLabellerBundle{},
 		&sspv1.KubevirtTemplateValidator{},
 		&sspv1.KubevirtMetricsAggregation{},
 		&schedulingv1.PriorityClass{},
@@ -414,7 +415,7 @@ func (r *ReconcileHyperConverged) ensureHco(req *hcoRequest) error {
 		r.ensureCDI,
 		r.ensureNetworkAddons,
 		r.ensureKubeVirtCommonTemplateBundle,
-		// r.ensureKubeVirtNodeLabellerBundle, // TODO: what is going to remove it on upgrades if deployed in the past???
+		r.ensureKubeVirtNodeLabellerBundle,
 		r.ensureKubeVirtTemplateValidator,
 		r.ensureKubeVirtMetricsAggregation,
 		r.ensureIMSConfig,
@@ -1142,6 +1143,59 @@ func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(req *hcoReq
 	// TODO: temporary avoid checking conditions on KubevirtCommonTemplatesBundle because it's currently
 	// broken on k8s. Revert this when we will be able to fix it
 	// handleComponentConditions(r, req, "KubevirtCommonTemplatesBundle", found.Status.Conditions)
+	return r.client.Status().Update(req.ctx, req.instance)
+}
+
+func newKubeVirtNodeLabellerBundleForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtNodeLabellerBundle {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &sspv1.KubevirtNodeLabellerBundle{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "node-labeller-" + cr.Name,
+			Labels:    labels,
+			Namespace: namespace,
+		},
+		Spec: sspv1.ComponentSpec{
+			UseKVM: isKVMAvailable(),
+		},
+	}
+}
+
+func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(req *hcoRequest) error {
+	kvNLB := newKubeVirtNodeLabellerBundleForCR(req.instance, req.Namespace)
+	if err := controllerutil.SetControllerReference(req.instance, kvNLB, r.scheme); err != nil {
+		return err
+	}
+
+	key, err := client.ObjectKeyFromObject(kvNLB)
+	if err != nil {
+		req.logger.Error(err, "Failed to get object key for KubeVirt Node Labeller Bundle")
+	}
+
+	found := &sspv1.KubevirtNodeLabellerBundle{}
+	err = r.client.Get(req.ctx, key, found)
+	if err != nil && apierrors.IsNotFound(err) {
+		req.logger.Info("Creating KubeVirt Node Labeller Bundle")
+		return r.client.Create(req.ctx, kvNLB)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	req.logger.Info("KubeVirt Node Labeller Bundle already exists", "bundle.Namespace", found.Namespace, "bundle.Name", found.Name)
+
+	// Add it to the list of RelatedObjects if found
+	objectRef, err := reference.GetReference(r.scheme, found)
+	if err != nil {
+		return err
+	}
+	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
+
+	// TODO: temporary avoid checking conditions on KubevirtNodeLabellerBundle because it's currently
+	// broken on k8s. Revert this when we will be able to fix it
+	//handleComponentConditions(r, req, "KubevirtNodeLabellerBundle", found.Status.Conditions)
 	return r.client.Status().Update(req.ctx, req.instance)
 }
 

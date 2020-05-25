@@ -803,6 +803,137 @@ var _ = Describe("HyperconvergedController", func() {
 			*/
 		})
 
+		Context("KubeVirtNodeLabellerBundle", func() {
+			var hco *hcov1alpha1.HyperConverged
+			var req *hcoRequest
+
+			BeforeEach(func() {
+				hco = newHco()
+				req = newReq(hco)
+			})
+
+			It("should create if not present", func() {
+				expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+				cl := initClient([]runtime.Object{})
+				r := initReconciler(cl)
+				Expect(r.ensureKubeVirtNodeLabellerBundle(req)).To(BeNil())
+
+				foundResource := &sspv1.KubevirtNodeLabellerBundle{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						foundResource),
+				).To(BeNil())
+				Expect(foundResource.Name).To(Equal(expectedResource.Name))
+				Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
+				Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
+			})
+
+			It("should find if present", func() {
+				expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+				cl := initClient([]runtime.Object{hco, expectedResource})
+				r := initReconciler(cl)
+				Expect(r.ensureKubeVirtNodeLabellerBundle(req)).To(BeNil())
+
+				// Check HCO's status
+				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+				objectRef, err := reference.GetReference(r.scheme, expectedResource)
+				Expect(err).To(BeNil())
+				// ObjectReference should have been added
+				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+			})
+
+			// TODO: temporary avoid checking conditions on KubevirtNodeLabellerBundle because it's currently
+			// broken on k8s. Revert this when we will be able to fix it
+			/*
+				It("should handle conditions", func() {
+					expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+					expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+					expectedResource.Status.Conditions = []conditionsv1.Condition{
+						conditionsv1.Condition{
+							Type:    conditionsv1.ConditionAvailable,
+							Status:  corev1.ConditionFalse,
+							Reason:  "Foo",
+							Message: "Bar",
+						},
+						conditionsv1.Condition{
+							Type:    conditionsv1.ConditionProgressing,
+							Status:  corev1.ConditionTrue,
+							Reason:  "Foo",
+							Message: "Bar",
+						},
+						conditionsv1.Condition{
+							Type:    conditionsv1.ConditionDegraded,
+							Status:  corev1.ConditionTrue,
+							Reason:  "Foo",
+							Message: "Bar",
+						},
+					}
+					cl := initClient([]runtime.Object{hco, expectedResource})
+					r := initReconciler(cl)
+					Expect(r.ensureKubeVirtNodeLabellerBundle(req)).To(BeNil())
+
+					// Check HCO's status
+					Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+					objectRef, err := reference.GetReference(r.scheme, expectedResource)
+					Expect(err).To(BeNil())
+					// ObjectReference should have been added
+					Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+					// Check conditions
+					Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+						Type:    conditionsv1.ConditionAvailable,
+						Status:  corev1.ConditionFalse,
+						Reason:  "KubevirtNodeLabellerBundleNotAvailable",
+						Message: "KubevirtNodeLabellerBundle is not available: Bar",
+					})))
+					Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+						Type:    conditionsv1.ConditionProgressing,
+						Status:  corev1.ConditionTrue,
+						Reason:  "KubevirtNodeLabellerBundleProgressing",
+						Message: "KubevirtNodeLabellerBundle is progressing: Bar",
+					})))
+					Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+						Type:    conditionsv1.ConditionUpgradeable,
+						Status:  corev1.ConditionFalse,
+						Reason:  "KubevirtNodeLabellerBundleProgressing",
+						Message: "KubevirtNodeLabellerBundle is progressing: Bar",
+					})))
+					Expect(req.conditions[]).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
+						Type:    conditionsv1.ConditionDegraded,
+						Status:  corev1.ConditionTrue,
+						Reason:  "KubevirtNodeLabellerBundleDegraded",
+						Message: "KubevirtNodeLabellerBundle is degraded: Bar",
+					})))
+				})
+			*/
+
+			It("should request KVM without any extra setting", func() {
+				os.Unsetenv("KVM_EMULATION")
+
+				expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+				Expect(expectedResource.Spec.UseKVM).To(BeTrue())
+			})
+
+			It("should not request KVM if emulation requested", func() {
+				err := os.Setenv("KVM_EMULATION", "true")
+				Expect(err).NotTo(HaveOccurred())
+				defer os.Unsetenv("KVM_EMULATION")
+
+				expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+				Expect(expectedResource.Spec.UseKVM).To(BeFalse())
+			})
+
+			It("should request KVM if emulation value not set", func() {
+				err := os.Setenv("KVM_EMULATION", "")
+				Expect(err).NotTo(HaveOccurred())
+				defer os.Unsetenv("KVM_EMULATION")
+
+				expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+				Expect(expectedResource.Spec.UseKVM).To(BeTrue())
+			})
+		})
+
 		Context("KubeVirtTemplateValidator", func() {
 			var hco *hcov1alpha1.HyperConverged
 			var req *hcoRequest
@@ -1061,10 +1192,12 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedCNA.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cnas/%s", expectedCNA.Namespace, expectedCNA.Name)
 				expectedKVCTB := newKubeVirtCommonTemplateBundleForCR(hco, OpenshiftNamespace)
 				expectedKVCTB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedKVCTB.Namespace, expectedKVCTB.Name)
+				expectedKVNLB := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+				expectedKVNLB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/nlb/%s", expectedKVNLB.Namespace, expectedKVNLB.Name)
 				expectedKVTV := newKubeVirtTemplateValidatorForCR(hco, namespace)
 				expectedKVTV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/tv/%s", expectedKVTV.Namespace, expectedKVTV.Name)
 				// Add all of the objects to the client
-				cl := initClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVTV})
+				cl := initClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
 				r := initReconciler(cl)
 
 				// Do the reconcile
@@ -1185,11 +1318,14 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedKVCTB := newKubeVirtCommonTemplateBundleForCR(hco, OpenshiftNamespace)
 				expectedKVCTB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedKVCTB.Namespace, expectedKVCTB.Name)
 				expectedKVCTB.Status.Conditions = getGenericCompletedConditions()
+				expectedKVNLB := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+				expectedKVNLB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/nlb/%s", expectedKVNLB.Namespace, expectedKVNLB.Name)
+				expectedKVNLB.Status.Conditions = getGenericCompletedConditions()
 				expectedKVTV := newKubeVirtTemplateValidatorForCR(hco, namespace)
 				expectedKVTV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/tv/%s", expectedKVTV.Namespace, expectedKVTV.Name)
 				expectedKVTV.Status.Conditions = getGenericCompletedConditions()
 				// Add all of the objects to the client
-				cl := initClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVTV})
+				cl := initClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
 				r := initReconciler(cl)
 
 				// Do the reconcile
@@ -1298,6 +1434,23 @@ var _ = Describe("HyperconvergedController", func() {
 					checkAvailability(foundResource, corev1.ConditionTrue)
 				*/
 
+				// TODO: temporary avoid checking conditions on KubevirtNodeLabellerBundle because it's currently
+				// broken on k8s. Revert this when we will be able to fix it
+				/*
+					origConds = expected.kvNlb.Status.Conditions
+					expected.kvNlb.Status.Conditions = expected.cdi.Status.Conditions[1:]
+					cl = expected.initClient()
+					foundResource, requeue = doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, corev1.ConditionFalse)
+
+					expected.kvNlb.Status.Conditions = origConds
+					cl = expected.initClient()
+					foundResource, requeue = doReconcile(cl, expected.hco)
+					Expect(requeue).To(BeFalse())
+					checkAvailability(foundResource, corev1.ConditionTrue)
+				*/
+
 				// TODO: temporary avoid checking conditions on KubevirtTemplateValidator because it's currently
 				// broken on k8s. Revert this when we will be able to fix it
 				/*
@@ -1334,7 +1487,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(7))
+				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(8))
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 
 				// Now, delete HCO
@@ -1769,6 +1922,7 @@ type basicExpected struct {
 	cdi             *cdiv1alpha1.CDI
 	cna             *networkaddonsv1alpha1.NetworkAddonsConfig
 	kvCtb           *sspv1.KubevirtCommonTemplatesBundle
+	kvNlb           *sspv1.KubevirtNodeLabellerBundle
 	kvTv            *sspv1.KubevirtTemplateValidator
 }
 
@@ -1781,6 +1935,7 @@ func (be basicExpected) toArray() []runtime.Object {
 		be.cdi,
 		be.cna,
 		be.kvCtb,
+		be.kvNlb,
 		be.kvTv,
 	}
 }
@@ -1854,6 +2009,11 @@ func getBasicDeployment() *basicExpected {
 	expectedKVCTB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedKVCTB.Namespace, expectedKVCTB.Name)
 	expectedKVCTB.Status.Conditions = getGenericCompletedConditions()
 	res.kvCtb = expectedKVCTB
+
+	expectedKVNLB := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
+	expectedKVNLB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/nlb/%s", expectedKVNLB.Namespace, expectedKVNLB.Name)
+	expectedKVNLB.Status.Conditions = getGenericCompletedConditions()
+	res.kvNlb = expectedKVNLB
 
 	expectedKVTV := newKubeVirtTemplateValidatorForCR(hco, namespace)
 	expectedKVTV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/tv/%s", expectedKVTV.Namespace, expectedKVTV.Name)
