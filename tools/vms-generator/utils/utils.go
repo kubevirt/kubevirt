@@ -432,7 +432,7 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 	initFedora(&vm.Spec)
-	userData := "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nfor i in {1..20}; do curl -I %s | grep \"200 OK\" && break || sleep 0.1; done\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx"
+	userData := "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nfor i in {1..20}; do curl -I %s | grep \"200 OK\" && break || sleep 0.1; done\nyum install -y nginx\nsystemctl enable --now nginx"
 	networkData := "version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    gateway6: fd10:0:2::1\n"
 	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, userData, networkData)
 

@@ -49,6 +49,5 @@ spec:
         echo "fedora" |passwd fedora --stdin
         for i in {1..20}; do curl -I %s | grep "200 OK" && break || sleep 0.1; done
         yum install -y nginx
-        systemctl enable nginx
-        systemctl start nginx
+        systemctl enable --now nginx
     name: cloudinitdisk
