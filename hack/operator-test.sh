@@ -29,6 +29,7 @@ kubevirt_sed
 cdi_sed
 network_addons_sed
 ssp_sed
+vm_import_sed
 echo "Replaced image strings"
 
 set +e
@@ -43,6 +44,7 @@ VIRT_POD=`oc get pods -n kubevirt | grep virt-operator | head -1 | awk '{ print 
 CDI_POD=`oc get pods -n cdi | grep cdi-operator | head -1 | awk '{ print $1 }'`
 NETWORK_ADDONS_POD=`oc get pods -n cluster-network-addons-operator | grep cluster-network-addons-operator | head -1 | awk '{ print $1 }'`
 SSP_POD=`oc get pods -n kubevirt-hyperconverged | grep kubevirt-ssp-operator | head -1 | awk '{ print $1 }'`
+VM_IMPORT_POD=`oc get pods -n kubevirt-hyperconverged | grep vm-import-operator | head -1 | awk '{ print $1 }'`
 oc wait pod $VIRT_POD --for condition=Ready -n kubevirt --timeout="${WAIT_TIMEOUT}"
 oc wait pod $CDI_POD --for condition=Ready -n cdi --timeout="${WAIT_TIMEOUT}"
 oc wait pod $NETWORK_ADDONS_POD --for condition=Ready -n cluster-network-addons-operator --timeout="${WAIT_TIMEOUT}"
@@ -50,6 +52,7 @@ oc wait pod $SSP_POD --for condition=Ready -n kubevirt --timeout="${WAIT_TIMEOUT
 oc wait pod $VIRT_POD --for condition=Ready -n kubevirt --timeout="${WAIT_TIMEOUT}"
 oc wait pod $CDI_POD --for condition=Ready -n cdi --timeout="${WAIT_TIMEOUT}"
 oc wait pod $NETWORK_ADDONS_POD --for condition=Ready -n cluster-network-addons-operator --timeout="${WAIT_TIMEOUT}"
+oc wait pod $VM_IMPORT_POD --for condition=Ready -n kubevirt --timeout="${WAIT_TIMEOUT}"
 
 oc create -f ${TEMP_DIR}/crs
 

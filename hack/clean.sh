@@ -44,6 +44,9 @@ source hack/common.sh
 "${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-crd.yaml --ignore-not-found || true
 "${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator.yaml --ignore-not-found || true
 
+# Delete vm-import-operator
+"${CMD}" delete -f "${VM_IMPORT_URL_PREFIX}"/operator.yaml --ignore-not-found || true
+
 # Remove other settings
 "${CMD}" delete -f _out/cluster_role_binding.yaml --ignore-not-found || true
 "${CMD}" delete -f _out/cluster_role.yaml --ignore-not-found || true

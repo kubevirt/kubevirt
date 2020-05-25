@@ -4,7 +4,7 @@ kind: ClusterServiceVersion
 metadata:
   annotations:
     alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1alpha1","kind":"HyperConverged","metadata":{"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{"BareMetalPlatform":false}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1alpha1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"nmstate":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1alpha3","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtTemplateValidator","metadata":{"name":"kubevirt-template-validator","namespace":"kubevirt"},"spec":{"templateValidatorReplicas":2,"version":"v0.6.2"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtCommonTemplatesBundle","metadata":{"name":"kubevirt-common-template-bundle"},"spec":{"version":"v0.7.0"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtMetricsAggregation","metadata":{"name":"kubevirt-metrics-aggregation"},"spec":{"version":"v0.0.1"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtNodeLabellerBundle","metadata":{"name":"kubevirt-node-labeller-bundle"},"spec":{"version":"v0.1.1"}},{"apiVersion":"cdi.kubevirt.io/v1alpha1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"nodemaintenance.kubevirt.io/v1beta1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-xyz"},"spec":{"nodeName":"node02","reason":"Test
-      node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1alpha1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","pathConfig":{"path":"/var/hpvolumes","useNamingPrefix":"false"}}}]'
+      node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1alpha1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","pathConfig":{"path":"/var/hpvolumes","useNamingPrefix":"false"}}},{"apiVersion":"v2v.kubevirt.io/v1alpha1","kind":"VMImportConfig","metadata":{"name":"vm-import-operator-config"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
     capabilities: Full Lifecycle
     categories: OpenShift Optional
     certified: "false"
@@ -13,7 +13,7 @@ metadata:
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
-      Containerized Data Importer (CDI), and Cluster Network Addons (CNA) operators.
+      Containerized Data Importer (CDI), Virtual Machine import operator and Cluster Network Addons (CNA) operators.
 
       **KubeVirt** is a virtual machine management add-on for Kubernetes.
       The aim is to provide a common ground for virtualization solutions on top of
@@ -76,7 +76,7 @@ metadata:
       KubeVirt is distributed under the
       [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.txt).
     operatorframework.io/suggested-namespace: kubevirt-hyperconverged
-    operators.operatorframework.io/internal-objects: '["v2vvmwares.v2v.kubevirt.io","ovirtproviders.v2v.kubevirt.io","networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","kubevirtcommontemplatesbundles.ssp.kubevirt.io","kubevirtmetricsaggregations.ssp.kubevirt.io","kubevirtnodelabellerbundles.ssp.kubevirt.io","kubevirttemplatevalidators.ssp.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.nodemaintenance.kubevirt.io"]'
+    operators.operatorframework.io/internal-objects: '["v2vvmwares.v2v.kubevirt.io","ovirtproviders.v2v.kubevirt.io","networkaddonsconfigs.networkaddonsoperator.network.kubevirt.io","kubevirts.kubevirt.io","kubevirtcommontemplatesbundles.ssp.kubevirt.io","kubevirtmetricsaggregations.ssp.kubevirt.io","kubevirtnodelabellerbundles.ssp.kubevirt.io","kubevirttemplatevalidators.ssp.kubevirt.io","cdis.cdi.kubevirt.io","nodemaintenances.nodemaintenance.kubevirt.io","vmimportconfigs.v2v.kubevirt.io"]'
     repository: https://github.com/kubevirt/hyperconverged-cluster-operator
     support: "false"
   name: kubevirt-hyperconverged-operator.v1.1.0
@@ -144,10 +144,15 @@ spec:
       kind: HostPathProvisioner
       name: hostpathprovisioners.hostpathprovisioner.kubevirt.io
       version: v1alpha1
+    - description: Represents a virtual machine import config
+      displayName: Virtual Machine import config
+      kind: VMImportConfig
+      name: vmimportconfigs.v2v.kubevirt.io
+      version: v1alpha1
   description: |-
     **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
     Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
-    Containerized Data Importer (CDI), and Cluster Network Addons (CNA) operators.
+    Containerized Data Importer (CDI), Virtual Machine import operator and Cluster Network Addons (CNA) operators.
 
     **KubeVirt** is a virtual machine management add-on for Kubernetes.
     The aim is to provide a common ground for virtualization solutions on top of
@@ -243,6 +248,12 @@ spec:
           - '*'
         - apiGroups:
           - networkaddonsoperator.network.kubevirt.io
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - v2v.kubevirt.io
           resources:
           - '*'
           verbs:
@@ -1380,6 +1391,46 @@ spec:
           verbs:
           - get
         serviceAccountName: hostpath-provisioner-operator
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - events
+          - configmaps
+          - secrets
+          - serviceaccounts
+          verbs:
+          - '*'
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - deployments/finalizers
+          verbs:
+          - '*'
+        - apiGroups:
+          - v2v.kubevirt.io
+          resources:
+          - vmimportconfigs
+          - vmimportconfigs/finalizers
+          - vmimportconfigs/status
+          verbs:
+          - '*'
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - '*'
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterrolebindings
+          - clusterroles
+          verbs:
+          - '*'
+        serviceAccountName: vm-import-operator
       deployments:
       - name: hco-operator
         spec:
@@ -1711,6 +1762,42 @@ spec:
                 name: hostpath-provisioner-operator
                 resources: {}
               serviceAccountName: hostpath-provisioner-operator
+      - name: vm-import-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: vm-import-operator
+              operator.v2v.kubevirt.io: ""
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                name: vm-import-operator
+                operator.v2v.kubevirt.io: ""
+            spec:
+              containers:
+              - env:
+                - name: DEPLOY_CLUSTER_RESOURCES
+                  value: "true"
+                - name: OPERATOR_VERSION
+                  value: v0.0.2
+                - name: CONTROLLER_IMAGE
+                  value: quay.io/kubevirt/vm-import-controller:v0.0.2
+                - name: PULL_POLICY
+                  value: IfNotPresent
+                - name: WATCH_NAMESPACE
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                image: quay.io/kubevirt/vm-import-operator:v0.0.2
+                imagePullPolicy: IfNotPresent
+                name: vm-import-operator
+                resources: {}
+              securityContext:
+                runAsNonRoot: true
+              serviceAccountName: vm-import-operator
       permissions:
       - rules:
         - apiGroups:

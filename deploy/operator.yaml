@@ -370,3 +370,45 @@ spec:
         name: hostpath-provisioner-operator
         resources: {}
       serviceAccountName: hostpath-provisioner-operator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    name: vm-import-operator
+  name: vm-import-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: vm-import-operator
+      operator.v2v.kubevirt.io: ""
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        name: vm-import-operator
+        operator.v2v.kubevirt.io: ""
+    spec:
+      containers:
+      - env:
+        - name: DEPLOY_CLUSTER_RESOURCES
+          value: "true"
+        - name: OPERATOR_VERSION
+          value: v0.0.2
+        - name: CONTROLLER_IMAGE
+          value: quay.io/kubevirt/vm-import-controller:v0.0.2
+        - name: PULL_POLICY
+          value: IfNotPresent
+        - name: WATCH_NAMESPACE
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        image: quay.io/kubevirt/vm-import-operator:v0.0.2
+        imagePullPolicy: IfNotPresent
+        name: vm-import-operator
+        resources: {}
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: vm-import-operator

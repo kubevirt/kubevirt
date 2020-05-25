@@ -33,6 +33,7 @@ import (
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	version "github.com/kubevirt/hyperconverged-cluster-operator/version"
+	vmimportv1alpha1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	objectreferencesv1 "github.com/openshift/custom-resource-status/objectreferences/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -133,6 +134,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&sspv1.KubevirtTemplateValidator{},
 		&sspv1.KubevirtMetricsAggregation{},
 		&schedulingv1.PriorityClass{},
+		&vmimportv1alpha1.VMImportConfig{},
 	} {
 		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestsFromMapFunc{
 			ToRequests: handler.ToRequestsFunc(
@@ -419,6 +421,7 @@ func (r *ReconcileHyperConverged) ensureHco(req *hcoRequest) error {
 		r.ensureKubeVirtTemplateValidator,
 		r.ensureKubeVirtMetricsAggregation,
 		r.ensureIMSConfig,
+		r.ensureVMImport,
 	} {
 		err := f(req)
 		if err != nil {
@@ -1258,6 +1261,55 @@ func (r *ReconcileHyperConverged) ensureIMSConfig(req *hcoRequest) error {
 
 	// TODO: Handle conditions
 	return r.client.Status().Update(req.ctx, req.instance)
+}
+
+func (r *ReconcileHyperConverged) ensureVMImport(req *hcoRequest) error {
+	vmImport := newVMImportForCR(req.instance, req.Namespace)
+	if err := controllerutil.SetControllerReference(req.instance, vmImport, r.scheme); err != nil {
+		return err
+	}
+
+	key := client.ObjectKey{Namespace: "", Name: vmImport.GetName()}
+
+	found := &vmimportv1alpha1.VMImportConfig{}
+	err := r.client.Get(req.ctx, key, found)
+	if err != nil && apierrors.IsNotFound(err) {
+		req.logger.Info("Creating vm import")
+		return r.client.Create(req.ctx, vmImport)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	req.logger.Info("VM import exists", "vmImport.Namespace", found.Namespace, "vmImport.Name", found.Name)
+
+	// Add it to the list of RelatedObjects if found
+	objectRef, err := reference.GetReference(r.scheme, found)
+	if err != nil {
+		return err
+	}
+	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
+
+	// Handle VMimport resource conditions
+	handleComponentConditions(r, req, "VMimport", found.Status.Conditions)
+
+	return r.client.Status().Update(req.ctx, req.instance)
+}
+
+// newVMImportForCR returns a VM import CR
+func newVMImportForCR(cr *hcov1alpha1.HyperConverged, namespace string) *vmimportv1alpha1.VMImportConfig {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+
+	return &vmimportv1alpha1.VMImportConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "vmimport-" + cr.Name,
+			Labels:    labels,
+			Namespace: namespace,
+		},
+	}
 }
 
 func newKubeVirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtTemplateValidator {

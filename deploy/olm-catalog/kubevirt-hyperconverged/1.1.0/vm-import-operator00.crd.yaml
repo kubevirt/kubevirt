@@ -1,0 +1,86 @@
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    operator.v2v.kubevirt.io: ""
+  name: vmimportconfigs.v2v.kubevirt.io
+spec:
+  group: v2v.kubevirt.io
+  names:
+    categories:
+    - all
+    kind: VMImportConfig
+    listKind: VMImportConfigList
+    plural: vmimportconfigs
+    singular: vmimportconfig
+  scope: Cluster
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: VMImportConfig is the Schema for the vmimportconfigs API
+      properties:
+        apiVersion:
+          description: APIVersion defines the versioned schema of this representation
+            of an object
+          type: string
+        kind:
+          description: Kind is a string value representing the REST resource this
+            object represents
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: VMImportConfigSpec defines the desired state of VMImportConfig
+          properties:
+            imagePullPolicy:
+              enum:
+              - Always
+              - IfNotPresent
+              - Never
+              type: string
+          type: object
+        status:
+          description: VMImportConfigStatus defines the observed state of VMImportConfig
+          properties:
+            conditions:
+              description: A list of current conditions of the VMImportConfig resource
+              items:
+                properties:
+                  lastHeartbeatTime:
+                    description: Last time the state of the condition was checked
+                    format: date-time
+                    type: string
+                  lastTransitionTime:
+                    description: Last time the state of the condition changed
+                    format: date-time
+                    type: string
+                  message:
+                    description: Message related to the last condition change
+                    type: string
+                  reason:
+                    description: Reason the last condition changed
+                    type: string
+                  status:
+                    description: Current status of the condition, True, False, Unknown
+                    type: string
+                type: object
+              type: array
+            observedVersion:
+              description: The observed version of the VMImportConfig resource
+              type: string
+            operatorVersion:
+              description: The version of the VMImportConfig resource as defined by
+                the operator
+              type: string
+            targetVersion:
+              description: The desired version of the VMImportConfig resource
+              type: string
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true

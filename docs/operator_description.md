@@ -1,6 +1,6 @@
 **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
 Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
-Containerized Data Importer (CDI), and Cluster Network Addons (CNA) operators.
+Containerized Data Importer (CDI), Virtual Machine import operator and Cluster Network Addons (CNA) operators.
 
 **KubeVirt** is a virtual machine management add-on for Kubernetes.
 The aim is to provide a common ground for virtualization solutions on top of

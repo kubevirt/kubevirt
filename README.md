@@ -121,7 +121,7 @@ EOF
 ```
 
 Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt,
-CDI, Network-addons, and SSP.
+CDI, Network-addons, VM import and SSP.
 ```bash
 kubectl create -f deploy/hco.cr.yaml -n kubevirt-hyperconverged
 ```

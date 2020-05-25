@@ -49,6 +49,7 @@ HPPO_IMAGE="${HPP_IMAGE:-quay.io/kubevirt/hostpath-provisioner-operator:${HPPO_V
 HPP_IMAGE="${HPP_IMAGE:-quay.io/kubevirt/hostpath-provisioner:${HPP_VERSION}}"
 CONVERSION_CONTAINER="${CONVERSION_CONTAINER:-quay.io/kubevirt/kubevirt-v2v-conversion:${CONVERSION_CONTAINER_VERSION}}"
 VMWARE_CONTAINER="${VMWARE_CONTAINER:-quay.io/kubevirt/kubevirt-vmware:${VMWARE_CONTAINER_VERSION}}"
+VM_IMPORT_IMAGE="${VM_IMPORT_IMAGE:-quay.io/kubevirt/vm-import-operator:${VM_IMPORT_VERSION}}"
 
 # Important extensions
 CSV_EXT="clusterserviceversion.yaml"
@@ -184,6 +185,25 @@ function create_hpp_csv() {
   echo "${operatorName}"
 }
 
+function create_vm_import_csv() {
+  local operatorName="vm-import-operator"
+  local imagePullUrl="${VM_IMPORT_IMAGE}"
+  local containerPrefix="${VM_IMPORT_IMAGE%/*}"
+  local tag="${VM_IMPORT_IMAGE/*:/}"
+  local dumpCRDsArg="--dump-crds"
+  local operatorArgs=" \
+    --csv-version=${CSV_VERSION} \
+    --operator-version=${tag} \
+    --operator-image=${VM_IMPORT_IMAGE} \
+    --controller-image=${containerPrefix}/vm-import-controller:${tag} \
+    --namespace=${OPERATOR_NAMESPACE} \
+    --pull-policy=IfNotPresent \
+  "
+
+  gen_csv ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}
+  echo "${operatorName}"
+}
+
 TEMPDIR=$(mktemp -d) || (echo "Failed to create temp directory" && exit 1)
 pushd $TEMPDIR
 virtCsv="${TEMPDIR}/$(create_virt_csv).${CSV_EXT}"
@@ -192,6 +212,7 @@ sspCsv="${TEMPDIR}/$(create_ssp_csv).${CSV_EXT}"
 cdiCsv="${TEMPDIR}/$(create_cdi_csv).${CSV_EXT}"
 nmoCsv="${TEMPDIR}/$(create_nmo_csv).${CSV_EXT}"
 hppCsv="${TEMPDIR}/$(create_hpp_csv).${CSV_EXT}"
+importCsv="${TEMPDIR}/$(create_vm_import_csv).${CSV_EXT}"
 csvOverrides="${TEMPDIR}/csv_overrides.${CSV_EXT}"
 cat > ${csvOverrides} <<- EOM
 ---
@@ -240,6 +261,7 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --cdi-csv="$(<${cdiCsv})" \
   --nmo-csv="$(<${nmoCsv})" \
   --hpp-csv="$(<${hppCsv})" \
+  --vmimport-csv="$(<${importCsv})" \
   --ims-conversion-image-name="${CONVERSION_CONTAINER}" \
   --ims-vmware-image-name="${VMWARE_CONTAINER}" \
   --operator-namespace="${OPERATOR_NAMESPACE}" \
@@ -256,6 +278,7 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --cdi-csv="$(<${cdiCsv})" \
   --nmo-csv="$(<${nmoCsv})" \
   --hpp-csv="$(<${hppCsv})" \
+  --vmimport-csv="$(<${importCsv})" \
   --ims-conversion-image-name="${CONVERSION_CONTAINER}" \
   --ims-vmware-image-name="${VMWARE_CONTAINER}" \
   --csv-version=${CSV_VERSION} \

@@ -205,6 +205,17 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		},
 		{
 			APIGroups: []string{
+				"v2v.kubevirt.io",
+			},
+			Resources: []string{
+				"*",
+			},
+			Verbs: []string{
+				"*",
+			},
+		},
+		{
+			APIGroups: []string{
 				"machineremediation.kubevirt.io",
 			},
 			Resources: []string{

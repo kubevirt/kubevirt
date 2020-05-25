@@ -25,12 +25,13 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 
 	"github.com/blang/semver"
 	"github.com/ghodss/yaml"
@@ -77,6 +78,7 @@ var (
 	cdiCsv              = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
 	nmoCsv              = flag.String("nmo-csv", "", "Node Maintenance Operator CSV String")
 	hppCsv              = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
+	vmImportCsv         = flag.String("vmimport-csv", "", "Virtual Machine Import Operator CSV String")
 	operatorImage       = flag.String("operator-image-name", "", "HyperConverged Cluster Operator image")
 	imsConversionImage  = flag.String("ims-conversion-image-name", "", "IMS conversion image")
 	imsVMWareImage      = flag.String("ims-vmware-image-name", "", "IMS VMWare image")
@@ -180,7 +182,8 @@ func validateNoApiOverlap(crdDir string) bool {
 				if stringInSlice(apigroup, crdMap[comparedOperator]) {
 					overlappingOperators := []string{operator, comparedOperator}
 					for _, o := range overlappingOperators {
-						if !stringInSlice(o, overlapsMap[apigroup]) {
+						// We work on replacement for current v2v. Remove this check when vmware import is removed
+						if !stringInSlice(o, overlapsMap[apigroup]) && apigroup != "v2v.kubevirt.io" {
 							overlapsMap[apigroup] = append(overlapsMap[apigroup], o)
 						}
 					}
@@ -227,6 +230,7 @@ func main() {
 			*cdiCsv,
 			*nmoCsv,
 			*hppCsv,
+			*vmImportCsv,
 		}
 
 		version := semver.MustParse(*csvVersion)

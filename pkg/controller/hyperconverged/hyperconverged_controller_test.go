@@ -4,16 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 	"os"
 	"time"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
+	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
 	k8sTime "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -1049,6 +1051,50 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(r.ensureIMSConfig(req)).ToNot(BeNil())
 			})
 		})
+
+		Context("Vm Import", func() {
+
+			var hco *hcov1alpha1.HyperConverged
+			var req *hcoRequest
+
+			BeforeEach(func() {
+				hco = newHco()
+				req = newReq(hco)
+			})
+
+			It("should create if not present", func() {
+				expectedResource := newVMImportForCR(hco, namespace)
+				cl := initClient([]runtime.Object{})
+				r := initReconciler(cl)
+
+				Expect(r.ensureVMImport(req)).To(BeNil())
+
+				foundResource := &vmimportv1.VMImportConfig{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						foundResource),
+				).To(BeNil())
+				Expect(foundResource.Name).To(Equal(expectedResource.Name))
+				Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
+				Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
+			})
+
+			It("should find if present", func() {
+				expectedResource := newVMImportForCR(hco, namespace)
+				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/vmimportconfigs/%s", expectedResource.Namespace, expectedResource.Name)
+				cl := initClient([]runtime.Object{hco, expectedResource})
+				r := initReconciler(cl)
+				Expect(r.ensureVMImport(req)).To(BeNil())
+
+				// Check HCO's status
+				Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+				objectRef, err := reference.GetReference(r.scheme, expectedResource)
+				Expect(err).To(BeNil())
+				// ObjectReference should have been added
+				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+			})
+		})
 	})
 
 	Describe("Reconcile HyperConverged", func() {
@@ -1924,6 +1970,7 @@ type basicExpected struct {
 	kvCtb           *sspv1.KubevirtCommonTemplatesBundle
 	kvNlb           *sspv1.KubevirtNodeLabellerBundle
 	kvTv            *sspv1.KubevirtTemplateValidator
+	vmi             *vmimportv1.VMImportConfig
 }
 
 func (be basicExpected) toArray() []runtime.Object {
@@ -1937,6 +1984,7 @@ func (be basicExpected) toArray() []runtime.Object {
 		be.kvCtb,
 		be.kvNlb,
 		be.kvTv,
+		be.vmi,
 	}
 }
 
@@ -2019,6 +2067,11 @@ func getBasicDeployment() *basicExpected {
 	expectedKVTV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/tv/%s", expectedKVTV.Namespace, expectedKVTV.Name)
 	expectedKVTV.Status.Conditions = getGenericCompletedConditions()
 	res.kvTv = expectedKVTV
+
+	expectedVMI := newVMImportForCR(hco, namespace)
+	expectedVMI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/vmimportconfigs/%s", expectedVMI.Namespace, expectedVMI.Name)
+	expectedVMI.Status.Conditions = getGenericCompletedConditions()
+	res.vmi = expectedVMI
 
 	return res
 }
@@ -2107,6 +2160,7 @@ func initReconciler(client client.Client) *ReconcileHyperConverged {
 		cdiv1alpha1.AddToScheme,
 		networkaddons.AddToScheme,
 		sspopv1.AddToScheme,
+		vmimportv1.AddToScheme,
 	} {
 		Expect(f(s)).To(BeNil())
 	}

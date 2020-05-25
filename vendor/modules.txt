@@ -25,7 +25,7 @@ github.com/davecgh/go-spew/spew
 # github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c
 github.com/docker/spdystream
 github.com/docker/spdystream/spdy
-# github.com/emicklei/go-restful v2.10.0+incompatible
+# github.com/emicklei/go-restful v2.11.1+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log
 # github.com/evanphx/json-patch v4.5.0+incompatible
@@ -50,7 +50,7 @@ github.com/go-openapi/analysis/internal
 github.com/go-openapi/errors
 # github.com/go-openapi/jsonpointer v0.19.3
 github.com/go-openapi/jsonpointer
-# github.com/go-openapi/jsonreference v0.19.2
+# github.com/go-openapi/jsonreference v0.19.3
 github.com/go-openapi/jsonreference
 # github.com/go-openapi/loads v0.19.2
 github.com/go-openapi/loads
@@ -67,7 +67,7 @@ github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
 # github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 github.com/golang/glog
-# github.com/golang/groupcache v0.0.0-20190702054246-869f871628b6
+# github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9
 github.com/golang/groupcache/lru
 # github.com/golang/mock v1.3.1
 github.com/golang/mock/gomock
@@ -123,7 +123,9 @@ github.com/kr/logfmt
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1
 github.com/kubevirt/cluster-network-addons-operator/pkg/names
-# github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e
+# github.com/kubevirt/vm-import-operator v0.0.2-0.20200506145247-c753eb7a2259
+github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1
+# github.com/mailru/easyjson v0.7.0
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
@@ -161,7 +163,7 @@ github.com/onsi/ginkgo/reporters/stenographer
 github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
 github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
 github.com/onsi/ginkgo/types
-# github.com/onsi/gomega v1.9.0
+# github.com/onsi/gomega v1.10.0
 github.com/onsi/gomega
 github.com/onsi/gomega/format
 github.com/onsi/gomega/internal/assertion
@@ -174,7 +176,7 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/openshift/api v3.9.1-0.20190424152011-77b8897ec79a+incompatible => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
+# github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 github.com/openshift/api/security/v1
 # github.com/openshift/client-go v0.0.0 => github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
 github.com/openshift/client-go/security/clientset/versioned/scheme
@@ -294,7 +296,7 @@ golang.org/x/xerrors
 golang.org/x/xerrors/internal
 # gomodules.xyz/jsonpatch/v2 v2.0.1
 gomodules.xyz/jsonpatch/v2
-# google.golang.org/appengine v1.5.0
+# google.golang.org/appengine v1.6.5
 google.golang.org/appengine
 google.golang.org/appengine/internal
 google.golang.org/appengine/internal/app_identity
@@ -305,7 +307,7 @@ google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
+# google.golang.org/genproto v0.0.0-20191028173616-919d9bdd9fe6
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.27.0
 google.golang.org/grpc
@@ -637,7 +639,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# kubevirt.io/client-go v0.26.0 => kubevirt.io/client-go v0.26.0
+# kubevirt.io/client-go v0.26.2 => kubevirt.io/client-go v0.26.0
 kubevirt.io/client-go/api/v1
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme

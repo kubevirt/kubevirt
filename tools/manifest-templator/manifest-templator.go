@@ -45,6 +45,7 @@ var (
 	cdiCsv             = flag.String("cdi-csv", "", "Containerized Data Importer CSV String")
 	nmoCsv             = flag.String("nmo-csv", "", "Node Maintenance Operator CSV String")
 	hppCsv             = flag.String("hpp-csv", "", "HostPath Provisioner Operator CSV String")
+	vmImportCsv        = flag.String("vmimport-csv", "", "Virtual Machine Import Operator CSV String")
 	operatorNamespace  = flag.String("operator-namespace", "kubevirt-hyperconverged", "Name of the Operator")
 	operatorImage      = flag.String("operator-image", "", "HyperConverged Cluster Operator image")
 	imsConversionImage = flag.String("ims-conversion-image-name", "", "IMS conversion image")
@@ -98,6 +99,7 @@ func main() {
 		*cdiCsv,
 		*nmoCsv,
 		*hppCsv,
+		*vmImportCsv,
 	}
 
 	// these represent the bare necessities for the HCO manifests, that is,

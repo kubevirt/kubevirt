@@ -10,8 +10,9 @@ require (
 	github.com/go-openapi/spec v0.19.7
 	github.com/imdario/mergo v0.3.8
 	github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200512200059-2229227b9dac
+	github.com/kubevirt/vm-import-operator v0.0.2-0.20200506145247-c753eb7a2259
 	github.com/onsi/ginkgo v1.12.0
-	github.com/onsi/gomega v1.9.0
+	github.com/onsi/gomega v1.10.0
 	github.com/openshift/custom-resource-status v0.0.0-20190822192428-e62f2f3b79f3
 	github.com/operator-framework/api v0.3.5
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20200321030439-57b580e57e88
@@ -22,7 +23,7 @@ require (
 	k8s.io/apimachinery v0.18.2
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20200204173128-addea2498afe
-	kubevirt.io/client-go v0.26.0
+	kubevirt.io/client-go v0.26.2
 	kubevirt.io/containerized-data-importer v1.17.0
 	kubevirt.io/kubevirt v0.28.0
 	sigs.k8s.io/controller-runtime v0.6.0
