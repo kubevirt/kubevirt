@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -42,6 +43,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -691,27 +693,44 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("VirtualMachineInstance with masquerade binding mechanism", func() {
+		const (
+			defaultCIDR = false
+			customCIDR  = true
+		)
+
 		var serverVMI *v1.VirtualMachineInstance
 		var clientVMI *v1.VirtualMachineInstance
 
-		masqueradeVMI := func(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
+		masqueradeVMI := func(Ports []v1.Port, ipv4NetworkCIDR string) *v1.VirtualMachineInstance {
+			containerImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
+			userData := "#!/bin/bash\necho 'hello'\n"
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			net := v1.DefaultPodNetwork()
+			if ipv4NetworkCIDR != "" {
+				net.NetworkSource.Pod.VMNetworkCIDR = ipv4NetworkCIDR
+			}
+			vmi.Spec.Networks = []v1.Network{*net}
 
 			return vmi
 		}
 
-		table.DescribeTable("[test_id:1780]should allow regular network connection", func(ports []v1.Port) {
+		table.DescribeTable("[test_id:1780]should allow regular network connection", func(ports []v1.Port, withCustomCIDR bool) {
+			var ipv4NetworkCIDR string
+
+			if withCustomCIDR {
+				ipv4NetworkCIDR = "10.10.10.0/24"
+			}
+
 			// Create the client only one time
 			if clientVMI == nil {
-				clientVMI = masqueradeVMI(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", []v1.Port{})
+				clientVMI = masqueradeVMI([]v1.Port{}, ipv4NetworkCIDR)
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
 			}
 
-			serverVMI = masqueradeVMI(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+			serverVMI = masqueradeVMI(ports, ipv4NetworkCIDR)
 			serverVMI.Labels = map[string]string{"expose": "server"}
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
 			Expect(err).ToNot(HaveOccurred())
@@ -722,66 +741,44 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(serverVMI.Status.Interfaces)).To(Equal(1))
 
-			if netutils.IsIPv6String(serverVMI.Status.Interfaces[0].IP) {
+			serverIP := serverVMI.Status.Interfaces[0].IP
+			if netutils.IsIPv6String(serverIP) {
 				By("Checking traceroute from vmi to cluster nodes gateway")
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition https://bit.ly/2wZTgMK
-				err := tests.CheckForTextExpecter(serverVMI, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: "\\$ "},
-					&expect.BSnd{S: "traceroute -6 2001:db8:1::1 -w1 > tr\n"},
-					&expect.BExp{R: "\\$ "},
-					&expect.BSnd{S: "cat tr | grep -q \"*\\|!\"\n"},
-					&expect.BExp{R: "\\$ "},
-					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: "1"},
-				}, 180)
-
+				err := tests.CheckForTextExpecter(serverVMI, createExpectTraceroute6("2001:db8:1::1"), 30)
 				Expect(err).ToNot(HaveOccurred(), "Failed to traceroute to VMI %s within the given timeout", serverVMI.Name)
 			} else {
+				if ipv4NetworkCIDR == "" {
+					ipv4NetworkCIDR = api.DefaultVMCIDR
+				}
+				By("Checking ping to gateway")
+				pingVirtualMachine(serverVMI, gatewayIPFromCIDR(ipv4NetworkCIDR), "\\$ ")
+
 				By("Checking ping to google")
 				pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
 				pingVirtualMachine(clientVMI, "google.com", "\\$ ")
 			}
 
 			By("starting a tcp server")
-			err = tests.CheckForTextExpecter(serverVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "screen -d -m sudo nc -klp 8080 -e echo -e 'Hello World!'\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: "0"},
-			}, 30)
+			tcpPort := "8080"
+			err = tests.CheckForTextExpecter(serverVMI, createExpectStartTcpServer(tcpPort), 30)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Connecting from the client vm")
-			err = tests.CheckForTextExpecter(clientVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: fmt.Sprintf("echo test | nc %s 8080 -i 1 -w 1 1> /dev/null\n", serverVMI.Status.Interfaces[0].IP)},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: "0"},
-			}, 30)
+			err = tests.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, tcpPort, true), 30)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Rejecting the connection from the client to unregistered port")
-			err = tests.CheckForTextExpecter(clientVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: fmt.Sprintf("echo test | nc %s 8081 -i 1 -w 1 1> /dev/null\n", serverVMI.Status.Interfaces[0].IP)},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: "1"},
-			}, 30)
+			err = tests.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, "8081", false), 30)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(serverVMI.Name, &v13.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-		}, table.Entry("with a specific port number", []v1.Port{{Name: "http", Port: 8080}}),
-			table.Entry("without a specific port number", []v1.Port{}),
+		}, table.Entry("with a specific port number", []v1.Port{{Name: "http", Port: 8080}}, defaultCIDR),
+			table.Entry("without a specific port number", []v1.Port{}, defaultCIDR),
+			table.Entry("with custom CIDR", []v1.Port{}, customCIDR),
 		)
 	})
 
@@ -862,4 +859,52 @@ func NewRandomVMIWithInvalidNetworkInterface() *v1.VirtualMachineInstance {
 	tests.AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].Model = "gibberish"
 	return vmi
+}
+
+func createExpectTraceroute6(address string) []expect.Batcher {
+	return []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "traceroute -6 " + address + " -w1 > tr\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "cat tr | grep -q \"*\\|!\"\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "1"},
+	}
+}
+
+func createExpectStartTcpServer(port string) []expect.Batcher {
+	return []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "screen -d -m sudo nc -klp " + port + " -e echo -e 'Hello World!'\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
+	}
+}
+
+func createExpectConnectToServer(serverIP, tcpPort string, expectSuccess bool) []expect.Batcher {
+	expectResult := "1"
+	if expectSuccess {
+		expectResult = "0"
+	}
+	return []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: fmt.Sprintf("echo test | nc %s %s -i 1 -w 1 1> /dev/null\n", serverIP, tcpPort)},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: expectResult},
+	}
+}
+
+// gatewayIpFromCIDR returns the first address of a network.
+func gatewayIPFromCIDR(cidr string) string {
+	ip, ipnet, _ := net.ParseCIDR(cidr)
+	ip = ip.Mask(ipnet.Mask)
+	oct := len(ip) - 1
+	ip[oct]++
+	return ip.String()
 }
