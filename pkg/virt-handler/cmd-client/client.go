@@ -65,7 +65,6 @@ var (
 )
 
 const StandardLauncherSocketFileName = "launcher-sock"
-const StandardLauncherInfoFileName = "launcher-info"
 const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 
 type MigrationOptions struct {
