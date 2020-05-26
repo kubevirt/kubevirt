@@ -122,7 +122,7 @@ var _ = Describe("DataVolume Integration", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					return dv.Status.Phase
-				}, 10*time.Second, 1*time.Second).
+				}, 30*time.Second, 1*time.Second).
 					Should(Equal(cdiv1.ImportInProgress), "Timed out waiting for DataVolume to enter ImportInProgress phase")
 			}
 
