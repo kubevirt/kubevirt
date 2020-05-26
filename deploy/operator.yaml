@@ -91,15 +91,15 @@ spec:
         - name: OVS_MARKER_IMAGE
           value: quay.io/kubevirt/ovs-cni-marker:v0.11.0
         - name: KUBEMACPOOL_IMAGE
-          value: quay.io/kubevirt/kubemacpool:v0.8.3
+          value: quay.io/kubevirt/kubemacpool:v0.13.0
         - name: MACVTAP_CNI_IMAGE
           value: quay.io/kubevirt/macvtap-cni:v0.2.0
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator:0.36.0
+          value: quay.io/kubevirt/cluster-network-addons-operator:0.37.0
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_VERSION
-          value: 0.36.0
+          value: 0.37.0
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -113,7 +113,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: WATCH_NAMESPACE
-        image: quay.io/kubevirt/cluster-network-addons-operator:0.36.0
+        image: quay.io/kubevirt/cluster-network-addons-operator:0.37.0
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources: {}
