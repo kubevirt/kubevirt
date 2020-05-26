@@ -133,6 +133,9 @@ var _ = Describe("Multus", func() {
 			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "linux-bridge-net-vlan100")).
 			Body([]byte(fmt.Sprintf(linuxBridgeConfCRD, "linux-bridge-net-vlan100", tests.NamespaceTestDefault))).
 			Do()
+		if result.Error() != nil && errors.IsNotFound(result.Error()) {
+			Expect(result.Error()).NotTo(HaveOccurred(), "Network attachment definition is missing. Install it or skip this suite.")
+		}
 		Expect(result.Error()).NotTo(HaveOccurred())
 
 		// Create ptp crds with tuning plugin enabled in two different namespaces
