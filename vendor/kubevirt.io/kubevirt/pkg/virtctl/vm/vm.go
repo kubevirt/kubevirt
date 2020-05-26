@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"strings"
 
+	v1 "kubevirt.io/client-go/api/v1"
+
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -35,6 +37,7 @@ const (
 	COMMAND_STOP    = "stop"
 	COMMAND_RESTART = "restart"
 	COMMAND_MIGRATE = "migrate"
+	COMMAND_RENAME  = "rename"
 )
 
 var (
@@ -104,12 +107,33 @@ func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return cmd
 }
 
+func NewRenameCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "rename [vm_name] [new_vm_name]",
+		Short:   "Rename a stopped virtual machine.",
+		Example: usage(COMMAND_RENAME),
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_RENAME, clientConfig: clientConfig}
+			return c.Run(cmd, args)
+		},
+	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
+}
+
 type Command struct {
 	clientConfig clientcmd.ClientConfig
 	command      string
 }
 
 func usage(cmd string) string {
+	if cmd == COMMAND_RENAME {
+		usage := "	# rename a virtual machine called 'myvm' to 'notmyvm'\n"
+		usage += fmt.Sprintf("	{{ProgramName}} %s myvm notmyvm", cmd)
+		return usage
+	}
+
 	usage := fmt.Sprintf("  # %s a virtual machine called 'myvm':\n", strings.Title(cmd))
 	usage += fmt.Sprintf("  {{ProgramName}} %s myvm", cmd)
 	return usage
@@ -163,6 +187,11 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		err = virtClient.VirtualMachine(namespace).Migrate(vmiName)
 		if err != nil {
 			return fmt.Errorf("Error migrating VirtualMachine %v", err)
+		}
+	case COMMAND_RENAME:
+		err = virtClient.VirtualMachine(namespace).Rename(vmiName, &v1.RenameOptions{NewName: args[1]})
+		if err != nil {
+			return fmt.Errorf("Error renaming VirtualMachine %v", err)
 		}
 	}
 

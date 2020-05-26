@@ -25,6 +25,7 @@ import (
 	"os"
 
 	k8sv1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -52,8 +53,6 @@ const (
 	VmiWithHookSidecar   = "vmi-with-sidecar-hook"
 	VmiMultusPtp         = "vmi-multus-ptp"
 	VmiMultusMultipleNet = "vmi-multus-multiple-net"
-	VmiGeniePtp          = "vmi-genie-ptp"
-	VmiGenieMultipleNet  = "vmi-genie-multiple-net"
 	VmiHostDisk          = "vmi-host-disk"
 	VmiGPU               = "vmi-gpu"
 	VmTemplateFedora     = "vm-template-fedora"
@@ -62,9 +61,15 @@ const (
 )
 
 const (
+	Preemtible    = "preemtible"
+	NonPreemtible = "non-preemtible"
+)
+
+const (
 	VmCirros           = "vm-cirros"
 	VmAlpineMultiPvc   = "vm-alpine-multipvc"
 	VmAlpineDataVolume = "vm-alpine-datavolume"
+	VMPriorityClass    = "vm-priorityclass"
 )
 
 const VmiReplicaSetCirros = "vmi-replicaset-cirros"
@@ -120,6 +125,12 @@ func getBaseVMI(name string) *v1.VirtualMachineInstance {
 		},
 		Spec: *baseVMISpec,
 	}
+}
+
+func initFedoraWithDisk(spec *v1.VirtualMachineInstanceSpec, containerDisk string) *v1.VirtualMachineInstanceSpec {
+	addContainerDisk(spec, containerDisk, busVirtio)
+	addRNG(spec)
+	return spec
 }
 
 func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
@@ -374,7 +385,7 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
+	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nip -6 addr add fd2e:f1fe:9490:a8ff::2/120 dev eth0\nsleep 5\nip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
 
 	masquerade := &v1.InterfaceMasquerade{}
 	ports := []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80}}
@@ -421,39 +432,6 @@ func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
 	return vm
 }
 
-func GetVMIGeniePtp() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiGeniePtp)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{
-		{Name: "ptp", NetworkSource: v1.NetworkSource{Genie: &v1.GenieNetwork{NetworkName: "ptp"}}},
-	}
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
-
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
-		{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-	}
-
-	return vm
-}
-
-func GetVMIGenieMultipleNet() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiGenieMultipleNet)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{
-		{Name: "default", NetworkSource: v1.NetworkSource{Genie: &v1.GenieNetwork{NetworkName: "flannel"}}},
-		{Name: "ptp", NetworkSource: v1.NetworkSource{Genie: &v1.GenieNetwork{NetworkName: "ptp"}}},
-	}
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\ndhclient eth1\n")
-
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
-		{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-		{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-	}
-
-	return vm
-}
 func GetVMINoCloud() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiNoCloud)
 
@@ -513,7 +491,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 					Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
 				},
 			},
-			Machine: v1.Machine{Type: "q35"},
+			Machine: v1.Machine{Type: ""},
 			Clock: &v1.Clock{
 				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
 				Timer: &v1.Timer{
@@ -568,6 +546,45 @@ func getBaseVM(name string, labels map[string]string) *v1.VirtualMachine {
 	}
 }
 
+func GetPreemtible() *schedulingv1.PriorityClass {
+	preemtionPolicy := k8sv1.PreemptLowerPriority
+	pc := schedulingv1.PriorityClass{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: schedulingv1.SchemeGroupVersion.String(),
+			Kind:       "PriorityClass",
+		},
+		GlobalDefault:    false,
+		Description:      "Priority class for VMs which are allowed to be preemtited.",
+		PreemptionPolicy: &preemtionPolicy,
+		Value:            1000000,
+	}
+	pc.ObjectMeta.Name = "preemtible"
+	return &pc
+}
+
+func GetNonPreemtible() *schedulingv1.PriorityClass {
+	preemtionPolicy := k8sv1.PreemptNever
+	pc := schedulingv1.PriorityClass{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: schedulingv1.SchemeGroupVersion.String(),
+			Kind:       "PriorityClass",
+		},
+		GlobalDefault:    false,
+		Description:      "Priority class for VMs which should not be preemtited.",
+		PreemptionPolicy: &preemtionPolicy,
+		Value:            999999999,
+	}
+	pc.ObjectMeta.Name = "non-preemtible"
+	return &pc
+}
+
+func GetVMPriorityClass() *v1.VirtualMachine {
+	vm := GetVMCirros()
+	vm.Spec.Template.Spec.PriorityClassName = "non-preemtible"
+	vm.ObjectMeta.Name = "vm-non-preemtible"
+	return vm
+}
+
 func GetVMCirros() *v1.VirtualMachine {
 	vm := getBaseVM(VmCirros, map[string]string{
 		"kubevirt.io/vm": VmCirros,
@@ -578,10 +595,15 @@ func GetVMCirros() *v1.VirtualMachine {
 	return vm
 }
 
-func GetTemplateFedora() *Template {
+func GetTemplateFedoraWithContainerDisk(containerDisk string) *Template {
+	vm := getFedoraVMWithoutDisk()
+	initFedoraWithDisk(&vm.Spec.Template.Spec, containerDisk)
+	return createFedoraTemplateFromVM(vm)
+}
+
+func getFedoraVMWithoutDisk() *v1.VirtualMachine {
 	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "fedora27"})
 	spec := &vm.Spec.Template.Spec
-	initFedora(spec)
 	addNoCloudDiskWitUserData(spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
 	setDefaultNetworkAndInterface(spec, v1.InterfaceBindingMethod{
@@ -593,6 +615,10 @@ func GetTemplateFedora() *Template {
 
 	enableNetworkInterfaceMultiqueue(spec, enableNetworkInterfaceMultiqueueForTemplate)
 
+	return vm
+}
+
+func createFedoraTemplateFromVM(vm *v1.VirtualMachine) *Template {
 	template := getBaseTemplate(vm, "4096Mi", "4")
 	template.ObjectMeta = metav1.ObjectMeta{
 		Name: VmTemplateFedora,
@@ -607,6 +633,12 @@ func GetTemplateFedora() *Template {
 		},
 	}
 	return template
+}
+
+func GetTemplateFedora() *Template {
+	vm := getFedoraVMWithoutDisk()
+	initFedora(&vm.Spec.Template.Spec)
+	return createFedoraTemplateFromVM(vm)
 }
 
 func GetTemplateRHEL7() *Template {

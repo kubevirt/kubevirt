@@ -61,7 +61,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Firmware":                                  schema_kubevirtio_client_go_api_v1_Firmware(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.FloppyTarget":                              schema_kubevirtio_client_go_api_v1_FloppyTarget(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GPU":                                       schema_kubevirtio_client_go_api_v1_GPU(ref),
-		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GenieNetwork":                              schema_kubevirtio_client_go_api_v1_GenieNetwork(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.HPETTimer":                                 schema_kubevirtio_client_go_api_v1_HPETTimer(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.HostDisk":                                  schema_kubevirtio_client_go_api_v1_HostDisk(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.Hugepages":                                 schema_kubevirtio_client_go_api_v1_Hugepages(ref),
@@ -100,6 +99,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineCondition":                   schema_kubevirtio_client_go_api_v1_VirtualMachineCondition(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstance":                    schema_kubevirtio_client_go_api_v1_VirtualMachineInstance(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceCondition":           schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceCondition(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceFileSystemList":      schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceFileSystemList(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestAgentInfo":      schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceGuestAgentInfo(ref),
+		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSUserList":     schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceGuestOSUserList(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceList":                schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceList(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigration":           schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigration(ref),
 		"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceMigrationCondition":  schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigrationCondition(ref),
@@ -547,6 +549,13 @@ func schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref common.Referen
 							Format:      "",
 						},
 					},
+					"volumeLabel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -736,6 +745,13 @@ func schema_kubevirtio_client_go_api_v1_Devices(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
+					"autoattachSerialConsole": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether to attach the default serial console or not. Serial console access will not be available if set to false. Defaults to true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"rng": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Whether to have random number generator from host",
@@ -838,6 +854,13 @@ func schema_kubevirtio_client_go_api_v1_Disk(ref common.ReferenceCallback) commo
 					"cache": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Cache specifies which kvm disk cache mode should be used.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"tag": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, disk address and its tag will be provided to the guest via config drive metadata",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1373,27 +1396,6 @@ func schema_kubevirtio_client_go_api_v1_GPU(ref common.ReferenceCallback) common
 	}
 }
 
-func schema_kubevirtio_client_go_api_v1_GenieNetwork(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Represents the genie cni network.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"networkName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "References the CNI plugin name.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"networkName"},
-			},
-		},
-	}
-}
-
 func schema_kubevirtio_client_go_api_v1_HPETTimer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1634,6 +1636,13 @@ func schema_kubevirtio_client_go_api_v1_Interface(ref common.ReferenceCallback) 
 						SchemaProps: spec.SchemaProps{
 							Description: "If specified the network interface will pass additional DHCP options to the VMI",
 							Ref:         ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.DHCPOptions"),
+						},
+					},
+					"tag": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -1924,9 +1933,16 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"certificateRotateStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy"},
 	}
 }
 
@@ -2142,17 +2158,12 @@ func schema_kubevirtio_client_go_api_v1_Network(ref common.ReferenceCallback) co
 							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork"),
 						},
 					},
-					"genie": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GenieNetwork"),
-						},
-					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GenieNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.PodNetwork"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.PodNetwork"},
 	}
 }
 
@@ -2173,16 +2184,11 @@ func schema_kubevirtio_client_go_api_v1_NetworkSource(ref common.ReferenceCallba
 							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork"),
 						},
 					},
-					"genie": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GenieNetwork"),
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.GenieNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.PodNetwork"},
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.MultusNetwork", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.PodNetwork"},
 	}
 }
 
@@ -2412,6 +2418,13 @@ func schema_kubevirtio_client_go_api_v1_SecretVolumeSource(ref common.ReferenceC
 						SchemaProps: spec.SchemaProps{
 							Description: "Specify whether the Secret or it's keys must be defined",
 							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"volumeLabel": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The volume label of the resulting disk inside the VMI. Different bootstrapping mechanisms require different values. Typical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).",
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
@@ -2666,6 +2679,175 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceCondition(ref comm
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceFileSystemList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstanceFileSystemList comprises the list of all filesystems on guest machine",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceFileSystem"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceFileSystem"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceGuestAgentInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"guestAgentVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GAVersion is a version of currently installed guest agent",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hostname represents FQDN of a guest",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"os": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OS contains the guest operating system information",
+							Ref:         ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSInfo"),
+						},
+					},
+					"timezone": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Timezone is guest os current timezone",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"userList": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserList is a list of active guest OS users",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSUser"),
+									},
+								},
+							},
+						},
+					},
+					"fsInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage",
+							Ref:         ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceFileSystemInfo"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceFileSystemInfo", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSUser"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceGuestOSUserList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstanceGuestOSUserList comprises the list of all active users on guest machine",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSUser"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1.VirtualMachineInstanceGuestOSUser"},
 	}
 }
 
@@ -3299,6 +3481,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref common.Re
 				Description: "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"priorityClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, indicates the pod's priority. If not specified, the pod priority will be default or zero if there is no default.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"domain": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Specification of the desired behavior of the VirtualMachineInstance on the host.",
@@ -3324,6 +3513,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref common.Re
 						SchemaProps: spec.SchemaProps{
 							Description: "If affinity is specifies, obey all the affinity rules",
 							Ref:         ref("k8s.io/api/core/v1.Affinity"),
+						},
+					},
+					"schedulerName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"tolerations": {
@@ -3505,6 +3701,21 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceStatus(ref common.
 							Description: "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements See PodQOSClass type for available QOS classes More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"activePods": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ActivePods is a mapping of pod UID to node name. It is possible for multiple pods to be running for a single VMI during migration.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 				},

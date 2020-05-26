@@ -162,12 +162,12 @@ spec:
         - "2"
         env:
         - name: OPERATOR_IMAGE
-          value: docker.io/kubevirt/virt-operator:v0.28.0
+          value: docker.io/kubevirt/virt-operator:v0.29.2
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.targetNamespaces']
-        image: docker.io/kubevirt/virt-operator:v0.28.0
+        image: docker.io/kubevirt/virt-operator:v0.29.2
         imagePullPolicy: IfNotPresent
         name: virt-operator
         ports:
@@ -185,12 +185,22 @@ spec:
           initialDelaySeconds: 5
           timeoutSeconds: 10
         resources: {}
+        volumeMounts:
+        - mountPath: /etc/virt-operator/certificates
+          name: kubevirt-operator-certs
+          readOnly: true
+      priorityClassName: kubevirt-cluster-critical
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kubevirt-operator
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists
+      volumes:
+      - name: kubevirt-operator-certs
+        secret:
+          optional: true
+          secretName: kubevirt-operator-certs
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -81,6 +81,12 @@ type EvictionStrategy string
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceSpec struct {
+	// If specified, indicates the pod's priority.
+	// If not specified, the pod priority will be default or zero if there is no
+	// default.
+	// +optional
+	PriorityClassName string `json:"priorityClassName,omitempty"`
+
 	// Specification of the desired behavior of the VirtualMachineInstance on the host.
 	Domain DomainSpec `json:"domain"`
 	// NodeSelector is a selector which must be true for the vmi to fit on a node.
@@ -90,6 +96,10 @@ type VirtualMachineInstanceSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// If affinity is specifies, obey all the affinity rules
 	Affinity *k8sv1.Affinity `json:"affinity,omitempty"`
+	// If specified, the VMI will be dispatched by specified scheduler.
+	// If not specified, the VMI will be dispatched by default scheduler.
+	// +optional
+	SchedulerName string `json:"schedulerName,omitempty"`
 	// If toleration is specified, obey all the toleration rules.
 	Tolerations []k8sv1.Toleration `json:"tolerations,omitempty"`
 
@@ -168,6 +178,10 @@ type VirtualMachineInstanceStatus struct {
 	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
 	// +optional
 	QOSClass *k8sv1.PodQOSClass `json:"qosClass,omitempty"`
+
+	// ActivePods is a mapping of pod UID to node name.
+	// It is possible for multiple pods to be running for a single VMI during migration.
+	ActivePods map[types.UID]string `json:"activePods,omitempty"`
 }
 
 func (v *VirtualMachineInstance) IsScheduling() bool {
@@ -226,6 +240,9 @@ const (
 
 	// Reflects whether the QEMU guest agent is connected through the channel
 	VirtualMachineInstanceAgentConnected VirtualMachineInstanceConditionType = "AgentConnected"
+
+	// Reflects whether the QEMU guest agent is connected through the channel
+	VirtualMachineInstanceUnsupportedAgent VirtualMachineInstanceConditionType = "AgentVersionNotSupported"
 
 	// Indicates whether the VMI is live migratable
 	VirtualMachineInstanceIsMigratable VirtualMachineInstanceConditionType = "LiveMigratable"
@@ -462,7 +479,10 @@ const (
 	CPUManager                               string = "cpumanager"
 	// This annotation is used to inject ignition data
 	// Used on VirtualMachineInstance.
-	IgnitionAnnotation string = "kubevirt.io/ignitiondata"
+	IgnitionAnnotation           string = "kubevirt.io/ignitiondata"
+	PlacePCIDevicesOnRootComplex string = "kubevirt.io/placePCIDevicesOnRootComplex"
+
+	VirtualMachineLabel = AppLabel + "/vm"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
@@ -881,8 +901,9 @@ type StateChangeRequestAction string
 
 // These are the currently defined state change requests
 const (
-	StartRequest StateChangeRequestAction = "Start"
-	StopRequest  StateChangeRequestAction = "Stop"
+	StartRequest  StateChangeRequestAction = "Start"
+	StopRequest   StateChangeRequestAction = "Stop"
+	RenameRequest                          = "Rename"
 )
 
 // VirtualMachineStatus represents the status returned by the
@@ -904,6 +925,8 @@ type VirtualMachineStatus struct {
 type VirtualMachineStateChangeRequest struct {
 	// Indicates the type of action that is requested. e.g. Start or Stop
 	Action StateChangeRequestAction `json:"action"`
+	// Provides additional data in order to perform the Action
+	Data map[string]string `json:"data,omitempty" optional:"true"`
 	// Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable
 	UID *types.UID `json:"uid,omitempty" optional:"true" protobuf:"bytes,5,opt,name=uid,casttype=k8s.io/kubernetes/pkg/types.UID"`
 }
@@ -930,9 +953,15 @@ const (
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	VirtualMachineFailure VirtualMachineConditionType = "Failure"
 
+	// VirtualMachineReady is copied to the virtual machine from its vmi
+	VirtualMachineReady VirtualMachineConditionType = "Ready"
+
 	// VirtualMachinePaused is added in a virtual machine when its vmi
 	// signals with its own condition that it is paused.
 	VirtualMachinePaused VirtualMachineConditionType = "Paused"
+
+	// This condition indicates that the VM was renamed
+	RenameConditionType VirtualMachineConditionType = "RenameOperation"
 )
 
 // ---
@@ -1034,6 +1063,16 @@ type KubeVirtList struct {
 	Items           []KubeVirt `json:"items"`
 }
 
+type KubeVirtSelfSignConfiguration struct {
+	CARotateInterval   *metav1.Duration `json:"caRotateInterval,omitempty"`
+	CertRotateInterval *metav1.Duration `json:"certRotateInterval,omitempty"`
+	CAOverlapInterval  *metav1.Duration `json:"caOverlapInterval,omitempty"`
+}
+
+type KubeVirtCertificateRotateStrategy struct {
+	SelfSigned *KubeVirtSelfSignConfiguration `json:"selfSigned,omitempty"`
+}
+
 // ---
 // +k8s:openapi-gen=true
 type KubeVirtSpec struct {
@@ -1058,6 +1097,8 @@ type KubeVirtSpec struct {
 	// Specifies if kubevirt can be deleted if workloads are still present.
 	// This is mainly a precaution to avoid accidental data loss
 	UninstallStrategy KubeVirtUninstallStrategy `json:"uninstallStrategy,omitempty"`
+
+	CertificateRotationStrategy KubeVirtCertificateRotateStrategy `json:"certificateRotateStrategy,omitempty"`
 }
 
 type KubeVirtUninstallStrategy string
@@ -1150,4 +1191,72 @@ type RestartOptions struct {
 	// Allowed Values: nil and 0
 	// +optional
 	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty" protobuf:"varint,1,opt,name=gracePeriodSeconds"`
+}
+
+// VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceGuestAgentInfo struct {
+	metav1.TypeMeta `json:",inline"`
+	// GAVersion is a version of currently installed guest agent
+	GAVersion string `json:"guestAgentVersion,omitempty"`
+	// Hostname represents FQDN of a guest
+	Hostname string `json:"hostname,omitempty"`
+	// OS contains the guest operating system information
+	OS VirtualMachineInstanceGuestOSInfo `json:"os,omitempty"`
+	// Timezone is guest os current timezone
+	Timezone string `json:"timezone,omitempty"`
+	// UserList is a list of active guest OS users
+	UserList []VirtualMachineInstanceGuestOSUser `json:"userList,omitempty"`
+	// FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage
+	FSInfo VirtualMachineInstanceFileSystemInfo `json:"fsInfo,omitempty"`
+}
+
+// VirtualMachineInstanceGuestOSUserList comprises the list of all active users on guest machine
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceGuestOSUserList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualMachineInstanceGuestOSUser `json:"items"`
+}
+
+// VirtualMachineGuestOSUser is the single user of the guest os
+type VirtualMachineInstanceGuestOSUser struct {
+	UserName  string  `json:"userName"`
+	Domain    string  `json:"domain,omitempty"`
+	LoginTime float64 `json:"loginTime,omitempty"`
+}
+
+// VirtualMachineInstanceFileSystemInfo represents information regarding single guest os filesystem
+type VirtualMachineInstanceFileSystemInfo struct {
+	Filesystems []VirtualMachineInstanceFileSystem `json:"disks"`
+}
+
+// VirtualMachineInstanceFileSystemList comprises the list of all filesystems on guest machine
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceFileSystemList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []VirtualMachineInstanceFileSystem `json:"items"`
+}
+
+// VirtualMachineInstanceFileSystem represents guest os disk
+type VirtualMachineInstanceFileSystem struct {
+	DiskName       string `json:"diskName"`
+	MountPoint     string `json:"mountPoint"`
+	FileSystemType string `json:"fileSystemType"`
+	UsedBytes      int    `json:"usedBytes"`
+	TotalBytes     int    `json:"totalBytes"`
+}
+
+// Options for a rename operation
+type RenameOptions struct {
+	metav1.TypeMeta `json:",inline"`
+	NewName         string  `json:"newName"`
+	OldName         *string `json:"oldName,omitempty"`
 }

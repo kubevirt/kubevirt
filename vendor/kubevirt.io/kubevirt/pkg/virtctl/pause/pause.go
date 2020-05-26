@@ -25,8 +25,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
+
+	kubevirtV1 "kubevirt.io/client-go/api/v1"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -95,7 +98,6 @@ type VirtCommand struct {
 }
 
 func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
-
 	resourceType := strings.ToLower(args[0])
 	resourceName := args[1]
 	namespace, _, err := vc.clientConfig.Namespace()
@@ -122,7 +124,18 @@ func (vc *VirtCommand) Run(cmd *cobra.Command, args []string) error {
 			}
 			err = virtClient.VirtualMachineInstance(namespace).Pause(vmiName)
 			if err != nil {
-				return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", vmiName, err)
+				if errors.IsNotFound(err) {
+					runningStrategy, err := vm.RunStrategy()
+					if err != nil {
+						return fmt.Errorf("Error pausing VirutalMachineInstance %s: %v", vmiName, err)
+					}
+					if runningStrategy == kubevirtV1.RunStrategyHalted {
+						return fmt.Errorf("Error pausing VirtualMachineInstance %s. VirtualMachine %s is not set to run", vmiName, vm.Name)
+					}
+					return fmt.Errorf("Error pausing VirtualMachineInstance %s, it was not found", vmiName)
+
+				}
+				return fmt.Errorf("Error pausing VirutalMachineInstance %s: %v", vmiName, err)
 			}
 			fmt.Printf("VMI %s was scheduled to %s\n", vmiName, vc.command)
 		case ARG_VMI_LONG, ARG_VMI_SHORT:

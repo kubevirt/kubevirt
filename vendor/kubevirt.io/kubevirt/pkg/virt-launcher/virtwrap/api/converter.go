@@ -58,6 +58,7 @@ const (
 
 // +k8s:deepcopy-gen=false
 type ConverterContext struct {
+	Architecture      string
 	UseEmulation      bool
 	Secrets           map[string]*k8sv1.Secret
 	VirtualMachine    *v1.VirtualMachineInstance
@@ -155,6 +156,14 @@ func SetDriverCacheMode(disk *Disk) error {
 		supportDirectIO = checkDirectIOFlag(path)
 		if !supportDirectIO {
 			log.Log.Infof("%s file system does not support direct I/O", path)
+		}
+		// when the disk is backed-up by another file, we need to also check if that
+		// file sits on a file system that supports direct I/O
+		if backingFile := disk.BackingStore; backingFile != nil {
+			backingFilePath := backingFile.Source.File
+			backFileDirectIOSupport := checkDirectIOFlag(backingFilePath)
+			log.Log.Infof("%s backing file system does not support direct I/O", backingFilePath)
+			supportDirectIO = supportDirectIO && backFileDirectIOSupport
 		}
 	}
 
@@ -384,7 +393,7 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 		Source: &DiskSource{},
 	}
 
-	source := containerdisk.GenerateDiskTargetPathFromLauncherView(diskIndex)
+	source := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
 
 	disk.BackingStore.Format.Type = c.DiskType[volumeName].Format
 	disk.BackingStore.Source.File = source
@@ -611,6 +620,21 @@ func popSRIOVPCIAddress(networkName string, addrsMap map[string][]string) (strin
 	return "", addrsMap, fmt.Errorf("no more SR-IOV PCI addresses to allocate")
 }
 
+func getInterfaceType(iface *v1.Interface) string {
+	if iface.Slirp != nil {
+		// Slirp configuration works only with e1000 or rtl8139
+		if iface.Model != "e1000" && iface.Model != "rtl8139" {
+			log.Log.Infof("The network interface type of %s was changed to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
+			return "e1000"
+		}
+		return iface.Model
+	}
+	if iface.Model != "" {
+		return iface.Model
+	}
+	return "virtio"
+}
+
 func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) (err error) {
 	precond.MustNotBeNil(vmi)
 	precond.MustNotBeNil(domain)
@@ -722,8 +746,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	// Take SMBios values from the VirtualMachineOptions
-	domain.Spec.OS.SMBios = &SMBios{
-		Mode: "sysinfo",
+	// SMBios option does not work in Power, attempting to set it will result in the following error message:
+	// "Option not supported for this target" issued by qemu-system-ppc64, so don't set it in case GOARCH is ppc64le
+	if c.Architecture != "ppc64le" {
+		domain.Spec.OS.SMBios = &SMBios{
+			Mode: "sysinfo",
+		}
 	}
 
 	if vmi.Spec.Domain.Chassis != nil {
@@ -777,15 +805,21 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		useIOThreads = true
 
 		if (*vmi.Spec.Domain.IOThreadsPolicy) == v1.IOThreadsPolicyAuto {
-			numCPUs := 1
-			// Requested CPU's is guaranteed to be no greater than the limit
-			if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
-				numCPUs = int(cpuRequests.Value())
-			} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
-				numCPUs = int(cpuLimit.Value())
-			}
+			// When IOThreads policy is set to auto and we've allocated a dedicated
+			// pCPU for the emulator thread, we can place IOThread and Emulator thread in the same pCPU
+			if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+				threadPoolLimit = 1
+			} else {
+				numCPUs := 1
+				// Requested CPU's is guaranteed to be no greater than the limit
+				if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+					numCPUs = int(cpuRequests.Value())
+				} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+					numCPUs = int(cpuLimit.Value())
+				}
 
-			threadPoolLimit = numCPUs * 2
+				threadPoolLimit = numCPUs * 2
+			}
 		}
 	}
 	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
@@ -911,12 +945,21 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 	//usb controller is turned on, only when user specify input device with usb bus,
 	//otherwise it is turned off
-	if !isUSBDevicePresent {
+	//In ppc64le usb devices like mouse / keyboard are set by default,
+	//so we can't disable the controller otherwise we run into the following error:
+	//"unsupported configuration: USB is disabled for this domain, but USB devices are present in the domain XML"
+	if !isUSBDevicePresent && c.Architecture != "ppc64le" {
 		// disable usb controller
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
 			Type:  "usb",
 			Index: "0",
 			Model: "none",
+		})
+	} else {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
+			Type:  "usb",
+			Index: "0",
+			Model: "qemu-xhci",
 		})
 	}
 
@@ -1011,30 +1054,37 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel
 	}
 
-	// Add mandatory console device
-	var serialPort uint = 0
-	var serialType string = "serial"
-	domain.Spec.Devices.Consoles = []Console{
-		{
-			Type: "pty",
-			Target: &ConsoleTarget{
-				Type: &serialType,
-				Port: &serialPort,
-			},
-		},
-	}
+	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole == true {
+		// Add mandatory console device
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
+			Type:  "virtio-serial",
+			Index: "0",
+		})
 
-	domain.Spec.Devices.Serials = []Serial{
-		{
-			Type: "unix",
-			Target: &SerialTarget{
-				Port: &serialPort,
+		var serialPort uint = 0
+		var serialType string = "serial"
+		domain.Spec.Devices.Consoles = []Console{
+			{
+				Type: "pty",
+				Target: &ConsoleTarget{
+					Type: &serialType,
+					Port: &serialPort,
+				},
 			},
-			Source: &SerialSource{
-				Mode: "bind",
-				Path: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-serial%d", vmi.ObjectMeta.UID, serialPort),
+		}
+
+		domain.Spec.Devices.Serials = []Serial{
+			{
+				Type: "unix",
+				Target: &SerialTarget{
+					Port: &serialPort,
+				},
+				Source: &SerialSource{
+					Mode: "bind",
+					Path: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-serial%d", vmi.ObjectMeta.UID, serialPort),
+				},
 			},
-		},
+		}
 	}
 
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == true {
@@ -1060,21 +1110,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
-	getInterfaceType := func(iface *v1.Interface) string {
-		if iface.Slirp != nil {
-			// Slirp configuration works only with e1000 or rtl8139
-			if iface.Model != "e1000" && iface.Model != "rtl8139" {
-				log.Log.Infof("The network interface type of %s was changed to e1000 due to unsupported interface type by qemu slirp network", iface.Name)
-				return "e1000"
-			}
-			return iface.Model
-		}
-		if iface.Model != "" {
-			return iface.Model
-		}
-		return "virtio"
-	}
-
 	networks := map[string]*v1.Network{}
 	cniNetworks := map[string]int{}
 	multusNetworkIndex := 1
@@ -1091,10 +1126,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				cniNetworks[network.Name] = multusNetworkIndex
 				multusNetworkIndex++
 			}
-			numberOfSources++
-		}
-		if network.Genie != nil {
-			cniNetworks[network.Name] = len(cniNetworks)
 			numberOfSources++
 		}
 		if numberOfSources == 0 {
@@ -1187,8 +1218,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 						} else {
 							prefix = "net"
 						}
-					} else if net.Genie != nil {
-						prefix = "eth"
 					}
 					domainIface.Source = InterfaceSource{
 						Bridge: fmt.Sprintf("k6t-%s%d", prefix, value),
@@ -1239,6 +1268,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		ignitionpath := fmt.Sprintf("%s/%s", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), ignition.IgnitionFile)
 		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionpath)})
 	}
+
+	if val := vmi.Annotations[v1.PlacePCIDevicesOnRootComplex]; val == "true" {
+		if err := PlacePCIDevicesOnRootComplex(&domain.Spec); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -1333,7 +1369,11 @@ func formatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *Domain, c *
 	iothreads := int(domain.Spec.IOThreads.IOThreads)
 	vcpus := int(calculateRequestedVCPUs(domain.Spec.CPU.Topology))
 
-	if iothreads >= vcpus {
+	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+		// pin the IOThread on the same pCPU as the emulator thread
+		cpuset := fmt.Sprintf("%d", *c.EmulatorThreadCpu)
+		appendDomainIOThreadPin(domain, uint(1), cpuset)
+	} else if iothreads >= vcpus {
 		// pin an IOThread on a CPU
 		for thread := 1; thread <= iothreads; thread++ {
 			cpuset := fmt.Sprintf("%d", c.CPUSet[thread%vcpus])

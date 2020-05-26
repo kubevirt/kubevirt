@@ -4,8 +4,6 @@
 package kubecli
 
 import (
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
 	v1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	v10 "k8s.io/api/autoscaling/v1"
@@ -742,8 +740,8 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Patch(arg0, arg1, arg2 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) SerialConsole(name string, timeout time.Duration) (StreamInterface, error) {
-	ret := _m.ctrl.Call(_m, "SerialConsole", name, timeout)
+func (_m *MockVirtualMachineInstanceInterface) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
+	ret := _m.ctrl.Call(_m, "SerialConsole", name, options)
 	ret0, _ := ret[0].(StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -782,6 +780,39 @@ func (_m *MockVirtualMachineInstanceInterface) Unpause(name string) error {
 
 func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Unpause(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unpause", arg0)
+}
+
+func (_m *MockVirtualMachineInstanceInterface) GuestOsInfo(name string) (v114.VirtualMachineInstanceGuestAgentInfo, error) {
+	ret := _m.ctrl.Call(_m, "GuestOsInfo", name)
+	ret0, _ := ret[0].(v114.VirtualMachineInstanceGuestAgentInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) GuestOsInfo(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GuestOsInfo", arg0)
+}
+
+func (_m *MockVirtualMachineInstanceInterface) UserList(name string) (v114.VirtualMachineInstanceGuestOSUserList, error) {
+	ret := _m.ctrl.Call(_m, "UserList", name)
+	ret0, _ := ret[0].(v114.VirtualMachineInstanceGuestOSUserList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) UserList(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UserList", arg0)
+}
+
+func (_m *MockVirtualMachineInstanceInterface) FilesystemList(name string) (v114.VirtualMachineInstanceFileSystemList, error) {
+	ret := _m.ctrl.Call(_m, "FilesystemList", name)
+	ret0, _ := ret[0].(v114.VirtualMachineInstanceFileSystemList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) FilesystemList(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FilesystemList", arg0)
 }
 
 // Mock of ReplicaSetInterface interface
@@ -1127,6 +1158,16 @@ func (_m *MockVirtualMachineInterface) Migrate(name string) error {
 
 func (_mr *_MockVirtualMachineInterfaceRecorder) Migrate(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migrate", arg0)
+}
+
+func (_m *MockVirtualMachineInterface) Rename(name string, options *v114.RenameOptions) error {
+	ret := _m.ctrl.Call(_m, "Rename", name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) Rename(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Rename", arg0, arg1)
 }
 
 // Mock of VirtualMachineInstanceMigrationInterface interface

@@ -47,7 +47,7 @@ func CreateConfigMapDisks(vmi *v1.VirtualMachineInstance) error {
 			}
 
 			disk := GetConfigMapDiskPath(volume.Name)
-			if err := createIsoConfigImage(disk, filesPath); err != nil {
+			if err := createIsoConfigImage(disk, volume.ConfigMap.VolumeLabel, filesPath); err != nil {
 				return err
 			}
 

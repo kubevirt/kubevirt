@@ -14,16 +14,18 @@ func (HostDisk) SwaggerDoc() map[string]string {
 
 func (ConfigMapVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "ConfigMapVolumeSource adapts a ConfigMap into a volume.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
-		"optional": "Specify whether the ConfigMap or it's keys must be defined\n+optional",
+		"":            "ConfigMapVolumeSource adapts a ConfigMap into a volume.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
+		"optional":    "Specify whether the ConfigMap or it's keys must be defined\n+optional",
+		"volumeLabel": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).\n+optional",
 	}
 }
 
 func (SecretVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "SecretVolumeSource adapts a Secret into a volume.",
-		"secretName": "Name of the secret in the pod's namespace to use.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#secret\n+optional",
-		"optional":   "Specify whether the Secret or it's keys must be defined\n+optional",
+		"":            "SecretVolumeSource adapts a Secret into a volume.",
+		"secretName":  "Name of the secret in the pod's namespace to use.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#secret\n+optional",
+		"optional":    "Specify whether the Secret or it's keys must be defined\n+optional",
+		"volumeLabel": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).\n+optional",
 	}
 }
 
@@ -165,6 +167,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"inputs":                     "Inputs describe input devices",
 		"autoattachPodInterface":     "Whether to attach a pod network interface. Defaults to true.",
 		"autoattachGraphicsDevice":   "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
+		"autoattachSerialConsole":    "Whether to attach the default serial console or not.\nSerial console access will not be available if set to false. Defaults to true.",
 		"rng":                        "Whether to have random number generator from host\n+optional",
 		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices\n+optional",
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature\n+optional",
@@ -193,6 +196,7 @@ func (Disk) SwaggerDoc() map[string]string {
 		"serial":            "Serial provides the ability to specify a serial number for the disk device.\n+optional",
 		"dedicatedIOThread": "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
 		"cache":             "Cache specifies which kvm disk cache mode should be used.\n+optional",
+		"tag":               "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
 	}
 }
 
@@ -443,6 +447,7 @@ func (Interface) SwaggerDoc() map[string]string {
 		"bootOrder":   "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
 		"pciAddress":  "If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10\n+optional",
 		"dhcpOptions": "If specified the network interface will pass additional DHCP options to the VMI\n+optional",
+		"tag":         "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 	}
 }
 
@@ -518,13 +523,6 @@ func (PodNetwork) SwaggerDoc() map[string]string {
 func (Rng) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "Rng represents the random device passed from host",
-	}
-}
-
-func (GenieNetwork) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":            "Represents the genie cni network.",
-		"networkName": "References the CNI plugin name.",
 	}
 }
 

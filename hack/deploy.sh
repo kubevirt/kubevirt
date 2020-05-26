@@ -112,7 +112,9 @@ sleep 20
 
 "${CMD}" wait deployment/hyperconverged-cluster-operator --for=condition=Available --timeout="1080s" || CONTAINER_ERRORED+="${op}"
 
-for op in cdi-operator cluster-network-addons-operator kubevirt-ssp-operator node-maintenance-operator virt-operator vm-import-operator; do
+# avoid checking the availability of virt-operator here because it will become available only when
+# HCO will create its priorityClass and this will happen only when wi will have HCO cr
+for op in cdi-operator cluster-network-addons-operator kubevirt-ssp-operator node-maintenance-operator vm-import-operator; do
     "${CMD}" wait deployment/"${op}" --for=condition=Available --timeout="540s" || CONTAINER_ERRORED+="${op} "
 done
 

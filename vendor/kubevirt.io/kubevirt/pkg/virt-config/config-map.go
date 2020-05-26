@@ -43,7 +43,7 @@ import (
 )
 
 const (
-	configMapName                     = "kubevirt-config"
+	ConfigMapName                     = "kubevirt-config"
 	FeatureGatesKey                   = "feature-gates"
 	EmulatedMachinesKey               = "emulated-machines"
 	MachineTypeKey                    = "machine-type"
@@ -60,6 +60,8 @@ const (
 	PermitBridgeInterfaceOnPodNetwork = "permitBridgeInterfaceOnPodNetwork"
 	NodeDrainTaintDefaultKey          = "kubevirt.io/drain"
 	SmbiosConfigKey                   = "smbios"
+	SELinuxLauncherTypeKey            = "selinuxLauncherType"
+	SupportedGuestAgentVersionsKey    = "supported-guest-agent"
 )
 
 type ConfigModifiedFn func()
@@ -78,12 +80,12 @@ func getConfigMap() *k8sv1.ConfigMap {
 			return false, err
 		}
 
-		cfgMap, curErr = virtClient.CoreV1().ConfigMaps(namespace).Get(configMapName, metav1.GetOptions{})
+		cfgMap, curErr = virtClient.CoreV1().ConfigMaps(namespace).Get(ConfigMapName, metav1.GetOptions{})
 
 		if curErr != nil {
 			if errors.IsNotFound(curErr) {
 				logger := log.DefaultLogger()
-				logger.Infof("%s ConfigMap does not exist. Using defaults.", configMapName)
+				logger.Infof("%s ConfigMap does not exist. Using defaults.", ConfigMapName)
 				cfgMap = &k8sv1.ConfigMap{}
 				return true, nil
 			}
@@ -189,6 +191,7 @@ func defaultClusterConfig() *Config {
 		Manufacturer: SmbiosConfigDefaultManufacturer,
 		Product:      SmbiosConfigDefaultProduct,
 	}
+	supportedQEMUGuestAgentVersions := strings.Split(strings.TrimRight(SupportedGuestAgentVersions, ","), ",")
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: DefaultImagePullPolicy,
@@ -213,6 +216,8 @@ func defaultClusterConfig() *Config {
 		PermitSlirpInterface:              DefaultPermitSlirpInterface,
 		PermitBridgeInterfaceOnPodNetwork: DefaultPermitBridgeInterfaceOnPodNetwork,
 		SmbiosConfig:                      SmbiosDefaultConfig,
+		SELinuxLauncherType:               DefaultSELinuxLauncherType,
+		SupportedGuestAgentVersions:       supportedQEMUGuestAgentVersions,
 	}
 }
 
@@ -233,6 +238,8 @@ type Config struct {
 	PermitSlirpInterface              bool
 	PermitBridgeInterfaceOnPodNetwork bool
 	SmbiosConfig                      *cmdv1.SMBios
+	SELinuxLauncherType               string
+	SupportedGuestAgentVersions       []string
 }
 
 type MigrationConfig struct {
@@ -265,7 +272,7 @@ func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
 }
 
 // setConfig parses the provided config map and updates the provided config.
-// Default values in the provided config stay in tact.
+// Default values in the provided config stay intact.
 func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 
 	// set revision
@@ -404,6 +411,19 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	default:
 		return fmt.Errorf("invalid default-network-interface in config: %v", iface)
 	}
+
+	if selinuxLauncherType := strings.TrimSpace(configMap.Data[SELinuxLauncherTypeKey]); selinuxLauncherType != "" {
+		config.SELinuxLauncherType = selinuxLauncherType
+	}
+
+	if supportedGuestAgentVersions := strings.TrimSpace(configMap.Data[SupportedGuestAgentVersionsKey]); supportedGuestAgentVersions != "" {
+		vals := strings.Split(strings.TrimRight(supportedGuestAgentVersions, ","), ",")
+		for i := range vals {
+			vals[i] = strings.TrimSpace(vals[i])
+		}
+		config.SupportedGuestAgentVersions = vals
+	}
+
 	return nil
 }
 
@@ -415,7 +435,7 @@ func (c *ClusterConfig) getConfig() (config *Config) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if obj, exists, err := c.configMapInformer.GetStore().GetByKey(c.namespace + "/" + configMapName); err != nil {
+	if obj, exists, err := c.configMapInformer.GetStore().GetByKey(c.namespace + "/" + ConfigMapName); err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Error loading the cluster config from cache, falling back to last good resource version '%s'", c.lastValidConfig.ResourceVersion)
 		return c.lastValidConfig
 	} else if !exists {

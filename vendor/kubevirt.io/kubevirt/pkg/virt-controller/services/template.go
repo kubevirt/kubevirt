@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -57,7 +58,6 @@ const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 const debugLogs = "debugLogs"
 
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
-const GenieNetworksAnnotation = "cni"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
@@ -94,6 +94,7 @@ type templateService struct {
 	persistentVolumeClaimStore cache.Store
 	virtClient                 kubecli.KubevirtClient
 	clusterConfig              *virtconfig.ClusterConfig
+	launcherSubGid             int64
 }
 
 type PvcNotFoundError error
@@ -319,6 +320,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
+	// Need to run in privileged mode in Power or libvirt will fail to lock memory for VMI
+	if runtime.GOARCH == "ppc64le" {
+		privileged = true
+	}
+
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vmi.Spec.TerminationGracePeriodSeconds != nil {
 		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
@@ -337,13 +343,20 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	})
 
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-		Name:      "virt-share-dir",
-		MountPath: t.virtShareDir,
-	})
-
-	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
+	})
+
+	// virt-launcher cmd socket dir
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:      "sockets",
+		MountPath: filepath.Join(t.virtShareDir, "sockets"),
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "sockets",
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
 	})
 
 	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) {
@@ -554,7 +567,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
 	// Get memory overhead
-	memoryOverhead := getMemoryOverhead(vmi.Spec.Domain)
+	memoryOverhead := getMemoryOverhead(vmi)
 
 	// Consider CPU and memory requests and limits for pod scheduling
 	resources := k8sv1.ResourceRequirements{}
@@ -576,8 +589,18 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	// Consider hugepages resource for pod scheduling
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
-		resources.Requests[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
-		resources.Limits[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
+		hugepagesMemReq := vmi.Spec.Domain.Resources.Requests.Memory()
+
+		// If requested, use the guest memory to allocate hugepages
+		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+			requests := vmi.Spec.Domain.Resources.Requests.Memory().Value()
+			guest := vmi.Spec.Domain.Memory.Guest.Value()
+			if requests > guest {
+				hugepagesMemReq = vmi.Spec.Domain.Memory.Guest
+			}
+		}
+		resources.Requests[hugepageType] = *hugepagesMemReq
+		resources.Limits[hugepageType] = *hugepagesMemReq
 
 		// Configure hugepages mount on a pod
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
@@ -593,10 +616,29 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			},
 		})
 
+		reqMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
+		limMemDiff := resource.NewScaledQuantity(0, resource.Kilo)
+		// In case the guest memory and the requested memeory are diffrent, add the difference
+		// to the to the overhead
+		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+			requests := vmi.Spec.Domain.Resources.Requests.Memory().Value()
+			limits := vmi.Spec.Domain.Resources.Limits.Memory().Value()
+			guest := vmi.Spec.Domain.Memory.Guest.Value()
+			if requests > guest {
+				reqMemDiff.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
+				reqMemDiff.Sub(*vmi.Spec.Domain.Memory.Guest)
+			}
+			if limits > guest {
+				limMemDiff.Add(*vmi.Spec.Domain.Resources.Limits.Memory())
+				limMemDiff.Sub(*vmi.Spec.Domain.Memory.Guest)
+			}
+		}
 		// Set requested memory equals to overhead memory
-		resources.Requests[k8sv1.ResourceMemory] = *memoryOverhead
+		reqMemDiff.Add(*memoryOverhead)
+		resources.Requests[k8sv1.ResourceMemory] = *reqMemDiff
 		if _, ok := resources.Limits[k8sv1.ResourceMemory]; ok {
-			resources.Limits[k8sv1.ResourceMemory] = *memoryOverhead
+			limMemDiff.Add(*memoryOverhead)
+			resources.Limits[k8sv1.ResourceMemory] = *limMemDiff
 		}
 	} else {
 		// Add overhead memory
@@ -790,19 +832,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	volumes = append(volumes,
 		k8sv1.Volume{
-			Name: "virt-share-dir",
-			VolumeSource: k8sv1.VolumeSource{
-				HostPath: &k8sv1.HostPathVolumeSource{
-					Path: t.virtShareDir,
-				},
-			},
-		},
-		k8sv1.Volume{
 			Name: "virt-bin-share-dir",
 			VolumeSource: k8sv1.VolumeSource{
-				HostPath: &k8sv1.HostPathVolumeSource{
-					Path: filepath.Join(t.virtLibDir, "/init/usr/bin"),
-				},
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 			},
 		},
 	)
@@ -821,9 +853,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "container-disks",
 		VolumeSource: k8sv1.VolumeSource{
-			HostPath: &k8sv1.HostPathVolumeSource{
-				Path: filepath.Join(t.containerDiskDir, string(vmi.UID)),
-			},
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
 	})
 
@@ -947,6 +977,44 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		annotationsList[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
 
+	initContainerVolumeMounts := []k8sv1.VolumeMount{
+		k8sv1.VolumeMount{
+			Name:      "virt-bin-share-dir",
+			MountPath: "/init/usr/bin",
+		},
+	}
+
+	initContainerResources := k8sv1.ResourceRequirements{}
+	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
+		initContainerResources.Limits = make(k8sv1.ResourceList)
+		initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("10m")
+		initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
+		initContainerResources.Requests = make(k8sv1.ResourceList)
+		initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
+		initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("40M")
+	} else {
+		initContainerResources.Limits = make(k8sv1.ResourceList)
+		initContainerResources.Limits[k8sv1.ResourceCPU] = resource.MustParse("100m")
+		initContainerResources.Limits[k8sv1.ResourceMemory] = resource.MustParse("40M")
+		initContainerResources.Requests = make(k8sv1.ResourceList)
+		initContainerResources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
+		initContainerResources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
+	}
+	initContainerCommand := []string{"/usr/bin/cp",
+		"/usr/bin/container-disk",
+		"/init/usr/bin/container-disk",
+	}
+	initContainers := []k8sv1.Container{
+		{
+			Name:            "container-disk-binary",
+			Image:           t.launcherImage,
+			ImagePullPolicy: imagePullPolicy,
+			Command:         initContainerCommand,
+			VolumeMounts:    initContainerVolumeMounts,
+			Resources:       initContainerResources,
+		},
+	}
+
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -962,19 +1030,28 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			Subdomain: vmi.Spec.Subdomain,
 			SecurityContext: &k8sv1.PodSecurityContext{
 				RunAsUser: &userId,
-				SELinuxOptions: &k8sv1.SELinuxOptions{
-					Type: "virt_launcher.process",
-				},
+				FSGroup:   &t.launcherSubGid,
 			},
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
+			InitContainers:                initContainers,
 			NodeSelector:                  nodeSelector,
 			Volumes:                       volumes,
 			ImagePullSecrets:              imagePullSecrets,
 			DNSConfig:                     vmi.Spec.DNSConfig,
 			DNSPolicy:                     vmi.Spec.DNSPolicy,
 		},
+	}
+
+	// If an SELinux type was specified, use that--otherwise don't set an SELinux type
+	selinuxType := t.clusterConfig.GetSELinuxLauncherType()
+	if selinuxType != virtconfig.DefaultSELinuxLauncherType {
+		pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
+	}
+
+	if vmi.Spec.PriorityClassName != "" {
+		pod.Spec.PriorityClassName = vmi.Spec.PriorityClassName
 	}
 
 	if vmi.Spec.Affinity != nil {
@@ -986,6 +1063,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	pod.Spec.Tolerations = vmi.Spec.Tolerations
+
+	pod.Spec.SchedulerName = vmi.Spec.SchedulerName
 
 	if len(serviceAccountName) > 0 {
 		pod.Spec.ServiceAccountName = serviceAccountName
@@ -1048,7 +1127,8 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 //
 // Note: This is the best estimation we were able to come up with
 //       and is still not 100% accurate
-func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
+func getMemoryOverhead(vmi *v1.VirtualMachineInstance) *resource.Quantity {
+	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
 	overhead := resource.NewScaledQuantity(0, resource.Kilo)
@@ -1066,7 +1146,8 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	// overhead per vcpu in MiB
 	coresMemory := resource.MustParse("8Mi")
 	if domain.CPU != nil {
-		value := coresMemory.Value() * int64(domain.CPU.Cores)
+		vcpus := hardware.GetNumberOfVCPUs(domain.CPU)
+		value := coresMemory.Value() * vcpus
 		coresMemory = *resource.NewQuantity(value, coresMemory.Format)
 	}
 	overhead.Add(coresMemory)
@@ -1077,6 +1158,13 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	// Add video RAM overhead
 	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice == true {
 		overhead.Add(resource.MustParse("16Mi"))
+	}
+
+	// Additional overhead of 1G for VFIO devices. VFIO requires all guest RAM to be locked
+	// in addition to MMIO memory space to allow DMA. 1G is often the size of reserved MMIO space on x86 systems.
+	// Additial information can be found here: https://www.redhat.com/archives/libvir-list/2015-November/msg00329.html
+	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) {
+		overhead.Add(resource.MustParse("1G"))
 	}
 
 	return overhead
@@ -1158,7 +1246,6 @@ func getIfaceByName(vmi *v1.VirtualMachineInstance, name string) *v1.Interface {
 }
 
 func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[string]string, err error) {
-	ifaceList := make([]string, 0)
 	ifaceListMap := make([]map[string]string, 0)
 	cniAnnotations = make(map[string]string, 0)
 
@@ -1186,9 +1273,6 @@ func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[strin
 			}
 			next_idx = next_idx + 1
 			ifaceListMap = append(ifaceListMap, ifaceMap)
-		} else if network.Genie != nil {
-			// We have to handle Genie separately because it doesn't support JSON format.
-			ifaceList = append(ifaceList, network.Genie.NetworkName)
 		}
 	}
 	if len(ifaceListMap) > 0 {
@@ -1197,8 +1281,6 @@ func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[strin
 			return map[string]string{}, fmt.Errorf("Failed to create JSON list from CNI interface map %s", ifaceListMap)
 		}
 		cniAnnotations[MultusNetworksAnnotation] = fmt.Sprintf("%s", ifaceJsonString)
-	} else if len(ifaceList) > 0 {
-		cniAnnotations[GenieNetworksAnnotation] = strings.Join(ifaceList, ",")
 	}
 	return
 }
@@ -1211,7 +1293,8 @@ func NewTemplateService(launcherImage string,
 	imagePullSecret string,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
-	clusterConfig *virtconfig.ClusterConfig) TemplateService {
+	clusterConfig *virtconfig.ClusterConfig,
+	launcherSubGid int64) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
@@ -1224,6 +1307,7 @@ func NewTemplateService(launcherImage string,
 		persistentVolumeClaimStore: persistentVolumeClaimCache,
 		virtClient:                 virtClient,
 		clusterConfig:              clusterConfig,
+		launcherSubGid:             launcherSubGid,
 	}
 	return &svc
 }

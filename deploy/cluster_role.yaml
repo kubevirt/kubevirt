@@ -37,6 +37,36 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   labels:
+    name: kubevirt-operator
+  name: kubevirt-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
     name: cdi-operator
   name: cdi-operator
 rules:
@@ -333,6 +363,14 @@ metadata:
   name: kubevirt-operator
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
   - kubevirt.io
   resources:
   - kubevirts
@@ -358,6 +396,13 @@ rules:
   - update
   - delete
   - patch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - patch
+  - delete
 - apiGroups:
   - batch
   resources:
@@ -495,23 +540,6 @@ rules:
   - watch
   - patch
 - apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - validatingwebhookconfigurations
-  - mutatingwebhookconfigurations
-  verbs:
-  - get
-  - create
-  - update
-- apiGroups:
-  - apiregistration.k8s.io
-  resources:
-  - apiservices
-  verbs:
-  - get
-  - create
-  - update
-- apiGroups:
   - ""
   resources:
   - pods
@@ -570,16 +598,6 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - get
-  - list
-  - delete
-  - update
-  - create
 - apiGroups:
   - ""
   resources:
@@ -721,13 +739,6 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - create
-  - get
 - apiGroups:
   - subresources.kubevirt.io
   resources:

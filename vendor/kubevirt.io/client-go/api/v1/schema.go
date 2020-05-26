@@ -66,6 +66,11 @@ type ConfigMapVolumeSource struct {
 	// Specify whether the ConfigMap or it's keys must be defined
 	// +optional
 	Optional *bool `json:"optional,omitempty"`
+	// The volume label of the resulting disk inside the VMI.
+	// Different bootstrapping mechanisms require different values.
+	// Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
+	// +optional
+	VolumeLabel string `json:"volumeLabel,omitempty"`
 }
 
 // SecretVolumeSource adapts a Secret into a volume.
@@ -79,6 +84,11 @@ type SecretVolumeSource struct {
 	// Specify whether the Secret or it's keys must be defined
 	// +optional
 	Optional *bool `json:"optional,omitempty"`
+	// The volume label of the resulting disk inside the VMI.
+	// Different bootstrapping mechanisms require different values.
+	// Typical values are "cidata" (cloud-init), "config-2" (cloud-init) or "OEMDRV" (kickstart).
+	// +optional
+	VolumeLabel string `json:"volumeLabel,omitempty"`
 }
 
 // ServiceAccountVolumeSource adapts a ServiceAccount into a volume.
@@ -336,6 +346,9 @@ type Devices struct {
 	// Whether to attach the default graphics device or not.
 	// VNC will not be available if set to false. Defaults to true.
 	AutoattachGraphicsDevice *bool `json:"autoattachGraphicsDevice,omitempty"`
+	// Whether to attach the default serial console or not.
+	// Serial console access will not be available if set to false. Defaults to true.
+	AutoattachSerialConsole *bool `json:"autoattachSerialConsole,omitempty"`
 	// Whether to have random number generator from host
 	// +optional
 	Rng *Rng `json:"rng,omitempty"`
@@ -396,6 +409,9 @@ type Disk struct {
 	// Cache specifies which kvm disk cache mode should be used.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
+	// If specified, disk address and its tag will be provided to the guest via config drive metadata
+	// +optional
+	Tag string `json:"tag,omitempty"`
 }
 
 // Represents the target of a volume to mount.
@@ -959,6 +975,9 @@ type Interface struct {
 	// If specified the network interface will pass additional DHCP options to the VMI
 	// +optional
 	DHCPOptions *DHCPOptions `json:"dhcpOptions,omitempty"`
+	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
+	// +optional
+	Tag string `json:"tag,omitempty"`
 }
 
 // Extra DHCP options to use in the interface.
@@ -1056,7 +1075,6 @@ type Network struct {
 type NetworkSource struct {
 	Pod    *PodNetwork    `json:"pod,omitempty"`
 	Multus *MultusNetwork `json:"multus,omitempty"`
-	Genie  *GenieNetwork  `json:"genie,omitempty"`
 }
 
 // Represents the stock pod network interface.
@@ -1072,14 +1090,6 @@ type PodNetwork struct {
 // ---
 // +k8s:openapi-gen=true
 type Rng struct {
-}
-
-// Represents the genie cni network.
-// ---
-// +k8s:openapi-gen=true
-type GenieNetwork struct {
-	// References the CNI plugin name.
-	NetworkName string `json:"networkName"`
 }
 
 // Represents the multus cni network.

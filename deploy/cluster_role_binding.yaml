@@ -19,6 +19,22 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   labels:
+    name: kubevirt-operator
+  name: kubevirt-operator
+  namespace: kubevirt-hyperconverged
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubevirt-operator
+subjects:
+- kind: ServiceAccount
+  name: kubevirt-operator
+  namespace: kubevirt-hyperconverged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
     name: cdi-operator
   name: cdi-operator
   namespace: kubevirt-hyperconverged

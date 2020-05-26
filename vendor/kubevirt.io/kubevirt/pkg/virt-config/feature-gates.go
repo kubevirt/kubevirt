@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	cpuManager            = "CPUManager"
+	CPUManager            = "CPUManager"
 	IgnitionGate          = "ExperimentalIgnitionSupport"
 	liveMigrationGate     = "LiveMigration"
 	CPUNodeDiscoveryGate  = "CPUNodeDiscovery"
@@ -42,7 +42,7 @@ func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 }
 
 func (config *ClusterConfig) CPUManagerEnabled() bool {
-	return config.isFeatureGateEnabled(cpuManager)
+	return config.isFeatureGateEnabled(CPUManager)
 }
 
 func (config *ClusterConfig) IgnitionEnabled() bool {

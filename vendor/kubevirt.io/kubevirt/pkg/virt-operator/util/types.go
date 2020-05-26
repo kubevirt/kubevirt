@@ -37,6 +37,8 @@ type Stores struct {
 	DeploymentCache               cache.Store
 	DaemonSetCache                cache.Store
 	ValidationWebhookCache        cache.Store
+	MutatingWebhookCache          cache.Store
+	APIServiceCache               cache.Store
 	SCCCache                      cache.Store
 	InstallStrategyConfigMapCache cache.Store
 	InstallStrategyJobCache       cache.Store
@@ -45,6 +47,8 @@ type Stores struct {
 	ServiceMonitorCache           cache.Store
 	NamespaceCache                cache.Store
 	PrometheusRuleCache           cache.Store
+	SecretCache                   cache.Store
+	ConfigMapCache                cache.Store
 	IsOnOpenshift                 bool
 	ServiceMonitorEnabled         bool
 	PrometheusRulesEnabled        bool
@@ -61,10 +65,14 @@ func (s *Stores) AllEmpty() bool {
 		IsStoreEmpty(s.DeploymentCache) &&
 		IsStoreEmpty(s.DaemonSetCache) &&
 		IsStoreEmpty(s.ValidationWebhookCache) &&
+		IsStoreEmpty(s.MutatingWebhookCache) &&
+		IsStoreEmpty(s.APIServiceCache) &&
 		IsStoreEmpty(s.PodDisruptionBudgetCache) &&
 		IsSCCStoreEmpty(s.SCCCache) &&
 		IsStoreEmpty(s.ServiceMonitorCache) &&
-		IsStoreEmpty(s.PrometheusRuleCache)
+		IsStoreEmpty(s.PrometheusRuleCache) &&
+		IsStoreEmpty(s.SecretCache) &&
+		IsStoreEmpty(s.ConfigMapCache)
 
 	// Don't add InstallStrategyConfigMapCache to this list. The install
 	// strategies persist even after deletion and updates.
@@ -102,12 +110,16 @@ type Expectations struct {
 	Deployment               *controller.UIDTrackingControllerExpectations
 	DaemonSet                *controller.UIDTrackingControllerExpectations
 	ValidationWebhook        *controller.UIDTrackingControllerExpectations
+	MutatingWebhook          *controller.UIDTrackingControllerExpectations
+	APIService               *controller.UIDTrackingControllerExpectations
 	SCC                      *controller.UIDTrackingControllerExpectations
 	InstallStrategyConfigMap *controller.UIDTrackingControllerExpectations
 	InstallStrategyJob       *controller.UIDTrackingControllerExpectations
 	PodDisruptionBudget      *controller.UIDTrackingControllerExpectations
 	ServiceMonitor           *controller.UIDTrackingControllerExpectations
 	PrometheusRule           *controller.UIDTrackingControllerExpectations
+	Secrets                  *controller.UIDTrackingControllerExpectations
+	ConfigMap                *controller.UIDTrackingControllerExpectations
 }
 
 type Informers struct {
@@ -121,6 +133,8 @@ type Informers struct {
 	Deployment               cache.SharedIndexInformer
 	DaemonSet                cache.SharedIndexInformer
 	ValidationWebhook        cache.SharedIndexInformer
+	MutatingWebhook          cache.SharedIndexInformer
+	APIService               cache.SharedIndexInformer
 	SCC                      cache.SharedIndexInformer
 	InstallStrategyConfigMap cache.SharedIndexInformer
 	InstallStrategyJob       cache.SharedIndexInformer
@@ -129,6 +143,8 @@ type Informers struct {
 	ServiceMonitor           cache.SharedIndexInformer
 	Namespace                cache.SharedIndexInformer
 	PrometheusRule           cache.SharedIndexInformer
+	Secrets                  cache.SharedIndexInformer
+	ConfigMap                cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {
@@ -142,12 +158,16 @@ func (e *Expectations) DeleteExpectations(key string) {
 	e.Deployment.DeleteExpectations(key)
 	e.DaemonSet.DeleteExpectations(key)
 	e.ValidationWebhook.DeleteExpectations(key)
+	e.MutatingWebhook.DeleteExpectations(key)
+	e.APIService.DeleteExpectations(key)
 	e.SCC.DeleteExpectations(key)
 	e.InstallStrategyConfigMap.DeleteExpectations(key)
 	e.InstallStrategyJob.DeleteExpectations(key)
 	e.PodDisruptionBudget.DeleteExpectations(key)
 	e.ServiceMonitor.DeleteExpectations(key)
 	e.PrometheusRule.DeleteExpectations(key)
+	e.Secrets.DeleteExpectations(key)
+	e.ConfigMap.DeleteExpectations(key)
 }
 
 func (e *Expectations) ResetExpectations(key string) {
@@ -161,12 +181,16 @@ func (e *Expectations) ResetExpectations(key string) {
 	e.Deployment.SetExpectations(key, 0, 0)
 	e.DaemonSet.SetExpectations(key, 0, 0)
 	e.ValidationWebhook.SetExpectations(key, 0, 0)
+	e.MutatingWebhook.SetExpectations(key, 0, 0)
+	e.APIService.SetExpectations(key, 0, 0)
 	e.SCC.SetExpectations(key, 0, 0)
 	e.InstallStrategyConfigMap.SetExpectations(key, 0, 0)
 	e.InstallStrategyJob.SetExpectations(key, 0, 0)
 	e.PodDisruptionBudget.SetExpectations(key, 0, 0)
 	e.ServiceMonitor.SetExpectations(key, 0, 0)
 	e.PrometheusRule.SetExpectations(key, 0, 0)
+	e.Secrets.SetExpectations(key, 0, 0)
+	e.ConfigMap.SetExpectations(key, 0, 0)
 }
 
 func (e *Expectations) SatisfiedExpectations(key string) bool {
@@ -180,10 +204,14 @@ func (e *Expectations) SatisfiedExpectations(key string) bool {
 		e.Deployment.SatisfiedExpectations(key) &&
 		e.DaemonSet.SatisfiedExpectations(key) &&
 		e.ValidationWebhook.SatisfiedExpectations(key) &&
+		e.MutatingWebhook.SatisfiedExpectations(key) &&
+		e.APIService.SatisfiedExpectations(key) &&
 		e.SCC.SatisfiedExpectations(key) &&
 		e.InstallStrategyConfigMap.SatisfiedExpectations(key) &&
 		e.InstallStrategyJob.SatisfiedExpectations(key) &&
 		e.PodDisruptionBudget.SatisfiedExpectations(key) &&
 		e.ServiceMonitor.SatisfiedExpectations(key) &&
-		e.PrometheusRule.SatisfiedExpectations(key)
+		e.PrometheusRule.SatisfiedExpectations(key) &&
+		e.Secrets.SatisfiedExpectations(key) &&
+		e.ConfigMap.SatisfiedExpectations(key)
 }

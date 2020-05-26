@@ -19,9 +19,11 @@ func (VirtualMachineInstanceList) SwaggerDoc() map[string]string {
 func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                              "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
+		"priorityClassName":             "If specified, indicates the pod's priority.\nIf not specified, the pod priority will be default or zero if there is no\ndefault.\n+optional",
 		"domain":                        "Specification of the desired behavior of the VirtualMachineInstance on the host.",
 		"nodeSelector":                  "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
 		"affinity":                      "If affinity is specifies, obey all the affinity rules",
+		"schedulerName":                 "If specified, the VMI will be dispatched by specified scheduler.\nIf not specified, the VMI will be dispatched by default scheduler.\n+optional",
 		"tolerations":                   "If toleration is specified, obey all the toleration rules.",
 		"evictionStrategy":              "EvictionStrategy can be set to \"LiveMigrate\" if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain.",
 		"terminationGracePeriodSeconds": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
@@ -48,6 +50,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"migrationState":  "Represents the status of a live migration",
 		"migrationMethod": "Represents the method using which the vmi can be migrated: live migration or block migration",
 		"qosClass":        "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements\nSee PodQOSClass type for available QOS classes\nMore info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md\n+optional",
+		"activePods":      "ActivePods is a mapping of pod UID to node name.\nIt is possible for multiple pods to be running for a single VMI during migration.",
 	}
 }
 
@@ -227,6 +230,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"action": "Indicates the type of action that is requested. e.g. Start or Stop",
+		"data":   "Provides additional data in order to perform the Action",
 		"uid":    "Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable",
 	}
 }
@@ -268,6 +272,14 @@ func (KubeVirtList) SwaggerDoc() map[string]string {
 	}
 }
 
+func (KubeVirtSelfSignConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (KubeVirtCertificateRotateStrategy) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (KubeVirtSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"imageTag":          "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
@@ -295,5 +307,53 @@ func (RestartOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                   "RestartOptions may be provided when deleting an API object.",
 		"gracePeriodSeconds": "The duration in seconds before the object should be force-restared. Value must be non-negative integer.\nThe value zero indicates, restart immediately. If this value is nil, the default grace period for deletion of the corresponding VMI for the\nspecified type will be used to determine on how much time to give the VMI to restart.\nDefaults to a per object value if not specified. zero means restart immediately.\nAllowed Values: nil and 0\n+optional",
+	}
+}
+
+func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent",
+		"guestAgentVersion": "GAVersion is a version of currently installed guest agent",
+		"hostname":          "Hostname represents FQDN of a guest",
+		"os":                "OS contains the guest operating system information",
+		"timezone":          "Timezone is guest os current timezone",
+		"userList":          "UserList is a list of active guest OS users",
+		"fsInfo":            "FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage",
+	}
+}
+
+func (VirtualMachineInstanceGuestOSUserList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceGuestOSUserList comprises the list of all active users on guest machine",
+	}
+}
+
+func (VirtualMachineInstanceGuestOSUser) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineGuestOSUser is the single user of the guest os",
+	}
+}
+
+func (VirtualMachineInstanceFileSystemInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceFileSystemInfo represents information regarding single guest os filesystem",
+	}
+}
+
+func (VirtualMachineInstanceFileSystemList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceFileSystemList comprises the list of all filesystems on guest machine",
+	}
+}
+
+func (VirtualMachineInstanceFileSystem) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceFileSystem represents guest os disk",
+	}
+}
+
+func (RenameOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Options for a rename operation",
 	}
 }

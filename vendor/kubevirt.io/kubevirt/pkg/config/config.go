@@ -29,7 +29,7 @@ type (
 	// Type represents allowed config types like ConfigMap or Secret
 	Type string
 
-	isoCreationFunc func(output string, files []string) error
+	isoCreationFunc func(output string, volID string, files []string) error
 )
 
 const (
@@ -84,12 +84,18 @@ func getFilesLayout(dirPath string) ([]string, error) {
 	return filesPath, nil
 }
 
-func defaultCreateIsoImage(output string, files []string) error {
+func defaultCreateIsoImage(output string, volID string, files []string) error {
+
+	if volID == "" {
+		volID = "cfgdata"
+	}
+
 	var args []string
 	args = append(args, "-output")
 	args = append(args, output)
+	args = append(args, "-follow-links")
 	args = append(args, "-volid")
-	args = append(args, "cfgdata")
+	args = append(args, volID)
 	args = append(args, "-joliet")
 	args = append(args, "-rock")
 	args = append(args, "-graft-points")
@@ -103,8 +109,8 @@ func defaultCreateIsoImage(output string, files []string) error {
 	return nil
 }
 
-func createIsoConfigImage(output string, files []string) error {
-	err := createISOImage(output, files)
+func createIsoConfigImage(output string, volID string, files []string) error {
+	err := createISOImage(output, volID, files)
 	if err != nil {
 		return err
 	}
