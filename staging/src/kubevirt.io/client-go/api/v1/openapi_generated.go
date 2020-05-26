@@ -317,6 +317,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.EphemeralVolumeSource":                                      schema_kubevirtio_client_go_api_v1_EphemeralVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.FeatureAPIC":                                                schema_kubevirtio_client_go_api_v1_FeatureAPIC(ref),
 		"kubevirt.io/client-go/api/v1.FeatureHyperv":                                              schema_kubevirtio_client_go_api_v1_FeatureHyperv(ref),
+		"kubevirt.io/client-go/api/v1.FeatureKVM":                                                 schema_kubevirtio_client_go_api_v1_FeatureKVM(ref),
 		"kubevirt.io/client-go/api/v1.FeatureSpinlocks":                                           schema_kubevirtio_client_go_api_v1_FeatureSpinlocks(ref),
 		"kubevirt.io/client-go/api/v1.FeatureState":                                               schema_kubevirtio_client_go_api_v1_FeatureState(ref),
 		"kubevirt.io/client-go/api/v1.FeatureVendorID":                                            schema_kubevirtio_client_go_api_v1_FeatureVendorID(ref),
@@ -14722,6 +14723,25 @@ func schema_kubevirtio_client_go_api_v1_FeatureHyperv(ref common.ReferenceCallba
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_FeatureKVM(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"hidden": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hide the KVM hypervisor from standard MSR based discovery. Defaults to false",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_FeatureSpinlocks(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -14824,11 +14844,17 @@ func schema_kubevirtio_client_go_api_v1_Features(ref common.ReferenceCallback) c
 							Ref:         ref("kubevirt.io/client-go/api/v1.FeatureState"),
 						},
 					},
+					"kvm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configure how KVM presence is exposed to the guest.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.FeatureKVM"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.FeatureAPIC", "kubevirt.io/client-go/api/v1.FeatureHyperv", "kubevirt.io/client-go/api/v1.FeatureState"},
+			"kubevirt.io/client-go/api/v1.FeatureAPIC", "kubevirt.io/client-go/api/v1.FeatureHyperv", "kubevirt.io/client-go/api/v1.FeatureKVM", "kubevirt.io/client-go/api/v1.FeatureState"},
 	}
 }
 
