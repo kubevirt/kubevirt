@@ -27,18 +27,11 @@ const (
 	bufferSize = 1024
 )
 
-var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component]VmWatch", func() {
+var _ = FDescribe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component]VmWatch", func() {
 	tests.FlagParse()
 
 	virtCli, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
-
-	type vmStatus struct {
-		name,
-		age,
-		running,
-		volume string
-	}
 
 	type vmiStatus struct {
 		name,
@@ -46,27 +39,6 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		phase,
 		ip,
 		node string
-	}
-
-	newVMStatus := func(fields []string) *vmStatus {
-		flen := len(fields)
-		stat := &vmStatus{}
-
-		switch {
-		case flen > 3:
-			stat.volume = fields[3]
-			fallthrough
-		case flen > 2:
-			stat.running = fields[2]
-			fallthrough
-		case flen > 1:
-			stat.age = fields[1]
-			fallthrough
-		case flen > 0:
-			stat.name = fields[0]
-		}
-
-		return stat
 	}
 
 	newVMIStatus := func(fields []string) *vmiStatus {
@@ -151,20 +123,6 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		}
 	}
 
-	// Reads VM status from the given pipe (stdin in this case) and
-	// returns a new status.
-	// if old_status is non-nil, the function will read status lines until
-	// new_status.running != old_status.running in order to skip duplicated status lines
-	readVMStatus := func(rc io.ReadCloser, oldStatus *vmStatus, timeout time.Duration) *vmStatus {
-		newStat := newVMStatus(strings.Fields(readLine(rc, timeout)))
-
-		for oldStatus != nil && newStat.running == oldStatus.running {
-			newStat = newVMStatus(strings.Fields(readLine(rc, timeout)))
-		}
-
-		return newStat
-	}
-
 	// Reads VMI status from the given pipe (stdin in this case) and
 	// returns a new status.
 	// if old_status is non-nil, the function will read status lines until
@@ -203,69 +161,6 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 	BeforeEach(func() {
 		tests.SkipIfVersionBelow("Printing format for `kubectl get -w` on custom resources is only relevant for 1.16.2+", relevantk8sVer)
 		tests.BeforeTestCleanup()
-	})
-
-	It("[test_id:3468] Should update vm status with the proper columns using 'kubectl get vm -w'", func() {
-		By("Creating a new VM spec")
-		vm := tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
-		Expect(vm).ToNot(BeNil())
-
-		By("Setting up the kubectl command")
-		cmd, stdout, stderr :=
-			createCommandWithNSAndRedirect(vm.ObjectMeta.Namespace, tests.GetK8sCmdClient(), "get", "vm", "-w")
-		Expect(cmd).ToNot(BeNil())
-
-		err = cmd.Start()
-		Expect(err).ToNot(HaveOccurred(), "Command should have started successfully")
-
-		defer cmd.Process.Kill()
-
-		time.Sleep(processWaitTime)
-
-		go failOnError(stderr)
-
-		By("Applying the VM to the cluster")
-		vm, err := virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Create(vm)
-		Expect(err).ToNot(HaveOccurred(), "VM should have been added to the cluster")
-
-		// Read column titles
-		vmStatus := readVMStatus(stdout, nil, readTimeout)
-		Expect(vmStatus.name).To(Equal("NAME"), "Output should have the NAME column")
-		Expect(vmStatus.age).To(Equal("AGE"), "Output should have the AGE column")
-		Expect(vmStatus.running).To(Equal("RUNNING"), "Output should have the RUNNING column")
-		Expect(vmStatus.volume).To(Equal("VOLUME"), "Output should have the VOLUME column")
-
-		// Read first status of the vm
-		vmStatus = readVMStatus(stdout, vmStatus, readTimeout)
-		Expect(vmStatus.name).To(Equal(vm.Name))
-		By("Expecting vm.running == false")
-		Expect(vmStatus.running).To(Equal("false"))
-
-		By("Starting the VM")
-		vm = tests.StartVirtualMachine(vm)
-
-		vmStatus = readVMStatus(stdout, vmStatus, readTimeout)
-		By("Expecting vm.running == true")
-		Expect(vmStatus.running).To(Equal("true"))
-
-		By("Restarting the VM")
-		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Restart(vm.ObjectMeta.Name)
-		Expect(err).ToNot(HaveOccurred(), "VM should have been restarted")
-
-		vmStatus = readVMStatus(stdout, nil, readTimeout)
-		By("Expecting vm.running == true")
-		Expect(vmStatus.running).To(Equal("true"))
-
-		By("Stopping the VM")
-		vm = tests.StopVirtualMachine(vm)
-
-		vmStatus = readVMStatus(stdout, vmStatus, readTimeout)
-		By("Expecting vm.running == false")
-		Expect(vmStatus.running).To(Equal("false"))
-
-		By("Deleting the VM")
-		err = virtCli.VirtualMachine(vm.ObjectMeta.Namespace).Delete(vm.ObjectMeta.Name, &v1.DeleteOptions{})
-		Expect(err).ToNot(HaveOccurred(), "VM should have been deleted from the cluster")
 	})
 
 	It("[test_id:3466]Should update vmi status with the proper columns using 'kubectl get vmi -w'", func() {
