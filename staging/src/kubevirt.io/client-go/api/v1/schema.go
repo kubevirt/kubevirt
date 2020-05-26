@@ -805,6 +805,9 @@ type Features struct {
 	// TSEG not yet implemented.
 	// +optional
 	SMM *FeatureState `json:"smm,omitempty"`
+	// Configure how KVM presence is exposed to the guest.
+	// +optional
+	KVM *FeatureKVM `json:"kvm,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.
@@ -915,6 +918,13 @@ type FeatureHyperv struct {
 	// Defaults to the machine type setting.
 	// +optional
 	EVMCS *FeatureState `json:"evmcs,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type FeatureKVM struct {
+	// Hide the KVM hypervisor from standard MSR based discovery.
+	// Defaults to false
+	Hidden bool `json:"hidden,omitempty"`
 }
 
 // WatchdogAction defines the watchdog action, if a watchdog gets triggered.

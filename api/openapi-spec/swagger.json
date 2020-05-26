@@ -8686,6 +8686,15 @@
      }
     }
    },
+   "v1.FeatureKVM": {
+    "type": "object",
+    "properties": {
+     "hidden": {
+      "description": "Hide the KVM hypervisor from standard MSR based discovery. Defaults to false",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.FeatureSpinlocks": {
     "type": "object",
     "properties": {
@@ -8737,6 +8746,10 @@
      "hyperv": {
       "description": "Defaults to the machine type setting.",
       "$ref": "#/definitions/v1.FeatureHyperv"
+     },
+     "kvm": {
+      "description": "Configure how KVM presence is exposed to the guest.",
+      "$ref": "#/definitions/v1.FeatureKVM"
      },
      "smm": {
       "description": "SMM enables/disables System Management Mode. TSEG not yet implemented.",
