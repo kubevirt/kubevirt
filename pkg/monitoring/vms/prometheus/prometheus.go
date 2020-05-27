@@ -64,7 +64,8 @@ var (
 		"I/O operation performed.",
 		[]string{
 			"node", "namespace", "name",
-			"domain", "drive", "type",
+			"domain", "drive", "type", "k8s_labels",
+			"k8s_annotations",
 		},
 		nil,
 	)
@@ -73,7 +74,8 @@ var (
 		"storage traffic.",
 		[]string{
 			"node", "namespace", "name",
-			"domain", "drive", "type",
+			"domain", "drive", "type", "k8s_labels",
+			"k8s_annotations",
 		},
 		nil,
 	)
@@ -82,7 +84,8 @@ var (
 		"storage operation time.",
 		[]string{
 			"node", "namespace", "name",
-			"domain", "drive", "type",
+			"domain", "drive", "type", "k8s_labels",
+			"k8s_annotations",
 		},
 		nil,
 	)
@@ -91,7 +94,8 @@ var (
 		"Vcpu elapsed time.",
 		[]string{
 			"node", "namespace", "name",
-			"domain", "id", "state",
+			"domain", "id", "state", "k8s_labels",
+			"k8s_annotations",
 		},
 		nil,
 	)
@@ -100,7 +104,8 @@ var (
 		"network traffic.",
 		[]string{
 			"node", "namespace", "name",
-			"domain", "interface", "type",
+			"domain", "interface", "type", "k8s_labels",
+			"k8s_annotations",
 		},
 		nil,
 	)
@@ -109,7 +114,8 @@ var (
 		"network traffic.",
 		[]string{
 			"node", "namespace", "name",
-			"domain", "interface", "type",
+			"domain", "interface", "type", "k8s_labels",
+			"k8s_annotations",
 		},
 		nil,
 	)
@@ -118,7 +124,8 @@ var (
 		"network errors.",
 		[]string{
 			"node", "namespace", "name",
-			"domain", "interface", "type",
+			"domain", "interface", "type", "k8s_labels",
+			"k8s_annotations",
 		},
 		nil,
 	)
@@ -127,7 +134,7 @@ var (
 		"amount of usable memory as seen by the domain.",
 		[]string{
 			"node", "namespace", "name",
-			"domain",
+			"domain", "k8s_labels", "k8s_annotations",
 		},
 		nil,
 	)
@@ -136,7 +143,7 @@ var (
 		"resident set size of the process running the domain",
 		[]string{
 			"node", "namespace", "name",
-			"domain",
+			"domain", "k8s_labels", "k8s_annotations",
 		},
 		nil,
 	)
@@ -146,7 +153,8 @@ var (
 		"swap memory traffic.",
 		[]string{
 			"node", "namespace", "name",
-			"domain", "type",
+			"domain", "type", "k8s_labels", 
+			"k8s_annotations",
 		},
 		nil,
 	)
@@ -161,13 +169,25 @@ func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch 
 }
 
 func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+	labelsToString := ""
+	for label, val := range vmi.Labels {
+		labelsToString += label + "=" + val +","
+	}
+	labelsToString = labelsToString[:len(labelsToString)-1]
+
+	annotationsToString := ""
+	for annotation, val := range vmi.Labels {
+		annotationsToString += annotation + "=" + val +","
+	}
+	annotationsToString = annotationsToString[:len(annotationsToString)-1]
+
 	if vmStats.Memory.AvailableSet {
 		mv, err := prometheus.NewConstMetric(
 			memoryAvailableDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.Available)*1024,
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-			vmStats.Name,
+			vmStats.Name, labelsToString, annotationsToString,
 		)
 		tryToPushMetric(memoryAvailableDesc, mv, err, ch)
 	}
@@ -177,7 +197,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.RSS)*1024,
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-			vmStats.Name,
+			vmStats.Name, labelsToString, annotationsToString,
 		)
 		tryToPushMetric(memoryResidentDesc, mv, err, ch)
 	}
@@ -188,7 +208,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.SwapIn)*1024,
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-			vmStats.Name, "in",
+			vmStats.Name, "in", labelsToString, annotationsToString,
 		)
 		tryToPushMetric(swapTrafficDesc, mv, err, ch)
 	}
@@ -198,13 +218,25 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.SwapOut)*1024,
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-			vmStats.Name, "out",
+			vmStats.Name, "out", labelsToString, annotationsToString,
 		)
 		tryToPushMetric(swapTrafficDesc, mv, err, ch)
 	}
 }
 
 func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+	labelsToString := ""
+	for label, val := range vmi.Labels {
+		labelsToString += label + "=" + val +","
+	}
+	labelsToString = labelsToString[:len(labelsToString)-1]
+
+	annotationsToString := ""
+	for annotation, val := range vmi.Labels {
+		annotationsToString += annotation + "=" + val +","
+	}
+	annotationsToString = annotationsToString[:len(annotationsToString)-1]
+	
 	for vcpuId, vcpu := range vmStats.Vcpu {
 		if !vcpu.StateSet || !vcpu.TimeSet {
 			log.Log.V(4).Warningf("State or time not set for vcpu#%d", vcpuId)
@@ -215,12 +247,25 @@ func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, c
 			float64(vcpu.Time/1000000000),
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name, fmt.Sprintf("%v", vcpuId), fmt.Sprintf("%v", vcpu.State),
+			labelsToString, annotationsToString,
 		)
 		tryToPushMetric(vcpuUsageDesc, mv, err, ch)
 	}
 }
 
 func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+	labelsToString := ""
+	for label, val := range vmi.Labels {
+		labelsToString += label + "=" + val +","
+	}
+	labelsToString = labelsToString[:len(labelsToString)-1]
+
+	annotationsToString := ""
+	for annotation, val := range vmi.Labels {
+		annotationsToString += annotation + "=" + val +","
+	}
+	annotationsToString = annotationsToString[:len(annotationsToString)-1]
+	
 	for blockId, block := range vmStats.Block {
 		if !block.NameSet {
 			log.Log.V(4).Warningf("Name not set for block device#%d", blockId)
@@ -232,7 +277,8 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 				storageIopsDesc, prometheus.CounterValue,
 				float64(block.RdReqs),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				vmStats.Name, block.Name, "read",
+				vmStats.Name, block.Name, "read", labelsToString,
+				annotationsToString,
 			)
 			tryToPushMetric(storageIopsDesc, mv, err, ch)
 		}
@@ -241,7 +287,8 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 				storageIopsDesc, prometheus.CounterValue,
 				float64(block.WrReqs),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				vmStats.Name, block.Name, "write",
+				vmStats.Name, block.Name, "write", labelsToString,
+				annotationsToString,
 			)
 			tryToPushMetric(storageIopsDesc, mv, err, ch)
 		}
@@ -251,7 +298,8 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 				storageTrafficDesc, prometheus.CounterValue,
 				float64(block.RdBytes),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				vmStats.Name, block.Name, "read",
+				vmStats.Name, block.Name, "read", labelsToString,
+				annotationsToString,
 			)
 			tryToPushMetric(storageTrafficDesc, mv, err, ch)
 		}
@@ -260,7 +308,8 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 				storageTrafficDesc, prometheus.CounterValue,
 				float64(block.WrBytes),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				vmStats.Name, block.Name, "write",
+				vmStats.Name, block.Name, "write", labelsToString,
+				annotationsToString,
 			)
 			tryToPushMetric(storageTrafficDesc, mv, err, ch)
 		}
@@ -270,7 +319,8 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 				storageTimesDesc, prometheus.CounterValue,
 				float64(block.RdTimes),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				vmStats.Name, block.Name, "read",
+				vmStats.Name, block.Name, "read", labelsToString,
+				annotationsToString,
 			)
 			tryToPushMetric(storageTimesDesc, mv, err, ch)
 		}
@@ -279,7 +329,8 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 				storageTimesDesc, prometheus.CounterValue,
 				float64(block.WrTimes),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				vmStats.Name, block.Name, "write",
+				vmStats.Name, block.Name, "write", labelsToString,
+				annotationsToString,
 			)
 			tryToPushMetric(storageTimesDesc, mv, err, ch)
 		}
@@ -287,6 +338,18 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 }
 
 func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+	labelsToString := ""
+	for label, val := range vmi.Labels {
+		labelsToString += label + "=" + val +","
+	}
+	labelsToString = labelsToString[:len(labelsToString)-1]
+
+	annotationsToString := ""
+	for annotation, val := range vmi.Labels {
+		annotationsToString += annotation + "=" + val +","
+	}
+	annotationsToString = annotationsToString[:len(annotationsToString)-1]
+
 	for _, net := range vmStats.Net {
 		if !net.NameSet {
 			continue
@@ -296,7 +359,8 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				networkTrafficBytesDesc, prometheus.CounterValue,
 				float64(net.RxBytes),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				vmStats.Name, net.Name, "rx",
+				vmStats.Name, net.Name, "rx", labelsToString,
+				annotationsToString,
 			)
 			tryToPushMetric(networkTrafficBytesDesc, mv, err, ch)
 		}
@@ -305,7 +369,8 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				networkTrafficPktsDesc, prometheus.CounterValue,
 				float64(net.RxPkts),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				vmStats.Name, net.Name, "rx",
+				vmStats.Name, net.Name, "rx", labelsToString,
+				annotationsToString,
 			)
 			tryToPushMetric(networkTrafficPktsDesc, mv, err, ch)
 		}
@@ -314,7 +379,8 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				networkErrorsDesc, prometheus.CounterValue,
 				float64(net.RxErrs),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				vmStats.Name, net.Name, "rx",
+				vmStats.Name, net.Name, "rx", labelsToString,
+				annotationsToString,
 			)
 			tryToPushMetric(networkErrorsDesc, mv, err, ch)
 		}
@@ -324,7 +390,8 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				networkTrafficBytesDesc, prometheus.CounterValue,
 				float64(net.TxBytes),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				vmStats.Name, net.Name, "tx",
+				vmStats.Name, net.Name, "tx", labelsToString,
+				annotationsToString,
 			)
 			tryToPushMetric(networkTrafficBytesDesc, mv, err, ch)
 		}
@@ -333,7 +400,8 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				networkTrafficPktsDesc, prometheus.CounterValue,
 				float64(net.TxPkts),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				vmStats.Name, net.Name, "tx",
+				vmStats.Name, net.Name, "tx", labelsToString,
+				annotationsToString,
 			)
 			tryToPushMetric(networkTrafficPktsDesc, mv, err, ch)
 		}
@@ -342,7 +410,8 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 				networkErrorsDesc, prometheus.CounterValue,
 				float64(net.TxErrs),
 				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-				vmStats.Name, net.Name, "tx",
+				vmStats.Name, net.Name, "tx", labelsToString,
+				annotationsToString,
 			)
 			tryToPushMetric(networkErrorsDesc, mv, err, ch)
 		}
