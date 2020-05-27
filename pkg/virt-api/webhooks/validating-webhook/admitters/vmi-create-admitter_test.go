@@ -1791,7 +1791,30 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.GPUs"))
-		})
+            It("should reject virtiofs filesystems when feature gate is disabled", func() {
+                     vmi := v1.NewMinimalVMI("testvm")
+                     guestMemory := resource.MustParse("64Mi")
+
+                     vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+                             k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+                     }
+                     vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+                     vmi.Spec.Domain.Memory = &v1.Memory{
+                             Hugepages: &v1.Hugepages{},
+                             Guest:     &guestMemory,
+                     }
+                     vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
+                     vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
+                             v1.Filesystem{
+                                     Name:       "sharednfstest",
+                             },
+                     }
+
+                     causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+                     Expect(len(causes)).To(Equal(1))
+                     Expect(causes[0].Field).To(Equal("fake.Filesystems"))
+             })
+        })
 
 		table.DescribeTable("Should accept valid DNSPolicy and DNSConfig",
 			func(dnsPolicy k8sv1.DNSPolicy, dnsConfig *k8sv1.PodDNSConfig) {
