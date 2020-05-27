@@ -679,10 +679,12 @@ func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *c
 			Labels:    labels,
 			Namespace: namespace,
 		},
+		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey and
+		// "debug.useEmulation" are going to be manipulated and only on HCO upgrades
 		Data: map[string]string{
-			"feature-gates":       "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar",
-			"migrations":          `{"nodeDrainTaintKey" : "node.kubernetes.io/unschedulable"}`,
-			"selinuxLauncherType": "spc_t",
+			virtconfig.FeatureGatesKey:        "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar",
+			virtconfig.MigrationsConfigKey:    `{"nodeDrainTaintKey" : "node.kubernetes.io/unschedulable"}`,
+			virtconfig.SELinuxLauncherTypeKey: "spc_t",
 		},
 	}
 	val, ok := os.LookupEnv("SMBIOS")
@@ -692,6 +694,10 @@ func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *c
 	val, ok = os.LookupEnv("MACHINETYPE")
 	if ok && val != "" {
 		cm.Data[virtconfig.MachineTypeKey] = val
+	}
+	val, ok = os.LookupEnv("KVM_EMULATION")
+	if ok && val != "" {
+		cm.Data["debug.useEmulation"] = val
 	}
 	return cm
 }
@@ -726,13 +732,24 @@ func (r *ReconcileHyperConverged) ensureKubeVirtConfig(req *hcoRequest) error {
 	}
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
-	if !reflect.DeepEqual(found.Data, kubevirtConfig.Data) {
-		req.logger.Info("Updating existing KubeVirt config")
-		found.Data = kubevirtConfig.Data
-		err = r.client.Update(req.ctx, found)
-		if err != nil {
-			req.logger.Error(err, "Failed updating an existing kubevirt config")
-			return err
+	if r.upgradeMode {
+		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey and
+		// "debug.useEmulation" are going to be manipulated and only on HCO upgrades
+		for _, k := range []string{
+			virtconfig.SmbiosConfigKey,
+			virtconfig.MachineTypeKey,
+			virtconfig.SELinuxLauncherTypeKey,
+			"debug.useEmulation",
+		} {
+			if found.Data[k] != kubevirtConfig.Data[k] {
+				req.logger.Info(fmt.Sprintf("Updating %s on existing KubeVirt config", k))
+				found.Data[k] = kubevirtConfig.Data[k]
+				err = r.client.Update(req.ctx, found)
+				if err != nil {
+					req.logger.Error(err, fmt.Sprintf("Failed updating %s on an existing kubevirt config", k))
+					return err
+				}
+			}
 		}
 	}
 

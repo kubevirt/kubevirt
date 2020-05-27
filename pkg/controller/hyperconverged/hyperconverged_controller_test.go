@@ -167,6 +167,9 @@ var _ = Describe("HyperconvergedController", func() {
 			var hco *hcov1alpha1.HyperConverged
 			var req *hcoRequest
 
+			updatableKeys := [...]string{virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey}
+			unupdatableKeys := [...]string{virtconfig.FeatureGatesKey, virtconfig.MigrationsConfigKey}
+
 			BeforeEach(func() {
 				hco = newHco()
 				req = newReq(hco)
@@ -207,16 +210,25 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 			})
 
-			It("should update if outdated", func() {
+			It("should update only a few keys and only when in upgrade mode", func() {
 				expectedResource := newKubeVirtConfigForCR(hco, namespace)
 				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 				outdatedResource := newKubeVirtConfigForCR(hco, namespace)
 				outdatedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", outdatedResource.Namespace, outdatedResource.Name)
+				// values we should update
 				outdatedResource.Data[virtconfig.SmbiosConfigKey] = "old-smbios-value-that-we-have-to-update"
 				outdatedResource.Data[virtconfig.MachineTypeKey] = "old-machinetype-value-that-we-have-to-update"
+				outdatedResource.Data[virtconfig.SELinuxLauncherTypeKey] = "old-selinuxlauncher-value-that-we-have-to-update"
+				// values we should preserve
+				outdatedResource.Data[virtconfig.FeatureGatesKey] = "old-featuregates-value-that-we-should-preserve"
+				outdatedResource.Data[virtconfig.MigrationsConfigKey] = "old-migrationsconfig-value-that-we-should-preserve"
 
 				cl := initClient([]runtime.Object{hco, outdatedResource})
 				r := initReconciler(cl)
+
+				// force upgrade mode
+				r.upgradeMode = true
+
 				Expect(r.ensureKubeVirtConfig(req)).To(BeNil())
 
 				foundResource := &corev1.ConfigMap{}
@@ -225,8 +237,47 @@ var _ = Describe("HyperconvergedController", func() {
 						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
 						foundResource),
 				).To(BeNil())
-				Expect(foundResource.Data).To(Not(Equal(outdatedResource.Data)))
-				Expect(foundResource.Data).To(Equal(expectedResource.Data))
+
+				for _, k := range updatableKeys {
+					Expect(foundResource.Data[k]).To(Not(Equal(outdatedResource.Data[k])))
+					Expect(foundResource.Data[k]).To(Equal(expectedResource.Data[k]))
+				}
+				for _, k := range unupdatableKeys {
+					Expect(foundResource.Data[k]).To(Equal(outdatedResource.Data[k]))
+					Expect(foundResource.Data[k]).To(Not(Equal(expectedResource.Data[k])))
+				}
+			})
+
+			It("should not touch it when not in in upgrade mode", func() {
+				expectedResource := newKubeVirtConfigForCR(hco, namespace)
+				expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
+				outdatedResource := newKubeVirtConfigForCR(hco, namespace)
+				outdatedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", outdatedResource.Namespace, outdatedResource.Name)
+				// values we should update
+				outdatedResource.Data[virtconfig.SmbiosConfigKey] = "old-smbios-value-that-we-have-to-update"
+				outdatedResource.Data[virtconfig.MachineTypeKey] = "old-machinetype-value-that-we-have-to-update"
+				outdatedResource.Data[virtconfig.SELinuxLauncherTypeKey] = "old-selinuxlauncher-value-that-we-have-to-update"
+				// values we should preserve
+				outdatedResource.Data[virtconfig.FeatureGatesKey] = "old-featuregates-value-that-we-should-preserve"
+				outdatedResource.Data[virtconfig.MigrationsConfigKey] = "old-migrationsconfig-value-that-we-should-preserve"
+
+				cl := initClient([]runtime.Object{hco, outdatedResource})
+				r := initReconciler(cl)
+
+				// ensure that we are not in upgrade mode
+				r.upgradeMode = false
+
+				Expect(r.ensureKubeVirtConfig(req)).To(BeNil())
+
+				foundResource := &corev1.ConfigMap{}
+				Expect(
+					cl.Get(context.TODO(),
+						types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+						foundResource),
+				).To(BeNil())
+
+				Expect(foundResource.Data).To(Equal(outdatedResource.Data))
+				Expect(foundResource.Data).To(Not(Equal(expectedResource.Data)))
 			})
 		})
 
