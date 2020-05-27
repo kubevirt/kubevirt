@@ -50,7 +50,7 @@ spec:
                   description: Indicates whether the name of the requesting PVC is
                     included in the directory name when dynamically provisioning a
                     PV
-                  type: boolean
+                  type: string
               type: object
           type: object
         status:
