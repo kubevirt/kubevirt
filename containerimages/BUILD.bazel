@@ -2,6 +2,10 @@ load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 
 container_image(
     name = "alpine-container-disk-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "//conditions:default": "amd64",
+    }),
     directory = "/disk",
     files = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@alpine_image_ppc64le//file"],
@@ -12,6 +16,10 @@ container_image(
 
 container_image(
     name = "cirros-container-disk-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "//conditions:default": "amd64",
+    }),
     directory = "/disk",
     files = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@cirros_image_ppc64le//file"],
@@ -23,6 +31,10 @@ container_image(
 # used for e2e testing of custom base baths
 container_image(
     name = "cirros-custom-container-disk-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "//conditions:default": "amd64",
+    }),
     directory = "/custom-disk",
     files = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@cirros_image_ppc64le//file"],
@@ -33,6 +45,10 @@ container_image(
 
 container_image(
     name = "fedora-cloud-container-disk-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "//conditions:default": "amd64",
+    }),
     directory = "/disk",
     files = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@fedora_image_ppc64le//file"],
@@ -43,6 +59,10 @@ container_image(
 
 container_image(
     name = "virtio-container-disk-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "//conditions:default": "amd64",
+    }),
     directory = "/disk",
     files = ["@virtio_win_image//file"],
     visibility = ["//visibility:public"],
