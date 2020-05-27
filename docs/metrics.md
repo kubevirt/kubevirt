@@ -17,7 +17,6 @@ Total resident memory in bytes. Usually set on VMI manifest's [like this example
 
 | Label     	| Description                                                                                                                                	|
 |-----------	|--------------------------------------------------------------------------------------------------------------------------------------------	|
-| domain    	| Unique name used by `libvirtd` to identify the given VMI. This unique name is created with the VMI's name concatenated with it's namespace. 	|
 | name      	| VMI's name given on it's specification.                                                                                                    	|
 | namespace 	| Namespace which the given VMI is related to.                                                                                               	|
 | node      	| Node where the VMI is running on.                                                                                                          	|
@@ -28,7 +27,6 @@ Counter of network errors when transmitting and receiving data.
 
 | Label     	| Description                                                                                                                                	|
 |-----------	|--------------------------------------------------------------------------------------------------------------------------------------------	|
-| domain    	| Unique name used by `libvirtd` to identify the given VMI. This unique name is created with the VMI's name concatenated with it's namespace 	|
 | name      	| VMI's name given on it's specification.                                                                                                    	|
 | namespace 	| Namespace which the given VMI is related to.                                                                                               	|
 | node      	| Node where the VMI is running on.                                                                                                          	|
@@ -41,7 +39,6 @@ How much traffic is being transmitted and received, in bytes.
 
 | Label     	| Description                                                                                                                                	|
 |-----------	|--------------------------------------------------------------------------------------------------------------------------------------------	|
-| domain    	| Unique name used by `libvirtd` to identify the given VMI. This unique name is created with the VMI's name concatenated with it's namespace 	|
 | name      	| VMI's name given on it's specification.                                                                                                    	|
 | namespace 	| Namespace which the given VMI is related to.                                                                                               	|
 | node      	| Node where the VMI is running on.                                                                                                          	|
@@ -54,7 +51,6 @@ How much packets are being transmitted and received, in bytes.
 
 | Label     	| Description                                                                                                                                	|
 |-----------	|--------------------------------------------------------------------------------------------------------------------------------------------	|
-| domain    	| Unique name used by `libvirtd` to identify the given VMI. This unique name is created with the VMI's name concatenated with it's namespace 	|
 | name      	| VMI's name given on it's specification.                                                                                                    	|
 | namespace 	| Namespace which the given VMI is related to.                                                                                               	|
 | node      	| Node where the VMI is running on.                                                                                                          	|
@@ -67,5 +63,5 @@ This metric will return the total amount of VMIs per node and phase.
 
 | Label 	| Description                                                 	|
 |-------	|-------------------------------------------------------------	|
-| phase 	| Phase of the VMI. It can be one of [kubernetes pod lifecycle](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/) 	|
+| phase 	| Phase of the VMI. It can be one of [kubernetes pod lifecycle phases](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/) 	|
 | node  	| Node where the VMI is running on.                           	|
