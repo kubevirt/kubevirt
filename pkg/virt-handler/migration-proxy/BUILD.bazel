@@ -6,8 +6,8 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/util/net/ip:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/k8s.io/utils/net:go_default_library",
     ],
 )
 

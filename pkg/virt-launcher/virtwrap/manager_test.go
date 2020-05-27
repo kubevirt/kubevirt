@@ -39,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/util/net/ip"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -474,6 +475,14 @@ var _ = Describe("Manager", func() {
 	})
 
 	Context("on successful VirtualMachineInstance migrate", func() {
+		funcPreviousValue := ip.GetLoopbackAddress
+
+		BeforeEach(func() {
+			ip.GetLoopbackAddress = func() string {
+				return "127.0.0.1"
+			}
+		})
+
 		It("should prepare the target pod", func() {
 			updateHostsFile = func(entry string) error {
 				return nil
@@ -658,7 +667,9 @@ var _ = Describe("Manager", func() {
 			copyDisks := getDiskTargetsForMigration(mockDomain, vmi)
 			Expect(copyDisks).Should(ConsistOf("vdb", "vdd"))
 		})
-
+		AfterEach(func() {
+			ip.GetLoopbackAddress = funcPreviousValue
+		})
 	})
 
 	Context("on successful VirtualMachineInstance kill", func() {
