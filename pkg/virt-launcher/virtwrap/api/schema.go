@@ -347,6 +347,7 @@ type Memory struct {
 type MemoryBacking struct {
 	HugePages *HugePages           `xml:"hugepages,omitempty"`
 	Source    *MemoryBackingSource `xml:"source,omitempty"`
+	Access    *MemoryBackingAccess `xml:"access,omitempty"`
 }
 
 type MemoryBackingSource struct {
@@ -362,6 +363,10 @@ type HugePages struct {
 type HugePage struct {
 	Size string `xml:"size,attr"`
 	Unit string `xml:"unit,attr"`
+}
+
+type MemoryBackingAccess struct {
+       Mode string `xml:"mode,attr"`
 }
 
 type Devices struct {
