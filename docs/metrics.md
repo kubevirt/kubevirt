@@ -35,7 +35,7 @@ Counter of network errors when transmitting and receiving data.
 
 #### kubevirt_vmi_network_traffic_bytes_total
 
-How much traffic is being transmitted and received, in bytes.
+How much traffic is being transmitted and received.
 
 | Label     	| Description                                                                                                                                	|
 |-----------	|--------------------------------------------------------------------------------------------------------------------------------------------	|
@@ -47,7 +47,7 @@ How much traffic is being transmitted and received, in bytes.
 
 #### kubevirt_vmi_network_traffic_packets_total
 
-How much packets are being transmitted and received, in bytes.
+How much packets are being transmitted and received.
 
 | Label     	| Description                                                                                                                                	|
 |-----------	|--------------------------------------------------------------------------------------------------------------------------------------------	|
@@ -59,9 +59,48 @@ How much packets are being transmitted and received, in bytes.
 
 #### kubevirt_vmi_phase_count
 
-This metric will return the total amount of VMIs per node and phase.
+Total amount of VMIs per node and phase.
 
 | Label 	| Description                                                 	|
 |-------	|-------------------------------------------------------------	|
 | phase 	| Phase of the VMI. It can be one of [kubernetes pod lifecycle phases](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/) 	|
 | node  	| Node where the VMI is running on.                           	|
+
+#### kubevirt_vmi_storage_iops_total
+
+Counter of read and write operations per disk device.
+
+| Label     	| Description                                                 	|
+|-----------	|-------------------------------------------------------------	|
+| name      	| Phase of the VMI. It can be one of kubernetes pod lifecycle 	|
+| namespace 	| Namespace which the given VMI is related to.                	|
+| node      	| Node where the VMI is running on.                           	|
+| drive     	| Disk device tat is being written/read                       	|
+| type      	| Whether it's a read or write operation                      	|
+
+#### kubevirt_vmi_storage_times_ms_total
+
+Total time spent on read and write operations per disk device.
+
+| Label     	| Description                                                 	|
+|-----------	|-------------------------------------------------------------	|
+| name      	| Phase of the VMI. It can be one of kubernetes pod lifecycle 	|
+| namespace 	| Namespace which the given VMI is related to.                	|
+| node      	| Node where the VMI is running on.                           	|
+| drive     	| Disk device tat is being written/read                       	|
+| type      	| Whether it's a read or write operation                      	|
+
+#### kubevirt_vmi_storage_traffic_bytes_total
+
+Total amount of data read and written per disk device.
+
+| Label     	| Description                                                 	|
+|-----------	|-------------------------------------------------------------	|
+| name      	| Phase of the VMI. It can be one of kubernetes pod lifecycle 	|
+| namespace 	| Namespace which the given VMI is related to.                	|
+| node      	| Node where the VMI is running on.                           	|
+| drive     	| Disk device tat is being written/read                       	|
+| type      	| Whether it's a read or write operation                      	|
+
+#### kubevirt_vmi_vcpu_secods
+
