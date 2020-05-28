@@ -53,6 +53,13 @@ var (
 	smbios             = flag.String("smbios", "", "Custom SMBIOS string for KubeVirt ConfigMap")
 	machinetype        = flag.String("machinetype", "", "Custom MACHINETYPE string for KubeVirt ConfigMap")
 	hcoKvIoVersion     = flag.String("hco-kv-io-version", "", "KubeVirt version")
+	kubevirtVersion    = flag.String("kubevirt-version", "", "Kubevirt operator version")
+	cdiVersion         = flag.String("cdi-version", "", "CDI operator version")
+	cnaoVersion        = flag.String("cnao-version", "", "CNA operator version")
+	sspVersion         = flag.String("ssp-version", "", "SSP operator version")
+	nmoVersion         = flag.String("nmo-version", "", "NM operator version")
+	hppoVersion        = flag.String("hppo-version", "", "HPP operator version")
+	vmImportVersion    = flag.String("vm-import-version", "", "VM-Import operator version")
 )
 
 // check handles errors
@@ -122,6 +129,13 @@ func main() {
 			*smbios,
 			*machinetype,
 			*hcoKvIoVersion,
+			*kubevirtVersion,
+			*cdiVersion,
+			*cnaoVersion,
+			*sspVersion,
+			*nmoVersion,
+			*hppoVersion,
+			*vmImportVersion,
 		),
 	}
 	serviceAccounts := map[string]v1.ServiceAccount{

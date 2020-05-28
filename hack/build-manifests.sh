@@ -193,7 +193,7 @@ function create_vm_import_csv() {
   local dumpCRDsArg="--dump-crds"
   local operatorArgs=" \
     --csv-version=${CSV_VERSION} \
-    --operator-version=${tag} \
+    --operator-version=${VM_IMPORT_VERSION} \
     --operator-image=${VM_IMPORT_IMAGE} \
     --controller-image=${containerPrefix}/vm-import-controller:${tag} \
     --namespace=${OPERATOR_NAMESPACE} \
@@ -267,6 +267,13 @@ ${PROJECT_ROOT}/tools/manifest-templator/manifest-templator \
   --operator-namespace="${OPERATOR_NAMESPACE}" \
   --smbios="${SMBIOS}" \
   --hco-kv-io-version="${CSV_VERSION}" \
+  --kubevirt-version="${KUBEVIRT_VERSION}" \
+  --cdi-version="${CDI_VERSION}" \
+  --cnao-version="${NETWORK_ADDONS_VERSION}" \
+  --ssp-version="${SSP_VERSION}" \
+  --nmo-version="${NMO_VERSION}" \
+  --hppo-version="${HPPO_VERSION}" \
+  --vm-import-version="${VM_IMPORT_VERSION}" \
   --operator-image="${OPERATOR_IMAGE}"
 (cd ${PROJECT_ROOT}/tools/manifest-templator/ && go clean)
 
@@ -289,6 +296,13 @@ ${PROJECT_ROOT}/tools/csv-merger/csv-merger \
   --crd-display="HyperConverged Cluster Operator" \
   --smbios="${SMBIOS}" \
   --csv-overrides="$(<${csvOverrides})" \
+  --kubevirt-version="${KUBEVIRT_VERSION}" \
+  --cdi-version="${CDI_VERSION}" \
+  --cnao-version="${NETWORK_ADDONS_VERSION}" \
+  --ssp-version="${SSP_VERSION}" \
+  --nmo-version="${NMO_VERSION}" \
+  --hppo-version="${HPPO_VERSION}" \
+  --vm-import-version="${VM_IMPORT_VERSION}" \
   --operator-image-name="${OPERATOR_IMAGE}" > "${CSV_DIR}/${OPERATOR_NAME}.v${CSV_VERSION}.${CSV_EXT}"
 
 # Copy all CRDs into the CRD and CSV directories

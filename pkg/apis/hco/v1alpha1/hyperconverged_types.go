@@ -51,6 +51,9 @@ type HyperConvergedStatus struct {
 }
 
 func (hcs *HyperConvergedStatus) UpdateVersion(name, version string) {
+	if hcs.Versions == nil {
+		hcs.Versions = Versions{}
+	}
 	hcs.Versions.updateVersion(name, version)
 }
 
