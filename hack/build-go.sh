@@ -77,15 +77,15 @@ if [ "${target}" = "install" ]; then
     # Delete all binaries which are not present in the binaries variable to avoid branch inconsistencies
     to_delete=$(comm -23 <(find ${CMD_OUT_DIR} -mindepth 1 -maxdepth 1 -type d | sort) <(echo $binaries | sed -e 's/cmd\///g' -e 's/ /\n/g' | sed -e "s#^#${CMD_OUT_DIR}/#" | sort))
     rm -rf ${to_delete}
-fi
 
-if [ "${target}" = "install" ]; then
     (
-        mkdir -p ${CMD_OUT_DIR}/container-disk-v2alpha
-        cd cmd/container-disk-v2alpha
-        # the containerdisk bianry needs to be static, as it runs in a scratch container
-        echo "building static binary container-disk"
-        gcc -static -o ${CMD_OUT_DIR}/container-disk-v2alpha/container-disk main.c
+        if [ -z "$BIN_NAME" ] || [[ $BIN_NAME == *"container-disk"* ]]; then
+            mkdir -p ${CMD_OUT_DIR}/container-disk-v2alpha
+            cd cmd/container-disk-v2alpha
+            # the containerdisk bianry needs to be static, as it runs in a scratch container
+            echo "building static binary container-disk"
+            gcc -static -o ${CMD_OUT_DIR}/container-disk-v2alpha/container-disk main.c
+        fi
     )
 fi
 
