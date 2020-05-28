@@ -580,6 +580,12 @@ var _ = Describe("SRIOV", func() {
 
 	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
+		// Check if the hardware supports SRIOV
+		sriovcheck := checkSriovEnabled(virtClient, sriovResourceName)
+		if !sriovcheck {
+			Skip("Sriov is not enabled in this environment. Skip these tests using - export FUNC_TEST_ARGS='--ginkgo.skip=SRIOV'")
+		}
+
 		// Create two sriov networks referring to the same resource name
 		result := virtClient.RestClient().
 			Post().
@@ -1047,4 +1053,21 @@ func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
 		daemonSet := getNetworkConfigDaemonSet()
 		return int(daemonSet.Status.NumberAvailable)
 	}, time.Minute, time.Second).Should(Equal(len(nodes.Items)))
+}
+
+func checkSriovEnabled(virtClient kubecli.KubevirtClient, sriovResourceName string) bool {
+	nodes := tests.GetAllSchedulableNodes(virtClient)
+	Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+
+	for _, node := range nodes.Items {
+		resourceList := node.Status.Allocatable
+		for k, v := range resourceList {
+			if string(k) == sriovResourceName {
+				if v.Value() > 0 {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
