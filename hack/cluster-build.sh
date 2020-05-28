@@ -76,11 +76,23 @@ else
 fi
 
 for node in ${nodes[@]}; do
+    count=0
     until ${KUBEVIRT_PATH}cluster-up/ssh.sh ${node} "echo \"${container}\" | xargs \-\-max-args=1 sudo ${pull_command} pull"; do
+        count=$((count + 1))
+        if [ $count -eq 10 ]; then
+            echo "Failed to '${pull_command} pull' in ${node}" >&2
+            exit 1
+        fi
         sleep 1
     done
 
+    count=0
     until ${KUBEVIRT_PATH}cluster-up/ssh.sh ${node} "echo \"${container_alias}\" | xargs \-\-max-args=2 sudo ${pull_command} tag"; do
+        count=$((count + 1))
+        if [ $count -eq 10 ]; then
+            echo "Failed to '${pull_command} tag' in ${node}" >&2
+            exit 1
+        fi
         sleep 1
     done
 done
