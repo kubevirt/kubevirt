@@ -16831,7 +16831,7 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceNetworkInterface(r
 				Properties: map[string]spec.Schema{
 					"ipAddress": {
 						SchemaProps: spec.SchemaProps{
-							Description: "IP address of a Virtual Machine interface",
+							Description: "IP address of a Virtual Machine interface. It is always the first item of IPs",
 							Type:        []string{"string"},
 							Format:      "",
 						},
