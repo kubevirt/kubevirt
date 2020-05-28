@@ -858,41 +858,34 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var originalFeatureGates string
 			var cpuModelSupportedNodes = make([]string, 0)
 			var cpuFeatureSupportedNodes = make([]string, 0)
-			var supportedCPU string
-			var supportedFeature string
+			var supportedCPUs []string
+			var supportedFeatures []string
 
 			BeforeEach(func() {
 				nodes := tests.GetAllSchedulableNodes(virtClient)
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+
 				node = &nodes.Items[0]
 
-				for key, _ := range node.Labels {
-					if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) && supportedFeature == "" {
-						supportedFeature = strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
-					}
+				supportedCPUs = tests.GetSupportedCPUModels(nodes.Items[0])
+				Expect(len(supportedCPUs)).ToNot(Equal(0))
 
-					if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) && supportedCPU == "" {
-						supportedCPU = strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
-					}
-					if supportedCPU != "" && supportedFeature != "" {
-						break
-					}
-				}
+				supportedFeatures = tests.GetSupportedCPUFeatures(nodes.Items[0])
+				Expect(len(supportedFeatures)).ToNot(Equal(0))
 
 				for _, n := range nodes.Items {
 					for key, _ := range n.Labels {
-						if strings.Contains(key, supportedFeature) {
+						if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX+supportedFeatures[0]) {
 							cpuFeatureSupportedNodes = append(cpuFeatureSupportedNodes, n.Name)
 						}
 
-						if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
+						if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX+supportedFeatures[0]) {
 							cpuModelSupportedNodes = append(cpuModelSupportedNodes, n.Name)
 						}
 					}
 
 				}
-				Expect(supportedFeature).ToNot(Equal(""))
-				Expect(supportedCPU).ToNot(Equal(""))
+
 				options = metav1.GetOptions{}
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
 				Expect(err).ToNot(HaveOccurred())
@@ -910,7 +903,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
-					Model: supportedCPU,
+					Model: supportedCPUs[0],
 				}
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
@@ -964,7 +957,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Cores: 1,
 					Features: []v1.CPUFeature{
 						{
-							Name:   supportedFeature,
+							Name:   supportedFeatures[0],
 							Policy: "require",
 						},
 						{
@@ -1034,7 +1027,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Cores: 1,
 					Features: []v1.CPUFeature{
 						{
-							Name:   supportedFeature,
+							Name:   supportedFeatures[0],
 							Policy: "forbid",
 						},
 					},
