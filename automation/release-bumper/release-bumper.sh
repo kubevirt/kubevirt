@@ -46,6 +46,7 @@ function get_current_versions {
     ["NMO"]=""
     ["HPPO"]=""
     ["HPP"]=""
+    ["VM_IMPORT"]=""
 #    ["CONVERSION_CONTAINER"]=""
 #    ["VMWARE_CONTAINER"]=""
   )
@@ -64,6 +65,7 @@ function get_updated_versions {
     ["NMO"]="kubevirt/node-maintenance-operator"
     ["HPPO"]="kubevirt/hostpath-provisioner-operator"
     ["HPP"]="kubevirt/hostpath-provisioner"
+    ["VM_IMPORT"]="kubevirt/vm-import-operator"
 #    ["CONVERSION_CONTAINER"]=""
 #    ["VMWARE_CONTAINER"]=""
   )
@@ -79,16 +81,48 @@ function get_updated_versions {
 }
 
 function get_latest_release() {
-  curl -s -L --silent "https://api.github.com/repos/$1/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
+  curl -s -L --silent "https://api.github.com/repos/$1/releases" | grep -m 1 '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
 }
 
 function compare_versions() {
+  # comparing between current (local) components versions and their counterparts in the remote repositories.
   for component in "${!UPDATED_VERSIONS[@]}"; do
-    if [ ! "${UPDATED_VERSIONS[$component]}" == "${CURRENT_VERSIONS[$component]}" ]; then
+    higher_version=$(semversort ${CURRENT_VERSIONS[$component]} ${UPDATED_VERSIONS[$component]});
+    if [ ${CURRENT_VERSIONS[$component]} != ${UPDATED_VERSIONS[$component]} ] \
+     && [ ${higher_version} == ${UPDATED_VERSIONS[$component]} ]; then
       echo "INFO: $component" is outdated. Current: "${CURRENT_VERSIONS[$component]}", Updated: "${UPDATED_VERSIONS[$component]}"
       SHOULD_UPDATED+=( "$component" )
-    fi;
+    fi
   done;
+}
+
+function semversort() {
+  versions_list=$@
+
+  tags_orig=(${versions_list})
+  tags_weight=($(version_weight "${tags_orig[*]}"))
+
+  keys=$(for ix in ${!tags_weight[*]}; do
+    printf "%s+%s\n" "${tags_weight[${ix}]}" ${ix}
+  done | sort -V | cut -d+ -f2)
+
+  keys_arr=(${keys})
+  echo ${tags_orig[${keys_arr[-1]}]}
+}
+
+function version_weight() {
+  echo -e "$1" | tr ' ' "\n" | sed -e 's:\+.*$::' | sed -e 's:^v::' |
+    sed -re 's:^[0-9]+(\.[0-9]+)+$:&-stable:' |
+    sed -re 's:([^A-Za-z])dev\.?([^A-Za-z]|$):\1.10.\2:g' |
+    sed -re 's:([^A-Za-z])(alpha|a)\.?([^A-Za-z]|$):\1.20.\3:g' |
+    sed -re 's:([^A-Za-z])(beta|b)\.?([^A-Za-z]|$):\1.30.\3:g' |
+    sed -re 's:([^A-Za-z])(rc|RC)\.?([^A-Za-z]|$)?:\1.40.\3:g' |
+    sed -re 's:([^A-Za-z])stable\.?([^A-Za-z]|$):\1.50.\2:g' |
+    sed -re 's:([^A-Za-z])pl\.?([^A-Za-z]|$):\1.60.\2:g' |
+    sed -re 's:([^A-Za-z])(patch|p)\.?([^A-Za-z]|$):\1.70.\3:g' |
+    sed -r 's:\.{2,}:.:' |
+    sed -r 's:\.$::' |
+    sed -r 's:-\.:.:'
 }
 
 function update_versions() {
@@ -103,7 +137,7 @@ function update_versions() {
 Continuing to next component."
       continue
     else
-      echo "Updating $component to ${UPDATED_VERSIONS[$component]}."
+      echo "INFO: Updating $component to ${UPDATED_VERSIONS[$component]}."
       sed -E -i "s/(""$component""_VERSION=).*/\1${UPDATED_VERSIONS[$component]}/" ${CONFIG_FILE}
 
       echo "$component" > updated_component.txt
