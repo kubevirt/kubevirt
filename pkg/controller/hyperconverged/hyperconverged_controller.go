@@ -1003,6 +1003,7 @@ func newNetworkAddonsForCR(cr *hcov1alpha1.HyperConverged, namespace string) *ne
 			LinuxBridge: &networkaddonsv1alpha1.LinuxBridge{},
 			Ovs:         &networkaddonsv1alpha1.Ovs{},
 			NMState:     &networkaddonsv1alpha1.NMState{},
+			KubeMacPool: &networkaddonsv1alpha1.KubeMacPool{},
 		},
 	}
 }
@@ -1039,7 +1040,7 @@ func (r *ReconcileHyperConverged) ensureNetworkAddons(req *hcoRequest) (upgradeD
 		}
 	}
 
-	if !reflect.DeepEqual(found.Spec, networkAddons.Spec) {
+	if !reflect.DeepEqual(found.Spec, networkAddons.Spec) && !r.upgradeMode {
 		req.logger.Info("Updating existing Network Addons")
 		found.Spec = networkAddons.Spec
 		return false, r.client.Update(req.ctx, found)
