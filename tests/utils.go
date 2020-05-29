@@ -1507,6 +1507,27 @@ func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout
 	return obj
 }
 
+func RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi *v1.VirtualMachineInstance, timeout int, ignoreWarnings bool) *v1.VirtualMachineInstance {
+	By("Starting a VirtualMachineInstance")
+	var obj *v1.VirtualMachineInstance
+	var err error
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() error {
+		obj, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Create(vmi)
+		return err
+	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+	By("Waiting until the VirtualMachineInstance starts")
+	if ignoreWarnings {
+		WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(obj, timeout)
+	} else {
+		WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+	}
+	vmi, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return vmi
+}
+
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will be scheduled")

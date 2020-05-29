@@ -144,31 +144,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	})
 
-	runVMIAndExpectLaunchWithIgnoreWarningArg := func(vmi *v1.VirtualMachineInstance, timeout int, ignoreWarnings bool) *v1.VirtualMachineInstance {
-		By("Starting a VirtualMachineInstance")
-		var obj *v1.VirtualMachineInstance
-		var err error
-		Eventually(func() error {
-			obj, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			return err
-		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
-		By("Waiting until the VirtualMachineInstance starts")
-		if ignoreWarnings {
-			tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(obj, timeout)
-		} else {
-			tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
-		}
-		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return vmi
-	}
-
 	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-		return runVMIAndExpectLaunchWithIgnoreWarningArg(vmi, timeout, false)
+		return tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, timeout, false)
 	}
 
 	runVMIAndExpectLaunchIgnoreWarnings := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
-		return runVMIAndExpectLaunchWithIgnoreWarningArg(vmi, timeout, true)
+		return tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, timeout, true)
 	}
 
 	confirmVMIPostMigration := func(vmi *v1.VirtualMachineInstance, migrationUID string) {
