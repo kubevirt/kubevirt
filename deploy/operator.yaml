@@ -53,7 +53,7 @@ spec:
         - name: SSP_VERSION
           value: v1.0.35
         - name: NMO_VERSION
-          value: v0.5.0
+          value: v0.6.0
         - name: HPPO_VERSION
           value: v0.4.3
         - name: VM_IMPORT_VERSION
@@ -339,13 +339,16 @@ spec:
       containers:
       - env:
         - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: POD_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
         - name: OPERATOR_NAME
           value: node-maintenance-operator
-        image: quay.io/kubevirt/node-maintenance-operator:v0.5.0
+        image: quay.io/kubevirt/node-maintenance-operator:v0.6.0
         imagePullPolicy: Always
         name: node-maintenance-operator
         resources: {}
