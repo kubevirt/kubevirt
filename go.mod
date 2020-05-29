@@ -3,6 +3,7 @@ module kubevirt.io/kubevirt
 require (
 	github.com/Azure/go-autorest/autorest v0.9.1 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.6.0 // indirect
+	github.com/Masterminds/semver v1.5.0
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/containernetworking/plugins v0.8.2
@@ -27,6 +28,7 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.2.0
 	github.com/golang/protobuf v1.3.2
+	github.com/google/go-github/v32 v32.0.0
 	github.com/google/goexpect v0.0.0-20190425035906-112704a48083
 	github.com/google/gofuzz v1.0.0
 	github.com/google/goterm v0.0.0-20190311235235-ce302be1d114 // indirect
