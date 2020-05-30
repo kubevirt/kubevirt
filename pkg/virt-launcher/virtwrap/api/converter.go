@@ -1,6 +1,6 @@
 /*
  * This file is part of the KubeVirt project
- *
+*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -822,28 +822,41 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		return err
 	}
 
+    var isMemfdRequired = false
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 		domain.Spec.MemoryBacking = &MemoryBacking{
 			HugePages: &HugePages{},
 		}
-
 		if val := vmi.Annotations[v1.MemfdMemoryBackend]; val != "false" {
-			// Set memfd as memory backend to solve SELinux restrictions
-			// See the issue: https://github.com/kubevirt/kubevirt/issues/3781
-			domain.Spec.MemoryBacking.Source = &MemoryBackingSource{Type: "memfd"}
-			// NUMA is required in order to use memfd
-			domain.Spec.CPU.NUMA = &NUMA{
-				Cells: []NUMACell{
-					{
-						ID:     "0",
-						CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
-						Memory: fmt.Sprintf("%d", getVirtualMemory(vmi).Value()/int64(1024)),
-						Unit:   "KiB",
-					},
-				},
-			}
-		}
+            isMemfdRequired = true
+        }
+    }
+    // virtiofs require shared access
+    if utils.IsVMIVirtiofsEnabled {
+        if domain.Spec.MemoryBacking == nil {
+            domain.Spec.MemoryBacking = &MemoryBacking{}
+        }
+        domain.Spec.MemoryBacking.Access = &MemoryBackingAccess{
+            Mode: "shared",
+        }
+        isMemfdRequired = true
+    }
 
+	if isMemfdRequired {
+		// Set memfd as memory backend to solve SELinux restrictions
+		// See the issue: https://github.com/kubevirt/kubevirt/issues/3781
+		domain.Spec.MemoryBacking.Source = &MemoryBackingSource{Type: "memfd"}
+		// NUMA is required in order to use memfd
+		domain.Spec.CPU.NUMA = &NUMA{
+			Cells: []NUMACell{
+				{
+					ID:     "0",
+					CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
+					Memory: fmt.Sprintf("%d", getVirtualMemory(vmi).Value()/int64(1024)),
+					Unit:   "KiB",
+				},
+			},
+		}
 	}
 
 	volumeIndices := map[string]int{}
