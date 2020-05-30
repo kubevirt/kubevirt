@@ -107,6 +107,10 @@ pkg_tar(
 
 container_image(
     name = "disks-images-provider-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "//conditions:default": "amd64",
+    }),
     base = ":qemu-img-image",
     directory = "/",
     entrypoint = ["/entrypoint.sh"],

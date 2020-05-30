@@ -9,6 +9,10 @@ load(
 
 container_image(
     name = "winrmcli-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "//conditions:default": "amd64",
+    }),
     base = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_ppc64le//image",
         "//conditions:default": "@fedora//image",

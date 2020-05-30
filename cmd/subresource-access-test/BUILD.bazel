@@ -24,6 +24,10 @@ load(
 
 container_image(
     name = "subresource-access-test-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "//conditions:default": "amd64",
+    }),
     base = "//:passwd-image",
     directory = "/",
     entrypoint = ["/subresource-access-test"],

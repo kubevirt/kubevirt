@@ -33,6 +33,10 @@ container_image(
 
 container_image(
     name = "virt-operator-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "//conditions:default": "amd64",
+    }),
     base = ":version-container",
     directory = "/usr/bin/",
     entrypoint = ["/usr/bin/virt-operator"],
