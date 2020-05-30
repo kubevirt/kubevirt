@@ -977,14 +977,9 @@ func (r *ReconcileHyperConverged) ensureCDI(req *hcoRequest) (upgradeDone bool, 
 	// Handle CDI resource conditions
 	handleComponentConditions(r, req, "CDI", found.Status.Conditions)
 
-	/*
-		TODO: uncomment when the new CDI release will be updated in HCO
-		upgradeDone = req.componentUpgradeInProgress && r.checkComponentVersion(hcoutil.CdiVersionEnvV, found.Status.ObservedVersion)
+	upgradeDone = req.componentUpgradeInProgress && r.checkComponentVersion(hcoutil.CdiVersionEnvV, found.Status.ObservedVersion)
 
-		return upgradeDone, r.client.Status().Update(req.ctx, req.instance)
-	*/
-	// TODO Remove when the new CDI release will be updated in HCO
-	return req.componentUpgradeInProgress, r.client.Status().Update(req.ctx, req.instance)
+	return upgradeDone, r.client.Status().Update(req.ctx, req.instance)
 }
 
 // newNetworkAddonsForCR returns a NetworkAddonsConfig CR

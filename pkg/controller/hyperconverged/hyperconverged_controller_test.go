@@ -1828,8 +1828,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
 			})
 
-			/* TODO: uncomment when the new CDI release will be updated in HCO
-			  It("don't complete upgrade if CDI version is not match to the CDI version env ver", func() {
+			It("don't complete upgrade if CDI version is not match to the CDI version env ver", func() {
 				os.Setenv(util.HcoKvIoVersionName, newVersion)
 
 				// old HCO Version is set
@@ -1870,7 +1869,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cond.Status).Should(BeEquivalentTo("False"))
 				Expect(cond.Reason).Should(Equal(reconcileCompleted))
 				Expect(cond.Message).Should(Equal(reconcileCompletedMessage))
-			})*/
+			})
 
 			It("don't complete upgrade if CNA version is not match to the CNA version env ver", func() {
 				os.Setenv(util.HcoKvIoVersionName, newVersion)
