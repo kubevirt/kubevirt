@@ -366,7 +366,11 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					interfaces := make([]virtv1.VirtualMachineInstanceNetworkInterface, 0)
 					for _, network := range vmi.Spec.Networks {
 						if network.NetworkSource.Pod != nil {
-							ifc := virtv1.VirtualMachineInstanceNetworkInterface{Name: network.Name, IP: pod.Status.PodIP}
+							ifc := virtv1.VirtualMachineInstanceNetworkInterface{
+								Name: network.Name,
+								IP:   pod.Status.PodIP,
+								IPs:  []string{pod.Status.PodIP},
+							}
 							interfaces = append(interfaces, ifc)
 						}
 					}

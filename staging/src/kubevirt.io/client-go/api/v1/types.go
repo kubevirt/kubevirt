@@ -317,7 +317,8 @@ func (m *VirtualMachineInstanceMigration) TargetIsHandedOff() bool {
 //
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceNetworkInterface struct {
-	// IP address of a Virtual Machine interface
+	// IP address of a Virtual Machine interface. It is always the first item of
+	// IPs
 	IP string `json:"ipAddress,omitempty"`
 	// Hardware address of a Virtual Machine interface
 	MAC string `json:"mac,omitempty"`

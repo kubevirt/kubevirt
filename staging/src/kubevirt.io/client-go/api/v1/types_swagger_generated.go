@@ -73,7 +73,7 @@ func (VirtualMachineInstanceMigrationCondition) SwaggerDoc() map[string]string {
 func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":              "+k8s:openapi-gen=true",
-		"ipAddress":     "IP address of a Virtual Machine interface",
+		"ipAddress":     "IP address of a Virtual Machine interface. It is always the first item of\nIPs",
 		"mac":           "Hardware address of a Virtual Machine interface",
 		"name":          "Name of the interface, corresponds to name of the network assigned to the interface",
 		"ipAddresses":   "List of all IP addresses of a Virtual Machine interface",
