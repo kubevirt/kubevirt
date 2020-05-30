@@ -79,8 +79,9 @@ func (DataVolumeSourceImageIO) SwaggerDoc() map[string]string {
 
 func (DataVolumeStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "DataVolumeStatus provides the parameters to store the phase of the Data Volume",
-		"phase": "Phase is the current phase of the data volume",
+		"":           "DataVolumeStatus provides the parameters to store the phase of the Data Volume",
+		"phase":      "Phase is the current phase of the data volume",
+		"conditions": "+listType=set",
 	}
 }
 
@@ -88,6 +89,12 @@ func (DataVolumeList) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "DataVolumeList provides the needed parameters to do request a list of Data Volumes from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 		"items": "Items provides a list of DataVolumes",
+	}
+}
+
+func (DataVolumeCondition) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DataVolumeCondition represents the state of a data volume condition.",
 	}
 }
 

@@ -129,6 +129,8 @@ type DataVolumeStatus struct {
 	Phase        DataVolumePhase    `json:"phase,omitempty"`
 	Progress     DataVolumeProgress `json:"progress,omitempty"`
 	RestartCount int32              `json:"restartCount"`
+	// +listType=set
+	Conditions []DataVolumeCondition `json:"conditions,omitempty" optional:"true"`
 }
 
 //DataVolumeList provides the needed parameters to do request a list of Data Volumes from the system
@@ -141,11 +143,24 @@ type DataVolumeList struct {
 	Items []DataVolume `json:"items"`
 }
 
+// DataVolumeCondition represents the state of a data volume condition.
+type DataVolumeCondition struct {
+	Type               DataVolumeConditionType `json:"type" description:"type of condition ie. Ready|Bound|Running."`
+	Status             corev1.ConditionStatus  `json:"status" description:"status of the condition, one of True, False, Unknown"`
+	LastTransitionTime metav1.Time             `json:"lastTransitionTime,omitempty"`
+	LastHeartbeatTime  metav1.Time             `json:"lastHeartBeatTime,omitempty"`
+	Reason             string                  `json:"reason,omitempty" description:"reason for the condition's last transition"`
+	Message            string                  `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+}
+
 // DataVolumePhase is the current phase of the DataVolume
 type DataVolumePhase string
 
 // DataVolumeProgress is the current progress of the DataVolume transfer operation. Value between 0 and 100 inclusive
 type DataVolumeProgress string
+
+// DataVolumeConditionType is the string representation of known condition types
+type DataVolumeConditionType string
 
 const (
 	// PhaseUnset represents a data volume with no current phase
@@ -186,6 +201,13 @@ const (
 	Failed DataVolumePhase = "Failed"
 	// Unknown represents a DataVolumePhase of Unknown
 	Unknown DataVolumePhase = "Unknown"
+
+	// DataVolumeReady is the condition that indicates if the data volume is ready to be consumed.
+	DataVolumeReady DataVolumeConditionType = "Ready"
+	// DataVolumeBound is the condition that indicates if the underlying PVC is bound or not.
+	DataVolumeBound DataVolumeConditionType = "Bound"
+	// DataVolumeRunning is the condition that indicates if the import/upload/clone container is running.
+	DataVolumeRunning DataVolumeConditionType = "Running"
 )
 
 // DataVolumeCloneSourceSubresource is the subresource checked for permission to clone
