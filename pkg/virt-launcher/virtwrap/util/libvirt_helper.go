@@ -407,6 +407,13 @@ func SetupLibvirt() error {
 			return err
 		}
 	}
+	if _, ok := os.LookupEnv("VIRTIOFSD_DEBUG_LOGS"); ok {
+               _, err = qemuConf.WriteString("virtiofsd_debug = 1\n")
+               if err != nil {
+                       return err
+               }
+       }
+
 
 	return nil
 }
