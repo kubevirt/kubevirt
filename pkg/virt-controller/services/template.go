@@ -61,6 +61,7 @@ const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_NET_RAW = "NET_RAW"
+const CAP_SYS_ADMIN = "SYS_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
@@ -1100,6 +1101,11 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	res = append(res, CAP_SYS_NICE)
+
+	// add CAP_SYS_ADMIN capability to allow virtiofs
+	if utils.IsVMIVirtiofsEnabled(vmi) {
+		res = append(res, CAP_SYS_ADMIN)
+	}
 	return res
 }
 
