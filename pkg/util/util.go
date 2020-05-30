@@ -34,3 +34,11 @@ func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
 	}
 	return false
 }
+
+// Check if a VMI spec requests VirtIO-FS
+func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.Filesystems != nil && len(vmi.Spec.Domain.Devices.Filesystems) != 0 {
+		return true
+	}
+	return false
+}
