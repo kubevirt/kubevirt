@@ -122,7 +122,13 @@ cluster-clean:
 cluster-deploy: cluster-clean
 	./hack/cluster-deploy.sh
 
-cluster-sync: cluster-build cluster-deploy
+cluster-sync:
+ifeq ($(PARALLEL_CLEANUP), 1)
+	./hack/parallel.sh
+else
+	make cluster-build
+	make cluster-deploy
+endif
 
 builder-build:
 	./hack/builder/build.sh

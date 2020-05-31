@@ -36,4 +36,9 @@ to libvirt domains based on the state of those resources.
  * `make cluster-sync`: After deploying a fresh environment, or after making
    changes to code in this tree, this command will sync the Pods and DaemonSets
    in the running KubeVirt environment with the state of this tree.
+   Note: Use make cluster-sync PARALLEL_CLEANUP=1, for a faster deploy.
+   Usable for healthy clusters and for first deploy only.
+   It will skip cleaning in case kubevirt namespace doesnt exists, and if
+   it does exists, it will run the cluster-clean in parallel to the cluster-build,
+   once both are finished it would run cluster-deploy.
  * `make cluster-down`: This will tear down a running KubeVirt enviornment.
