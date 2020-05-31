@@ -285,7 +285,7 @@ EOF
   # Run only Windows tests
   export KUBEVIRT_E2E_FOCUS=Windows
 elif [[ $TARGET =~ (cnao|multus) ]]; then
-  export KUBEVIRT_E2E_FOCUS="Multus|Networking|VMIlifecycle|Expose"
+  export KUBEVIRT_E2E_FOCUS="Multus|Networking|VMIlifecycle|Expose|Macvtap"
 elif [[ $TARGET =~ sriov.* ]]; then
   export KUBEVIRT_E2E_FOCUS=SRIOV
 elif [[ $TARGET =~ gpu.* ]]; then
@@ -293,7 +293,7 @@ elif [[ $TARGET =~ gpu.* ]]; then
 elif [[ $TARGET =~ (okd|ocp).* ]]; then
   export KUBEVIRT_E2E_SKIP="SRIOV|GPU"
 else
-  export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU"
+  export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU|Macvtap"
 fi
 
 if [[ "$KUBEVIRT_STORAGE" == "rook-ceph" ]]; then
