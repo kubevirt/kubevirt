@@ -51,6 +51,22 @@ if (( $# > 0 )); then
     fi
 fi
 
+if (( $# > 0 )); then
+    declare -a TEST_LANES
+    max="$#"
+    while [ ! $max -lt 1 ]; do
+        max=$((max-1))
+        TEST_LANES[$max]="$1"
+        shift
+    done
+else
+    mapfile -t TEST_LANES < <( find cluster-up/cluster -name 'k8s-[0-9].[0-9][0-9]' -print | sort -rV | grep -oE 'k8s.*' | head -3 )
+fi
+echo "Test lanes: ${TEST_LANES[*]}"
+for lane in "${TEST_LANES[@]}"; do
+    [ -d "cluster-up/cluster/$lane" ] || ( echo "provider $lane does not exist!"; exit 1 )
+done
+
 if [[ -z ${TARGET_COMMIT-} ]]; then
     # if there's no commit provided default to the latest merge commit
     TARGET_COMMIT=$(git log -1 --format=%H --merges)
@@ -71,19 +87,6 @@ if [[ -z "${NEW_TESTS}" ]]; then
 fi
 echo "Test files touched: $(echo ${NEW_TESTS} | tr '|' ',')"
 
-if (( $# > 0 )); then
-    declare -a TEST_LANES
-    max="$#"
-    while [ ! $max -lt 1 ]; do
-        max=$((max-1))
-        TEST_LANES[$max]="$1"
-        shift
-    done
-else
-    TEST_LANES=( 'k8s-1.14' 'k8s-1.15' 'k8s-1.16' )
-fi
-echo "Test lanes: ${TEST_LANES[*]}"
-
 NUM_TESTS=${NUM_TESTS-3}
 echo "Number of per lane runs: $NUM_TESTS"
 
@@ -102,8 +105,6 @@ fi
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM
 
 for lane in "${TEST_LANES[@]}"; do
-
-    [ -d "cluster-up/cluster/$lane" ] || ( echo "provider $lane does not exist!"; exit 1 )
 
     echo "test lane: $lane, preparing cluster up"
 
