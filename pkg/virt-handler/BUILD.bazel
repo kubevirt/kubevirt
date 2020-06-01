@@ -49,6 +49,7 @@ go_test(
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/testutils:go_default_library",
+        "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
