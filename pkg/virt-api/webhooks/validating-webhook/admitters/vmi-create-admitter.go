@@ -618,6 +618,12 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				Message: "Macvtap feature gate is not enabled",
 				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 			})
+		} else if iface.InterfaceBindingMethod.Macvtap != nil && networkData.NetworkSource.Multus == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Macvtap interface only implemented with Multus network",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+			})
 		}
 
 		// Check if the interface name is unique
