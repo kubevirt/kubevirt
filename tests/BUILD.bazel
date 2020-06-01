@@ -25,6 +25,8 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tools/vms-generator/utils:go_default_library",
+        "//vendor/github.com/Masterminds/semver:go_default_library",
+        "//vendor/github.com/google/go-github/v32/github:go_default_library",
         "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/mfranczy/crd-rest-coverage/pkg/report:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",

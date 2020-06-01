@@ -671,9 +671,12 @@ spec:
 		It("[test_id:3145]from previous release to target tested release", func() {
 			previousImageTag := tests.PreviousReleaseTag
 			previousImageRegistry := tests.PreviousReleaseRegistry
-
 			if previousImageTag == "" {
-				Skip("--previous-release-tag not provided")
+				previousImageTag, err = tests.DetectLatestUpstreamOfficialTag()
+				Expect(err).ToNot(HaveOccurred())
+				By(fmt.Sprintf("By Using latest upstream official tag %s", previousImageTag))
+			} else {
+				By(fmt.Sprintf("By Using user defined tag %s", previousImageTag))
 			}
 
 			curVersion := originalKv.Status.ObservedKubeVirtVersion

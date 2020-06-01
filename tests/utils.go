@@ -21,6 +21,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -41,6 +42,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -96,6 +98,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
+
+	"github.com/Masterminds/semver"
+	"github.com/google/go-github/v32/github"
 )
 
 var KubeVirtUtilityVersionTag = ""
@@ -136,7 +141,7 @@ func init() {
 	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
 	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
 	flag.StringVar(&PreviousReleaseTag, "previous-release-tag", "", "Set tag of the release to test updating from")
-	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "", "Set registry of the release to test updating from")
+	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "index.docker.io/kubevirt", "Set registry of the release to test updating from")
 	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
 }
@@ -4791,4 +4796,41 @@ func RandTmpDir() string {
 func IsIPv6Cluster(virtClient kubecli.KubevirtClient) bool {
 	clusterDnsIP, _ := getClusterDnsServiceIP(virtClient)
 	return netutils.IsIPv6String(clusterDnsIP)
+}
+
+func DetectLatestUpstreamOfficialTag() (string, error) {
+	client := github.NewClient(nil)
+
+	var err error
+	var releases []*github.RepositoryRelease
+
+	Eventually(func() error {
+		releases, _, err = client.Repositories.ListReleases(context.Background(), "kubevirt", "kubevirt", &github.ListOptions{PerPage: 10000})
+
+		return err
+	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+	var vs []*semver.Version
+
+	for _, release := range releases {
+		if *release.Draft ||
+			*release.Prerelease ||
+			len(release.Assets) == 0 {
+
+			continue
+		}
+		v, err := semver.NewVersion(*release.TagName)
+		if err != nil {
+			panic(err)
+		}
+		vs = append(vs, v)
+	}
+
+	if len(vs) == 0 {
+		return "", fmt.Errorf("No kubevirt releases found")
+	}
+
+	sort.Sort(semver.Collection(vs))
+
+	return fmt.Sprintf("v%v", vs[len(vs)-1]), nil
 }
