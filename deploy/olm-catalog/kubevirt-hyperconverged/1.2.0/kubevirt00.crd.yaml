@@ -1,0 +1,31 @@
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    operator.kubevirt.io: ""
+  name: kubevirts.kubevirt.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.phase
+    name: Phase
+    type: string
+  group: kubevirt.io
+  names:
+    categories:
+    - all
+    kind: KubeVirt
+    plural: kubevirts
+    shortNames:
+    - kv
+    - kvs
+    singular: kubevirt
+  scope: Namespaced
+  version: v1alpha3
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true

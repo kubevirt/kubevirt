@@ -1674,8 +1674,8 @@ var _ = Describe("HyperconvergedController", func() {
 			okConds := expected.hco.Status.Conditions
 
 			const (
-				oldVersion          = "1.0.0"
-				newVersion          = "1.1.0"
+				oldVersion          = "1.1.0"
+				newVersion          = "1.2.0" // TODO: avoid hard-coding values
 				oldComponentVersion = "1.2.0"
 				newComponentVersion = "1.2.3"
 			)

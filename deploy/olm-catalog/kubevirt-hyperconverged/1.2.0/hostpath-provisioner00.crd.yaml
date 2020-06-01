@@ -1,0 +1,77 @@
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    operator.hostpathprovisioner.kubevirt.io: ""
+  name: hostpathprovisioners.hostpathprovisioner.kubevirt.io
+spec:
+  group: hostpathprovisioner.kubevirt.io
+  names:
+    kind: HostPathProvisioner
+    listKind: HostPathProvisionerList
+    plural: hostpathprovisioners
+    shortNames:
+    - hpp
+    - hpps
+    singular: hostpathprovisioner
+  scope: Cluster
+  validation:
+    openAPIV3Schema:
+      description: Represents a HostPathProvisioner deployment
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: HostPathProvisionerSpec defines the desired state of HostPathProvisioner
+          properties:
+            imagePullPolicy:
+              enum:
+              - Always
+              - IfNotPresent
+              - Never
+              type: string
+            imageRegistry:
+              type: string
+            imageTag:
+              type: string
+            pathConfig:
+              description: describes the location and layout of PV storage on nodes
+              properties:
+                path:
+                  description: The provisioner will store PVs at this location on
+                    each node
+                  type: string
+                useNamingPrefix:
+                  description: Indicates whether the name of the requesting PVC is
+                    included in the directory name when dynamically provisioning a
+                    PV
+                  type: string
+              type: object
+          type: object
+        status:
+          description: HostPathProvisionerStatus defines the observed state of HostPathProvisioner
+          properties:
+            conditions:
+              description: Conditions contains the current conditions observed by
+                the operator
+              type: array
+            observedVersion:
+              description: The observed version of the HostPathProvisioner deployment
+              type: string
+            operatorVersion:
+              description: The version of the HostPathProvisioner Operator
+              type: string
+            targetVersion:
+              description: The targeted version of the HostPathProvisioner deployment
+              type: string
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
