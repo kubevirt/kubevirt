@@ -20,7 +20,6 @@ go_library(
         "//pkg/virt-handler/device-manager:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
-        "//pkg/virt-handler/node-labeller:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/network:go_default_library",
         "//pkg/watchdog:go_default_library",

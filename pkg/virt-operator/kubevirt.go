@@ -71,6 +71,7 @@ func NewKubeVirtController(
 	informers util.Informers,
 	operatorNamespace string,
 ) *KubeVirtController {
+
 	c := KubeVirtController{
 		clientset:        clientset,
 		aggregatorClient: aggregatorClient,

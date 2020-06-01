@@ -199,6 +199,7 @@ spec:
           - configmaps
           verbs:
           - patch
+          - delete
         - apiGroups:
           - batch
           resources:
@@ -512,17 +513,6 @@ spec:
           - nodes
           verbs:
           - patch
-          - list
-          - watch
-          - get
-        - apiGroups:
-          - ""
-          resources:
-          - configmaps
-          verbs:
-          - get
-          - list
-          - watch
         - apiGroups:
           - ""
           resources:
