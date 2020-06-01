@@ -275,6 +275,12 @@ const (
 	ipv6MasqueradeGateway = "fd10:0:2::1"
 )
 
+const (
+	capNetAdmin k8sv1.Capability = "NET_ADMIN"
+	capNetRaw   k8sv1.Capability = "NET_RAW"
+	capSysNice  k8sv1.Capability = "SYS_NICE"
+)
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
@@ -4893,4 +4899,15 @@ func DetectLatestUpstreamOfficialTag() (string, error) {
 
 	By(fmt.Sprintf("By detecting latest upstream official tag %s for current branch", tag))
 	return tag, nil
+}
+
+func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
+	switch capability {
+	case
+		capNetAdmin,
+		capNetRaw,
+		capSysNice:
+		return true
+	}
+	return false
 }
