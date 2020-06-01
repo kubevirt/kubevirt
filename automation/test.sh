@@ -170,6 +170,16 @@ fi
 
 kubectl() { cluster-up/kubectl.sh "$@"; }
 
+collect_debug_logs() {
+    local containers
+
+    containers=( $(docker ps -a --format '{{ .Names }}') )
+    for container in "${containers[@]}"; do
+        echo "======== $container ========"
+        docker logs "$container"
+    done
+}
+
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 
 # Make sure that the VM is properly shut down on exit
@@ -200,7 +210,7 @@ done
 set -e
 make bazel-build-images
 
-trap '{ echo "Dump kubevirt state:"; make dump; }' ERR
+trap '{ collect_debug_logs; echo "Dump kubevirt state:"; make dump; }' ERR
 make cluster-up
 trap - ERR
 
