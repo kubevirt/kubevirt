@@ -7398,8 +7398,45 @@
     "description": "DataVolumeBlankImage provides the parameters to create a new raw blank image for the PVC",
     "type": "object"
    },
+   "v1alpha1.DataVolumeCondition": {
+    "description": "DataVolumeCondition represents the state of a data volume condition.",
+    "type": "object",
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastHeartBeatTime": {
+      "$ref": "#/definitions/v1.Time"
+     },
+     "lastProbeTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lastTransitionTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
    "v1alpha1.DataVolumeSource": {
-    "description": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, S3, Registry or an existing PVC",
+    "description": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, Registry or an existing PVC",
     "type": "object",
     "properties": {
      "blank": {
@@ -7407,6 +7444,9 @@
      },
      "http": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceHTTP"
+     },
+     "imageio": {
+      "$ref": "#/definitions/v1alpha1.DataVolumeSourceImageIO"
      },
      "pvc": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourcePVC"
@@ -7436,6 +7476,28 @@
      },
      "url": {
       "description": "URL is the URL of the http source",
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.DataVolumeSourceImageIO": {
+    "description": "DataVolumeSourceImageIO provides the parameters to create a Data Volume from an imageio source",
+    "type": "object",
+    "properties": {
+     "certConfigMap": {
+      "description": "CertConfigMap provides a reference to the CA cert",
+      "type": "string"
+     },
+     "diskId": {
+      "description": "DiskID provides id of a disk to be imported",
+      "type": "string"
+     },
+     "secretRef": {
+      "description": "SecretRef provides the secret reference needed to access the ovirt-engine",
+      "type": "string"
+     },
+     "url": {
+      "description": "URL is the URL of the ovirt-engine",
       "type": "string"
      }
     }
@@ -7514,13 +7576,27 @@
     "description": "DataVolumeStatus provides the parameters to store the phase of the Data Volume",
     "type": "object",
     "nullable": true,
+    "required": [
+     "restartCount"
+    ],
     "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1alpha1.DataVolumeCondition"
+      },
+      "x-kubernetes-list-type": "set"
+     },
      "phase": {
       "description": "Phase is the current phase of the data volume",
       "type": "string"
      },
      "progress": {
       "type": "string"
+     },
+     "restartCount": {
+      "type": "integer",
+      "format": "int32"
      }
     }
    }

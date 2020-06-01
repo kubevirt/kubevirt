@@ -404,9 +404,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.CDIStatus":                schema_pkg_apis_core_v1alpha1_CDIStatus(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume":               schema_pkg_apis_core_v1alpha1_DataVolume(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeBlankImage":     schema_pkg_apis_core_v1alpha1_DataVolumeBlankImage(ref),
+		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeCondition":      schema_pkg_apis_core_v1alpha1_DataVolumeCondition(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeList":           schema_pkg_apis_core_v1alpha1_DataVolumeList(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSource":         schema_pkg_apis_core_v1alpha1_DataVolumeSource(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceHTTP":     schema_pkg_apis_core_v1alpha1_DataVolumeSourceHTTP(ref),
+		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceImageIO":  schema_pkg_apis_core_v1alpha1_DataVolumeSourceImageIO(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourcePVC":      schema_pkg_apis_core_v1alpha1_DataVolumeSourcePVC(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceRegistry": schema_pkg_apis_core_v1alpha1_DataVolumeSourceRegistry(ref),
 		"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceS3":       schema_pkg_apis_core_v1alpha1_DataVolumeSourceS3(ref),
@@ -18068,9 +18070,16 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigSpec(ref common.ReferenceCallback) c
 							Format: "",
 						},
 					},
+					"podResourceRequirements": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 
@@ -18093,9 +18102,16 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigStatus(ref common.ReferenceCallback)
 							Format: "",
 						},
 					},
+					"defaultPodResourceRequirements": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 
@@ -18154,19 +18170,13 @@ func schema_pkg_apis_core_v1alpha1_CDISpec(ref common.ReferenceCallback) common.
 				Description: "CDISpec defines our specification for the CDI installation",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"imageRegistry": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"imageTag": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"imagePullPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"uninstallStrategy": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -18285,6 +18295,56 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeBlankImage(ref common.ReferenceCall
 	}
 }
 
+func schema_pkg_apis_core_v1alpha1_DataVolumeCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DataVolumeCondition represents the state of a data volume condition.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastHeartBeatTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_pkg_apis_core_v1alpha1_DataVolumeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18337,7 +18397,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSource(ref common.ReferenceCallback
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DataVolumeSource represents the source for our Data Volume, this can be HTTP, S3, Registry or an existing PVC",
+				Description: "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, Registry or an existing PVC",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"http": {
@@ -18370,11 +18430,16 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSource(ref common.ReferenceCallback
 							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeBlankImage"),
 						},
 					},
+					"imageio": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceImageIO"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeBlankImage", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceHTTP", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourcePVC", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceRegistry", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceS3", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceUpload"},
+			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeBlankImage", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceHTTP", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceImageIO", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourcePVC", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceRegistry", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceS3", "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeSourceUpload"},
 	}
 }
 
@@ -18402,6 +18467,47 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourceHTTP(ref common.ReferenceCall
 					"certConfigMap": {
 						SchemaProps: spec.SchemaProps{
 							Description: "CertConfigMap provides a reference to the Registry certs",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_core_v1alpha1_DataVolumeSourceImageIO(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DataVolumeSourceImageIO provides the parameters to create a Data Volume from an imageio source",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is the URL of the ovirt-engine",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"diskId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DiskID provides id of a disk to be imported",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretRef provides the secret reference needed to access the ovirt-engine",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"certConfigMap": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CertConfigMap provides a reference to the CA cert",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -18564,8 +18670,34 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeStatus(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"restartCount": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeCondition"),
+									},
+								},
+							},
+						},
+					},
 				},
+				Required: []string{"restartCount"},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolumeCondition"},
 	}
 }

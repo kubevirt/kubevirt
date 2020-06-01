@@ -1,4 +1,4 @@
-package v1
+package shared
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -7,7 +7,7 @@ import (
 // EnsureFinalizer ensures that the object's finalizer is included
 // in the ObjectMeta Finalizers slice. If it already exists, no state change occurs.
 // If it doesn't, the finalizer is appended to the slice.
-func ensureFinalizer(objectMeta *metav1.ObjectMeta, expectedFinalizer string) {
+func EnsureFinalizer(objectMeta *metav1.ObjectMeta, expectedFinalizer string) {
 	// First check if the finalizer is already included in the object.
 	for _, finalizer := range objectMeta.Finalizers {
 		if finalizer == expectedFinalizer {
@@ -22,7 +22,7 @@ func ensureFinalizer(objectMeta *metav1.ObjectMeta, expectedFinalizer string) {
 }
 
 // RemoveFinalizer removes the finalizer from the object's ObjectMeta.
-func removeFinalizer(objectMeta *metav1.ObjectMeta, deletingFinalizer string) {
+func RemoveFinalizer(objectMeta *metav1.ObjectMeta, deletingFinalizer string) {
 	outFinalizers := make([]string, 0)
 	for _, finalizer := range objectMeta.Finalizers {
 		if finalizer == deletingFinalizer {

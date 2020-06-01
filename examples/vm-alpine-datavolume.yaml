@@ -21,7 +21,8 @@ spec:
       source:
         http:
           url: http://cdi-http-import-server.kubevirt/images/alpine.iso
-    status: {}
+    status:
+      restartCount: 0
   running: false
   template:
     metadata:

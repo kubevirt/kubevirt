@@ -19,7 +19,7 @@ func (DataVolumeSpec) SwaggerDoc() map[string]string {
 
 func (DataVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, S3, Registry or an existing PVC",
+		"": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, Registry or an existing PVC",
 	}
 }
 
@@ -67,10 +67,21 @@ func (DataVolumeSourceHTTP) SwaggerDoc() map[string]string {
 	}
 }
 
+func (DataVolumeSourceImageIO) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "DataVolumeSourceImageIO provides the parameters to create a Data Volume from an imageio source",
+		"url":           "URL is the URL of the ovirt-engine",
+		"diskId":        "DiskID provides id of a disk to be imported",
+		"secretRef":     "SecretRef provides the secret reference needed to access the ovirt-engine",
+		"certConfigMap": "CertConfigMap provides a reference to the CA cert",
+	}
+}
+
 func (DataVolumeStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "DataVolumeStatus provides the parameters to store the phase of the Data Volume",
-		"phase": "Phase is the current phase of the data volume",
+		"":           "DataVolumeStatus provides the parameters to store the phase of the Data Volume",
+		"phase":      "Phase is the current phase of the data volume",
+		"conditions": "+listType=set",
 	}
 }
 
@@ -78,6 +89,12 @@ func (DataVolumeList) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "DataVolumeList provides the needed parameters to do request a list of Data Volumes from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 		"items": "Items provides a list of DataVolumes",
+	}
+}
+
+func (DataVolumeCondition) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "DataVolumeCondition represents the state of a data volume condition.",
 	}
 }
 

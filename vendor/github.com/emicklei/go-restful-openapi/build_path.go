@@ -100,9 +100,10 @@ func buildOperation(ws *restful.WebService, r restful.Route, patterns map[string
 	for k, v := range r.ResponseErrors {
 		r := buildResponse(v, cfg)
 		props.StatusCodeResponses[k] = r
-		if 200 == k { // any 2xx code?
-			o.Responses.Default = &r
-		}
+	}
+	if r.DefaultResponse != nil {
+		r := buildResponse(*r.DefaultResponse, cfg)
+		o.Responses.Default = &r
 	}
 	if len(o.Responses.StatusCodeResponses) == 0 {
 		o.Responses.StatusCodeResponses[200] = spec.Response{ResponseProps: spec.ResponseProps{Description: http.StatusText(http.StatusOK)}}
@@ -129,17 +130,16 @@ func buildParameter(r restful.Route, restfulParam *restful.Parameter, pattern st
 	p := spec.Parameter{}
 	param := restfulParam.Data()
 	p.In = asParamType(param.Kind)
-	if param.AllowMultiple {
-		p.Type = "array"
-		p.Items = spec.NewItems()
-		p.Items.Type = param.DataType
-		p.CollectionFormat = param.CollectionFormat
-	} else {
-		p.Type = param.DataType
-	}
 	p.Description = param.Description
 	p.Name = param.Name
 	p.Required = param.Required
+
+	if len(param.AllowableValues) > 0 {
+		p.Enum = make([]interface{}, 0, len(param.AllowableValues))
+		for key := range param.AllowableValues {
+			p.Enum = append(p.Enum, key)
+		}
+	}
 
 	if param.Kind == restful.PathParameterKind {
 		p.Pattern = pattern
@@ -149,7 +149,7 @@ func buildParameter(r restful.Route, restfulParam *restful.Parameter, pattern st
 		p.Schema = new(spec.Schema)
 		p.SimpleSchema = spec.SimpleSchema{}
 		if st.Kind() == reflect.Array || st.Kind() == reflect.Slice {
-			dataTypeName := definitionBuilder{}.keyFrom(st.Elem())
+			dataTypeName := keyFrom(st.Elem(), cfg)
 			p.Schema.Type = []string{"array"}
 			p.Schema.Items = &spec.SchemaOrArray{
 				Schema: &spec.Schema{},
@@ -162,11 +162,19 @@ func buildParameter(r restful.Route, restfulParam *restful.Parameter, pattern st
 				p.Schema.Items.Schema.Ref = spec.MustCreateRef("#/definitions/" + dataTypeName)
 			}
 		} else {
-			p.Schema.Ref = spec.MustCreateRef("#/definitions/" + param.DataType)
+			dataTypeName := keyFrom(st, cfg)
+			p.Schema.Ref = spec.MustCreateRef("#/definitions/" + dataTypeName)
 		}
 
 	} else {
-		p.Type = param.DataType
+		if param.AllowMultiple {
+			p.Type = "array"
+			p.Items = spec.NewItems()
+			p.Items.Type = param.DataType
+			p.CollectionFormat = param.CollectionFormat
+		} else {
+			p.Type = param.DataType
+		}
 		p.Default = stringAutoType(param.DefaultValue)
 		p.Format = param.DataFormat
 	}
@@ -185,7 +193,7 @@ func buildResponse(e restful.ResponseError, cfg Config) (r spec.Response) {
 		}
 		r.Schema = new(spec.Schema)
 		if st.Kind() == reflect.Array || st.Kind() == reflect.Slice {
-			modelName := definitionBuilder{}.keyFrom(st.Elem())
+			modelName := keyFrom(st.Elem(), cfg)
 			r.Schema.Type = []string{"array"}
 			r.Schema.Items = &spec.SchemaOrArray{
 				Schema: &spec.Schema{},
@@ -198,13 +206,13 @@ func buildResponse(e restful.ResponseError, cfg Config) (r spec.Response) {
 				r.Schema.Items.Schema.Ref = spec.MustCreateRef("#/definitions/" + modelName)
 			}
 		} else {
-			modelName := definitionBuilder{}.keyFrom(st)
+			modelName := keyFrom(st, cfg)
 			if isPrimitiveType(modelName) {
 				// If the response is a primitive type, then don't reference any definitions.
 				// Instead, set the schema's "type" to the model name.
 				r.Schema.AddType(modelName, "")
 			} else {
-				modelName := definitionBuilder{}.keyFrom(st)
+				modelName := keyFrom(st, cfg)
 				r.Schema.Ref = spec.MustCreateRef("#/definitions/" + modelName)
 			}
 		}
@@ -223,7 +231,7 @@ func isPrimitiveType(modelName string) bool {
 	if len(modelName) == 0 {
 		return false
 	}
-	return strings.Contains("uint uint8 uint16 uint32 uint64 int int8 int16 int32 int64 float32 float64 bool string byte rune time.Time", modelName)
+	return strings.Contains("uint uint8 uint16 uint32 uint64 int int8 int16 int32 int64 float32 float64 bool string byte rune time.Time time.Duration", modelName)
 }
 
 func jsonSchemaType(modelName string) string {
@@ -245,6 +253,7 @@ func jsonSchemaType(modelName string) string {
 		"float32":   "number",
 		"bool":      "boolean",
 		"time.Time": "string",
+		"time.Duration": "integer",
 	}
 	mapped, ok := schemaMap[modelName]
 	if !ok {

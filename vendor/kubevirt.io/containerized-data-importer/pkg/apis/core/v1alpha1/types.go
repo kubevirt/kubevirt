@@ -58,7 +58,7 @@ const (
 	DataVolumeArchive DataVolumeContentType = "archive"
 )
 
-// DataVolumeSource represents the source for our Data Volume, this can be HTTP, S3, Registry or an existing PVC
+// DataVolumeSource represents the source for our Data Volume, this can be HTTP, Imageio, S3, Registry or an existing PVC
 type DataVolumeSource struct {
 	HTTP     *DataVolumeSourceHTTP     `json:"http,omitempty"`
 	S3       *DataVolumeSourceS3       `json:"s3,omitempty"`
@@ -66,6 +66,7 @@ type DataVolumeSource struct {
 	PVC      *DataVolumeSourcePVC      `json:"pvc,omitempty"`
 	Upload   *DataVolumeSourceUpload   `json:"upload,omitempty"`
 	Blank    *DataVolumeBlankImage     `json:"blank,omitempty"`
+	Imageio  *DataVolumeSourceImageIO  `json:"imageio,omitempty"`
 }
 
 // DataVolumeSourcePVC provides the parameters to create a Data Volume from an existing PVC
@@ -110,11 +111,26 @@ type DataVolumeSourceHTTP struct {
 	CertConfigMap string `json:"certConfigMap,omitempty"`
 }
 
+// DataVolumeSourceImageIO provides the parameters to create a Data Volume from an imageio source
+type DataVolumeSourceImageIO struct {
+	//URL is the URL of the ovirt-engine
+	URL string `json:"url,omitempty"`
+	// DiskID provides id of a disk to be imported
+	DiskID string `json:"diskId,omitempty"`
+	//SecretRef provides the secret reference needed to access the ovirt-engine
+	SecretRef string `json:"secretRef,omitempty"`
+	//CertConfigMap provides a reference to the CA cert
+	CertConfigMap string `json:"certConfigMap,omitempty"`
+}
+
 // DataVolumeStatus provides the parameters to store the phase of the Data Volume
 type DataVolumeStatus struct {
 	//Phase is the current phase of the data volume
-	Phase    DataVolumePhase    `json:"phase,omitempty"`
-	Progress DataVolumeProgress `json:"progress,omitempty"`
+	Phase        DataVolumePhase    `json:"phase,omitempty"`
+	Progress     DataVolumeProgress `json:"progress,omitempty"`
+	RestartCount int32              `json:"restartCount"`
+	// +listType=set
+	Conditions []DataVolumeCondition `json:"conditions,omitempty" optional:"true"`
 }
 
 //DataVolumeList provides the needed parameters to do request a list of Data Volumes from the system
@@ -127,11 +143,24 @@ type DataVolumeList struct {
 	Items []DataVolume `json:"items"`
 }
 
+// DataVolumeCondition represents the state of a data volume condition.
+type DataVolumeCondition struct {
+	Type               DataVolumeConditionType `json:"type" description:"type of condition ie. Ready|Bound|Running."`
+	Status             corev1.ConditionStatus  `json:"status" description:"status of the condition, one of True, False, Unknown"`
+	LastTransitionTime metav1.Time             `json:"lastTransitionTime,omitempty"`
+	LastHeartbeatTime  metav1.Time             `json:"lastHeartBeatTime,omitempty"`
+	Reason             string                  `json:"reason,omitempty" description:"reason for the condition's last transition"`
+	Message            string                  `json:"message,omitempty" description:"human-readable message indicating details about last transition"`
+}
+
 // DataVolumePhase is the current phase of the DataVolume
 type DataVolumePhase string
 
 // DataVolumeProgress is the current progress of the DataVolume transfer operation. Value between 0 and 100 inclusive
 type DataVolumeProgress string
+
+// DataVolumeConditionType is the string representation of known condition types
+type DataVolumeConditionType string
 
 const (
 	// PhaseUnset represents a data volume with no current phase
@@ -172,6 +201,13 @@ const (
 	Failed DataVolumePhase = "Failed"
 	// Unknown represents a DataVolumePhase of Unknown
 	Unknown DataVolumePhase = "Unknown"
+
+	// DataVolumeReady is the condition that indicates if the data volume is ready to be consumed.
+	DataVolumeReady DataVolumeConditionType = "Ready"
+	// DataVolumeBound is the condition that indicates if the underlying PVC is bound or not.
+	DataVolumeBound DataVolumeConditionType = "Bound"
+	// DataVolumeRunning is the condition that indicates if the import/upload/clone container is running.
+	DataVolumeRunning DataVolumeConditionType = "Running"
 )
 
 // DataVolumeCloneSourceSubresource is the subresource checked for permission to clone
@@ -194,12 +230,21 @@ type CDI struct {
 
 // CDISpec defines our specification for the CDI installation
 type CDISpec struct {
-	ImageRegistry string `json:"imageRegistry,omitempty"`
-
-	ImageTag string `json:"imageTag,omitempty"`
-
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
+
+	UninstallStrategy *CDIUninstallStrategy `json:"uninstallStrategy,omitempty"`
 }
+
+// CDIUninstallStrategy defines the state to leave CDI on uninstall
+type CDIUninstallStrategy string
+
+const (
+	// CDIUninstallStrategyRemoveWorkloads specifies clean uninstall
+	CDIUninstallStrategyRemoveWorkloads CDIUninstallStrategy = "RemoveWorkloads"
+
+	// CDIUninstallStrategyBlockUninstallIfWorkloadsExist "leaves stuff around"
+	CDIUninstallStrategyBlockUninstallIfWorkloadsExist CDIUninstallStrategy = "BlockUninstallIfWorkloadsExist"
+)
 
 // CDIPhase is the current phase of the CDI deployment
 type CDIPhase string
@@ -231,6 +276,9 @@ const (
 
 	// CDIPhaseUpgrading signals that the CDI resources are being deployed
 	CDIPhaseUpgrading CDIPhase = "Upgrading"
+
+	// CDIPhaseEmpty is an uninitialized phase
+	CDIPhaseEmpty CDIPhase = ""
 )
 
 //CDIList provides the needed parameters to do request a list of CDIs from the system
@@ -260,14 +308,16 @@ type CDIConfig struct {
 
 //CDIConfigSpec defines specification for user configuration
 type CDIConfigSpec struct {
-	UploadProxyURLOverride   *string `json:"uploadProxyURLOverride,omitempty"`
-	ScratchSpaceStorageClass *string `json:"scratchSpaceStorageClass,omitempty"`
+	UploadProxyURLOverride   *string                      `json:"uploadProxyURLOverride,omitempty"`
+	ScratchSpaceStorageClass *string                      `json:"scratchSpaceStorageClass,omitempty"`
+	PodResourceRequirements  *corev1.ResourceRequirements `json:"podResourceRequirements,omitempty"`
 }
 
 //CDIConfigStatus provides
 type CDIConfigStatus struct {
-	UploadProxyURL           *string `json:"uploadProxyURL,omitempty"`
-	ScratchSpaceStorageClass string  `json:"scratchSpaceStorageClass,omitempty"`
+	UploadProxyURL                 *string                      `json:"uploadProxyURL,omitempty"`
+	ScratchSpaceStorageClass       string                       `json:"scratchSpaceStorageClass,omitempty"`
+	DefaultPodResourceRequirements *corev1.ResourceRequirements `json:"defaultPodResourceRequirements,omitempty"`
 }
 
 //CDIConfigList provides the needed parameters to do request a list of CDIConfigs from the system
