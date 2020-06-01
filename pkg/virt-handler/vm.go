@@ -479,8 +479,8 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 						if iface.PodIP != existingInterfaceStatusByName[domainInterface.Alias.Name].IP {
 							newInterface = v1.VirtualMachineInstanceNetworkInterface{
 								Name: domainInterface.Alias.Name,
-								MAC: interfaceMAC,
-								IP: iface.PodIP,
+								MAC:  interfaceMAC,
+								IP:   iface.PodIP,
 							}
 						}
 					}

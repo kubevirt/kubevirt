@@ -25,11 +25,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"kubevirt.io/kubevirt/pkg/util"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+
+	"kubevirt.io/kubevirt/pkg/util"
 
 	"github.com/coreos/go-iptables/iptables"
 
@@ -100,7 +101,7 @@ func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid stri
 	}
 
 	err = writeToCachedFile(PodCacheInterface{Iface: iface, PodIP: addrList[0].IP.String()},
-	util.VMIInterfacepath, uid, iface.Name)
+		util.VMIInterfacepath, uid, iface.Name)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
 		return err

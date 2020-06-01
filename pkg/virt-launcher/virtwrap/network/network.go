@@ -103,7 +103,7 @@ func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string
 
 func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
 	// Create a dir with VMI UID under network-info-dir to store network files
-	err := os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir,vmi.ObjectMeta.UID), 0755)
+	err := os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, vmi.ObjectMeta.UID), 0755)
 	if err != nil {
 		return err
 	}
