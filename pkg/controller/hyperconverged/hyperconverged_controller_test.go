@@ -3,7 +3,10 @@ package hyperconverged
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"time"
 
@@ -24,7 +27,6 @@ import (
 
 	// TODO: Move to envtest to get an actual api server
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	sspopv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis"
@@ -2254,6 +2256,51 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 			})
 		})
+
+		Context("Update Conflict Error", func() {
+			It("Should requeue in case of update conflict", func() {
+				expected := getBasicDeployment()
+				expected.hco.Status.Conditions = nil
+				cl := expected.initClient()
+				rsc := schema.GroupResource{Group: "hco.kubevirt.io", Resource: "hyperconvergeds.hco.kubevirt.io"}
+				cl.initiateWriteErrors(
+					apierrors.NewConflict(rsc, "hco", errors.New("test error")),
+				)
+				r := initReconciler(cl)
+
+				r.ownVersion = os.Getenv(util.HcoKvIoVersionName)
+				if r.ownVersion == "" {
+					r.ownVersion = version.Version
+				}
+
+				res, err := r.Reconcile(request)
+
+				Expect(err).ToNot(BeNil())
+				Expect(apierrors.IsConflict(err)).To(BeTrue())
+				Expect(res.Requeue).To(BeTrue())
+			})
+
+			It("Should requeue in case of update status conflict", func() {
+				expected := getBasicDeployment()
+				expected.hco.Status.Conditions = nil
+				cl := expected.initClient()
+				rs := schema.GroupResource{"hco.kubevirt.io", "hyperconvergeds.hco.kubevirt.io"}
+				cl.Status().(*hcoTestStatusWriter).initiateErrors(apierrors.NewConflict(rs, "hco", errors.New("test error")))
+				r := initReconciler(cl)
+
+				r.ownVersion = os.Getenv(util.HcoKvIoVersionName)
+				if r.ownVersion == "" {
+					r.ownVersion = version.Version
+				}
+
+				res, err := r.Reconcile(request)
+
+				Expect(err).ToNot(BeNil())
+				Expect(apierrors.IsConflict(err)).To(BeTrue())
+				Expect(res.Requeue).To(BeTrue())
+
+			})
+		})
 	})
 })
 
@@ -2291,7 +2338,7 @@ func (be basicExpected) toArray() []runtime.Object {
 	}
 }
 
-func (be basicExpected) initClient() client.Client {
+func (be basicExpected) initClient() *hcoTestClient {
 	return initClient(be.toArray())
 }
 
@@ -2458,11 +2505,6 @@ func getGenericProgressingConditions() []conditionsv1.Condition {
 			Status: corev1.ConditionFalse,
 		},
 	}
-}
-
-func initClient(clientObjects []runtime.Object) client.Client {
-	// Create a fake client to mock API calls
-	return fake.NewFakeClient(clientObjects...)
 }
 
 func initReconciler(client client.Client) *ReconcileHyperConverged {
