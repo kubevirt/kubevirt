@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"kubevirt.io/kubevirt/pkg/util"
 	"net"
 	"os"
 	"strconv"
@@ -81,6 +82,33 @@ func writeVifFile(buf []byte, pid, name string) error {
 	return nil
 }
 
+func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid string) error {
+	link, err := Handler.LinkByName(podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterfaceName)
+		return err
+	}
+	// get IP address
+	addrList, err := Handler.AddrList(link, netlink.FAMILY_V4)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterfaceName)
+		return err
+	}
+	// no ip assigned. ipam disabled
+	if len(addrList) == 0 {
+		return nil
+	}
+
+	err = writeToCachedFile(PodCacheInterface{Iface: iface, PodIP: addrList[0].IP.String()},
+	util.VMIInterfacepath, uid, iface.Name)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
+		return err
+	}
+
+	return nil
+}
+
 func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
 	initHandler()
 
@@ -101,7 +129,12 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 	}
 
 	if !isExist {
-		err := driver.discoverPodNetworkInterface()
+		err := setPodInterfaceCache(iface, podInterfaceName, string(vmi.ObjectMeta.UID))
+		if err != nil {
+			return err
+		}
+
+		err = driver.discoverPodNetworkInterface()
 		if err != nil {
 			return err
 		}

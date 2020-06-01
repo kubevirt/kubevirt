@@ -81,6 +81,7 @@ func NewController(
 	ipAddress string,
 	virtShareDir string,
 	virtPrivateDir string,
+	networkInfoDir string,
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -102,6 +103,7 @@ func NewController(
 		host:                     host,
 		ipAddress:                ipAddress,
 		virtShareDir:             virtShareDir,
+		networkInfoDir:           networkInfoDir,
 		vmiSourceInformer:        vmiSourceInformer,
 		vmiTargetInformer:        vmiTargetInformer,
 		domainInformer:           domainInformer,
@@ -155,6 +157,7 @@ type VirtualMachineController struct {
 	ipAddress                string
 	virtShareDir             string
 	virtPrivateDir           string
+	networkInfoDir           string
 	Queue                    workqueue.RateLimitingInterface
 	vmiSourceInformer        cache.SharedIndexInformer
 	vmiTargetInformer        cache.SharedIndexInformer
@@ -377,6 +380,21 @@ func domainMigrated(domain *api.Domain) bool {
 	return false
 }
 
+func getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*network.PodCacheInterface, error) {
+	content, err := ioutil.ReadFile(fmt.Sprintf(virtutil.VMIInterfacepath, vmi.ObjectMeta.UID, ifaceName))
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to read from cache file: %s", err.Error())
+		return nil, err
+	}
+	var result *network.PodCacheInterface
+	err = json.Unmarshal(content, &result)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to unmarshal interface content: %s", err.Error())
+		return nil, err
+	}
+	return result, nil
+}
+
 func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
@@ -431,6 +449,10 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			for _, existingInterfaceSpec := range vmi.Spec.Domain.Devices.Interfaces {
 				existingInterfacesSpecByName[existingInterfaceSpec.Name] = existingInterfaceSpec
 			}
+			existingNetworksByName := map[string]v1.Network{}
+			for _, existingNetwork := range vmi.Spec.Networks {
+				existingNetworksByName[existingNetwork.Name] = existingNetwork
+			}
 
 			// Iterate through all domain.Spec interfaces
 			for _, domainInterface := range domain.Spec.Devices.Interfaces {
@@ -447,6 +469,21 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 					// Only interfaces defined in domain.Spec are handled here
 					newInterface = existingInterface
 					newInterface.MAC = interfaceMAC
+
+					// If it is a Combination of Masquerade+Pod network, check IP from file cache
+					if existingInterfacesSpecByName[domainInterface.Alias.Name].Masquerade != nil && existingNetworksByName[domainInterface.Alias.Name].NetworkSource.Pod != nil {
+						iface, err := getPodInterfacefromFileCache(vmi, domainInterface.Alias.Name)
+						if err != nil {
+							return err
+						}
+						if iface.PodIP != existingInterfaceStatusByName[domainInterface.Alias.Name].IP {
+							newInterface = v1.VirtualMachineInstanceNetworkInterface{
+								Name: domainInterface.Alias.Name,
+								MAC: interfaceMAC,
+								IP: iface.PodIP,
+							}
+						}
+					}
 				} else {
 					// If not present in vmi.Status.Interfaces, create a new one based on domain.Spec
 					newInterface = v1.VirtualMachineInstanceNetworkInterface{
