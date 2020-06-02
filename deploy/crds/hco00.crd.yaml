@@ -27,9 +27,8 @@ spec:
             name:
               pattern: kubevirt-hyperconverged
               type: string
-            namespace:
-              pattern: kubevirt-hyperconverged
-              type: string
+          type: object
+      type: object
   version: v1alpha1
   versions:
   - name: v1alpha1

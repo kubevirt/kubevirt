@@ -25,6 +25,7 @@ HCO_IMAGE=${HCO_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:latest}
 HCO_NAMESPACE="kubevirt-hyperconverged"
 HCO_KIND="hyperconvergeds"
 HCO_RESOURCE_NAME="kubevirt-hyperconverged"
+HCO_CRD_NAME="hyperconvergeds.hco.kubevirt.io"
 
 CI=""
 if [ "$1" == "CI" ]; then
@@ -99,6 +100,14 @@ function debug(){
 "${CMD}" create -f _out/service_account.yaml
 "${CMD}" create -f _out/cluster_role_binding.yaml
 "${CMD}" create -f _out/crds/
+
+sleep 20
+if [[ "$(${CMD} get crd ${HCO_CRD_NAME} -o=jsonpath='{.status.conditions[?(@.type=="NonStructuralSchema")].status}')" == "True" ]];
+then
+    echo "HCO CRD reports NonStructuralSchema condition"
+    "${CMD}" get crd ${HCO_CRD_NAME} -o go-template='{{ range .status.conditions }}{{ .type }}{{ "\t" }}{{ .status }}{{ "\t" }}{{ .message }}{{ "\n" }}{{ end }}'
+fi
+
 if [ "${CI}" != "true" ]; then
 	"${CMD}" create -f _out/operator.yaml
 else

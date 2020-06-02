@@ -11,6 +11,7 @@ import (
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
 	csvVersion "github.com/operator-framework/api/pkg/lib/version"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -20,7 +21,9 @@ import (
 )
 
 const (
-	hcoName = "hyperconverged-cluster-operator"
+	hcoName           = "hyperconverged-cluster-operator"
+	hcoDeploymentName = "hco-operator"
+	hcoWebhookPath    = "/validate-hco-kubevirt-io-v1alpha1-hyperconverged"
 )
 
 func GetDeployment(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string) appsv1.Deployment {
@@ -413,6 +416,20 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 				"delete",
 			},
 		},
+		{
+			APIGroups: []string{
+				"admissionregistration.k8s.io",
+			},
+			Resources: []string{
+				"validatingwebhookconfigurations",
+			},
+			Verbs: []string{
+				"list",
+				"watch",
+				"update",
+				"patch",
+			},
+		},
 	}
 }
 
@@ -497,16 +514,14 @@ func GetOperatorCRD(namespace string) *extv1beta1.CustomResourceDefinition {
 
 			Validation: &extv1beta1.CustomResourceValidation{
 				OpenAPIV3Schema: &extv1beta1.JSONSchemaProps{
+					Type: "object",
 					Properties: map[string]extv1beta1.JSONSchemaProps{
 						"metadata": {
+							Type: "object",
 							Properties: map[string]extv1beta1.JSONSchemaProps{
 								"name": extv1beta1.JSONSchemaProps{
 									Type:    "string",
 									Pattern: hcov1alpha1.HyperConvergedName,
-								},
-								"namespace": extv1beta1.JSONSchemaProps{
-									Type:    "string",
-									Pattern: namespace,
 								},
 							},
 						},
@@ -667,7 +682,7 @@ func GetInstallStrategyBase(namespace, image, imagePullPolicy, conversionContain
 	return &csvv1alpha1.StrategyDetailsDeployment{
 		DeploymentSpecs: []csvv1alpha1.StrategyDeploymentSpec{
 			csvv1alpha1.StrategyDeploymentSpec{
-				Name: "hco-operator",
+				Name: hcoDeploymentName,
 				Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion),
 			},
 		},
@@ -696,6 +711,33 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 			},
 		},
 	})
+
+	sideEffect := admissionregistrationv1.SideEffectClassNone
+	failurePolicy := admissionregistrationv1.Ignore
+	webhookPath := hcoWebhookPath
+
+	validating_webhook := csvv1alpha1.WebhookDescription{
+		GenerateName:            util.HcoValidatingWebhook,
+		Type:                    csvv1alpha1.ValidatingAdmissionWebhook,
+		DeploymentName:          hcoDeploymentName,
+		ContainerPort:           4343,
+		AdmissionReviewVersions: []string{"v1beta1", "v1"},
+		SideEffects:             &sideEffect,
+		FailurePolicy:           &failurePolicy,
+		Rules: []admissionregistrationv1.RuleWithOperations{
+			admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Create,
+				},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{"hco.kubevirt.io"},
+					APIVersions: []string{"v1alpha1"},
+					Resources:   []string{"hyperconvergeds"},
+				},
+			},
+		},
+		WebhookPath: &webhookPath,
+	}
 
 	return &csvv1alpha1.ClusterServiceVersion{
 		TypeMeta: metav1.TypeMeta{
@@ -782,7 +824,8 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 			},
 			// Skip this in favor of having a separate function to get
 			// the actual StrategyDetailsDeployment when merging CSVs
-			InstallStrategy: csvv1alpha1.NamedInstallStrategy{},
+			InstallStrategy:    csvv1alpha1.NamedInstallStrategy{},
+			WebhookDefinitions: []csvv1alpha1.WebhookDescription{validating_webhook},
 			CustomResourceDefinitions: csvv1alpha1.CustomResourceDefinitions{
 				Owned: []csvv1alpha1.CRDDescription{
 					{

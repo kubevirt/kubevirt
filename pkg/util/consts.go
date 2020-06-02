@@ -11,4 +11,5 @@ const (
 	NmoVersionEnvV       = "NMO_VERSION"
 	HppoVersionEnvV      = "HPPO_VERSION"
 	VMImportEnvV         = "VM_IMPORT_VERSION"
+	HcoValidatingWebhook = "validate-hco.kubevirt.io"
 )

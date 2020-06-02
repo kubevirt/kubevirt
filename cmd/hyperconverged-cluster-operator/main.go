@@ -23,11 +23,13 @@ import (
 
 	sspopv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
+	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
 	csvv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -147,6 +149,7 @@ func main() {
 		sspopv1.AddToScheme,
 		csvv1alpha1.AddToScheme,
 		vmimportv1.AddToScheme,
+		admissionregistrationv1.AddToScheme,
 	} {
 		if err := f(mgr.GetScheme()); err != nil {
 			log.Error(err, "Failed to add to scheme")
@@ -186,6 +189,11 @@ func main() {
 		if err == metrics.ErrServiceMonitorNotPresent {
 			log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects", "error", err.Error())
 		}
+	}
+
+	if err = (&hcov1alpha1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr); err != nil {
+		log.Error(err, "unable to create webhook", "webhook", "HyperConverged")
+		os.Exit(1)
 	}
 
 	log.Info("Starting the Cmd.")
