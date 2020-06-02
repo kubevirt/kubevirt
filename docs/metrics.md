@@ -2,8 +2,6 @@
 
 Sometimes the Help text on `/metrics` endpoint just isn't enough to explain what a certain metric means. This document's objective is to give further explanation to KubeVirt related metrics.
 
-## VM Related Metrics 
-
 #### kubevirt_info
 
 Kubevirt's version information
@@ -136,18 +134,6 @@ Total amount of VMIs per node and phase.
 |-------|-----------------------------------------------------------------------------------------------------------------------------------------|
 | phase | Phase of the VMI. It can be one of [kubernetes pod lifecycle phases](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/) |
 | node | Node where the VMI is running on. |
-
-## Reflector Metrics
-
-> To be done
-
-## Client Metrics
-
-> To be done
-
-## Workqueue Metrics
-
-> To be done
 
 ## RoadMap
 
