@@ -674,7 +674,7 @@ spec:
 			if previousImageTag == "" {
 				previousImageTag, err = tests.DetectLatestUpstreamOfficialTag()
 				Expect(err).ToNot(HaveOccurred())
-				By(fmt.Sprintf("By Using latest upstream official tag %s", previousImageTag))
+				By(fmt.Sprintf("By Using detected tag %s", previousImageTag))
 			} else {
 				By(fmt.Sprintf("By Using user defined tag %s", previousImageTag))
 			}

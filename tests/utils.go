@@ -4798,6 +4798,24 @@ func IsIPv6Cluster(virtClient kubecli.KubevirtClient) bool {
 	return netutils.IsIPv6String(clusterDnsIP)
 }
 
+func getTagHint() string {
+	//git describe --tags --abbrev=0 "$(git rev-parse HEAD)"
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	bytes, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	cmd = exec.Command("git", "describe", "--tags", "--abbrev=0", strings.TrimSpace(string(bytes)))
+	bytes, err = cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	return strings.Split(string(bytes), "-rc")[0]
+
+}
+
 func DetectLatestUpstreamOfficialTag() (string, error) {
 	client := github.NewClient(nil)
 
@@ -4830,7 +4848,30 @@ func DetectLatestUpstreamOfficialTag() (string, error) {
 		return "", fmt.Errorf("No kubevirt releases found")
 	}
 
-	sort.Sort(semver.Collection(vs))
+	// decending order from most recent.
+	sort.Sort(sort.Reverse(semver.Collection(vs)))
 
-	return fmt.Sprintf("v%v", vs[len(vs)-1]), nil
+	// most recent tag
+	tag := fmt.Sprintf("v%v", vs[0])
+
+	// tag hint gives us information about the most recent tag in the current branch
+	// this is executing in. We want to make sure we are using the previous most
+	// recent official release from the branch we're in if possible. Note that this is
+	// all best effort. If a tag hint can't be detected, we move on with the most
+	// recent release from master.
+	tagHint := getTagHint()
+	hint, err := semver.NewVersion(tagHint)
+
+	if tagHint != "" && err == nil {
+		for _, v := range vs {
+			if v.LessThan(hint) || v.Equal(hint) {
+				tag = fmt.Sprintf("v%v", v)
+				By(fmt.Sprintf("Choosing tag %s influenced by tag hint %s", tag, tagHint))
+				break
+			}
+		}
+	}
+
+	By(fmt.Sprintf("By detecting latest upstream official tag %s for current branch", tag))
+	return tag, nil
 }
