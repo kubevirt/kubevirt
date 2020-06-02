@@ -56,6 +56,7 @@ const (
 	VmiMultusMultipleNet = "vmi-multus-multiple-net"
 	VmiHostDisk          = "vmi-host-disk"
 	VmiGPU               = "vmi-gpu"
+	VmiMacvtap           = "vmi-macvtap"
 	VmTemplateFedora     = "vm-template-fedora"
 	VmTemplateRHEL7      = "vm-template-rhel7"
 	VmTemplateWindows    = "vm-template-windows2012r2"
@@ -1000,5 +1001,18 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.GPUs = GPUs
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	return vmi
+}
+
+func GetVMIMacvtap() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiMacvtap)
+	macvtapNetworkName := "macvtap"
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vmi.Spec.Networks = []v1.Network{v1.Network{Name: macvtapNetworkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "macvtapnetwork"}}}}
+	initFedora(&vmi.Spec)
+	addNoCloudDiskWitUserData(&vmi.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable --now nginx")
+
+	macvtap := &v1.InterfaceMacvtap{}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: macvtapNetworkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{Macvtap: macvtap}}}
 	return vmi
 }
