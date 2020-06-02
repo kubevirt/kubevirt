@@ -17,3 +17,16 @@ The other lanes will fail immediately, thus saving CI resources and allow develo
 In addition, the PR won't be mergeable until this selection will be reverted (unset the KUBEVIRT_LANE_FOCUS),
 and all the lanes will run and succeed.
 
+## Using make targets to focus lanes
+
+Focus on one target
+`make focus lanes=target`
+or
+`make focus lanes="target"`
+
+Clear focus
+`make focus`
+
+Focus on multi targets
+`make focus lanes="target1 target2"`
+
