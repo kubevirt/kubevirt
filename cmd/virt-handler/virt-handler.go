@@ -95,7 +95,6 @@ type virtHandlerApp struct {
 	VirtPrivateDir          string
 	VirtLibDir              string
 	KubeletPodsDir          string
-	NetworkInfoDir          string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
 	MaxRequestsInFlight     int
@@ -210,7 +209,7 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	// Directory to store notwork information related to VMIs
-	err = os.MkdirAll(app.NetworkInfoDir, 0755)
+	err = os.MkdirAll(util.NetworkInfoDir, 0755)
 	if err != nil {
 		panic(err)
 	}
@@ -257,7 +256,6 @@ func (app *virtHandlerApp) Run() {
 		app.PodIpAddress,
 		app.VirtShareDir,
 		app.VirtPrivateDir,
-		app.NetworkInfoDir,
 		vmSourceSharedInformer,
 		vmTargetSharedInformer,
 		domainSharedInformer,
@@ -379,9 +377,6 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.StringVar(&app.VirtPrivateDir, "kubevirt-private-dir", util.VirtPrivateDir,
 		"private directory for virt-handler state")
-
-	flag.StringVar(&app.NetworkInfoDir, "network-info-dir", util.NetworkInfoDir,
-		"directory for VMIs network info")
 
 	flag.StringVar(&app.VirtLibDir, "kubevirt-lib-dir", util.VirtLibDir,
 		"Shared lib directory between virt-handler and virt-launcher")

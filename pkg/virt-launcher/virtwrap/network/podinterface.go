@@ -106,7 +106,6 @@ func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid stri
 		log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
 		return err
 	}
-
 	return nil
 }
 

@@ -68,6 +68,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+// key is the file path, value is the contents.
+// if key exists, then don't read directly from file.
+var podInterfaceCache map[string]*network.PodCacheInterface
+
 type launcherClientInfo struct {
 	client     cmdclient.LauncherClient
 	socketFile string
@@ -81,7 +85,6 @@ func NewController(
 	ipAddress string,
 	virtShareDir string,
 	virtPrivateDir string,
-	networkInfoDir string,
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -103,7 +106,6 @@ func NewController(
 		host:                     host,
 		ipAddress:                ipAddress,
 		virtShareDir:             virtShareDir,
-		networkInfoDir:           networkInfoDir,
 		vmiSourceInformer:        vmiSourceInformer,
 		vmiTargetInformer:        vmiTargetInformer,
 		domainInformer:           domainInformer,
@@ -334,6 +336,12 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineI
 	defer d.phase1NetworkSetupCacheLock.Unlock()
 
 	delete(d.phase1NetworkSetupCache, vmi.UID)
+
+	// Delete the VMI Netowrk cache files on Cleanup
+	err := os.RemoveAll(virtutil.VMIInterfaceDir)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to delete VMI Network cache files: %s", err.Error())
+	}
 }
 
 // Reaching into the network namespace of the VMI's pod is expensive because
@@ -381,12 +389,19 @@ func domainMigrated(domain *api.Domain) bool {
 }
 
 func getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*network.PodCacheInterface, error) {
-	content, err := ioutil.ReadFile(fmt.Sprintf(virtutil.VMIInterfacepath, vmi.ObjectMeta.UID, ifaceName))
+	var result *network.PodCacheInterface
+	ifacepath := fmt.Sprintf(virtutil.VMIInterfacepath, vmi.ObjectMeta.UID, ifaceName)
+
+	// Once the Interface files are set on the handler, they don't change
+	// If already present in the map, don't read again
+	if result, exists := podInterfaceCache[ifacepath]; exists {
+		return result, nil
+	}
+	content, err := ioutil.ReadFile(ifacepath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to read from cache file: %s", err.Error())
 		return nil, err
 	}
-	var result *network.PodCacheInterface
 	err = json.Unmarshal(content, &result)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to unmarshal interface content: %s", err.Error())

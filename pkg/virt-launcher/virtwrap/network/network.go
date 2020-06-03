@@ -44,8 +44,8 @@ var NetworkInterfaceFactory = getNetworkClass
 var podInterfaceName = podInterface
 
 type PodCacheInterface struct {
-	Iface *v1.Interface
-	PodIP string
+	Iface *v1.Interface `json:"iface,omitempty"`
+	PodIP string        `json:"podIP,omitempty"`
 }
 
 type plugFunction func(vif NetworkInterface, vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
