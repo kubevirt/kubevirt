@@ -80,6 +80,8 @@ const (
 	uninstallHCOErrorMsg  = "The uninstall request failed on dependent components, please check their logs."
 
 	hcoVersionName = "operator"
+
+	appLabel = "app"
 )
 
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -259,6 +261,8 @@ func (r *ReconcileHyperConverged) doReconcile(req *hcoRequest) (reconcile.Result
 		}
 	}
 
+	r.setLabels(req)
+
 	// in-memory conditions should start off empty. It will only ever hold
 	// negative conditions (!Available, Degraded, Progressing)
 	req.conditions = newHcoConditions()
@@ -345,6 +349,8 @@ func (r *ReconcileHyperConverged) validateNamespace(req *hcoRequest) (bool, erro
 
 func (r *ReconcileHyperConverged) setInitialConditions(req *hcoRequest) error {
 	req.instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
+	req.instance.Spec.Version = r.ownVersion
+	req.dirty = true
 
 	req.conditions.setStatusCondition(conditionsv1.Condition{
 		Type:    hcov1alpha1.ConditionReconcileComplete,
@@ -698,6 +704,11 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *hcoRequest) error 
 		if r.upgradeMode && req.componentUpgradeInProgress {
 			// update the new version only when upgrade is completed
 			req.instance.Status.UpdateVersion(hcoVersionName, r.ownVersion)
+			req.statusDirty = true
+
+			req.instance.Spec.Version = r.ownVersion
+			req.dirty = true
+
 			r.upgradeMode = false
 			req.componentUpgradeInProgress = false
 			req.logger.Info(fmt.Sprintf("Successfuly upgraded to version %s", r.ownVersion))
@@ -741,7 +752,7 @@ func (r *ReconcileHyperConverged) checkComponentVersion(versionEnvName, actualVe
 
 func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
 	labels := map[string]string{
-		"app": cr.Name,
+		appLabel: cr.Name,
 	}
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -830,7 +841,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtConfig(req *hcoRequest) (upgrade
 // newKubeVirtForCR returns a KubeVirt CR
 func newKubeVirtForCR(cr *hcov1alpha1.HyperConverged, namespace string) *kubevirtv1.KubeVirt {
 	labels := map[string]string{
-		"app": cr.Name,
+		appLabel: cr.Name,
 	}
 	return &kubevirtv1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
@@ -955,7 +966,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirt(req *hcoRequest) (upgradeDone b
 // newCDIForCr returns a CDI CR
 func newCDIForCR(cr *hcov1alpha1.HyperConverged, namespace string) *cdiv1alpha1.CDI {
 	labels := map[string]string{
-		"app": cr.Name,
+		appLabel: cr.Name,
 	}
 	uninstallStrategy := cdiv1alpha1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
 	return &cdiv1alpha1.CDI{
@@ -1034,7 +1045,7 @@ func (r *ReconcileHyperConverged) ensureCDI(req *hcoRequest) (upgradeDone bool, 
 // newNetworkAddonsForCR returns a NetworkAddonsConfig CR
 func newNetworkAddonsForCR(cr *hcov1alpha1.HyperConverged, namespace string) *networkaddonsv1alpha1.NetworkAddonsConfig {
 	labels := map[string]string{
-		"app": cr.Name,
+		appLabel: cr.Name,
 	}
 	return &networkaddonsv1alpha1.NetworkAddonsConfig{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1188,7 +1199,7 @@ func (r *ReconcileHyperConverged) componentNotAvailable(req *hcoRequest, compone
 
 func newKubeVirtCommonTemplateBundleForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtCommonTemplatesBundle {
 	labels := map[string]string{
-		"app": cr.Name,
+		appLabel: cr.Name,
 	}
 	return &sspv1.KubevirtCommonTemplatesBundle{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1253,7 +1264,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(req *hcoReq
 
 func newKubeVirtNodeLabellerBundleForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtNodeLabellerBundle {
 	labels := map[string]string{
-		"app": cr.Name,
+		appLabel: cr.Name,
 	}
 	return &sspv1.KubevirtNodeLabellerBundle{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1307,7 +1318,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(req *hcoReque
 
 func newIMSConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
 	labels := map[string]string{
-		"app": cr.Name,
+		appLabel: cr.Name,
 	}
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1408,7 +1419,7 @@ func (r *ReconcileHyperConverged) ensureVMImport(req *hcoRequest) (upgradeDone b
 // newVMImportForCR returns a VM import CR
 func newVMImportForCR(cr *hcov1alpha1.HyperConverged, namespace string) *vmimportv1alpha1.VMImportConfig {
 	labels := map[string]string{
-		"app": cr.Name,
+		appLabel: cr.Name,
 	}
 
 	return &vmimportv1alpha1.VMImportConfig{
@@ -1422,7 +1433,7 @@ func newVMImportForCR(cr *hcov1alpha1.HyperConverged, namespace string) *vmimpor
 
 func newKubeVirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtTemplateValidator {
 	labels := map[string]string{
-		"app": cr.Name,
+		appLabel: cr.Name,
 	}
 	return &sspv1.KubevirtTemplateValidator{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1481,7 +1492,7 @@ func newKubeVirtStorageConfigForCR(cr *hcov1alpha1.HyperConverged, namespace str
 	}
 
 	labels := map[string]string{
-		"app": cr.Name,
+		appLabel: cr.Name,
 	}
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1533,7 +1544,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtStorageConfig(req *hcoRequest) (
 
 func newKubeVirtMetricsAggregationForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtMetricsAggregation {
 	labels := map[string]string{
-		"app": cr.Name,
+		appLabel: cr.Name,
 	}
 	return &sspv1.KubevirtMetricsAggregation{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1599,6 +1610,17 @@ func (r *ReconcileHyperConverged) updateConditions(req *hcoRequest) error {
 
 	req.statusDirty = true
 	return nil
+}
+
+func (r *ReconcileHyperConverged) setLabels(req *hcoRequest) {
+	if req.instance.ObjectMeta.Labels == nil {
+		req.instance.ObjectMeta.Labels = map[string]string{}
+	}
+	if req.instance.ObjectMeta.Labels[appLabel] == "" {
+		req.instance.ObjectMeta.Labels[appLabel] = req.instance.Name
+		req.dirty = true
+	}
+
 }
 
 func isKVMAvailable() bool {
@@ -1675,7 +1697,7 @@ func componentResourceRemoval(o interface{}, c client.Client, req *hcoRequest) e
 	}
 
 	labels := resource.GetLabels()
-	if app, labelExists := labels["app"]; !labelExists || app != req.instance.Name {
+	if app, labelExists := labels[appLabel]; !labelExists || app != req.instance.Name {
 		req.logger.Info("Existing resource wasn't deployed by HCO, ignoring", "Kind", resource.GetObjectKind())
 		return nil
 	}

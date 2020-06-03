@@ -146,7 +146,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -265,7 +265,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -333,7 +333,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -482,7 +482,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -631,7 +631,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 			Expect(foundResource.Spec.Multus).To(Equal(&networkaddonsv1alpha1.Multus{}))
 			Expect(foundResource.Spec.LinuxBridge).To(Equal(&networkaddonsv1alpha1.LinuxBridge{}))
@@ -761,7 +761,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -871,7 +871,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -1006,7 +1006,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -1130,7 +1130,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue("app", name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 

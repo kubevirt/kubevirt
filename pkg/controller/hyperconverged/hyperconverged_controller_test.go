@@ -503,8 +503,41 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 		})
 
+		Context("Validate OLM required fields", func() {
+			expected := getBasicDeployment()
+			origConds := expected.hco.Status.Conditions
+
+			BeforeEach(func() {
+				os.Setenv("CONVERSION_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-v2v-conversion:v2.0.0")
+				os.Setenv("VMWARE_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-vmware:v2.0.0}")
+				os.Setenv("OPERATOR_NAMESPACE", namespace)
+				os.Setenv(util.HcoKvIoVersionName, version.Version)
+			})
+
+			It("Should set required fields on init", func() {
+				expected.hco.Status.Conditions = nil
+
+				cl := expected.initClient()
+				foundResource, requeue := doReconcile(cl, expected.hco)
+				Expect(requeue).To(BeTrue())
+
+				Expect(foundResource.ObjectMeta.Labels[appLabel]).Should(Equal(hcov1alpha1.HyperConvergedName))
+			})
+
+			It("Should set required fields when missing", func() {
+				expected.hco.Status.Conditions = origConds
+				// old HCO Version is set
+				cl := expected.initClient()
+				foundResource, requeue := doReconcile(cl, expected.hco)
+				Expect(requeue).To(BeFalse())
+
+				Expect(foundResource.ObjectMeta.Labels[appLabel]).Should(Equal(hcov1alpha1.HyperConvergedName))
+			})
+		})
+
 		Context("Upgrade Mode", func() {
 			expected := getBasicDeployment()
+			origConditions := expected.hco.Status.Conditions
 			okConds := expected.hco.Status.Conditions
 
 			const (
@@ -532,6 +565,8 @@ var _ = Describe("HyperconvergedController", func() {
 				os.Setenv(util.VMImportEnvV, newComponentVersion)
 
 				os.Setenv(util.HcoKvIoVersionName, newVersion)
+
+				expected.hco.Status.Conditions = origConditions
 			})
 
 			It("Should update HCO Version Id in the CR on init", func() {
@@ -553,12 +588,15 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
 
+				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
+
 				expected.hco.Status.Conditions = okConds
 			})
 
 			It("detect upgrade existing HCO Version", func() {
 				// old HCO Version is set
 				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
+				expected.hco.Spec.Version = oldVersion
 
 				// CDI is not ready
 				expected.cdi.Status.Conditions = getGenericProgressingConditions()
@@ -573,6 +611,8 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(oldVersion))
 
+				Expect(foundResource.Spec.Version).Should(Equal(oldVersion))
+
 				// now, complete the upgrade
 				expected.cdi.Status.Conditions = getGenericCompletedConditions()
 				cl = expected.initClient()
@@ -584,6 +624,7 @@ var _ = Describe("HyperconvergedController", func() {
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
+				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
 				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
 				Expect(cond.Status).Should(BeEquivalentTo("False"))
 			})
@@ -592,6 +633,7 @@ var _ = Describe("HyperconvergedController", func() {
 				// CDI is not ready
 				expected.cdi.Status.Conditions = getGenericProgressingConditions()
 				expected.hco.Status.Versions = nil
+				expected.hco.Spec.Version = ""
 
 				cl := expected.initClient()
 				foundResource, requeue := doReconcile(cl, expected.hco)
@@ -603,6 +645,7 @@ var _ = Describe("HyperconvergedController", func() {
 				fmt.Fprintln(GinkgoWriter, "foundResource.Status.Versions", foundResource.Status.Versions)
 				Expect(ok).To(BeFalse())
 				Expect(ver).Should(BeEmpty())
+				Expect(foundResource.Spec.Version).To(BeEmpty())
 
 				// now, complete the upgrade
 				expected.cdi.Status.Conditions = getGenericCompletedConditions()
@@ -615,6 +658,8 @@ var _ = Describe("HyperconvergedController", func() {
 				ver, ok = foundResource.Status.GetVersion(hcoVersionName)
 				Expect(ok).To(BeTrue())
 				Expect(ver).Should(Equal(newVersion))
+				Expect(foundResource.Spec.Version).Should(Equal(newVersion))
+
 				cond := conditionsv1.FindStatusCondition(foundResource.Status.Conditions, conditionsv1.ConditionProgressing)
 				Expect(cond.Status).Should(BeEquivalentTo("False"))
 			})

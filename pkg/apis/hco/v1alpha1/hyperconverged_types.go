@@ -26,6 +26,9 @@ type HyperConvergedSpec struct {
 
 	// LocalStorageClassName the name of the local storage class.
 	LocalStorageClassName string `json:"LocalStorageClassName,omitempty"`
+
+	// operator version
+	Version string `json:"version,omitempty"`
 }
 
 // HyperConvergedStatus defines the observed state of HyperConverged
