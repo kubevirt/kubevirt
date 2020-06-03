@@ -351,7 +351,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 // filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state and not terminating
 func (c *VMIReplicaSet) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
 	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
-		return !vmi.IsFinal() && vmi.DeletionTimestamp == nil
+		return !vmi.IsFinal() && vmi.DeletionTimestamp == nil && !controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionFalse)
 	})
 }
 
