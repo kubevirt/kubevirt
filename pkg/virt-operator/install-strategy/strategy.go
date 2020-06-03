@@ -296,26 +296,9 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}
+
 	strategy.daemonSets = append(strategy.daemonSets, handler)
-
-	prefix := "system:serviceaccount"
-	typeMeta := metav1.TypeMeta{
-		Kind: customSCCPrivilegedAccountsType,
-	}
-
 	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
-
-	// deprecated, keep it for backwards compatibility
-	strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, &customSCCPrivilegedAccounts{
-		TypeMeta:  typeMeta,
-		TargetSCC: "privileged",
-		ServiceAccounts: []string{
-			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), rbac.HandlerServiceAccountName),
-			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), rbac.ApiServiceAccountName),
-			fmt.Sprintf("%s:%s:%s", prefix, config.GetNamespace(), rbac.ControllerServiceAccountName),
-		},
-	})
-
 	strategy.apiServices = components.NewVirtAPIAPIServices(config.GetNamespace())
 	strategy.certificateSecrets = components.NewCertSecrets(config.GetNamespace(), operatorNamespace)
 	strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewCACertSecret(operatorNamespace))
