@@ -502,6 +502,7 @@ func GetOperatorCRD(namespace string) *extv1beta1.CustomResourceDefinition {
 				Singular:   "hyperconverged",
 				Kind:       "HyperConverged",
 				ShortNames: []string{"hco", "hcos"},
+				Categories: []string{"all"},
 			},
 
 			AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{

@@ -10,6 +10,8 @@ spec:
     type: date
   group: hco.kubevirt.io
   names:
+    categories:
+    - all
     kind: HyperConverged
     plural: hyperconvergeds
     shortNames:
