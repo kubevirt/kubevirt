@@ -57,6 +57,7 @@ import (
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	settingsv1alpha1 "k8s.io/api/settings/v1alpha1"
 	storagev1 "k8s.io/api/storage/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -167,6 +168,7 @@ const (
 	GuestAgentHttpUrl
 	StressHttpUrl
 	DmidecodeHttpUrl
+	DummyFileHttpUrl
 )
 
 const (
@@ -763,6 +765,10 @@ func BeforeTestSuitSetup() {
 	CreatePVC(osWindows, defaultWindowsDiskSize, Config.StorageClassWindows)
 	CreatePVC(osRhel, defaultRhelDiskSize, Config.StorageClassRhel)
 
+	if IsRunningOnKindInfraIPv6() {
+		createPodPreset("fix-node-uuid", "fake-product-uuid", "virt-launcher", "/kind/product_uuid", "/sys/class/dmi/id/product_uuid")
+	}
+
 	EnsureKVMPresent()
 
 	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
@@ -1227,6 +1233,48 @@ func cleanupSubresourceServiceAccount() {
 	}
 }
 
+func createPodPreset(podPresetName, volName, label, srcPath, dstPath string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	hostPathType := k8sv1.HostPathFile
+	podPreset := settingsv1alpha1.PodPreset{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podPresetName,
+			Namespace: NamespaceTestDefault,
+		},
+		Spec: settingsv1alpha1.PodPresetSpec{
+			Selector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"kubevirt.io": label,
+				},
+			},
+			Volumes: []k8sv1.Volume{
+				{
+					Name: volName,
+					VolumeSource: k8sv1.VolumeSource{
+						HostPath: &k8sv1.HostPathVolumeSource{
+							Path: srcPath,
+							Type: &hostPathType,
+						},
+					},
+				},
+			},
+			VolumeMounts: []k8sv1.VolumeMount{
+				{
+					Name:      volName,
+					MountPath: dstPath,
+				},
+			},
+		},
+	}
+
+	_, err = virtCli.SettingsV1alpha1().PodPresets(NamespaceTestDefault).Create(&podPreset)
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
 func createServiceAccount(saName string, clusterRole string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -1436,6 +1484,27 @@ func RunVMIAndExpectLaunchIgnoreWarnings(vmi *v1.VirtualMachineInstance, timeout
 	By("Waiting until the VirtualMachineInstance will start")
 	WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(obj, timeout)
 	return obj
+}
+
+func RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi *v1.VirtualMachineInstance, timeout int, ignoreWarnings bool) *v1.VirtualMachineInstance {
+	By("Starting a VirtualMachineInstance")
+	var obj *v1.VirtualMachineInstance
+	var err error
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() error {
+		obj, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Create(vmi)
+		return err
+	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+	By("Waiting until the VirtualMachineInstance starts")
+	if ignoreWarnings {
+		WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(obj, timeout)
+	} else {
+		WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+	}
+	vmi, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return vmi
 }
 
 func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
@@ -1790,6 +1859,39 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func GetSupportedCPUFeatures(node k8sv1.Node) []string {
+	var featureBlackList = map[string]bool{
+		"svm": true,
+	}
+	features := make([]string, 0)
+	for key := range node.Labels {
+		if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
+			feature := strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
+			if _, ok := featureBlackList[feature]; !ok {
+				features = append(features, feature)
+			}
+		}
+	}
+	return features
+}
+
+func GetSupportedCPUModels(node k8sv1.Node) []string {
+	var cpuBlackList = map[string]bool{
+		"qemu64":     true,
+		"Opteron_G2": true,
+	}
+	cpus := make([]string, 0)
+	for key := range node.Labels {
+		if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
+			cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
+			if _, ok := cpuBlackList[cpu]; !ok {
+				cpus = append(cpus, cpu)
+			}
+		}
+	}
+	return cpus
+}
+
 func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
@@ -1980,6 +2082,14 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, 
 	return vmi
 }
 
+func NewRandomFedora32VMIWithFedoraUser() *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), `#!/bin/bash
+	    echo "fedora" |passwd fedora --stdin
+        echo `)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	return vmi
+}
+
 func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
 	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), GetGuestAgentUserData())
 	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
@@ -2006,13 +2116,15 @@ func GetGuestAgentUserData() string {
 
 	ipv6UserDataString := ""
 	if netutils.IsIPv6String(dnsServerIP) {
-		ipv6UserDataString = fmt.Sprintf(`sudo ip -6 addr add fd2e:f1fe:9490:a8ff::2/120 dev eth0
-                             sudo ip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2
+		ipv6UserDataString = fmt.Sprintf(`sudo ip -6 addr add fd10:0:2::2/120 dev eth0
+                             for i in {1..20}; do sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2 && break || sleep 0.1; done
                              echo "nameserver %s" >> /etc/resolv.conf`, dnsServerIP)
 	}
 	return fmt.Sprintf(`#!/bin/bash
                 echo "fedora" |passwd fedora --stdin
-				%s
+                systemctl disable NetworkManager
+                systemctl stop NetworkManager
+                %s
                 mkdir -p /usr/local/bin
                 curl %s > /usr/local/bin/qemu-ga
                 chmod +x /usr/local/bin/qemu-ga
@@ -2758,13 +2870,13 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 	ipv6Batch := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "sudo ip -6 addr add fd2e:f1fe:9490:a8ff::2/120 dev eth0\n"},
+		&expect.BSnd{S: "sudo ip -6 addr add fd10:0:2::2/120 dev eth0\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 		&expect.BSnd{S: "sleep 5\n"},
 		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "sudo ip -6 route add default via fd2e:f1fe:9490:a8ff::1 src fd2e:f1fe:9490:a8ff::2\n"},
+		&expect.BSnd{S: "sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
@@ -2992,14 +3104,14 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		return "", fmt.Errorf("could not find compute container for pod")
 	}
 
-	stdout, _, err := ExecuteCommandOnPodV2(
+	stdout, stderr, err := ExecuteCommandOnPodV2(
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[containerIdx].Name,
 		[]string{"virsh", "dumpxml", vmi.Namespace + "_" + vmi.Name},
 	)
 	if err != nil {
-		return "", fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v", err)
+		return "", fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v: %s", err, stderr)
 	}
 	return stdout, err
 }
@@ -4052,16 +4164,30 @@ func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int) {
-	expecter, err := LoggedInCirrosExpecter(vmi)
-	Expect(err).ToNot(HaveOccurred())
+func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) {
+	var err error
+	var expecter expect.Expecter
+	var httpServerMaker string
+	var prompt string
+
+	if isFedoraVM {
+		expecter, err = LoggedInFedoraExpecter(vmi)
+		Expect(err).NotTo(HaveOccurred())
+		httpServerMaker = fmt.Sprintf("python3 -m http.server %d --bind ::0 &\n", port)
+		prompt = "#"
+	} else {
+		expecter, err = LoggedInCirrosExpecter(vmi)
+		Expect(err).NotTo(HaveOccurred())
+		httpServerMaker = fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\n\\nHello World!\"\n", port)
+		prompt = "\\$"
+	}
 	defer expecter.Close()
 
 	resp, err := expecter.ExpectBatch([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\n\\nHello World!\"\n", port)},
-		&expect.BExp{R: "\\$ "},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: httpServerMaker},
+		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 	}, 60*time.Second)
@@ -4361,6 +4487,8 @@ func GetUrl(urlIndex int) string {
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/stress", KubeVirtInstallNamespace)
 	case DmidecodeHttpUrl:
 		str = fmt.Sprintf("http://cdi-http-import-server.%s/dmidecode", KubeVirtInstallNamespace)
+	case DummyFileHttpUrl:
+		str = fmt.Sprintf("http://cdi-http-import-server.%s/dummy.file", KubeVirtInstallNamespace)
 	default:
 		str = ""
 	}
@@ -4563,15 +4691,26 @@ func IsRunningOnKindInfra() bool {
 	return strings.HasPrefix(provider, "kind")
 }
 
+func IsRunningOnKindInfraIPv6() bool {
+	provider := os.Getenv("KUBEVIRT_PROVIDER")
+	return strings.HasPrefix(provider, "kind-k8s-1.17.0-ipv6")
+}
+
+func SkipStressTestIfRunnigOnKindInfra() {
+	if IsRunningOnKindInfra() {
+		Skip("Skip stress test till issue https://github.com/kubevirt/kubevirt/issues/3323 is fixed")
+	}
+}
+
 func SkipPVCTestIfRunnigOnKindInfra() {
 	if IsRunningOnKindInfra() {
 		Skip("Skip PVC tests till PR https://github.com/kubevirt/kubevirt/pull/3171 is merged")
 	}
 }
 
-func SkipMigrationTestIfRunnigOnKindInfra() {
+func SkipNFSTestIfRunnigOnKindInfra() {
 	if IsRunningOnKindInfra() {
-		Skip("Skip migration tests till PR https://github.com/kubevirt/kubevirt/pull/3221 is merged")
+		Skip("Skip NFS tests till issue https://github.com/kubevirt/kubevirt/issues/3322 is fixed")
 	}
 }
 
@@ -4626,4 +4765,9 @@ func ClearKubeVirtConfigMap(key string) error {
 
 func RandTmpDir() string {
 	return tmpPath + "/" + rand.String(10)
+}
+
+func IsIPv6Cluster(virtClient kubecli.KubevirtClient) bool {
+	clusterDnsIP, _ := getClusterDnsServiceIP(virtClient)
+	return netutils.IsIPv6String(clusterDnsIP)
 }

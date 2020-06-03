@@ -35,14 +35,14 @@ const (
 )
 
 //go:generate swagger-doc
-//go:generate openapi-gen -i . --output-package=kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/api/v1  --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
+//go:generate openapi-gen -i . --output-package=kubevirt.io/client-go/api/v1  --go-header-file ../../../../../../hack/boilerplate/boilerplate.go.txt
 
 /*
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
 
 // Represents a disk created on the cluster level
-// ---
+//
 // +k8s:openapi-gen=true
 type HostDisk struct {
 	// The path to HostDisk image located on the cluster
@@ -59,7 +59,7 @@ type HostDisk struct {
 
 // ConfigMapVolumeSource adapts a ConfigMap into a volume.
 // More info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap
-// ---
+//
 // +k8s:openapi-gen=true
 type ConfigMapVolumeSource struct {
 	v1.LocalObjectReference `json:",inline"`
@@ -74,7 +74,7 @@ type ConfigMapVolumeSource struct {
 }
 
 // SecretVolumeSource adapts a Secret into a volume.
-// ---
+//
 // +k8s:openapi-gen=true
 type SecretVolumeSource struct {
 	// Name of the secret in the pod's namespace to use.
@@ -92,7 +92,7 @@ type SecretVolumeSource struct {
 }
 
 // ServiceAccountVolumeSource adapts a ServiceAccount into a volume.
-// ---
+//
 // +k8s:openapi-gen=true
 type ServiceAccountVolumeSource struct {
 	// Name of the service account in the pod's namespace to use.
@@ -102,7 +102,7 @@ type ServiceAccountVolumeSource struct {
 
 // Represents a cloud-init nocloud user data source.
 // More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
-// ---
+//
 // +k8s:openapi-gen=true
 type CloudInitNoCloudSource struct {
 	// UserDataSecretRef references a k8s secret that contains NoCloud userdata.
@@ -127,7 +127,7 @@ type CloudInitNoCloudSource struct {
 
 // Represents a cloud-init config drive user data source.
 // More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html
-// ---
+//
 // +k8s:openapi-gen=true
 type CloudInitConfigDriveSource struct {
 	// UserDataSecretRef references a k8s secret that contains config drive userdata.
@@ -150,7 +150,7 @@ type CloudInitConfigDriveSource struct {
 	NetworkData string `json:"networkData,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type DomainSpec struct {
 	// Resources describes the Compute Resources required by this vmi.
@@ -173,7 +173,7 @@ type DomainSpec struct {
 	// Features like acpi, apic, hyperv, smm.
 	// +optional
 	Features *Features `json:"features,omitempty"`
-	// Devices allows adding disks, network interfaces, ...
+	// Devices allows adding disks, network interfaces, and others
 	Devices Devices `json:"devices"`
 	// Controls whether or not disks will share IOThreads.
 	// Omitting IOThreadsPolicy disables use of IOThreads.
@@ -186,7 +186,7 @@ type DomainSpec struct {
 }
 
 // Chassis specifies the chassis info passed to the domain.
-// ---
+//
 // +k8s:openapi-gen=true
 type Chassis struct {
 	Manufacturer string `json:"manufacturer,omitempty"`
@@ -198,7 +198,7 @@ type Chassis struct {
 
 // Represents the firmware blob used to assist in the domain creation process.
 // Used for setting the QEMU BIOS file path for the libvirt domain.
-// ---
+//
 // +k8s:openapi-gen=true
 type Bootloader struct {
 	// If set (default), BIOS will be used.
@@ -210,18 +210,24 @@ type Bootloader struct {
 }
 
 // If set (default), BIOS will be used.
-// ---
+//
 // +k8s:openapi-gen=true
 type BIOS struct {
 }
 
 // If set, EFI will be used instead of BIOS.
-// ---
+//
 // +k8s:openapi-gen=true
 type EFI struct {
+	// If set, SecureBoot will be enabled and the OVMF roms will be swapped for
+	// SecureBoot-enabled ones.
+	// Requires SMM to be enabled.
+	// Defaults to false
+	// +optional
+	SecureBoot *bool `json:"secureBoot,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type ResourceRequirements struct {
 	// Requests is a description of the initial vmi resources.
@@ -239,7 +245,7 @@ type ResourceRequirements struct {
 }
 
 // CPU allows specifying the CPU topology.
-// ---
+//
 // +k8s:openapi-gen=true
 type CPU struct {
 	// Cores specifies the number of cores inside the vmi.
@@ -272,7 +278,7 @@ type CPU struct {
 }
 
 // CPUFeature allows specifying a CPU feature.
-// ---
+//
 // +k8s:openapi-gen=true
 type CPUFeature struct {
 	// Name of the CPU feature
@@ -289,7 +295,7 @@ type CPUFeature struct {
 }
 
 // Memory allows specifying the VirtualMachineInstance memory features.
-// ---
+//
 // +k8s:openapi-gen=true
 type Memory struct {
 	// Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
@@ -303,21 +309,21 @@ type Memory struct {
 }
 
 // Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
-// ---
+//
 // +k8s:openapi-gen=true
 type Hugepages struct {
 	// PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.
 	PageSize string `json:"pageSize,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type Machine struct {
 	// QEMU machine type is the actual chipset of the VirtualMachineInstance.
 	Type string `json:"type"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type Firmware struct {
 	// UUID reported by the vmi bios.
@@ -330,7 +336,7 @@ type Firmware struct {
 	Serial string `json:"serial,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type Devices struct {
 	// Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
@@ -363,7 +369,7 @@ type Devices struct {
 	GPUs []GPU `json:"gpus,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type Input struct {
 	// Bus indicates the bus of input device to emulate.
@@ -376,7 +382,7 @@ type Input struct {
 	Name string `json:"name"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type GPU struct {
 	// Name of the GPU device as exposed by a device plugin
@@ -384,7 +390,7 @@ type GPU struct {
 	DeviceName string `json:"deviceName"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type Disk struct {
 	// Name is the device name
@@ -416,7 +422,7 @@ type Disk struct {
 
 // Represents the target of a volume to mount.
 // Only one of its members may be specified.
-// ---
+//
 // +k8s:openapi-gen=true
 type DiskDevice struct {
 	// Attach a volume as a disk to the vmi.
@@ -429,7 +435,7 @@ type DiskDevice struct {
 	CDRom *CDRomTarget `json:"cdrom,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type DiskTarget struct {
 	// Bus indicates the type of disk device to emulate.
@@ -443,7 +449,7 @@ type DiskTarget struct {
 	PciAddress string `json:"pciAddress,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type LunTarget struct {
 	// Bus indicates the type of disk device to emulate.
@@ -454,7 +460,7 @@ type LunTarget struct {
 	ReadOnly bool `json:"readonly,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type FloppyTarget struct {
 	// ReadOnly.
@@ -468,7 +474,7 @@ type FloppyTarget struct {
 }
 
 // TrayState indicates if a tray of a cdrom or floppy is open or closed.
-// ---
+//
 // +k8s:openapi-gen=true
 type TrayState string
 
@@ -479,7 +485,7 @@ const (
 	TrayStateClosed TrayState = "closed"
 )
 
-// ---
+//
 // +k8s:openapi-gen=true
 type CDRomTarget struct {
 	// Bus indicates the type of disk device to emulate.
@@ -496,7 +502,7 @@ type CDRomTarget struct {
 }
 
 // Volume represents a named volume in a vmi.
-// ---
+//
 // +k8s:openapi-gen=true
 type Volume struct {
 	// Volume's name.
@@ -510,7 +516,7 @@ type Volume struct {
 
 // Represents the source of a volume to mount.
 // Only one of its members may be specified.
-// ---
+//
 // +k8s:openapi-gen=true
 type VolumeSource struct {
 	// HostDisk represents a disk created on the cluster level
@@ -561,14 +567,14 @@ type VolumeSource struct {
 	ServiceAccount *ServiceAccountVolumeSource `json:"serviceAccount,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type DataVolumeSource struct {
 	// Name represents the name of the DataVolume in the same namespace
 	Name string `json:"name"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type EphemeralVolumeSource struct {
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
@@ -579,7 +585,7 @@ type EphemeralVolumeSource struct {
 }
 
 // EmptyDisk represents a temporary disk which shares the vmis lifecycle.
-// ---
+//
 // +k8s:openapi-gen=true
 type EmptyDiskSource struct {
 	// Capacity of the sparse disk.
@@ -587,7 +593,7 @@ type EmptyDiskSource struct {
 }
 
 // Represents a docker image with an embedded disk.
-// ---
+//
 // +k8s:openapi-gen=true
 type ContainerDiskSource struct {
 	// Image is the name of the image with the embedded disk.
@@ -606,7 +612,7 @@ type ContainerDiskSource struct {
 }
 
 // Exactly one of its members must be set.
-// ---
+//
 // +k8s:openapi-gen=true
 type ClockOffset struct {
 	// UTC sets the guest clock to UTC on each boot. If an offset is specified,
@@ -618,7 +624,7 @@ type ClockOffset struct {
 }
 
 // UTC sets the guest clock to UTC on each boot.
-// ---
+//
 // +k8s:openapi-gen=true
 type ClockOffsetUTC struct {
 	// OffsetSeconds specifies an offset in seconds, relative to UTC. If set,
@@ -628,22 +634,23 @@ type ClockOffsetUTC struct {
 
 // ClockOffsetTimezone sets the guest clock to the specified timezone.
 // Zone name follows the TZ environment variable format (e.g. 'America/New_York').
-// ---
+//
 // +k8s:openapi-gen=true
 type ClockOffsetTimezone string
 
 // Represents the clock and timers of a vmi.
-// ---
+//
 // +k8s:openapi-gen=true
 type Clock struct {
 	// ClockOffset allows specifying the UTC offset or the timezone of the guest clock.
 	ClockOffset `json:",inline"`
 	// Timer specifies whih timers are attached to the vmi.
-	Timer *Timer `json:"timer,inline"`
+	// +optional
+	Timer *Timer `json:"timer"`
 }
 
 // Represents all available timers in a vmi.
-// ---
+//
 // +k8s:openapi-gen=true
 type Timer struct {
 	// HPET (High Precision Event Timer) - multiple timers with periodic interrupts.
@@ -659,17 +666,17 @@ type Timer struct {
 }
 
 // HPETTickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.
-// ---
+//
 // +k8s:openapi-gen=true
 type HPETTickPolicy string
 
 // PITTickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.
-// ---
+//
 // +k8s:openapi-gen=true
 type PITTickPolicy string
 
 // RTCTickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.
-// ---
+//
 // +k8s:openapi-gen=true
 type RTCTickPolicy string
 
@@ -705,7 +712,7 @@ const (
 )
 
 // RTCTimerTrack specifies from which source to track the time.
-// ---
+//
 // +k8s:openapi-gen=true
 type RTCTimerTrack string
 
@@ -716,7 +723,7 @@ const (
 	TrackWall RTCTimerTrack = "wall"
 )
 
-// ---
+//
 // +k8s:openapi-gen=true
 type RTCTimer struct {
 	// TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.
@@ -730,7 +737,7 @@ type RTCTimer struct {
 	Track RTCTimerTrack `json:"track,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type HPETTimer struct {
 	// TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.
@@ -742,7 +749,7 @@ type HPETTimer struct {
 	Enabled *bool `json:"present,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type PITTimer struct {
 	// TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.
@@ -754,7 +761,7 @@ type PITTimer struct {
 	Enabled *bool `json:"present,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type KVMTimer struct {
 	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
@@ -763,7 +770,7 @@ type KVMTimer struct {
 	Enabled *bool `json:"present,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type HypervTimer struct {
 	// Enabled set to false makes sure that the machine type or a preset can't add the timer.
@@ -772,7 +779,7 @@ type HypervTimer struct {
 	Enabled *bool `json:"present,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type Features struct {
 	// ACPI enables/disables ACPI insidejsondata guest.
@@ -792,7 +799,7 @@ type Features struct {
 }
 
 // Represents if a feature is enabled or disabled.
-// ---
+//
 // +k8s:openapi-gen=true
 type FeatureState struct {
 	// Enabled determines if the feature should be enabled or disabled on the guest.
@@ -801,7 +808,7 @@ type FeatureState struct {
 	Enabled *bool `json:"enabled,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type FeatureAPIC struct {
 	// Enabled determines if the feature should be enabled or disabled on the guest.
@@ -814,7 +821,7 @@ type FeatureAPIC struct {
 	EndOfInterrupt bool `json:"endOfInterrupt,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type FeatureSpinlocks struct {
 	// Enabled determines if the feature should be enabled or disabled on the guest.
@@ -828,7 +835,7 @@ type FeatureSpinlocks struct {
 	Retries *uint32 `json:"spinlocks,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type FeatureVendorID struct {
 	// Enabled determines if the feature should be enabled or disabled on the guest.
@@ -841,7 +848,7 @@ type FeatureVendorID struct {
 }
 
 // Hyperv specific features.
-// ---
+//
 // +k8s:openapi-gen=true
 type FeatureHyperv struct {
 	// Relaxed instructs the guest OS to disable watchdog timeouts.
@@ -902,7 +909,7 @@ type FeatureHyperv struct {
 }
 
 // WatchdogAction defines the watchdog action, if a watchdog gets triggered.
-// ---
+//
 // +k8s:openapi-gen=true
 type WatchdogAction string
 
@@ -916,7 +923,7 @@ const (
 )
 
 // Named watchdog device.
-// ---
+//
 // +k8s:openapi-gen=true
 type Watchdog struct {
 	// Name of the watchdog.
@@ -928,7 +935,7 @@ type Watchdog struct {
 
 // Hardware watchdog device.
 // Exactly one of its members must be set.
-// ---
+//
 // +k8s:openapi-gen=true
 type WatchdogDevice struct {
 	// i6300esb watchdog device.
@@ -937,7 +944,7 @@ type WatchdogDevice struct {
 }
 
 // i6300esb watchdog device.
-// ---
+//
 // +k8s:openapi-gen=true
 type I6300ESBWatchdog struct {
 	// The action to take. Valid values are poweroff, reset, shutdown.
@@ -945,7 +952,7 @@ type I6300ESBWatchdog struct {
 	Action WatchdogAction `json:"action,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type Interface struct {
 	// Logical name of the interface as well as a reference to the associated networks.
@@ -981,7 +988,7 @@ type Interface struct {
 }
 
 // Extra DHCP options to use in the interface.
-// ---
+//
 // +k8s:openapi-gen=true
 type DHCPOptions struct {
 	// If specified will pass option 67 to interface's DHCP server
@@ -999,6 +1006,8 @@ type DHCPOptions struct {
 }
 
 // DHCPExtraOptions defines Extra DHCP options for a VM.
+//
+// +k8s:openapi-gen=true
 type DHCPPrivateOptions struct {
 	// Option is an Integer value from 224-254
 	// Required.
@@ -1010,7 +1019,7 @@ type DHCPPrivateOptions struct {
 
 // Represents the method which will be used to connect the interface to the guest.
 // Only one of its members may be specified.
-// ---
+//
 // +k8s:openapi-gen=true
 type InterfaceBindingMethod struct {
 	Bridge     *InterfaceBridge     `json:"bridge,omitempty"`
@@ -1019,26 +1028,26 @@ type InterfaceBindingMethod struct {
 	SRIOV      *InterfaceSRIOV      `json:"sriov,omitempty"`
 }
 
-// ---
+//
 // +k8s:openapi-gen=true
 type InterfaceBridge struct{}
 
-// ---
+//
 // +k8s:openapi-gen=true
 type InterfaceSlirp struct{}
 
-// ---
+//
 // +k8s:openapi-gen=true
 type InterfaceMasquerade struct{}
 
-// ---
+//
 // +k8s:openapi-gen=true
 type InterfaceSRIOV struct{}
 
 // Port repesents a port to expose from the virtual machine.
 // Default protocol TCP.
 // The port field is mandatory
-// ---
+//
 // +k8s:openapi-gen=true
 type Port struct {
 	// If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
@@ -1056,7 +1065,7 @@ type Port struct {
 }
 
 // Network represents a network type and a resource that should be connected to the vm.
-// ---
+//
 // +k8s:openapi-gen=true
 type Network struct {
 	// Network name.
@@ -1070,7 +1079,7 @@ type Network struct {
 
 // Represents the source resource that will be connected to the vm.
 // Only one of its members may be specified.
-// ---
+//
 // +k8s:openapi-gen=true
 type NetworkSource struct {
 	Pod    *PodNetwork    `json:"pod,omitempty"`
@@ -1078,7 +1087,7 @@ type NetworkSource struct {
 }
 
 // Represents the stock pod network interface.
-// ---
+//
 // +k8s:openapi-gen=true
 type PodNetwork struct {
 	// CIDR for vm network.
@@ -1087,13 +1096,13 @@ type PodNetwork struct {
 }
 
 // Rng represents the random device passed from host
-// ---
+//
 // +k8s:openapi-gen=true
 type Rng struct {
 }
 
 // Represents the multus cni network.
-// ---
+//
 // +k8s:openapi-gen=true
 type MultusNetwork struct {
 	// References to a NetworkAttachmentDefinition CRD object. Format:

@@ -60,6 +60,7 @@ const debugLogs = "debugLogs"
 const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
+const CAP_NET_RAW = "NET_RAW"
 const CAP_SYS_NICE = "SYS_NICE"
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
@@ -518,38 +519,82 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			serviceAccountName = volume.ServiceAccount.ServiceAccountName
 		}
 
-		if volume.CloudInitNoCloud != nil && volume.CloudInitNoCloud.UserDataSecretRef != nil {
-			// attach a secret referenced by the user
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					Secret: &k8sv1.SecretVolumeSource{
-						SecretName: volume.CloudInitNoCloud.UserDataSecretRef.Name,
+		if volume.CloudInitNoCloud != nil {
+			if volume.CloudInitNoCloud.UserDataSecretRef != nil {
+				// attach a secret referenced by the user
+				volumeName := volume.Name + "-udata"
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: volume.CloudInitNoCloud.UserDataSecretRef.Name,
+						},
 					},
-				},
-			})
-			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
-				ReadOnly:  true,
-			})
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userdata"),
+					SubPath:   "userdata",
+					ReadOnly:  true,
+				})
+			}
+			if volume.CloudInitNoCloud.NetworkDataSecretRef != nil {
+				// attach a secret referenced by the networkdata
+				volumeName := volume.Name + "-ndata"
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: volume.CloudInitNoCloud.NetworkDataSecretRef.Name,
+						},
+					},
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkdata"),
+					SubPath:   "networkdata",
+					ReadOnly:  true,
+				})
+			}
 		}
 
-		if volume.CloudInitConfigDrive != nil && volume.CloudInitConfigDrive.UserDataSecretRef != nil {
-			// attach a secret referenced by the user
-			volumes = append(volumes, k8sv1.Volume{
-				Name: volume.Name,
-				VolumeSource: k8sv1.VolumeSource{
-					Secret: &k8sv1.SecretVolumeSource{
-						SecretName: volume.CloudInitConfigDrive.UserDataSecretRef.Name,
+		if volume.CloudInitConfigDrive != nil {
+			if volume.CloudInitConfigDrive.UserDataSecretRef != nil {
+				// attach a secret referenced by the user
+				volumeName := volume.Name + "-udata"
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: volume.CloudInitConfigDrive.UserDataSecretRef.Name,
+						},
 					},
-				},
-			})
-			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
-				Name:      volume.Name,
-				MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
-				ReadOnly:  true,
-			})
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "userdata"),
+					SubPath:   "userdata",
+					ReadOnly:  true,
+				})
+			}
+			if volume.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+				// attach a secret referenced by the networkdata
+				volumeName := volume.Name + "-ndata"
+				volumes = append(volumes, k8sv1.Volume{
+					Name: volumeName,
+					VolumeSource: k8sv1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: volume.CloudInitConfigDrive.NetworkDataSecretRef.Name,
+						},
+					},
+				})
+				volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+					Name:      volumeName,
+					MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkdata"),
+					SubPath:   "networkdata",
+					ReadOnly:  true,
+				})
+			}
 		}
 	}
 
@@ -705,6 +750,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	lessPVCSpaceToleration := t.clusterConfig.GetLessPVCSpaceToleration()
+	ovmfPath := t.clusterConfig.GetOVMFPath()
 
 	command := []string{"/usr/bin/virt-launcher",
 		"--qemu-timeout", "5m",
@@ -718,6 +764,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 		"--less-pvc-space-toleration", strconv.Itoa(lessPVCSpaceToleration),
+		"--ovmf-path", ovmfPath,
 	}
 
 	useEmulation := t.clusterConfig.IsUseEmulation()
@@ -952,8 +999,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	for k, v := range vmi.Annotations {
-		if strings.Contains(k, "kubernetes.io") || strings.Contains(k, "kubevirt.io") {
-			// skip kubernetes and kubevirt internal annotations
+		// filtering so users will not see this on pod and in confusion
+		if strings.HasPrefix(k, "kubectl.kubernetes.io") ||
+			strings.HasPrefix(k, "kubevirt.io/storage-observed-api-version") ||
+			strings.HasPrefix(k, "kubevirt.io/latest-observed-api-version") {
 			continue
 		}
 		annotationsList[k] = v
@@ -1046,8 +1095,25 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	// If an SELinux type was specified, use that--otherwise don't set an SELinux type
 	selinuxType := t.clusterConfig.GetSELinuxLauncherType()
-	if selinuxType != virtconfig.DefaultSELinuxLauncherType {
+	if selinuxType != "" {
 		pod.Spec.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{Type: selinuxType}
+		// By setting an SELinux option on the virt-launcher pod, we trigger this:
+		// https://github.com/kubernetes/kubernetes/issues/90759
+		// Since the compute container needs to be able to communicate with the rest of the pod,
+		//   we loop over all the containers and remove their SELinux categories.
+		for i := range pod.Spec.Containers {
+			container := &pod.Spec.Containers[i]
+			if container.Name != "compute" {
+				if container.SecurityContext == nil {
+					container.SecurityContext = &k8sv1.SecurityContext{}
+				}
+				if container.SecurityContext.SELinuxOptions == nil {
+					container.SecurityContext.SELinuxOptions = &k8sv1.SELinuxOptions{}
+				}
+				container.SecurityContext.SELinuxOptions.Type = selinuxType
+				container.SecurityContext.SELinuxOptions.Level = "s0"
+			}
+		}
 	}
 
 	if vmi.Spec.PriorityClassName != "" {
@@ -1084,6 +1150,10 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res = append(res, CAP_NET_ADMIN)
+		// The DHCP server needs the ability to use raw sockets. This
+		// capability is available by default in some clusters, but not
+		// a given.
+		res = append(res, CAP_NET_RAW)
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	res = append(res, CAP_SYS_NICE)

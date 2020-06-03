@@ -58,6 +58,7 @@ const (
 	DefaultPermitBridgeInterfaceOnPodNetwork        = true
 	DefaultSELinuxLauncherType                      = ""
 	SupportedGuestAgentVersions                     = "3.*,4.*"
+	DefaultOVMFPath                                 = "/usr/share/OVMF"
 )
 
 // Set default machine type and supported emulated machines based on architecture
@@ -132,4 +133,8 @@ func (c *ClusterConfig) GetSELinuxLauncherType() string {
 
 func (c *ClusterConfig) GetSupportedAgentVersions() []string {
 	return c.getConfig().SupportedGuestAgentVersions
+}
+
+func (c *ClusterConfig) GetOVMFPath() string {
+	return c.getConfig().OVMFPath
 }

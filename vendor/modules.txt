@@ -653,7 +653,7 @@ k8s.io/utils/integer
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# kubevirt.io/client-go v0.29.2 => kubevirt.io/client-go v0.29.2
+# kubevirt.io/client-go v0.30.0-rc.2 => kubevirt.io/client-go v0.30.0-rc.2
 kubevirt.io/client-go/api/v1
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
@@ -676,7 +676,7 @@ kubevirt.io/containerized-data-importer/pkg/apis/core
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/apis/upload
 kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1
-# kubevirt.io/kubevirt v0.29.2
+# kubevirt.io/kubevirt v0.30.0-rc.2
 kubevirt.io/kubevirt/pkg/certificates/bootstrap
 kubevirt.io/kubevirt/pkg/certificates/triple
 kubevirt.io/kubevirt/pkg/certificates/triple/cert
