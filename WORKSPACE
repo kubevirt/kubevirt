@@ -323,15 +323,16 @@ container_pull(
 # Pull base image libvirt
 container_pull(
     name = "libvirt",
-    digest = "sha256:cfff1e8729a7466581ba71d953b132beaef28f61b330f52caef6d0184e5f9af0",
+    digest = "sha256:584c7b49f1615e3f229668d530a79945ebf7f3afbab4ec554187e9ba2b754008",
     registry = "index.docker.io",
     repository = "kubevirt/libvirt",
-    #tag = "tmp.20191126.748bd4d.x86_64",
+    #tag = "av-8.2-20200514-cc2bc34",
 )
 
+# TODO: Update this once we have PPC builds of the base image available
 container_pull(
     name = "libvirt_ppc64le",
-    digest = "sha256:9a24e6e9269c395e226b1dc949adce2076aaf5f20f882047116b3614b740294b",
+    digest = "sha256:NOT_AVAILABLE",  # Make sure we don't use outdated image by mistake
     puller_linux = "@go_puller_linux_ppc64le//file:downloaded",
     registry = "index.docker.io",
     repository = "kubevirt/libvirt",
