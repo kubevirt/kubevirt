@@ -10,7 +10,7 @@ These functions also exist in a second flavor, where you can use a formatted str
 
 Additionally you can set the verbosity with `V(verbosity)`, which takes effect on info level messages.
 
-Please check the [Kubernetes Logging Conventions](https://github.com/kubernetes/community/blob/master/contributors/devel/logging.md) for the meaning of the different log levels and verbosity.
+Please check the [Kubernetes Logging Conventions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md) for the meaning of the different log levels and verbosity.
 
 During runtime you will see:
 
