@@ -6,12 +6,12 @@
         "image": "@OPERATOR_IMAGE_URL@",
         "command": [
           "/bin/kubevirt.test",
-          "--installed-namespace=openshift-cnv",
-          "--cdi-namespace=openshift-cnv",
+          "--installed-namespace=@NAMESPACE@",
+          "--cdi-namespace=@NAMESPACE@",
           "--config=/etc/config/test-config.json",
           "--ginkgo.seed=0",
           "--ginkgo.focus=\\[crit:high\\]",
-          "--ginkgo.skip=(Slirp Networking)|(with CPU spec)|(with TX offload disabled)|(with cni flannel and ptp plugin interface)|(with ovs-cni plugin)|(test_id:1752)|(SRIOV)|(with EFI)|(Operator)|(GPU)|(test_id:3466)"
+          "--ginkgo.skip=@GINKGO_TESTS_TO_SKIP@"
         ],
         "volumeMounts": [
           {
