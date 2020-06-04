@@ -398,7 +398,7 @@ var _ = Describe("Storage", func() {
 						return len(vmis.Items)
 					}, 120, 1).Should(BeZero())
 					if nodeName != "" {
-						tests.RemoveHostDiskImage(filepath.Join(hostDiskDir, "/*"), nodeName)
+						tests.RemoveHostDiskImage(hostDiskDir, nodeName)
 					}
 				})
 
