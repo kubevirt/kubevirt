@@ -1859,39 +1859,6 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func GetSupportedCPUFeatures(node k8sv1.Node) []string {
-	var featureBlackList = map[string]bool{
-		"svm": true,
-	}
-	features := make([]string, 0)
-	for key := range node.Labels {
-		if strings.Contains(key, services.NFD_CPU_FEATURE_PREFIX) {
-			feature := strings.TrimPrefix(key, services.NFD_CPU_FEATURE_PREFIX)
-			if _, ok := featureBlackList[feature]; !ok {
-				features = append(features, feature)
-			}
-		}
-	}
-	return features
-}
-
-func GetSupportedCPUModels(node k8sv1.Node) []string {
-	var cpuBlackList = map[string]bool{
-		"qemu64":     true,
-		"Opteron_G2": true,
-	}
-	cpus := make([]string, 0)
-	for key := range node.Labels {
-		if strings.Contains(key, services.NFD_CPU_MODEL_PREFIX) {
-			cpu := strings.TrimPrefix(key, services.NFD_CPU_MODEL_PREFIX)
-			if _, ok := cpuBlackList[cpu]; !ok {
-				cpus = append(cpus, cpu)
-			}
-		}
-	}
-	return cpus
-}
-
 func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
