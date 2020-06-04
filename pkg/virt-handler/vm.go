@@ -68,10 +68,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
-// key is the file path, value is the contents.
-// if key exists, then don't read directly from file.
-var podInterfaceCache map[string]*network.PodCacheInterface
-
 type launcherClientInfo struct {
 	client     cmdclient.LauncherClient
 	socketFile string
@@ -144,6 +140,7 @@ func NewController(
 
 	c.launcherClients = make(map[types.UID]*launcherClientInfo)
 	c.phase1NetworkSetupCache = make(map[types.UID]int)
+	c.podInterfaceCache = make(map[string]*network.PodCacheInterface)
 
 	c.domainNotifyPipes = make(map[string]string)
 
@@ -159,7 +156,6 @@ type VirtualMachineController struct {
 	ipAddress                string
 	virtShareDir             string
 	virtPrivateDir           string
-	networkInfoDir           string
 	Queue                    workqueue.RateLimitingInterface
 	vmiSourceInformer        cache.SharedIndexInformer
 	vmiTargetInformer        cache.SharedIndexInformer
@@ -181,6 +177,11 @@ type VirtualMachineController struct {
 	// prevents cycling an unncessary posix thread.
 	phase1NetworkSetupCache     map[types.UID]int
 	phase1NetworkSetupCacheLock sync.Mutex
+
+	// key is the file path, value is the contents.
+	// if key exists, then don't read directly from file.
+	podInterfaceCache     map[string]*network.PodCacheInterface
+	podInterfaceCacheLock sync.Mutex
 
 	domainNotifyPipes map[string]string
 }
@@ -337,8 +338,17 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineI
 
 	delete(d.phase1NetworkSetupCache, vmi.UID)
 
-	// Delete the VMI Netowrk cache files on Cleanup
-	err := os.RemoveAll(virtutil.VMIInterfaceDir)
+	// Clean Pod interface cache from map and files
+	d.podInterfaceCacheLock.Lock()
+	for key, _ := range d.podInterfaceCache {
+		if strings.Contains(key, string(vmi.UID)) {
+			delete(d.podInterfaceCache, key)
+		}
+	}
+	d.podInterfaceCacheLock.Unlock()
+
+	vmiIfaceDir := fmt.Sprintf(virtutil.VMIInterfaceDir, vmi.UID)
+	err := os.RemoveAll(vmiIfaceDir)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to delete VMI Network cache files: %s", err.Error())
 	}
@@ -388,15 +398,19 @@ func domainMigrated(domain *api.Domain) bool {
 	return false
 }
 
-func getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*network.PodCacheInterface, error) {
-	var result *network.PodCacheInterface
+func (d *VirtualMachineController) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*network.PodCacheInterface, error) {
 	ifacepath := fmt.Sprintf(virtutil.VMIInterfacepath, vmi.ObjectMeta.UID, ifaceName)
 
 	// Once the Interface files are set on the handler, they don't change
 	// If already present in the map, don't read again
-	if result, exists := podInterfaceCache[ifacepath]; exists {
+	d.podInterfaceCacheLock.Lock()
+	result, exists := d.podInterfaceCache[ifacepath]
+	d.podInterfaceCacheLock.Unlock()
+
+	if exists {
 		return result, nil
 	}
+
 	content, err := ioutil.ReadFile(ifacepath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to read from cache file: %s", err.Error())
@@ -407,6 +421,10 @@ func getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName stri
 		log.Log.Reason(err).Errorf("failed to unmarshal interface content: %s", err.Error())
 		return nil, err
 	}
+	d.podInterfaceCacheLock.Lock()
+	d.podInterfaceCache[ifacepath] = result
+	d.podInterfaceCacheLock.Unlock()
+
 	return result, nil
 }
 
@@ -487,7 +505,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 
 					// If it is a Combination of Masquerade+Pod network, check IP from file cache
 					if existingInterfacesSpecByName[domainInterface.Alias.Name].Masquerade != nil && existingNetworksByName[domainInterface.Alias.Name].NetworkSource.Pod != nil {
-						iface, err := getPodInterfacefromFileCache(vmi, domainInterface.Alias.Name)
+						iface, err := d.getPodInterfacefromFileCache(vmi, domainInterface.Alias.Name)
 						if err != nil {
 							return err
 						}
