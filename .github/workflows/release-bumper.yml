@@ -5,6 +5,7 @@ on:
 jobs:
   build:
     name: HCO Release Bump Job
+    if: github.repository == ‘kubevirt/hyperconverged-cluster-operator’
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
