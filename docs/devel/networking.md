@@ -326,3 +326,50 @@ Chain POSTROUTING (policy ACCEPT)
 target     prot opt source               destination
 MASQUERADE  all  --  10.0.2.2             anywhere
 ```
+
+### Masquerade binding using IPv6 addresses
+The masquerade binding mechanism is currently the only binding mechanism which
+accepts IPv6 addresses.
+
+It operates in exactly the same way as in IPv4, and follows the same goals:
+configure one to one NAT. As in it's IPv4 counter-part, the pods are reached
+via their IPv6 pod addresses.
+
+NAT is configured in the exact same way, but using ip6tables, or the `ipv6-nat`
+nftable table. Please refer to the tables below to visualize how NAT for IPv6
+addresses is accomplished in KubeVirt.
+
+```
+Chain PREROUTING (policy ACCEPT)
+target               prot opt source               destination
+KUBEVIRT_PREINBOUND  all      anywhere             anywhere
+
+Chain INPUT (policy ACCEPT)
+target     prot opt source               destination
+
+Chain OUTPUT (policy ACCEPT)
+target     prot opt source               destination
+DNAT       tcp      anywhere             localhost            tcp dpt:http to:fd10:0:2::2
+
+Chain POSTROUTING (policy ACCEPT)
+target     prot opt source               destination
+MASQUERADE  all      fd10:0:2::2          anywhere
+KUBEVIRT_POSTINBOUND  all      anywhere   anywhere
+
+Chain KUBEVIRT_POSTINBOUND (1 references)
+target     prot opt source               destination
+SNAT       tcp      anywhere             anywhere             tcp dpt:http to:fd10:0:2::1
+
+Chain KUBEVIRT_PREINBOUND (1 references)
+target     prot opt source               destination
+DNAT       tcp      anywhere             anywhere             tcp dpt:http to:fd10:0:2::2
+```
+
+It is important to refer that masquerade binding configures NAT for both IPv4
+and IPv6 address families - both address family traffic is forwarded into the
+VM instance. Despite that, the only IP address reported is the IPv6 address,
+which implicitly highly encourages IPv6 communication towards the VM instance.
+
+On a final note, there is a difference that impacts the user experience when
+using masquerade binding for IPv6 addresses; the VMI IP must be [manually
+configured by the user](https://kubevirt.io/user-guide/#/creation/interfaces-and-networks?id=masquerade-ipv6-support).
