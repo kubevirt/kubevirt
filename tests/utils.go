@@ -21,6 +21,7 @@ package tests
 
 import (
 	"bytes"
+	"context"
 	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -41,6 +42,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -96,6 +98,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
+
+	"github.com/Masterminds/semver"
+	"github.com/google/go-github/v32/github"
 )
 
 var KubeVirtUtilityVersionTag = ""
@@ -136,7 +141,7 @@ func init() {
 	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
 	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
 	flag.StringVar(&PreviousReleaseTag, "previous-release-tag", "", "Set tag of the release to test updating from")
-	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "", "Set registry of the release to test updating from")
+	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "index.docker.io/kubevirt", "Set registry of the release to test updating from")
 	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
 }
@@ -4737,4 +4742,82 @@ func RandTmpDir() string {
 func IsIPv6Cluster(virtClient kubecli.KubevirtClient) bool {
 	clusterDnsIP, _ := getClusterDnsServiceIP(virtClient)
 	return netutils.IsIPv6String(clusterDnsIP)
+}
+
+func getTagHint() string {
+	//git describe --tags --abbrev=0 "$(git rev-parse HEAD)"
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	bytes, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	cmd = exec.Command("git", "describe", "--tags", "--abbrev=0", strings.TrimSpace(string(bytes)))
+	bytes, err = cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	return strings.Split(string(bytes), "-rc")[0]
+
+}
+
+func DetectLatestUpstreamOfficialTag() (string, error) {
+	client := github.NewClient(nil)
+
+	var err error
+	var releases []*github.RepositoryRelease
+
+	Eventually(func() error {
+		releases, _, err = client.Repositories.ListReleases(context.Background(), "kubevirt", "kubevirt", &github.ListOptions{PerPage: 10000})
+
+		return err
+	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+	var vs []*semver.Version
+
+	for _, release := range releases {
+		if *release.Draft ||
+			*release.Prerelease ||
+			len(release.Assets) == 0 {
+
+			continue
+		}
+		v, err := semver.NewVersion(*release.TagName)
+		if err != nil {
+			panic(err)
+		}
+		vs = append(vs, v)
+	}
+
+	if len(vs) == 0 {
+		return "", fmt.Errorf("No kubevirt releases found")
+	}
+
+	// decending order from most recent.
+	sort.Sort(sort.Reverse(semver.Collection(vs)))
+
+	// most recent tag
+	tag := fmt.Sprintf("v%v", vs[0])
+
+	// tag hint gives us information about the most recent tag in the current branch
+	// this is executing in. We want to make sure we are using the previous most
+	// recent official release from the branch we're in if possible. Note that this is
+	// all best effort. If a tag hint can't be detected, we move on with the most
+	// recent release from master.
+	tagHint := getTagHint()
+	hint, err := semver.NewVersion(tagHint)
+
+	if tagHint != "" && err == nil {
+		for _, v := range vs {
+			if v.LessThan(hint) || v.Equal(hint) {
+				tag = fmt.Sprintf("v%v", v)
+				By(fmt.Sprintf("Choosing tag %s influenced by tag hint %s", tag, tagHint))
+				break
+			}
+		}
+	}
+
+	By(fmt.Sprintf("By detecting latest upstream official tag %s for current branch", tag))
+	return tag, nil
 }
