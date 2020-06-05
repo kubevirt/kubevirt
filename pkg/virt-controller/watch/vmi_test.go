@@ -962,6 +962,21 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry("in scheduled state", v1.Scheduled),
 		)
 
+		It("should not remove sync conditions from virt-handler if it is in scheduled state", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Scheduled
+			vmi.Status.Conditions = append(vmi.Status.Conditions,
+				v1.VirtualMachineInstanceCondition{Type: v1.VirtualMachineInstanceSynchronized, Status: k8sv1.ConditionFalse})
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Status.Conditions = []k8sv1.PodCondition{{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue}}
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+			addActivePods(vmi, pod.UID, "")
+
+			controller.Execute()
+		})
+
 		table.DescribeTable("should do nothing if the vmi is handed over to virt-handler, the pod disappears", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
