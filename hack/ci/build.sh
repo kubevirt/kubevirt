@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
 
-export DOCKER_PREFIX='kubevirtnightlybuilds'
-export DOCKER_TAG="latest"
-export KUBEVIRT_PROVIDER=external
-
-bash -x ./hack/build-manifests.sh
-
 # build dump
 CMD_OUT_DIR="$(pwd)/_out/cmd"
 export CMD_OUT_DIR
