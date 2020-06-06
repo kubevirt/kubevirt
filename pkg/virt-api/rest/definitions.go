@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	mime "kubevirt.io/kubevirt/pkg/rest"
 )
 
@@ -41,6 +42,9 @@ func ComposeAPIDefinitions() []*restful.WebService {
 	vmipGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancepresets"}
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
 	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancemigrations"}
+
+	vmsGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots")
+	vmscGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshotcontents")
 
 	ws, err := GroupVersionProxyBase(v1.GroupVersion)
 	if err != nil {
@@ -76,7 +80,28 @@ func ComposeAPIDefinitions() []*restful.WebService {
 	if err != nil {
 		panic(err)
 	}
-	return []*restful.WebService{ws, ws1}
+
+	ws2, err := GroupVersionProxyBase(schema.GroupVersion{Group: snapshotv1.SchemeGroupVersion.Group, Version: snapshotv1.SchemeGroupVersion.Version})
+	if err != nil {
+		panic(err)
+	}
+
+	ws2, err = GenericResourceProxy(ws2, vmsGVR, &snapshotv1.VirtualMachineSnapshot{}, "VirtualMachineSnapshot", &snapshotv1.VirtualMachineSnapshotList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws2, err = GenericResourceProxy(ws2, vmscGVR, &snapshotv1.VirtualMachineSnapshotContent{}, "VirtualMachineSnapshotContent", &snapshotv1.VirtualMachineSnapshotContentList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws3, err := ResourceProxyAutodiscovery(vmsGVR)
+	if err != nil {
+		panic(err)
+	}
+
+	return []*restful.WebService{ws, ws1, ws2, ws3}
 }
 
 func GroupVersionProxyBase(gv schema.GroupVersion) (*restful.WebService, error) {
@@ -87,7 +112,7 @@ func GroupVersionProxyBase(gv schema.GroupVersion) (*restful.WebService, error) 
 	ws.Route(
 		ws.GET("/").Produces(mime.MIME_JSON).Writes(metav1.APIResourceList{}).
 			To(Noop).
-			Operation("getAPIResources").
+			Operation(fmt.Sprintf("getAPIResources-%s-%s", gv.Group, gv.Version)).
 			Doc("Get KubeVirt API Resources").
 			Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
 			Returns(http.StatusNotFound, "Not Found", ""),
@@ -222,7 +247,7 @@ func ResourceProxyAutodiscovery(gvr schema.GroupVersionResource) (*restful.WebSe
 		Produces(mime.MIME_JSON).Writes(metav1.APIGroup{}).
 		To(Noop).
 		Doc("Get a KubeVirt API group").
-		Operation("getAPIGroup").
+		Operation("getAPIGroup-"+gvr.Group).
 		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
 		Returns(http.StatusNotFound, "Not Found", ""))
 	return ws, nil

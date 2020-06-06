@@ -5,10 +5,30 @@ set -e
 source $(dirname "$0")/common.sh
 source $(dirname "$0")/config.sh
 
-# generate clients for external APIs
+# generate clients
 CLIENT_GEN_BASE=kubevirt.io/client-go/generated
 rm -rf ${KUBEVIRT_DIR}/staging/src/${CLIENT_GEN_BASE}
 
+# KubeVirt stuff
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/apis/snapshot/v1alpha1/types.go
+
+deepcopy-gen --input-dirs kubevirt.io/client-go/apis/snapshot/v1alpha1 \
+    --bounding-dirs kubevirt.io/client-go/apis \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+
+openapi-gen --input-dirs kubevirt.io/client-go/apis/snapshot/v1alpha1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,kubevirt.io/client-go/api/v1 \
+    --output-base ${KUBEVIRT_DIR}/staging/src \
+    --output-package kubevirt.io/client-go/apis/snapshot/v1alpha1 \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+
+client-gen --clientset-name versioned \
+    --input-base kubevirt.io/client-go/apis \
+    --input snapshot/v1alpha1 \
+    --output-base ${KUBEVIRT_DIR}/staging/src \
+    --output-package ${CLIENT_GEN_BASE}/kubevirt/clientset \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+
+# dependencies
 client-gen --clientset-name versioned \
     --input-base kubevirt.io/containerized-data-importer/pkg/apis \
     --input core/v1alpha1,upload/v1alpha1 \
@@ -28,6 +48,13 @@ client-gen --clientset-name versioned \
     --input k8s.cni.cncf.io/v1 \
     --output-base ${KUBEVIRT_DIR}/staging/src \
     --output-package ${CLIENT_GEN_BASE}/network-attachment-definition-client/clientset \
+    --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
+
+client-gen --clientset-name versioned \
+    --input-base github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis \
+    --input volumesnapshot/v1beta1 \
+    --output-base ${KUBEVIRT_DIR}/staging/src \
+    --output-package ${CLIENT_GEN_BASE}/external-snapshotter/clientset \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
 
 find ${KUBEVIRT_DIR}/pkg/ -name "*generated*.go" -exec rm {} -f \;

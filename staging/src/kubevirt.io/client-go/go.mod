@@ -11,16 +11,17 @@ require (
 	github.com/google/gofuzz v1.0.0
 	github.com/gorilla/websocket v1.4.0
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
-	github.com/onsi/ginkgo v1.10.1
+	github.com/kubernetes-csi/external-snapshotter/v2 v2.0.1
+	github.com/onsi/ginkgo v1.10.2
 	github.com/onsi/gomega v1.7.0
 	github.com/openshift/api v0.0.0-20191219222812-2987a591a72c // indirect
 	github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
 	github.com/openshift/custom-resource-status v0.0.0-20190822192428-e62f2f3b79f3 // indirect
 	github.com/pborman/uuid v1.2.0
 	github.com/spf13/pflag v1.0.5
-	k8s.io/api v0.16.4
+	k8s.io/api v0.17.0
 	k8s.io/apiextensions-apiserver v0.16.4
-	k8s.io/apimachinery v0.16.4
+	k8s.io/apimachinery v0.17.1-beta.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
 	k8s.io/utils v0.0.0-20190801114015-581e00157fb1

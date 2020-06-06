@@ -37,10 +37,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
-
 	v1 "kubevirt.io/client-go/api/v1"
 	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
+	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
+	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
+	vmsnapshotv1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1"
+	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
 	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
 )
 
@@ -51,29 +53,35 @@ type KubevirtClient interface {
 	VirtualMachine(namespace string) VirtualMachineInterface
 	KubeVirt(namespace string) KubeVirtInterface
 	VirtualMachineInstancePreset(namespace string) VirtualMachineInstancePresetInterface
+	VirtualMachineSnapshot(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotInterface
+	VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface
 	ServerVersion() *ServerVersion
 	RestClient() *rest.RESTClient
+	GeneratedKubeVirtClient() generatedclient.Interface
 	CdiClient() cdiclient.Interface
 	NetworkClient() networkclient.Interface
 	ExtensionsClient() extclient.Interface
 	SecClient() secv1.SecurityV1Interface
 	DiscoveryClient() discovery.DiscoveryInterface
 	PrometheusClient() promclient.Interface
+	KubernetesSnapshotClient() k8ssnapshotclient.Interface
 	kubernetes.Interface
 	Config() *rest.Config
 }
 
 type kubevirt struct {
-	master           string
-	kubeconfig       string
-	restClient       *rest.RESTClient
-	config           *rest.Config
-	cdiClient        *cdiclient.Clientset
-	networkClient    *networkclient.Clientset
-	extensionsClient *extclient.Clientset
-	secClient        *secv1.SecurityV1Client
-	discoveryClient  *discovery.DiscoveryClient
-	prometheusClient *promclient.Clientset
+	master                  string
+	kubeconfig              string
+	restClient              *rest.RESTClient
+	config                  *rest.Config
+	generatedKubeVirtClient *generatedclient.Clientset
+	cdiClient               *cdiclient.Clientset
+	networkClient           *networkclient.Clientset
+	extensionsClient        *extclient.Clientset
+	secClient               *secv1.SecurityV1Client
+	discoveryClient         *discovery.DiscoveryClient
+	prometheusClient        *promclient.Clientset
+	snapshotClient          *k8ssnapshotclient.Clientset
 	*kubernetes.Clientset
 }
 
@@ -107,6 +115,22 @@ func (k kubevirt) PrometheusClient() promclient.Interface {
 
 func (k kubevirt) RestClient() *rest.RESTClient {
 	return k.restClient
+}
+
+func (k kubevirt) GeneratedKubeVirtClient() generatedclient.Interface {
+	return k.generatedKubeVirtClient
+}
+
+func (k kubevirt) VirtualMachineSnapshot(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotInterface {
+	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineSnapshots(namespace)
+}
+
+func (k kubevirt) VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface {
+	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineSnapshotContents(namespace)
+}
+
+func (k kubevirt) KubernetesSnapshotClient() k8ssnapshotclient.Interface {
+	return k.snapshotClient
 }
 
 type StreamOptions struct {

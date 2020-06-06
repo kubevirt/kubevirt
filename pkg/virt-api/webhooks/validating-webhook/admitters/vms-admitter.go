@@ -22,6 +22,7 @@ package admitters
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"k8s.io/api/admission/v1beta1"
@@ -87,6 +88,11 @@ func (admitter *VMsAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	}
 
 	causes = validateStateChangeRequests(ar.Request, &vm)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes = validateSnapshotStatus(ar.Request, &vm)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -291,6 +297,30 @@ func validateStateChangeRequests(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMac
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("The VM's new name is not valid: %s", strings.Join(nameErrs, "; ")),
 			Field:   k8sfield.NewPath("status", "stateChangeRequests").String(),
+		}}
+	}
+
+	return nil
+}
+
+func validateSnapshotStatus(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
+	if ar.Operation != v1beta1.Update || vm.Status.SnapshotInProgress == nil {
+		return nil
+	}
+
+	oldVM := &v1.VirtualMachine{}
+	if err := json.Unmarshal(ar.OldObject.Raw, oldVM); err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeUnexpectedServerResponse,
+			Message: "Could not fetch old VM",
+		}}
+	}
+
+	if !reflect.DeepEqual(oldVM.Spec, vm.Spec) {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("Cannot update VM spec until snapshot %q completes", *vm.Status.SnapshotInProgress),
+			Field:   k8sfield.NewPath("spec").String(),
 		}}
 	}
 

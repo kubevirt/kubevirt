@@ -55,3 +55,7 @@ func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request, clusterCo
 func ServeMigrationUpdate(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, &admitters.MigrationUpdateAdmitter{})
 }
+
+func ServeVMSnapshots(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, admitters.NewVMSnapshotAdmitter(clusterConfig, virtCli))
+}

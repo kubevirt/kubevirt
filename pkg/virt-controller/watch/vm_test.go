@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/go-openapi/errors"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"

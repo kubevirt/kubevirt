@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
+	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 )
 
 func NewOperatorWebhookService(operatorNamespace string) *corev1.Service {
@@ -185,6 +186,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 	vmipresetPath := VMIPresetValidatePath
 	migrationCreatePath := MigrationCreateValidatePath
 	migrationUpdatePath := MigrationUpdateValidatePath
+	vmSnapshotValidatePath := VMSnapshotValidatePath
 	failurePolicy := v1beta1.Fail
 
 	return &v1beta1.ValidatingWebhookConfiguration{
@@ -353,6 +355,28 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 					},
 				},
 			},
+			{
+				Name:          "virtualmachinesnapshot-validator.snapshot.kubevirt.io",
+				FailurePolicy: &failurePolicy,
+				Rules: []v1beta1.RuleWithOperations{{
+					Operations: []v1beta1.OperationType{
+						v1beta1.Create,
+						v1beta1.Update,
+					},
+					Rule: v1beta1.Rule{
+						APIGroups:   []string{snapshotv1.SchemeGroupVersion.Group},
+						APIVersions: []string{snapshotv1.SchemeGroupVersion.Version},
+						Resources:   []string{"virtualmachinesnapshots"},
+					},
+				}},
+				ClientConfig: v1beta1.WebhookClientConfig{
+					Service: &v1beta1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmSnapshotValidatePath,
+					},
+				},
+			},
 		},
 	}
 }
@@ -392,3 +416,5 @@ const VirtAPIMutatingWebhookName = "virt-api-mutator"
 const KubevirtOperatorWebhookServiceName = "kubevirt-operator-webhook"
 
 const KubeVirtOperatorValidatingWebhookName = "virt-operator-validator"
+
+const VMSnapshotValidatePath = "/virtualmachinesnapshots-validate"

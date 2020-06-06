@@ -6,5 +6,5 @@ metadata:
   labels:
     kubevirt.io: ""
 data:
-  feature-gates: "DataVolumes, CPUManager, LiveMigration, ExperimentalIgnitionSupport, Sidecar"
+  feature-gates: "DataVolumes, CPUManager, LiveMigration, ExperimentalIgnitionSupport, Sidecar, Snapshot"
   selinuxLauncherType: "virt_launcher.process"

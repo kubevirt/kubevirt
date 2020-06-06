@@ -163,6 +163,13 @@ func RemoveFinalizer(object metav1.Object, finalizer string) {
 	object.SetFinalizers(filtered)
 }
 
+func AddFinalizer(object metav1.Object, finalizer string) {
+	if HasFinalizer(object, finalizer) {
+		return
+	}
+	object.SetFinalizers(append(object.GetFinalizers(), finalizer))
+}
+
 func ObservedLatestApiVersionAnnotation(object metav1.Object) bool {
 	annotations := object.GetAnnotations()
 	if annotations == nil {
@@ -171,10 +178,6 @@ func ObservedLatestApiVersionAnnotation(object metav1.Object) bool {
 
 	version, ok := annotations[v1.ControllerAPILatestVersionObservedAnnotation]
 	if !ok || version != v1.ApiLatestVersion {
-		return false
-	}
-	version, ok = annotations[v1.ControllerAPIStorageVersionObservedAnnotation]
-	if !ok || version != v1.ApiStorageVersion {
 		return false
 	}
 	return true

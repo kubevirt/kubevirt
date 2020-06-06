@@ -1749,6 +1749,10 @@ func NewRandomDataVolumeWithHttpImport(imageUrl, namespace string, accessMode k8
 	return newRandomDataVolumeWithHttpImport(imageUrl, namespace, Config.StorageClassLocal, accessMode)
 }
 
+func NewRandomDataVolumeWithHttpImportInStorageClass(imageUrl, namespace, storageClass string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
+	return newRandomDataVolumeWithHttpImport(imageUrl, namespace, storageClass, accessMode)
+}
+
 func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, accessMode k8sv1.PersistentVolumeAccessMode, volMode k8sv1.PersistentVolumeMode) (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 	if !HasCDI() {
 		Skip("Skip DataVolume tests when CDI is not present")
@@ -1901,6 +1905,15 @@ func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
 
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
 	dataVolume := NewRandomDataVolumeWithHttpImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
+	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
+	vm := NewRandomVirtualMachine(vmi, false)
+
+	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dataVolume)
+	return vm
+}
+
+func NewRandomVMWithDataVolumeInStorageClass(imageUrl, namespace, storageClass string) *v1.VirtualMachine {
+	dataVolume := NewRandomDataVolumeWithHttpImportInStorageClass(imageUrl, namespace, storageClass, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
@@ -4104,7 +4117,8 @@ func GetCephStorageClass() (string, bool) {
 	storageClassList, err := virtClient.StorageV1().StorageClasses().List(metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	for _, storageClass := range storageClassList.Items {
-		if storageClass.Provisioner == "csi-rbdplugin" {
+		switch storageClass.Provisioner {
+		case "rook-ceph.rbd.csi.ceph.com", "csi-rbdplugin":
 			return storageClass.Name, true
 		}
 	}
