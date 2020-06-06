@@ -104,12 +104,11 @@ var _ = Describe("Storage", func() {
 		})
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
 			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string) {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-
 				var ignoreWarnings bool
 				var pvName string
 				// Start the VirtualMachineInstance with the PVC attached
 				if storageEngine == "nfs" {
+					tests.SkipNFSTestIfRunnigOnKindInfra()
 					pvName = initNFS()
 					ignoreWarnings = true
 				} else {
@@ -129,8 +128,6 @@ var _ = Describe("Storage", func() {
 			)
 
 			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-
 				vmi = newVMI(tests.DiskAlpineHostPath)
 
 				num := 3
@@ -254,11 +251,11 @@ var _ = Describe("Storage", func() {
 
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc, storageEngine string) {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
 				var ignoreWarnings bool
 				var pvName string
 				// Start the VirtualMachineInstance with the PVC attached
 				if storageEngine == "nfs" {
+					tests.SkipNFSTestIfRunnigOnKindInfra()
 					pvName = initNFS()
 					ignoreWarnings = true
 				} else {
@@ -278,8 +275,6 @@ var _ = Describe("Storage", func() {
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3137]should not persist data", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-
 				vmi = tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 
 				By("Starting the VirtualMachineInstance")
@@ -345,8 +340,6 @@ var _ = Describe("Storage", func() {
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
 			It("[test_id:3138]should start vmi multiple times", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-
 				vmi = tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
 				tests.AddPVCDisk(vmi, "disk1", "virtio", tests.DiskCustomHostPath)
 
@@ -669,7 +662,6 @@ var _ = Describe("Storage", func() {
 
 			// Not a candidate for NFS because local volumes are used in test
 			It("[test_id:1015] should be successfully started", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi = tests.NewRandomVMIWithPVC(tests.BlockDiskForTest)
 				// Without userdata the hostname isn't set correctly and the login expecter fails...

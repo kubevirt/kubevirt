@@ -4674,12 +4674,6 @@ func SkipStressTestIfRunnigOnKindInfra() {
 	}
 }
 
-func SkipPVCTestIfRunnigOnKindInfra() {
-	if IsRunningOnKindInfra() {
-		Skip("Skip PVC tests till PR https://github.com/kubevirt/kubevirt/pull/3171 is merged")
-	}
-}
-
 func SkipNFSTestIfRunnigOnKindInfra() {
 	if IsRunningOnKindInfra() {
 		Skip("Skip NFS tests till issue https://github.com/kubevirt/kubevirt/issues/3322 is fixed")

@@ -69,8 +69,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			It("[test_id:782]Should be the fs layout the same for a pod and vmi", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
-
 				expectedOutput := "value1value2value3"
 
 				By("Running VMI")
@@ -164,7 +162,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			It("[test_id:779]Should be the fs layout the same for a pod and vmi", func() {
-				tests.SkipPVCTestIfRunnigOnKindInfra()
 
 				expectedOutput := "adminredhat"
 
@@ -243,8 +240,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		serviceAccountPath := config.ServiceAccountSourceDir
 
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
-			tests.SkipPVCTestIfRunnigOnKindInfra()
-
 			By("Running VMI")
 			vmi := tests.NewRandomVMIWithServiceAccount("default")
 			tests.RunVMIAndExpectLaunch(vmi, 90)
