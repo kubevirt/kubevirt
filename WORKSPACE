@@ -158,6 +158,24 @@ http_file(
 )
 
 http_file(
+    name = "microlivecd_image",
+    sha256 = "ae449ae8c0f73b1a7e2c394bc5385e7ab01d8fc000f5b074bc8b2aaabf931eac",
+    urls = [
+        "https://github.com/jean-edouard/microlivecd/releases/download/0.1/microlivecd_amd64.iso",
+        "https://storage.googleapis.com/builddeps/ae449ae8c0f73b1a7e2c394bc5385e7ab01d8fc000f5b074bc8b2aaabf931eac",
+    ],
+)
+
+http_file(
+    name = "microlivecd_image_ppc64el",
+    sha256 = "eae431d68b9dc5fab422f4b90d4204cbc28c39518780c4822970a4bef42f7c7f",
+    urls = [
+        "https://github.com/jean-edouard/microlivecd/releases/download/0.1/microlivecd_ppc64el.iso",
+        "https://storage.googleapis.com/builddeps/eae431d68b9dc5fab422f4b90d4204cbc28c39518780c4822970a4bef42f7c7f",
+    ],
+)
+
+http_file(
     name = "virtio_win_image",
     sha256 = "7bf7f53e30c69a360f89abb3d2cc19cc978f533766b1b2270c2d8344edf9b3ef",
     urls = [

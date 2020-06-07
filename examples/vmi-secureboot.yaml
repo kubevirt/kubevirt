@@ -1,0 +1,32 @@
+---
+apiVersion: kubevirt.io/v1alpha3
+kind: VirtualMachineInstance
+metadata:
+  labels:
+    special: vmi-secureboot
+  name: vmi-secureboot
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+    features:
+      acpi: {}
+      smm:
+        enabled: true
+    firmware:
+      bootloader:
+        efi:
+          secureBoot: true
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 1Gi
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - containerDisk:
+      image: registry:5000/kubevirt/microlivecd-container-disk-demo:devel
+    name: containerdisk

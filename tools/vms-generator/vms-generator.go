@@ -71,6 +71,7 @@ func main() {
 		utils.VmiFlavorSmall:       utils.GetVMIFlavorSmall(),
 		utils.VmiSata:              utils.GetVMISata(),
 		utils.VmiFedora:            utils.GetVMIEphemeralFedora(),
+		utils.VmiSecureBoot:        utils.GetVMISecureBoot(),
 		utils.VmiAlpineEFI:         utils.GetVMIAlpineEFI(),
 		utils.VmiNoCloud:           utils.GetVMINoCloud(),
 		utils.VmiPVC:               utils.GetVMIPvc(),

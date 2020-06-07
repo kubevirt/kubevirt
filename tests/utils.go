@@ -1967,6 +1967,28 @@ func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
 
 }
 
+func NewRandomVMIWithSecureBoot() *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskHighMemory(ContainerDiskFor(ContainerDiskMicroLiveCD))
+
+	// EFI needs more memory than other images
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+	vmi.Spec.Domain.Features = &v1.Features{
+		SMM: &v1.FeatureState{
+			Enabled: NewBool(true),
+		},
+	}
+	vmi.Spec.Domain.Firmware = &v1.Firmware{
+		Bootloader: &v1.Bootloader{
+			EFI: &v1.EFI{
+				SecureBoot: NewBool(true),
+			},
+		},
+	}
+
+	return vmi
+
+}
+
 func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
 	return &v1.VirtualMachineInstanceMigration{
 		TypeMeta: metav1.TypeMeta{
@@ -2788,6 +2810,7 @@ const (
 	ContainerDiskCirros               ContainerDisk = "cirros"
 	ContainerDiskAlpine               ContainerDisk = "alpine"
 	ContainerDiskFedora               ContainerDisk = "fedora-cloud"
+	ContainerDiskMicroLiveCD          ContainerDisk = "microlivecd"
 	ContainerDiskVirtio               ContainerDisk = "virtio-container-disk"
 	ContainerDiskEmpty                ContainerDisk = "empty"
 )
@@ -2797,7 +2820,7 @@ const (
 // Supported values are: cirros, fedora, alpine, guest-agent
 func ContainerDiskFor(name ContainerDisk) string {
 	switch name {
-	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora, ContainerDiskCirrosCustomLocation:
+	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora, ContainerDiskMicroLiveCD, ContainerDiskCirrosCustomLocation:
 		return fmt.Sprintf("%s/%s-container-disk-demo:%s", KubeVirtUtilityRepoPrefix, name, KubeVirtUtilityVersionTag)
 	case ContainerDiskVirtio:
 		return fmt.Sprintf("%s/virtio-container-disk:%s", KubeVirtUtilityRepoPrefix, KubeVirtUtilityVersionTag)
@@ -2989,6 +3012,26 @@ func ReLoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance, timeout int) (expe
 		expecter.Close()
 		return expecter, err
 	}
+	return expecter, err
+}
+
+func SecureBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	b := append([]expect.Batcher{
+		&expect.BExp{R: "secureboot: Secure boot enabled"},
+	})
+	res, err := expecter.ExpectBatch(b, 180*time.Second)
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
+		expecter.Close()
+		return expecter, err
+	}
+
 	return expecter, err
 }
 
