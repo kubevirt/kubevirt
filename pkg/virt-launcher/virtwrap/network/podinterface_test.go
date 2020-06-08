@@ -159,6 +159,8 @@ var _ = Describe("Pod Network", func() {
 
 		//For Bridge tests
 		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
+		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
+		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
 		mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)
 		mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
@@ -176,6 +178,8 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr, api.DefaultBridgeName, nil)
 
 		// For masquerade tests
+		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
+		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
 		mockNetwork.EXPECT().ParseAddr(masqueradeGwStr).Return(masqueradeGwAddr, nil)
 		mockNetwork.EXPECT().ParseAddr(masqueradeIpv6GwStr).Return(masqueradeIpv6GwAddr, nil)
 		mockNetwork.EXPECT().ParseAddr(masqueradeVmStr).Return(masqueradeVmAddr, nil)
@@ -273,6 +277,8 @@ var _ = Describe("Pod Network", func() {
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 				mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
+				mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
+				mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 				mockNetwork.EXPECT().LinkSetDown(dummy).Return(nil)
 				mockNetwork.EXPECT().SetRandomMac(podInterface).Return(updateFakeMac, nil)
 				mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
@@ -299,6 +305,8 @@ var _ = Describe("Pod Network", func() {
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
+			mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
+			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
 			mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
 			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
