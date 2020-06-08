@@ -308,8 +308,9 @@ target     prot opt source               destination
 KUBEVIRT_POSTINBOUND  all  --  anywhere   anywhere
 ```
 
-In the `KUBEVIRT_POSTINBOUND` chain, SNAT is performed: the source IP address
-of the outbound packet is modified to the IP address of the gateway -
+In the `KUBEVIRT_POSTINBOUND` chain, in case the source address is localhost, SNAT is
+performed: the source IP address of the outbound packet is modified to the IP address of
+the gateway -
 `10.11.12.1`.
 
 ```
