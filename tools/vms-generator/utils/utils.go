@@ -379,10 +379,13 @@ func GetVMISecureBoot() *v1.VirtualMachineInstance {
 func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiAlpineEFI)
 
+	_false := false
 	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageAlpine, DockerTag), busVirtio)
 	vmi.Spec.Domain.Firmware = &v1.Firmware{
 		Bootloader: &v1.Bootloader{
-			EFI: &v1.EFI{},
+			EFI: &v1.EFI{
+				SecureBoot: &_false,
+			},
 		},
 	}
 
