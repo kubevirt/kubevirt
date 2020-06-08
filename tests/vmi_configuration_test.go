@@ -22,6 +22,7 @@ package tests_test
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -1652,11 +1653,14 @@ var _ = Describe("Configurations", func() {
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
 			tests.AddPVCDisk(vmi, "block-pvc", "virtio", tests.BlockDiskForTest)
-			tests.AddHostDisk(vmi, tests.RandTmpDir()+"/test-disk.img", v1.HostDiskExistsOrCreate, "hostdisk")
+			tmpHostDiskDir := tests.RandTmpDir()
+			tests.AddHostDisk(vmi, filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate, "hostdisk")
 			tests.RunVMIAndExpectLaunch(vmi, 60)
 
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			defer tests.RemoveHostDiskImage(tmpHostDiskDir, vmiPod.Spec.NodeName)
 
 			disks := runningVMISpec.Devices.Disks
 			By("checking if number of attached disks is equal to real disks number")
