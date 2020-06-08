@@ -215,10 +215,10 @@ a
 in the project's examples folder.
 
 The masquerade bind mechanism has plenty in common with bridge binding; both
-have virt-handler create an in-pod bridge, set the pod networking interface as
-its slave, generate a similar looking interface domain xml element - e.g.
-interface type *bridge*, and same *source* and *target* values. Both phases of
-the networking configuration communicate by caching data in the VIF structure.
+have virt-handler create an in-pod bridge, generate a similar looking interface
+domain xml element - e.g. interface type *bridge*, and same *source* and
+*target* values. Both phases of the networking configuration communicate by caching
+data in the VIF structure.
 
 However, the similarities end there; while the networking infrastructure is
 the same, VM networking works completely different.
@@ -265,6 +265,13 @@ gateway IP, and `10.11.12.2` as VM IP.
 NAT is configured in the `preparePodNetworkInterfaces` method. The bridge is
 configured with the IP address previously reserved for the VM's gateway.
 
+The bridge acts as the vm's default gateway and not as a L2 bridge,
+therefore, the pod networking interface is not set as its slave.
+Since a linux bridge gets the MAC address of its first slave and we don't want it to
+take the MAC address of the first tap device attached to it,
+`preparePodNetworkInterfaces` creates a dummy nic and sets it as the first
+slave of the bridge.
+
 Afterwards, the nftables / iptables rules are provisioned in the NAT table. It
 follows a standard one to one NAT implementation using netfilter.
 
@@ -275,8 +282,8 @@ incoming traffic from the pod networking interface, making it go through the
 
 ```
 Chain PREROUTING (policy ACCEPT)
-target               prot opt source               destination
-KUBEVIRT_PREINBOUND  all  --  anywhere             anywhere
+target               prot opt in   source               destination
+KUBEVIRT_PREINBOUND  all  --  eth0 anywhere             anywhere
 ```
 
 On the `KUBEVIRT_PREINBOUND` chain, packets will be DNAT'ed (have their
