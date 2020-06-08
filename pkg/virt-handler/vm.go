@@ -334,9 +334,8 @@ func (d *VirtualMachineController) hasTargetDetectedDomain(vmi *v1.VirtualMachin
 
 func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineInstance) {
 	d.phase1NetworkSetupCacheLock.Lock()
-	defer d.phase1NetworkSetupCacheLock.Unlock()
-
 	delete(d.phase1NetworkSetupCache, vmi.UID)
+	d.phase1NetworkSetupCacheLock.Unlock()
 
 	// Clean Pod interface cache from map and files
 	d.podInterfaceCacheLock.Lock()

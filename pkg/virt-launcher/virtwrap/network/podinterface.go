@@ -90,7 +90,7 @@ func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid stri
 		return err
 	}
 	// get IP address
-	addrList, err := Handler.AddrList(link, netlink.FAMILY_V4)
+	addrList, err := Handler.AddrList(link, netlink.FAMILY_ALL)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterfaceName)
 		return err
