@@ -472,6 +472,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		return nil
 	case vmi.IsScheduled():
 		// Don't process states where the vmi is clearly owned by virt-handler
+		return nil
 	default:
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
 	}
