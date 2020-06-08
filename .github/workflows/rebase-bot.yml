@@ -1,11 +1,11 @@
+name: Rebase Bot
 on:
   issue_comment:
     types: [created]
-name: Rebase Bot
 jobs:
   rebase:
-    name: Rebase
-    if: github.event.issue.pull_request != '' && contains(github.event.comment.body, '/rebase') && github.repository == ‘kubevirt/hyperconverged-cluster-operator’
+    name: Build Manifests and Rebase
+    if: (github.event.issue.pull_request != '') && (contains(github.event.comment.body, '/rebase')) && (github.repository == 'kubevirt/hyperconverged-cluster-operator')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the latest code
