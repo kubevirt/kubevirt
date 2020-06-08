@@ -14247,7 +14247,7 @@ func schema_kubevirtio_client_go_api_v1_EFI(ref common.ReferenceCallback) common
 				Properties: map[string]spec.Schema{
 					"secureBoot": {
 						SchemaProps: spec.SchemaProps{
-							Description: "If set, SecureBoot will be enabled and the OVMF roms will be swapped for SecureBoot-enabled ones. Requires SMM to be enabled. Defaults to false",
+							Description: "If set, SecureBoot will be enabled and the OVMF roms will be swapped for SecureBoot-enabled ones. Requires SMM to be enabled. Defaults to true",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

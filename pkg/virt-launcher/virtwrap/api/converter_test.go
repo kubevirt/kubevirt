@@ -2171,7 +2171,9 @@ var _ = Describe("Converter", func() {
 
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
-						EFI: &v1.EFI{},
+						EFI: &v1.EFI{
+							SecureBoot: False(),
+						},
 					},
 				}
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
@@ -2186,9 +2188,7 @@ var _ = Describe("Converter", func() {
 			It("should configure the EFI bootloader if EFI secure option", func() {
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
-						EFI: &v1.EFI{
-							SecureBoot: True(),
-						},
+						EFI: &v1.EFI{},
 					},
 				}
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)

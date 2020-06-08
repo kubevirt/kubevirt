@@ -14,7 +14,8 @@ spec:
         name: containerdisk
     firmware:
       bootloader:
-        efi: {}
+        efi:
+          secureBoot: false
     machine:
       type: ""
     resources:
