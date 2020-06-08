@@ -28,16 +28,27 @@ echo "building images"
 ./hack/bazel-build.sh
 ./hack/bazel-build-images.sh
 
-registry_port=5000
-registry_pod=$(oc get pod -l app=docker-registry --no-headers -o custom-columns=:metadata.name)
-echo "Forwarding $registry_port to pod $registry_pod"
-oc port-forward $registry_pod $registry_port:$registry_port &
-
 echo "pushing images"
+registry_port=5000
 export DOCKER_PREFIX="localhost:$registry_port"
 DOCKER_TAG=$(cat _out/PULL_PULL_SHA)
 export DOCKER_TAG
-./hack/bazel-push-images.sh
+set +e
+port_forward_pid=0
+while true; do
+    registry_pod=$(oc get pod -l app=docker-registry --no-headers -o custom-columns=:metadata.name)
+    echo "Forwarding $registry_port to pod $registry_pod"
+    oc port-forward $registry_pod $registry_port:$registry_port &
+    port_forward_pid=$!
+    ./hack/bazel-push-images.sh
+    return_code=$?
+    # kill port forwarding to avoid interferences during testing
+    kill $port_forward_pid
+    if [ $return_code -eq 0 ]; then
+        break
+    fi
+done
+set -e
 
 echo "calling cluster-up to prepare config and check whether cluster is reachable"
 export KUBEVIRT_PROVIDER=external
@@ -45,10 +56,25 @@ export KUBEVIRT_PROVIDER=external
 
 echo "building manifests"
 export DOCKER_PREFIX="${registry_host}"
+# force using DOCKER_TAG
+rm ./bazel-bin/push-virt-operator.digest
 ./hack/build-manifests.sh
 
 echo "deploying"
+set +e
 ./hack/cluster-deploy.sh
+if [ $? -ne 0 ]; then
+    echo "--- Manifests:"
+    cat _out/manifests/release/*.yaml
+    echo "--- pods:"
+    for pod_name in $(oc get pods -n kubevirt -o=custom-columns=:.metadata.name --no-headers); do
+        echo " -- pod: $pod_name:"
+        oc describe pod $pod_name -n kubevirt
+    done
+    oc describe pod $registry_pod
+    echo "KUBEVIRT DEPLOYMENT FAILED!"
+fi
+set -e
 
 echo "testing"
 mkdir -p "$ARTIFACT_DIR"
