@@ -369,7 +369,7 @@ func NewConnection(uri string, user string, pass string, checkInterval time.Dura
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to libvirt daemon: %v", err)
 	}
-	logger.V(1).Info("Connected to libvirt daemon")
+	logger.V(1).Infof("Connected to libvirt daemon: %s", uri)
 
 	lvConn := &LibvirtConnection{
 		Connect: virConn, user: user, pass: pass, uri: uri, alive: true,
