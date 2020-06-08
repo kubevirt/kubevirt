@@ -178,11 +178,11 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		}{port})
 		if err != nil {
 			return fmt.Errorf("Error encountered: %s", err.Error())
-			fmt.Println(string(optionString))
-		} else {
-			// execute VNC Viewer
-			go checkAndRunVNCViewer(doneChan, viewResChan, port)
 		}
+		fmt.Println(string(optionString))
+	} else {
+		// execute VNC Viewer
+		go checkAndRunVNCViewer(doneChan, viewResChan, port)
 	}
 
 	go func() {
