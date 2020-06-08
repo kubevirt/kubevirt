@@ -135,6 +135,9 @@ olm-push:
 bump-kubevirtci:
 	./hack/bump-kubevirtci.sh
 
+focus:
+	./hack/focus.sh "$(lanes)"
+
 .PHONY: \
 	build-verify \
 	go-build \
@@ -160,4 +163,5 @@ bump-kubevirtci:
 	cluster-deploy \
 	cluster-sync \
 	olm-verify \
-	olm-push
+	olm-push \
+	focus
