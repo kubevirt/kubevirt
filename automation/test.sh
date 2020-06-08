@@ -38,7 +38,7 @@ readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluste
 # All the other lanes will fail immediately, saving CI resources,
 # but still guarding from getting the PR merged, until the line
 # is restored to an empty string.
-export KUBEVIRT_LANE_FOCUS=""
+export KUBEVIRT_LANE_FOCUS="k8s-1.17"
 
 if [[ $KUBEVIRT_LANE_FOCUS != "" ]]; then
    FOCUS_ERROR=1
@@ -319,6 +319,7 @@ elif [[ $TARGET =~ (okd|ocp).* ]]; then
   ginko_params="$ginko_params --ginkgo.skip=SRIOV|GPU"
 elif [[ $TARGET =~ ipv6.* ]]; then
   ginko_params="$ginko_params --ginkgo.skip=Multus|SRIOV|GPU|.*slirp.*|.*bridge.*"
+  #ginko_params="$ginko_params --ginkgo.v --ginkgo.focus=test_id:4113"
 else
   ginko_params="$ginko_params --ginkgo.skip=Multus|SRIOV|GPU"
 fi
@@ -347,6 +348,11 @@ spec:
 EOF
 fi
 
-
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params make functest
+
+#for i in {1..100}
+#do
+#    echo "$i"
+#    FUNC_TEST_ARGS=$ginko_params make functest
+#done

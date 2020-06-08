@@ -1640,6 +1640,22 @@ func cleanNamespaces() {
 			continue
 		}
 
+		// Remove all Migration Objects
+		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do().Error())
+		migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{})
+		PanicOnError(err)
+		for _, migration := range migrations.Items {
+			if controller.HasFinalizer(&migration, v1.VirtualMachineInstanceMigrationFinalizer) {
+				_, err := virtCli.VirtualMachineInstanceMigration(namespace).Patch(migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
+				if !errors.IsNotFound(err) {
+					PanicOnError(err)
+				}
+			}
+		}
+
+		// Remove all Pods
+		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
+
 		//Remove all HPA
 		PanicOnError(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do().Error())
 
@@ -1662,9 +1678,6 @@ func cleanNamespaces() {
 			}
 		}
 
-		// Remove all Pods
-		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
-
 		// Remove all Services
 		svcList, err := virtCli.CoreV1().Services(namespace).List(metav1.ListOptions{})
 		for _, svc := range svcList.Items {
@@ -1683,20 +1696,6 @@ func cleanNamespaces() {
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do().Error())
 		// Remove all limit ranges
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do().Error())
-
-		// Remove all Migration Objects
-		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do().Error())
-		migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{})
-		PanicOnError(err)
-		for _, migration := range migrations.Items {
-			if controller.HasFinalizer(&migration, v1.VirtualMachineInstanceMigrationFinalizer) {
-				_, err := virtCli.VirtualMachineInstanceMigration(namespace).Patch(migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
-				if !errors.IsNotFound(err) {
-					PanicOnError(err)
-				}
-			}
-		}
-
 	}
 }
 
