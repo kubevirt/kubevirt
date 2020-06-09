@@ -20,11 +20,12 @@
 package tests_test
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"kubevirt.io/client-go/log"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -364,29 +365,25 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Start a long running process")
 			res, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "sleep 5&\n"},
-				&expect.BExp{R: ".*\n"}, // command
-				&expect.BExp{R: ".*\n"}, // result
-				&expect.BExp{R: ".*# "}, // prompt
+				&expect.BExp{R: "# "}, // prompt
 				&expect.BSnd{S: `pgrep -f "sleep 5"` + "\n"},
-				&expect.BExp{R: ".*\n"}, // command
-				&expect.BExp{R: ".*\n"}, // result
-				&expect.BExp{R: ".*# "}, // prompt
+				&expect.BExp{R: "sleep 5"},    // command
+				&expect.BExp{R: "[0-9]+\r\n"}, // pid
 			}, 15*time.Second)
+			log.DefaultLogger().Infof("a:%+v\n", res)
 			Expect(err).ToNot(HaveOccurred())
-			fmt.Fprintf(GinkgoWriter, "a:%+v\n", res)
-			return strings.TrimSpace(res[4].Match[0])
+			return strings.TrimSpace(res[2].Match[0])
 		}
 
 		checkProcess := func(expecter expect.Expecter) string {
 			By("Checking the long running process")
 			res, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: `pgrep -f "sleep 5"` + "\n"},
-				&expect.BExp{R: ".*\n"}, // command
-				&expect.BExp{R: ".*\n"}, // result
-				&expect.BExp{R: ".*# "}, // prompt
+				&expect.BExp{R: "sleep 5"},    // command
+				&expect.BExp{R: "[0-9]+\r\n"}, // pid
 			}, 15*time.Second)
+			log.DefaultLogger().Infof("a:%+v\n", res)
 			Expect(err).ToNot(HaveOccurred())
-			fmt.Fprintf(GinkgoWriter, "b:%+v\n", res)
 			return strings.TrimSpace(res[1].Match[0])
 		}
 
