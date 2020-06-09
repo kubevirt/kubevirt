@@ -955,9 +955,9 @@ func (r *ReconcileHyperConverged) ensureKubeVirt(req *hcoRequest) (upgradeDone b
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	// Handle KubeVirt resource conditions
-	handleComponentConditions(r, req, "KubeVirt", translateKubeVirtConds(found.Status.Conditions))
+	isReady := handleComponentConditions(r, req, "KubeVirt", translateKubeVirtConds(found.Status.Conditions))
 
-	upgradeDone = req.componentUpgradeInProgress && r.checkComponentVersion(hcoutil.KubevirtVersionEnvV, found.Status.ObservedKubeVirtVersion)
+	upgradeDone = req.componentUpgradeInProgress && isReady && r.checkComponentVersion(hcoutil.KubevirtVersionEnvV, found.Status.ObservedKubeVirtVersion)
 
 	req.statusDirty = true
 	return upgradeDone, nil
@@ -1034,11 +1034,10 @@ func (r *ReconcileHyperConverged) ensureCDI(req *hcoRequest) (upgradeDone bool, 
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	// Handle CDI resource conditions
-	handleComponentConditions(r, req, "CDI", found.Status.Conditions)
+	isReady := handleComponentConditions(r, req, "CDI", found.Status.Conditions)
 
-	upgradeDone = req.componentUpgradeInProgress && r.checkComponentVersion(hcoutil.CdiVersionEnvV, found.Status.ObservedVersion)
+	upgradeDone = req.componentUpgradeInProgress && isReady && r.checkComponentVersion(hcoutil.CdiVersionEnvV, found.Status.ObservedVersion)
 
-	req.statusDirty = true
 	return upgradeDone, nil
 }
 
@@ -1111,16 +1110,20 @@ func (r *ReconcileHyperConverged) ensureNetworkAddons(req *hcoRequest) (upgradeD
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	// Handle conditions
-	handleComponentConditions(r, req, "NetworkAddonsConfig", found.Status.Conditions)
+	isReady := handleComponentConditions(r, req, "NetworkAddonsConfig", found.Status.Conditions)
 
-	upgradeDone = req.componentUpgradeInProgress && r.checkComponentVersion(hcoutil.CnaoVersionEnvV, found.Status.ObservedVersion)
+	upgradeDone = req.componentUpgradeInProgress && isReady && r.checkComponentVersion(hcoutil.CnaoVersionEnvV, found.Status.ObservedVersion)
 
 	req.statusDirty = true
 	return upgradeDone, nil
 }
 
-func handleComponentConditions(r *ReconcileHyperConverged, req *hcoRequest, component string, componentConds []conditionsv1.Condition) {
+// handleComponentConditions - read and process a sub-component conditions.
+// returns true if the the conditions indicates "ready" state and false if not.
+func handleComponentConditions(r *ReconcileHyperConverged, req *hcoRequest, component string, componentConds []conditionsv1.Condition) (isReady bool) {
+	isReady = true
 	if len(componentConds) == 0 {
+		isReady = false
 		reason := fmt.Sprintf("%sConditions", component)
 		message := fmt.Sprintf("%s resource has no conditions", component)
 		req.logger.Info(fmt.Sprintf("%s's resource is not reporting Conditions on it's Status", component))
@@ -1144,16 +1147,21 @@ func handleComponentConditions(r *ReconcileHyperConverged, req *hcoRequest, comp
 		})
 	} else {
 		foundAvailableCond := false
+		foundProgressingCond := false
+		foundDegradedCond := false
 		for _, condition := range componentConds {
 			switch condition.Type {
 			case conditionsv1.ConditionAvailable:
 				foundAvailableCond = true
 				if condition.Status == corev1.ConditionFalse {
+					isReady = false
 					msg := fmt.Sprintf("%s is not available: %v", component, string(condition.Message))
 					r.componentNotAvailable(req, component, msg)
 				}
 			case conditionsv1.ConditionProgressing:
+				foundProgressingCond = true
 				if condition.Status == corev1.ConditionTrue {
+					isReady = false
 					req.logger.Info(fmt.Sprintf("%s is 'Progressing'", component))
 					req.conditions.setStatusCondition(conditionsv1.Condition{
 						Type:    conditionsv1.ConditionProgressing,
@@ -1169,7 +1177,9 @@ func handleComponentConditions(r *ReconcileHyperConverged, req *hcoRequest, comp
 					})
 				}
 			case conditionsv1.ConditionDegraded:
+				foundDegradedCond = true
 				if condition.Status == corev1.ConditionTrue {
+					isReady = false
 					req.logger.Info(fmt.Sprintf("%s is 'Degraded'", component))
 					req.conditions.setStatusCondition(conditionsv1.Condition{
 						Type:    conditionsv1.ConditionDegraded,
@@ -1184,7 +1194,11 @@ func handleComponentConditions(r *ReconcileHyperConverged, req *hcoRequest, comp
 		if !foundAvailableCond {
 			r.componentNotAvailable(req, component, `missing "Available" condition`)
 		}
+
+		isReady = isReady && foundAvailableCond && foundProgressingCond && foundDegradedCond
 	}
+
+	return isReady
 }
 
 func (r *ReconcileHyperConverged) componentNotAvailable(req *hcoRequest, component string, msg string) {
@@ -1408,9 +1422,9 @@ func (r *ReconcileHyperConverged) ensureVMImport(req *hcoRequest) (upgradeDone b
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
 	// Handle VMimport resource conditions
-	handleComponentConditions(r, req, "VMimport", found.Status.Conditions)
+	isReady := handleComponentConditions(r, req, "VMimport", found.Status.Conditions)
 
-	upgradeDone = req.componentUpgradeInProgress && r.checkComponentVersion(hcoutil.VMImportEnvV, found.Status.ObservedVersion)
+	upgradeDone = req.componentUpgradeInProgress && isReady && r.checkComponentVersion(hcoutil.VMImportEnvV, found.Status.ObservedVersion)
 
 	req.statusDirty = true
 	return upgradeDone, nil
