@@ -149,6 +149,9 @@ type VirtualMachineInstanceSpec struct {
 	// configuration based on DNSPolicy.
 	// +optional
 	DNSConfig *k8sv1.PodDNSConfig `json:"dnsConfig,omitempty" protobuf:"bytes,26,opt,name=dnsConfig"`
+	// Use virtio-transitional instead of virtio, for compatibility with virtio-[0.9|1.0]. Defaults to false.
+	// + optional
+	PreventPCIe bool `json:"preventPCIe,omitempty"`
 }
 
 // VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual

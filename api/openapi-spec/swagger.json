@@ -8543,6 +8543,10 @@
        "type": "string"
       }
      },
+     "preventPCIe": {
+      "description": "Use virtio-transitional instead of virtio, for compatibility with virtio-[0.9|1.0]. Defaults to false.",
+      "type": "boolean"
+     },
      "priorityClassName": {
       "description": "If specified, indicates the pod's priority. If not specified, the pod priority will be default or zero if there is no default.",
       "type": "string"

@@ -17361,6 +17361,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref common.Re
 							Ref:         ref("k8s.io/api/core/v1.PodDNSConfig"),
 						},
 					},
+					"preventPCIe": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Use virtio-transitional instead of virtio, for compatibility with virtio-[0.9|1.0]. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"domain"},
 			},

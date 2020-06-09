@@ -1195,6 +1195,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDev)
 		} else {
 			ifaceType := getInterfaceType(&iface)
+			if ifaceType == "virtio" && vmi.Spec.PreventPCIe {
+				ifaceType = "virtio-transitional"
+			}
+
 			domainIface := Interface{
 				Model: &Model{
 					Type: ifaceType,
