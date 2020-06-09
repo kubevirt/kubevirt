@@ -794,6 +794,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingIptables(protocol iptables.P
 			strings.ToLower(port.Protocol),
 			"--dport",
 			strconv.Itoa(int(port.Port)),
+			"--source", getLoopbackAdrress(protocol),
 			"-j",
 			"SNAT",
 			"--to-source", p.getGatewayByProtocol(protocol))
@@ -896,6 +897,7 @@ func (p *MasqueradePodInterface) createNatRulesUsingNftables(proto iptables.Prot
 			strings.ToLower(port.Protocol),
 			"dport",
 			strconv.Itoa(int(port.Port)),
+			Handler.GetNFTIPString(proto), "saddr", getLoopbackAdrress(proto),
 			"counter", "snat", "to", p.getGatewayByProtocol(proto))
 		if err != nil {
 			return err
