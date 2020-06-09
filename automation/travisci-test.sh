@@ -3,7 +3,7 @@
 
 make generate
 if [[ -n "$(git status --porcelain)" ]] ; then
-    echo "It seems like you need to run `make generate`. Please run it and commit the changes"
+    echo "It seems like you need to run 'make generate'. Please run it and commit the changes"
     git status --porcelain; false
 fi
 
@@ -14,7 +14,7 @@ fi
 make
 
 if [[ -n "$(git status --porcelain)" ]] ; then
-    echo "It seems like you need to run `make`. Please run it and commit the changes"; git status --porcelain; false
+    echo "It seems like you need to run 'make'. Please run it and commit the changes"; git status --porcelain; false
 fi
 
 make build-verify # verify that we set version on the packages built by bazel
