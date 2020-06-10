@@ -54,6 +54,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
+	"google.golang.org/grpc/codes"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -2936,14 +2937,35 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	}
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "login:"},
-		&expect.BSnd{S: "fedora\n"},
-		&expect.BExp{R: "Password:"},
-		&expect.BSnd{S: "fedora\n"},
-		&expect.BExp{R: "$"},
+		&expect.BSnd{S: "\n"},
+		&expect.BCas{C: []expect.Caser{
+			&expect.Case{
+				// Using only "login: " would match things like "Last failed login: Tue Jun  9 22:25:30 UTC 2020 on ttyS0"
+				R:  regexp.MustCompile(vmi.Name + ` login: `),
+				S:  "fedora\n",
+				T:  expect.Next(),
+				Rt: 10,
+			},
+			&expect.Case{
+				R:  regexp.MustCompile(`Password:`),
+				S:  "fedora\n",
+				T:  expect.Next(),
+				Rt: 10,
+			},
+			&expect.Case{
+				R:  regexp.MustCompile(`Login incorrect`),
+				T:  expect.LogContinue("Failed to log in", expect.NewStatus(codes.PermissionDenied, "login failed")),
+				Rt: 10,
+			},
+			&expect.Case{
+				R: regexp.MustCompile(`\$ `),
+				T: expect.OK(),
+			},
+		}},
 		&expect.BSnd{S: "sudo su\n"},
-		&expect.BExp{R: "#"}})
-	res, err := expecter.ExpectBatch(b, 180*time.Second)
+		&expect.BExp{R: "\\#"},
+	})
+	res, err := expecter.ExpectBatch(b, 3*time.Minute)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
 		expecter.Close()
