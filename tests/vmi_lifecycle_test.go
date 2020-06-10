@@ -242,7 +242,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Name = "testvmi" + rand.String(63)
 			})
-			It("[test_id:1625]should start it", func() {
+			It("[test_id:1625]dbg should start it", func() {
 				By("Creating a VirtualMachineInstance with a long name")
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "cannot create VirtualMachineInstance %q: %v", vmi.Name, err)
