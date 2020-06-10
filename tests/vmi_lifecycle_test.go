@@ -855,11 +855,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("with node feature discovery", func() {
 
-			var options metav1.GetOptions
 			var node *k8sv1.Node
 			var originalLabels map[string]string
-			var cfgMap *k8sv1.ConfigMap
-			var originalFeatureGates string
 
 			BeforeEach(func() {
 				nodes := tests.GetAllSchedulableNodes(virtClient)
@@ -868,17 +865,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				node = &nodes.Items[0]
 				originalLabels = node.GetObjectMeta().GetLabels()
 
-				options = metav1.GetOptions{}
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, options)
-				Expect(err).ToNot(HaveOccurred())
-				originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
-
 				tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, virtconfig.CPUNodeDiscoveryGate)
 			})
 
 			AfterEach(func() {
-				tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, originalFeatureGates)
-
 				Expect(err).ToNot(HaveOccurred())
 				labelBytes, err := json.Marshal(originalLabels)
 				Expect(err).ToNot(HaveOccurred())

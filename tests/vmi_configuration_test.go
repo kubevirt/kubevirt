@@ -423,10 +423,6 @@ var _ = Describe("Configurations", func() {
 				tests.UpdateClusterConfigValueAndWait("memory-overcommit", "200")
 			})
 
-			AfterEach(func() {
-				tests.UpdateClusterConfigValueAndWait("memory-overcommit", "")
-			})
-
 			It("[test_id:3114]should set requested amount of memory according to the specified virtual memory", func() {
 				vmi := tests.NewRandomVMI()
 				guestMemory := resource.MustParse("4096M")
@@ -1174,10 +1170,6 @@ var _ = Describe("Configurations", func() {
 					tests.UpdateClusterConfigValueAndWait(supportedGuestAgentKey, "X.*")
 				})
 
-				AfterEach(func() {
-					tests.UpdateClusterConfigValueAndWait(supportedGuestAgentKey, "3.*,4.*")
-				})
-
 				It("[test_id:]VMI condition should signal unsupported agent presence", func() {
 					agentVMI := prepareAgentVM()
 					getOptions := metav1.GetOptions{}
@@ -1533,10 +1525,6 @@ var _ = Describe("Configurations", func() {
 			tests.UpdateClusterConfigValueAndWait(defaultEmulatedMachineType, "q35*,pc-q35*,pc*")
 		})
 
-		AfterEach(func() {
-			tests.UpdateClusterConfigValueAndWait(defaultMachineTypeKey, "")
-		})
-
 		It("[test_id:3124]should set machine type from VMI spec", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = "pc"
@@ -1582,10 +1570,6 @@ var _ = Describe("Configurations", func() {
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU request settings", func() {
 		defaultCPURequestKey := "cpu-request"
-
-		AfterEach(func() {
-			tests.UpdateClusterConfigValueAndWait(defaultCPURequestKey, "")
-		})
 
 		It("[test_id:3127]should set CPU request from VMI spec", func() {
 			vmi := tests.NewRandomVMI()
@@ -2368,7 +2352,6 @@ var _ = Describe("Configurations", func() {
 			smbiosJson, err := json.Marshal(test_smbios)
 			Expect(err).ToNot(HaveOccurred())
 			tests.UpdateClusterConfigValueAndWait(virtconfig.SmbiosConfigKey, string(smbiosJson))
-			defer tests.ClearKubeVirtConfigMap(virtconfig.SmbiosConfigKey)
 
 			By("Starting a VirtualMachineInstance")
 			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
