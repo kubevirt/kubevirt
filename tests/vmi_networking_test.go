@@ -425,6 +425,24 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
+	Context("VirtualMachineInstance with virtio-transitional interface model", func() {
+		var legacyTypeVMI *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+			legacyTypeVMI = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			tests.AddExplicitPodNetworkInterface(legacyTypeVMI)
+			legacyTypeVMI.Spec.PreventPCIe = true
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(legacyTypeVMI)
+			Expect(err).ToNot(HaveOccurred(), "Legacy VMI with `virtio-transitional` interface model type should be created")
+		})
+
+		It("should expose the virtio device type to the guest", func() {
+			tests.WaitUntilVMIReady(legacyTypeVMI, tests.LoggedInAlpineExpecter)
+			checkNetworkVendor(legacyTypeVMI, "0x1af4", "localhost:~#")
+		})
+	})
+
 	Context("VirtualMachineInstance with custom MAC address", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
