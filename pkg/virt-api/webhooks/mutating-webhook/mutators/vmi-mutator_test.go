@@ -136,7 +136,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		)
 
 		mutator = &VMIsMutator{}
-		mutator.ClusterConfig, configMapInformer, _ = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		mutator.ClusterConfig, configMapInformer, _, _ = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	})
 
 	It("should apply presets on VMI create", func() {
@@ -182,9 +182,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		)
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 			Data: map[string]string{
-				virtconfig.CpuModelKey:    cpuModelFromConfig,
+				virtconfig.CPUModelKey:    cpuModelFromConfig,
 				virtconfig.MachineTypeKey: machineTypeFromConfig,
-				virtconfig.CpuRequestKey:  cpuRequestFromConfig,
+				virtconfig.CPURequestKey:  cpuRequestFromConfig,
 			},
 		})
 
@@ -418,9 +418,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	It("should not override specified properties with defaults on VMI create", func() {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 			Data: map[string]string{
-				virtconfig.CpuModelKey:    cpuModelFromConfig,
+				virtconfig.CPUModelKey:    cpuModelFromConfig,
 				virtconfig.MachineTypeKey: machineTypeFromConfig,
-				virtconfig.CpuRequestKey:  cpuRequestFromConfig,
+				virtconfig.CPURequestKey:  cpuRequestFromConfig,
 			},
 		})
 

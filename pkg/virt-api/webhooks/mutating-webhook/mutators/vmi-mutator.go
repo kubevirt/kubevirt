@@ -245,6 +245,6 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 		if resources.Requests == nil {
 			resources.Requests = k8sv1.ResourceList{}
 		}
-		resources.Requests[k8sv1.ResourceCPU] = mutator.ClusterConfig.GetCPURequest()
+		resources.Requests[k8sv1.ResourceCPU] = *mutator.ClusterConfig.GetCPURequest()
 	}
 }

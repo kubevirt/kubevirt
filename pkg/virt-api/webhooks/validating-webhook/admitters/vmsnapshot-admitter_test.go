@@ -46,7 +46,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 	vmName := "vm"
 	apiGroup := "kubevirt.io/v1alpha3"
 
-	config, configMapInformer, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 	Context("Without feature gate enabled", func() {
 		It("should reject anything", func() {

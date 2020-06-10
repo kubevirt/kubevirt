@@ -813,7 +813,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
-
 				curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal("Nehalem"), "Expected default CPU model")

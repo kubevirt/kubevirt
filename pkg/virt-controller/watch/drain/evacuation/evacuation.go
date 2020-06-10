@@ -306,7 +306,7 @@ func (c *EvacuationController) execute(key string) error {
 	node := obj.(*k8sv1.Node)
 
 	// If the node has no drain taint, we have nothing to do
-	taintKey := *c.clusterConfig.GetMigrationConfig().NodeDrainTaintKey
+	taintKey := *c.clusterConfig.GetMigrationConfiguration().NodeDrainTaintKey
 	taint := &k8sv1.Taint{
 		Key:    taintKey,
 		Effect: k8sv1.TaintEffectNoSchedule,
@@ -343,7 +343,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	// This is just best-effort and is *not* intended to not overload the cluster.
 	// It is possible that more migrations than the limit are created because of evacuations on other nodes.
 	// The migration controller needs to limit itself to a reasonable number of running migrations
-	maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfig().ParallelMigrationsPerCluster)
+	maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster)
 	if len(activeMigrations) >= maxParallelMigrations {
 		// We have to re-enqueue if some work is left, since migrations from other controllers or workers` don't wake us up again
 		if len(migrationCandidates) > 0 || len(nonMigrateable) > 0 {
