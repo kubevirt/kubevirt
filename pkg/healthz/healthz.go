@@ -26,35 +26,40 @@ import (
 	restful "github.com/emicklei/go-restful"
 	"k8s.io/apimachinery/pkg/util/json"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/client-go/kubecli"
 )
 
-func KubeConnectionHealthzFunc(_ *restful.Request, response *restful.Response) {
-	res := map[string]interface{}{}
-	cli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		unhealthy(err, response)
-		return
-	}
+func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig) func(_ *restful.Request, response *restful.Response) {
+	return func(_ *restful.Request, response *restful.Response) {
+		res := map[string]interface{}{}
+		cli, err := kubecli.GetKubevirtClient()
+		if err != nil {
+			unhealthy(err, clusterConfig, response)
+			return
+		}
 
-	body, err := cli.CoreV1().RESTClient().Get().AbsPath("/version").Do().Raw()
-	if err != nil {
-		unhealthy(err, response)
+		body, err := cli.CoreV1().RESTClient().Get().AbsPath("/version").Do().Raw()
+		if err != nil {
+			unhealthy(err, clusterConfig, response)
+			return
+		}
+		var version interface{}
+		err = json.Unmarshal(body, &version)
+		if err != nil {
+			unhealthy(err, clusterConfig, response)
+			return
+		}
+		res["apiserver"] = map[string]interface{}{"connectivity": "ok", "version": version}
+		res["config-resource-version"] = clusterConfig.GetResourceVersion()
+		response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
 		return
 	}
-	var version interface{}
-	err = json.Unmarshal(body, &version)
-	if err != nil {
-		unhealthy(err, response)
-		return
-	}
-	res["apiserver"] = map[string]interface{}{"connectivity": "ok", "version": version}
-	response.WriteHeaderAndJson(http.StatusOK, res, restful.MIME_JSON)
-	return
 }
-
-func unhealthy(err error, response *restful.Response) {
+func unhealthy(err error, clusterConfig *virtconfig.ClusterConfig, response *restful.Response) {
 	res := map[string]interface{}{}
 	res["apiserver"] = map[string]interface{}{"connectivity": "failed", "error": fmt.Sprintf("%v", err)}
+	res["config-resource-version"] = clusterConfig.GetResourceVersion()
 	response.WriteHeaderAndJson(http.StatusInternalServerError, res, restful.MIME_JSON)
 }

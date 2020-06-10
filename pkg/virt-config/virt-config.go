@@ -83,6 +83,12 @@ func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {
 	return c.getConfig().ImagePullPolicy
 }
 
+func (c *ClusterConfig) GetResourceVersion() string {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.lastValidConfig.ResourceVersion
+}
+
 func (c *ClusterConfig) GetMachineType() string {
 	return c.getConfig().MachineType
 }
