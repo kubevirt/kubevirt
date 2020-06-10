@@ -87,7 +87,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						&expect.BSnd{S: "fedora\n"},
 						&expect.BExp{R: "Password:"},
 						&expect.BSnd{S: "fedora" + "\n"},
-						&expect.BExp{R: "$"},
+						&expect.BExp{R: "\\$"},
 						&expect.BSnd{S: "ls /sys/firmware/qemu_fw_cfg/by_name/opt/com.coreos/config\n"},
 						&expect.BExp{R: "raw"},
 					}, time.Second*300)
