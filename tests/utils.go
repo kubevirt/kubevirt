@@ -270,6 +270,11 @@ const (
 	tmpPath         = "/tmp/kubevirt.io/tests"
 )
 
+const (
+	ipv6MasqueradeAddress = "fd10:0:2::2/120"
+	ipv6MasqueradeGateway = "fd10:0:2::1"
+)
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
@@ -2098,7 +2103,16 @@ func NewRandomFedora32VMIWithFedoraUser() *v1.VirtualMachineInstance {
 }
 
 func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
-	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), GetGuestAgentUserData())
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	dnsServerIP, err := getClusterDnsServiceIP(virtClient)
+	PanicOnError(err)
+
+	searchDomains := getVMISeachDomains()
+	networkData := GetCloudInitNetworkData(ipv6MasqueradeAddress, ipv6MasqueradeGateway, dnsServerIP, searchDomains)
+
+	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(ContainerDiskFor(ContainerDiskFedora), GetGuestAgentUserData(), networkData, false)
 	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return agentVMI
 }
@@ -2115,31 +2129,39 @@ func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 }
 
 func GetGuestAgentUserData() string {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	dnsServerIP, err := getClusterDnsServiceIP(virtClient)
-	PanicOnError(err)
-
-	ipv6UserDataString := ""
-	if netutils.IsIPv6String(dnsServerIP) {
-		ipv6UserDataString = fmt.Sprintf(`sudo ip -6 addr add fd10:0:2::2/120 dev eth0
-                             for i in {1..20}; do sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2 && break || sleep 0.1; done
-                             echo "nameserver %s" >> /etc/resolv.conf`, dnsServerIP)
-	}
+	guestAgentUrl := GetUrl(GuestAgentHttpUrl)
 	return fmt.Sprintf(`#!/bin/bash
                 echo "fedora" |passwd fedora --stdin
-                systemctl disable NetworkManager
-                systemctl stop NetworkManager
-                %s
                 mkdir -p /usr/local/bin
+                for i in {1..20}; do curl -I %s | grep "200 OK" && break || sleep 0.1; done
                 curl %s > /usr/local/bin/qemu-ga
                 chmod +x /usr/local/bin/qemu-ga
                 curl %s > /usr/local/bin/stress
                 chmod +x /usr/local/bin/stress
                 setenforce 0
                 systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, ipv6UserDataString, GetUrl(GuestAgentHttpUrl), GetUrl(StressHttpUrl))
+                `, guestAgentUrl, guestAgentUrl, GetUrl(StressHttpUrl))
+}
+
+// Returns NetworkData for configuring a dynamic IPv4 address, and a static
+//IPv6 address, along with DNS configuration.
+func GetCloudInitNetworkData(ipAddress string, gateway string, dnsServer string, searchDomains []string) string {
+	networkData := fmt.Sprintf(`
+version: 2
+ethernets:
+    eth0:
+        addresses: [ %s ]
+        dhcp4: true
+        gateway6: %s
+        nameservers:
+            addresses: [ %s ]
+            search: [ %s ]
+    `, ipAddress, gateway, dnsServer, strings.Join(searchDomains, " "))
+	return networkData
+}
+
+func getVMISeachDomains() []string {
+	return []string{"default.svc.cluster.local", "svc.cluster.local", "cluster.local"}
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {

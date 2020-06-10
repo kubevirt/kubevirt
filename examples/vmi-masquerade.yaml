@@ -37,13 +37,17 @@ spec:
       image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
     name: containerdisk
   - cloudInitNoCloud:
+      networkData: |
+        version: 2
+        ethernets:
+          eth0:
+            addresses: [ fd10:0:2::2/120 ]
+            dhcp4: true
+            gateway6: fd10:0:2::1
       userData: |-
         #!/bin/bash
         echo "fedora" |passwd fedora --stdin
-        ip -6 addr add fd10:0:2::2/120 dev eth0
-        sleep 5
-        ip -6 route add default via fd10:0:2::1 src fd10:0:2::2
+        for i in {1..20}; do curl -I %s | grep "200 OK" && break || sleep 0.1; done
         yum install -y nginx
-        systemctl enable nginx
-        systemctl start nginx
+        systemctl enable --now nginx
     name: cloudinitdisk
