@@ -1240,6 +1240,19 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
 		})
 
+		It("should use virtio model when PCIe configuration is not explicitly set", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("virtio"))
+		})
+
+		It("should use virtio-transitional model when PCIe is explicitly disabled", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.PreventPCIe = true
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("virtio-transitional"))
+		})
+
 		It("should set nic pci address when specified", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:81:01.0"
