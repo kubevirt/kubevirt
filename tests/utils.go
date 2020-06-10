@@ -2749,6 +2749,8 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	}()
 
 	opts = append(opts, expect.SendTimeout(timeout))
+	opts = append(opts, expect.Verbose(true))
+	opts = append(opts, expect.VerboseWriter(GinkgoWriter))
 	return expect.SpawnGeneric(&expect.GenOptions{
 		In:  vmiWriter,
 		Out: expecterReader,
