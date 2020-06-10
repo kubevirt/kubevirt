@@ -421,7 +421,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			tests.WaitUntilVMIReady(e1000VMI, tests.LoggedInAlpineExpecter)
 			// as defined in https://vendev.org/pci/ven_8086/
-			checkNetworkVendor(e1000VMI, "0x8086", "localhost:~#")
+			checkNetworkVendor(e1000VMI, "0x8086", "localhost:~\\#")
 		})
 	})
 
@@ -437,7 +437,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
-			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
+			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~\\#")
 		})
 	})
 
@@ -638,21 +638,21 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			err = tests.CheckForTextExpecter(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "#"},
+				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "sudo dhclient -1 -r -d eth0\n"},
-				&expect.BExp{R: "#"},
+				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "sudo dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
-				&expect.BExp{R: "#"},
+				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "cat /dhcp-env\n"},
 				&expect.BExp{R: "new_tftp_server_name=tftp.kubevirt.io"},
-				&expect.BExp{R: "#"},
+				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "cat /dhcp-env\n"},
 				&expect.BExp{R: "new_bootfile_name=config"},
-				&expect.BExp{R: "#"},
+				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "cat /dhcp-env\n"},
 				&expect.BExp{R: "new_ntp_servers=127.0.0.1 127.0.0.2"},
 				&expect.BExp{R: "new_unknown_240=private.options.kubevirt.io"},
-				&expect.BExp{R: "#"},
+				&expect.BExp{R: "\\#"},
 			}, 15)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -677,16 +677,16 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			tests.WaitUntilVMIReady(dnsVMI, tests.LoggedInCirrosExpecter)
 			err = tests.CheckForTextExpecter(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n\n"},
-				&expect.BExp{R: "$"},
+				&expect.BExp{R: "\\$"},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
 				&expect.BExp{R: "search example.com"},
-				&expect.BExp{R: "$"},
+				&expect.BExp{R: "\\$"},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
 				&expect.BExp{R: "nameserver 8.8.8.8"},
-				&expect.BExp{R: "$"},
+				&expect.BExp{R: "\\$"},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
 				&expect.BExp{R: "nameserver 4.2.2.1"},
-				&expect.BExp{R: "$"},
+				&expect.BExp{R: "\\$"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		})

@@ -2916,7 +2916,7 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "localhost login:"},
 		&expect.BSnd{S: "root\n"},
-		&expect.BExp{R: "localhost:~#"}})
+		&expect.BExp{R: "localhost:~\\#"}})
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
@@ -2972,7 +2972,7 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return expecter, err
 	}
 
-	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "#")
+	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "\\#")
 }
 
 // ReLoggedInFedoraExpecter return prepared and ready to use console expecter for
@@ -4163,7 +4163,7 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) 
 		expecter, err = LoggedInFedoraExpecter(vmi)
 		Expect(err).NotTo(HaveOccurred())
 		httpServerMaker = fmt.Sprintf("python3 -m http.server %d --bind ::0 &\n", port)
-		prompt = "#"
+		prompt = "\\#"
 	} else {
 		expecter, err = LoggedInCirrosExpecter(vmi)
 		Expect(err).NotTo(HaveOccurred())
