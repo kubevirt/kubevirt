@@ -10,7 +10,7 @@ require (
 	github.com/go-openapi/spec v0.19.7
 	github.com/imdario/mergo v0.3.8
 	github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200527095331-9cc2867ac8dc
-	github.com/kubevirt/vm-import-operator v0.0.2-0.20200506145247-c753eb7a2259
+	github.com/kubevirt/vm-import-operator v0.0.3
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.10.0
 	github.com/openshift/custom-resource-status v0.0.0-20190822192428-e62f2f3b79f3

@@ -27,6 +27,9 @@ type VMImportConfigSpec struct {
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
+// VMImportPhase is the current phase of the VMImport deployment
+type VMImportPhase string
+
 // VMImportConfigStatus defines the observed state of VMImportConfig
 type VMImportConfigStatus struct {
 	// +optional
@@ -37,7 +40,35 @@ type VMImportConfigStatus struct {
 	TargetVersion string `json:"targetVersion,omitempty" optional:"true"`
 	// +optional
 	ObservedVersion string `json:"observedVersion,omitempty" optional:"true"`
+	// +optional
+	Phase VMImportPhase `json:"phase,omitempty"`
 }
+
+const (
+	// PhaseDeploying signals that the resources are being deployed
+	PhaseDeploying VMImportPhase = "Deploying"
+
+	// PhaseDeployed signals that the resources are successfully deployed
+	PhaseDeployed VMImportPhase = "Deployed"
+
+	// PhaseDeleting signals that the resources are being removed
+	PhaseDeleting VMImportPhase = "Deleting"
+
+	// PhaseDeleted signals that the resources are deleted
+	PhaseDeleted VMImportPhase = "Deleted"
+
+	// PhaseError signals that the deployment is in an error state
+	PhaseError VMImportPhase = "Error"
+
+	// PhaseUpgrading signals that the resources are being deployed
+	PhaseUpgrading VMImportPhase = "Upgrading"
+
+	// PhaseEmpty is an uninitialized phase
+	PhaseEmpty VMImportPhase = ""
+
+	// UpgradeStartedReason signals that upgrdade started
+	UpgradeStartedReason = "UpgradeStarted"
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

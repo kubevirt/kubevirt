@@ -28,8 +28,8 @@ type VirtualMachineImportSpec struct {
 
 // VirtualMachineImportSourceSpec defines the source provider and the internal mapping resources
 // +k8s:openapi-gen=true
-// +optional
 type VirtualMachineImportSourceSpec struct {
+	// +optional
 	Ovirt *VirtualMachineImportOvirtSourceSpec `json:"ovirt,omitempty"`
 }
 
