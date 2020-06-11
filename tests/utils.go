@@ -1646,58 +1646,58 @@ func cleanNamespaces() {
 		}
 
 		//Remove all HPA
-		PanicOnError(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do().Error())
+		exitOnError(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do().Error())
 
 		// Remove all VirtualMachines
-		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do().Error())
+		exitOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do().Error())
 
 		// Remove all VirtualMachineReplicaSets
-		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do().Error())
+		exitOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do().Error())
 
 		// Remove all VMIs
-		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do().Error())
+		exitOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do().Error())
 		vmis, err := virtCli.VirtualMachineInstance(namespace).List(&metav1.ListOptions{})
-		PanicOnError(err)
+		exitOnError(err)
 		for _, vmi := range vmis.Items {
 			if controller.HasFinalizer(&vmi, v1.VirtualMachineInstanceFinalizer) {
 				_, err := virtCli.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
 				if !errors.IsNotFound(err) {
-					PanicOnError(err)
+					exitOnError(err)
 				}
 			}
 		}
 
 		// Remove all Pods
-		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
+		exitOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
 
 		// Remove all Services
 		svcList, err := virtCli.CoreV1().Services(namespace).List(metav1.ListOptions{})
 		for _, svc := range svcList.Items {
-			PanicOnError(virtCli.CoreV1().Services(namespace).Delete(svc.Name, &metav1.DeleteOptions{}))
+			exitOnError(virtCli.CoreV1().Services(namespace).Delete(svc.Name, &metav1.DeleteOptions{}))
 		}
 
 		// Remove all VirtualMachineInstance Secrets
 		labelSelector := fmt.Sprintf("%s", SecretLabel)
-		PanicOnError(
+		exitOnError(
 			virtCli.CoreV1().Secrets(namespace).DeleteCollection(
 				&metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
 			),
 		)
 
 		// Remove all VirtualMachineInstance Presets
-		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do().Error())
+		exitOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do().Error())
 		// Remove all limit ranges
-		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do().Error())
+		exitOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do().Error())
 
 		// Remove all Migration Objects
-		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do().Error())
+		exitOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do().Error())
 		migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{})
-		PanicOnError(err)
+		exitOnError(err)
 		for _, migration := range migrations.Items {
 			if controller.HasFinalizer(&migration, v1.VirtualMachineInstanceMigrationFinalizer) {
 				_, err := virtCli.VirtualMachineInstanceMigration(namespace).Patch(migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
 				if !errors.IsNotFound(err) {
-					PanicOnError(err)
+					exitOnError(err)
 				}
 			}
 		}
@@ -1741,6 +1741,13 @@ func createNamespaces() {
 		if !errors.IsAlreadyExists(err) {
 			PanicOnError(err)
 		}
+	}
+}
+
+func exitOnError(err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Fatal panic: %v\nExiting\n", err)
+		os.Exit(1)
 	}
 }
 
