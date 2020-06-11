@@ -28,6 +28,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/controller"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -1462,6 +1464,70 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 	})
+	Context("When VirtualMachineInstance is connected to a network", func() {
+		It("should report the status of this network", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Scheduling
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			networkName := "test net"
+			podIp := "1.1.1.1"
+			pod.Status.PodIP = podIp
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: networkName,
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{
+							VMNetworkCIDR: "1.1.1.1",
+						},
+					},
+				},
+			}
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(networkName))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(podIp))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs[0]).To(Equal(podIp))
+			}).Return(vmi, nil)
+			controller.Execute()
+		})
+
+		It("should only report the pod network in status", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Scheduling
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			networkName := "test net"
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: networkName,
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{
+							VMNetworkCIDR: "1.1.1.1",
+						},
+					},
+				},
+				v1.Network{
+					Name: networkName,
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{
+							NetworkName: "multus",
+						},
+					},
+				},
+			}
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
+			}).Return(vmi, nil)
+			controller.Execute()
+		})
+	})
 	Context("VirtualMachineInstance controller gets informed about interfaces in a Domain", func() {
 		It("should update existing interface with MAC", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -1763,4 +1829,36 @@ func addActivePods(vmi *v1.VirtualMachineInstance, podUID types.UID, hostName st
 		}
 	}
 	return vmi
+}
+
+func NewPendingVirtualMachine(name string) *v1.VirtualMachineInstance {
+	vmi := v1.NewMinimalVMI(name)
+	vmi.UID = "1234"
+	vmi.Status.Phase = v1.Pending
+	controller.SetLatestApiVersionAnnotation(vmi)
+	vmi.Status.ActivePods = make(map[types.UID]string)
+	return vmi
+}
+
+func NewPodForVirtualMachine(vmi *v1.VirtualMachineInstance, phase k8sv1.PodPhase) *k8sv1.Pod {
+	return &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: vmi.Namespace,
+			Labels: map[string]string{
+				v1.AppLabel:       "virt-launcher",
+				v1.CreatedByLabel: string(vmi.UID),
+			},
+			Annotations: map[string]string{
+				v1.DomainAnnotation: vmi.Name,
+			},
+		},
+		Status: k8sv1.PodStatus{
+			Phase: phase,
+			ContainerStatuses: []k8sv1.ContainerStatus{
+				{Ready: true, Name: "kubevirt-infra"},
+				{Ready: false, Name: "compute"},
+			},
+		},
+	}
 }
