@@ -100,12 +100,17 @@ func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid stri
 		return nil
 	}
 
-	err = writeToCachedFile(PodCacheInterface{Iface: iface, PodIP: addrList[0].IP.String()},
-		util.VMIInterfacepath, uid, iface.Name)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
-		return err
+	for _, addr := range addrList {
+		if addr.IP.IsGlobalUnicast() {
+			err = writeToCachedFile(PodCacheInterface{Iface: iface, PodIP: addr.IP.String()},
+				util.VMIInterfacepath, uid, iface.Name)
+			if err != nil {
+				log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
+				return err
+			}
+		}
 	}
+
 	return nil
 }
 

@@ -453,11 +453,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					confirmVMIPostMigration(vmi, migrationUID)
 
 					By("Check if Migrated VMI has updated PodIP")
-					newvmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
-					vmiPod := tests.GetRunningPodByVirtualMachineInstance(newvmi, tests.NamespaceTestDefault)
-					Expect(newvmi.Status.Interfaces[0].IP).To(Equal(vmiPod.Status.PodIP))
-
+					Eventually(func() bool {
+						newvmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
+						vmiPod := tests.GetRunningPodByVirtualMachineInstance(newvmi, tests.NamespaceTestDefault)
+						return newvmi.Status.Interfaces[0].IP == vmiPod.Status.PodIP
+					},  180*time.Second, 1*time.Second).Should(BeTrue())
 				}
 				// delete VMI
 				By("Deleting the VMI")

@@ -457,6 +457,26 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			}
 		}
 
+		if len(vmi.Status.Interfaces) == 0 {
+			// Set Pod Interface
+			interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+			for _, network := range vmi.Spec.Networks {
+				if network.NetworkSource.Pod != nil {
+					podIface, err := d.getPodInterfacefromFileCache(vmi, network.Name)
+					if err != nil {
+						return err
+					}
+					ifc := v1.VirtualMachineInstanceNetworkInterface{
+						Name: network.Name,
+						IP:   podIface.PodIP,
+						IPs:  []string{podIface.PodIP},
+					}
+					interfaces = append(interfaces, ifc)
+				}
+			}
+			vmi.Status.Interfaces = interfaces
+		}
+
 		if len(domain.Spec.Devices.Interfaces) > 0 || len(domain.Status.Interfaces) > 0 {
 			// This calculates the vmi.Status.Interfaces based on the following data sets:
 			// - vmi.Status.Interfaces - previously calculated interfaces, this can contains data
@@ -509,11 +529,9 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 							return err
 						}
 						if iface.PodIP != existingInterfaceStatusByName[domainInterface.Alias.Name].IP {
-							newInterface = v1.VirtualMachineInstanceNetworkInterface{
-								Name: domainInterface.Alias.Name,
-								MAC:  interfaceMAC,
-								IP:   iface.PodIP,
-							}
+							newInterface.Name = domainInterface.Alias.Name
+							newInterface.IP = iface.PodIP
+							newInterface.IPs = []string{iface.PodIP}
 						}
 					}
 				} else {
