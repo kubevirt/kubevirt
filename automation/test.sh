@@ -38,7 +38,7 @@ readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluste
 # All the other lanes will fail immediately, saving CI resources,
 # but still guarding from getting the PR merged, until the line
 # is restored to an empty string.
-export KUBEVIRT_LANE_FOCUS=""
+export KUBEVIRT_LANE_FOCUS="do-not-run-anything"
 
 if [[ $KUBEVIRT_LANE_FOCUS != "" ]]; then
    FOCUS_ERROR=1
