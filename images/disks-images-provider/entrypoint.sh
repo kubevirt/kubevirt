@@ -21,6 +21,7 @@ set -euo pipefail
 
 # gracefully handle the TERM signal sent when deleting the daemonset
 trap 'exit' TERM
+SELINUX_TAG=$(ls -Z)
 
 mkdir -p /images/datavolume1 /images/datavolume2 /images/datavolume3
 
@@ -38,7 +39,12 @@ rm /images/fedora-cloud/disk.qcow2
 echo "copy all images to host mount directory"
 cp -R /images/* /hostImages/
 chmod -R 777 /hostImages
-chcon -Rt svirt_sandbox_file_t /hostImages
+
+# When the host is ubuntu, by default, selinux is not used, so chcon is not necessary.
+# If selinux tag is set, use chcon to change /hostImages privileges.
+if [ ${SELINUX_TAG:0:1} != "?" ]; then
+    chcon -Rt svirt_sandbox_file_t /hostImages
+fi
 
 # for some reason without sleep, container sometime fails to create the file
 sleep 10
