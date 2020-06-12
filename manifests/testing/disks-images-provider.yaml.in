@@ -100,6 +100,10 @@ spec:
         - name: target
           image: {{.DockerPrefix}}/disks-images-provider:{{.DockerTag}}
           imagePullPolicy: Always
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh","-c","source /etc/bashrc && losetup -d ${LOOP_DEVICE}"]
           volumeMounts:
           - name: images
             mountPath: /hostImages

@@ -27,7 +27,14 @@ mkdir -p /images/datavolume1 /images/datavolume2 /images/datavolume3
 echo "converting cirros image from qcow2 to raw, and copying it to local-storage directory, and creating a loopback device from it"
 # /local-storage will be mapped to the host dir, which will also be used by the local storage provider
 qemu-img convert -f qcow2 -O raw /images/cirros/disk.img /local-storage/cirros.img.raw
+
+# Check if attached loopdevice reach limit number (100)
+num=$(losetup -l | wc -l)
+[ ${num} -gt 100 ] && echo "attached loopdevices have reach limit number(100)" && exit 1
+
+# Put LOOP_DEVICE in /etc/bashrc in order to detach this loop device when the pod stopped.
 LOOP_DEVICE=$(losetup --find --show /local-storage/cirros.img.raw)
+echo LOOP_DEVICE=${LOOP_DEVICE} >>/etc/bashrc
 rm -f /local-storage/cirros-block-device
 ln -s $LOOP_DEVICE /local-storage/cirros-block-device
 
