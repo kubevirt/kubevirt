@@ -255,7 +255,11 @@ var _ = Describe("DataVolume Integration", func() {
 			vmi, err := virtClient.VirtualMachineInstance(namespace).Get(name, &metav1.GetOptions{})
 			if err == nil && vmi.DeletionTimestamp == nil {
 				err := virtClient.VirtualMachineInstance(namespace).Delete(name, &metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				// In some tests, OwnerReferences in k8s can cause this to be deleted already
+				// just ignore 404's to avoid that race.
+				if err != nil && !errors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
 			}
 		}
 
@@ -263,7 +267,11 @@ var _ = Describe("DataVolume Integration", func() {
 			dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(name, metav1.GetOptions{})
 			if err == nil && dataVolume.DeletionTimestamp == nil {
 				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Delete(name, &metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				// In some tests, OwnerReferences in k8s can cause this to be deleted already
+				// just ignore 404's to avoid that race.
+				if err != nil && !errors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
 			}
 		}
 
@@ -594,7 +602,9 @@ var _ = Describe("DataVolume Integration", func() {
 
 				if dataVolume != nil {
 					err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
+					if err != nil && !errors.IsNotFound(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
 				}
 			})
 
