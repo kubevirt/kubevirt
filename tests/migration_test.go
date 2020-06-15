@@ -227,10 +227,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	}
 	runMigrationAndExpectCompletion := func(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
 		By("Starting a Migration")
+		var migrationCreated *v1.VirtualMachineInstanceMigration
 		Eventually(func() error {
-			migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+			migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+		migration = migrationCreated
 		By("Waiting until the Migration Completes")
 
 		uid := ""
@@ -630,10 +632,12 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Skip("Skip DataVolume tests when CDI is not present")
 				}
 
-				tests.SkipIfVersionAboveOrEqual("re-enable this once https://github.com/kubevirt/kubevirt/issues/2272 is fixed", "1.13.3")
+				if tests.IsIPv6Cluster(virtClient) {
+					Skip("Skip ISCSI on IPv6")
+				}
 
 				// set unsafe migration flag
-				tests.UpdateClusterConfigValueAndWait("migrations", `{"unsafeMigrationOverride": true}`)
+				tests.UpdateClusterConfigValueAndWait("migrations", `{"unsafeMigrationOverride": "true"}`)
 			})
 
 			It("[test_id:3238]should migrate a vmi with UNSAFE_MIGRATION flag set", func() {
@@ -763,7 +767,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Context("with an Alpine shared ISCSI PVC", func() {
 			var pvName string
 			BeforeEach(func() {
-				tests.SkipIfVersionAboveOrEqual("re-enable this once https://github.com/kubevirt/kubevirt/issues/2272 is fixed", "1.13.3")
+				if tests.IsIPv6Cluster(virtClient) {
+					Skip("Skip ISCSI on IPv6")
+				}
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
@@ -833,7 +839,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Context("with an Cirros shared ISCSI PVC", func() {
 			var pvName string
 			BeforeEach(func() {
-				tests.SkipIfVersionAboveOrEqual("re-enable this once https://github.com/kubevirt/kubevirt/issues/2272 is fixed", "1.13.3")
+				if tests.IsIPv6Cluster(virtClient) {
+					Skip("Skip ISCSI on IPv6")
+				}
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
@@ -1110,7 +1118,9 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		Context("with an Cirros non-shared ISCSI PVC", func() {
 			var pvName string
 			BeforeEach(func() {
-				tests.SkipIfVersionAboveOrEqual("re-enable this once https://github.com/kubevirt/kubevirt/issues/2272 is fixed", "1.13.3")
+				if tests.IsIPv6Cluster(virtClient) {
+					Skip("Skip ISCSI on IPv6")
+				}
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
