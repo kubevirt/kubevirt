@@ -725,7 +725,9 @@ var _ = Describe("Storage", func() {
 			pvName := "test-iscsi-lun" + rand.String(48)
 
 			BeforeEach(func() {
-				tests.SkipIfVersionAboveOrEqual("re-enable this once https://github.com/kubevirt/kubevirt/issues/2272 is fixed", "1.13.3")
+				if tests.IsIPv6Cluster(virtClient) {
+					Skip("Skip ISCSI on IPv6")
+				}
 				// Start a ISCSI POD and service
 				By("Creating a ISCSI POD")
 				iscsiTargetIP := tests.CreateISCSITargetPOD(tests.ContainerDiskAlpine)
