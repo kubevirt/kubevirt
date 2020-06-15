@@ -1049,12 +1049,19 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
 				Expect(err).ToNot(HaveOccurred())
 				originalMigrationConfig = cfgMap.Data["migrations"]
-				tests.UpdateClusterConfigValueAndWait("migrations", `{"progressTimeout" : 5, "completionTimeoutPerGiB": 5}`)
+
+				data := map[string]string{
+					"progressTimeout":         "5",
+					"completionTimeoutPerGiB": "5",
+				}
+				migrationData, err := json.Marshal(data)
+				Expect(err).ToNot(HaveOccurred())
+				tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
 			})
 			AfterEach(func() {
 				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig)
 			})
-			PIt("[test_id:2227] [flaky] should abort a vmi migration without progress", func() {
+			PIt("[test_id:2227] should abort a vmi migration without progress", func() {
 				tests.SkipStressTestIfRunnigOnKindInfra()
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
