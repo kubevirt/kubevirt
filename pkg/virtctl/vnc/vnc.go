@@ -56,6 +56,7 @@ const (
 	MACOS_REAL_VNC = "/Applications/VNC Viewer.app/Contents/MacOS/vncviewer"
 
 	REMOTE_VIEWER = "remote-viewer"
+	TIGER_VNC     = "vncviewer"
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -202,16 +203,18 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 				return
 			}
 		case "linux", "windows":
-			_, err := exec.LookPath(REMOTE_VIEWER)
-			if exec.ErrNotFound == err {
-				viewResChan <- fmt.Errorf("could not find the remote-viewer binary in $PATH")
-				return
-			} else if err != nil {
+			if _, err := exec.LookPath(REMOTE_VIEWER); err == nil {
+				vncBin = REMOTE_VIEWER
+				args = remoteViewerArgs(port)
+			} else if _, err := exec.LookPath(TIGER_VNC); err == nil {
+				vncBin = TIGER_VNC
+				args = tigerVncArgs(port)
+			} else {
+				viewResChan <- fmt.Errorf("could not find %s or %s binary in $PATH",
+					REMOTE_VIEWER, TIGER_VNC)
 				viewResChan <- err
 				return
 			}
-			vncBin = REMOTE_VIEWER
-			args = remoteViewerArgs(port)
 		default:
 			viewResChan <- fmt.Errorf("virtctl does not support VNC on %v", osType)
 			return
