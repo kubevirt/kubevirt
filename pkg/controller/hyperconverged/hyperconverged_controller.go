@@ -765,7 +765,7 @@ func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *c
 		Data: map[string]string{
 			virtconfig.FeatureGatesKey:        "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar",
 			virtconfig.MigrationsConfigKey:    `{"nodeDrainTaintKey" : "node.kubernetes.io/unschedulable"}`,
-			virtconfig.SELinuxLauncherTypeKey: "spc_t",
+			virtconfig.SELinuxLauncherTypeKey: "virt_launcher.process",
 		},
 	}
 	val, ok := os.LookupEnv("SMBIOS")
