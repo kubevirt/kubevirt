@@ -1053,6 +1053,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				data := map[string]string{
 					"progressTimeout":         "5",
 					"completionTimeoutPerGiB": "5",
+					"bandwidthPerMigration":   "1Mi",
 				}
 				migrationData, err := json.Marshal(data)
 				Expect(err).ToNot(HaveOccurred())
