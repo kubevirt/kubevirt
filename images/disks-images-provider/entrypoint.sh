@@ -19,6 +19,7 @@
 
 set -euo pipefail
 
+LOOP_DEVICE_NAME="/dev/cirros-block-device"
 # gracefully handle the TERM signal sent when deleting the daemonset
 trap 'exit' TERM
 
@@ -27,9 +28,14 @@ mkdir -p /images/datavolume1 /images/datavolume2 /images/datavolume3
 echo "converting cirros image from qcow2 to raw, and copying it to local-storage directory, and creating a loopback device from it"
 # /local-storage will be mapped to the host dir, which will also be used by the local storage provider
 qemu-img convert -f qcow2 -O raw /images/cirros/disk.img /local-storage/cirros.img.raw
-LOOP_DEVICE=$(losetup --find --show /local-storage/cirros.img.raw)
+
+trap '{ losetup -d "$LOOP_DEVICE_NAME" ; exit ; }' ERR
+mknod "$LOOP_DEVICE_NAME" b 7 151
+losetup "$LOOP_DEVICE_NAME" /local-storage/cirros.img.raw
+trap - ERR
+
 rm -f /local-storage/cirros-block-device
-ln -s $LOOP_DEVICE /local-storage/cirros-block-device
+ln -s "$LOOP_DEVICE_NAME" /local-storage/cirros-block-device
 
 echo "converting fedora image from qcow2 to raw"
 qemu-img convert -f qcow2 -O raw /images/fedora-cloud/disk.qcow2 /images/fedora-cloud/disk.img
