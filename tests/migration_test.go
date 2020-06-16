@@ -1062,7 +1062,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig)
 			})
 			PIt("[test_id:2227] should abort a vmi migration without progress", func() {
-				tests.SkipStressTestIfRunnigOnKindInfra()
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
