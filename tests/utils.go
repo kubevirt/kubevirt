@@ -1655,7 +1655,8 @@ func cleanNamespaces() {
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do().Error())
 
 		// Remove all VMIs
-		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do().Error())
+		// VMIs with OwnerReferences can be deleted when their VM is deleted. Ignore not found errors to avoid this race
+		PanicOnErrorIgnoreNotFound(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do().Error())
 		vmis, err := virtCli.VirtualMachineInstance(namespace).List(&metav1.ListOptions{})
 		PanicOnError(err)
 		for _, vmi := range vmis.Items {
@@ -1747,6 +1748,14 @@ func createNamespaces() {
 func PanicOnError(err error) {
 	if err != nil {
 		panic(err)
+	}
+}
+
+func PanicOnErrorIgnoreNotFound(err error) {
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			PanicOnError(err)
+		}
 	}
 }
 
