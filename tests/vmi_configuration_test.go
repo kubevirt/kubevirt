@@ -1639,6 +1639,8 @@ var _ = Describe("Configurations", func() {
 		}, 60)
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
+			tests.SkipPVCTestIfRunnigOnKindInfra()
+
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
 
