@@ -56,7 +56,7 @@ export KUBEVIRT_PROVIDER=external
 echo "building manifests"
 export DOCKER_PREFIX="$cluster_ip:$registry_port"
 # force using DOCKER_TAG
-rm ./bazel-bin/push-virt-operator.digest
+#rm ./bazel-bin/push-virt-operator.digest
 ./hack/build-manifests.sh
 
 echo "deploying"
