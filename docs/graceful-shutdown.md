@@ -43,14 +43,14 @@ removed, we no longer have access to the terminationGracePeriodSeconds value
 stored on the Virtual Machine's spec. 
 
 In order to guarantee the value stored in the virtual machine's
-terinationGracePeriodSeconds is observed after the cluster object is deleted,
+terminationGracePeriodSeconds is observed after the cluster object is deleted,
 that value is cached locally by virt-handler during the start flow. When a
 deleted virtual machine cluster object is detected, the cached grace period
 value is observed as virt-handler is shutting the virtual machine down.
 
 ### Virt-Controller Involvement
 
-The only change to virt-controller is that it now configurs a custom
+The only change to virt-controller is that it now configures a custom
 grace period for virt-launcher pods that matches the grace period set on
 the corresponding virtual machine object. The virt-launcher grace period
 is slightly padded in order to ensure under normal operation that
@@ -82,10 +82,10 @@ recovers during this period.
 ### Virt-Launcher Involvement
 
 Virt-launcher intercepts signals (such as SIGTERM) sent to it by the kubernetes
-runtime and notifies virt-handler to begin the gracefull shutdown process by
-writting to the graceful shutdown trigger file. 
+runtime and notifies virt-handler to begin the graceful shutdown process by
+writing to the graceful shutdown trigger file. 
 
-After writting to the graceful shutdown trigger file, virt-launcher continues to
+After writing to the graceful shutdown trigger file, virt-launcher continues to
 watch the pid until either the pid exits (as a result of virt-handler shutting
 it down) or the kubernetes runtime kills the virt-launcher process with SIGKILL.
 
