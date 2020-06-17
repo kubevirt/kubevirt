@@ -105,6 +105,8 @@ spec:
             mountPath: /hostImages
           - name: local-storage
             mountPath: /local-storage
+          - name: dev
+            mountPath: /dev
           securityContext:
             privileged: true
           readinessProbe:
