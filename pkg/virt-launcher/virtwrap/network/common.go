@@ -138,11 +138,13 @@ func (h *NetworkUtilsHandler) LinkSetMaster(link netlink.Link, master *netlink.B
 func (h *NetworkUtilsHandler) HasNatIptables(proto iptables.Protocol) bool {
 	iptablesObject, err := iptables.NewWithProtocol(proto)
 	if err != nil {
+		log.Log.Reason(err).Infof("No iptables")
 		return false
 	}
 
 	_, err = iptablesObject.List("nat", "OUTPUT")
 	if err != nil {
+		log.Log.Reason(err).Infof("No nat iptables")
 		return false
 	}
 
@@ -210,6 +212,7 @@ func (h *NetworkUtilsHandler) GetNFTIPString(proto iptables.Protocol) string {
 func (h *NetworkUtilsHandler) NftablesLoad(fnName string) error {
 	output, err := exec.Command("nft", "-f", fmt.Sprintf("/etc/nftables/%s.nft", fnName)).CombinedOutput()
 	if err != nil {
+		log.Log.Reason(err).Infof("failed to load nftable %s", fnName)
 		return fmt.Errorf("failed to load nftable %s error %s", fnName, string(output))
 	}
 

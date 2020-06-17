@@ -620,17 +620,21 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 			return err
 		}
 	}
-	if Handler.IsIpv6Enabled() && (Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil) {
-		err = Handler.ConfigureIpv6Forwarding()
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to turn on net.ipv6.conf.all.forwarding")
-			return err
-		}
+	if Handler.IsIpv6Enabled() {
+		if Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil {
+			err = Handler.ConfigureIpv6Forwarding()
+			if err != nil {
+				log.Log.Reason(err).Errorf("failed to turn on net.ipv6.conf.all.forwarding")
+				return err
+			}
 
-		err = p.createNatRules(iptables.ProtocolIPv6)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to create ipv6 nat rules for vm error: %v", err)
-			return err
+			err = p.createNatRules(iptables.ProtocolIPv6)
+			if err != nil {
+				log.Log.Reason(err).Errorf("failed to create ipv6 nat rules for vm error: %v", err)
+				return err
+			}
+		} else {
+			return fmt.Errorf("Couldn't configure nat rules")
 		}
 	}
 
