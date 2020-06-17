@@ -1,4 +1,4 @@
-# Architecture
+## Architecture
 
 KubeVirt is built using a service oriented architecture and a choreography
 pattern.
@@ -24,7 +24,7 @@ pattern.
 
 Users requiring virtualization services are speaking to the Virtualization API
 (see below) which in turn is speaking to the Kubernetes cluster to schedule
-requested Virtual Machine Instances (VMIs). Scheduling, networking, and storage 
+requested Virtual Machine Instances (VMIs). Scheduling, networking, and storage
 are all delegated to Kubernetes, while KubeVirt provides the virtualization functionality.
 
 
