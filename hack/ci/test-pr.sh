@@ -14,11 +14,11 @@ while ! oc get service docker-registry; do
     echo 'waiting for service'
     sleep 1
 done
-oc expose service docker-registry
-registry_host=$(oc get route docker-registry --template='{{ .spec.host }}')
-echo "Registry host will be $registry_host"
+cluster_ip=$(oc get service docker-registry -o custom-columns=:.spec.clusterIP  --no-headers)
+registry_port=5000
+echo "Registry cluster_ip: $cluster_ip"
 # now enable the insecure registry
-oc patch image.config.openshift.io/cluster --type merge -p '{"spec":{"registrySources":{"insecureRegistries":["'"$registry_host"'"]}}}'
+oc patch image.config.openshift.io/cluster --type merge -p '{"spec":{"registrySources":{"insecureRegistries":["'"$cluster_ip:$registry_port"'"]}}}'
 
 # for some reason the entry point from dockerfile is overridden, so we source gimme go again
 source /etc/profile.d/gimme.sh && export GOPATH="/root/go" && go version
@@ -29,7 +29,6 @@ echo "building images"
 ./hack/bazel-build-images.sh
 
 echo "pushing images"
-registry_port=5000
 export DOCKER_PREFIX="localhost:$registry_port"
 DOCKER_TAG=$(cat _out/PULL_PULL_SHA)
 export DOCKER_TAG
@@ -55,7 +54,7 @@ export KUBEVIRT_PROVIDER=external
 ./cluster-up/up.sh
 
 echo "building manifests"
-export DOCKER_PREFIX="${registry_host}"
+export DOCKER_PREFIX="$cluster_ip:$registry_port"
 # force using DOCKER_TAG
 rm ./bazel-bin/push-virt-operator.digest
 ./hack/build-manifests.sh
@@ -73,6 +72,7 @@ if [ $? -ne 0 ]; then
     done
     oc describe pod $registry_pod
     echo "KUBEVIRT DEPLOYMENT FAILED!"
+    exit 1
 fi
 set -e
 
