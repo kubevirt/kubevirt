@@ -1,5 +1,7 @@
 module kubevirt.io/kubevirt
 
+go 1.12
+
 require (
 	github.com/Azure/go-autorest/autorest v0.9.1 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.6.0 // indirect
