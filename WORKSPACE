@@ -560,6 +560,14 @@ http_file(
     ],
 )
 
+http_file(
+    name = "virt-what",
+    sha256 = "a6972c67cf99537503d0517e99782ff6ed1ae7c93aea168da81dadbb836f9ae0",
+    urls = [
+        "https://dl.fedoraproject.org/pub/archive/fedora/linux/releases/30/Everything/x86_64/os/Packages/v/virt-what-1.19-2.fc30.x86_64.rpm",
+    ],
+)
+
 # some repos which are not part of go_rules anymore
 go_repository(
     name = "com_github_golang_glog",
