@@ -4754,6 +4754,28 @@ func ClearKubeVirtConfigMap(key string) error {
 	return err
 }
 
+func ReplaceKubeVirtConfigMapDataValue(key string, value string) error {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	cfgMap, err := GetKubeVirtConfigMap()
+	Expect(err).ToNot(HaveOccurred())
+
+	cfgMap.Data[key] = value
+	newData, err := json.Marshal(cfgMap.Data)
+	if err == nil {
+		if _, ok := cfgMap.Data[key]; ok {
+			data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
+			_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Patch(virtconfig.ConfigMapName, types.JSONPatchType, []byte(data))
+
+			// Allow time for virt-controller's ConfigMap cache to sync
+			time.Sleep(3 * time.Second)
+		}
+	}
+
+	return err
+}
+
 func RandTmpDir() string {
 	return tmpPath + "/" + rand.String(10)
 }
