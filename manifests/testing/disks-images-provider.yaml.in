@@ -114,29 +114,6 @@ spec:
               - /ready
             initialDelaySeconds: 10
             periodSeconds: 5
-        - name: loopdev
-          command:
-          - sh
-          - -c
-          - |
-            while true; do
-              for i in $(seq 0 100); do
-                if ! [ -e /dev/loop$i ]; then
-                  mknod /dev/loop$i b 7 $i
-                fi
-              done
-              # XXX: we can't finish running because we're a DaemonSet
-              # Switch to being a Pod!
-              sleep 100000000
-            done
-          image: {{.DockerPrefix}}/disks-images-provider:{{.DockerTag}}
-          imagePullPolicy: IfNotPresent
-          resources: {}
-          securityContext:
-            privileged: true
-          volumeMounts:
-          - name: dev
-            mountPath: /dev
       volumes:
         - name: images
           hostPath:
@@ -146,6 +123,3 @@ spec:
           hostPath:
             path: /mnt/local-storage
             type: DirectoryOrCreate
-        - name: dev
-          hostPath:
-            path: /dev
