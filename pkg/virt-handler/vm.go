@@ -479,8 +479,9 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 
 		if len(domain.Spec.Devices.Interfaces) > 0 || len(domain.Status.Interfaces) > 0 {
 			// This calculates the vmi.Status.Interfaces based on the following data sets:
-			// - vmi.Status.Interfaces - previously calculated interfaces, this can contains data
-			//   set in the controller (pod IP) which can not be deleted, unless overridden by Qemu agent
+			// - vmi.Status.Interfaces - previously calculated interfaces, this can contains data (pod IP)
+			//   set in the previous loops when there are no interfaces which can not be deleted,
+			//   unless overridden by Qemu agent
 			// - domain.Spec - interfaces form the Spec
 			// - domain.Status.Interfaces - interfaces reported by guest agent (emtpy if Qemu agent not running)
 			newInterfaces := []v1.VirtualMachineInstanceNetworkInterface{}

@@ -360,6 +360,9 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGuaranteePodResourcesReason, "failed to guarantee pod resources")
 					syncErr = &syncErrorImpl{fmt.Errorf("failed to guarantee pod resources"), FailedGuaranteePodResourcesReason}
 				} else {
+
+					// vmi is still owned by the controller but pod is already ready,
+					// so let's hand over the vmi too
 					vmiCopy.Status.Phase = virtv1.Scheduled
 					if vmiCopy.Labels == nil {
 						vmiCopy.Labels = map[string]string{}
