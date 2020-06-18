@@ -58,7 +58,7 @@ elif [ -n "$AS_EMPTY" ]; then
     bash expose-as-iscsi.sh "${IMAGE_PATH}/disk.raw"
 else
     # Expose binaries via nginx server
-    for executable in qemu-ga stress dmidecode; do
+    for executable in qemu-ga stress dmidecode /usr/libexec/virt-what-cpuid-helper; do
         cp $(which $executable) /usr/share/nginx/html/
     done
 

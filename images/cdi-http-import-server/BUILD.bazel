@@ -31,6 +31,7 @@ rpm_image(
             "@libaio//file",
             "@e2fsprogs//file",
             "@dmidecode//file",
+            "@virt-what//file",
             "@which//file",
         ],
     }),

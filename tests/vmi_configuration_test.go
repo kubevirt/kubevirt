@@ -2667,4 +2667,69 @@ var _ = Describe("Configurations", func() {
 			return nil
 		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "VMI status IP should match VMI Pod IP")
 	})
+
+	Context("Check KVM CPUID advertisement", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			if tests.IsRunningOnKindInfra() {
+				Skip("Skip KVM MSR prescence test on kind")
+			}
+
+			vmi = tests.NewRandomFedoraVMIWithVirtWhatCpuidHelper()
+		})
+
+		It("test cpuid hidden", func() {
+			vmi.Spec.Domain.Features = &v1.Features{
+				KVM: &v1.FeatureKVM{Hidden: true},
+			}
+
+			By("Starting a VirtualMachineInstance")
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Check values in domain XML")
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring("<hidden state='on'/>"))
+
+			By("Expecting console")
+			expecter, err := tests.LoggedInFedoraExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			By("Check virt-what-cpuid-helper does not match KVM")
+			res, err := expecter.ExpectBatch([]expect.Batcher{
+				&expect.BSnd{S: "virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
+				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BSnd{S: "$(sudo virt-what-cpuid-helper | grep -q KVMKVMKVM) || echo 'pass'\n"},
+				&expect.BExp{R: tests.RetValue("pass")},
+			}, 1*time.Second)
+			log.DefaultLogger().Object(vmi).Infof("%v", res)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("test cpuid default", func() {
+			By("Starting a VirtualMachineInstance")
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Expecting console")
+			expecter, err := tests.LoggedInFedoraExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			By("Check virt-what-cpuid-helper matches KVM")
+			res, err := expecter.ExpectBatch([]expect.Batcher{
+				&expect.BSnd{S: "virt-what-cpuid-helper > /dev/null 2>&1 && echo 'pass'\n"},
+				&expect.BExp{R: tests.RetValue("pass")},
+				&expect.BSnd{S: "$(sudo virt-what-cpuid-helper | grep -q KVMKVMKVM) && echo 'pass'\n"},
+				&expect.BExp{R: tests.RetValue("pass")},
+			}, 1*time.Second)
+			log.DefaultLogger().Object(vmi).Infof("%v", res)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
 })
