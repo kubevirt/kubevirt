@@ -21,6 +21,7 @@ package virthandler
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -28,7 +29,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -532,7 +533,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 			updatedVMI.Status.MigrationMethod = v1.LiveMigration
-
+			updatedVMI.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
@@ -632,6 +633,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status:        k8sv1.ConditionTrue,
 				},
 			}
+			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 
 			mockWatchdog.CreateFile(vmi)
 
@@ -922,6 +924,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Labels = make(map[string]string)
 			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
+			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				TargetNode:                     "othernode",
 				TargetNodeAddress:              "127.0.0.1:12345",
@@ -1030,6 +1033,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiUpdated.Status.MigrationState.EndTimestamp = &now
 			vmiUpdated.Status.NodeName = "othernode"
 			vmiUpdated.Labels[v1.NodeNameLabel] = "othernode"
+			vmiUpdated.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 			vmiInterface.EXPECT().Update(vmiUpdated)
 
 			controller.Execute()
@@ -1398,13 +1402,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 				interface_name := "interface_name"
 
 				vmi.Spec.Networks = []v1.Network{
-					v1.Network{
+					{
 						Name:          interface_name,
 						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 					},
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					v1.Interface{
+					{
 						Name: interface_name,
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{
 							Bridge: &v1.InterfaceBridge{},
@@ -1421,13 +1425,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 				interface_name := "interface_name"
 
 				vmi.Spec.Networks = []v1.Network{
-					v1.Network{
+					{
 						Name:          interface_name,
 						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 					},
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					v1.Interface{
+					{
 						Name: interface_name,
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{
 							Masquerade: &v1.InterfaceMasquerade{},
@@ -1444,13 +1448,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 				interface_name := "interface_name"
 
 				vmi.Spec.Networks = []v1.Network{
-					v1.Network{
+					{
 						Name:          interface_name,
 						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
 					},
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					v1.Interface{
+					{
 						Name: interface_name,
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{
 							Bridge: &v1.InterfaceBridge{},
@@ -1465,66 +1469,136 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	})
 	Context("When VirtualMachineInstance is connected to a network", func() {
-		It("should report the status of this network", func() {
-			vmi := NewPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = v1.Scheduling
-			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
-			addVirtualMachine(vmi)
-			podFeeder.Add(pod)
+		It("should only report the pod network in status", func() {
 
-			networkName := "test net"
-			podIp := "1.1.1.1"
-			pod.Status.PodIP = podIp
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			interface_name := "interface_name"
 			vmi.Spec.Networks = []v1.Network{
-				v1.Network{
-					Name: networkName,
-					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{
-							VMNetworkCIDR: "1.1.1.1",
-						},
-					},
+				{
+					Name:          interface_name,
+					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
 			}
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+
+			podCacheInterface := network.PodCacheInterface{
+				Iface: &v1.Interface{
+					Name: interface_name,
+				},
+				PodIP: "1.1.1.1",
+			}
+			podJson, err := json.Marshal(podCacheInterface)
+			Expect(err).ToNot(HaveOccurred())
+			err = os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, vmi.UID), 0755)
+			Expect(err).ToNot(HaveOccurred())
+			vmiInterfacepath := fmt.Sprintf(util.VMIInterfacepath, vmi.UID, interface_name)
+			f, err := os.Create(vmiInterfacepath)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = f.WriteString(string(podJson))
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
+				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
+				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
+				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
+			})
+
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(networkName))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(podIp))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs[0]).To(Equal(podIp))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(podCacheInterface.Iface.Name))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(podCacheInterface.PodIP))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs[0]).To(Equal(podCacheInterface.PodIP))
+
 			}).Return(vmi, nil)
+
 			controller.Execute()
 		})
 
-		It("should only report the pod network in status", func() {
-			vmi := NewPendingVirtualMachine("testvmi")
-			vmi.Status.Phase = v1.Scheduling
-			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
-
-			addVirtualMachine(vmi)
-			podFeeder.Add(pod)
-
-			networkName := "test net"
+		It("Should update existing interface with latest IP", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			interface_name := "interface_name"
+			MAC := "1C:CE:C0:01:BE:E7"
 			vmi.Spec.Networks = []v1.Network{
-				v1.Network{
-					Name: networkName,
-					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{
-							VMNetworkCIDR: "1.1.1.1",
-						},
-					},
+				{
+					Name:          interface_name,
+					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
-				v1.Network{
-					Name: networkName,
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{
-							NetworkName: "multus",
-						},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{
+					Name: interface_name,
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Masquerade: &v1.InterfaceMasquerade{},
 					},
 				},
 			}
+			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+				{
+					Name: interface_name,
+					IP:   "1.1.1.1",
+					MAC:  MAC,
+				},
+			}
+
+			podCacheInterface := network.PodCacheInterface{
+				Iface: &v1.Interface{
+					Name: interface_name,
+				},
+				PodIP: "2.2.2.2",
+			}
+			podJson, err := json.Marshal(podCacheInterface)
+			Expect(err).ToNot(HaveOccurred())
+			err = os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, vmi.UID), 0755)
+			Expect(err).ToNot(HaveOccurred())
+			vmiInterfacepath := fmt.Sprintf(util.VMIInterfacepath, vmi.UID, interface_name)
+			f, err := os.Create(vmiInterfacepath)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = f.WriteString(string(podJson))
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			domain.Spec.Devices.Interfaces = []api.Interface{
+				{
+					MAC:   &api.MAC{MAC: MAC},
+					Alias: &api.Alias{Name: interface_name},
+				},
+			}
+			domain.Status.Interfaces = []api.InterfaceStatus{
+				{
+					Name: interface_name,
+					Mac:  MAC,
+					Ip:   "1.1.1.1",
+					IPs:  []string{"1.1.1.1"},
+				},
+			}
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(podCacheInterface.Iface.Name))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(podCacheInterface.PodIP))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].MAC).To(Equal(domain.Status.Interfaces[0].Mac))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs[0]).To(Equal(podCacheInterface.PodIP))
 			}).Return(vmi, nil)
+
 			controller.Execute()
 		})
 	})
@@ -1538,7 +1612,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			interface_name := "interface_name"
 
 			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
-				v1.VirtualMachineInstanceNetworkInterface{
+				{
 					IP:   "1.1.1.1",
 					MAC:  "C0:01:BE:E7:15:G0:0D",
 					Name: interface_name,
@@ -1552,7 +1626,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			new_MAC := "1C:CE:C0:01:BE:E7"
 
 			domain.Spec.Devices.Interfaces = []api.Interface{
-				api.Interface{
+				{
 					MAC:   &api.MAC{MAC: new_MAC},
 					Alias: &api.Alias{Name: interface_name},
 				},
@@ -1582,7 +1656,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			ips := []string{"2.2.2.2/24", "3.3.3.3/16"}
 
 			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
-				v1.VirtualMachineInstanceNetworkInterface{
+				{
 					IP:   "1.1.1.1",
 					MAC:  mac,
 					Name: interfaceName,
@@ -1594,13 +1668,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Running
 
 			domain.Spec.Devices.Interfaces = []api.Interface{
-				api.Interface{
+				{
 					MAC:   &api.MAC{MAC: mac},
 					Alias: &api.Alias{Name: interfaceName},
 				},
 			}
 			domain.Status.Interfaces = []api.InterfaceStatus{
-				api.InterfaceStatus{
+				{
 					Name: interfaceName,
 					Mac:  mac,
 					Ip:   ip,
@@ -1659,7 +1733,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			old_MAC := "C0:01:BE:E7:15:G0:0D"
 
 			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
-				v1.VirtualMachineInstanceNetworkInterface{
+				{
 					IP:   "1.1.1.1",
 					MAC:  old_MAC,
 					Name: old_interface_name,
@@ -1674,11 +1748,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			new_MAC := "1C:CE:C0:01:BE:E7"
 
 			domain.Spec.Devices.Interfaces = []api.Interface{
-				api.Interface{
+				{
 					MAC:   &api.MAC{MAC: old_MAC},
 					Alias: &api.Alias{Name: old_interface_name},
 				},
-				api.Interface{
+				{
 					MAC:   &api.MAC{MAC: new_MAC},
 					Alias: &api.Alias{Name: new_interface_name},
 				},
@@ -1707,7 +1781,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			interface_name := "interface_name"
 
 			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
-				v1.VirtualMachineInstanceNetworkInterface{
+				{
 					IP:  "1.1.1.1",
 					MAC: "C0:01:BE:E7:15:G0:0D",
 				},
@@ -1720,18 +1794,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 			new_MAC := "1C:CE:C0:01:BE:E7"
 
 			domain.Spec.Devices.Interfaces = []api.Interface{
-				api.Interface{
+				{
 					MAC:   &api.MAC{MAC: new_MAC},
 					Alias: &api.Alias{Name: interface_name},
 				},
 			}
 
 			vmi.Spec.Networks = []v1.Network{
-				v1.Network{
+				{
 					Name:          "other_name",
 					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
 				},
-				v1.Network{
+				{
 					Name:          interface_name,
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
@@ -1806,7 +1880,7 @@ func (m *vmiCondMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	for ind, _ := range vmi.Status.Conditions {
+	for ind := range vmi.Status.Conditions {
 		if m.vmi.Status.Conditions[ind].Type != vmi.Status.Conditions[ind].Type {
 			return false
 		}
@@ -1829,36 +1903,4 @@ func addActivePods(vmi *v1.VirtualMachineInstance, podUID types.UID, hostName st
 		}
 	}
 	return vmi
-}
-
-func NewPendingVirtualMachine(name string) *v1.VirtualMachineInstance {
-	vmi := v1.NewMinimalVMI(name)
-	vmi.UID = "1234"
-	vmi.Status.Phase = v1.Pending
-	controller.SetLatestApiVersionAnnotation(vmi)
-	vmi.Status.ActivePods = make(map[types.UID]string)
-	return vmi
-}
-
-func NewPodForVirtualMachine(vmi *v1.VirtualMachineInstance, phase k8sv1.PodPhase) *k8sv1.Pod {
-	return &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: vmi.Namespace,
-			Labels: map[string]string{
-				v1.AppLabel:       "virt-launcher",
-				v1.CreatedByLabel: string(vmi.UID),
-			},
-			Annotations: map[string]string{
-				v1.DomainAnnotation: vmi.Name,
-			},
-		},
-		Status: k8sv1.PodStatus{
-			Phase: phase,
-			ContainerStatuses: []k8sv1.ContainerStatus{
-				{Ready: true, Name: "kubevirt-infra"},
-				{Ready: false, Name: "compute"},
-			},
-		},
-	}
 }
