@@ -151,7 +151,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Getting back the the service")
+				By("Getting back the service")
 				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				nodePort := svc.Spec.Ports[0].NodePort
