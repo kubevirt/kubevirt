@@ -156,8 +156,6 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 	case <-stopChan:
 		log.Log.Info("stopping notify server")
 		grpcServer.Stop()
-		sock.Close()
-		os.Remove(sockFile)
 	}
 
 	return nil
