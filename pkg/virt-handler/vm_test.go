@@ -804,6 +804,22 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
+		It("should move VirtualMachineInstance to Failed if configuring the networks on the virt-launcher fails", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+
+			mockWatchdog.CreateFile(vmi)
+			vmiFeeder.Add(vmi)
+
+			network.SetupPodNetworkPhase1 = func(vm *v1.VirtualMachineInstance, pid int) error { return fmt.Errorf("SetupPodNetworkPhase1 error") }
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
+				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+			})
+			controller.Execute()
+		})
+
 		It("should remove an error condition if a synchronization run succeeds", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
