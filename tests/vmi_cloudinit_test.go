@@ -161,7 +161,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						&expect.BSnd{S: "fedora\n"},
 						&expect.BExp{R: "Password:"},
 						&expect.BSnd{S: fedoraPassword + "\n"},
-						&expect.BExp{R: "$"},
+						&expect.BExp{R: "\\$"},
 						&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
 						&expect.BExp{R: "test-ssh-key"},
 					}, time.Second*300)
@@ -199,7 +199,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						&expect.BSnd{S: "fedora\n"},
 						&expect.BExp{R: "Password:"},
 						&expect.BSnd{S: fedoraPassword + "\n"},
-						&expect.BExp{R: "$"},
+						&expect.BExp{R: "\\$"},
 						&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
 						&expect.BExp{R: "test-ssh-key"},
 					}, time.Second*300)
