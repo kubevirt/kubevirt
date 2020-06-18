@@ -11,8 +11,8 @@ func (VirtualMachineSnapshot) SwaggerDoc() map[string]string {
 
 func (VirtualMachineSnapshotSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource",
-		"time": "+optional",
+		"":               "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource",
+		"deletionPolicy": "+optional",
 	}
 }
 

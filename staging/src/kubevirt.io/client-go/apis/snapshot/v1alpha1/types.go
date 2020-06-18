@@ -58,7 +58,7 @@ type VirtualMachineSnapshotSpec struct {
 	Source corev1.TypedLocalObjectReference `json:"source"`
 
 	// +optional
-	DeletionPolicy *DeletionPolicy `json:"time,omitempty"`
+	DeletionPolicy *DeletionPolicy `json:"deletionPolicy,omitempty"`
 }
 
 // VirtualMachineSnapshotStatus is the status for a VirtualMachineSnapshot resource

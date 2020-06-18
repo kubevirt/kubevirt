@@ -18404,7 +18404,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref comm
 							Ref: ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
 						},
 					},
-					"time": {
+					"deletionPolicy": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
