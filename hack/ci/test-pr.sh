@@ -14,7 +14,7 @@ while ! oc get service docker-registry; do
     echo 'waiting for service'
     sleep 1
 done
-cluster_ip=$(oc get service docker-registry -o custom-columns=:.spec.clusterIP  --no-headers)
+cluster_ip=$(oc get service docker-registry -o custom-columns=:.spec.clusterIP --no-headers)
 registry_port=5000
 echo "Registry cluster_ip: $cluster_ip"
 # now enable the insecure registry
