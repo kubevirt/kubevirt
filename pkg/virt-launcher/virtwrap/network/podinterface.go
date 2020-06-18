@@ -103,25 +103,32 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 	if !isExist {
 		err := driver.discoverPodNetworkInterface()
 		if err != nil {
-			return err
+			return createCriticalNetworkError(err)
 		}
 
 		if err := driver.preparePodNetworkInterfaces(); err != nil {
-			log.Log.Reason(err).Critical("failed to prepare pod networking")
+			log.Log.Reason(err).Error("failed to prepare pod networking")
+			return createCriticalNetworkError(err)
 		}
 
 		err = driver.setCachedInterface(pidStr, iface.Name)
 		if err != nil {
-			log.Log.Reason(err).Critical("failed to save interface configuration")
+			log.Log.Reason(err).Error("failed to save interface configuration")
+			return createCriticalNetworkError(err)
 		}
 
 		err = driver.setCachedVIF(pidStr, iface.Name)
 		if err != nil {
-			log.Log.Reason(err).Critical("failed to save vif configuration")
+			log.Log.Reason(err).Error("failed to save vif configuration")
+			return createCriticalNetworkError(err)
 		}
 	}
 
 	return nil
+}
+
+func createCriticalNetworkError(err error) *CriticalNetworkError {
+	return &CriticalNetworkError{fmt.Sprintf("Critical network error: %v", err)}
 }
 
 func ensureDHCP(vmi *v1.VirtualMachineInstance, driver BindMechanism, podInterfaceName string) error {

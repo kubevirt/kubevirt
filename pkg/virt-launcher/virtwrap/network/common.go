@@ -57,6 +57,12 @@ type VIF struct {
 	IPAMDisabled bool
 }
 
+type CriticalNetworkError struct {
+	msg string
+}
+
+func (e *CriticalNetworkError) Error() string { return e.msg }
+
 func (vif VIF) String() string {
 	return fmt.Sprintf(
 		"VIF: { Name: %s, IP: %s, Mask: %s, MAC: %s, Gateway: %s, MTU: %d, IPAMDisabled: %t}",
