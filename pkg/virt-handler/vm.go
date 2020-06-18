@@ -1072,7 +1072,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		case domainExists:
 			// The VirtualMachineInstance is deleted on the cluster, and domain is not alive
 			// then delete the domain.
-			log.Log.Object(vmi).V(3).Info("Shutting down domain for deleted VirtualMachineInstance object.")
+			log.Log.Object(vmi).V(3).Info("Deleting domain for deleted VirtualMachineInstance object.")
 			shouldDelete = true
 		default:
 			// If neither the domain nor the vmi object exist locally,
