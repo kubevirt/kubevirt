@@ -19,10 +19,14 @@ for testinfra_file in $(curl -L "${release_url}/testing/" | grep -oE 'https://[^
     oc create -f ${testinfra_file}
 done
 
+set +e
 oc wait -n kubevirt kv kubevirt --for condition=Available --timeout 15m
-if [ $? -ne 0 ]; then
+return_code=$?
+set -e
+if [ ${return_code} -ne 0 ]; then
     echo "Dumping KubeVirt state"
     hack/dump.sh
+    exit ${return_code}
 fi
 
 echo "calling cluster-up to prepare config and check whether cluster is reachable"
