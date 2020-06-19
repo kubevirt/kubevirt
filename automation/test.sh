@@ -28,6 +28,7 @@
 
 set -ex
 
+export KUBEVIRT_PROFILE_MAKE=1
 export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"

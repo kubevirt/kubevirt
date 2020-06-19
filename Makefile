@@ -1,5 +1,8 @@
 export GO15VENDOREXPERIMENT := 1
 
+# enable profiling with KUBEVIRT_PROFILE_MAKE=1
+# see https://stackoverflow.com/a/6967017/16193
+SHELL = ./hack/profile.sh
 
 all:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh && \
