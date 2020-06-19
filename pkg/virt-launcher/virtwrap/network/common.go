@@ -33,6 +33,7 @@ import (
 	"github.com/coreos/go-iptables/iptables"
 
 	lmf "github.com/subgraph/libmacouflage"
+	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -346,17 +347,25 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 }
 
 func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool) error {
-	tapDeviceArgs := []string{"tuntap", "add", "mode", "tap", "user", "qemu", "group", "qemu", "name", tapName}
-	if isMultiqueue {
-		tapDeviceArgs = append(tapDeviceArgs, "multi_queue")
+	config := water.Config{
+		DeviceType: water.TAP,
+		PlatformSpecificParams: water.PlatformSpecificParams{
+			Name:        tapName,
+			Persist:     true,
+			Permissions: &water.DevicePermissions{
+				Owner: 107,
+				Group: 107,
+			},
+			MultiQueue:  isMultiqueue,
+		},
 	}
-	cmd := exec.Command("ip", tapDeviceArgs...)
-	out, err := cmd.CombinedOutput()
+
+	tapIface, err := water.New(config)
 	if err != nil {
-		log.Log.Reason(err).Criticalf("Failed to create tap device %s. Reason: %s", tapName, out)
+		log.Log.Reason(err).Criticalf("Failed to create tap device %s, because %v", tapIface.Name(), err)
 		return err
 	}
-	log.Log.Infof("Created tap device: %s", tapName)
+	log.Log.Infof("Created tap device: %s", tapIface.Name())
 	return nil
 }
 
