@@ -52,6 +52,7 @@ http_archive(
     strip_prefix = "rules_docker-0.14.2",
     urls = [
         "https://github.com/bazelbuild/rules_docker/releases/download/v0.14.2/rules_docker-v0.14.2.tar.gz",
+        "https://storage.googleapis.com/builddeps/3efbd23e195727a67f87b2a04fb4388cc7a11a0c0c2cf33eec225fb8ffbb27ea",
     ],
 )
 
@@ -566,6 +567,7 @@ http_file(
     sha256 = "a7557e0f91d7d710bb7cd939d4263ebbc84aeec9594d7dc4e062ace4b090e3b6",
     urls = [
         "https://dl.fedoraproject.org/pub/archive/fedora/linux/releases/28/Everything/x86_64/os/Packages/w/which-2.21-8.fc28.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/a7557e0f91d7d710bb7cd939d4263ebbc84aeec9594d7dc4e062ace4b090e3b6",
     ],
 )
 
