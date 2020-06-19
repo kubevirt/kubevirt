@@ -13,7 +13,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
-
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 )
 
@@ -48,7 +47,21 @@ var _ = Describe("Certificate Management", func() {
 			Expect(bundle).To(Equal(expectBundle))
 		})
 
-		It("should kick out CA certs which are outside of the overlap period", func() {
+		It("should kick out the first CA cert if it is outside of the overlap period", func() {
+			now := time.Now()
+			current := NewSelfSignedCert(now.Add(-3*time.Minute), now.Add(1*time.Hour))
+			given := []*tls.Certificate{
+				NewSelfSignedCert(now.Add(-20*time.Minute), now.Add(1*time.Hour)),
+			}
+			givenBundle := CACertsToBundle(given)
+			expectBundle := CACertsToBundle([]*tls.Certificate{current})
+			bundle, count, err := MergeCABundle(current, givenBundle, 2*time.Minute)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(1))
+			Expect(bundle).To(Equal(expectBundle))
+		})
+
+		It("should kick out a CA certs which are outside of the overlap period", func() {
 			now := time.Now()
 			current := NewSelfSignedCert(now, now.Add(1*time.Hour))
 			given := []*tls.Certificate{
@@ -63,7 +76,7 @@ var _ = Describe("Certificate Management", func() {
 			Expect(bundle).To(Equal(expectBundle))
 		})
 
-		It("should kick out CA certs which are outside of the overlap period", func() {
+		It("should kick out multiple CA certs which are outside of the overlap period", func() {
 			now := time.Now()
 			current := NewSelfSignedCert(now.Add(-5*time.Minute), now.Add(-5*time.Minute).Add(1*time.Hour))
 			given := []*tls.Certificate{
