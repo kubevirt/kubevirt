@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 const (
@@ -120,7 +119,7 @@ func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
 	return c.GetConfig().NetworkConfiguration.PermitSlirpInterface
 }
 
-func (c *ClusterConfig) GetSMBIOS() *cmdv1.SMBios {
+func (c *ClusterConfig) GetSMBIOS() *v1.SMBiosConfiguration {
 	return c.GetConfig().SMBIOSConfig
 }
 
