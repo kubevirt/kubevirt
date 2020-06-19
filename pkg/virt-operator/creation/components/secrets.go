@@ -251,7 +251,7 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 // nextRotationDeadline returns a value for the threshold at which the
 // current certificate should be rotated, 80% of the expiration of the
 // certificate.
-func NextRotationDeadline(cert *tls.Certificate, ca *tls.Certificate) time.Time {
+func NextRotationDeadline(cert *tls.Certificate, ca *tls.Certificate, duration *metav1.Duration) time.Time {
 
 	if cert == nil {
 		return time.Now()
@@ -273,8 +273,7 @@ func NextRotationDeadline(cert *tls.Certificate, ca *tls.Certificate) time.Time 
 	}
 
 	notAfter := cert.Leaf.NotAfter
-	totalDuration := float64(notAfter.Sub(cert.Leaf.NotBefore))
-	deadline := cert.Leaf.NotBefore.Add(time.Duration(totalDuration - totalDuration*0.2))
+	deadline := notAfter.Add(-time.Duration(float64(duration.Duration) * 0.2))
 
 	log.DefaultLogger().V(4).Infof("Certificate with common name '%s' expiration is %v, rotation deadline is %v", cert.Leaf.Subject.CommonName, notAfter, deadline)
 	return deadline
