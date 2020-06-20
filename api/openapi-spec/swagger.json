@@ -9235,11 +9235,11 @@
      "source"
     ],
     "properties": {
+     "deletionPolicy": {
+      "type": "string"
+     },
      "source": {
       "$ref": "#/definitions/v1.TypedLocalObjectReference"
-     },
-     "time": {
-      "type": "string"
      }
     }
    },
