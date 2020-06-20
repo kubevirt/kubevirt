@@ -1821,13 +1821,14 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 		}
 
+		smbios := d.clusterConfig.GetSMBIOS()
 		options := &cmdv1.VirtualMachineOptions{
 			VirtualMachineSMBios: &cmdv1.SMBios{
-				Family:       d.clusterConfig.GetSMBIOS().Family,
-				Product:      d.clusterConfig.GetSMBIOS().Product,
-				Manufacturer: d.clusterConfig.GetSMBIOS().Manufacturer,
-				Sku:          d.clusterConfig.GetSMBIOS().Sku,
-				Version:      d.clusterConfig.GetSMBIOS().Version,
+				Family:       smbios.Family,
+				Product:      smbios.Product,
+				Manufacturer: smbios.Manufacturer,
+				Sku:          smbios.Sku,
+				Version:      smbios.Version,
 			},
 		}
 

@@ -393,6 +393,10 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 	}
 }
 
+func (SMBiosConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (MigrationConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "MigrationConfiguration holds migration options\n+k8s:openapi-gen=true",

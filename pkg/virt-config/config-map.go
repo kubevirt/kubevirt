@@ -34,7 +34,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 const (
@@ -157,7 +156,7 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	defaultNetworkInterface := DefaultNetworkInterface
-	SmbiosDefaultConfig := &cmdv1.SMBios{
+	SmbiosDefaultConfig := &v1.SMBiosConfiguration{
 		Family:       SmbiosConfigDefaultFamily,
 		Manufacturer: SmbiosConfigDefaultManufacturer,
 		Product:      SmbiosConfigDefaultProduct,

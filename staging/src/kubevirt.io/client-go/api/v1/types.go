@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 const DefaultGracePeriodSeconds int64 = 30
@@ -1299,8 +1298,16 @@ type KubeVirtConfiguration struct {
 	NetworkConfiguration        *NetworkConfiguration   `json:"network,omitempty"`
 	OVMFPath                    string                  `json:"ovmfPath,omitempty"`
 	SELinuxLauncherType         string                  `json:"selinuxLauncherType,omitempty"`
-	SMBIOSConfig                *cmdv1.SMBios           `json:"smbiOS,omitempty"`
+	SMBIOSConfig                *SMBiosConfiguration    `json:"smbiOS,omitempty"`
 	SupportedGuestAgentVersions []string                `json:"supportedGuestAgentVersions,omitempty"`
+}
+
+type SMBiosConfiguration struct {
+	Manufacturer string `json:"manufacturer,omitempty"`
+	Product      string `json:"product,omitempty"`
+	Version      string `json:"version,omitempty"`
+	Sku          string `json:"sku,omitempty"`
+	Family       string `json:"family,omitempty"`
 }
 
 // MigrationConfiguration holds migration options

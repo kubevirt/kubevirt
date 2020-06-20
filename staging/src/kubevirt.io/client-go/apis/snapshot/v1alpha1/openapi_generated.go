@@ -15203,7 +15203,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 					},
 					"smbiOS": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1.SMBios"),
+							Ref: ref("kubevirt.io/client-go/api/v1.SMBiosConfiguration"),
 						},
 					},
 					"supportedGuestAgentVersions": {
@@ -15223,7 +15223,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1.SMBios"},
+			"kubevirt.io/client-go/api/v1.DeveloperConfiguration", "kubevirt.io/client-go/api/v1.MigrationConfiguration", "kubevirt.io/client-go/api/v1.NetworkConfiguration", "kubevirt.io/client-go/api/v1.SMBiosConfiguration"},
 	}
 }
 
