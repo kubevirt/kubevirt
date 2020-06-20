@@ -1287,7 +1287,7 @@ func newKubeVirtNodeLabellerBundleForCR(cr *hcov1alpha1.HyperConverged, namespac
 			Namespace: namespace,
 		},
 		Spec: sspv1.ComponentSpec{
-			UseKVM: isKVMAvailable(),
+			// UseKVM: isKVMAvailable(),
 		},
 	}
 }

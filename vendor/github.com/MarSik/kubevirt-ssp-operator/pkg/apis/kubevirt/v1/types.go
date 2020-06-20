@@ -70,7 +70,6 @@ type VersionSpec struct {
 
 type ComponentSpec struct {
 	Version string `json:"version,omitempty"`
-	UseKVM  bool   `json:"useKVM"`
 }
 
 type TemplateValidatorSpec struct {
