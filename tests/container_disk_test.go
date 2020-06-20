@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -215,6 +216,49 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					&expect.BExp{R: "0"},
 				}, 200*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "expected virtio files to be mounted properly")
+			})
+		})
+	})
+
+	Describe("[rfe_id:4052][crit:high][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", func() {
+		Context("with ephemeral registry disk", func() {
+			It("[test_id:4299]should not have world write permissions", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+
+				By("Starting a New VMI")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Ensuring VMI is running by logging in")
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+
+				By("Fetching virt-launcher Pod")
+				pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+
+				writableImagePath := fmt.Sprintf("/var/run/kubevirt-ephemeral-disks/disk-data/%v/disk.qcow2", vmi.Spec.Domain.Devices.Disks[0].Name)
+
+				writableImageOctalMode, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{"/usr/bin/bash", "-c", fmt.Sprintf("stat -c %%a %s", writableImagePath)},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Checking the writable Image Octal mode")
+				Expect(strings.Trim(writableImageOctalMode, "\n")).To(Equal("644"), "Octal Mode of writable Image should be 644")
+
+				readonlyImageOctalMode, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					pod,
+					"compute",
+					[]string{"/usr/bin/bash", "-c", "stat -c %a /var/run/kubevirt/container-disks/disk_0.img"},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Checking the read-only Image Octal mode")
+				Expect(strings.Trim(readonlyImageOctalMode, "\n")).To(Equal("555"), "Octal Mode of read-only Image should be 555")
 			})
 		})
 	})
