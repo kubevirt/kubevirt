@@ -544,6 +544,28 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})
 
+		It("should ignore the name of a VirtualMachineInstance templates", func() {
+			vm, vmi := DefaultVirtualMachineWithNames(true, "vmname", "vminame")
+
+			addVirtualMachine(vm)
+
+			// expect creation called
+			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("vmname"))
+				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.GenerateName).To(Equal(""))
+			}).Return(vmi, nil)
+
+			// expect update status is called
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+			}).Return(nil, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
 		It("should update status to created if the vmi exists", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 			vmi.Status.Phase = v1.Scheduled
@@ -974,6 +996,7 @@ func VirtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started 
 
 func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 	vmi := v1.NewMinimalVMI(vmiName)
+	vmi.GenerateName = "prettyrandom"
 	vmi.Status.Phase = v1.Running
 	vm := VirtualMachineFromVMI(vmName, vmi, started)
 	t := true
