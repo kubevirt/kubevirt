@@ -658,7 +658,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						ds.Status.DesiredNumberScheduled == virtHandlerAvailablePods &&
 						ds.Status.NumberReady == virtHandlerAvailablePods &&
 						ds.Status.UpdatedNumberScheduled == virtHandlerAvailablePods
-				}, 120*time.Second, 1*time.Second).Should(BeTrue(), "Virthandler should be ready to work")
+				}, 180*time.Second, 1*time.Second).Should(BeTrue(), "Virthandler should be ready to work")
 			})
 		})
 
