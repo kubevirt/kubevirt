@@ -309,26 +309,27 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		By("Waiting until the Migration Completes")
 
 		uid := ""
-		Eventually(func() bool {
+		Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
 			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(migration.Status.Phase).NotTo(Equal(v1.MigrationSucceeded))
+			phase := migration.Status.Phase
+			Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
 
 			uid = string(migration.UID)
-			if migration.Status.Phase == v1.MigrationFailed {
-				return true
-			}
-			return false
+			return phase
 
-		}, timeout, 1*time.Second).Should(BeTrue())
+		}, timeout, 1*time.Second).Should(Equal(v1.MigrationFailed))
 		return uid
 	}
 
 	runStressTest := func(expecter expect.Expecter) {
 		By("Run a stress test to dirty some pages and slow down the migration")
 		_, err = expecter.ExpectBatch([]expect.Batcher{
-			&expect.BSnd{S: "stress --vm 1 --vm-bytes 800M --vm-keep --timeout 1600s&\n"},
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: "\\#"},
+			&expect.BSnd{S: "stress --vm 1 --vm-bytes 800M --vm-keep --timeout 1600s&\n\n"},
+			&expect.BExp{R: "\\#"},
 		}, 15*time.Second)
 		Expect(err).ToNot(HaveOccurred(), "should run a stress test")
 		// give stress tool some time to trash more memory pages before returning control to next steps
@@ -1048,13 +1049,20 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
 				Expect(err).ToNot(HaveOccurred())
 				originalMigrationConfig = cfgMap.Data["migrations"]
-				tests.UpdateClusterConfigValueAndWait("migrations", `{"progressTimeout" : 5, "completionTimeoutPerGiB": 5}`)
+
+				data := map[string]string{
+					"progressTimeout":         "5",
+					"completionTimeoutPerGiB": "5",
+					"bandwidthPerMigration":   "1Mi",
+				}
+				migrationData, err := json.Marshal(data)
+				Expect(err).ToNot(HaveOccurred())
+				tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
 			})
 			AfterEach(func() {
 				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig)
 			})
-			PIt("[test_id:2227] [flaky] should abort a vmi migration without progress", func() {
-				tests.SkipStressTestIfRunnigOnKindInfra()
+			PIt("[test_id:2227] should abort a vmi migration without progress", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
