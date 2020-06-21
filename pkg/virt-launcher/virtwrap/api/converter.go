@@ -749,6 +749,26 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if len(vmi.Spec.Domain.Firmware.Serial) > 0 {
 			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
 		}
+
+		if vmi.Spec.Domain.Firmware.KernelBoot != nil {
+			//to extract the disk image from volume
+			
+			if vmi.Spec.Domain.Firmware.KernelBoot.KernelPath!=nil{
+				domain.Spec.OS.Kernel = vmi.Spec.Domain.Firmware.KernelBoot.KernelPath
+			} else{
+				//TODO: see for ways on how to add default path for a vmlinuz image
+				domain.Spec.OS.Kernel = "some default path for vmlinuz"
+			}
+			if vmi.Spec.Domain.Firmware.KernelBoot.InitrdPath!=nil{
+				domain.Spec.OS.Initrd = vmi.Spec.Domain.Firmware.KernelBoot.InitrdPath
+			} 
+			if vmi.Spec.Domain.Firmware.KernelBoot.Cmdline!=nil{
+				domain.Spec.OS.Cmdline = vmi.Spec.Domain.Firmware.KernelBoot.Cmdline
+			} else {
+				//TODO: add default command line parameters like "console=ttyS0"
+				domain.Spec.OS.Cmdline = "default value"
+			}
+		}
 	}
 	if c.SMBios != nil {
 		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,
