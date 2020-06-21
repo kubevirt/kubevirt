@@ -16,10 +16,6 @@ limitations under the License.
 
 package v1alpha1
 
-//go:generate swagger-doc
-//go:generate deepcopy-gen -i . --go-header-file ../../../../hack/custom-boilerplate.go.txt
-//go:generate openapi-gen -i . --output-package=kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1  --go-header-file ../../../../hack/custom-boilerplate.go.txt
-
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -128,7 +124,7 @@ type DataVolumeStatus struct {
 	//Phase is the current phase of the data volume
 	Phase        DataVolumePhase    `json:"phase,omitempty"`
 	Progress     DataVolumeProgress `json:"progress,omitempty"`
-	RestartCount int32              `json:"restartCount"`
+	RestartCount int32              `json:"restartCount,omitempty"`
 	// +listType=set
 	Conditions []DataVolumeCondition `json:"conditions,omitempty" optional:"true"`
 }

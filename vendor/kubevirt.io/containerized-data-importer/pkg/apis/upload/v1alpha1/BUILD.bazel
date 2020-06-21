@@ -3,12 +3,12 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "deepcopy_generated.go",
         "doc.go",
         "openapi_generated.go",
         "register.go",
         "types.go",
         "types_swagger_generated.go",
+        "zz_generated.deepcopy.go",
     ],
     importpath = "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1",
     visibility = ["//visibility:public"],
