@@ -1965,7 +1965,9 @@ func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 	vmi.Spec.Domain.Firmware = &v1.Firmware{
 		Bootloader: &v1.Bootloader{
-			EFI: &v1.EFI{},
+			EFI: &v1.EFI{
+				SecureBoot: NewBool(false),
+			},
 		},
 	}
 
@@ -1985,9 +1987,7 @@ func NewRandomVMIWithSecureBoot() *v1.VirtualMachineInstance {
 	}
 	vmi.Spec.Domain.Firmware = &v1.Firmware{
 		Bootloader: &v1.Bootloader{
-			EFI: &v1.EFI{
-				SecureBoot: NewBool(true),
-			},
+			EFI: &v1.EFI{}, // SecureBoot should default to true
 		},
 	}
 
