@@ -1482,7 +1482,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
 			}
-			vmi.Status.Phase = v1.Running
+			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 
 			podCacheInterface := network.PodCacheInterface{
@@ -1507,12 +1507,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Running
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
-
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
-				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
-				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
-				Expect(options.VirtualMachineSMBios.Manufacturer).To(Equal(virtconfig.SmbiosConfigDefaultManufacturer))
-			})
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
