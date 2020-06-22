@@ -242,7 +242,7 @@ func StartVirtlog(stopChan chan struct{}) {
 
 			err := cmd.Start()
 			if err != nil {
-				log.Log.Reason(err).Error("failed to start libvirtd")
+				log.Log.Reason(err).Error("failed to start virtlogd")
 				panic(err)
 			}
 
@@ -256,11 +256,11 @@ func StartVirtlog(stopChan chan struct{}) {
 				cmd.Process.Kill()
 				return
 			case <-exitChan:
-				log.Log.Errorf("libvirtd exited, restarting")
+				log.Log.Errorf("virtlogd exited, restarting")
 			}
 
 			// this sleep is to avoid consumming all resources in the
-			// event of a libvirtd crash loop.
+			// event of a virtlogd crash loop.
 			time.Sleep(time.Second)
 		}
 	}()
