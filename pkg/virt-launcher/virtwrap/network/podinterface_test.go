@@ -288,10 +288,10 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
 
 			err := SetupPodNetworkPhase1(vm, pid)
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(HaveOccurred(), "SetupPodNetworkPhase1 should return an error")
 
 			_, ok := err.(*CriticalNetworkError)
-			Expect(ok).To(BeTrue())
+			Expect(ok).To(BeTrue(), "SetupPodNetworkPhase1 should return an error of type CriticalNetworkError")
 		})
 		It("should return an error if the MTU is out or range", func() {
 			dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 65536}}

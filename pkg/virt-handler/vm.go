@@ -710,7 +710,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	}
 
 	if _, ok := syncError.(*virtLauncherCriticalNetworkError); ok {
-		log.Log.Errorf("virt-launcher crashed. Updating VMI %s status to Failed", vmi.Name)
+		log.Log.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
 	}
 	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
