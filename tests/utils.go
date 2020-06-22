@@ -268,7 +268,7 @@ const (
 	osAuditLogPath  = "/var/lib/origin/audit-ocp.log"
 	swaggerPath     = "api/openapi-spec/swagger.json"
 	artifactsEnv    = "ARTIFACTS"
-	tmpPath         = "/tmp/kubevirt.io/tests"
+	tmpPath         = "/provision/kubevirt.io/tests"
 )
 
 const (

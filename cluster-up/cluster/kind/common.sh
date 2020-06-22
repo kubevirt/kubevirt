@@ -154,13 +154,12 @@ function setup_kind() {
 
     echo "ipv6 cni: $IPV6_CNI"
     if [ -z ${IPV6_CNI+x} ]; then
-        echo "no ipv6, safe to install flannel"
-        _kubectl apply -f $KIND_MANIFESTS_DIR/kube-flannel.yaml
+        echo "no ipv6, safe to install calico"
+        _kubectl apply -f $KIND_MANIFESTS_DIR/kube-calico.yaml
     else
         echo "ipv6 enabled, using kindnet"
         # currently kind does not fully support ipv6 or ipv6-DualStack,
         # when using diffrent CNI's.
-        #_kubectl create -f $KIND_MANIFESTS_DIR/kube-calico.yaml
     fi
 
     _wait_kind_up
