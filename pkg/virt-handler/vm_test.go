@@ -1481,6 +1481,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Name:          interfaceName,
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
+				{
+					Name: "testmultus",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{
+							NetworkName: "multus",
+						},
+					},
+				},
 			}
 			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
@@ -1519,7 +1527,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
-		It("Should update existing interface with latest IP", func() {
+		It("Should update masquerade interface with the pod IP", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
