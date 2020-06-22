@@ -9,18 +9,18 @@ require (
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.7
 	github.com/imdario/mergo v0.3.8
-	github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200527095331-9cc2867ac8dc
+	github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200621184544-3326c51c398d
 	github.com/kubevirt/vm-import-operator v0.0.3
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.10.0
 	github.com/openshift/custom-resource-status v0.0.0-20200602122900-c002fd1547ca
 	github.com/operator-framework/api v0.3.5
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20200321030439-57b580e57e88
-	github.com/operator-framework/operator-sdk v0.17.0
+	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/spf13/pflag v1.0.5
-	k8s.io/api v0.18.2
+	k8s.io/api v0.18.3
 	k8s.io/apiextensions-apiserver v0.18.2
-	k8s.io/apimachinery v0.18.2
+	k8s.io/apimachinery v0.18.3
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20200204173128-addea2498afe
 	kubevirt.io/client-go v0.30.1
@@ -84,5 +84,10 @@ replace (
 	github.com/operator-framework/api => github.com/operator-framework/api v0.3.5
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.5.2
 )
+
+// cluster-network-addons-operator pulls in dependency on operator-sdk v0.18.0,
+// but since HCO is pinned to Kubernetes v0.16.4, it needs to stay on operator-sdk
+// v0.17.0.
+replace github.com/operator-framework/operator-sdk => github.com/operator-framework/operator-sdk v0.17.0
 
 replace github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309 // Required by Helm

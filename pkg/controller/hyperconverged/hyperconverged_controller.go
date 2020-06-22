@@ -225,7 +225,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	if req.statusDirty {
 		updateErr := r.client.Status().Update(req.ctx, req.instance)
 		if updateErr != nil {
-			req.logger.Info("failed to update the CR Status", updateErr)
+			req.logger.Error(updateErr, "failed to update the CR Status")
 			err = updateErr
 		}
 	}
@@ -233,7 +233,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	if req.dirty {
 		updateErr := r.client.Update(req.ctx, req.instance)
 		if updateErr != nil {
-			req.logger.Info("failed to update the CR", updateErr)
+			req.logger.Error(updateErr, "failed to update the CR")
 			err = updateErr
 		}
 	}

@@ -172,15 +172,15 @@ EOF
 ./hack/retry.sh 20 30 "${CMD} get subscription -n kubevirt-hyperconverged | grep -v EOF"
 ./hack/retry.sh 20 30 "${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator"
 
-HCO_OPERATOR_POD=`${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator | head -1 | awk '{ print $1 }'`
-${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverged --timeout="600s"
+HCO_OPERATOR_POD=`${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator  | grep Running | head -1 | awk '{ print $1 }'`
+${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverged --timeout="1200s"
 
 ${CMD} create -f ./deploy/hco.cr.yaml -n kubevirt-hyperconverged
 
-HCO_OPERATOR_POD=`${CMD} get pods -n ${HCO_NAMESPACE} | grep hco-operator | head -1 | awk '{ print $1 }'`
+HCO_OPERATOR_POD=`${CMD} get pods -n ${HCO_NAMESPACE} | grep hco-operator | grep Running | head -1 | awk '{ print $1 }'`
 
-${CMD} wait -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} --for condition=Available --timeout=15m
-${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n ${HCO_NAMESPACE} --timeout=15m
+${CMD} wait -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} --for condition=Available --timeout=30m
+${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n ${HCO_NAMESPACE} --timeout=30m
 
 Msg "check that cluster is operational before upgrade"
 timeout 10m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh' 
@@ -218,7 +218,8 @@ Msg "verify the subscription's currentCSV and installedCSV have moved to the new
 
 sleep 60
 HCO_OPERATOR_POD=`${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator | head -1 | awk '{ print $1 }'`
-${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverged --timeout="600s"
+${CMD} get pods -n kubevirt-hyperconverged
+${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverged --timeout="1200s"
 
 ./hack/retry.sh 30 60 "${CMD} get subscriptions -n kubevirt-hyperconverged -o yaml | grep currentCSV | grep v100.0.0"
 ./hack/retry.sh 2 30 "${CMD} get subscriptions -n kubevirt-hyperconverged -o yaml | grep installedCSV | grep v100.0.0"
