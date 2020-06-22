@@ -2259,6 +2259,43 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	})
 
+	Context("with volume", func() {
+		It("should reject hostDisk volumes if the feature gate is not enabled", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testHostDisk",
+				VolumeSource: v1.VolumeSource{
+					HostDisk: &v1.HostDisk{
+						Type: v1.HostDiskExistsOrCreate,
+						Path: "/hostdisktest.img",
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(len(causes)).To(Equal(1))
+		})
+
+		It("should accept hostDisk volumes if the feature gate is enabled", func() {
+			enableFeatureGate(virtconfig.HostDiskGate)
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testHostDisk",
+				VolumeSource: v1.VolumeSource{
+					HostDisk: &v1.HostDisk{
+						Type: v1.HostDiskExistsOrCreate,
+						Path: "/hostdisktest.img",
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+			Expect(len(causes)).To(Equal(0))
+		})
+	})
+
 	Context("with bootloader", func() {
 		It("should accept empty bootloader setting", func() {
 			vmi := v1.NewMinimalVMI("testvmi")

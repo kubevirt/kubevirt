@@ -1348,6 +1348,13 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 
 		// validate HostDisk data
 		if hostDisk := volume.HostDisk; hostDisk != nil {
+			if !config.HostDiskEnabled() {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "HostDisk feature gate is not enabled",
+					Field:   field.Index(idx).String(),
+				})
+			}
 			if hostDisk.Path == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueNotFound,
