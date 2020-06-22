@@ -1475,10 +1475,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
-			interface_name := "interface_name"
+			interfaceName := "interface_name"
 			vmi.Spec.Networks = []v1.Network{
 				{
-					Name:          interface_name,
+					Name:          interfaceName,
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
 			}
@@ -1487,7 +1487,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			podCacheInterface := network.PodCacheInterface{
 				Iface: &v1.Interface{
-					Name: interface_name,
+					Name: interfaceName,
 				},
 				PodIP: "1.1.1.1",
 			}
@@ -1495,7 +1495,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(err).ToNot(HaveOccurred())
 			err = os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, vmi.UID), 0755)
 			Expect(err).ToNot(HaveOccurred())
-			vmiInterfacepath := fmt.Sprintf(util.VMIInterfacepath, vmi.UID, interface_name)
+			vmiInterfacepath := fmt.Sprintf(util.VMIInterfacepath, vmi.UID, interfaceName)
 			f, err := os.Create(vmiInterfacepath)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = f.WriteString(string(podJson))
@@ -1530,17 +1530,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
-			interface_name := "interface_name"
+			interfaceName := "interface_name"
 			MAC := "1C:CE:C0:01:BE:E7"
 			vmi.Spec.Networks = []v1.Network{
 				{
-					Name:          interface_name,
+					Name:          interfaceName,
 					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 				},
 			}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 				{
-					Name: interface_name,
+					Name: interfaceName,
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{
 						Masquerade: &v1.InterfaceMasquerade{},
 					},
@@ -1548,7 +1548,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
 				{
-					Name: interface_name,
+					Name: interfaceName,
 					IP:   "1.1.1.1",
 					MAC:  MAC,
 				},
@@ -1556,7 +1556,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			podCacheInterface := network.PodCacheInterface{
 				Iface: &v1.Interface{
-					Name: interface_name,
+					Name: interfaceName,
 				},
 				PodIP: "2.2.2.2",
 			}
@@ -1564,7 +1564,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(err).ToNot(HaveOccurred())
 			err = os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, vmi.UID), 0755)
 			Expect(err).ToNot(HaveOccurred())
-			vmiInterfacepath := fmt.Sprintf(util.VMIInterfacepath, vmi.UID, interface_name)
+			vmiInterfacepath := fmt.Sprintf(util.VMIInterfacepath, vmi.UID, interfaceName)
 			f, err := os.Create(vmiInterfacepath)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = f.WriteString(string(podJson))
@@ -1577,12 +1577,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Spec.Devices.Interfaces = []api.Interface{
 				{
 					MAC:   &api.MAC{MAC: MAC},
-					Alias: &api.Alias{Name: interface_name},
+					Alias: &api.Alias{Name: interfaceName},
 				},
 			}
 			domain.Status.Interfaces = []api.InterfaceStatus{
 				{
-					Name: interface_name,
+					Name: interfaceName,
 					Mac:  MAC,
 					Ip:   "1.1.1.1",
 					IPs:  []string{"1.1.1.1"},
