@@ -35,6 +35,7 @@ const (
 	HypervStrictCheckGate = "HypervStrictCheck"
 	SidecarGate           = "Sidecar"
 	GPUGate               = "GPU"
+	HostDiskGate          = "HostDisk"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -67,4 +68,8 @@ func (config *ClusterConfig) SidecarEnabled() bool {
 
 func (config *ClusterConfig) GPUPassthroughEnabled() bool {
 	return config.isFeatureGateEnabled(GPUGate)
+}
+
+func (config *ClusterConfig) HostDiskEnabled() bool {
+	return config.isFeatureGateEnabled(HostDiskGate)
 }
