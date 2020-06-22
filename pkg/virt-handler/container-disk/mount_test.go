@@ -76,7 +76,7 @@ var _ = Describe("ContainerDisk", func() {
 				err = m.setMountTargetRecord(vmi, record)
 				Expect(err).ToNot(HaveOccurred())
 
-				// verify the the file actually exists
+				// verify the file actually exists
 				recordFile := filepath.Join(tmpDir, string(vmi.UID))
 				exists, err := diskutils.FileExists(recordFile)
 				Expect(err).ToNot(HaveOccurred())
@@ -106,7 +106,7 @@ var _ = Describe("ContainerDisk", func() {
 				err = m.deleteMountTargetRecord(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				// verify the the file is actually removed
+				// verify the file is actually removed
 				exists, err = diskutils.FileExists(recordFile)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(exists).To(BeFalse())

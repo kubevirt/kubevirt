@@ -211,7 +211,7 @@ var _ = Describe("Subresource Api", func() {
 	})
 
 	Describe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] the openapi spec for the subresources", func() {
-		It("[test_id:3177]should be aggregated into the the apiserver openapi spec", func() {
+		It("[test_id:3177]should be aggregated into the apiserver openapi spec", func() {
 			Eventually(func() string {
 				spec, err := virtCli.RestClient().Get().AbsPath("/openapi/v2").DoRaw()
 				Expect(err).ToNot(HaveOccurred())
