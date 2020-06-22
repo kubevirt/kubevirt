@@ -134,12 +134,14 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		return err
 	}
 
-	if !isExist {
+	// ignore the driver.loadCachedInterface for slirp and set the Pod interface cache
+	if !isExist || iface.Slirp != nil {
 		err := setPodInterfaceCache(iface, podInterfaceName, string(vmi.ObjectMeta.UID))
 		if err != nil {
 			return err
 		}
-
+	}
+	if !isExist {
 		err = driver.discoverPodNetworkInterface()
 		if err != nil {
 			return err
