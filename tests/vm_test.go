@@ -109,6 +109,94 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
 			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
 		})
+		It("should be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
+			dv := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+			_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+			Expect(err).To(BeNil())
+
+			defer func(dv *cdiv1.DataVolume) {
+				By("Deleting the DataVolume")
+				ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+			}(dv)
+			tests.WaitForSuccessfulDataVolumeImport(dv, 60)
+
+			vmi := tests.NewRandomVMI()
+
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+
+			diskName := "disk0"
+			bus := "virtio"
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: diskName,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: bus,
+					},
+				},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: diskName,
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: dv.ObjectMeta.Name,
+					},
+				},
+			})
+
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+
+			vm := tests.NewRandomVirtualMachine(vmi, true)
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, *dv)
+			_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).Should(HaveOccurred())
+		})
+		It("should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
+			dv := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+			_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+			Expect(err).To(BeNil())
+
+			defer func(dv *cdiv1.DataVolume) {
+				By("Deleting the DataVolume")
+				ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+			}(dv)
+			tests.WaitForSuccessfulDataVolumeImport(dv, 60)
+
+			vmi := tests.NewRandomVMI()
+
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+
+			diskName := "disk0"
+			bus := "virtio"
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: diskName,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: bus,
+					},
+				},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: diskName,
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: dv.ObjectMeta.Name,
+					},
+				},
+			})
+
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+
+			vm := tests.NewRandomVirtualMachine(vmi, true)
+			_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			Eventually(func() bool {
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				return vm.Status.Created
+			}, 30*time.Second, 1*time.Second).Should(Equal(false))
+		})
 	})
 
 	Context("A mutated VirtualMachine given", func() {

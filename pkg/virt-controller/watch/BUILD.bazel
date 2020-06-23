@@ -9,6 +9,7 @@ go_library(
         "replicaset.go",
         "snapshot.go",
         "snapshot_base.go",
+        "util.go",
         "vm.go",
         "vmi.go",
     ],
