@@ -466,7 +466,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.BeforeTestCleanup()
 
 				// set autoconverge flag
-				tests.UpdateClusterConfigValueAndWait("migrations", `{"allowAutoConverge": true}`)
+				tests.UpdateClusterConfigValueAndWait("migrations", `{"allowAutoConverge": "true"}`)
 			})
 
 			It("[test_id:3237]should complete a migration", func() {
