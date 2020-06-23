@@ -140,6 +140,7 @@ func NewController(
 
 	c.launcherClients = make(map[types.UID]*launcherClientInfo)
 	c.phase1NetworkSetupCache = make(map[types.UID]int)
+	c.podInterfaceCache = make(map[string]*network.PodCacheInterface)
 
 	c.domainNotifyPipes = make(map[string]string)
 
@@ -176,6 +177,11 @@ type VirtualMachineController struct {
 	// prevents cycling an unncessary posix thread.
 	phase1NetworkSetupCache     map[types.UID]int
 	phase1NetworkSetupCacheLock sync.Mutex
+
+	// key is the file path, value is the contents.
+	// if key exists, then don't read directly from file.
+	podInterfaceCache     map[string]*network.PodCacheInterface
+	podInterfaceCacheLock sync.Mutex
 
 	domainNotifyPipes map[string]string
 }
@@ -328,9 +334,23 @@ func (d *VirtualMachineController) hasTargetDetectedDomain(vmi *v1.VirtualMachin
 
 func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineInstance) {
 	d.phase1NetworkSetupCacheLock.Lock()
-	defer d.phase1NetworkSetupCacheLock.Unlock()
-
 	delete(d.phase1NetworkSetupCache, vmi.UID)
+	d.phase1NetworkSetupCacheLock.Unlock()
+
+	// Clean Pod interface cache from map and files
+	d.podInterfaceCacheLock.Lock()
+	for key, _ := range d.podInterfaceCache {
+		if strings.Contains(key, string(vmi.UID)) {
+			delete(d.podInterfaceCache, key)
+		}
+	}
+	d.podInterfaceCacheLock.Unlock()
+
+	vmiIfaceDir := fmt.Sprintf(virtutil.VMIInterfaceDir, vmi.UID)
+	err := os.RemoveAll(vmiIfaceDir)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to delete VMI Network cache files: %s", err.Error())
+	}
 }
 
 // Reaching into the network namespace of the VMI's pod is expensive because
@@ -377,6 +397,36 @@ func domainMigrated(domain *api.Domain) bool {
 	return false
 }
 
+func (d *VirtualMachineController) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*network.PodCacheInterface, error) {
+	ifacepath := fmt.Sprintf(virtutil.VMIInterfacepath, vmi.ObjectMeta.UID, ifaceName)
+
+	// Once the Interface files are set on the handler, they don't change
+	// If already present in the map, don't read again
+	d.podInterfaceCacheLock.Lock()
+	result, exists := d.podInterfaceCache[ifacepath]
+	d.podInterfaceCacheLock.Unlock()
+
+	if exists {
+		return result, nil
+	}
+
+	content, err := ioutil.ReadFile(ifacepath)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to read from cache file: %s", err.Error())
+		return nil, err
+	}
+	err = json.Unmarshal(content, &result)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to unmarshal interface content: %s", err.Error())
+		return nil, err
+	}
+	d.podInterfaceCacheLock.Lock()
+	d.podInterfaceCache[ifacepath] = result
+	d.podInterfaceCacheLock.Unlock()
+
+	return result, nil
+}
+
 func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
@@ -407,10 +457,31 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			}
 		}
 
+		if len(vmi.Status.Interfaces) == 0 {
+			// Set Pod Interface
+			interfaces := make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+			for _, network := range vmi.Spec.Networks {
+				if network.NetworkSource.Pod != nil {
+					podIface, err := d.getPodInterfacefromFileCache(vmi, network.Name)
+					if err != nil {
+						return err
+					}
+					ifc := v1.VirtualMachineInstanceNetworkInterface{
+						Name: network.Name,
+						IP:   podIface.PodIP,
+						IPs:  []string{podIface.PodIP},
+					}
+					interfaces = append(interfaces, ifc)
+				}
+			}
+			vmi.Status.Interfaces = interfaces
+		}
+
 		if len(domain.Spec.Devices.Interfaces) > 0 || len(domain.Status.Interfaces) > 0 {
 			// This calculates the vmi.Status.Interfaces based on the following data sets:
-			// - vmi.Status.Interfaces - previously calculated interfaces, this can contains data
-			//   set in the controller (pod IP) which can not be deleted, unless overridden by Qemu agent
+			// - vmi.Status.Interfaces - previously calculated interfaces, this can contain data (pod IP)
+			//   set in the previous loops (when there are no interfaces), which can not be deleted,
+			//   unless overridden by Qemu agent
 			// - domain.Spec - interfaces form the Spec
 			// - domain.Status.Interfaces - interfaces reported by guest agent (emtpy if Qemu agent not running)
 			newInterfaces := []v1.VirtualMachineInstanceNetworkInterface{}
@@ -431,6 +502,10 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			for _, existingInterfaceSpec := range vmi.Spec.Domain.Devices.Interfaces {
 				existingInterfacesSpecByName[existingInterfaceSpec.Name] = existingInterfaceSpec
 			}
+			existingNetworksByName := map[string]v1.Network{}
+			for _, existingNetwork := range vmi.Spec.Networks {
+				existingNetworksByName[existingNetwork.Name] = existingNetwork
+			}
 
 			// Iterate through all domain.Spec interfaces
 			for _, domainInterface := range domain.Spec.Devices.Interfaces {
@@ -447,6 +522,19 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 					// Only interfaces defined in domain.Spec are handled here
 					newInterface = existingInterface
 					newInterface.MAC = interfaceMAC
+
+					// If it is a Combination of Masquerade+Pod network, check IP from file cache
+					if existingInterfacesSpecByName[domainInterface.Alias.Name].Masquerade != nil && existingNetworksByName[domainInterface.Alias.Name].NetworkSource.Pod != nil {
+						iface, err := d.getPodInterfacefromFileCache(vmi, domainInterface.Alias.Name)
+						if err != nil {
+							return err
+						}
+						if iface.PodIP != existingInterfaceStatusByName[domainInterface.Alias.Name].IP {
+							newInterface.Name = domainInterface.Alias.Name
+							newInterface.IP = iface.PodIP
+							newInterface.IPs = []string{iface.PodIP}
+						}
+					}
 				} else {
 					// If not present in vmi.Status.Interfaces, create a new one based on domain.Spec
 					newInterface = v1.VirtualMachineInstanceNetworkInterface{
