@@ -37,7 +37,7 @@ But in case that you have issues, please
 ## What's the difference between KubeVirt and Kata containers?
 
 [Kata containers](https://katacontainers.io/) allow you to run containers inside virtual machines.  
-KubeVirt allows you to run full virtual machines on Kubernetes with the same as ease as running container workloads.  
+KubeVirt allows you to run full virtual machines on Kubernetes alongside regular containers.  
 One could say they're opposites:  
 Kata containers are containers inside virtual machines.  
 KubeVirt is a virtual machine inside a container.
