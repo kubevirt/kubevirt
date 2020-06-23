@@ -626,6 +626,8 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 			log.Log.Reason(err).Errorf("failed to create ipv4 nat rules for vm error: %v", err)
 			return err
 		}
+	} else {
+		return fmt.Errorf("Couldn't configure ipv4 nat rules")
 	}
 	if Handler.IsIpv6Enabled() {
 		if Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil {
@@ -641,7 +643,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 				return err
 			}
 		} else {
-			return fmt.Errorf("Couldn't configure nat rules")
+			return fmt.Errorf("Couldn't configure ipv6 nat rules")
 		}
 	}
 
