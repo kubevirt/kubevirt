@@ -633,7 +633,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 		if Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil {
 			err = Handler.ConfigureIpv6Forwarding()
 			if err != nil {
-				log.Log.Reason(err).Errorf("failed to turn on net.ipv6.conf.all.forwarding")
+				log.Log.Reason(err).Errorf("failed to configure ipv6 forwarding")
 				return err
 			}
 
