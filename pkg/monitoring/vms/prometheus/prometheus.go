@@ -152,6 +152,9 @@
  }
  
  func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+	 memoryResidentLabels = []string{"node", "namespace", "name"}
+	 memoryAvailableLabels = []string{"node", "namespace", "name"}
+	 swapTrafficLabels = []string{"node", "namespace", "name", "type"}
 	 var memoryResidentLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name}
 	 var memoryAvailableLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name}
 	 var swapTrafficInLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, "in"}
@@ -250,6 +253,7 @@
  
  func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	 for vcpuId, vcpu := range vmStats.Vcpu {
+		 vcpuUsageLabels = []string{"node", "namespace", "name", "id", "state"}
 		 var vcpuUsageLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, fmt.Sprintf("%v", vcpuId), fmt.Sprintf("%v", vcpu.State)}
  
 		 // Add k8s metadata.Labels as metric labels
@@ -288,6 +292,9 @@
  
  func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	 for blockId, block := range vmStats.Block {
+		 storageIopsLabels = []string{"node", "namespace", "name", "drive", "type"}
+		 storageTrafficLabels = []string{"node", "namespace", "name", "drive", "type"}
+		 storageTimesLabels = []string{"node", "namespace", "name", "drive", "type"}
 		 var storageIopsReadLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
 		 var storageIopsWriteLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "write"}
 		 var storageTrafficReadLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
@@ -408,6 +415,9 @@
  
  func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	 for _, net := range vmStats.Net {
+		 networkTrafficBytesLabels = []string{"node", "namespace", "name", "interface", "type"}
+		 networkTrafficPktsLabels = []string{"node", "namespace", "name", "interface", "type"}
+		 networkErrorsLabels = []string{"node", "namespace", "name", "interface", "type"}
 		 var networkTrafficBytesRxLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx",}
 		 var networkTrafficBytesTxLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "tx",}
 		 var networkTrafficPktsRxLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx",}
@@ -707,4 +717,3 @@
 			 }),
 	 )
  }
-  
