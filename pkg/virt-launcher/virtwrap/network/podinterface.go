@@ -103,7 +103,7 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 	if !isExist {
 		err := driver.discoverPodNetworkInterface()
 		if err != nil {
-			return createCriticalNetworkError(err)
+			return err
 		}
 
 		if err := driver.preparePodNetworkInterfaces(); err != nil {
