@@ -619,7 +619,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				})
 				Expect(err).ToNot(HaveOccurred(), "Should list pods successfully")
 				Expect(pods.Items).To(HaveLen(1), "There should be only one VMI pod")
-				Expect(virtClient.CoreV1().Pods(vmi.Namespace).Delete(pods.Items[0].Name, &metav1.DeleteOptions{})).To(Succeed(), "The vmi pod should be deleted successfully")
+				var gracePeriod int64 = 0
+				Expect(virtClient.CoreV1().Pods(vmi.Namespace).Delete(pods.Items[0].Name, &metav1.DeleteOptions{
+					GracePeriodSeconds: &gracePeriod,
+				})).To(Succeed(), "The vmi pod should be deleted successfully")
 
 				// it will take at least 45 seconds until the vmi is gone, check the schedulable state in the meantime
 				By("marking the node as not schedulable")
