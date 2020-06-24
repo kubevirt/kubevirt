@@ -17,19 +17,17 @@ Use it to obtain an opinionated deployment of KubeVirt and its helper operators.
 
 ![](images/HCO-design.jpg)
 
-## Installing HCO Community Operator (OpenShift Only)
-The Hyperconverged Cluster Operator is published as a Community Operator in
-Operatorhub.io.  In the UI, you can search for it under the "OperatorHub"
-tab or deploy from the commandline:
-
-```bash
-$ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/hco.yaml | kubectl create -f -
-```
-
 ## Installing HCO using kustomize (Openshift OLM Only)
-Refer to [kustomize deployment documentation](deploy/kustomize/README.md).
+To install the default community HyperConverged Cluster Operator, along with its underlying components, run:
+```bash
+$ curl -L https://api.github.com/repos/kubevirt/hyperconverged-cluster-operator/tarball/master | \
+tar --strip-components=1 -xvzf - kubevirt-hyperconverged-cluster-operator-*/deploy/kustomize
 
-**NOTE**: `deploy/deploy_marketplace.sh` and `deploy/deploy_imageregistry.sh` will be deprecated soon.
+$ ./deploy/kustomize/deploy_kustomize.sh
+```
+The deployment is completed when HCO custom resource reports its condition as `Available`.
+
+For more explanation and advanced options for HCO deployment using kustomize, refer to [kustomize deployment documentation](deploy/kustomize/README.md).
 
 ## Installing Unreleased Bundles Using Marketplace
 The hyperconverged cluster operator will publish the lastest bundles to [quay/kubevirt-hyperconvered/hco-operatohub](https://quay.io/application/kubevirt-hyperconverged/hco-operatorhub)

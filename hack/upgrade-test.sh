@@ -172,12 +172,12 @@ EOF
 ./hack/retry.sh 20 30 "${CMD} get subscription -n kubevirt-hyperconverged | grep -v EOF"
 ./hack/retry.sh 20 30 "${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator"
 
-HCO_OPERATOR_POD=`${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator  | grep Running | head -1 | awk '{ print $1 }'`
+HCO_OPERATOR_POD=`${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator  | grep 'Running\|ContainerCreating' | head -1 | awk '{ print $1 }'`
 ${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverged --timeout="1200s"
 
 ${CMD} create -f ./deploy/hco.cr.yaml -n kubevirt-hyperconverged
 
-HCO_OPERATOR_POD=`${CMD} get pods -n ${HCO_NAMESPACE} | grep hco-operator | grep Running | head -1 | awk '{ print $1 }'`
+HCO_OPERATOR_POD=`${CMD} get pods -n ${HCO_NAMESPACE} | grep hco-operator | grep 'Running\|ContainerCreating' | head -1 | awk '{ print $1 }'`
 
 ${CMD} wait -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} --for condition=Available --timeout=30m
 ${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n ${HCO_NAMESPACE} --timeout=30m
