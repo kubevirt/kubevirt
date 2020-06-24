@@ -217,7 +217,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		Eventually(func() bool {
 			_, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
 			return err == nil
-		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
+		}, vmCreationTimeout, 1*time.Second).Should(BeTrue())
 
 		By("Creating a running VMI to avoid empty output")
 		guardVmi := tests.NewRandomVMI()
@@ -265,7 +265,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 			}
 
 			return false
-		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
+		}, vmCreationTimeout, 1*time.Second).Should(BeTrue())
 
 		// There might be a second (or more?) guardVmi "running" line in the pipeline... Squashing it (/them) first
 		for vmiStatus[0] == guardVmi.Name {
@@ -328,7 +328,7 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 			}
 
 			return false
-		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
+		}, vmCreationTimeout, 1*time.Second).Should(BeTrue())
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
 		Expect(err).ToNot(HaveOccurred())
