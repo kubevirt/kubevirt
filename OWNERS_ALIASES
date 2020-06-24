@@ -13,6 +13,8 @@ aliases:
       - codificat
       - danielBelenky
       - dhiller
+      - jean-edouard
+      - ashleyschuett
   emeritus_approvers:
       - mfranczy
   code-reviewers:
@@ -33,6 +35,7 @@ aliases:
       - jean-edouard
       - AlonaKaplan
       - omeryahud
+      - ashleyschuett
   ux-reviewers:
       - matthewcarleton
   test-reviewers:
