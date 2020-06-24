@@ -148,7 +148,7 @@ var (
 
 func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch chan<- prometheus.Metric) {
 	if err != nil {
-		log.Log.V(4).Warningf("Error creating the new const metric for %s: %s", memoryAvailableDesc, err)
+		log.Log.V(4).Warningf("Error creating the new const metric for %s: %s", desc, err)
 		return
 	}
 	ch <- mv
@@ -303,7 +303,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 		for label, val := range vmi.Labels {
 			storageIopsLabels = append(storageIopsLabels, labelPreffix+labelFormatter.Replace(label))
 			storageIopsReadLabelsValues = append(storageIopsReadLabelsValues, val)
-			storageIopsWriteLabelsValues = append(storageIopsReadLabelsValues, val)
+			storageIopsWriteLabelsValues = append(storageIopsWriteLabelsValues, val)
 
 			storageTrafficLabels = append(storageTrafficLabels, labelPreffix+labelFormatter.Replace(label))
 			storageTrafficReadLabelsValues = append(storageTrafficReadLabelsValues, val)
@@ -318,7 +318,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 		for annotation, val := range vmi.Annotations {
 			storageIopsLabels = append(storageIopsLabels, annotationPreffix+labelFormatter.Replace(annotation))
 			storageIopsReadLabelsValues = append(storageIopsReadLabelsValues, val)
-			storageIopsWriteLabelsValues = append(storageIopsReadLabelsValues, val)
+			storageIopsWriteLabelsValues = append(storageIopsWriteLabelsValues, val)
 
 			storageTrafficLabels = append(storageTrafficLabels, annotationPreffix+labelFormatter.Replace(annotation))
 			storageTrafficReadLabelsValues = append(storageTrafficReadLabelsValues, val)
