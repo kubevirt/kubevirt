@@ -1055,6 +1055,71 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry("and in failed state", k8sv1.PodFailed),
 		)
 	})
+
+	Context("When VirtualMachineInstance is connected to a network", func() {
+		It("should report the status of this network", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Scheduling
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			networkName := "test net"
+			podIp := "1.1.1.1"
+			pod.Status.PodIP = podIp
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: networkName,
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{
+							VMNetworkCIDR: "1.1.1.1",
+						},
+					},
+				},
+			}
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(networkName))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(podIp))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs[0]).To(Equal(podIp))
+			}).Return(vmi, nil)
+			controller.Execute()
+		})
+
+		It("should only report the pod network in status", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Scheduling
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			networkName := "test net"
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: networkName,
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{
+							VMNetworkCIDR: "1.1.1.1",
+						},
+					},
+				},
+				v1.Network{
+					Name: networkName,
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{
+							NetworkName: "multus",
+						},
+					},
+				},
+			}
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
+			}).Return(vmi, nil)
+			controller.Execute()
+		})
+	})
 })
 
 func NewPendingVirtualMachine(name string) *v1.VirtualMachineInstance {

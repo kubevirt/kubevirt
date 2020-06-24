@@ -30,8 +30,6 @@ import (
 	"strconv"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/util"
-
 	"github.com/coreos/go-iptables/iptables"
 
 	"github.com/vishvananda/netlink"
@@ -83,38 +81,6 @@ func writeVifFile(buf []byte, pid, name string) error {
 	return nil
 }
 
-func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid string) error {
-	link, err := Handler.LinkByName(podInterfaceName)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterfaceName)
-		return err
-	}
-	// get IP address
-	addrList, err := Handler.AddrList(link, netlink.FAMILY_ALL)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterfaceName)
-		return err
-	}
-	// no ip assigned. ipam disabled
-	if len(addrList) == 0 {
-		return nil
-	}
-
-	for _, addr := range addrList {
-		if addr.IP.IsGlobalUnicast() {
-			err = writeToCachedFile(PodCacheInterface{Iface: iface, PodIP: addr.IP.String()},
-				util.VMIInterfacepath, uid, iface.Name)
-			if err != nil {
-				log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
-				return err
-			}
-			return nil
-		}
-	}
-
-	return nil
-}
-
 func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
 	initHandler()
 
@@ -134,15 +100,8 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		return err
 	}
 
-	// ignore the driver.loadCachedInterface for slirp and set the Pod interface cache
-	if !isExist || iface.Slirp != nil {
-		err := setPodInterfaceCache(iface, podInterfaceName, string(vmi.ObjectMeta.UID))
-		if err != nil {
-			return err
-		}
-	}
 	if !isExist {
-		err = driver.discoverPodNetworkInterface()
+		err := driver.discoverPodNetworkInterface()
 		if err != nil {
 			return err
 		}
