@@ -63,7 +63,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Context("Expose ClusterIP service", func() {
 			const servicePort = "27017"
 			const serviceName = "cluster-ip-vmi"
-			It("[test_id:1531]Should expose a Cluster IP service on a VMI and connect to it", func() {
+			It("[test_id:1531][label:masquerade_binding_connectivity]Should expose a Cluster IP service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
@@ -143,7 +143,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			const servicePort = "27017"
 			const serviceName = "node-port-vmi"
 
-			It("[test_id:1534]Should expose a NodePort service on a VMI and connect to it", func() {
+			It("[test_id:1534[label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
@@ -189,7 +189,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			const servicePort = "28017"
 			const serviceName = "cluster-ip-udp-vmi"
 
-			It("[test_id:1535]Should expose a ClusterIP service on a VMI and connect to it", func() {
+			It("[test_id:1535][label:masquerade_binding_connectivity]Should expose a ClusterIP service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
@@ -216,7 +216,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			const servicePort = "29017"
 			const serviceName = "node-port-udp-vmi"
 
-			It("[test_id:1536]Should expose a NodePort service on a VMI and connect to it", func() {
+			It("[test_id:1536][label:masquerade_binding_connectivity]Should expose a NodePort service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
@@ -295,7 +295,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			const servicePort = "27017"
 			const serviceName = "cluster-ip-vmirs"
 
-			It("[test_id:1537]Should create a ClusterIP service on VMRS and connect to it", func() {
+			It("[test_id:1537][label:masquerade_binding_connectivity]Should create a ClusterIP service on VMRS and connect to it", func() {
 				By("Expose a service on the VMRS using virtctl")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", "--namespace",
 					vmrs.Namespace, vmrs.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
@@ -363,7 +363,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Context("Expose a VM as a ClusterIP service.", func() {
-			It("[test_id:1538]Connect to ClusterIP service that was set when VM was offline.", func() {
+			It("[test_id:1538][label:masquerade_binding_connectivity]Connect to ClusterIP service that was set when VM was offline.", func() {
 				// This TC also covers:
 				// [test_id:1795] Exposed VM (as a service) can be reconnected multiple times.
 				By("Getting back the cluster IP given for the service")
@@ -388,7 +388,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 120)
 			})
 
-			It("[test_id:345]Should verify the exposed service is functional before and after VM restart.", func() {
+			It("[test_id:345][label:masquerade_binding_connectivity]Should verify the exposed service is functional before and after VM restart.", func() {
 				vmObj := vm
 
 				By("Getting back the service's allocated cluster IP.")
@@ -440,7 +440,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				waitForJobToCompleteWithStatus(&virtClient, job, k8sv1.PodSucceeded, 120)
 			})
 
-			It("[test_id:343]Should Verify an exposed service of a VM is not functional after VM deletion.", func() {
+			It("[test_id:343][label:masquerade_binding_connectivity]Should Verify an exposed service of a VM is not functional after VM deletion.", func() {
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
