@@ -1,5 +1,6 @@
 export GO15VENDOREXPERIMENT := 1
 
+SHELL = ./hack/timestamps.sh
 
 all:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh && \
