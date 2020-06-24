@@ -1420,7 +1420,7 @@ var _ = Describe("Configurations", func() {
 					return true
 				}
 				return false
-			}, 30*time.Second, 1*time.Second).Should(BeTrue())
+			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
