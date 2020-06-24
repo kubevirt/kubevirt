@@ -3,13 +3,13 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1alpha1","kind":"HyperConverged","metadata":{"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{"BareMetalPlatform":false}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1alpha1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"nmstate":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1alpha3","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtCommonTemplatesBundle","metadata":{"name":"kubevirt-common-template-bundle"},"spec":{"version":"v0.7.0"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtMetricsAggregation","metadata":{"name":"kubevirt-metrics-aggregation"},"spec":{"version":"v0.0.1"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtNodeLabellerBundle","metadata":{"name":"kubevirt-node-labeller-bundle"},"spec":{"version":"v0.1.1"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtTemplateValidator","metadata":{"name":"kubevirt-template-validator","namespace":"kubevirt"},"spec":{"templateValidatorReplicas":2,"version":"v0.6.6"}},{"apiVersion":"cdi.kubevirt.io/v1alpha1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"nodemaintenance.kubevirt.io/v1beta1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-xyz"},"spec":{"nodeName":"node02","reason":"Test
+    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1alpha1","kind":"HyperConverged","metadata":{"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{"BareMetalPlatform":false}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1alpha1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"nmstate":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1alpha3","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtCommonTemplatesBundle","metadata":{"name":"kubevirt-common-template-bundle"},"spec":{"version":"v0.11.1"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtMetricsAggregation","metadata":{"name":"kubevirt-metrics-aggregation"},"spec":{"version":"v0.0.1"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtNodeLabellerBundle","metadata":{"name":"kubevirt-node-labeller-bundle"},"spec":{"version":"v0.1.1"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtTemplateValidator","metadata":{"name":"kubevirt-template-validator","namespace":"kubevirt"},"spec":{"templateValidatorReplicas":2,"version":"v0.6.6"}},{"apiVersion":"cdi.kubevirt.io/v1alpha1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"nodemaintenance.kubevirt.io/v1beta1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-xyz"},"spec":{"nodeName":"node02","reason":"Test
       node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1alpha1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","pathConfig":{"path":"/var/hpvolumes","useNamingPrefix":"false"}}},{"apiVersion":"v2v.kubevirt.io/v1alpha1","kind":"VMImportConfig","metadata":{"name":"vm-import-operator-config"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
     capabilities: Full Lifecycle
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.2.0
-    createdAt: "2020-06-21 21:30:32"
+    createdAt: "2020-06-24 14:44:47"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -907,6 +907,7 @@ spec:
           - patch
           - update
           - watch
+          - delete
         - apiGroups:
           - monitoring.coreos.com
           resources:
@@ -917,6 +918,7 @@ spec:
           - list
           - patch
           - watch
+          - delete
         - apiGroups:
           - monitoring.coreos.com
           resources:
@@ -958,6 +960,7 @@ spec:
           - list
           - patch
           - watch
+          - delete
         - apiGroups:
           - ""
           resources:
@@ -972,6 +975,7 @@ spec:
           - patch
           - list
           - watch
+          - delete
         - apiGroups:
           - ""
           resources:
@@ -1006,6 +1010,16 @@ spec:
           - list
           - patch
           - watch
+        - apiGroups:
+          - security.openshift.io
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - get
+          - list
+          - create
+          - watch
+          - patch
         - apiGroups:
           - security.openshift.io
           resourceNames:
@@ -1470,7 +1484,7 @@ spec:
                 - name: NETWORK_ADDONS_VERSION
                   value: 0.39.1
                 - name: SSP_VERSION
-                  value: v1.0.37
+                  value: v1.0.38
                 - name: NMO_VERSION
                   value: v0.6.0
                 - name: HPPO_VERSION
@@ -1641,7 +1655,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: IMAGE_REFERENCE
-                  value: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.37
+                  value: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.38
                 - name: WATCH_NAMESPACE
                 - name: KVM_INFO_TAG
                 - name: VALIDATOR_TAG
@@ -1651,7 +1665,9 @@ spec:
                 - name: IMAGE_NAME_PREFIX
                 - name: OPERATOR_NAME
                   value: kubevirt-ssp-operator
-                image: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.37
+                - name: OPERATOR_VERSION
+                  value: v1.0.38
+                image: quay.io/fromani/kubevirt-ssp-operator-container:v1.0.38
                 imagePullPolicy: Always
                 name: kubevirt-ssp-operator
                 ports:

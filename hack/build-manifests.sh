@@ -126,6 +126,7 @@ function create_ssp_csv() {
     --namespace=${OPERATOR_NAMESPACE} \
     --csv-version=${CSV_VERSION} \
     --operator-image=${SSP_IMAGE} \
+    --operator-version=${SSP_VERSION} \
   "
 
   gen_csv ${operatorName} ${imagePullUrl} ${dumpCRDsArg} ${operatorArgs}

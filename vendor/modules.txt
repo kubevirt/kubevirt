@@ -1,6 +1,6 @@
 # cloud.google.com/go v0.53.0
 cloud.google.com/go/compute/metadata
-# github.com/MarSik/kubevirt-ssp-operator v1.0.37
+# github.com/MarSik/kubevirt-ssp-operator v1.0.38
 github.com/MarSik/kubevirt-ssp-operator/pkg/apis
 github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1
 # github.com/PuerkitoBio/purell v1.1.1
