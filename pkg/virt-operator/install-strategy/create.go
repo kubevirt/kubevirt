@@ -1710,7 +1710,7 @@ func createOrUpdateCertificateSecret(
 		} else if cachedSecret.Annotations["kubevirt.io/duration"] != duration.String() {
 			rotateCertificate = true
 		} else {
-			rotationTime := components.NextRotationDeadline(crt, ca)
+			rotationTime := components.NextRotationDeadline(crt, ca, duration)
 			// We update the certificate if it has passed 80 percent of its lifetime
 			if rotationTime.Before(time.Now()) {
 				rotateCertificate = true
@@ -1732,7 +1732,7 @@ func createOrUpdateCertificateSecret(
 		return nil, err
 	}
 	// we need to ensure that we revisit certificates before they expire
-	wakeupDeadline := components.NextRotationDeadline(crt, ca).Sub(time.Now())
+	wakeupDeadline := components.NextRotationDeadline(crt, ca, duration).Sub(time.Now())
 	queue.AddAfter(kvkey, wakeupDeadline)
 
 	injectOperatorMetadata(kv, &secret.ObjectMeta, version, imageRegistry, id)
