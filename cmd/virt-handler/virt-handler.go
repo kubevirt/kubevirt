@@ -208,12 +208,6 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	// Directory to store notwork information related to VMIs
-	err = os.MkdirAll(util.NetworkInfoDir, 0755)
-	if err != nil {
-		panic(err)
-	}
-
 	cmdclient.SetPodsBaseDir("/pods")
 	cmdclient.SetLegacyBaseDir(app.VirtShareDir)
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
