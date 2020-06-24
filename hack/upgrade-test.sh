@@ -89,7 +89,8 @@ fi
 "${CMD}" delete catalogsource hco-catalogsource-example -n ${HCO_CATALOG_NAMESPACE} | true
 "${CMD}" delete operatorgroup hco-operatorgroup -n kubevirt-hyperconverged | true
 
-
+source hack/compare_scc.sh
+dump_sccs_before
 
 ${CMD} wait deployment packageserver --for condition=Available -n openshift-operator-lifecycle-manager --timeout="1200s"
 ${CMD} wait deployment catalog-operator --for condition=Available -n openshift-operator-lifecycle-manager --timeout="1200s"
@@ -235,4 +236,5 @@ ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep
 Msg "wait that cluster is operational after upgrade"
 timeout 10m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
 
+dump_sccs_after
 echo "upgrade-test completed successfully."

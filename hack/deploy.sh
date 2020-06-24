@@ -20,6 +20,7 @@
 set -ex
 
 source hack/common.sh
+source hack/compare_scc.sh
 
 HCO_IMAGE=${HCO_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:latest}
 HCO_NAMESPACE="kubevirt-hyperconverged"
@@ -41,6 +42,9 @@ rm -rf _out/
 
 # Copy release manifests as a base for generated ones, this should make it possible to upgrade
 cp -r deploy _out/
+
+# dump cluster SCCs to be sure we are not going to modify them with the deployment
+dump_sccs_before
 
 # if this is set we run on okd ci
 if [ -n "${IMAGE_FORMAT}" ]; then
@@ -143,6 +147,9 @@ fi
 for dep in cdi-apiserver cdi-deployment cdi-uploadproxy virt-api virt-controller; do
     "${CMD}" wait deployment/"${dep}" --for=condition=Available --timeout="360s" || CONTAINER_ERRORED+="${dep} "
 done
+
+# compare initial cluster SCCs to be sure HCO deployment didn't introduce any change
+dump_sccs_after
 
 if [ -z "$CONTAINER_ERRORED" ]; then
     echo "SUCCESS"

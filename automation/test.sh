@@ -1,10 +1,9 @@
 #!/bin/bash -xe
 
-if [[ $TARGET =~ okd-.* ]]; then
-  export KUBEVIRT_PROVIDER="okd-4.1"
+export KUBEVIRT_PROVIDER="$TARGET"
+
+if [[ $TARGET =~ okd-.* || $TARGET =~ ocp-.* ]]; then
   export KUBEVIRT_MEMORY_SIZE=6144M
-elif [[ $TARGET =~ k8s-.* ]]; then
-  export KUBEVIRT_PROVIDER="k8s-1.17"
 fi
 
 export KUBEVIRT_NUM_NODES=2
@@ -18,7 +17,7 @@ make ci-functest
 
 # Upgrade test requires OLM which is currently
 # only available with okd providers
-if [[ $TARGET =~ okd-.* ]]; then
+if [[ $TARGET =~ okd-.* || $TARGET =~ ocp-.* ]]; then
   make upgrade-test
   make ci-functest
 fi
