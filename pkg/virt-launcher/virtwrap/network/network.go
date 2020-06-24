@@ -27,10 +27,8 @@ package network
 
 import (
 	"fmt"
-	"os"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -42,11 +40,6 @@ var vifCacheFile = "/proc/%s/root/var/run/kubevirt-private/vif-cache-%s.json"
 var NetworkInterfaceFactory = getNetworkClass
 
 var podInterfaceName = podInterface
-
-type PodCacheInterface struct {
-	Iface *v1.Interface `json:"iface,omitempty"`
-	PodIP string        `json:"podIP,omitempty"`
-}
 
 type plugFunction func(vif NetworkInterface, vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 
@@ -102,11 +95,6 @@ func getPodInterfaceName(networks map[string]*v1.Network, cniNetworks map[string
 }
 
 func SetupNetworkInterfacesPhase1(vmi *v1.VirtualMachineInstance, pid int) error {
-	// Create a dir with VMI UID under network-info-dir to store network files
-	err := os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, vmi.ObjectMeta.UID), 0755)
-	if err != nil {
-		return err
-	}
 	networks, cniNetworks := getNetworksAndCniNetworks(vmi)
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		networkInterfaceFactory, err := getNetworkInterfaceFactory(networks, iface.Name)

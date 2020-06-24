@@ -20,15 +20,12 @@
 package network
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"runtime"
-
-	"kubevirt.io/kubevirt/pkg/util"
 
 	"github.com/coreos/go-iptables/iptables"
 
@@ -161,8 +158,7 @@ var _ = Describe("Pod Network", func() {
 	TestPodInterfaceIPBinding := func(vm *v1.VirtualMachineInstance, domain *api.Domain) {
 
 		//For Bridge tests
-		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil).Times(2)
-		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
+		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
 		mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)
 		mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
@@ -180,8 +176,6 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr, api.DefaultBridgeName, nil)
 
 		// For masquerade tests
-		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
-		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
 		mockNetwork.EXPECT().ParseAddr(masqueradeGwStr).Return(masqueradeGwAddr, nil)
 		mockNetwork.EXPECT().ParseAddr(masqueradeIpv6GwStr).Return(masqueradeIpv6GwAddr, nil)
 		mockNetwork.EXPECT().ParseAddr(masqueradeVmStr).Return(masqueradeVmAddr, nil)
@@ -279,8 +273,6 @@ var _ = Describe("Pod Network", func() {
 				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 				mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
-				mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
-				mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 				mockNetwork.EXPECT().LinkSetDown(dummy).Return(nil)
 				mockNetwork.EXPECT().SetRandomMac(podInterface).Return(updateFakeMac, nil)
 				mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
@@ -307,8 +299,7 @@ var _ = Describe("Pod Network", func() {
 
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
-			mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil).Times(2)
-			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
+			mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
 			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
 
@@ -728,31 +719,6 @@ var _ = Describe("Pod Network", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(succ).To(BeTrue())
 		})
-	})
-
-	It("should write interface to cache file", func() {
-		uid := "test-1234"
-		address1 := &net.IPNet{IP: net.IPv4(1, 2, 3, 4)}
-		address2 := &net.IPNet{IP: net.IPv4(169, 254, 0, 0)}
-		fakeAddr1 := netlink.Addr{IPNet: address1}
-		fakeAddr2 := netlink.Addr{IPNet: address2}
-		addrList := []netlink.Addr{fakeAddr1, fakeAddr2}
-		err := os.MkdirAll(fmt.Sprintf(util.VMIInterfaceDir, uid), 0755)
-		Expect(err).ToNot(HaveOccurred())
-
-		iface := &v1.Interface{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
-		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
-		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
-
-		err = setPodInterfaceCache(iface, podInterface, uid)
-		Expect(err).ToNot(HaveOccurred())
-
-		data, err := ioutil.ReadFile(fmt.Sprintf(util.VMIInterfacepath, uid, iface.Name))
-		Expect(err).ToNot(HaveOccurred())
-		var podData *PodCacheInterface
-		err = json.Unmarshal(data, &podData)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(podData.PodIP).To(Equal("1.2.3.4"))
 	})
 })
 

@@ -13,7 +13,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/network/dhcp:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
@@ -37,7 +36,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
