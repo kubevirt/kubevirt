@@ -47,6 +47,11 @@ var (
 	labelPreffix      = "kubernetes_vmi_label_"
 	annotationPreffix = "kubernetes_vmi_annotation_"
 
+	k8sLabels           = []string{}
+	k8sLabelValues      = []string{}
+	k8sAnnotations      = []string{}
+	k8sAnnotationValues = []string{}
+
 	// see https://www.robustperception.io/exposing-the-software-version-to-prometheus
 	versionDesc = prometheus.NewDesc(
 		"kubevirt_info",
@@ -96,35 +101,27 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 
 	// Initial memory metric label values
 	var memoryResidentLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name}
-	var memoryAvailableLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name}
-	var swapTrafficInLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, "in"}
-	var swapTrafficOutLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, "out"}
+	var memoryAvailableLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name}
+	var swapTrafficInLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, "in"}
+	var swapTrafficOutLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, "out"}
 
 	// Add k8s metadata.Labels as metric labels
-	for label, val := range vmi.Labels {
-		memoryResidentLabels = append(memoryResidentLabels, labelPreffix+labelFormatter.Replace(label))
-		memoryResidentLabelValues = append(memoryResidentLabelValues, val)
-
-		memoryAvailableLabels = append(memoryAvailableLabels, labelPreffix+labelFormatter.Replace(label))
-		memoryAvailableLabelsValues = append(memoryAvailableLabelsValues, val)
-
-		swapTrafficLabels = append(swapTrafficLabels, labelPreffix+labelFormatter.Replace(label))
-		swapTrafficInLabelsValues = append(swapTrafficInLabelsValues, val)
-		swapTrafficOutLabelsValues = append(swapTrafficOutLabelsValues, val)
-	}
+	memoryResidentLabels = append(memoryResidentLabels, k8sLabels...)
+	memoryAvailableLabels = append(memoryAvailableLabels, k8sLabels...)
+	swapTrafficLabels = append(swapTrafficLabels, k8sLabels...)
+	memoryResidentLabelValues = append(memoryResidentLabelValues, k8sLabelValues...)
+	memoryAvailableLabelValues = append(memoryAvailableLabelValues, k8sLabelValues...)
+	swapTrafficInLabelValues = append(swapTrafficInLabelValues, k8sLabelValues...)
+	swapTrafficOutLabelValues = append(swapTrafficOutLabelValues, k8sLabelValues...)
 
 	// Add k8s metadata.Annotations as metric labels
-	for annotation, val := range vmi.Annotations {
-		memoryResidentLabels = append(memoryResidentLabels, annotationPreffix+labelFormatter.Replace(annotation))
-		memoryResidentLabelValues = append(memoryResidentLabelValues, val)
-
-		memoryAvailableLabels = append(memoryAvailableLabels, annotationPreffix+labelFormatter.Replace(annotation))
-		memoryAvailableLabelsValues = append(memoryAvailableLabelsValues, val)
-
-		swapTrafficLabels = append(swapTrafficLabels, annotationPreffix+labelFormatter.Replace(annotation))
-		swapTrafficInLabelsValues = append(swapTrafficInLabelsValues, val)
-		swapTrafficOutLabelsValues = append(swapTrafficOutLabelsValues, val)
-	}
+	memoryResidentLabels = append(memoryResidentLabels, k8sAnnotations...)
+	memoryAvailableLabels = append(memoryAvailableLabels, k8sAnnotations...)
+	swapTrafficLabels = append(swapTrafficLabels, k8sAnnotations...)
+	memoryResidentLabelValues = append(memoryResidentLabelValues, k8sAnnotationValues...)
+	memoryAvailableLabelValues = append(memoryAvailableLabelValues, k8sAnnotationValues...)
+	swapTrafficInLabelValues = append(swapTrafficInLabelValues, k8sAnnotationValues...)
+	swapTrafficOutLabelValues = append(swapTrafficOutLabelValues, k8sAnnotationValues...)
 
 	memoryResidentDesc = prometheus.NewDesc(
 		"kubevirt_vmi_memory_resident_bytes",
@@ -162,7 +159,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			memoryAvailableDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.Available)*1024,
-			memoryAvailableLabelsValues...,
+			memoryAvailableLabelValues...,
 		)
 		tryToPushMetric(memoryAvailableDesc, mv, err, ch)
 	}
@@ -172,7 +169,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			swapTrafficDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.SwapIn)*1024,
-			swapTrafficInLabelsValues...,
+			swapTrafficInLabelValues...,
 		)
 		tryToPushMetric(swapTrafficDesc, mv, err, ch)
 	}
@@ -181,7 +178,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			swapTrafficDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.SwapOut)*1024,
-			swapTrafficOutLabelsValues...,
+			swapTrafficOutLabelValues...,
 		)
 		tryToPushMetric(swapTrafficDesc, mv, err, ch)
 	}
@@ -193,19 +190,15 @@ func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, c
 		var vcpuUsageLabels = []string{"node", "namespace", "name", "id", "state"}
 
 		// Initial vcpu metrics labels values
-		var vcpuUsageLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, fmt.Sprintf("%v", vcpuId), fmt.Sprintf("%v", vcpu.State)}
+		var vcpuUsageLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, fmt.Sprintf("%v", vcpuId), fmt.Sprintf("%v", vcpu.State)}
 
 		// Add k8s metadata.Labels as metric labels
-		for label, val := range vmi.Labels {
-			vcpuUsageLabels = append(vcpuUsageLabels, labelPreffix+labelFormatter.Replace(label))
-			vcpuUsageLabelsValues = append(vcpuUsageLabelsValues, val)
-		}
+		vcpuUsageLabels = append(vcpuUsageLabels, k8sLabels...)
+		vcpuUsageLabelValues = append(vcpuUsageLabelValues, k8sLabelValues...)
 
 		// Add k8s metadata.Annotations as metric labels
-		for annotation, val := range vmi.Annotations {
-			vcpuUsageLabels = append(vcpuUsageLabels, annotationPreffix+labelFormatter.Replace(annotation))
-			vcpuUsageLabelsValues = append(vcpuUsageLabelsValues, val)
-		}
+		vcpuUsageLabels = append(vcpuUsageLabels, k8sAnnotations...)
+		vcpuUsageLabelValues = append(vcpuUsageLabelValues, k8sAnnotationValues...)
 
 		vcpuUsageDesc = prometheus.NewDesc(
 			"kubevirt_vmi_vcpu_seconds",
@@ -221,7 +214,7 @@ func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, c
 		mv, err := prometheus.NewConstMetric(
 			vcpuUsageDesc, prometheus.GaugeValue,
 			float64(vcpu.Time/1000000000),
-			vcpuUsageLabelsValues...,
+			vcpuUsageLabelValues...,
 		)
 		tryToPushMetric(vcpuUsageDesc, mv, err, ch)
 	}
@@ -235,42 +228,34 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 		var storageTimesLabels = []string{"node", "namespace", "name", "drive", "type"}
 
 		// Initial block metrics labels values
-		var storageIopsReadLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
-		var storageIopsWriteLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "write"}
-		var storageTrafficReadLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
-		var storageTrafficWriteLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "write"}
-		var storageTimesReadLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
-		var storageTimesWriteLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "write"}
+		var storageIopsReadLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
+		var storageIopsWriteLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "write"}
+		var storageTrafficReadLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
+		var storageTrafficWriteLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "write"}
+		var storageTimesReadLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
+		var storageTimesWriteLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "write"}
 
 		// Add k8s metadata.Labels as metric labels
-		for label, val := range vmi.Labels {
-			storageIopsLabels = append(storageIopsLabels, labelPreffix+labelFormatter.Replace(label))
-			storageIopsReadLabelsValues = append(storageIopsReadLabelsValues, val)
-			storageIopsWriteLabelsValues = append(storageIopsWriteLabelsValues, val)
-
-			storageTrafficLabels = append(storageTrafficLabels, labelPreffix+labelFormatter.Replace(label))
-			storageTrafficReadLabelsValues = append(storageTrafficReadLabelsValues, val)
-			storageTrafficWriteLabelsValues = append(storageTrafficWriteLabelsValues, val)
-
-			storageTimesLabels = append(storageTimesLabels, labelPreffix+labelFormatter.Replace(label))
-			storageTimesReadLabelsValues = append(storageTimesReadLabelsValues, val)
-			storageTimesWriteLabelsValues = append(storageTimesWriteLabelsValues, val)
-		}
+		storageIopsLabels = append(storageIopsLabels, k8sLabels...)
+		storageTrafficLabels = append(storageTrafficLabels, k8sLabels...)
+		storageTimesLabels = append(storageTimesLabels, k8sLabels...)
+		storageIopsReadLabelValues = append(storageIopsReadLabelValues, k8sLabelValues...)
+		storageIopsWriteLabelValues = append(storageIopsWriteLabelValues, k8sLabelValues...)
+		storageTrafficReadLabelValues = append(storageTrafficReadLabelValues, k8sLabelValues...)
+		storageTrafficWriteLabelValues = append(storageTrafficWriteLabelValues, k8sLabelValues...)
+		storageTimesReadLabelValues = append(storageTimesReadLabelValues, k8sLabelValues...)
+		storageTimesWriteLabelValues = append(storageTimesWriteLabelValues, k8sLabelValues...)
 
 		// Add k8s metadata.Annotations as metric labels
-		for annotation, val := range vmi.Annotations {
-			storageIopsLabels = append(storageIopsLabels, annotationPreffix+labelFormatter.Replace(annotation))
-			storageIopsReadLabelsValues = append(storageIopsReadLabelsValues, val)
-			storageIopsWriteLabelsValues = append(storageIopsWriteLabelsValues, val)
-
-			storageTrafficLabels = append(storageTrafficLabels, annotationPreffix+labelFormatter.Replace(annotation))
-			storageTrafficReadLabelsValues = append(storageTrafficReadLabelsValues, val)
-			storageTrafficWriteLabelsValues = append(storageTrafficWriteLabelsValues, val)
-
-			storageTimesLabels = append(storageTimesLabels, annotationPreffix+labelFormatter.Replace(annotation))
-			storageTimesReadLabelsValues = append(storageTimesReadLabelsValues, val)
-			storageTimesWriteLabelsValues = append(storageTimesWriteLabelsValues, val)
-		}
+		storageIopsLabels = append(storageIopsLabels, k8sAnnotations...)
+		storageTrafficLabels = append(storageTrafficLabels, k8sAnnotations...)
+		storageTimesLabels = append(storageTimesLabels, k8sAnnotations...)
+		storageIopsReadLabelValues = append(storageIopsReadLabelValues, k8sAnnotationValues...)
+		storageIopsWriteLabelValues = append(storageIopsWriteLabelValues, k8sAnnotationValues...)
+		storageTrafficReadLabelValues = append(storageTrafficReadLabelValues, k8sAnnotationValues...)
+		storageTrafficWriteLabelValues = append(storageTrafficWriteLabelValues, k8sAnnotationValues...)
+		storageTimesReadLabelValues = append(storageTimesReadLabelValues, k8sAnnotationValues...)
+		storageTimesWriteLabelValues = append(storageTimesWriteLabelValues, k8sAnnotationValues...)
 
 		storageIopsDesc = prometheus.NewDesc(
 			"kubevirt_vmi_storage_iops_total",
@@ -302,7 +287,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 			mv, err := prometheus.NewConstMetric(
 				storageIopsDesc, prometheus.CounterValue,
 				float64(block.RdReqs),
-				storageIopsReadLabelsValues...,
+				storageIopsReadLabelValues...,
 			)
 			tryToPushMetric(storageIopsDesc, mv, err, ch)
 		}
@@ -310,7 +295,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 			mv, err := prometheus.NewConstMetric(
 				storageIopsDesc, prometheus.CounterValue,
 				float64(block.WrReqs),
-				storageIopsWriteLabelsValues...,
+				storageIopsWriteLabelValues...,
 			)
 			tryToPushMetric(storageIopsDesc, mv, err, ch)
 		}
@@ -319,7 +304,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 			mv, err := prometheus.NewConstMetric(
 				storageTrafficDesc, prometheus.CounterValue,
 				float64(block.RdBytes),
-				storageTrafficReadLabelsValues...,
+				storageTrafficReadLabelValues...,
 			)
 			tryToPushMetric(storageTrafficDesc, mv, err, ch)
 		}
@@ -327,7 +312,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 			mv, err := prometheus.NewConstMetric(
 				storageTrafficDesc, prometheus.CounterValue,
 				float64(block.WrBytes),
-				storageTrafficWriteLabelsValues...,
+				storageTrafficWriteLabelValues...,
 			)
 			tryToPushMetric(storageTrafficDesc, mv, err, ch)
 		}
@@ -336,7 +321,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 			mv, err := prometheus.NewConstMetric(
 				storageTimesDesc, prometheus.CounterValue,
 				float64(block.RdTimes),
-				storageTimesReadLabelsValues...,
+				storageTimesReadLabelValues...,
 			)
 			tryToPushMetric(storageTimesDesc, mv, err, ch)
 		}
@@ -344,7 +329,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 			mv, err := prometheus.NewConstMetric(
 				storageTimesDesc, prometheus.CounterValue,
 				float64(block.WrTimes),
-				storageTimesWriteLabelsValues...,
+				storageTimesWriteLabelValues...,
 			)
 			tryToPushMetric(storageTimesDesc, mv, err, ch)
 		}
@@ -359,42 +344,34 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 		var networkErrorsLabels = []string{"node", "namespace", "name", "interface", "type"}
 
 		// Initial network metrics labels values
-		var networkTrafficBytesRxLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx"}
-		var networkTrafficBytesTxLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "tx"}
-		var networkTrafficPktsRxLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx"}
-		var networkTrafficPktsTxLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "tx"}
-		var networkErrorsRxLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx"}
-		var networkErrorsTxLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "tx"}
+		var networkTrafficBytesRxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx"}
+		var networkTrafficBytesTxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "tx"}
+		var networkTrafficPktsRxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx"}
+		var networkTrafficPktsTxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "tx"}
+		var networkErrorsRxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx"}
+		var networkErrorsTxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "tx"}
 
 		// Add k8s metadata.Labels as metric labels
-		for label, val := range vmi.Labels {
-			networkTrafficBytesLabels = append(networkTrafficBytesLabels, labelPreffix+labelFormatter.Replace(label))
-			networkTrafficBytesRxLabelsValues = append(networkTrafficBytesRxLabelsValues, val)
-			networkTrafficBytesTxLabelsValues = append(networkTrafficBytesTxLabelsValues, val)
-
-			networkTrafficPktsLabels = append(networkTrafficPktsLabels, labelPreffix+labelFormatter.Replace(label))
-			networkTrafficPktsRxLabelsValues = append(networkTrafficPktsRxLabelsValues, val)
-			networkTrafficPktsTxLabelsValues = append(networkTrafficPktsTxLabelsValues, val)
-
-			networkErrorsLabels = append(networkErrorsLabels, labelPreffix+labelFormatter.Replace(label))
-			networkErrorsRxLabelsValues = append(networkErrorsRxLabelsValues, val)
-			networkErrorsTxLabelsValues = append(networkErrorsTxLabelsValues, val)
-		}
+		networkTrafficBytesLabels = append(networkTrafficBytesLabels, k8sLabels...)
+		networkTrafficPktsLabels = append(networkTrafficPktsLabels, k8sLabels...)
+		networkErrorsLabels = append(networkErrorsLabels, k8sLabels...)
+		networkTrafficBytesRxLabelValues = append(networkTrafficBytesRxLabelValues, k8sLabelValues...)
+		networkTrafficBytesTxLabelValues = append(networkTrafficBytesTxLabelValues, k8sLabelValues...)
+		networkTrafficPktsRxLabelValues = append(networkTrafficPktsRxLabelValues, k8sLabelValues...)
+		networkTrafficPktsTxLabelValues = append(networkTrafficPktsTxLabelValues, k8sLabelValues...)
+		networkErrorsRxLabelValues = append(networkErrorsRxLabelValues, k8sLabelValues...)
+		networkErrorsTxLabelValues = append(networkErrorsTxLabelValues, k8sLabelValues...)
 
 		// Add k8s metadata.Annotations as metric labels
-		for annotation, val := range vmi.Annotations {
-			networkTrafficBytesLabels = append(networkTrafficBytesLabels, annotationPreffix+labelFormatter.Replace(annotation))
-			networkTrafficBytesRxLabelsValues = append(networkTrafficBytesRxLabelsValues, val)
-			networkTrafficBytesTxLabelsValues = append(networkTrafficBytesTxLabelsValues, val)
-
-			networkTrafficPktsLabels = append(networkTrafficPktsLabels, annotationPreffix+labelFormatter.Replace(annotation))
-			networkTrafficPktsRxLabelsValues = append(networkTrafficPktsRxLabelsValues, val)
-			networkTrafficPktsTxLabelsValues = append(networkTrafficPktsTxLabelsValues, val)
-
-			networkErrorsLabels = append(networkErrorsLabels, annotationPreffix+labelFormatter.Replace(annotation))
-			networkErrorsRxLabelsValues = append(networkErrorsRxLabelsValues, val)
-			networkErrorsTxLabelsValues = append(networkErrorsTxLabelsValues, val)
-		}
+		networkTrafficBytesLabels = append(networkTrafficBytesLabels, k8sAnnotations...)
+		networkTrafficPktsLabels = append(networkTrafficPktsLabels, k8sAnnotations...)
+		networkErrorsLabels = append(networkErrorsLabels, k8sAnnotations...)
+		networkTrafficBytesRxLabelValues = append(networkTrafficBytesRxLabelValues, k8sAnnotationValues...)
+		networkTrafficBytesTxLabelValues = append(networkTrafficBytesTxLabelValues, k8sAnnotationValues...)
+		networkTrafficPktsRxLabelValues = append(networkTrafficPktsRxLabelValues, k8sAnnotationValues...)
+		networkTrafficPktsTxLabelValues = append(networkTrafficPktsTxLabelValues, k8sAnnotationValues...)
+		networkErrorsRxLabelValues = append(networkErrorsRxLabelValues, k8sAnnotationValues...)
+		networkErrorsTxLabelValues = append(networkErrorsTxLabelValues, k8sAnnotationValues...)
 
 		networkTrafficBytesDesc = prometheus.NewDesc(
 			"kubevirt_vmi_network_traffic_bytes_total",
@@ -424,7 +401,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 			mv, err := prometheus.NewConstMetric(
 				networkTrafficBytesDesc, prometheus.CounterValue,
 				float64(net.RxBytes),
-				networkTrafficBytesRxLabelsValues...,
+				networkTrafficBytesRxLabelValues...,
 			)
 			tryToPushMetric(networkTrafficBytesDesc, mv, err, ch)
 		}
@@ -432,7 +409,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 			mv, err := prometheus.NewConstMetric(
 				networkTrafficPktsDesc, prometheus.CounterValue,
 				float64(net.RxPkts),
-				networkTrafficPktsRxLabelsValues...,
+				networkTrafficPktsRxLabelValues...,
 			)
 			tryToPushMetric(networkTrafficPktsDesc, mv, err, ch)
 		}
@@ -440,7 +417,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 			mv, err := prometheus.NewConstMetric(
 				networkErrorsDesc, prometheus.CounterValue,
 				float64(net.RxErrs),
-				networkErrorsRxLabelsValues...,
+				networkErrorsRxLabelValues...,
 			)
 			tryToPushMetric(networkErrorsDesc, mv, err, ch)
 		}
@@ -449,7 +426,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 			mv, err := prometheus.NewConstMetric(
 				networkTrafficBytesDesc, prometheus.CounterValue,
 				float64(net.TxBytes),
-				networkTrafficBytesTxLabelsValues...,
+				networkTrafficBytesTxLabelValues...,
 			)
 			tryToPushMetric(networkTrafficBytesDesc, mv, err, ch)
 		}
@@ -457,7 +434,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 			mv, err := prometheus.NewConstMetric(
 				networkTrafficPktsDesc, prometheus.CounterValue,
 				float64(net.TxPkts),
-				networkTrafficPktsTxLabelsValues...,
+				networkTrafficPktsTxLabelValues...,
 			)
 			tryToPushMetric(networkTrafficPktsDesc, mv, err, ch)
 		}
@@ -465,7 +442,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 			mv, err := prometheus.NewConstMetric(
 				networkErrorsDesc, prometheus.CounterValue,
 				float64(net.TxErrs),
-				networkErrorsTxLabelsValues...,
+				networkErrorsTxLabelValues...,
 			)
 			tryToPushMetric(networkErrorsDesc, mv, err, ch)
 		}
@@ -640,6 +617,7 @@ func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachine
 		}
 	}()
 
+	updateLabelsAndAnnotations(vmi)
 	updateMemory(vmi, vmStats, ps.ch)
 	updateVcpu(vmi, vmStats, ps.ch)
 	updateBlock(vmi, vmStats, ps.ch)
@@ -655,4 +633,21 @@ func Handler(MaxRequestsInFlight int) http.Handler {
 				MaxRequestsInFlight: MaxRequestsInFlight,
 			}),
 	)
+}
+
+func updateLabelsAndAnnotations(vmi *k6tv1.VirtualMachineInstance) {
+	k8sLabels = []string{}
+	k8sLabelValues = []string{}
+	k8sAnnotations = []string{}
+	k8sAnnotationValues = []string{}
+
+	for label, val := range vmi.Labels {
+		k8sLabels = append(k8sLabels, labelPreffix+labelFormatter.Replace(label))
+		k8sLabelValues = append(k8sLabelValues, val)
+	}
+
+	for annotation, val := range vmi.Annotations {
+		k8sAnnotations = append(k8sAnnotations, annotationPreffix+labelFormatter.Replace(annotation))
+		k8sAnnotationValues = append(k8sAnnotationValues, val)
+	}
 }
