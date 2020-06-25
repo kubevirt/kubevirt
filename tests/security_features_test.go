@@ -188,4 +188,39 @@ var _ = Describe("SecurityFeatures", func() {
 			})
 		})
 	})
+
+	Context("Check virt-launcher capabilities", func() {
+		var container k8sv1.Container
+		var vmi *v1.VirtualMachineInstance
+
+		It("[test_id:4300]has precisely the documented extra capabilities relative to a regular user pod", func() {
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+
+			By("Starting a New VMI")
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Ensuring VMI is running by logging in")
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+
+			By("Fetching virt-launcher Pod")
+			pod := tests.GetPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+
+			for _, containerSpec := range pod.Spec.Containers {
+				if containerSpec.Name == "compute" {
+					container = containerSpec
+					break
+				}
+			}
+			caps := *container.SecurityContext.Capabilities
+			Expect(len(caps.Add)).To(Equal(3))
+
+			By("Checking virt-launcher Pod's compute container has precisely the documented extra capabilities")
+			for _, cap := range caps.Add {
+				Expect(tests.IsLauncherCapabilityValid(cap)).To(BeTrue(), "Expected compute container of virt_launcher to be granted only specific capabilities")
+			}
+
+		})
+	})
 })
