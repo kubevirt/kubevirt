@@ -403,3 +403,32 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 		)
 	}
 }
+
+var qemuLogLines = ""
+
+func LogQemuLogLine(logger *FilteredLogger, line string) {
+
+	if len(strings.TrimSpace(line)) == 0 {
+		return
+	}
+
+	// Concat break lines to have full command in one log message
+	if strings.HasSuffix(line, "\\") {
+		qemuLogLines += line
+		return
+	}
+
+	if len(qemuLogLines) > 0 {
+		line = qemuLogLines + line
+		qemuLogLines = ""
+	}
+
+	now := time.Now()
+	logger.logContext.Log(
+		"level", "info",
+		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+		"component", logger.component,
+		"subcomponent", "qemu",
+		"msg", line,
+	)
+}
