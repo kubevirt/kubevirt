@@ -378,17 +378,17 @@ container_pull(
 # Pull nfs-server image
 container_pull(
     name = "nfs-server",
-    digest = "sha256:2a8c1cad9156165d0be1ee2c78fb2342f8368193acff72eb276ff276512508fa",
+    digest = "sha256:8c1fa882dddb2885c4152e9ce632c466f4b8dce29339455e9b6bfe71f0a3d3ef",
     registry = "index.docker.io",
-    repository = "slintes/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
+    repository = "kubevirtci/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
 )
 
 container_pull(
     name = "nfs-server_ppc64le",
-    digest = "sha256:2a8c1cad9156165d0be1ee2c78fb2342f8368193acff72eb276ff276512508fa",
+    digest = "sha256:8c1fa882dddb2885c4152e9ce632c466f4b8dce29339455e9b6bfe71f0a3d3ef",
     puller_linux = "@go_puller_linux_ppc64le//file:downloaded",
     registry = "index.docker.io",
-    repository = "slintes/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
+    repository = "kubevirtci/nfs-ganesha",  # see https://github.com/slintes/docker-nfs-ganesha
 )
 
 load(
