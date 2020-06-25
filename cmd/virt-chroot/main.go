@@ -26,7 +26,7 @@ func init() {
 func main() {
 
 	rootCmd := &cobra.Command{
-		Use: "chroot",
+		Use: "virt-chroot",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
 			if mntNamespace != "" {

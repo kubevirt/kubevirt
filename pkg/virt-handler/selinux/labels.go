@@ -96,7 +96,7 @@ func (se *SELinuxImpl) execute(binary string, paths []string, args ...string) (o
 		argsArray = append(argsArray, arg)
 	}
 
-	return se.execFunc("/usr/bin/chroot", argsArray...)
+	return se.execFunc("/usr/bin/virt-chroot", argsArray...)
 }
 
 func copyPolicy(policyName string, dir string) (err error) {
@@ -165,7 +165,7 @@ func (se *SELinuxImpl) InstallPolicy(dir string) (err error) {
 		if err != nil {
 			return fmt.Errorf("failed to copy policy %v - err: % v", fileDest, err)
 		}
-		out, err := exec.Command("/usr/bin/chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/semodule", "-i", fileDest).CombinedOutput()
+		out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/semodule", "-i", fileDest).CombinedOutput()
 		if err != nil {
 			if perm, _ := se.IsPermissive(); perm {
 				log.Log.Warningf("Permissive mode, ignoring 'semodule' failure: out: %q, error: %v", string(out), err)
