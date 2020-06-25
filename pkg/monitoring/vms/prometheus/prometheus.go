@@ -43,6 +43,7 @@ var (
 	// Formatter used to sanitize k8s metadata into metric labels
 	labelFormatter = strings.NewReplacer(".", "_", "/", "_", "-", "_")
 
+	// Preffixes used when transforming K8s metadata into metric labels
 	labelPreffix      = "kubernetes_vmi_label_"
 	annotationPreffix = "kubernetes_vmi_annotation_"
 
@@ -65,85 +66,18 @@ var (
 	)
 
 	// lower level metrics
-	storageIopsLabels = []string{"node", "namespace", "name", "drive", "type"}
-	storageIopsDesc   = prometheus.NewDesc(
-		"kubevirt_vmi_storage_iops_total",
-		"I/O operation performed.",
-		storageIopsLabels,
-		nil,
-	)
 
-	storageTrafficLabels = []string{"node", "namespace", "name", "drive", "type"}
-	storageTrafficDesc   = prometheus.NewDesc(
-		"kubevirt_vmi_storage_traffic_bytes_total",
-		"storage traffic.",
-		storageTrafficLabels,
-		nil,
-	)
-
-	storageTimesLabels = []string{"node", "namespace", "name", "drive", "type"}
-	storageTimesDesc   = prometheus.NewDesc(
-		"kubevirt_vmi_storage_times_ms_total",
-		"storage operation time.",
-		storageTimesLabels,
-		nil,
-	)
-
-	vcpuUsageLabels = []string{"node", "namespace", "name", "id", "state"}
-	vcpuUsageDesc   = prometheus.NewDesc(
-		"kubevirt_vmi_vcpu_seconds",
-		"Vcpu elapsed time.",
-		vcpuUsageLabels,
-		nil,
-	)
-
-	networkTrafficBytesLabels = []string{"node", "namespace", "name", "interface", "type"}
-	networkTrafficBytesDesc   = prometheus.NewDesc(
-		"kubevirt_vmi_network_traffic_bytes_total",
-		"network traffic.",
-		networkTrafficBytesLabels,
-		nil,
-	)
-
-	networkTrafficPktsLabels = []string{"node", "namespace", "name", "interface", "type"}
-	networkTrafficPktsDesc   = prometheus.NewDesc(
-		"kubevirt_vmi_network_traffic_packets_total",
-		"network traffic.",
-		networkTrafficPktsLabels,
-		nil,
-	)
-
-	networkErrorsLabels = []string{"node", "namespace", "name", "interface", "type"}
-	networkErrorsDesc   = prometheus.NewDesc(
-		"kubevirt_vmi_network_errors_total",
-		"network errors.",
-		networkErrorsLabels,
-		nil,
-	)
-
-	memoryAvailableLabels = []string{"node", "namespace", "name"}
-	memoryAvailableDesc   = prometheus.NewDesc(
-		"kubevirt_vmi_memory_available_bytes",
-		"amount of usable memory as seen by the domain.",
-		memoryAvailableLabels,
-		nil,
-	)
-
-	memoryResidentLabels = []string{"node", "namespace", "name"}
-	memoryResidentDesc   = prometheus.NewDesc(
-		"kubevirt_vmi_memory_resident_bytes",
-		"resident set size of the process running the domain",
-		memoryResidentLabels,
-		nil,
-	)
-
-	swapTrafficLabels = []string{"node", "namespace", "name", "type"}
-	swapTrafficDesc   = prometheus.NewDesc(
-		"kubevirt_vmi_memory_swap_traffic_bytes_total",
-		"swap memory traffic.",
-		swapTrafficLabels,
-		nil,
-	)
+	// Metrics descriptors used at the Describe function
+	storageIopsDesc         = prometheus.NewDesc("kubevirt_vmi_storage_iops_total", "", nil, nil)
+	storageTrafficDesc      = prometheus.NewDesc("kubevirt_vmi_storage_traffic_bytes_total", "", nil, nil)
+	storageTimesDesc        = prometheus.NewDesc("kubevirt_vmi_storage_times_ms_total", "", nil, nil)
+	vcpuUsageDesc           = prometheus.NewDesc("kubevirt_vmi_vcpu_seconds", "", nil, nil)
+	networkTrafficBytesDesc = prometheus.NewDesc("kubevirt_vmi_network_traffic_bytes_total", "", nil, nil)
+	networkTrafficPktsDesc  = prometheus.NewDesc("kubevirt_vmi_network_traffic_packets_total", "", nil, nil)
+	networkErrorsDesc       = prometheus.NewDesc("kubevirt_vmi_network_errors_total", "", nil, nil)
+	memoryAvailableDesc     = prometheus.NewDesc("kubevirt_vmi_memory_available_bytes", "", nil, nil)
+	memoryResidentDesc      = prometheus.NewDesc("kubevirt_vmi_memory_resident_bytes", "", nil, nil)
+	swapTrafficDesc         = prometheus.NewDesc("kubevirt_vmi_memory_swap_traffic_bytes_total", "", nil, nil)
 )
 
 func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch chan<- prometheus.Metric) {
@@ -155,9 +89,12 @@ func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch 
 }
 
 func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
-	memoryResidentLabels = []string{"node", "namespace", "name"}
-	memoryAvailableLabels = []string{"node", "namespace", "name"}
-	swapTrafficLabels = []string{"node", "namespace", "name", "type"}
+	// Initial memory metric labels
+	var memoryResidentLabels = []string{"node", "namespace", "name"}
+	var memoryAvailableLabels = []string{"node", "namespace", "name"}
+	var swapTrafficLabels = []string{"node", "namespace", "name", "type"}
+
+	// Initial memory metric label values
 	var memoryResidentLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name}
 	var memoryAvailableLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name}
 	var swapTrafficInLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, "in"}
@@ -252,7 +189,10 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 
 func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	for vcpuId, vcpu := range vmStats.Vcpu {
-		vcpuUsageLabels = []string{"node", "namespace", "name", "id", "state"}
+		// Initial vcpu metrics labels
+		var vcpuUsageLabels = []string{"node", "namespace", "name", "id", "state"}
+
+		// Initial vcpu metrics labels values
 		var vcpuUsageLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, fmt.Sprintf("%v", vcpuId), fmt.Sprintf("%v", vcpu.State)}
 
 		// Add k8s metadata.Labels as metric labels
@@ -289,9 +229,12 @@ func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, c
 
 func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	for blockId, block := range vmStats.Block {
-		storageIopsLabels = []string{"node", "namespace", "name", "drive", "type"}
-		storageTrafficLabels = []string{"node", "namespace", "name", "drive", "type"}
-		storageTimesLabels = []string{"node", "namespace", "name", "drive", "type"}
+		// Initial block metrics labels
+		var storageIopsLabels = []string{"node", "namespace", "name", "drive", "type"}
+		var storageTrafficLabels = []string{"node", "namespace", "name", "drive", "type"}
+		var storageTimesLabels = []string{"node", "namespace", "name", "drive", "type"}
+
+		// Initial block metrics labels values
 		var storageIopsReadLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
 		var storageIopsWriteLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "write"}
 		var storageTrafficReadLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
@@ -410,9 +353,12 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 
 func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	for _, net := range vmStats.Net {
-		networkTrafficBytesLabels = []string{"node", "namespace", "name", "interface", "type"}
-		networkTrafficPktsLabels = []string{"node", "namespace", "name", "interface", "type"}
-		networkErrorsLabels = []string{"node", "namespace", "name", "interface", "type"}
+		// Initial network metrics labels
+		var networkTrafficBytesLabels = []string{"node", "namespace", "name", "interface", "type"}
+		var networkTrafficPktsLabels = []string{"node", "namespace", "name", "interface", "type"}
+		var networkErrorsLabels = []string{"node", "namespace", "name", "interface", "type"}
+
+		// Initial network metrics labels values
 		var networkTrafficBytesRxLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx"}
 		var networkTrafficBytesTxLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "tx"}
 		var networkTrafficPktsRxLabelsValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx"}
