@@ -217,7 +217,11 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		Eventually(func() bool {
 			_, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Get(vm.Name, &v1.GetOptions{})
 			return err == nil
-		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
+		}, vmCreationTimeout, 1*time.Second).Should(BeTrue())
+
+		By("Creating a running VMI to avoid empty output")
+		guardVmi := tests.NewRandomVMI()
+		guardVmi = tests.RunVMIAndExpectLaunch(guardVmi, 60)
 
 		By("Setting up the kubectl command")
 		cmd, stdout, stderr, err :=
@@ -232,6 +236,16 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 		defer cmd.Process.Release()
 		go readFromStderr(stderr)
 
+		// Read the column titles
+		titles, err := readNewStatus(stdout, nil, readTimeout)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(titles).To(Equal([]string{"NAME", "AGE", "PHASE", "IP", "NODENAME"}),
+			"Output should have the proper columns")
+
+		// Read out the guard VMI
+		vmiStatus, err := readNewStatus(stdout, titles, readTimeout)
+		Expect(err).ToNot(HaveOccurred())
+
 		// Start a VMI
 		vm = tests.StartVirtualMachine(vm)
 		var vmi *v12.VirtualMachineInstance
@@ -241,22 +255,23 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 			list, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			if len(list.Items) == 0 {
-				return false
-			} else {
-				vmi = &list.Items[0]
-				return true
+			if len(list.Items) >= 2 {
+				for i := 0; i < len(list.Items); i++ {
+					if list.Items[i].Name != guardVmi.Name {
+						vmi = &list.Items[i]
+						return true
+					}
+				}
 			}
-		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
 
-		// Read the column titles
-		titles, err := readNewStatus(stdout, nil, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(titles).To(Equal([]string{"NAME", "AGE", "PHASE", "IP", "NODENAME"}),
-			"Output should have the proper columns")
+			return false
+		}, vmCreationTimeout, 1*time.Second).Should(BeTrue())
 
-		vmiStatus, err := readNewStatus(stdout, titles, readTimeout)
-		Expect(err).ToNot(HaveOccurred())
+		// There might be a second (or more?) guardVmi "running" line in the pipeline... Squashing it (/them) first
+		for vmiStatus[0] == guardVmi.Name {
+			vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
+			Expect(err).ToNot(HaveOccurred())
+		}
 		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex)),
 			"VMI should not have a specified phase yet")
 
@@ -272,14 +287,15 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected propertiesL %v", vmiStatus))
-		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Scheduled), vmiStatus[3], vmi.Status.NodeName),
-			"VMI should be in the Scheduled phase")
+		// "scheduled" lines may or may not contain an IP, parsing only the first 3 fields
+		Expect(len(vmiStatus)).To(BeNumerically(">=", 3), fmt.Sprintf("vmiStatus is missing expected properties %v", vmiStatus))
+		Expect(vmiStatus[0]).To(Equal(vmi.Name))
+		Expect(vmiStatus[1]).To(MatchRegexp(vmAgeRegex))
+		Expect(vmiStatus[2]).To(Equal(string(v12.Scheduled)), "VMI should be in the Scheduled phase")
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected propertiesL %v", vmiStatus))
+		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected properties %v", vmiStatus))
 		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
 		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Running), vmiStatus[3], vmi.Status.NodeName),
 			"VMI should be in the Running phase")
@@ -290,24 +306,29 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected propertiesL %v", vmiStatus))
+		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected properties %v", vmiStatus))
 		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
 		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Failed), vmiStatus[3], vmi.Status.NodeName),
 			"VMI should be in the Failed phase")
 
+		By("Waiting for the second VMI to be created")
 		Eventually(func() bool {
 			list, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			if len(list.Items) > 0 {
-				if list.Items[0].UID != vmi.UID && list.Items[0].Status.NodeName != "" {
-					vmi = &list.Items[0]
-					return true
+			if len(list.Items) >= 2 {
+				for i := 0; i < len(list.Items); i++ {
+					if list.Items[i].Name != guardVmi.Name &&
+						list.Items[i].UID != vmi.UID &&
+						list.Items[i].Status.NodeName != "" {
+						vmi = &list.Items[i]
+						return true
+					}
 				}
 			}
 
 			return false
-		}, vmCreationTimeout, 1*time.Millisecond).Should(BeTrue())
+		}, vmCreationTimeout, 1*time.Second).Should(BeTrue())
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
 		Expect(err).ToNot(HaveOccurred())
@@ -326,10 +347,10 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(len(vmiStatus)).To(Equal(5), fmt.Sprintf("vmiStatus is missing expected propertiesL %v", vmiStatus))
-		Expect(net.ParseIP(vmiStatus[3])).ToNot(BeNil())
-		Expect(vmiStatus).To(ConsistOf(vmi.Name, MatchRegexp(vmAgeRegex), string(v12.Scheduled), vmiStatus[3], vmi.Status.NodeName),
-			"VMI should be in the Scheduled phase")
+		Expect(len(vmiStatus)).To(BeNumerically(">=", 3), fmt.Sprintf("vmiStatus is missing expected properties %v", vmiStatus))
+		Expect(vmiStatus[0]).To(Equal(vmi.Name))
+		Expect(vmiStatus[1]).To(MatchRegexp(vmAgeRegex))
+		Expect(vmiStatus[2]).To(Equal(string(v12.Scheduled)), "VMI should be in the Scheduled phase")
 
 		vmiStatus, err = readNewStatus(stdout, vmiStatus, readTimeout)
 		Expect(err).ToNot(HaveOccurred())
