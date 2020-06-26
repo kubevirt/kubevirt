@@ -296,8 +296,10 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("could not stat the device: %v", err)
 		}
+		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.devicePath)
 		dpi.health <- pluginapi.Unhealthy
 	}
+	logger.Infof("device '%s' is present.", dpi.devicePath)
 
 	dirName = filepath.Dir(dpi.socketPath)
 	err = watcher.Add(dirName)
