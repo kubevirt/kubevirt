@@ -384,12 +384,20 @@ var _ = Describe("Storage", func() {
 
 				hostDiskDir := tests.RandTmpDir()
 				var nodeName string
+				var cfgMap *k8sv1.ConfigMap
+				var originalFeatureGates string
 
 				BeforeEach(func() {
 					nodeName = ""
+					cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
+					tests.EnableFeatureGate(virtconfig.HostDiskGate)
 				})
 
 				AfterEach(func() {
+					tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, originalFeatureGates)
+
 					// Delete all VMIs and wait until they disappear to ensure that no disk is in use and that we can delete the whole folder
 					Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).ToNot(HaveOccurred())
 					Eventually(func() int {
@@ -400,6 +408,23 @@ var _ = Describe("Storage", func() {
 					if nodeName != "" {
 						tests.RemoveHostDiskImage(hostDiskDir, nodeName)
 					}
+				})
+
+				Context("Without the HostDisk feature gate enabled", func() {
+					BeforeEach(func() {
+						tests.DisableFeatureGate(virtconfig.HostDiskGate)
+					})
+
+					It("Should fail to start a VMI", func() {
+						diskName := "disk-" + uuid.NewRandom().String() + ".img"
+						diskPath := filepath.Join(hostDiskDir, diskName)
+						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")
+						virtClient, err := kubecli.GetKubevirtClient()
+						Expect(err).ToNot(HaveOccurred())
+						_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+						Expect(err).To(HaveOccurred())
+						Expect(err.Error()).To(ContainSubstring("HostDisk feature gate is not enabled"))
+					})
 				})
 
 				Context("With 'DiskExistsOrCreate' type", func() {
@@ -577,8 +602,15 @@ var _ = Describe("Storage", func() {
 				var diskPath string
 				var pod *k8sv1.Pod
 				var diskSize int
+				var cfgMap *k8sv1.ConfigMap
+				var originalFeatureGates string
 
 				BeforeEach(func() {
+					By("Enabling the HostDisk feature gate")
+					cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
+					tests.EnableFeatureGate(virtconfig.HostDiskGate)
 
 					By("Creating a hostPath pod which prepares a mounted directory which goes away when the pod dies")
 					tmpDir := tests.RandTmpDir()
@@ -616,6 +648,10 @@ var _ = Describe("Storage", func() {
 					diskSize = diskSize * 1000 // byte to kilobyte
 					Expect(err).ToNot(HaveOccurred())
 
+				})
+
+				AfterEach(func() {
+					tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, originalFeatureGates)
 				})
 
 				configureToleration := func(toleration int) {

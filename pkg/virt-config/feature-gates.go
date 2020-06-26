@@ -34,6 +34,7 @@ const (
 	SnapshotGate          = "Snapshot"
 	DataVolumesGate       = "DataVolumes"
 	SRIOVGate             = "SRIOVGate"
+	HostDiskGate          = "HostDisk"
 )
 
 func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -83,4 +84,8 @@ func (config *ClusterConfig) DataVolumesEnabled() bool {
 
 func (config *ClusterConfig) SriovEnabled() bool {
 	return config.isFeatureGateEnabled(SRIOVGate)
+}
+
+func (config *ClusterConfig) HostDiskEnabled() bool {
+	return config.isFeatureGateEnabled(HostDiskGate)
 }

@@ -1633,10 +1633,21 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache settings and PVC", func() {
+		var cfgMap *kubev1.ConfigMap
+		var originalFeatureGates string
+
 		BeforeEach(func() {
+			cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
+			tests.EnableFeatureGate(virtconfig.HostDiskGate)
 			// create a new PV and PVC (PVs can't be reused)
 			tests.CreateBlockVolumePvAndPvc("1Gi")
 		}, 60)
+
+		AfterEach(func() {
+			tests.UpdateClusterConfigValueAndWait(virtconfig.FeatureGatesKey, originalFeatureGates)
+		})
 
 		It("[test_id:1681]should set appropriate cache modes", func() {
 			tests.SkipPVCTestIfRunnigOnKindInfra()
