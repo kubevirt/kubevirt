@@ -752,22 +752,23 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		if vmi.Spec.Domain.Firmware.KernelBoot != nil {
 			//to extract the disk image from volume
-			
-			if vmi.Spec.Domain.Firmware.KernelBoot.KernelPath!=nil{
+
+			if vmi.Spec.Domain.Firmware.KernelBoot.KernelPath != "" {
 				domain.Spec.OS.Kernel = vmi.Spec.Domain.Firmware.KernelBoot.KernelPath
-			} else{
+			} else {
 				//TODO: see for ways on how to add default path for a vmlinuz image
 				domain.Spec.OS.Kernel = "some default path for vmlinuz"
 			}
-			if vmi.Spec.Domain.Firmware.KernelBoot.InitrdPath!=nil{
+			if vmi.Spec.Domain.Firmware.KernelBoot.InitrdPath != "" {
 				domain.Spec.OS.Initrd = vmi.Spec.Domain.Firmware.KernelBoot.InitrdPath
-			} 
-			if vmi.Spec.Domain.Firmware.KernelBoot.Cmdline!=nil{
-				domain.Spec.OS.Cmdline = vmi.Spec.Domain.Firmware.KernelBoot.Cmdline
+			}
+			if vmi.Spec.Domain.Firmware.KernelBoot.Cmdline != "" {
+				domain.Spec.OS.KernelArgs = vmi.Spec.Domain.Firmware.KernelBoot.Cmdline
 			} else {
 				//TODO: add default command line parameters like "console=ttyS0"
-				domain.Spec.OS.Cmdline = "default value"
+				domain.Spec.OS.KernelArgs = "default value"
 			}
+			fmt.Println(domain.Spec.OS)
 		}
 	}
 	if c.SMBios != nil {

@@ -7620,6 +7620,20 @@
       "type": "string"
      },
      "targetKubeVirtVersion": {
+   "v1.KernelBoot": {
+    "description": "Represents the firmware blob used to assist in the kernel boot process. Used for setting the kernel, initrd and cmdline",
+    "type": "object",
+    "properties": {
+     "cmdline": {
+      "description": "Arguments to be passed to the kernel at boot time",
+      "type": "string"
+     },
+     "initrdPath": {
+      "description": "the fully-qualified path to the ramdisk image in the host OS",
+      "type": "string"
+     },
+     "kernelPath": {
+      "description": "The fully-qualified path to the kernel image in the host OS",
       "type": "string"
      }
     }

@@ -15045,6 +15045,40 @@ func schema_kubevirtio_client_go_api_v1_KVMTimer(ref common.ReferenceCallback) c
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_KernelBoot(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Represents the firmware blob used to assist in the kernel boot process. Used for setting the kernel, initrd and cmdline",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kernelPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The fully-qualified path to the kernel image in the host OS",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"initrdPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "the fully-qualified path to the ramdisk image in the host OS",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"cmdline": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Arguments to be passed to the kernel at boot time",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_KubeVirt(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{

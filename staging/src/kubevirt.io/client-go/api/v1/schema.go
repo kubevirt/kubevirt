@@ -233,11 +233,11 @@ type EFI struct {
 // +k8s:openapi-gen=true
 type KernelBoot struct {
 	// The fully-qualified path to the kernel image in the host OS
-	KernelPath string `json:"name,omitempty"`
+	KernelPath string `json:"kernelPath,omitempty"`
 	// the fully-qualified path to the ramdisk image in the host OS
 	//+optional
-	InitrdPath string `json:"name,omitempty"`
-	// Arguments to be passed to the kernel at boot time 
+	InitrdPath string `json:"initrdPath,omitempty"`
+	// Arguments to be passed to the kernel at boot time
 	// +optional
 	Cmdline string `json:"cmdline,omitempty"`
 }
@@ -349,6 +349,9 @@ type Firmware struct {
 	Bootloader *Bootloader `json:"bootloader,omitempty"`
 	// The system-serial-number in SMBIOS
 	Serial string `json:"serial,omitempty"`
+	// Settings to set the kernel for booting.
+	// +optional
+	KernelBoot *KernelBoot `json:"kernelBoot,omitempty"`
 }
 
 //

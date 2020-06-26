@@ -103,6 +103,15 @@ func (EFI) SwaggerDoc() map[string]string {
 	}
 }
 
+func (KernelBoot) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "Represents the firmware blob used to assist in the kernel boot process.\nUsed for setting the kernel, initrd and cmdline\n\n+k8s:openapi-gen=true",
+		"kernelPath": "The fully-qualified path to the kernel image in the host OS",
+		"initrdPath": "the fully-qualified path to the ramdisk image in the host OS\n+optional",
+		"cmdline":    "Arguments to be passed to the kernel at boot time\n+optional",
+	}
+}
+
 func (ResourceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                        "+k8s:openapi-gen=true",
