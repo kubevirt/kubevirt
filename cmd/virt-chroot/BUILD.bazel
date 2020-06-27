@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "kubevirt.io/kubevirt/cmd/chroot",
+    importpath = "kubevirt.io/kubevirt/cmd/virt-chroot",
     visibility = ["//visibility:private"],
     deps = [
         "//vendor/github.com/spf13/cobra:go_default_library",
@@ -12,7 +12,7 @@ go_library(
 )
 
 go_binary(
-    name = "chroot",
+    name = "virt-chroot",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )

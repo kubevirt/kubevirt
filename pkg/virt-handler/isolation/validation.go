@@ -15,7 +15,7 @@ const (
 func GetImageInfo(imagePath string, context IsolationResult) (*containerdisk.DiskInfo, error) {
 
 	out, err := exec.Command(
-		"/usr/bin/chroot", "--user", "qemu", "--memory", "1000", "--cpu", "10", "--mount", context.MountNamespace(), "exec", "--",
+		"/usr/bin/virt-chroot", "--user", "qemu", "--memory", "1000", "--cpu", "10", "--mount", context.MountNamespace(), "exec", "--",
 		QEMUIMGPath, "info", imagePath, "--output", "json",
 	).Output()
 	if err != nil {
