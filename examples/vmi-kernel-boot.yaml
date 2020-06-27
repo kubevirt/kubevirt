@@ -1,0 +1,30 @@
+---
+apiVersion: kubevirt.io/v1alpha3
+kind: VirtualMachineInstance
+metadata:
+  labels:
+    special: vmi-kernel-boot
+  name: vmi-kernel-boot
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+    firmware:
+      kernelBoot: {}
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 1Gi
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - containerDisk:
+<<<<<<< HEAD
+      image: registry:5000/kubevirt/image-with-kernel:devel
+=======
+      image: registry:5000/kubevirt/alpine-container-disk-demo:devel
+>>>>>>> dffbf2421... Added table driven tests and some utils for vm-generator
+    name: containerdisk

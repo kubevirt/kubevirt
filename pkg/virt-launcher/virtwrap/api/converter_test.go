@@ -2281,106 +2281,41 @@ var _ = Describe("Converter", func() {
 			})
 		})
 
-		Context("when kernel boot is set and kernel is provided", func() {
-			It("Should configure the kernel, initrd and command line arguments", func() {
+		Context("when kernel boot is set", func() {
+			table.DescribeTable("should configure the kernel, initrd and Cmdline arguments correctly", func(kernelPath string, initrdPath string, cmdline string) {
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					KernelBoot: &v1.KernelBoot{
-						KernelPath: "fully specified path to kernel",
-						InitrdPath: "fully specified path to initrd",
-						Cmdline:    "some cmdline arguments",
+						KernelPath: kernelPath,
+						InitrdPath: initrdPath,
+						Cmdline:    cmdline,
 					},
 				}
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-				Expect(domainSpec.OS.Kernel).To(Equal("fully specified path to kernel"))
-				Expect(domainSpec.OS.Initrd).To(Equal("fully specified path to initrd"))
-				Expect(domainSpec.OS.Cmdline).To(Equal("some cmdline arguments"))
-			})
-			It("Should configure the command line arguments to some default value when kernel and initrd set", func() {
-				//TODO: Add the default value
-				vmi.Spec.Domain.Firmware = &v1.Firmware{
-					KernelBoot: &v1.KernelBoot{
-						KernelPath: "fully specified path to kernel",
-						InitrdPath: "fully specified path to initrd",
-					},
+				if kernelPath == "" {
+					Expect(domainSpec.OS.Kernel).To(Equal("some default path for vmlinuz"))
+				} else {
+					Expect(domainSpec.OS.Kernel).To(Equal(kernelPath))
 				}
-				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-				Expect(domainSpec.OS.Kernel).To(Equal("fully specified path to kernel"))
-				Expect(domainSpec.OS.Initrd).To(Equal("fully specified path to initrd"))
-				Expect(domainSpec.OS.Cmdline).To(Equal("default value"))
-			})
-			It("Should configure if initrd not set", func() {
-				vmi.Spec.Domain.Firmware = &v1.Firmware{
-					KernelBoot: &v1.KernelBoot{
-						KernelPath: "fully specified path to kernel",
-						Cmdline:    "some cmdline arguments",
-					},
+				if initrdPath == "" {
+					Expect(domainSpec.OS.Initrd).To(BeNil())
+				} else {
+					Expect(domainSpec.OS.Initrd).To(Equal(initrdPath))
 				}
-				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-				Expect(domainSpec.OS.Kernel).To(Equal("fully specified path to kernel"))
-				Expect(domainSpec.OS.Initrd).To(BeNil())
-				Expect(domainSpec.OS.Cmdline).To(Equal("some cmdline arguments"))
-			})
-			It("Should configure if initrd and cmdline not set", func() {
-				//TODO: Add the default value
-				vmi.Spec.Domain.Firmware = &v1.Firmware{
-					KernelBoot: &v1.KernelBoot{
-						KernelPath: "fully specified path to kernel",
-					},
+				if cmdline == "" {
+					Expect(domainSpec.OS.KernelArgs).To(Equal("default value"))
+				} else {
+					Expect(domainSpec.OS.KernelArgs).To(Equal(cmdline))
 				}
-				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-				Expect(domainSpec.OS.Kernel).To(Equal("fully specified path to kernel"))
-				Expect(domainSpec.OS.Initrd).To(BeNil())
-				Expect(domainSpec.OS.Cmdline).To(Equal("default value"))
-			})
-		})
-		Context("when kernel boot is set but kernel is not provided", func() {
-			It("Should configure the default kernel, initrd and command line arguments", func() {
-				// TODO: add default value for vmlinuz image
-				vmi.Spec.Domain.Firmware = &v1.Firmware{
-					KernelBoot: &v1.KernelBoot{
-						InitrdPath: "fully specified path to initrd",
-						Cmdline:    "some cmdline arguments",
-					},
-				}
-				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-				Expect(domainSpec.OS.Kernel).To(Equal("some default path for vmlinuz"))
-				Expect(domainSpec.OS.Initrd).To(Equal("fully specified path to initrd"))
-				Expect(domainSpec.OS.Cmdline).To(Equal("some cmdline arguments"))
-			})
-			It("Should configure the command line arguments to some default value when kernel and initrd set", func() {
-				//TODO: Add the default value for cmdline and vmlinuz
-				vmi.Spec.Domain.Firmware = &v1.Firmware{
-					KernelBoot: &v1.KernelBoot{
-						InitrdPath: "fully specified path to initrd",
-					},
-				}
-				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-				Expect(domainSpec.OS.Kernel).To(Equal("some default path for vmlinuz"))
-				Expect(domainSpec.OS.Initrd).To(Equal("fully specified path to initrd"))
-				Expect(domainSpec.OS.Cmdline).To(Equal("default value"))
-			})
-			It("Should configure if initrd not set", func() {
-				// TODO: add default value for vmlinuz image
-				vmi.Spec.Domain.Firmware = &v1.Firmware{
-					KernelBoot: &v1.KernelBoot{
-						Cmdline: "some cmdline arguments",
-					},
-				}
-				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-				Expect(domainSpec.OS.Kernel).To(Equal("some default path for vmlinuz"))
-				Expect(domainSpec.OS.Initrd).To(BeNil())
-				Expect(domainSpec.OS.Cmdline).To(Equal("some cmdline arguments"))
-			})
-			It("Should configure if initrd and cmdline not set", func() {
-				//TODO: Add the default value for cmdline and vmlinuz
-				vmi.Spec.Domain.Firmware = &v1.Firmware{
-					KernelBoot: &v1.KernelBoot{},
-				}
-				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-				Expect(domainSpec.OS.Kernel).To(Equal("some default path for vmlinuz"))
-				Expect(domainSpec.OS.Initrd).To(BeNil())
-				Expect(domainSpec.OS.Cmdline).To(Equal("default value"))
-			})
+			},
+				table.Entry("fully specified path to kernel", "fully specified path to initrd", "some cmdline arguments"),
+				table.Entry("fully specified path to kernel", "", "some cmdline arguments"),
+				table.Entry("fully specified path to kernel", "fully specified path to initrd", ""),
+				table.Entry("fully specified path to kernel", "", ""),
+				table.Entry("", "fully specified path to initrd", "some cmdline arguments"),
+				table.Entry("", "", "some cmdline arguments"),
+				table.Entry("", "fully specified path to initrd", ""),
+				table.Entry("", "", ""),
+			)
 		})
 	})
 

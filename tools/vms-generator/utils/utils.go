@@ -573,6 +573,18 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func GetVMIKernelBoot() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiKernelBoot)
+
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageAlpine, DockerTag), busVirtio)
+	vmi.Spec.Domain.Firmware = &v1.Firmware{
+		KernelBoot: &v1.KernelBoot{},
+	}
+
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+	return vmi
+}
+
 func getBaseVM(name string, labels map[string]string) *v1.VirtualMachine {
 	baseVMISpec := getBaseVMISpec()
 	running := false
