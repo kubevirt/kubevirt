@@ -334,7 +334,7 @@ var _ = Describe("Infrastructure", func() {
 			startVMI(vmi)
 
 			By("finding virt-operator pod")
-			ops, err := virtClient.CoreV1().Pods("kubevirt").
+			ops, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).
 				List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-operator"})
 			Expect(err).ToNot(HaveOccurred(), "failed to list virt-operators")
 			Expect(ops.Size).ToNot(Equal(0), "no virt-operators found")
