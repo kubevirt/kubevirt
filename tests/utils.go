@@ -121,6 +121,7 @@ var PreviousReleaseRegistry = ""
 var ConfigFile = ""
 var Config *KubeVirtTestsConfiguration
 var SkipShasumCheck bool
+var KubeVirtDefaultConfig map[string]string
 
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
@@ -616,6 +617,7 @@ func BeforeTestCleanup() {
 	DeletePV(CustomHostPath)
 	cleanNamespaces()
 	CleanNodes()
+	resetToDefaultConfig()
 }
 
 func CleanNodes() {
@@ -792,6 +794,13 @@ func BeforeTestSuitSetup() {
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 
 	AdjustKubeVirtResource()
+
+	// TODO, if a previous run was really killed, we could not restore the map and we may pick up a config here which is bad
+	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+	KubeVirtDefaultConfig = cfgMap.Data
 }
 
 var originalKV *v1.KubeVirt
@@ -4406,12 +4415,69 @@ func UpdateClusterConfigValueAndWait(key string, value string) string {
 	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	oldValue := cfgMap.Data[key]
+	if cfgMap.Data[key] == value {
+		return value
+	}
 	cfgMap.Data[key] = value
-	_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Update(cfgMap)
+	cfg, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Update(cfgMap)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	time.Sleep(2 * time.Second)
+	waitForConfigToBePropagated(cfg.ResourceVersion)
+	log.DefaultLogger().Infof("Deployment is in sync with config resource version %s", cfg.ResourceVersion)
 	return oldValue
+}
+
+// resetToDefaultConfig resets the config to the state found when the test suite started. It will wait for the config to
+// be propagated to all components before it returns. It will only update the config map and wait for it to be
+// propagated if the current config in use does not match the original one.
+func resetToDefaultConfig() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	if reflect.DeepEqual(cfgMap.Data, KubeVirtDefaultConfig) {
+		return
+	}
+	cfgMap.Data = KubeVirtDefaultConfig
+	cfg, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Update(cfgMap)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	waitForConfigToBePropagated(cfg.ResourceVersion)
+	log.DefaultLogger().Infof("Deployment is in sync with config resource version %s", cfg.ResourceVersion)
+}
+
+func waitForConfigToBePropagated(resourceVersion string) {
+	waitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller", resourceVersion)
+	waitForConfigToBePropagatedToComponent("kubevirt.io=virt-api", resourceVersion)
+	waitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", resourceVersion)
+}
+
+func waitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	EventuallyWithOffset(3, func() bool {
+		pods, err := virtClient.CoreV1().Pods(KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: podLabel})
+		if err != nil {
+			log.DefaultLogger().Reason(err).Infof("Failed to fetch pods.")
+			return false
+		}
+		for _, pod := range pods.Items {
+			body, err := CallUrlOnPod(&pod, "8443", "/healthz")
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Failed to call healthz endpoint on %s", pod.Name)
+				return false
+			}
+			result := map[string]interface{}{}
+			err = json.Unmarshal(body, &result)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Failed to parse response from healthz endpoint on %s", pod.Name)
+				return false
+			}
+			if resourceVersion != result["config-resource-version"] {
+				log.DefaultLogger().Reason(err).Errorf("Config is not in sync on %s. Expected %s, Got %s", pod.Name, resourceVersion, result["config-resource-version"])
+				return false
+			}
+		}
+		return true
+	}, 10*time.Second, 1*time.Second).Should(BeTrue(), "Not all kubevirt components picked up the kubevirt config successfully")
 }
 
 func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
@@ -4645,6 +4711,27 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 	return cert
 }
 
+func CallUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
+	randPort := strconv.Itoa(int(4321 + rand.Intn(6000)))
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+	err := ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true, VerifyPeerCertificate: func(_ [][]byte, _ [][]*x509.Certificate) error {
+			return nil
+		}},
+	}
+	client := &http.Client{Transport: tr}
+	resp, err := client.Get(fmt.Sprintf("https://localhost:%s/%s", randPort, strings.TrimSuffix(url, "/")))
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.ReadAll(resp.Body)
+}
+
 // GetCertsForPods returns the used certificates for all pods matching  the label selector
 func GetCertsForPods(labelSelector string, namespace string, port string) ([][]byte, error) {
 	cli, err := kubecli.GetKubevirtClient()
@@ -4821,21 +4908,6 @@ func GetKubeVirtConfigMap() (*k8sv1.ConfigMap, error) {
 	}
 
 	return cfgMap, err
-}
-
-func ClearKubeVirtConfigMap(key string) error {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	cfgMap, err := GetKubeVirtConfigMap()
-	if err == nil {
-		if _, ok := cfgMap.Data[key]; ok {
-			data := fmt.Sprintf(`[{ "op": "remove", "path": "/data/%s"}]`, key)
-			_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Patch(virtconfig.ConfigMapName, types.JSONPatchType, []byte(data))
-		}
-	}
-
-	return err
 }
 
 func RandTmpDir() string {

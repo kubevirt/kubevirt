@@ -104,6 +104,7 @@ func NewClusterConfig(configMapInformer cache.SharedIndexInformer,
 }
 
 func (c *ClusterConfig) configAddedDeleted(obj interface{}) {
+	go c.GetConfig()
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.configModifiedCallback != nil {
@@ -112,6 +113,7 @@ func (c *ClusterConfig) configAddedDeleted(obj interface{}) {
 }
 
 func (c *ClusterConfig) configUpdated(old, cur interface{}) {
+	go c.GetConfig()
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.configModifiedCallback != nil {
@@ -128,6 +130,7 @@ func isDataVolumeCrd(crd *extv1beta1.CustomResourceDefinition) bool {
 }
 
 func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
+	go c.GetConfig()
 	crd := obj.(*extv1beta1.CustomResourceDefinition)
 	if !isDataVolumeCrd(crd) {
 		return

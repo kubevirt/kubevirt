@@ -9,6 +9,7 @@ go_library(
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/controller:go_default_library",
+        "//pkg/healthz:go_default_library",
         "//pkg/inotify-informer:go_default_library",
         "//pkg/monitoring/client/prometheus:go_default_library",
         "//pkg/monitoring/reflector/prometheus:go_default_library",

@@ -462,23 +462,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 		Context("with auto converge enabled", func() {
-			var options metav1.GetOptions
-			var cfgMap *k8sv1.ConfigMap
-			var originalMigrationConfig string
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
 
 				// set autoconverge flag
-				options = metav1.GetOptions{}
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
-				Expect(err).ToNot(HaveOccurred())
-				originalMigrationConfig = cfgMap.Data["migrations"]
-
-				tests.UpdateClusterConfigValueAndWait("migrations", `{"allowAutoConverge": true}`)
-			})
-
-			AfterEach(func() {
-				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig)
+				tests.UpdateClusterConfigValueAndWait("migrations", `{"allowAutoConverge": "true"}`)
 			})
 
 			It("[test_id:3237]should complete a migration", func() {
@@ -576,9 +564,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 		})
 		Context("with a shared ISCSI Filesystem PVC", func() {
-			var options metav1.GetOptions
-			var cfgMap *k8sv1.ConfigMap
-			var originalMigrationConfig string
 			BeforeEach(func() {
 				tests.BeforeTestCleanup()
 				if !tests.HasCDI() {
@@ -588,15 +573,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.SkipIfVersionAboveOrEqual("re-enable this once https://github.com/kubevirt/kubevirt/issues/2272 is fixed", "1.13.3")
 
 				// set unsafe migration flag
-				options = metav1.GetOptions{}
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
-				Expect(err).ToNot(HaveOccurred())
-				originalMigrationConfig = cfgMap.Data["migrations"]
 				tests.UpdateClusterConfigValueAndWait("migrations", `{"unsafeMigrationOverride": true}`)
-			})
-
-			AfterEach(func() {
-				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig)
 			})
 
 			It("[test_id:3238]should migrate a vmi with UNSAFE_MIGRATION flag set", func() {
@@ -928,21 +905,10 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 
 		Context("migration security", func() {
-			var options metav1.GetOptions
-			var cfgMap *k8sv1.ConfigMap
-			var originalMigrationConfig string
-
 			BeforeEach(func() {
-				// update migration timeouts
-				options = metav1.GetOptions{}
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
-				Expect(err).ToNot(HaveOccurred())
-				originalMigrationConfig = cfgMap.Data["migrations"]
 				tests.UpdateClusterConfigValueAndWait("migrations", `{"bandwidthPerMigration" : "1Mi"}`)
 			})
-			AfterEach(func() {
-				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig)
-			})
+
 			It("[test_id:2303][posneg:negative] should secure migrations with TLS", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(fedoraVMSize)
@@ -1039,17 +1005,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 
 		Context("migration monitor", func() {
-			var options metav1.GetOptions
-			var cfgMap *k8sv1.ConfigMap
-			var originalMigrationConfig string
-
 			BeforeEach(func() {
-				// update migration timeouts
-				options = metav1.GetOptions{}
-				cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
-				Expect(err).ToNot(HaveOccurred())
-				originalMigrationConfig = cfgMap.Data["migrations"]
-
 				data := map[string]string{
 					"progressTimeout":         "5",
 					"completionTimeoutPerGiB": "5",
@@ -1058,9 +1014,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				migrationData, err := json.Marshal(data)
 				Expect(err).ToNot(HaveOccurred())
 				tests.UpdateClusterConfigValueAndWait("migrations", string(migrationData))
-			})
-			AfterEach(func() {
-				tests.UpdateClusterConfigValueAndWait("migrations", originalMigrationConfig)
 			})
 			PIt("[test_id:2227] should abort a vmi migration without progress", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()

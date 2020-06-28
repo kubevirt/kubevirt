@@ -258,16 +258,14 @@ func (app *virtAPIApp) composeSubresources() {
 			To(func(request *restful.Request, response *restful.Response) {
 				response.WriteAsJson(virtversion.Get())
 			}).Operation("version"))
-
 		subws.Route(subws.GET(rest.SubResourcePath("healthz")).
-			To(healthz.KubeConnectionHealthzFunc).
+			To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig)).
 			Consumes(restful.MIME_JSON).
 			Produces(restful.MIME_JSON).
 			Operation("checkHealth").
 			Doc("Health endpoint").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, "Unhealthy", ""))
-
 		subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR)+rest.SubResourcePath("guestosinfo")).
 			To(subresourceApp.GuestOSInfo).
 			Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
@@ -403,6 +401,7 @@ func (app *virtAPIApp) composeSubresources() {
 		Doc("Get KubeVirt API root paths").
 		Returns(http.StatusOK, "OK", metav1.RootPaths{}).
 		Returns(http.StatusNotFound, "Not Found", ""))
+	ws.Route(ws.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig)).Doc("Health endpoint"))
 
 	for _, version := range v1.SubresourceGroupVersions {
 		// K8s needs the ability to query info about a specific API group

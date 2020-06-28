@@ -41,6 +41,8 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/kubevirt/pkg/healthz"
+
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -53,7 +55,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
-	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
@@ -201,10 +202,6 @@ func Execute() {
 
 	app.restClient = app.clientSet.RestClient()
 
-	webService := rest.WebService
-	webService.Route(webService.GET("/leader").To(app.leaderProbe).Doc("Leader endpoint"))
-	restful.Add(webService)
-
 	// Bootstrapping. From here on the initialization order is important
 	app.kubevirtNamespace, err = clientutil.GetNamespace()
 	if err != nil {
@@ -228,6 +225,12 @@ func Execute() {
 	app.reInitChan = make(chan string, 10)
 	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
+
+	webService := new(restful.WebService)
+	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig)).Doc("Health endpoint"))
+	webService.Route(webService.GET("/leader").To(app.leaderProbe).Doc("Leader endpoint"))
+	restful.Add(webService)
 
 	app.vmiInformer = app.informerFactory.VMI()
 	app.podInformer = app.informerFactory.KubeVirtPod()
