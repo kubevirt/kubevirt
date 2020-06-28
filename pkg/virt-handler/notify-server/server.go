@@ -23,6 +23,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -41,10 +46,141 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+var goroutinesToIgnore = []string{
+	"testing.Main(",
+	"testing.tRunner(",
+	"testing.(*M).",
+	"runtime.goexit",
+	"created by runtime.gc",
+	"created by runtime/trace.Start",
+	"interestingGoroutines",
+	"runtime.MHeap_Scavenger",
+	"signal.signal_recv",
+	"sigterm.handler",
+	"runtime_mcall",
+	"(*loggingT).flushDaemon",
+	"goroutine in C code",
+	"device-manager",
+	"balancer_conn_wrappers",
+}
+
+var goroutinesToAccept = []string{
+	"grpc",
+	"handler-launcher",
+	"notify-server",
+	"golang_google_grpc/server.go",
+}
+
+// RegisterIgnoreGoroutine appends s into the ignore goroutine list. The
+// goroutines whose stack trace contains s will not be identified as leaked
+// goroutines. Not thread-safe, only call this function in init().
+func RegisterIgnoreGoroutine(s string) {
+	goroutinesToIgnore = append(goroutinesToIgnore, s)
+}
+
+func accept(g string) bool {
+	sl := strings.SplitN(g, "\n", 2)
+	if len(sl) != 2 {
+		return false
+	}
+
+	stack := strings.TrimSpace(sl[1])
+	if strings.HasPrefix(stack, "testing.RunTests") {
+		return false
+	}
+
+	if stack == "" {
+		return false
+	}
+
+	for _, s := range goroutinesToAccept {
+		if strings.Contains(stack, s) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func ignore(g string) bool {
+	sl := strings.SplitN(g, "\n", 2)
+	if len(sl) != 2 {
+		return true
+	}
+	stack := strings.TrimSpace(sl[1])
+	if strings.HasPrefix(stack, "testing.RunTests") {
+		return true
+	}
+
+	if stack == "" {
+		return true
+	}
+
+	for _, s := range goroutinesToIgnore {
+		if strings.Contains(stack, s) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// interestingGoroutines returns all goroutines we care about for the purpose of
+// leak checking. It excludes testing or runtime ones.
+func interestingGoroutines() (gs []string) {
+	buf := make([]byte, 2<<20)
+	buf = buf[:runtime.Stack(buf, true)]
+	for _, g := range strings.Split(string(buf), "\n\n") {
+		if !ignore(g) && accept(g) {
+			sl := strings.SplitN(g, "\n", 2)
+			gs = append(gs, sl[0])
+		}
+	}
+	sort.Strings(gs)
+	return
+}
+
+//TODO remove timeout if not used
+func check(timeout time.Duration) {
+	// Loop, waiting for goroutines to shut down.
+	// Wait up to timeout, but finish as quickly as possible.
+	//deadline := time.Now().Add(timeout)
+	var leaked []string
+
+	// for time.Now().Before(deadline) {
+	if leaked = interestingGoroutines(); len(leaked) == 0 {
+		return
+	}
+	// 	time.Sleep(50 * time.Millisecond)
+	// }
+
+	for _, g := range leaked {
+		log.Log.Errorf("Existing goroutine: %v", g)
+	}
+}
+
+// Check looks at the currently-running goroutines and checks if there are any
+// interesting (created by gRPC) goroutines leaked. It waits up to 10 seconds
+// in the error cases.
+func Check() {
+	check(10 * time.Second)
+}
+
 type Notify struct {
 	EventChan chan watch.Event
 	recorder  record.EventRecorder
 	vmiStore  cache.Store
+}
+
+func getGoRoutineID() int {
+	var buf [64]byte
+	n := runtime.Stack(buf[:], false)
+	idField := strings.Fields(strings.TrimPrefix(string(buf[:n]), "goroutine "))[0]
+	id, err := strconv.Atoi(idField)
+	if err != nil {
+		return 0
+	}
+	return id
 }
 
 func (n *Notify) HandleDomainEvent(ctx context.Context, request *notifyv1.DomainEventRequest) (*notifyv1.Response, error) {
@@ -74,7 +210,8 @@ func (n *Notify) HandleDomainEvent(ctx context.Context, request *notifyv1.Domain
 		}
 	}
 
-	log.Log.Object(domain).Infof("Received Domain Event of type %s", request.EventType)
+	log.Log.Object(domain).Infof("Received Domain Event of type %s, go routine id %d, EventChan %v", request.EventType, getGoRoutineID(), n.EventChan)
+
 	switch request.EventType {
 	case string(watch.Added):
 		n.EventChan <- watch.Event{Type: watch.Added, Object: domain}
@@ -83,6 +220,7 @@ func (n *Notify) HandleDomainEvent(ctx context.Context, request *notifyv1.Domain
 	case string(watch.Deleted):
 		n.EventChan <- watch.Event{Type: watch.Deleted, Object: domain}
 	case string(watch.Error):
+		log.Log.Infof("HandleDomainEvent ERROR %s", status.Message)
 		n.EventChan <- watch.Event{Type: watch.Error, Object: status}
 	}
 	return response, nil
@@ -146,6 +284,7 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
+		log.Log.Infof("starting notify server, EventChan %v, go routine id %d", c, getGoRoutineID())
 		grpcServer.Serve(sock)
 	}()
 
@@ -155,6 +294,7 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 		log.Log.Info("notify server done")
 	case <-stopChan:
 		grpcServer.Stop()
+		Check()
 		log.Log.Info("notify server stopped")
 	}
 

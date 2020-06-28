@@ -511,10 +511,12 @@ func (d *DomainWatcher) List(options k8sv1.ListOptions) (runtime.Object, error) 
 }
 
 func (d *DomainWatcher) Watch(options k8sv1.ListOptions) (watch.Interface, error) {
+	log.Log.Info("DBG at cache Watch")
 	return d, nil
 }
 
 func (d *DomainWatcher) Stop() {
+	log.Log.Info("DBG at cache stop")
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
