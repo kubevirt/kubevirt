@@ -9,7 +9,7 @@ require (
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.7
 	github.com/imdario/mergo v0.3.8
-	github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200621184544-3326c51c398d
+	github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200626184837-0a4151bd2041
 	github.com/kubevirt/vm-import-operator v0.0.3
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.10.0
@@ -85,7 +85,7 @@ replace (
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.5.2
 )
 
-// cluster-network-addons-operator pulls in dependency on operator-sdk v0.18.0,
+// cluster-network-addons-operator pulls in dependency on operator-sdk 0.39.2
 // but since HCO is pinned to Kubernetes v0.16.4, it needs to stay on operator-sdk
 // v0.17.0.
 replace github.com/operator-framework/operator-sdk => github.com/operator-framework/operator-sdk v0.17.0

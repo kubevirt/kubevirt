@@ -121,7 +121,7 @@ github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515
 github.com/kr/logfmt
-# github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200621184544-3326c51c398d
+# github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200626184837-0a4151bd2041
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1
 github.com/kubevirt/cluster-network-addons-operator/pkg/names
