@@ -680,12 +680,15 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BExp{R: "\\$"},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
 				&expect.BExp{R: "search example.com"},
+				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$"},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
 				&expect.BExp{R: "nameserver 8.8.8.8"},
+				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$"},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
 				&expect.BExp{R: "nameserver 4.2.2.1"},
+				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
