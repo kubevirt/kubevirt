@@ -362,7 +362,7 @@ func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachine
 			c.recorder.Eventf(vmi, v12.EventTypeWarning, FailedDeletePodDisruptionBudgetReason, "Error deleting the PodDisruptionBudget %s: %v", pdb.Name, err)
 			return err
 		}
-		c.recorder.Eventf(vmi, v12.EventTypeNormal, SuccessfulDeletePodDisruptionBudgetReason, "Deleted PodDisruptionBudget %s", pdb.Name)
+		c.recorder.Eventf(vmi, v12.EventTypeNormal, SuccessfulDeletePodDisruptionBudgetReason, "Deleted PodDisruptionBudget %s", pdbKey)
 		return nil
 	} else if create {
 		two := intstr.FromInt(2)
