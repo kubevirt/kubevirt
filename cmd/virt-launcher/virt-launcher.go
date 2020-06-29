@@ -347,9 +347,6 @@ func main() {
 		panic(err)
 	}
 	util.StartLibvirt(stopChan)
-	if err != nil {
-		panic(err)
-	}
 	util.StartVirtlog(stopChan)
 
 	domainConn := createLibvirtConnection()
