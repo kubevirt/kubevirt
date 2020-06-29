@@ -453,7 +453,7 @@ var _ = Describe("Configurations", func() {
 				Expect(domXml).To(ContainSubstring("OVMF_CODE.fd"))
 			})
 
-			It("should enable EFI secure boot", func() {
+			It("[test_id:4437]should enable EFI secure boot", func() {
 				vmi := tests.NewRandomVMIWithSecureBoot()
 
 				By("Starting a VirtualMachineInstance")
