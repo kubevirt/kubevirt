@@ -150,13 +150,14 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 	}()
 
 	// wait for either the server to exit or stopChan to signal
-	select {
-	case <-done:
-		log.Log.Info("notify server done")
-	case <-stopChan:
-		grpcServer.Stop()
-		log.Log.Info("notify server stopped")
+	for {
+		select {
+		case <-done:
+			log.Log.Info("notify server done")
+			return nil
+		case <-stopChan:
+			grpcServer.Stop()
+			log.Log.Info("notify server stopped")
+		}
 	}
-
-	return nil
 }
