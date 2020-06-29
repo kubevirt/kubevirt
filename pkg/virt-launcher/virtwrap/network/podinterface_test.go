@@ -265,31 +265,33 @@ var _ = Describe("Pod Network", func() {
 			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 			TestPodInterfaceIPBinding(vm, domain)
 		})
-		It("phase1 should panic if pod networking fails to setup", func() {
-			testNetworkPanic := func() {
-				domain := NewDomainWithBridgeInterface()
-				vm := newVMIBridgeInterface("testnamespace", "testVmName")
+		It("phase1 should return a CriticalNetworkError if pod networking fails to setup", func() {
 
-				api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
+			domain := NewDomainWithBridgeInterface()
+			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 
-				mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
-				mockNetwork.EXPECT().LinkSetDown(dummy).Return(nil)
-				mockNetwork.EXPECT().SetRandomMac(podInterface).Return(updateFakeMac, nil)
-				mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
-				mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
-				mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(bridgeTest, nil)
-				mockNetwork.EXPECT().LinkSetUp(bridgeTest).Return(nil)
-				mockNetwork.EXPECT().LinkSetUp(dummy).Return(nil)
-				mockNetwork.EXPECT().ParseAddr(fmt.Sprintf(bridgeFakeIP, 0)).Return(bridgeAddr, nil)
-				mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
-				mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)
-				mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
-				mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
-				mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
+			api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
-				SetupPodNetworkPhase1(vm, pid)
-			}
-			Expect(testNetworkPanic).To(Panic())
+			mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
+			mockNetwork.EXPECT().LinkSetDown(dummy).Return(nil)
+			mockNetwork.EXPECT().SetRandomMac(podInterface).Return(updateFakeMac, nil)
+			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
+			mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
+			mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(bridgeTest, nil)
+			mockNetwork.EXPECT().LinkSetUp(bridgeTest).Return(nil)
+			mockNetwork.EXPECT().LinkSetUp(dummy).Return(nil)
+			mockNetwork.EXPECT().ParseAddr(fmt.Sprintf(bridgeFakeIP, 0)).Return(bridgeAddr, nil)
+			mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
+			mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)
+			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
+			mockNetwork.EXPECT().LinkSetMaster(dummy, bridgeTest).Return(nil)
+			mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
+
+			err := SetupPodNetworkPhase1(vm, pid)
+			Expect(err).To(HaveOccurred(), "SetupPodNetworkPhase1 should return an error")
+
+			_, ok := err.(*CriticalNetworkError)
+			Expect(ok).To(BeTrue(), "SetupPodNetworkPhase1 should return an error of type CriticalNetworkError")
 		})
 		It("should return an error if the MTU is out or range", func() {
 			dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 65536}}

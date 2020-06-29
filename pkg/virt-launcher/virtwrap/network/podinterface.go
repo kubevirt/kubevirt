@@ -107,21 +107,28 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 		}
 
 		if err := driver.preparePodNetworkInterfaces(); err != nil {
-			log.Log.Reason(err).Critical("failed to prepare pod networking")
+			log.Log.Reason(err).Error("failed to prepare pod networking")
+			return createCriticalNetworkError(err)
 		}
 
 		err = driver.setCachedInterface(pidStr, iface.Name)
 		if err != nil {
-			log.Log.Reason(err).Critical("failed to save interface configuration")
+			log.Log.Reason(err).Error("failed to save interface configuration")
+			return createCriticalNetworkError(err)
 		}
 
 		err = driver.setCachedVIF(pidStr, iface.Name)
 		if err != nil {
-			log.Log.Reason(err).Critical("failed to save vif configuration")
+			log.Log.Reason(err).Error("failed to save vif configuration")
+			return createCriticalNetworkError(err)
 		}
 	}
 
 	return nil
+}
+
+func createCriticalNetworkError(err error) *CriticalNetworkError {
+	return &CriticalNetworkError{fmt.Sprintf("Critical network error: %v", err)}
 }
 
 func ensureDHCP(vmi *v1.VirtualMachineInstance, driver BindMechanism, podInterfaceName string) error {
@@ -619,18 +626,24 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 			log.Log.Reason(err).Errorf("failed to create ipv4 nat rules for vm error: %v", err)
 			return err
 		}
+	} else {
+		return fmt.Errorf("Couldn't configure ipv4 nat rules")
 	}
-	if Handler.IsIpv6Enabled() && (Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil) {
-		err = Handler.ConfigureIpv6Forwarding()
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to turn on net.ipv6.conf.all.forwarding")
-			return err
-		}
+	if Handler.IsIpv6Enabled() {
+		if Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil {
+			err = Handler.ConfigureIpv6Forwarding()
+			if err != nil {
+				log.Log.Reason(err).Errorf("failed to configure ipv6 forwarding")
+				return err
+			}
 
-		err = p.createNatRules(iptables.ProtocolIPv6)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to create ipv6 nat rules for vm error: %v", err)
-			return err
+			err = p.createNatRules(iptables.ProtocolIPv6)
+			if err != nil {
+				log.Log.Reason(err).Errorf("failed to create ipv6 nat rules for vm error: %v", err)
+				return err
+			}
+		} else {
+			return fmt.Errorf("Couldn't configure ipv6 nat rules")
 		}
 	}
 

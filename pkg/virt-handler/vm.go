@@ -180,6 +180,12 @@ type VirtualMachineController struct {
 	domainNotifyPipes map[string]string
 }
 
+type virtLauncherCriticalNetworkError struct {
+	msg string
+}
+
+func (e *virtLauncherCriticalNetworkError) Error() string { return e.msg }
+
 func (d *VirtualMachineController) startDomainNotifyPipe(vmi *v1.VirtualMachineInstance) (net.Listener, error) {
 
 	res, err := d.podIsolationDetector.Detect(vmi)
@@ -337,12 +343,12 @@ func (d *VirtualMachineController) clearPodNetworkPhase1(vmi *v1.VirtualMachineI
 // it results in killing/spawning a posix thread. Only do this if it
 // is absolutely neccessary. The cache informs us if this action has
 // already taken place or not for a VMI
-func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineInstance) (bool, error) {
 
 	// configure network
 	res, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
-		return fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
+		return false, fmt.Errorf("failed to detect isolation for launcher pod: %v", err)
 	}
 
 	pid := res.Pid()
@@ -354,12 +360,18 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 
 	if ok && cachedPid == pid {
 		// already completed phase1
-		return nil
+		return false, nil
 	}
 
 	err = res.DoNetNS(func() error { return network.SetupPodNetworkPhase1(vmi, pid) })
 	if err != nil {
-		return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
+		_, critical := err.(*network.CriticalNetworkError)
+		if critical {
+			return true, err
+		} else {
+			return false, err
+		}
+
 	}
 
 	// cache that phase 1 has completed for this vmi.
@@ -367,7 +379,7 @@ func (d *VirtualMachineController) setPodNetworkPhase1(vmi *v1.VirtualMachineIns
 	d.phase1NetworkSetupCache[vmi.UID] = pid
 	d.phase1NetworkSetupCacheLock.Unlock()
 
-	return nil
+	return false, nil
 }
 
 func domainMigrated(domain *api.Domain) bool {
@@ -697,6 +709,10 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		condManager.RemoveCondition(vmi, v1.VirtualMachineInstancePaused)
 	}
 
+	if _, ok := syncError.(*virtLauncherCriticalNetworkError); ok {
+		log.Log.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
+		vmi.Status.Phase = v1.Failed
+	}
 	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
 
 	if !reflect.DeepEqual(oldStatus, vmi.Status) {
@@ -1072,7 +1088,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		case domainExists:
 			// The VirtualMachineInstance is deleted on the cluster, and domain is not alive
 			// then delete the domain.
-			log.Log.Object(vmi).V(3).Info("Shutting down domain for deleted VirtualMachineInstance object.")
+			log.Log.Object(vmi).V(3).Info("Deleting domain for deleted VirtualMachineInstance object.")
 			shouldDelete = true
 		default:
 			// If neither the domain nor the vmi object exist locally,
@@ -1763,9 +1779,14 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 
 			// configure network inside virt-launcher compute container
-			err = d.setPodNetworkPhase1(vmi)
+			criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
 			if err != nil {
-				return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
+				if criticalNetworkError {
+					return &virtLauncherCriticalNetworkError{fmt.Sprintf("failed to configure vmi network for migration target: %v", err)}
+				} else {
+					return fmt.Errorf("failed to configure vmi network for migration target: %v", err)
+				}
+
 			}
 
 			if err := client.SyncMigrationTarget(vmi); err != nil {
@@ -1809,9 +1830,14 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				return err
 			}
 
-			err = d.setPodNetworkPhase1(vmi)
+			criticalNetworkError, err := d.setPodNetworkPhase1(vmi)
 			if err != nil {
-				return fmt.Errorf("failed to configure vmi network: %v", err)
+				if criticalNetworkError {
+					return &virtLauncherCriticalNetworkError{fmt.Sprintf("failed to configure vmi network: %v", err)}
+				} else {
+					return fmt.Errorf("failed to configure vmi network: %v", err)
+				}
+
 			}
 
 			// set runtime limits as needed
