@@ -819,7 +819,11 @@ spec:
 						Expect(err).ToNot(HaveOccurred())
 					}
 					return false
-				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+					// #3610 - this timeout needs to be reduced back to 60 seconds.
+					// there's an issue occuring after update where sometimes virt-launcher
+					// can't dial the event notify socket. This impacts the timing for when
+					// the vmi is shutdown. Once that is resolved, reduce the timeout
+				}, 160*time.Second, 1*time.Second).Should(BeTrue())
 
 				By(fmt.Sprintf("Deleting VM with %s api", vmYaml.apiVersion))
 				_, _, err = tests.RunCommand(k8sClient, "delete", "-f", vmYaml.yamlFile, "--cache-dir", newClientCacheDir)
