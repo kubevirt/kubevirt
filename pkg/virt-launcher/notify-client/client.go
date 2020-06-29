@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
+	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/reference"
 
@@ -94,40 +95,49 @@ func (n *Notifier) detectSocketPath() string {
 }
 
 func (n *Notifier) connect() error {
-	n.connLock.Lock()
-	defer n.connLock.Unlock()
-	if n.conn != nil {
-		// already connected
-		return nil
-	}
+	connectionInterval := 2 * time.Second
+	connectionTimeout := 20 * time.Second
 
-	socketPath := n.detectSocketPath()
+	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
+		n.connLock.Lock()
+		defer n.connLock.Unlock()
+		if n.conn != nil {
+			// already connected
+			return true, nil
+		}
 
-	// dial socket
-	conn, err := grpcutil.DialSocket(socketPath)
-	if err != nil {
-		log.Log.Reason(err).Infof("failed to dial notify socket: %s", socketPath)
-		return err
-	}
+		socketPath := n.detectSocketPath()
 
-	version, err := negotiateVersion(info.NewNotifyInfoClient(conn))
-	if err != nil {
-		conn.Close()
-		return err
-	}
+		// dial socket
+		conn, err := grpcutil.DialSocketWithTimeout(socketPath, 5)
+		if err != nil {
+			log.Log.Reason(err).Infof("failed to dial notify socket: %s", socketPath)
+			return false, nil
+		}
 
-	// create cmd v1client
-	switch version {
-	case 1:
-		client := notifyv1.NewNotifyClient(conn)
-		n.v1client = client
-		n.conn = conn
-	default:
-		conn.Close()
-		return fmt.Errorf("cmd v1client version %v not implemented yet", version)
-	}
+		version, err := negotiateVersion(info.NewNotifyInfoClient(conn))
+		if err != nil {
+			log.Log.Reason(err).Infof("failed to negotiate version")
+			conn.Close()
+			return false, nil
+		}
 
-	return nil
+		// create cmd v1client
+		switch version {
+		case 1:
+			client := notifyv1.NewNotifyClient(conn)
+			n.v1client = client
+			n.conn = conn
+		default:
+			conn.Close()
+			return false, fmt.Errorf("cmd v1client version %v not implemented yet", version)
+		}
+
+		log.Log.Infof("Successfully connected to domain notify socket at %s", socketPath)
+		return true, nil
+	})
+
+	return err
 }
 
 func newV1Notifier(client notifyv1.NotifyClient, conn *grpc.ClientConn) *Notifier {
