@@ -3,6 +3,8 @@ package hyperconverged
 import (
 	"context"
 	"fmt"
+	"os"
+
 	sspopv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis"
 	sspv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
@@ -10,6 +12,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
 	. "github.com/onsi/ginkgo"
@@ -23,7 +26,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -122,7 +124,7 @@ func getBasicDeployment() *basicExpected {
 	}
 	res.hco = hco
 
-	res.pc = newKubeVirtPriorityClass()
+	res.pc = hcoutil.NewKubeVirtPriorityClass()
 	// These are all of the objects that we expect to "find" in the client because
 	// we already created them in a previous reconcile.
 	expectedKVConfig := newKubeVirtConfigForCR(hco, namespace)

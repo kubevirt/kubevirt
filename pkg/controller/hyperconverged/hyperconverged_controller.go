@@ -855,26 +855,9 @@ func newKubeVirtForCR(cr *hcov1alpha1.HyperConverged, namespace string) *kubevir
 	}
 }
 
-func newKubeVirtPriorityClass() *schedulingv1.PriorityClass {
-	return &schedulingv1.PriorityClass{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "scheduling.k8s.io/v1",
-			Kind:       "PriorityClass",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-cluster-critical",
-		},
-		// 1 billion is the highest value we can set
-		// https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
-		Value:         1000000000,
-		GlobalDefault: false,
-		Description:   "This priority class should be used for KubeVirt core components only.",
-	}
-}
-
 func (r *ReconcileHyperConverged) ensureKubeVirtPriorityClass(req *hcoRequest) (upgradeDone bool, err error) {
 	req.logger.Info("Reconciling KubeVirt PriorityClass")
-	pc := newKubeVirtPriorityClass()
+	pc := hcoutil.NewKubeVirtPriorityClass()
 
 	key, err := client.ObjectKeyFromObject(pc)
 	if err != nil {
@@ -1721,7 +1704,7 @@ func componentResourceRemoval(o interface{}, c client.Client, req *hcoRequest) e
 }
 
 func ensureKubeVirtPriorityClassDeleted(c client.Client, req *hcoRequest) error {
-	pc := newKubeVirtPriorityClass()
+	pc := hcoutil.NewKubeVirtPriorityClass()
 	key, err := client.ObjectKeyFromObject(pc)
 	if err != nil {
 		req.logger.Error(err, "Failed to get object key for KubeVirt PriorityClass")

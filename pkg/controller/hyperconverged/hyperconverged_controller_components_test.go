@@ -1,9 +1,12 @@
 package hyperconverged
 
 import (
+	"os"
+
 	sspv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/openshift/custom-resource-status/testlib"
@@ -15,7 +18,6 @@ import (
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo"
@@ -24,6 +26,7 @@ import (
 
 	"context"
 	"fmt"
+
 	"k8s.io/client-go/tools/reference"
 )
 
@@ -40,7 +43,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := newKubeVirtPriorityClass()
+			expectedResource := hcoutil.NewKubeVirtPriorityClass()
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
 			upgradeDone, err := r.ensureKubeVirtPriorityClass(req)
@@ -57,7 +60,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should do nothing if already exists", func() {
-			expectedResource := newKubeVirtPriorityClass()
+			expectedResource := hcoutil.NewKubeVirtPriorityClass()
 			cl := initClient([]runtime.Object{expectedResource})
 			r := initReconciler(cl)
 			upgradeDone, err := r.ensureKubeVirtPriorityClass(req)
@@ -76,7 +79,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(upgradeDone).To(BeFalse())
 			Expect(err).To(BeNil())
 
-			expectedResource := newKubeVirtPriorityClass()
+			expectedResource := hcoutil.NewKubeVirtPriorityClass()
 			key, err := client.ObjectKeyFromObject(expectedResource)
 			Expect(err).ToNot(HaveOccurred())
 			foundResource := &schedulingv1.PriorityClass{}

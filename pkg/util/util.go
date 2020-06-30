@@ -5,14 +5,16 @@ import (
 	"fmt"
 
 	"errors"
+	"os"
+
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	csvv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -95,4 +97,21 @@ func GetCSVfromPod(pod *corev1.Pod, c client.Client, logger logr.Logger) (*csvv1
 	}
 
 	return csv, nil
+}
+
+func NewKubeVirtPriorityClass() *schedulingv1.PriorityClass {
+	return &schedulingv1.PriorityClass{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "scheduling.k8s.io/v1",
+			Kind:       "PriorityClass",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kubevirt-cluster-critical",
+		},
+		// 1 billion is the highest value we can set
+		// https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+		Value:         1000000000,
+		GlobalDefault: false,
+		Description:   "This priority class should be used for KubeVirt core components only.",
+	}
 }
