@@ -40,11 +40,21 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Validating VM Admitter", func() {
-	config, _, crdInformer := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, configMapInformer, crdInformer := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	var vmsAdmitter *VMsAdmitter
+
+	enableFeatureGate := func(featureGate string) {
+		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
+			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
+		})
+	}
+	disableFeatureGates := func() {
+		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{})
+	}
 
 	notRunning := false
 
@@ -414,6 +424,15 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 
 	Context("with Volume", func() {
+
+		BeforeEach(func() {
+			enableFeatureGate(virtconfig.HostDiskGate)
+		})
+
+		AfterEach(func() {
+			disableFeatureGates()
+		})
+
 		table.DescribeTable("should accept valid volumes",
 			func(volumeSource v1.VolumeSource) {
 				vmi := v1.NewMinimalVMI("testvmi")
