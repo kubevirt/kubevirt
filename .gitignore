@@ -3,3 +3,4 @@ _out
 .idea
 _ci-configs/*
 *.coverprofile
+_local/

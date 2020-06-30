@@ -19,7 +19,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	sspopv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
@@ -34,7 +34,7 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -74,17 +74,30 @@ func main() {
 
 	printVersion()
 
-	watchNamespace, err := k8sutil.GetWatchNamespace()
-	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
-		os.Exit(1)
-	}
-
 	// Get the namespace the operator is currently deployed in.
 	depOperatorNs, err := k8sutil.GetOperatorNamespace()
+	runInLocal := false
 	if err != nil {
-		log.Error(err, "Failed to get operator namespace")
-		os.Exit(1)
+		if err == k8sutil.ErrRunLocal {
+			runInLocal = true
+		} else {
+			log.Error(err, "Failed to get operator namespace")
+			os.Exit(1)
+		}
+	}
+
+	if runInLocal {
+		log.Info("running locally")
+	}
+
+	watchNamespace := ""
+
+	if !runInLocal {
+		watchNamespace, err = k8sutil.GetWatchNamespace()
+		if err != nil {
+			log.Error(err, "Failed to get watch namespace")
+			os.Exit(1)
+		}
 	}
 
 	// Get the namespace the operator should be deployed in.
@@ -94,9 +107,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	if runInLocal {
+		depOperatorNs = operatorNsEnv
+	}
+
 	if depOperatorNs != operatorNsEnv {
 		log.Error(
-			fmt.Errorf("Operator running in different namespace than expected"),
+			fmt.Errorf("operator running in different namespace than expected"),
 			fmt.Sprintf("Please re-deploy this operator into %v namespace", operatorNsEnv),
 			"Expected.Namespace", operatorNsEnv,
 			"Deployed.Namespace", depOperatorNs,
@@ -163,34 +180,36 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = serveCRMetrics(cfg); err != nil {
-		log.Info("Could not generate and serve custom resource metrics", "error", err.Error())
-	}
+	if !runInLocal {
+		if err = serveCRMetrics(cfg); err != nil {
+			log.Info("Could not generate and serve custom resource metrics", "error", err.Error())
+		}
 
-	// Add to the below struct any other metrics ports you want to expose.
-	servicePorts := []corev1.ServicePort{
-		{Port: metricsPort, Name: metrics.OperatorPortName, Protocol: corev1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: metricsPort}},
-		{Port: operatorMetricsPort, Name: metrics.CRPortName, Protocol: corev1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: operatorMetricsPort}},
-	}
-	// Create Service object to expose the metrics port(s).
-	service, err := metrics.CreateMetricsService(ctx, cfg, servicePorts)
-	if err != nil {
-		log.Info("Could not create metrics Service", "error", err.Error())
+		// Add to the below struct any other metrics ports you want to expose.
+		servicePorts := []corev1.ServicePort{
+			{Port: metricsPort, Name: metrics.OperatorPortName, Protocol: corev1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: metricsPort}},
+			{Port: operatorMetricsPort, Name: metrics.CRPortName, Protocol: corev1.ProtocolTCP, TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: operatorMetricsPort}},
+		}
+
+		// Create Service object to expose the metrics port(s).
+		service, err := metrics.CreateMetricsService(ctx, cfg, servicePorts)
+		if err != nil {
+			log.Info("Could not create metrics Service", "error", err.Error())
+		}
+		services := []*corev1.Service{service}
+		_, err = metrics.CreateServiceMonitors(cfg, depOperatorNs, services)
+		if err != nil {
+			log.Info("Could not create ServiceMonitor object", "error", err.Error())
+			// If this operator is deployed to a cluster without the prometheus-operator running, it will return
+			// ErrServiceMonitorNotPresent, which can be used to safely skip ServiceMonitor creation.
+			if err == metrics.ErrServiceMonitorNotPresent {
+				log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects", "error", err.Error())
+			}
+		}
 	}
 
 	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
 	// necessary to configure Prometheus to scrape metrics from this operator.
-	services := []*corev1.Service{service}
-	_, err = metrics.CreateServiceMonitors(cfg, depOperatorNs, services)
-	if err != nil {
-		log.Info("Could not create ServiceMonitor object", "error", err.Error())
-		// If this operator is deployed to a cluster without the prometheus-operator running, it will return
-		// ErrServiceMonitorNotPresent, which can be used to safely skip ServiceMonitor creation.
-		if err == metrics.ErrServiceMonitorNotPresent {
-			log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects", "error", err.Error())
-		}
-	}
-
 	if err = (&hcov1alpha1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr); err != nil {
 		log.Error(err, "unable to create webhook", "webhook", "HyperConverged")
 		os.Exit(1)

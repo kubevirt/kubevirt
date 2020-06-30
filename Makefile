@@ -120,6 +120,9 @@ test: test-unit
 charts:
 	./hack/build-charts.sh
 
+local:
+	./hack/make_local.sh
+
 .PHONY: start \
 		clean \
 		build \
@@ -144,3 +147,4 @@ charts:
 		test-functional \
 		test-functional-prow \
 		charts \
+		local \
