@@ -227,7 +227,7 @@ func (d *VirtualMachineController) startDomainNotifyPipe(vmi *v1.VirtualMachineI
 			}
 
 			go func(vmi *v1.VirtualMachineInstance) {
-				log.Log.Object(vmi).V(3).Infof("Accepted new notify pipe connection for vmi")
+				log.Log.Object(vmi).Infof("Accepted new notify pipe connection for vmi")
 				defer fd.Close()
 				copyErr := make(chan error)
 				go func() {
@@ -242,7 +242,7 @@ func (d *VirtualMachineController) startDomainNotifyPipe(vmi *v1.VirtualMachineI
 				// wait until one of the copy routines exit then
 				// let the fd close
 				err := <-copyErr
-				log.Log.Object(vmi).V(3).Infof("closing notify pipe connection for vmi: %v", err)
+				log.Log.Object(vmi).Infof("closing notify pipe connection for vmi: %v", err)
 
 			}(vmi)
 		}
