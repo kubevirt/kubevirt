@@ -923,15 +923,14 @@ var _ = Describe("[Serial]Macvtap", func() {
 		return vmi
 	}
 
-	createCirrosVMIWithMacvtapStaticIP := func(virtClient kubecli.KubevirtClient, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
+	createCirrosVMIWithMacvtapStaticIP := func(virtClient kubecli.KubevirtClient, nodeName string, networkName string, ifaceName string, ipCIDR string, mac *string) *v1.VirtualMachineInstance {
 		vmi := newRandomVMIWithMacvtapInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", networkName)
 		if mac != nil {
 			vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = *mac
 		}
-		_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-		Expect(err).ToNot(HaveOccurred())
-
-		vmi = tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+		vmi = tests.WaitUntilVMIReady(
+			tests.StartVmOnNode(vmi, nodeName),
+			tests.LoggedInCirrosExpecter)
 		// configure the client VMI
 		configVMIInterfaceWithSudo(vmi, ifaceName, ipCIDR)
 		return vmi
@@ -941,12 +940,17 @@ var _ = Describe("[Serial]Macvtap", func() {
 		var serverVMI *v1.VirtualMachineInstance
 		var chosenMAC string
 		var serverCIDR string
+		var nodeList *k8sv1.NodeList
+		var nodeName string
 
 		BeforeEach(func() {
+			nodeList = tests.GetAllSchedulableNodes(virtClient)
+			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
+			nodeName = nodeList.Items[0].Name
 			chosenMAC = "de:ad:00:00:be:af"
 			serverCIDR = "192.0.2.102/24"
 
-			serverVMI = createCirrosVMIWithMacvtapStaticIP(virtClient, macvtapNetworkName, "eth0", serverCIDR, &chosenMAC)
+			serverVMI = createCirrosVMIWithMacvtapStaticIP(virtClient, nodeName, macvtapNetworkName, "eth0", serverCIDR, &chosenMAC)
 		})
 
 		It("should have the specified MAC address reported back via the API", func() {
@@ -957,7 +961,7 @@ var _ = Describe("[Serial]Macvtap", func() {
 		Context("and another virtual machine connected to the same network", func() {
 			var clientVMI *v1.VirtualMachineInstance
 			BeforeEach(func() {
-				clientVMI = createCirrosVMIWithMacvtapStaticIP(virtClient, macvtapNetworkName, "eth0", "192.0.2.101/24", nil)
+				clientVMI = createCirrosVMIWithMacvtapStaticIP(virtClient, nodeName, macvtapNetworkName, "eth0", "192.0.2.101/24", nil)
 			})
 
 			It("can communicate with the virtual machine in the same network", func() {
