@@ -67,6 +67,7 @@ container_image(
     files = [
         ":virt-launcher",
         "//cmd/container-disk-v2alpha:container-disk",
+        "//cmd/tap-device-maker",
     ],
     visibility = ["//visibility:public"],
 )
