@@ -29,11 +29,11 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
 
 	"github.com/coreos/go-iptables/iptables"
 
 	lmf "github.com/subgraph/libmacouflage"
-	"github.com/songgao/water"
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -347,25 +347,16 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 }
 
 func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool) error {
-	config := water.Config{
-		DeviceType: water.TAP,
-		PlatformSpecificParams: water.PlatformSpecificParams{
-			Name:        tapName,
-			Persist:     true,
-			Permissions: &water.DevicePermissions{
-				Owner: 107,
-				Group: 107,
-			},
-			MultiQueue:  isMultiqueue,
-		},
-	}
+	createTapDeviceArgs := []string{"-tapName", tapName, "-isMultiqueue", strconv.FormatBool(isMultiqueue)}
+	cmd := exec.Command("/usr/bin/tap-device-maker", createTapDeviceArgs...)
+	err := cmd.Run()
 
-	tapIface, err := water.New(config)
 	if err != nil {
-		log.Log.Reason(err).Criticalf("Failed to create tap device %s, because %v", tapIface.Name(), err)
+		log.Log.Reason(err).Criticalf("Failed to create tap device %s, because %v", tapName, err)
 		return err
 	}
-	log.Log.Infof("Created tap device: %s", tapIface.Name())
+
+	log.Log.Infof("Created tap device: %s", tapName)
 	return nil
 }
 

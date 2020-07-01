@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["tap-device-maker.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/tap-device-maker",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//staging/src/github.com/golang/glog:go_default_library",
+        "//vendor/github.com/songgao/water:go_default_library",
+    ],
+)
+
+load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
+
+go_binary(
+    name = "tap-device-maker",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)
