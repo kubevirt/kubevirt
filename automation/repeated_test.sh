@@ -90,8 +90,9 @@ echo "Test files touched: $(echo ${NEW_TESTS} | tr '|' ',')"
 NUM_TESTS=${NUM_TESTS-3}
 echo "Number of per lane runs: $NUM_TESTS"
 
-tests_total_estimate=$(find tests/ -name '*_test.go' -print0 | xargs -0 grep -E '(Specify|It)\(' | wc -l | awk '{total += $1} END {print total}')
-tests_to_run_estimate=$(git diff --name-status "${TARGET_COMMIT}".. -- tests/ | grep -v -E '^D.*' | grep -o -E 'tests\/[a-z_]+_test\.go' | xargs grep -E '(Specify|It)\(' | wc -l | awk '{total += $1} END {print total}')
+test_start_pattern='(Specify|It|Entry)\('
+tests_total_estimate=$(find tests/ -name '*_test.go' -print0 | xargs -0 grep -E "${test_start_pattern}" | wc -l | awk '{total += $1} END {print total}')
+tests_to_run_estimate=$(git diff --name-status "${TARGET_COMMIT}".. -- tests/ | grep -v -E '^D.*' | grep -o -E 'tests\/[a-z_]+_test\.go' | xargs grep -E "${test_start_pattern}" | wc -l | awk '{total += $1} END {print total}')
 tests_total_for_all_runs_estimate=$(expr $tests_to_run_estimate \* $NUM_TESTS \* ${#TEST_LANES[@]})
 echo -e "Estimates:\ttests_total_estimate: $tests_total_estimate\ttests_total_for_all_runs_estimate: $tests_total_for_all_runs_estimate"
 if [ $tests_total_for_all_runs_estimate -gt $tests_total_estimate ]; then
