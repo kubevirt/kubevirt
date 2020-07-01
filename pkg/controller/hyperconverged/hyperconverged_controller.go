@@ -82,6 +82,11 @@ const (
 	hcoVersionName = "operator"
 
 	appLabel = "app"
+
+	commonTemplatesBundleOldCrdName = "kubevirtcommontemplatesbundles.kubevirt.io"
+	metricsAggregationOldCrdName    = "kubevirtmetricsaggregations.kubevirt.io"
+	nodeLabellerBundlesOldCrdName   = "kubevirtnodelabellerbundles.kubevirt.io"
+	templateValidatorsOldCrdName    = "kubevirttemplatevalidators.kubevirt.io"
 )
 
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -104,6 +109,13 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		recorder:    mgr.GetEventRecorderFor(hcov1alpha1.HyperConvergedName),
 		upgradeMode: false,
 		ownVersion:  ownVersion,
+		clusterInfo: hcoutil.NewClusterInfo(mgr.GetClient()),
+		shouldRemoveOldCrd: map[string]bool{
+			commonTemplatesBundleOldCrdName: true,
+			metricsAggregationOldCrdName:    true,
+			nodeLabellerBundlesOldCrdName:   true,
+			templateValidatorsOldCrdName:    true,
+		},
 	}
 }
 
@@ -161,11 +173,13 @@ var _ reconcile.Reconciler = &ReconcileHyperConverged{}
 type ReconcileHyperConverged struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client      client.Client
-	scheme      *runtime.Scheme
-	recorder    record.EventRecorder
-	upgradeMode bool
-	ownVersion  string
+	client             client.Client
+	scheme             *runtime.Scheme
+	recorder           record.EventRecorder
+	upgradeMode        bool
+	ownVersion         string
+	clusterInfo        hcoutil.ClusterInfo
+	shouldRemoveOldCrd map[string]bool
 }
 
 // hcoRequest - gather data for a specific request
@@ -246,6 +260,10 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 }
 
 func (r *ReconcileHyperConverged) doReconcile(req *hcoRequest) (reconcile.Result, error) {
+
+	if err := r.clusterInfo.CheckRunningInOpenshift(req.ctx, req.logger); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	valid, err := r.validateNamespace(req)
 	if !valid {
@@ -1208,6 +1226,11 @@ func newKubeVirtCommonTemplateBundleForCR(cr *hcov1alpha1.HyperConverged, namesp
 }
 
 func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(req *hcoRequest) (upgradeDone bool, err error) {
+
+	if !r.clusterInfo.IsOpenshift() {
+		return true, nil
+	}
+
 	kvCTB := newKubeVirtCommonTemplateBundleForCR(req.instance, OpenshiftNamespace)
 
 	key, err := client.ObjectKeyFromObject(kvCTB)
@@ -1249,13 +1272,20 @@ func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(req *hcoReq
 	}
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
-	// TODO: temporary avoid checking conditions on KubevirtCommonTemplatesBundle because it's currently
-	// broken on k8s. Revert this when we will be able to fix it
-	// handleComponentConditions(r, req, "KubevirtCommonTemplatesBundle", found.Status.Conditions)
-	// TODO: temporary avoid checking upgrade because it's not implemented in KubevirtCommonTemplatesBundle
-	//req.componentUpgradeInProgress = req.componentUpgradeInProgress && r.checkComponentVersion(???, ???)
+	isReady := handleComponentConditions(r, req, "KubevirtCommonTemplatesBundle", found.Status.Conditions)
+
+	upgradeInProgress := false
+	if isReady {
+		upgradeInProgress = r.upgradeMode && r.checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
+		if (upgradeInProgress || !r.upgradeMode) && r.shouldRemoveOldCrd[commonTemplatesBundleOldCrdName] {
+			if r.removeCrd(req, commonTemplatesBundleOldCrdName) {
+				r.shouldRemoveOldCrd[commonTemplatesBundleOldCrdName] = false
+			}
+		}
+	}
 
 	req.statusDirty = true
+	req.componentUpgradeInProgress = req.componentUpgradeInProgress && upgradeInProgress
 	return req.componentUpgradeInProgress, nil
 }
 
@@ -1276,6 +1306,10 @@ func newKubeVirtNodeLabellerBundleForCR(cr *hcov1alpha1.HyperConverged, namespac
 }
 
 func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(req *hcoRequest) (upgradeDone bool, err error) {
+	if !r.clusterInfo.IsOpenshift() {
+		return true, nil
+	}
+
 	kvNLB := newKubeVirtNodeLabellerBundleForCR(req.instance, req.Namespace)
 	if err = controllerutil.SetControllerReference(req.instance, kvNLB, r.scheme); err != nil {
 		return false, err
@@ -1306,9 +1340,20 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(req *hcoReque
 	}
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
-	// TODO: temporary avoid checking conditions on KubevirtNodeLabellerBundle because it's currently
-	// broken on k8s. Revert this when we will be able to fix it
-	//handleComponentConditions(r, req, "KubevirtNodeLabellerBundle", found.Status.Conditions)
+	isReady := handleComponentConditions(r, req, "KubevirtNodeLabellerBundle", found.Status.Conditions)
+
+	upgradeInProgress := false
+	if isReady {
+		upgradeInProgress = r.upgradeMode && r.checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
+		if (upgradeInProgress || !r.upgradeMode) && r.shouldRemoveOldCrd[nodeLabellerBundlesOldCrdName] {
+			if r.removeCrd(req, nodeLabellerBundlesOldCrdName) {
+				r.shouldRemoveOldCrd[nodeLabellerBundlesOldCrdName] = false
+			}
+		}
+	}
+
+	req.componentUpgradeInProgress = req.componentUpgradeInProgress && upgradeInProgress
+
 	req.statusDirty = true
 	return req.componentUpgradeInProgress, nil
 }
@@ -1442,6 +1487,10 @@ func newKubeVirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged, namespace
 }
 
 func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(req *hcoRequest) (upgradeDone bool, err error) {
+	if !r.clusterInfo.IsOpenshift() {
+		return true, nil
+	}
+
 	kvTV := newKubeVirtTemplateValidatorForCR(req.instance, req.Namespace)
 	if err = controllerutil.SetControllerReference(req.instance, kvTV, r.scheme); err != nil {
 		return false, err
@@ -1472,12 +1521,19 @@ func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(req *hcoReques
 	}
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
-	// TODO: temporary avoid checking conditions on KubevirtTemplateValidator because it's currently
-	// broken on k8s. Revert this when we will be able to fix it
-	// handleComponentConditions(r, req, "KubevirtTemplateValidator", found.Status.Conditions)
-	// TODO: temporary avoid checking upgrade because it's not implemented in KubevirtTemplateValidator
-	//req.componentUpgradeInProgress = req.componentUpgradeInProgress && r.checkComponentVersion(???, ???)
+	isReady := handleComponentConditions(r, req, "KubevirtTemplateValidator", found.Status.Conditions)
 
+	upgradeInProgress := false
+	if isReady {
+		upgradeInProgress = r.upgradeMode && r.checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
+		if (upgradeInProgress || !r.upgradeMode) && r.shouldRemoveOldCrd[templateValidatorsOldCrdName] {
+			if r.removeCrd(req, templateValidatorsOldCrdName) {
+				r.shouldRemoveOldCrd[templateValidatorsOldCrdName] = false
+			}
+		}
+	}
+
+	req.componentUpgradeInProgress = req.componentUpgradeInProgress && upgradeInProgress
 	req.statusDirty = true
 	return req.componentUpgradeInProgress, nil
 }
@@ -1553,6 +1609,10 @@ func newKubeVirtMetricsAggregationForCR(cr *hcov1alpha1.HyperConverged, namespac
 }
 
 func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(req *hcoRequest) (upgradeDone bool, err error) {
+	if !r.clusterInfo.IsOpenshift() {
+		return true, nil
+	}
+
 	kubevirtMetricsAggregation := newKubeVirtMetricsAggregationForCR(req.instance, req.Namespace)
 	if err = controllerutil.SetControllerReference(req.instance, kubevirtMetricsAggregation, r.scheme); err != nil {
 		return false, err
@@ -1583,11 +1643,22 @@ func (r *ReconcileHyperConverged) ensureKubeVirtMetricsAggregation(req *hcoReque
 	}
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
-	// TODO: we don't call handleComponentConditions because KubeVirtMetricsAggregation uses non-standard conditions
-	// fix this when KubeVirtMetricsAggregation will be ready for this
-	// TODO check KubeVirtMetricsAggregation version for upgrade
+	isReady := handleComponentConditions(r, req, "KubeVirtMetricsAggregation", found.Status.Conditions)
+
+	upgradeInProgress := false
+	if isReady {
+		upgradeInProgress = r.upgradeMode && r.checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
+		if (upgradeInProgress || !r.upgradeMode) && r.shouldRemoveOldCrd[metricsAggregationOldCrdName] {
+			if r.removeCrd(req, metricsAggregationOldCrdName) {
+				r.shouldRemoveOldCrd[metricsAggregationOldCrdName] = false
+			}
+		}
+	}
+
+	req.componentUpgradeInProgress = req.componentUpgradeInProgress && upgradeInProgress
 
 	req.statusDirty = true
+
 	return req.componentUpgradeInProgress, nil
 }
 
@@ -1617,7 +1688,34 @@ func (r *ReconcileHyperConverged) setLabels(req *hcoRequest) {
 		req.instance.ObjectMeta.Labels[appLabel] = req.instance.Name
 		req.dirty = true
 	}
+}
 
+// return true if not found or if deletion succeeded
+func (r *ReconcileHyperConverged) removeCrd(req *hcoRequest, crdName string) bool {
+	found := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"kind":       "CustomResourceDefinition",
+			"apiVersion": "apiextensions.k8s.io/v1",
+		},
+	}
+	key := client.ObjectKey{Namespace: req.Namespace, Name: crdName}
+	err := r.client.Get(req.ctx, key, found)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			req.logger.Error(err, fmt.Sprintf("failed to read the %s CRD; %s", crdName, err.Error()))
+			return false
+		}
+	} else {
+		err = r.client.Delete(req.ctx, found)
+		if err != nil {
+			req.logger.Error(err, fmt.Sprintf("failed to remove the %s CRD; %s", crdName, err.Error()))
+			return false
+		} else {
+			req.logger.Info("successfully removed CRD", "CRD Name", crdName)
+		}
+	}
+
+	return true
 }
 
 func isKVMAvailable() bool {

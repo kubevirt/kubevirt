@@ -7,6 +7,7 @@ import (
 
 	sspopv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis"
 	sspv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
+	"github.com/go-logr/logr"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
@@ -277,5 +278,15 @@ func initReconciler(client client.Client) *ReconcileHyperConverged {
 	}
 
 	// Create a ReconcileHyperConverged object with the scheme and fake client
-	return &ReconcileHyperConverged{client: client, scheme: s}
+	return &ReconcileHyperConverged{client: client, scheme: s, clusterInfo: clusterInfoMock{}}
+}
+
+type clusterInfoMock struct{}
+
+func (clusterInfoMock) CheckRunningInOpenshift(_ context.Context, _ logr.Logger) error {
+	return nil
+}
+
+func (clusterInfoMock) IsOpenshift() bool {
+	return true
 }

@@ -13,6 +13,7 @@ require (
 	github.com/kubevirt/vm-import-operator v0.0.3
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.10.0
+	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v0.0.0-20200602122900-c002fd1547ca
 	github.com/operator-framework/api v0.3.5
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20200321030439-57b580e57e88
