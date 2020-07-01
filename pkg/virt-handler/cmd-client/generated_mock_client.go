@@ -207,3 +207,105 @@ func (_m *MockLauncherClient) Close() {
 func (_mr *_MockLauncherClientRecorder) Close() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Close")
 }
+
+func (_m *MockLauncherClient) HandleK8sEvents() {
+	_m.ctrl.Call(_m, "HandleK8sEvents")
+}
+
+func (_mr *_MockLauncherClientRecorder) HandleK8sEvents() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "HandleK8sEvents")
+}
+
+func (_m *MockLauncherClient) HandleDomainEvents() {
+	_m.ctrl.Call(_m, "HandleDomainEvents")
+}
+
+func (_mr *_MockLauncherClientRecorder) HandleDomainEvents() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "HandleDomainEvents")
+}
+
+// Mock of VMIClientFactory interface
+type MockVMIClientFactory struct {
+	ctrl     *gomock.Controller
+	recorder *_MockVMIClientFactoryRecorder
+}
+
+// Recorder for MockVMIClientFactory (not exported)
+type _MockVMIClientFactoryRecorder struct {
+	mock *MockVMIClientFactory
+}
+
+func NewMockVMIClientFactory(ctrl *gomock.Controller) *MockVMIClientFactory {
+	mock := &MockVMIClientFactory{ctrl: ctrl}
+	mock.recorder = &_MockVMIClientFactoryRecorder{mock}
+	return mock
+}
+
+func (_m *MockVMIClientFactory) EXPECT() *_MockVMIClientFactoryRecorder {
+	return _m.recorder
+}
+
+func (_m *MockVMIClientFactory) ClientForVMIIfExists(vmi *v1.VirtualMachineInstance) (LauncherClient, string, bool) {
+	ret := _m.ctrl.Call(_m, "ClientForVMIIfExists", vmi)
+	ret0, _ := ret[0].(LauncherClient)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(bool)
+	return ret0, ret1, ret2
+}
+
+func (_mr *_MockVMIClientFactoryRecorder) ClientForVMIIfExists(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ClientForVMIIfExists", arg0)
+}
+
+func (_m *MockVMIClientFactory) RemoveClientForVMI(vmi *v1.VirtualMachineInstance) {
+	_m.ctrl.Call(_m, "RemoveClientForVMI", vmi)
+}
+
+func (_mr *_MockVMIClientFactoryRecorder) RemoveClientForVMI(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveClientForVMI", arg0)
+}
+
+func (_m *MockVMIClientFactory) ClientForVMI(vmi *v1.VirtualMachineInstance) (LauncherClient, string, error) {
+	ret := _m.ctrl.Call(_m, "ClientForVMI", vmi)
+	ret0, _ := ret[0].(LauncherClient)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+func (_mr *_MockVMIClientFactoryRecorder) ClientForVMI(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ClientForVMI", arg0)
+}
+
+// Mock of ReadOnlyVMIClientFactory interface
+type MockReadOnlyVMIClientFactory struct {
+	ctrl     *gomock.Controller
+	recorder *_MockReadOnlyVMIClientFactoryRecorder
+}
+
+// Recorder for MockReadOnlyVMIClientFactory (not exported)
+type _MockReadOnlyVMIClientFactoryRecorder struct {
+	mock *MockReadOnlyVMIClientFactory
+}
+
+func NewMockReadOnlyVMIClientFactory(ctrl *gomock.Controller) *MockReadOnlyVMIClientFactory {
+	mock := &MockReadOnlyVMIClientFactory{ctrl: ctrl}
+	mock.recorder = &_MockReadOnlyVMIClientFactoryRecorder{mock}
+	return mock
+}
+
+func (_m *MockReadOnlyVMIClientFactory) EXPECT() *_MockReadOnlyVMIClientFactoryRecorder {
+	return _m.recorder
+}
+
+func (_m *MockReadOnlyVMIClientFactory) ClientForVMIIfExists(vmi *v1.VirtualMachineInstance) (LauncherClient, string, bool) {
+	ret := _m.ctrl.Call(_m, "ClientForVMIIfExists", vmi)
+	ret0, _ := ret[0].(LauncherClient)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(bool)
+	return ret0, ret1, ret2
+}
+
+func (_mr *_MockReadOnlyVMIClientFactoryRecorder) ClientForVMIIfExists(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ClientForVMIIfExists", arg0)
+}

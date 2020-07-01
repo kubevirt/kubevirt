@@ -25,6 +25,7 @@ import (
 
 	k6tv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 const collectionTimeout = 10 * time.Second // "long enough", crude heuristic
@@ -48,12 +49,16 @@ func NewConcurrentCollector(MaxRequestsPerKey int) *concurrentCollector {
 	}
 }
 
-func (cc *concurrentCollector) Collect(socketToVMIs vmiSocketMap, scraper metricsScraper, timeout time.Duration) ([]string, bool) {
-	log.Log.V(3).Infof("Collecting VM metrics from %d sources", len(socketToVMIs))
+func (cc *concurrentCollector) Collect(vmis []*k6tv1.VirtualMachineInstance, scraper metricsScraper, timeout time.Duration) ([]string, bool) {
+	log.Log.V(3).Infof("Collecting VM metrics from %d sources", len(vmis))
 	var busyScrapers sync.WaitGroup
 
 	skipped := []string{}
-	for key, vmi := range socketToVMIs {
+	for _, vmi := range vmis {
+		key, err := controller.KeyFunc(vmi)
+		if err != nil {
+			continue
+		}
 		reserved := cc.reserveKey(key)
 		if !reserved {
 			log.Log.Warningf("Source %s busy from a previous collection, skipped", key)

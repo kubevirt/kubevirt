@@ -121,7 +121,7 @@ type DiskImgCreator struct {
 }
 
 type k8sNotifier interface {
-	SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error
+	EnqueueK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error
 }
 
 func NewHostDiskCreator(notifier k8sNotifier, lessPVCSpaceToleration int) DiskImgCreator {
@@ -162,7 +162,7 @@ func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 
 					msg := fmt.Sprintf("PV size too small: expected %v B, found %v B. Using it anyway, it is within %v %% toleration", requestedSize, availableSize, hdc.lessPVCSpaceToleration)
 					log.Log.Info(msg)
-					err = hdc.notifier.SendK8sEvent(vmi, EventTypeToleratedSmallPV, EventReasonToleratedSmallPV, msg)
+					err = hdc.notifier.EnqueueK8sEvent(vmi, EventTypeToleratedSmallPV, EventReasonToleratedSmallPV, msg)
 					if err != nil {
 						log.Log.Reason(err).Warningf("Couldn't send k8s event for tolerated PV size: %v", err)
 					}

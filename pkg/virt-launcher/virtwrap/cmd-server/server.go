@@ -21,13 +21,15 @@ package cmdserver
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"time"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
 	"k8s.io/apimachinery/pkg/util/json"
+
+	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
@@ -49,6 +51,61 @@ func NewServerOptions(useEmulation bool) *ServerOptions {
 type Launcher struct {
 	domainManager virtwrap.DomainManager
 	useEmulation  bool
+	notifier      *eventsclient.Notifier
+}
+
+func (i *Launcher) HandleDomainEvent(_ *cmdv1.EmptyRequest, stream cmdv1.Cmd_HandleDomainEventServer) error {
+	// send the latest state in case this is a reconnect and the VMI already runs
+	event := i.notifier.DomainEventStore.Get()
+	if event != nil {
+		err := stream.Send(event.(*cmdv1.DomainEventRequest))
+		if err != nil {
+			return err
+		}
+	}
+
+	for {
+		select {
+		case <-i.notifier.DomainEventStore.UpdateChan():
+			event := i.notifier.DomainEventStore.Get()
+			if err := stream.Send(event.(*cmdv1.DomainEventRequest)); err != nil {
+				if err == io.EOF {
+					return nil
+				}
+				log.DefaultLogger().Reason(err).Error("Failed to send a domain event.")
+				continue
+			}
+		case <-stream.Context().Done():
+			return nil
+		}
+	}
+}
+
+func (i *Launcher) HandleK8SEvent(_ *cmdv1.EmptyRequest, stream cmdv1.Cmd_HandleK8SEventServer) error {
+	// send the latest state in case this is a reconnect and the VMI already runs
+	event := i.notifier.K8sEventStore.Get()
+	if event != nil {
+		err := stream.Send(event.(*cmdv1.K8SEventRequest))
+		if err != nil {
+			return err
+		}
+	}
+
+	for {
+		select {
+		case <-i.notifier.K8sEventStore.UpdateChan():
+			event := i.notifier.K8sEventStore.Get()
+			if err := stream.Send(event.(*cmdv1.K8SEventRequest)); err != nil {
+				if err == io.EOF {
+					return nil
+				}
+				log.DefaultLogger().Reason(err).Error("Failed to send a k8s domain event.")
+				continue
+			}
+		case <-stream.Context().Done():
+			return nil
+		}
+	}
 }
 
 func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
@@ -417,6 +474,7 @@ func (l *Launcher) GetFilesystems(ctx context.Context, request *cmdv1.EmptyReque
 func RunServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
+	notifier *eventsclient.Notifier,
 	options *ServerOptions) (chan struct{}, error) {
 
 	useEmulation := false
@@ -428,6 +486,7 @@ func RunServer(socketPath string,
 	server := &Launcher{
 		domainManager: domainManager,
 		useEmulation:  useEmulation,
+		notifier:      notifier,
 	}
 	registerInfoServer(grpcServer)
 

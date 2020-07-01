@@ -20,18 +20,15 @@
 package cache
 
 import (
-	"encoding/xml"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
-	"reflect"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
@@ -55,6 +52,7 @@ var _ = Describe("Domain informer", func() {
 	var ctrl *gomock.Controller
 	var domainManager *virtwrap.MockDomainManager
 	var socketPath string
+	var clientFactory *cmdclient.ClientFactory
 
 	podUID := "1234"
 
@@ -82,7 +80,8 @@ var _ = Describe("Domain informer", func() {
 		socketPath = cmdclient.SocketFilePathOnHost(podUID)
 		os.MkdirAll(filepath.Dir(socketPath), 0755)
 
-		informer, err = NewSharedInformer(shareDir, 10, nil, nil)
+		clientFactory = cmdclient.NewClientFactory(make(chan watch.Event, 100), nil)
+		informer, err = NewSharedInformer(shareDir, 10, nil, clientFactory)
 		Expect(err).ToNot(HaveOccurred())
 
 		ctrl = gomock.NewController(GinkgoT())
@@ -99,18 +98,17 @@ var _ = Describe("Domain informer", func() {
 	})
 
 	verifyObj := func(key string, domain *api.Domain) {
-		obj, exists, err := informer.GetStore().GetByKey(key)
-		Expect(err).To(BeNil())
+		getter := func() *api.DomainSpec {
+			obj, exists, err := informer.GetStore().GetByKey(key)
+			Expect(err).NotTo(HaveOccurred())
+			if exists {
+				return &obj.(*api.Domain).Spec
+			}
+			return nil
+		}
 
 		if domain != nil {
-			Expect(exists).To(BeTrue())
-
-			eventDomain := obj.(*api.Domain)
-			eventDomain.Spec.XMLName = xml.Name{}
-			Expect(reflect.DeepEqual(&domain.Spec, &eventDomain.Spec)).To(BeTrue())
-		} else {
-
-			Expect(exists).To(BeFalse())
+			Eventually(getter).Should(Equal(&domain.Spec))
 		}
 	}
 
@@ -208,16 +206,17 @@ var _ = Describe("Domain informer", func() {
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
-			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
+			cmdserver.RunServer(socketPath, domainManager, stopChan, notifyclient.NewNotifier(), nil)
 
 			// ensure we can connect to the server first.
-			client, err := cmdclient.NewClient(socketPath)
+			client, err := cmdclient.NewClient(socketPath, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
 			d := &DomainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
+				clientFactory:            cmdclient.NewClientFactory(make(chan watch.Event, 100), nil),
 			}
 
 			listResults, err := d.listAllKnownDomains()
@@ -234,16 +233,17 @@ var _ = Describe("Domain informer", func() {
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
 			err := AddGhostRecord("test1-namespace", "test1", "somefile1", "1234-1")
-			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
+			cmdserver.RunServer(socketPath, domainManager, stopChan, notifyclient.NewNotifier(), nil)
 
 			// ensure we can connect to the server first.
-			client, err := cmdclient.NewClient(socketPath)
+			client, err := cmdclient.NewClient(socketPath, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
 			d := &DomainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
+				clientFactory:            clientFactory,
 			}
 
 			listResults, err := d.listAllKnownDomains()
@@ -260,10 +260,10 @@ var _ = Describe("Domain informer", func() {
 
 			domainManager.EXPECT().ListAllDomains().Return(list, nil)
 
-			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
+			cmdserver.RunServer(socketPath, domainManager, stopChan, notifyclient.NewNotifier(), nil)
 
 			// ensure we can connect to the server first.
-			client, err := cmdclient.NewClient(socketPath)
+			client, err := cmdclient.NewClient(socketPath, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
@@ -283,6 +283,7 @@ var _ = Describe("Domain informer", func() {
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
+				clientFactory:            cmdclient.NewClientFactory(make(chan watch.Event, 100), nil),
 			}
 
 			watchdogFile := watchdog.WatchdogFileFromNamespaceName(shareDir, "default", "test")
@@ -320,6 +321,7 @@ var _ = Describe("Domain informer", func() {
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
+				clientFactory:            cmdclient.NewClientFactory(make(chan watch.Event, 100), nil),
 			}
 
 			err = d.startBackground()
@@ -365,6 +367,7 @@ var _ = Describe("Domain informer", func() {
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
+				clientFactory:            cmdclient.NewClientFactory(make(chan watch.Event, 100), nil),
 			}
 
 			err = d.startBackground()
@@ -395,10 +398,10 @@ var _ = Describe("Domain informer", func() {
 			// verify list still completes regardless
 			f, err := os.Create(filepath.Join(socketsDir, "default_fakevm_sock"))
 			f.Close()
-			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
+			cmdserver.RunServer(socketPath, domainManager, stopChan, notifyclient.NewNotifier(), nil)
 
 			// ensure we can connect to the server first.
-			client, err := cmdclient.NewClient(socketPath)
+			client, err := cmdclient.NewClient(socketPath, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
@@ -407,32 +410,42 @@ var _ = Describe("Domain informer", func() {
 
 			verifyObj("default/test", domain)
 		})
+
 		It("should watch for domain events.", func() {
+			client := notifyclient.NewNotifier()
+			cmdserver.RunServer(socketPath, domainManager, stopChan, client, nil)
+
+			// ensure that we start watching for events
+			_, err := clientFactory.ClientForSocket(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+			defer clientFactory.RemoveClient(socketPath)
+
 			domain := api.NewMinimalDomain("test")
+			domainManager.EXPECT().ListAllDomains()
 
 			go informer.Run(stopChan)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			client := notifyclient.NewNotifier(shareDir)
-
 			// verify add
-			err = client.SendDomainEvent(watch.Event{Type: watch.Added, Object: domain})
+			err = client.EnqueueDomainEvent(watch.Event{Type: watch.Added, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
-			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 			verifyObj("default/test", domain)
 
-			// verify modify
+			// change a field to definitely know that we got the expected result
 			domain.Spec.UUID = "fakeuuid"
-			err = client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+			err = client.EnqueueDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
-			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 			verifyObj("default/test", domain)
 
-			// verify modify
-			err = client.SendDomainEvent(watch.Event{Type: watch.Deleted, Object: domain})
+			// change a field to definitely know that we got the expected result
+			domain.Spec.UUID = "againdifferent"
+			err = client.EnqueueDomainEvent(watch.Event{Type: watch.Deleted, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
-			cache.WaitForCacheSync(stopChan, informer.HasSynced)
-			verifyObj("default/test", nil)
+			Eventually(func() bool {
+				_, exists, err := informer.GetStore().GetByKey("default/test")
+				Expect(err).ToNot(HaveOccurred())
+				return exists
+			}).Should(BeFalse())
 		})
 	})
 })

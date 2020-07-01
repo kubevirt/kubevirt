@@ -43,7 +43,7 @@ type MockNotifier struct {
 	Events chan k8sv1.Event
 }
 
-func (m MockNotifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
+func (m MockNotifier) EnqueueK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
 	event := k8sv1.Event{
 		InvolvedObject: k8sv1.ObjectReference{
 			Namespace: vmi.Namespace,

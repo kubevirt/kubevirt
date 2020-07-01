@@ -20,8 +20,8 @@
 package eventsclient
 
 import (
+	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -32,15 +32,14 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
+
+	v13 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -53,7 +52,6 @@ var _ = Describe("Notify", func() {
 		var shareDir string
 		var stop chan struct{}
 		var stopped bool
-		var eventChan chan watch.Event
 		var deleteNotificationSent chan watch.Event
 		var client *Notifier
 
@@ -68,26 +66,17 @@ var _ = Describe("Notify", func() {
 			mockCon.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil).AnyTimes()
 
 			stop = make(chan struct{})
-			eventChan = make(chan watch.Event, 100)
 			deleteNotificationSent = make(chan watch.Event, 100)
 			stopped = false
 			shareDir, err = ioutil.TempDir("", "kubevirt-share")
 			Expect(err).ToNot(HaveOccurred())
-
-			go func() {
-				notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
-			}()
-
-			time.Sleep(1 * time.Second)
-
-			client = NewNotifier(shareDir)
+			client = NewNotifier()
 		})
 
 		AfterEach(func() {
 			if stopped == false {
 				close(stop)
 			}
-			client.Close()
 			os.RemoveAll(shareDir)
 			ctrl.Finish()
 		})
@@ -106,19 +95,17 @@ var _ = Describe("Notify", func() {
 
 				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil, nil)
 
-				timedOut := false
-				timeout := time.After(2 * time.Second)
 				select {
-				case <-timeout:
-					timedOut = true
-				case event := <-eventChan:
-					newDomain, ok := event.Object.(*api.Domain)
+				case <-time.After(2 * time.Second):
+					Expect(true).To(BeFalse(), "should not time out")
+				case <-client.DomainEventStore.UpdateChan():
+					event := client.DomainEventStore.Get().(*v13.DomainEventRequest)
+					newDomain := &api.Domain{}
+					Expect(json.Unmarshal(event.GetDomainJSON(), newDomain)).To(Succeed())
 					newDomain.Spec.XMLName = xml.Name{}
-					Expect(ok).To(BeTrue(), "should typecase domain")
-					Expect(reflect.DeepEqual(domain.Spec, newDomain.Spec)).To(BeTrue())
-					Expect(event.Type).To(Equal(kubeEventType))
+					Expect(newDomain.Spec).To(Equal(domain.Spec))
+					Expect(event.GetEventType()).To(Equal(string(kubeEventType)))
 				}
-				Expect(timedOut).To(BeFalse(), "should not time out")
 			},
 				table.Entry("modified for crashed VMIs", libvirt.DOMAIN_CRASHED, libvirt.DOMAIN_EVENT_CRASHED, api.Crashed, watch.Modified),
 				table.Entry("modified for stopped VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_SHUTDOWN, api.Shutoff, watch.Modified),
@@ -137,26 +124,24 @@ var _ = Describe("Notify", func() {
 
 				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, nil, nil)
 
-				timedOut := false
-				timeout := time.After(2 * time.Second)
 				select {
-				case <-timeout:
-					timedOut = true
-				case e := <-eventChan:
-					Expect(e.Object.(*api.Domain).Status.Status).To(Equal(api.NoState))
-					Expect(e.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
-					Expect(e.Type).To(Equal(watch.Modified))
-
+				case <-time.After(2 * time.Second):
+					Expect(true).To(BeFalse(), "should not time out")
+				case <-client.DomainEventStore.UpdateChan():
+					event := client.DomainEventStore.Get().(*v13.DomainEventRequest)
+					newDomain := &api.Domain{}
+					Expect(json.Unmarshal(event.GetDomainJSON(), newDomain)).To(Succeed())
+					Expect(newDomain.Status.Status).To(Equal(api.NoState))
+					Expect(newDomain.ObjectMeta.DeletionTimestamp).ToNot(BeNil())
+					Expect(event.GetEventType()).To(Equal(string(watch.Modified)))
 				}
-				Expect(timedOut).To(BeFalse())
 
 				select {
-				case <-timeout:
-					timedOut = true
+				case <-time.After(2 * time.Second):
+					Expect(true).To(BeFalse(), "should not time out")
 				case <-deleteNotificationSent:
 					// virt-launcher waits in a final delete notification to be sent before exiting.
 				}
-				Expect(timedOut).To(BeFalse())
 			})
 
 		It("should update Interface status",
@@ -181,18 +166,17 @@ var _ = Describe("Notify", func() {
 
 				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil)
 
-				timedOut := false
-				timeout := time.After(2 * time.Second)
 				select {
-				case <-timeout:
-					timedOut = true
-				case event := <-eventChan:
-					newDomain, _ := event.Object.(*api.Domain)
+				case <-time.After(2 * time.Second):
+					Expect(true).To(BeFalse(), "should not time out")
+				case <-client.DomainEventStore.UpdateChan():
+					event := client.DomainEventStore.Get().(*v13.DomainEventRequest)
+					newDomain := &api.Domain{}
+					Expect(json.Unmarshal(event.GetDomainJSON(), newDomain)).To(Succeed())
 					newInterfaceStatuses := newDomain.Status.Interfaces
 					Expect(len(newInterfaceStatuses)).To(Equal(2))
 					Expect(reflect.DeepEqual(interfaceStatus, newInterfaceStatuses)).To(BeTrue())
 				}
-				Expect(timedOut).To(BeFalse())
 			})
 
 		It("should update Guest OS Info",
@@ -213,17 +197,16 @@ var _ = Describe("Notify", func() {
 
 				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, &osInfoStatus)
 
-				timedOut := false
-				timeout := time.After(2 * time.Second)
 				select {
-				case <-timeout:
-					timedOut = true
-				case event := <-eventChan:
-					newDomain, _ := event.Object.(*api.Domain)
+				case <-time.After(2 * time.Second):
+					Expect(true).To(BeFalse(), "should not time out")
+				case <-client.DomainEventStore.UpdateChan():
+					event := client.DomainEventStore.Get().(*v13.DomainEventRequest)
+					newDomain := &api.Domain{}
+					Expect(json.Unmarshal(event.GetDomainJSON(), newDomain)).To(Succeed())
 					newOSStatus := newDomain.Status.OSInfo
 					Expect(reflect.DeepEqual(osInfoStatus, newOSStatus)).To(BeTrue())
 				}
-				Expect(timedOut).To(BeFalse())
 			})
 	})
 
@@ -232,40 +215,29 @@ var _ = Describe("Notify", func() {
 		var shareDir string
 		var stop chan struct{}
 		var stopped bool
-		var eventChan chan watch.Event
 		var client *Notifier
-		var recorder *record.FakeRecorder
 		var vmiStore cache.Store
 
 		BeforeEach(func() {
 			stop = make(chan struct{})
-			eventChan = make(chan watch.Event, 100)
 			stopped = false
 			shareDir, err = ioutil.TempDir("", "kubevirt-share")
 			Expect(err).ToNot(HaveOccurred())
 
-			recorder = record.NewFakeRecorder(10)
 			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmiStore = vmiInformer.GetStore()
 
-			go func() {
-				notifyserver.RunServer(shareDir, stop, eventChan, recorder, vmiStore)
-			}()
-
-			time.Sleep(1 * time.Second)
-
-			client = NewNotifier(shareDir)
+			client = NewNotifier()
 		})
 
 		AfterEach(func() {
 			if stopped == false {
 				close(stop)
 			}
-			client.Close()
 			os.RemoveAll(shareDir)
 		})
 
-		It("Should send a k8s event", func(done Done) {
+		It("Should send a k8s event", func() {
 
 			vmi := v1.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
@@ -275,42 +247,19 @@ var _ = Describe("Notify", func() {
 			eventReason := "fooReason"
 			eventMessage := "barMessage"
 
-			err := client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
+			err := client.EnqueueK8sEvent(vmi, eventType, eventReason, eventMessage)
 			Expect(err).ToNot(HaveOccurred())
-
-			event := <-recorder.Events
-			Expect(event).To(Equal(fmt.Sprintf("%s %s %s", eventType, eventReason, eventMessage)))
-			close(done)
-		}, 5)
-	})
-
-	Describe("Version mismatch", func() {
-
-		var err error
-		var ctrl *gomock.Controller
-		var infoClient *info.MockNotifyInfoClient
-
-		BeforeEach(func() {
-			ctrl = gomock.NewController(GinkgoT())
-			infoClient = info.NewMockNotifyInfoClient(ctrl)
-		})
-
-		AfterEach(func() {
-			ctrl.Finish()
-		})
-		It("Should report error when server version mismatches", func() {
-
-			fakeResponse := info.NotifyInfoResponse{
-				SupportedNotifyVersions: []uint32{42},
+			select {
+			case <-time.After(2 * time.Second):
+				Expect(true).To(BeFalse(), "should not time out")
+			case <-client.K8sEventStore.UpdateChan():
+				event := client.K8sEventStore.Get().(*v13.K8SEventRequest)
+				var k8sEvent k8sv1.Event
+				Expect(json.Unmarshal(event.GetEventJSON(), &k8sEvent)).To(Succeed())
+				Expect(k8sEvent.Type).To(Equal(eventType))
+				Expect(k8sEvent.Reason).To(Equal(eventReason))
+				Expect(k8sEvent.Message).To(Equal(eventMessage))
 			}
-			infoClient.EXPECT().Info(gomock.Any(), gomock.Any()).Return(&fakeResponse, nil)
-
-			By("Initializing the notifier")
-			_, err = negotiateVersion(infoClient)
-
-			Expect(err).To(HaveOccurred(), "Should have returned error about incompatible versions")
-			Expect(err.Error()).To(ContainSubstring("no compatible version found"), "Expected error message to contain 'no compatible version found'")
-
 		})
 	})
 })

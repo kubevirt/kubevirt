@@ -19,6 +19,7 @@
 package rest
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/emicklei/go-restful"
@@ -30,14 +31,16 @@ import (
 )
 
 type LifecycleHandler struct {
-	vmiInformer  cache.SharedIndexInformer
-	virtShareDir string
+	vmiInformer   cache.SharedIndexInformer
+	virtShareDir  string
+	clientFactory cmdclient.ReadOnlyVMIClientFactory
 }
 
-func NewLifecycleHandler(vmiInformer cache.SharedIndexInformer, virtShareDir string) *LifecycleHandler {
+func NewLifecycleHandler(vmiInformer cache.SharedIndexInformer, virtShareDir string, factory cmdclient.ReadOnlyVMIClientFactory) *LifecycleHandler {
 	return &LifecycleHandler{
-		vmiInformer:  vmiInformer,
-		virtShareDir: virtShareDir,
+		vmiInformer:   vmiInformer,
+		virtShareDir:  virtShareDir,
+		clientFactory: factory,
 	}
 }
 
@@ -49,15 +52,10 @@ func (lh *LifecycleHandler) PauseHandler(request *restful.Request, response *res
 		return
 	}
 
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
-		response.WriteError(http.StatusInternalServerError, err)
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
-		response.WriteError(http.StatusInternalServerError, err)
+	client, _, _ := lh.clientFactory.ClientForVMIIfExists(vmi)
+	if client == nil {
+		log.Log.Object(vmi).Error("Failed to connect cmd client")
+		response.WriteError(http.StatusInternalServerError, fmt.Errorf("No connection to the VMI"))
 	}
 
 	err = client.PauseVirtualMachine(vmi)
@@ -77,15 +75,10 @@ func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *r
 		return
 	}
 
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
-		response.WriteError(http.StatusInternalServerError, err)
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
-		response.WriteError(http.StatusInternalServerError, err)
+	client, _, _ := lh.clientFactory.ClientForVMIIfExists(vmi)
+	if client == nil {
+		log.Log.Object(vmi).Error("Failed to connect cmd client")
+		response.WriteError(http.StatusInternalServerError, fmt.Errorf("No connection to the VMI"))
 	}
 
 	err = client.UnpauseVirtualMachine(vmi)
@@ -108,15 +101,10 @@ func (lh *LifecycleHandler) GetGuestInfo(request *restful.Request, response *res
 
 	log.Log.Object(vmi).Infof("Retreiving guestinfo from %s", vmi.Name)
 
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
-		response.WriteError(http.StatusInternalServerError, err)
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
-		response.WriteError(http.StatusInternalServerError, err)
+	client, _, _ := lh.clientFactory.ClientForVMIIfExists(vmi)
+	if client == nil {
+		log.Log.Object(vmi).Error("Failed to connect cmd client")
+		response.WriteError(http.StatusInternalServerError, fmt.Errorf("No connection to the VMI"))
 	}
 
 	guestInfo, err := client.GetGuestInfo()
@@ -139,15 +127,10 @@ func (lh *LifecycleHandler) GetUsers(request *restful.Request, response *restful
 
 	log.Log.Object(vmi).Infof("Retreiving userlist from %s", vmi.Name)
 
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
-		response.WriteError(http.StatusInternalServerError, err)
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
-		response.WriteError(http.StatusInternalServerError, err)
+	client, _, _ := lh.clientFactory.ClientForVMIIfExists(vmi)
+	if client == nil {
+		log.Log.Object(vmi).Error("Failed to connect cmd client")
+		response.WriteError(http.StatusInternalServerError, fmt.Errorf("No connection to the VMI"))
 	}
 
 	userList, err := client.GetUsers()
@@ -169,15 +152,10 @@ func (lh *LifecycleHandler) GetFilesystems(request *restful.Request, response *r
 
 	log.Log.Object(vmi).Infof("Retreiving filesystem list from %s", vmi.Name)
 
-	sockFile, err := cmdclient.FindSocketOnHost(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to detect cmd client")
-		response.WriteError(http.StatusInternalServerError, err)
-	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to connect cmd client")
-		response.WriteError(http.StatusInternalServerError, err)
+	client, _, _ := lh.clientFactory.ClientForVMIIfExists(vmi)
+	if client == nil {
+		log.Log.Object(vmi).Error("Failed to connect cmd client")
+		response.WriteError(http.StatusInternalServerError, fmt.Errorf("No connection to the VMI"))
 	}
 
 	fsList, err := client.GetFilesystems()

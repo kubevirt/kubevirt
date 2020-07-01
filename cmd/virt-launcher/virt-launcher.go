@@ -75,8 +75,9 @@ func markReady(readinessFile string) {
 func startCmdServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
+	notifier *notifyclient.Notifier,
 	options *cmdserver.ServerOptions) chan struct{} {
-	done, err := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
+	done, err := cmdserver.RunServer(socketPath, domainManager, stopChan, notifier, options)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
 		panic(err)
@@ -87,7 +88,7 @@ func startCmdServer(socketPath string,
 	//
 	// Timing out causes an error to be returned
 	err = utilwait.PollImmediate(1*time.Second, 15*time.Second, func() (bool, error) {
-		client, err := cmdclient.NewClient(socketPath)
+		client, err := cmdclient.NewClient(socketPath, nil, nil)
 		if err != nil {
 			return false, nil
 		}
@@ -119,7 +120,6 @@ func createLibvirtConnection() virtcli.Connection {
 
 func startDomainEventMonitoring(
 	notifier *notifyclient.Notifier,
-	virtShareDir string,
 	domainConn virtcli.Connection,
 	deleteNotificationSent chan watch.Event,
 	vmiUID types.UID,
@@ -319,7 +319,7 @@ func main() {
 	log.InitializeLogging("virt-launcher")
 
 	if !*noFork {
-		exitCode, err := ForkAndMonitor("qemu-kvm", *ephemeralDiskDir, *containerDiskDir)
+		exitCode, err := ForkAndMonitor("qemu-kvm", *containerDiskDir)
 		if err != nil {
 			log.Log.Reason(err).Error("monitoring virt-launcher failed")
 			os.Exit(1)
@@ -354,8 +354,7 @@ func main() {
 
 	var agentStore = agentpoller.NewAsyncAgentStore()
 
-	notifier := notifyclient.NewNotifier(*virtShareDir)
-	defer notifier.Close()
+	notifier := notifyclient.NewNotifier()
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration, &agentStore, *ovmfPath)
 	if err != nil {
@@ -371,7 +370,7 @@ func main() {
 	options := cmdserver.NewServerOptions(*useEmulation)
 	cmdclient.SetLegacyBaseDir(*virtShareDir)
 	socketPath := cmdclient.SocketOnGuest()
-	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
+	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, notifier, options)
 
 	gracefulShutdownCallback := func() {
 		err := wait.PollImmediate(time.Second, 15*time.Second, func() (bool, error) {
@@ -401,7 +400,7 @@ func main() {
 
 	events := make(chan watch.Event, 10)
 	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vm.UID, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval)
+	startDomainEventMonitoring(notifier, domainConn, events, vm.UID, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
@@ -448,7 +447,7 @@ func main() {
 
 // ForkAndMonitor itself to give qemu an extra grace period to properly terminate
 // in case of virt-launcher crashes
-func ForkAndMonitor(qemuProcessCommandPrefix string, ephemeralDiskDir string, containerDiskDir string) (int, error) {
+func ForkAndMonitor(qemuProcessCommandPrefix string, containerDiskDir string) (int, error) {
 	defer cleanupContainerDiskDirectory(containerDiskDir)
 	cmd := exec.Command(os.Args[0], append(os.Args[1:], "--no-fork", "true")...)
 	cmd.Stdout = os.Stdout

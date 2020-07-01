@@ -100,6 +100,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var podTestUUID types.UID
 	var stop chan struct{}
 	var eventChan chan watch.Event
+	var clientFactory *cmdclient.FakeVMIClientFactory
 
 	var host string
 
@@ -169,6 +170,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
 		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any()).Return(nil).AnyTimes()
+		clientFactory = cmdclient.NewFakeVMIClientFactory()
 
 		controller = NewController(recorder,
 			virtClient,
@@ -186,6 +188,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			tlsConfig,
 			tlsConfig,
 			mockIsolationDetector,
+			clientFactory,
 		)
 
 		vmiTestUUID = uuid.NewUUID()
@@ -211,14 +214,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 		StubOutNetworkForTest()
 
 		go func() {
-			notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
+			notifyserver.RunServer(shareDir, stop, eventChan, nil)
 		}()
 		time.Sleep(1 * time.Second)
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
-		domainPipe, err := controller.startDomainNotifyPipe(nil)
-		Expect(err).ToNot(HaveOccurred())
-		controller.addLauncherClient(vmiTestUUID, client, sockFile, domainPipe)
+		clientFactory.AddFakeClient(vmiTestUUID, client, sockFile, nil)
 
 	})
 
@@ -272,7 +273,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			legacyMockSockFile := filepath.Join(shareDir, "sockets", uid+"_sock")
 
-			controller.addLauncherClient(types.UID(uid), client, legacyMockSockFile, nil)
+			clientFactory.AddFakeClient(types.UID(uid), client, legacyMockSockFile, nil)
 			err := virtcache.AddGhostRecord(namespace, name, legacyMockSockFile, types.UID(uid))
 			Expect(err).ToNot(HaveOccurred())
 

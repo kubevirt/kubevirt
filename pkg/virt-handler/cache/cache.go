@@ -29,7 +29,7 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/client-go/tools/record"
+	"kubevirt.io/kubevirt/pkg/handler-launcher-com/common"
 
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,14 +47,14 @@ import (
 
 const socketDialTimeout = 5
 
-func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store) cache.ListerWatcher {
+func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder common.KubernetesEventRecorderInterface, clientFactory *cmdclient.ClientFactory) cache.ListerWatcher {
 	d := &DomainWatcher{
 		backgroundWatcherStarted: false,
 		virtShareDir:             virtShareDir,
 		watchdogTimeout:          watchdogTimeout,
 		recorder:                 recorder,
-		vmiStore:                 vmiStore,
 		unresponsiveSockets:      make(map[string]int64),
+		clientFactory:            clientFactory,
 	}
 
 	return d
@@ -68,11 +68,11 @@ type DomainWatcher struct {
 	backgroundWatcherStarted bool
 	virtShareDir             string
 	watchdogTimeout          int
-	recorder                 record.EventRecorder
-	vmiStore                 cache.Store
+	recorder                 common.KubernetesEventRecorderInterface
 
 	watchDogLock        sync.Mutex
 	unresponsiveSockets map[string]int64
+	clientFactory       *cmdclient.ClientFactory
 }
 
 type ghostRecord struct {
@@ -293,7 +293,7 @@ func (d *DomainWatcher) startBackground() error {
 	}
 
 	d.stopChan = make(chan struct{}, 1)
-	d.eventChan = make(chan watch.Event, 100)
+	d.eventChan = d.clientFactory.EventChan()
 
 	d.wg.Add(1)
 	go func() {
@@ -306,7 +306,8 @@ func (d *DomainWatcher) startBackground() error {
 		srvErr := make(chan error)
 		go func() {
 			defer close(srvErr)
-			err := notifyserver.RunServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder, d.vmiStore)
+			// The notify server is used for VMIs which were started before 0.29
+			err := notifyserver.RunServer(d.virtShareDir, d.stopChan, d.eventChan, d.recorder)
 			srvErr <- err
 		}()
 
@@ -460,7 +461,7 @@ func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 		}
 
 		log.Log.V(3).Infof("List domains from sock %s", socketFile)
-		client, err := cmdclient.NewClient(socketFile)
+		client, err := d.clientFactory.ClientForSocket(socketFile)
 		if err != nil {
 			log.Log.Reason(err).Error("failed to connect to cmd client socket")
 			// Ignore failure to connect to client.
@@ -469,7 +470,6 @@ func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 			// end listening.
 			continue
 		}
-		defer client.Close()
 
 		domain, exists, err := client.GetDomain()
 		if err != nil {
@@ -524,6 +524,8 @@ func (d *DomainWatcher) Stop() {
 	close(d.stopChan)
 	d.wg.Wait()
 	d.backgroundWatcherStarted = false
+	// FIXME this is actually wrong. In theory there could still come events in when we close this channel,
+	// resulting in crashes.
 	close(d.eventChan)
 }
 
@@ -531,8 +533,8 @@ func (d *DomainWatcher) ResultChan() <-chan watch.Event {
 	return d.eventChan
 }
 
-func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store) (cache.SharedInformer, error) {
-	lw := newListWatchFromNotify(virtShareDir, watchdogTimeout, recorder, vmiStore)
+func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder common.KubernetesEventRecorderInterface, clientFactory *cmdclient.ClientFactory) (cache.SharedInformer, error) {
+	lw := newListWatchFromNotify(virtShareDir, watchdogTimeout, recorder, clientFactory)
 	informer := cache.NewSharedInformer(lw, &api.Domain{}, 0)
 	return informer, nil
 }

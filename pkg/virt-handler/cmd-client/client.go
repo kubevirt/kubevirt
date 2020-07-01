@@ -34,6 +34,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -41,6 +42,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/watch"
+
+	"kubevirt.io/kubevirt/pkg/handler-launcher-com/common"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -66,6 +72,12 @@ var (
 
 const StandardLauncherSocketFileName = "launcher-sock"
 const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
+
+var DefaultBackoff = wait.Backoff{
+	Duration: 100 * time.Millisecond,
+	Factor:   2,
+	Steps:    5,
+}
 
 type MigrationOptions struct {
 	Bandwidth               resource.Quantity
@@ -93,11 +105,17 @@ type LauncherClient interface {
 	GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error)
 	Ping() error
 	Close()
+	HandleK8sEvents()
+	HandleDomainEvents()
 }
 
 type VirtLauncherClient struct {
-	v1client cmdv1.CmdClient
-	conn     *grpc.ClientConn
+	v1client  cmdv1.CmdClient
+	conn      *grpc.ClientConn
+	eventChan chan watch.Event
+	recorder  common.KubernetesEventRecorderInterface
+	stopChan  chan struct{}
+	backoff   wait.Backoff
 }
 
 const (
@@ -254,7 +272,7 @@ func SocketOnGuest() string {
 	return filepath.Join(LegacySocketsDirectory(), sockFile)
 }
 
-func NewClient(socketPath string) (LauncherClient, error) {
+func NewClient(socketPath string, eventChan chan watch.Event, recorder common.KubernetesEventRecorderInterface) (LauncherClient, error) {
 	// dial socket
 	conn, err := grpcutil.DialSocket(socketPath)
 	if err != nil {
@@ -264,10 +282,10 @@ func NewClient(socketPath string) (LauncherClient, error) {
 
 	// create info client and find cmd version to use
 	infoClient := info.NewCmdInfoClient(conn)
-	return NewClientWithInfoClient(infoClient, conn)
+	return NewClientWithInfoClient(infoClient, conn, eventChan, recorder)
 }
 
-func NewClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn) (LauncherClient, error) {
+func NewClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn, eventChan chan watch.Event, recorder common.KubernetesEventRecorderInterface) (LauncherClient, error) {
 	ctx, _ := context.WithTimeout(context.Background(), shortTimeout)
 	info, err := infoClient.Info(ctx, &info.CmdInfoRequest{})
 	if err != nil {
@@ -282,20 +300,25 @@ func NewClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientCon
 	switch version {
 	case 1:
 		client := cmdv1.NewCmdClient(conn)
-		return newV1Client(client, conn), nil
+		return newV1Client(client, conn, eventChan, recorder), nil
 	default:
 		return nil, fmt.Errorf("cmd client version %v not implemented yet", version)
 	}
 }
 
-func newV1Client(client cmdv1.CmdClient, conn *grpc.ClientConn) LauncherClient {
+func newV1Client(client cmdv1.CmdClient, conn *grpc.ClientConn, eventChan chan watch.Event, recorder common.KubernetesEventRecorderInterface) LauncherClient {
 	return &VirtLauncherClient{
-		v1client: client,
-		conn:     conn,
+		v1client:  client,
+		conn:      conn,
+		eventChan: eventChan,
+		recorder:  recorder,
+		backoff:   DefaultBackoff,
+		stopChan:  make(chan struct{}),
 	}
 }
 
 func (c *VirtLauncherClient) Close() {
+	close(c.stopChan)
 	c.conn.Close()
 }
 
@@ -418,6 +441,80 @@ func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstanc
 	err = handleError(err, "Migrate", response)
 	return err
 
+}
+
+// HandleDomainEvents will automatically reconnect and keep the stream alive until Close() is called.
+func (c *VirtLauncherClient) HandleDomainEvents() {
+	stream := func() error {
+		cmd, err := c.v1client.HandleDomainEvent(context.Background(), &cmdv1.EmptyRequest{})
+		if err != nil {
+			return fmt.Errorf("domain event stream: %v", err)
+		}
+		for {
+			msg, err := cmd.Recv()
+			if err == io.EOF {
+				return nil
+			}
+			if err != nil {
+				return fmt.Errorf("domain event stream: %v", err)
+			}
+			err = common.EnqueueHandlerDomainEvent(c.eventChan, msg)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Error("Failed to enqueue new domain event.")
+			}
+		}
+	}
+	c.runStream(stream)
+}
+
+func (c *VirtLauncherClient) runStream(stream func() error) {
+	runner := func() (bool, error) {
+		err := stream()
+		if err != nil {
+			log.DefaultLogger().Reason(err).Error("Failed to connect to stream.")
+		}
+		select {
+		case <-c.stopChan:
+			log.DefaultLogger().Info("Stop for client received")
+			return true, nil
+		default:
+			log.DefaultLogger().Info("No stop for client received, will try to reconnect stream")
+			return false, nil
+		}
+	}
+
+	for {
+		err := wait.ExponentialBackoff(c.backoff, runner)
+		if err == nil {
+			break
+		}
+		log.DefaultLogger().Reason(err).Error("Failed to connect to stream.")
+		time.Sleep(5 * time.Second)
+	}
+}
+
+func (c *VirtLauncherClient) HandleK8sEvents() {
+	stream := func() error {
+		cmd, err := c.v1client.HandleK8SEvent(context.Background(), &cmdv1.EmptyRequest{})
+		if err != nil {
+			return fmt.Errorf("k8s event stream: %v", err)
+		}
+		for {
+			msg, err := cmd.Recv()
+			if err == io.EOF {
+				return nil
+			}
+			if err != nil {
+				return fmt.Errorf("k8s event stream: %v", err)
+			}
+			err = c.recorder.Record(msg)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Error("Failed to record new k8s domain event.")
+				continue
+			}
+		}
+	}
+	c.runStream(stream)
 }
 
 func (c *VirtLauncherClient) CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
@@ -589,4 +686,228 @@ func (c *VirtLauncherClient) GetFilesystems() (v1.VirtualMachineInstanceFileSyst
 	}
 
 	return filesystemList, nil
+}
+
+type ClientFactory struct {
+	clients   map[string]LauncherClient
+	locks     map[string]*sync.Mutex
+	lock      sync.Mutex
+	eventChan chan watch.Event
+	recorder  common.KubernetesEventRecorderInterface
+}
+
+func NewClientFactory(eventChan chan watch.Event, recorderInterface common.KubernetesEventRecorderInterface) *ClientFactory {
+	return &ClientFactory{
+		clients:   map[string]LauncherClient{},
+		locks:     map[string]*sync.Mutex{},
+		lock:      sync.Mutex{},
+		eventChan: eventChan,
+		recorder:  recorderInterface,
+	}
+}
+
+func (f *ClientFactory) EventChan() chan watch.Event {
+	return f.eventChan
+}
+
+func (f *ClientFactory) ClientIfExists(socket string) LauncherClient {
+	lock := f.getLock(socket)
+	lock.Lock()
+	defer lock.Unlock()
+	if client, exists := f.clients[socket]; exists {
+		return client
+	}
+	f.removeLock(socket)
+	return nil
+}
+
+func (f *ClientFactory) ClientForSocket(socket string) (LauncherClient, error) {
+	lock := f.getLock(socket)
+	lock.Lock()
+	defer lock.Unlock()
+	if client, exists := f.clients[socket]; exists {
+		return client, nil
+	}
+	client, err := NewClient(socket, f.eventChan, f.recorder)
+	if err != nil {
+		f.removeLock(socket)
+		return nil, err
+	}
+	if !IsLegacySocket(socket) {
+		go client.HandleDomainEvents()
+		go client.HandleK8sEvents()
+	}
+	f.clients[socket] = client
+	return client, nil
+}
+
+func (f *ClientFactory) removeLock(socket string) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	delete(f.locks, socket)
+}
+
+func (f *ClientFactory) getLock(socket string) *sync.Mutex {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if lock, exists := f.locks[socket]; exists {
+		return lock
+	}
+	f.locks[socket] = &sync.Mutex{}
+	return f.locks[socket]
+}
+
+func (f *ClientFactory) RemoveClient(socket string) {
+	// take both locks, to ensure that no one creates new connections on half-delete clients
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if lock, exists := f.locks[socket]; exists {
+		lock.Lock()
+		defer lock.Unlock()
+	} else {
+		return
+	}
+
+	if client, exists := f.clients[socket]; exists {
+		// async to not block by accident
+		go client.Close()
+		delete(f.clients, socket)
+	}
+
+	delete(f.locks, socket)
+}
+
+type VMIClientFactoryImpl struct {
+	ClientFactory *ClientFactory
+	socketForUID  map[string]string
+	lock          sync.Mutex
+}
+
+func (f *VMIClientFactoryImpl) RemoveClientForVMI(vmi *v1.VirtualMachineInstance) {
+	if vmi.UID == "" {
+		return
+	}
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if socket, exists := f.socketForUID[string(vmi.UID)]; exists {
+		f.ClientFactory.RemoveClient(socket)
+	}
+	delete(f.socketForUID, string(vmi.UID))
+}
+
+func (f *VMIClientFactoryImpl) ClientForVMIIfExists(vmi *v1.VirtualMachineInstance) (LauncherClient, string, bool) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	socket, exists := f.socketForUID[string(vmi.UID)]
+	if !exists {
+		return nil, "", false
+	}
+	client := f.ClientFactory.ClientIfExists(socket)
+	if client != nil {
+		return client, "", true
+	}
+	return nil, socket, false
+}
+
+func (f *VMIClientFactoryImpl) ClientForVMI(vmi *v1.VirtualMachineInstance) (LauncherClient, string, error) {
+	if vmi.UID == "" {
+		return nil, "", fmt.Errorf("VMI %s/%s has no UID", vmi.Namespace, vmi.Name)
+	}
+	socket := func() string {
+		f.lock.Lock()
+		defer f.lock.Unlock()
+		if socket, exists := f.socketForUID[string(vmi.UID)]; exists {
+			return socket
+		}
+		return ""
+	}()
+
+	if socket == "" {
+		var err error
+		socket, err = FindSocketOnHost(vmi)
+		if err != nil {
+			return nil, "", fmt.Errorf("No client socket for vmi %s/%s found", vmi.Namespace, vmi.Name)
+		}
+	}
+
+	client, err := f.ClientFactory.ClientForSocket(socket)
+	if err != nil {
+		return client, "", err
+	}
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	f.socketForUID[string(vmi.UID)] = socket
+	return client, socket, nil
+}
+
+func NewVMIClientFactory(factory *ClientFactory) *VMIClientFactoryImpl {
+	return &VMIClientFactoryImpl{
+		ClientFactory: factory,
+		socketForUID:  map[string]string{},
+		lock:          sync.Mutex{},
+	}
+}
+
+type VMIClientFactory interface {
+	ReadOnlyVMIClientFactory
+	RemoveClientForVMI(vmi *v1.VirtualMachineInstance)
+	// ClientForVMI returns an existing connection or tries to establish a new connection
+	ClientForVMI(vmi *v1.VirtualMachineInstance) (LauncherClient, string, error)
+}
+
+type ReadOnlyVMIClientFactory interface {
+	// ClientForVMIIfExists will return a client connection if one exists
+	ClientForVMIIfExists(vmi *v1.VirtualMachineInstance) (LauncherClient, string, bool)
+}
+
+type fakeConnection struct {
+	Socket string
+	client LauncherClient
+	err    error
+}
+
+type FakeVMIClientFactory struct {
+	fakeConnections map[string]fakeConnection
+	lock            sync.Mutex
+}
+
+func NewFakeVMIClientFactory() *FakeVMIClientFactory {
+	return &FakeVMIClientFactory{
+		fakeConnections: map[string]fakeConnection{},
+	}
+}
+
+func (f *FakeVMIClientFactory) RemoveClientForVMI(vmi *v1.VirtualMachineInstance) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if conn, exists := f.fakeConnections[string(vmi.UID)]; exists {
+		conn.client.Close()
+	}
+	delete(f.fakeConnections, string(vmi.UID))
+}
+
+func (f *FakeVMIClientFactory) ClientForVMIIfExists(vmi *v1.VirtualMachineInstance) (LauncherClient, bool) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if conn, exists := f.fakeConnections[string(vmi.UID)]; exists {
+		return conn.client, true
+	}
+	return nil, false
+}
+
+func (f *FakeVMIClientFactory) ClientForVMI(vmi *v1.VirtualMachineInstance) (LauncherClient, string, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if conn, exists := f.fakeConnections[string(vmi.UID)]; exists {
+		return conn.client, conn.Socket, conn.err
+	}
+	return nil, "", fmt.Errorf("no client")
+}
+
+func (f *FakeVMIClientFactory) AddFakeClient(uid types.UID, client LauncherClient, socket string, err error) {
+	f.fakeConnections[string(uid)] = fakeConnection{
+		Socket: socket,
+		client: client,
+		err:    err,
+	}
 }

@@ -2,29 +2,21 @@ package eventsclient
 
 import (
 	"fmt"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/libvirt/libvirt-go"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/reference"
 
+	v12 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
-	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
-	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
-	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -32,18 +24,35 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
-var (
-	// add older version when supported
-	// don't use the variable in pkg/handler-launcher-com/notify/v1/version.go in order to detect version mismatches early
-	supportedNotifyVersions = []uint32{1}
-)
-
 type Notifier struct {
-	v1client         notifyv1.NotifyClient
-	conn             *grpc.ClientConn
-	connLock         sync.Mutex
-	pipeSocketPath   string
-	legacySocketPath string
+	DomainEventStore *Store
+	K8sEventStore    *Store
+}
+
+type Store struct {
+	value   interface{}
+	lock    sync.Mutex
+	channel chan struct{}
+}
+
+func (s *Store) Get() interface{} {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.value
+}
+
+func (s *Store) Set(value interface{}) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.value = value
+	select {
+	case s.channel <- struct{}{}:
+	default:
+	}
+}
+
+func (s *Store) UpdateChan() chan struct{} {
+	return s.channel
 }
 
 type libvirtEvent struct {
@@ -52,111 +61,18 @@ type libvirtEvent struct {
 	AgentEvent *libvirt.DomainEventAgentLifecycle
 }
 
-func NewNotifier(virtShareDir string) *Notifier {
+func NewNotifier() *Notifier {
 	return &Notifier{
-		pipeSocketPath:   filepath.Join(virtShareDir, "domain-notify-pipe.sock"),
-		legacySocketPath: filepath.Join(virtShareDir, "domain-notify.sock"),
+		DomainEventStore: &Store{channel: make(chan struct{}, 1)},
+		K8sEventStore:    &Store{channel: make(chan struct{}, 1)},
 	}
 }
 
-func negotiateVersion(infoClient info.NotifyInfoClient) (uint32, error) {
-	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	info, err := infoClient.Info(ctx, &info.NotifyInfoRequest{})
-	if err != nil {
-		return 0, fmt.Errorf("could not check cmd server version: %v", err)
-	}
-	version, err := com.GetHighestCompatibleVersion(info.SupportedNotifyVersions, supportedNotifyVersions)
-	if err != nil {
-		return 0, err
-	}
-
-	switch version {
-	case 1:
-		// fall-through for all supported versions
-	default:
-		return 0, fmt.Errorf("cmd v1client version %v not implemented yet", version)
-	}
-
-	return version, nil
-}
-
-func (n *Notifier) detectSocketPath() string {
-
-	// use the legacy domain socket if it exists. This would
-	// occur if the vmi was started with a hostPath shared mount
-	// using our old method for virt-handler to virt-launcher communication
-	exists, _ := diskutils.FileExists(n.legacySocketPath)
-	if exists {
-		return n.legacySocketPath
-	}
-
-	// default to using the new pipe socket
-	return n.pipeSocketPath
-}
-
-func (n *Notifier) connect() error {
-	connectionInterval := 2 * time.Second
-	connectionTimeout := 20 * time.Second
-
-	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
-		n.connLock.Lock()
-		defer n.connLock.Unlock()
-		if n.conn != nil {
-			// already connected
-			return true, nil
-		}
-
-		socketPath := n.detectSocketPath()
-
-		// dial socket
-		conn, err := grpcutil.DialSocketWithTimeout(socketPath, 5)
-		if err != nil {
-			log.Log.Reason(err).Infof("failed to dial notify socket: %s", socketPath)
-			return false, nil
-		}
-
-		version, err := negotiateVersion(info.NewNotifyInfoClient(conn))
-		if err != nil {
-			log.Log.Reason(err).Infof("failed to negotiate version")
-			conn.Close()
-			return false, nil
-		}
-
-		// create cmd v1client
-		switch version {
-		case 1:
-			client := notifyv1.NewNotifyClient(conn)
-			n.v1client = client
-			n.conn = conn
-		default:
-			conn.Close()
-			return false, fmt.Errorf("cmd v1client version %v not implemented yet", version)
-		}
-
-		log.Log.Infof("Successfully connected to domain notify socket at %s", socketPath)
-		return true, nil
-	})
-
-	return err
-}
-
-func newV1Notifier(client notifyv1.NotifyClient, conn *grpc.ClientConn) *Notifier {
-	return &Notifier{
-		v1client: client,
-		conn:     conn,
-	}
-}
-
-func (n *Notifier) SendDomainEvent(event watch.Event) error {
+func (n *Notifier) EnqueueDomainEvent(event watch.Event) error {
 
 	var domainJSON []byte
 	var statusJSON []byte
 	var err error
-
-	err = n.connect()
-	if err != nil {
-		return err
-	}
 
 	if event.Type == watch.Error {
 		status := event.Object.(*metav1.Status)
@@ -171,23 +87,12 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 			return err
 		}
 	}
-	request := notifyv1.DomainEventRequest{
+	request := v12.DomainEventRequest{
 		DomainJSON: domainJSON,
 		StatusJSON: statusJSON,
 		EventType:  string(event.Type),
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	response, err := n.v1client.HandleDomainEvent(ctx, &request)
-
-	if err != nil {
-		return err
-	} else if response.Success != true {
-		msg := fmt.Sprintf("failed to notify domain event: %s", response.Message)
-		return fmt.Errorf(msg)
-	}
-
+	n.DomainEventStore.Set(&request)
 	return nil
 }
 
@@ -201,7 +106,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
 			log.Log.Reason(err).Error("Could not fetch the Domain.")
-			client.SendDomainEvent(newWatchEventError(err))
+			client.EnqueueDomainEvent(newWatchEventError(err))
 			return
 		}
 		domain.SetState(api.NoState, api.ReasonNonExistent)
@@ -215,7 +120,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		if err != nil {
 			if !domainerrors.IsNotFound(err) {
 				log.Log.Reason(err).Error("Could not fetch the Domain state.")
-				client.SendDomainEvent(newWatchEventError(err))
+				client.EnqueueDomainEvent(newWatchEventError(err))
 				return
 			}
 			domain.SetState(api.NoState, api.ReasonNonExistent)
@@ -228,7 +133,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 			// NOTE: Getting domain metadata for a live-migrating VM isn't allowed
 			if !domainerrors.IsNotFound(err) && !domainerrors.IsInvalidOperation(err) {
 				log.Log.Reason(err).Error("Could not fetch the Domain specification.")
-				client.SendDomainEvent(newWatchEventError(err))
+				client.EnqueueDomainEvent(newWatchEventError(err))
 				return
 			}
 		} else {
@@ -243,39 +148,32 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 
 	switch domain.Status.Reason {
 	case api.ReasonNonExistent:
+		watchEvent := watch.Event{Type: watch.Modified, Object: domain}
 		now := metav1.Now()
 		domain.ObjectMeta.DeletionTimestamp = &now
-		watchEvent := watch.Event{Type: watch.Modified, Object: domain}
-		client.SendDomainEvent(watchEvent)
+		client.EnqueueDomainEvent(watchEvent)
 		events <- watchEvent
 	default:
+		event := watch.Event{
+			Type:   watch.Modified,
+			Object: domain,
+		}
 		if libvirtEvent.Event != nil {
 			if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_DEFINED && libvirt.DomainEventDefinedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
-				event := watch.Event{Type: watch.Added, Object: domain}
-				client.SendDomainEvent(event)
-				events <- event
+				event.Type = watch.Added
 			} else if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_STARTED && libvirt.DomainEventStartedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_STARTED_MIGRATED {
-				event := watch.Event{Type: watch.Added, Object: domain}
-				client.SendDomainEvent(event)
-				events <- event
+				event.Type = watch.Added
 			}
 		}
-		log.Log.Infof("7) OSINFO IN EVENT CALLBACK: %v", osInfo)
 		if interfaceStatus != nil {
 			domain.Status.Interfaces = interfaceStatus
 		}
 		if osInfo != nil {
+			log.Log.V(4).Infof("7) OSINFO IN EVENT CALLBACK: %v", osInfo)
 			domain.Status.OSInfo = *osInfo
 		}
-		if interfaceStatus != nil || osInfo != nil {
-			event := watch.Event{Type: watch.Modified, Object: domain}
-			client.SendDomainEvent(event)
-			events <- event
-		}
-		err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
-		if err != nil {
-			log.Log.Reason(err).Error("Could not send domain notify event.")
-		}
+		client.EnqueueDomainEvent(event)
+		events <- event
 	}
 }
 
@@ -290,7 +188,6 @@ func (n *Notifier) StartDomainNotifier(
 	qemuAgentUserInterval time.Duration,
 	qemuAgentVersionInterval time.Duration,
 ) error {
-
 	eventChan := make(chan libvirtEvent, 10)
 
 	reconnectChan := make(chan bool, 10)
@@ -337,7 +234,7 @@ func (n *Notifier) StartDomainNotifier(
 				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
 					interfaceStatuses, guestOsInfo)
 			case <-reconnectChan:
-				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))
+				n.EnqueueDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))
 				return
 			}
 		}
@@ -383,12 +280,7 @@ func (n *Notifier) StartDomainNotifier(
 	return nil
 }
 
-func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
-
-	err := n.connect()
-	if err != nil {
-		return err
-	}
+func (n *Notifier) EnqueueK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
 
 	vmiRef, err := reference.GetReference(v1.Scheme, vmi)
 	if err != nil {
@@ -407,30 +299,9 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 		return err
 	}
 
-	request := notifyv1.K8SEventRequest{
+	request := v12.K8SEventRequest{
 		EventJSON: json,
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	response, err := n.v1client.HandleK8SEvent(ctx, &request)
-
-	if err != nil {
-		return err
-	} else if response.Success != true {
-		msg := fmt.Sprintf("failed to notify k8s event: %s", response.Message)
-		return fmt.Errorf(msg)
-	}
-
+	n.K8sEventStore.Set(&request)
 	return nil
-}
-
-func (n *Notifier) Close() {
-	n.connLock.Lock()
-	defer n.connLock.Unlock()
-
-	if n.conn != nil {
-		n.conn.Close()
-		n.conn = nil
-	}
 }

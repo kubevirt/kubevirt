@@ -389,15 +389,17 @@ type Collector struct {
 	virtShareDir  string
 	nodeName      string
 	concCollector *concurrentCollector
+	clientFactory cmdclient.ReadOnlyVMIClientFactory
 }
 
-func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName string, MaxRequestsInFlight int) *Collector {
+func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName string, MaxRequestsInFlight int, clientFactory cmdclient.ReadOnlyVMIClientFactory) *Collector {
 	log.Log.Infof("Starting collector: node name=%v", nodeName)
 	co := &Collector{
 		virtCli:       virtCli,
 		virtShareDir:  virtShareDir,
 		nodeName:      nodeName,
 		concCollector: NewConcurrentCollector(MaxRequestsInFlight),
+		clientFactory: clientFactory,
 	}
 	prometheus.MustRegister(co)
 	return co
@@ -417,25 +419,6 @@ func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- memoryResidentDesc
 }
 
-func newvmiSocketMapFromVMIs(baseDir string, vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
-	if len(vmis) == 0 {
-		return nil
-	}
-
-	ret := make(vmiSocketMap)
-	for _, vmi := range vmis {
-		socketPath, err := cmdclient.FindSocketOnHost(vmi)
-		if err != nil {
-			// nothing to scrape...
-			// this means there's no socket or the socket
-			// is currently unreachable for this vmi.
-			continue
-		}
-		ret[socketPath] = vmi
-	}
-	return ret
-}
-
 // Note that Collect could be called concurrently
 func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	updateVersion(ch)
@@ -451,16 +434,16 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	socketToVMIs := newvmiSocketMapFromVMIs(co.virtShareDir, vmis)
-	scraper := &prometheusScraper{ch: ch}
-	co.concCollector.Collect(socketToVMIs, scraper, collectionTimeout)
+	scraper := &prometheusScraper{ch: ch, clientFactory: co.clientFactory}
+	co.concCollector.Collect(vmis, scraper, collectionTimeout)
 
 	updateVMIsPhase(co.nodeName, vmis, ch)
 	return
 }
 
 type prometheusScraper struct {
-	ch chan<- prometheus.Metric
+	ch            chan<- prometheus.Metric
+	clientFactory cmdclient.ReadOnlyVMIClientFactory
 }
 
 type vmiStatsInfo struct {
@@ -470,17 +453,15 @@ type vmiStatsInfo struct {
 
 func (ps *prometheusScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachineInstance) {
 	ts := time.Now()
-	cli, err := cmdclient.NewClient(socketFile)
-	if err != nil {
-		log.Log.Reason(err).Error("failed to connect to cmd client socket")
+	cli, _, _ := ps.clientFactory.ClientForVMIIfExists(vmi)
+	if cli == nil {
+		log.Log.Object(vmi).Warning("no connection to the VMI, could not collect metrics")
 		// Ignore failure to connect to client.
 		// These are all local connections via unix socket.
 		// A failure to connect means there's nothing on the other
 		// end listening.
 		return
 	}
-	defer cli.Close()
-
 	vmStats, exists, err := cli.GetDomainStats()
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to update stats from socket %s", socketFile)

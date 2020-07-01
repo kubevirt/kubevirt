@@ -24,9 +24,7 @@ import (
 	"encoding/json"
 	goerror "errors"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -68,12 +66,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
-type launcherClientInfo struct {
-	client     cmdclient.LauncherClient
-	socketFile string
-	domainPipe net.Listener
-}
-
 func NewController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
@@ -91,6 +83,7 @@ func NewController(
 	serverTLSConfig *tls.Config,
 	clientTLSConfig *tls.Config,
 	podIsolationDetector isolation.PodIsolationDetector,
+	clientFactory cmdclient.VMIClientFactory,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -138,12 +131,10 @@ func NewController(
 		UpdateFunc: c.updateFunc,
 	})
 
-	c.launcherClients = make(map[types.UID]*launcherClientInfo)
 	c.phase1NetworkSetupCache = make(map[types.UID]int)
 
-	c.domainNotifyPipes = make(map[string]string)
-
 	c.kvmController = device_manager.NewDeviceController(c.host, maxDevices)
+	c.clientFactory = clientFactory
 
 	return c
 }
@@ -160,8 +151,6 @@ type VirtualMachineController struct {
 	vmiTargetInformer        cache.SharedIndexInformer
 	domainInformer           cache.SharedInformer
 	gracefulShutdownInformer cache.SharedIndexInformer
-	launcherClients          map[types.UID]*launcherClientInfo
-	launcherClientLock       sync.Mutex
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
 	kvmController            *device_manager.DeviceController
@@ -177,7 +166,7 @@ type VirtualMachineController struct {
 	phase1NetworkSetupCache     map[types.UID]int
 	phase1NetworkSetupCacheLock sync.Mutex
 
-	domainNotifyPipes map[string]string
+	clientFactory cmdclient.VMIClientFactory
 }
 
 type virtLauncherCriticalNetworkError struct {
@@ -185,71 +174,6 @@ type virtLauncherCriticalNetworkError struct {
 }
 
 func (e *virtLauncherCriticalNetworkError) Error() string { return e.msg }
-
-func (d *VirtualMachineController) startDomainNotifyPipe(vmi *v1.VirtualMachineInstance) (net.Listener, error) {
-
-	res, err := d.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return nil, fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
-	}
-
-	// inject the domain-notify.sock into the VMI pod.
-	socketPath := filepath.Join(res.MountRoot(), d.virtShareDir, "domain-notify-pipe.sock")
-
-	os.RemoveAll(socketPath)
-	err = os.MkdirAll(filepath.Dir(socketPath), 0755)
-	if err != nil {
-		log.Log.Reason(err).Error("unable to create directory for unix socket")
-		return nil, err
-	}
-
-	listener, err := net.Listen("unix", socketPath)
-	if err != nil {
-		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
-		return nil, err
-	}
-
-	// pipe the VMI domain-notify.sock to the virt-handler domain-notify.sock
-	// so virt-handler receives notifications from the VMI
-	conn, err := net.Dial("unix", filepath.Join(d.virtShareDir, "domain-notify.sock"))
-	if err != nil {
-		listener.Close()
-		return nil, err
-	}
-
-	go func(d *VirtualMachineController, ln net.Listener, socketPath string, vmi *v1.VirtualMachineInstance) {
-		defer conn.Close()
-		for {
-			fd, err := ln.Accept()
-			if err != nil {
-				log.Log.Reason(err).Error("domain pipe listener closed.")
-				break
-			}
-
-			go func(vmi *v1.VirtualMachineInstance) {
-				log.Log.Object(vmi).Infof("Accepted new notify pipe connection for vmi")
-				defer fd.Close()
-				copyErr := make(chan error)
-				go func() {
-					_, err := io.Copy(fd, conn)
-					copyErr <- err
-				}()
-				go func() {
-					_, err := io.Copy(conn, fd)
-					copyErr <- err
-				}()
-
-				// wait until one of the copy routines exit then
-				// let the fd close
-				err := <-copyErr
-				log.Log.Object(vmi).Infof("closing notify pipe connection for vmi: %v", err)
-
-			}(vmi)
-		}
-	}(d, listener, socketPath, vmi)
-
-	return listener, nil
-}
 
 // Determines if a domain's grace period has expired during shutdown.
 // If the grace period has started but not expired, timeLeft represents
@@ -1335,24 +1259,10 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineInstance) error {
 
-	// UID is required in order to close socket
-	if string(vmi.GetUID()) == "" {
-		return nil
-	}
-
-	// maps require locks for concurrent access
-	d.launcherClientLock.Lock()
-	defer d.launcherClientLock.Unlock()
-
-	clientInfo, ok := d.launcherClients[vmi.UID]
-	if ok {
-		clientInfo.client.Close()
-		if clientInfo.domainPipe != nil {
-			clientInfo.domainPipe.Close()
-		}
-		// With legacy sockets on hostpaths, we have to cleanup the sockets ourselves.
-		if cmdclient.IsLegacySocket(clientInfo.socketFile) {
-			err := os.RemoveAll(clientInfo.socketFile)
+	if _, socket, exists := d.clientFactory.ClientForVMIIfExists(vmi); exists {
+		d.clientFactory.RemoveClientForVMI(vmi)
+		if cmdclient.IsLegacySocket(socket) {
+			err := os.RemoveAll(socket)
 			if err != nil {
 				return err
 			}
@@ -1368,36 +1278,14 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 
 	virtcache.DeleteGhostRecord(vmi.Namespace, vmi.Name)
 
-	delete(d.launcherClients, vmi.UID)
-	return nil
-}
-
-// used by unit tests to add mock clients
-func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, client cmdclient.LauncherClient, socketFile string, domainPipe net.Listener) error {
-	// maps require locks for concurrent access
-	d.launcherClientLock.Lock()
-	defer d.launcherClientLock.Unlock()
-
-	d.launcherClients[vmUID] = &launcherClientInfo{
-		client:     client,
-		socketFile: socketFile,
-		domainPipe: domainPipe,
-	}
-
 	return nil
 }
 
 func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (bool, error) {
-	var socketFile string
-	var err error
 
-	d.launcherClientLock.Lock()
-	defer d.launcherClientLock.Unlock()
+	_, socketFile, err := d.clientFactory.ClientForVMI(vmi)
 
-	clientInfo, ok := d.launcherClients[vmi.UID]
-	if ok {
-		// use cached socket if we previously established a connection
-		socketFile = clientInfo.socketFile
+	if err == nil {
 	} else {
 		// attempt to find the socket if the established connection doesn't currently exist.
 		socketFile, err = cmdclient.FindSocketOnHost(vmi)
@@ -1420,19 +1308,13 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 }
 
 func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
-	var domainPipe net.Listener
 	var err error
 
-	// maps require locks for concurrent access
-	d.launcherClientLock.Lock()
-	defer d.launcherClientLock.Unlock()
-
-	clientInfo, ok := d.launcherClients[vmi.UID]
-	if ok {
-		return clientInfo.client, nil
+	if client, _, exists := d.clientFactory.ClientForVMIIfExists(vmi); exists {
+		return client, nil
 	}
 
-	socketFile, err := cmdclient.FindSocketOnHost(vmi)
+	client, socketFile, err := d.clientFactory.ClientForVMI(vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -1440,27 +1322,6 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 	err = virtcache.AddGhostRecord(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
 	if err != nil {
 		return nil, err
-	}
-
-	client, err := cmdclient.NewClient(socketFile)
-	if err != nil {
-		return nil, err
-	}
-
-	// if this isn't a legacy socket, we need to
-	// pipe in the domain socket into the VMI's filesystem
-	if !cmdclient.IsLegacySocket(socketFile) {
-		domainPipe, err = d.startDomainNotifyPipe(vmi)
-		if err != nil {
-			client.Close()
-			return nil, err
-		}
-	}
-
-	d.launcherClients[vmi.UID] = &launcherClientInfo{
-		client:     client,
-		socketFile: socketFile,
-		domainPipe: domainPipe,
 	}
 
 	return client, nil
@@ -1565,21 +1426,7 @@ func (d *VirtualMachineController) removeStaleClientConnections(vmi *v1.VirtualM
 		// current client connection is good.
 		return
 	}
-
-	// remove old stale client connection
-
-	// maps require locks for concurrent access
-	d.launcherClientLock.Lock()
-	defer d.launcherClientLock.Unlock()
-
-	clientInfo, ok := d.launcherClients[vmi.UID]
-	if !ok {
-		// no client connection to reap
-		return
-	}
-
-	clientInfo.client.Close()
-	delete(d.launcherClients, vmi.UID)
+	d.clientFactory.RemoveClientForVMI(vmi)
 }
 
 func (d *VirtualMachineController) getVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error) {

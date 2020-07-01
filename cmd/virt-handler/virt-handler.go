@@ -34,6 +34,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -41,6 +42,8 @@ import (
 	"k8s.io/client-go/util/certificate"
 
 	"kubevirt.io/kubevirt/pkg/healthz"
+
+	"kubevirt.io/kubevirt/pkg/handler-launcher-com/common"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -111,6 +114,7 @@ type virtHandlerApp struct {
 	servercertmanager certificate.Manager
 	promTLSConfig     *tls.Config
 	clusterConfig     *virtconfig.ClusterConfig
+	clientFactory     *cmdclient.ClientFactory
 }
 
 var _ service.Service = &virtHandlerApp{}
@@ -184,9 +188,11 @@ func (app *virtHandlerApp) Run() {
 		0,
 		cache.Indexers{},
 	)
+	eventRecorder := common.NewEventRecorder(recorder, vmSourceSharedInformer.GetStore(), vmTargetSharedInformer.GetStore())
+	app.clientFactory = cmdclient.NewClientFactory(make(chan watch.Event, 100), eventRecorder)
 
 	// Wire Domain controller
-	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmSourceSharedInformer.GetStore())
+	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), eventRecorder, app.clientFactory)
 	if err != nil {
 		panic(err)
 	}
@@ -246,6 +252,7 @@ func (app *virtHandlerApp) Run() {
 	vmiInformer := factory.VMI()
 	app.clusterConfig = virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), factory.KubeVirt(), app.namespace)
 
+	vmiClientFactory := cmdclient.NewVMIClientFactory(app.clientFactory)
 	vmController := virthandler.NewController(
 		recorder,
 		app.virtCli,
@@ -263,6 +270,7 @@ func (app *virtHandlerApp) Run() {
 		app.serverTLSConfig,
 		app.clientTLSConfig,
 		podIsolationDetector,
+		vmiClientFactory,
 	)
 
 	consoleHandler := rest.NewConsoleHandler(
@@ -273,9 +281,10 @@ func (app *virtHandlerApp) Run() {
 	lifecycleHandler := rest.NewLifecycleHandler(
 		vmiInformer,
 		app.VirtShareDir,
+		vmiClientFactory,
 	)
 
-	promvm.SetupCollector(app.virtCli, app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight)
+	promvm.SetupCollector(app.virtCli, app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiClientFactory)
 
 	go app.clientcertmanager.Start()
 	go app.servercertmanager.Start()

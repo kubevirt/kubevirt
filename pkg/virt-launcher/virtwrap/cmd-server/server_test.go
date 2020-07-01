@@ -29,6 +29,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
@@ -51,6 +53,7 @@ var _ = Describe("Virt remote commands", func() {
 	var stopped bool
 	var useEmulation bool
 	var options *ServerOptions
+	var socketPath string
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -63,12 +66,12 @@ var _ = Describe("Virt remote commands", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		domainManager = virtwrap.NewMockDomainManager(ctrl)
 
-		socketPath := filepath.Join(shareDir, "server.sock")
+		socketPath = filepath.Join(shareDir, "server.sock")
 
 		useEmulation = true
 		options = NewServerOptions(useEmulation)
-		RunServer(socketPath, domainManager, stop, options)
-		client, err = cmdclient.NewClient(socketPath)
+		RunServer(socketPath, domainManager, stop, notifyclient.NewNotifier(), options)
+		client, err = cmdclient.NewClient(socketPath, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -145,20 +148,25 @@ var _ = Describe("Virt remote commands", func() {
 		})
 
 		It("client should return disconnected after server stops", func() {
-			err := client.Ping()
+			closedClient, err := cmdclient.NewClient(socketPath, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
+			err = closedClient.Ping()
+			if err != nil {
+				closedClient.Close()
+				Expect(err).ToNot(HaveOccurred())
+			}
 
 			close(stop)
 			stopped = true
 			time.Sleep(time.Second)
 
-			client.Close()
+			closedClient.Close()
 
-			err = client.Ping()
+			err = closedClient.Ping()
 			Expect(err).To(HaveOccurred())
 			Expect(cmdclient.IsDisconnected(err)).To(BeTrue())
 
-			_, err = cmdclient.NewClient(shareDir + "/server.sock")
+			_, err = cmdclient.NewClient(shareDir+"/server.sock", nil, nil)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -236,7 +244,7 @@ var _ = Describe("Virt remote commands", func() {
 			infoClient.EXPECT().Info(gomock.Any(), gomock.Any()).Return(&fakeResponse, nil)
 
 			By("Initializing the notifier")
-			_, err = cmdclient.NewClientWithInfoClient(infoClient, nil)
+			_, err = cmdclient.NewClientWithInfoClient(infoClient, nil, nil, nil)
 
 			Expect(err).To(HaveOccurred(), "Should have returned error about incompatible versions")
 			Expect(err.Error()).To(ContainSubstring("no compatible version found"), "Expected error message to contain 'no compatible version found'")
