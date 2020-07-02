@@ -58,6 +58,16 @@ container_image(
 )
 
 container_image(
+    name = "microlivecd-container-disk-image",
+    directory = "/disk",
+    files = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": ["@microlivecd_image_ppc64le//file"],
+        "//conditions:default": ["@microlivecd_image//file"],
+    }),
+    visibility = ["//visibility:public"],
+)
+
+container_image(
     name = "virtio-container-disk-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",

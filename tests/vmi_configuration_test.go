@@ -450,7 +450,23 @@ var _ = Describe("Configurations", func() {
 				By("Checking if UEFI is enabled")
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("OVMF_CODE"))
+				Expect(domXml).To(ContainSubstring("OVMF_CODE.fd"))
+			})
+
+			It("should enable EFI secure boot", func() {
+				vmi := tests.NewRandomVMIWithSecureBoot()
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Checking if SecureBoot is enabled in Linux")
+				tests.WaitUntilVMIReady(vmi, tests.SecureBootExpecter)
+
+				By("Checking if SecureBoot is enabled in the libvirt XML")
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domXml).To(ContainSubstring("OVMF_CODE.secboot.fd"))
 			})
 		})
 

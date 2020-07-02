@@ -42,6 +42,7 @@ const (
 	VmiFlavorSmall       = "vmi-flavor-small"
 	VmiSata              = "vmi-sata"
 	VmiFedora            = "vmi-fedora"
+	VmiSecureBoot        = "vmi-secureboot"
 	VmiAlpineEFI         = "vmi-alpine-efi"
 	VmiNoCloud           = "vmi-nocloud"
 	VmiPVC               = "vmi-pvc"
@@ -84,9 +85,10 @@ const (
 )
 
 const (
-	imageAlpine = "alpine-container-disk-demo"
-	imageCirros = "cirros-container-disk-demo"
-	imageFedora = "fedora-cloud-container-disk-demo"
+	imageAlpine      = "alpine-container-disk-demo"
+	imageCirros      = "cirros-container-disk-demo"
+	imageFedora      = "fedora-cloud-container-disk-demo"
+	imageMicroLiveCD = "microlivecd-container-disk-demo"
 )
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 const defaultInterfaceName = "default"
@@ -348,6 +350,29 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	return vmi
+}
+
+func GetVMISecureBoot() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiSecureBoot)
+
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageMicroLiveCD, DockerTag), busVirtio)
+
+	_true := true
+	vmi.Spec.Domain.Features = &v1.Features{
+		SMM: &v1.FeatureState{
+			Enabled: &_true,
+		},
+	}
+	vmi.Spec.Domain.Firmware = &v1.Firmware{
+		Bootloader: &v1.Bootloader{
+			EFI: &v1.EFI{
+				SecureBoot: &_true,
+			},
+		},
+	}
+
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 	return vmi
 }
 
