@@ -36,6 +36,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
+const (
+	DiskSourceFallbackPath = "/disk"
+)
+
 var containerDiskOwner = "qemu"
 
 var podsBaseDir = util.KubeletPodsDir

@@ -62,6 +62,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
+	diskinfo "kubevirt.io/kubevirt/pkg/util/types"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -796,7 +797,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	// Check if PVC volumes are block volumes
 	isBlockPVCMap := make(map[string]bool)
 	isBlockDVMap := make(map[string]bool)
-	diskInfo := make(map[string]*containerdisk.DiskInfo)
+	diskInfo := make(map[string]*diskinfo.DiskInfo)
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
 			isBlockPVC, err := isBlockDeviceVolume(volume.Name)
@@ -1009,9 +1010,17 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, fmt.Errorf("creating service account disk failed: %v", err)
 	}
 
-	// set drivers cache mode
 	for i := range domain.Spec.Devices.Disks {
-		err := api.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
+		// Set missing image format. For some live images (host disk, fs pvc...)
+		// it is convenient to check image formats on the pre-start hook as it
+		// might fail if VM is already running and the image is already in use.
+		err := api.SetFileDriverType(&domain.Spec.Devices.Disks[i], GetImageInfo)
+		if err != nil {
+			return domain, err
+		}
+
+		// set drivers cache mode
+		err = api.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
 		if err != nil {
 			return domain, err
 		}
@@ -1134,7 +1143,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// Check if PVC volumes are block volumes
 	isBlockPVCMap := make(map[string]bool)
 	isBlockDVMap := make(map[string]bool)
-	diskInfo := make(map[string]*containerdisk.DiskInfo)
+	diskInfo := make(map[string]*diskinfo.DiskInfo)
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
 			isBlockPVC, err := isBlockDeviceVolume(volume.Name)
@@ -1225,6 +1234,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 
 	// To make sure, that we set the right qemu wrapper arguments,
 	// we update the domain XML whenever a VirtualMachineInstance was already defined but not running
+	// FIXME: This does not work as we lose all the changes done to the domain spec in preStartHook
 	if !newDomain && cli.IsDown(domState) {
 		dom, err = l.setDomainSpecWithHooks(vmi, &domain.Spec)
 		if err != nil {
@@ -1642,15 +1652,20 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 
 }
 
-func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
+func GetImageInfo(imagePath string) (*diskinfo.DiskInfo, error) {
 
 	out, err := exec.Command(
 		"/usr/bin/qemu-img", "info", imagePath, "--output", "json",
 	).Output()
 	if err != nil {
+		if e, ok := err.(*exec.ExitError); ok {
+			if len(e.Stderr) > 0 {
+				return nil, fmt.Errorf("failed to invoke qemu-img: %v: '%v'", err, string(e.Stderr))
+			}
+		}
 		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
 	}
-	info := &containerdisk.DiskInfo{}
+	info := &diskinfo.DiskInfo{}
 	err = json.Unmarshal(out, info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)

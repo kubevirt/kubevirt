@@ -47,6 +47,7 @@ import (
 
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
+	host_disk "kubevirt.io/kubevirt/pkg/virt-handler/host-disk"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -2012,6 +2013,10 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	} else {
 
 		if !vmi.IsRunning() && !vmi.IsFinal() {
+
+			if err := host_disk.VerifyImages(vmi, d.podIsolationDetector); err != nil {
+				return err
+			}
 
 			// give containerDisks some time to become ready before throwing errors on retries
 			info := d.getLauncherClinetInfo(vmi)

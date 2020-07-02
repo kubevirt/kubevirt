@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/pkg/util/types"
 )
 
 const (
@@ -67,7 +68,7 @@ type ConverterContext struct {
 	CPUSet                []int
 	IsBlockPVC            map[string]bool
 	IsBlockDV             map[string]bool
-	DiskType              map[string]*containerdisk.DiskInfo
+	DiskType              map[string]*types.DiskInfo
 	SRIOVDevices          map[string][]string
 	SMBios                *cmdv1.SMBios
 	GpuDevices            []string
@@ -188,6 +189,29 @@ func SetDriverCacheMode(disk *Disk) error {
 	disk.Driver.Cache = string(mode)
 	log.Log.Infof("Driver cache mode for %s set to %s", path, mode)
 
+	return nil
+}
+
+func SetFileDriverType(disk *Disk, diskInfoGetter func(string) (*types.DiskInfo, error)) error {
+	diskFileFormatUnset := disk.Type == "file" && disk.Source.File != "" && disk.Driver.Type == ""
+	if diskFileFormatUnset {
+		diskInfo, err := diskInfoGetter(disk.Source.File)
+		if err != nil {
+			return err
+		}
+		disk.Driver.Type = diskInfo.Format
+	}
+	// Check also for a backing file
+	backingStore := disk.BackingStore
+	backingStoreIsFile := backingStore != nil && backingStore.Type == "file" && backingStore.Source.File != ""
+	backingFileFormatUnset := backingStoreIsFile && backingStore.Format.Type == ""
+	if backingFileFormatUnset {
+		diskInfo, err := diskInfoGetter(backingStore.Source.File)
+		if err != nil {
+			return err
+		}
+		backingStore.Format.Type = diskInfo.Format
+	}
 	return nil
 }
 
@@ -328,7 +352,8 @@ func Convert_v1_DataVolume_To_api_Disk(name string, disk *Disk, c *ConverterCont
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
 	disk.Type = "file"
-	disk.Driver.Type = "raw"
+	// format (raw, qcow2, ...) set in the pre-start hook
+	disk.Driver.Type = ""
 	disk.Source.File = GetFilesystemVolumePath(volumeName)
 	return nil
 }
@@ -342,7 +367,8 @@ func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *
 
 func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *Disk, c *ConverterContext) error {
 	disk.Type = "file"
-	disk.Driver.Type = "raw"
+	// format (raw, qcow2, ...) set in the pre-start hook
+	disk.Driver.Type = ""
 	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
 	return nil
 }

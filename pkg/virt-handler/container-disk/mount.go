@@ -265,7 +265,7 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 					return fmt.Errorf("failed to get image info: %v", err)
 				}
 
-				if err := containerdisk.VerifyImage(imageInfo); err != nil {
+				if err := isolation.VerifyImage(imageInfo); err != nil {
 					return fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
 				}
 			}

@@ -175,6 +175,7 @@ const (
 
 const (
 	osAlpineHostPath = "alpine-host-path"
+	osCirrosHostPath = "cirros-host-path"
 	osWindows        = "windows"
 	osRhel           = "rhel"
 	CustomHostPath   = "custom-host-path"
@@ -183,11 +184,13 @@ const (
 const (
 	HostPathBase   = "/tmp/hostImages/"
 	HostPathAlpine = HostPathBase + "alpine"
+	HostPathCirros = HostPathBase + "cirros"
 	HostPathCustom = HostPathBase + "custom"
 )
 
 const (
 	DiskAlpineHostPath = "disk-alpine-host-path"
+	DiskCirrosHostPath = "disk-cirros-host-path"
 	DiskWindows        = "disk-windows"
 	DiskRhel           = "disk-rhel"
 	DiskCustomHostPath = "disk-custom-host-path"
@@ -539,6 +542,9 @@ func AfterTestSuitCleanup() {
 	DeletePVC(osAlpineHostPath)
 	DeletePV(osAlpineHostPath)
 
+	DeletePVC(osCirrosHostPath)
+	DeletePV(osCirrosHostPath)
+
 	if Config.ManageStorageClasses {
 		deleteStorageClass(Config.StorageClassHostPath)
 		deleteStorageClass(Config.StorageClassBlockVolume)
@@ -732,6 +738,9 @@ func BeforeTestSuitSetup() {
 
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
+
+	CreateHostPathPv(osCirrosHostPath, HostPathCirros)
+	CreateHostPathPVC(osCirrosHostPath, defaultDiskSize)
 
 	CreatePVC(osWindows, defaultWindowsDiskSize, Config.StorageClassWindows)
 	CreatePVC(osRhel, defaultRhelDiskSize, Config.StorageClassRhel)

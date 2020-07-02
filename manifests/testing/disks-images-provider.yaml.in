@@ -18,6 +18,21 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
+  name: host-path-disk-cirros
+  labels:
+    kubevirt.io: ""
+    os: "cirros"
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: /tmp/hostImages/cirros
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
   name: host-path-disk-custom
   labels:
     kubevirt.io: ""
