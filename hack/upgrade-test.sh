@@ -43,6 +43,7 @@
 
 MAX_STEPS=8
 CUR_STEP=1
+RELEASE_DELTA="${RELEASE_DELTA:-1}"
 
 function Msg {
     { set +x; } 2>/dev/null
@@ -107,6 +108,9 @@ Msg "create catalogsource and subscription to install HCO"
 HCO_NAMESPACE="kubevirt-hyperconverged"
 HCO_KIND="hyperconvergeds"
 HCO_RESOURCE_NAME="kubevirt-hyperconverged"
+PACKAGE_DIR="./deploy/olm-catalog/kubevirt-hyperconverged"
+INITIAL_CHANNEL=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==$((RELEASE_DELTA+1))" | cut -d '/' -f 5)
+echo "INITIAL_CHANNEL: $INITIAL_CHANNEL"
 
 ${CMD} create ns ${HCO_NAMESPACE} | true
 ${CMD} get pods -n ${HCO_NAMESPACE}
@@ -129,6 +133,7 @@ metadata:
   name: hco-catalogsource-example
   namespace: ${HCO_CATALOG_NAMESPACE}
 spec:
+  channel: ${INITIAL_CHANNEL}
   sourceType: grpc
   image: ${REGISTRY_IMAGE}
   displayName: KubeVirt HyperConverged
