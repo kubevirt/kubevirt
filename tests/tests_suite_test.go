@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests/reporter"
 
@@ -50,7 +51,12 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	tests.AfterTestSuitCleanup()
+	// We have to create the artifacts directory before running any cleanup code
+	// because in case of a failure in one of the cleanup steps, we still want to
+	// be able to store artifacts.
+	artifactsDir, err := tests.CreateDirectory(os.Getenv("ARTIFACTS"))
+	Expect(err).ToNot(HaveOccurred())
+	tests.AfterTestSuitCleanup(artifactsDir)
 })
 
 func getMaxFailsFromEnv() int {

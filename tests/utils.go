@@ -519,7 +519,7 @@ func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeEmpty(), "There are pods in system which are not ready.")
 }
 
-func GenerateRESTReport() error {
+func GenerateRESTReport(artifactsPath string) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		return err
@@ -558,18 +558,6 @@ func GenerateRESTReport() error {
 		return err
 	}
 
-	artifactsPath := os.Getenv(artifactsEnv)
-	if artifactsPath == "" {
-		return fmt.Errorf("ARTIFACTS env is empty, unable to save the coverage report")
-	}
-	if _, err := os.Stat(artifactsPath); os.IsNotExist(err) {
-		if err = os.MkdirAll(artifactsPath, 0755); err != nil {
-			return err
-		}
-	} else if err != nil {
-		return err
-	}
-
 	err = covreport.Dump(filepath.Join(artifactsPath, "rest-coverage.json"), coverage)
 	if err != nil {
 		return err
@@ -578,7 +566,21 @@ func GenerateRESTReport() error {
 	return nil
 }
 
-func AfterTestSuitCleanup() {
+// CreateDirectory creates the a directory on the given path if it doesn't exist.
+func CreateDirectory(artifactsDir string) (string, error) {
+	if artifactsDir == "" {
+		return "", fmt.Errorf("empty ARTIFACTS path is not allowed")
+	}
+	if _, err := os.Stat(artifactsDir); !os.IsNotExist(err) {
+		return "", err
+	}
+	if err := os.MkdirAll(artifactsDir, 0755); err != nil {
+		return "", err
+	}
+	return artifactsDir, nil
+}
+
+func AfterTestSuitCleanup(artifactsDir string) {
 
 	RestoreKubeVirtResource()
 
@@ -606,7 +608,7 @@ func AfterTestSuitCleanup() {
 	CleanNodes()
 
 	// Generate REST API coverage report
-	if err := GenerateRESTReport(); err != nil {
+	if err := GenerateRESTReport(artifactsDir); err != nil {
 		log.Log.Errorf("Could not generate REST coverage report %v", err)
 	}
 }
@@ -667,8 +669,8 @@ func CleanNodes() {
 			continue
 		}
 		newJson, err := json.Marshal(new)
-		Expect(err).ToNot(HaveOccurred())
 
+		Expect(err).ToNot(HaveOccurred())
 		patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
 		Expect(err).ToNot(HaveOccurred())
 
