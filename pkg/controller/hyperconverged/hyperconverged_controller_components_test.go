@@ -43,7 +43,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := hcoutil.NewKubeVirtPriorityClass()
+			expectedResource := hcoutil.NewKubeVirtPriorityClass(hcov1alpha1.HyperConvergedName)
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
 			upgradeDone, err := r.ensureKubeVirtPriorityClass(req)
@@ -60,7 +60,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should do nothing if already exists", func() {
-			expectedResource := hcoutil.NewKubeVirtPriorityClass()
+			expectedResource := hcoutil.NewKubeVirtPriorityClass(hcov1alpha1.HyperConvergedName)
 			cl := initClient([]runtime.Object{expectedResource})
 			r := initReconciler(cl)
 			upgradeDone, err := r.ensureKubeVirtPriorityClass(req)
@@ -79,7 +79,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(upgradeDone).To(BeFalse())
 			Expect(err).To(BeNil())
 
-			expectedResource := hcoutil.NewKubeVirtPriorityClass()
+			expectedResource := hcoutil.NewKubeVirtPriorityClass(hcov1alpha1.HyperConvergedName)
 			key, err := client.ObjectKeyFromObject(expectedResource)
 			Expect(err).ToNot(HaveOccurred())
 			foundResource := &schedulingv1.PriorityClass{}
@@ -149,7 +149,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -268,7 +268,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -336,7 +336,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -485,7 +485,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -634,7 +634,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 			Expect(foundResource.Spec.Multus).To(Equal(&networkaddonsv1alpha1.Multus{}))
 			Expect(foundResource.Spec.LinuxBridge).To(Equal(&networkaddonsv1alpha1.LinuxBridge{}))
@@ -764,7 +764,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -874,7 +874,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -1009,7 +1009,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 
@@ -1133,7 +1133,7 @@ var _ = Describe("HyperConverged Components", func() {
 					foundResource),
 			).To(BeNil())
 			Expect(foundResource.Name).To(Equal(expectedResource.Name))
-			Expect(foundResource.Labels).Should(HaveKeyWithValue(appLabel, name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
 			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
 		})
 

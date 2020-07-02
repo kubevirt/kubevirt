@@ -28,6 +28,7 @@ import (
 
 	// networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
@@ -507,7 +508,7 @@ var _ = Describe("HyperconvergedController", func() {
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeTrue())
 
-				Expect(foundResource.ObjectMeta.Labels[appLabel]).Should(Equal(hcov1alpha1.HyperConvergedName))
+				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcov1alpha1.HyperConvergedName))
 			})
 
 			It("Should set required fields when missing", func() {
@@ -517,7 +518,7 @@ var _ = Describe("HyperconvergedController", func() {
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
 
-				Expect(foundResource.ObjectMeta.Labels[appLabel]).Should(Equal(hcov1alpha1.HyperConvergedName))
+				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcov1alpha1.HyperConvergedName))
 			})
 		})
 

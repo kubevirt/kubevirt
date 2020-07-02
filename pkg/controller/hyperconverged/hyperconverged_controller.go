@@ -81,8 +81,6 @@ const (
 
 	hcoVersionName = "operator"
 
-	appLabel = "app"
-
 	commonTemplatesBundleOldCrdName = "kubevirtcommontemplatesbundles.kubevirt.io"
 	metricsAggregationOldCrdName    = "kubevirtmetricsaggregations.kubevirt.io"
 	nodeLabellerBundlesOldCrdName   = "kubevirtnodelabellerbundles.kubevirt.io"
@@ -412,7 +410,6 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *hcoRequest) (reconcile.R
 		ensureCDIDeleted,
 		ensureNetworkAddonsDeleted,
 		ensureKubeVirtCommonTemplateBundleDeleted,
-		ensureKubeVirtPriorityClassDeleted,
 	} {
 		err := f(r.client, req)
 		if err != nil {
@@ -770,7 +767,7 @@ func (r *ReconcileHyperConverged) checkComponentVersion(versionEnvName, actualVe
 
 func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
 	labels := map[string]string{
-		appLabel: cr.Name,
+		hcoutil.AppLabel: cr.Name,
 	}
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -859,7 +856,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtConfig(req *hcoRequest) (upgrade
 // newKubeVirtForCR returns a KubeVirt CR
 func newKubeVirtForCR(cr *hcov1alpha1.HyperConverged, namespace string) *kubevirtv1.KubeVirt {
 	labels := map[string]string{
-		appLabel: cr.Name,
+		hcoutil.AppLabel: cr.Name,
 	}
 	return &kubevirtv1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
@@ -875,7 +872,7 @@ func newKubeVirtForCR(cr *hcov1alpha1.HyperConverged, namespace string) *kubevir
 
 func (r *ReconcileHyperConverged) ensureKubeVirtPriorityClass(req *hcoRequest) (upgradeDone bool, err error) {
 	req.logger.Info("Reconciling KubeVirt PriorityClass")
-	pc := hcoutil.NewKubeVirtPriorityClass()
+	pc := hcoutil.NewKubeVirtPriorityClass(req.instance.Name)
 
 	key, err := client.ObjectKeyFromObject(pc)
 	if err != nil {
@@ -967,7 +964,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirt(req *hcoRequest) (upgradeDone b
 // newCDIForCr returns a CDI CR
 func newCDIForCR(cr *hcov1alpha1.HyperConverged, namespace string) *cdiv1alpha1.CDI {
 	labels := map[string]string{
-		appLabel: cr.Name,
+		hcoutil.AppLabel: cr.Name,
 	}
 	uninstallStrategy := cdiv1alpha1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
 	return &cdiv1alpha1.CDI{
@@ -1045,7 +1042,7 @@ func (r *ReconcileHyperConverged) ensureCDI(req *hcoRequest) (upgradeDone bool, 
 // newNetworkAddonsForCR returns a NetworkAddonsConfig CR
 func newNetworkAddonsForCR(cr *hcov1alpha1.HyperConverged, namespace string) *networkaddonsv1alpha1.NetworkAddonsConfig {
 	labels := map[string]string{
-		appLabel: cr.Name,
+		hcoutil.AppLabel: cr.Name,
 	}
 	return &networkaddonsv1alpha1.NetworkAddonsConfig{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1214,7 +1211,7 @@ func (r *ReconcileHyperConverged) componentNotAvailable(req *hcoRequest, compone
 
 func newKubeVirtCommonTemplateBundleForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtCommonTemplatesBundle {
 	labels := map[string]string{
-		appLabel: cr.Name,
+		hcoutil.AppLabel: cr.Name,
 	}
 	return &sspv1.KubevirtCommonTemplatesBundle{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1291,7 +1288,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(req *hcoReq
 
 func newKubeVirtNodeLabellerBundleForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtNodeLabellerBundle {
 	labels := map[string]string{
-		appLabel: cr.Name,
+		hcoutil.AppLabel: cr.Name,
 	}
 	return &sspv1.KubevirtNodeLabellerBundle{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1360,7 +1357,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(req *hcoReque
 
 func newIMSConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
 	labels := map[string]string{
-		appLabel: cr.Name,
+		hcoutil.AppLabel: cr.Name,
 	}
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1461,7 +1458,7 @@ func (r *ReconcileHyperConverged) ensureVMImport(req *hcoRequest) (upgradeDone b
 // newVMImportForCR returns a VM import CR
 func newVMImportForCR(cr *hcov1alpha1.HyperConverged, namespace string) *vmimportv1alpha1.VMImportConfig {
 	labels := map[string]string{
-		appLabel: cr.Name,
+		hcoutil.AppLabel: cr.Name,
 	}
 
 	return &vmimportv1alpha1.VMImportConfig{
@@ -1475,7 +1472,7 @@ func newVMImportForCR(cr *hcov1alpha1.HyperConverged, namespace string) *vmimpor
 
 func newKubeVirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtTemplateValidator {
 	labels := map[string]string{
-		appLabel: cr.Name,
+		hcoutil.AppLabel: cr.Name,
 	}
 	return &sspv1.KubevirtTemplateValidator{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1545,7 +1542,7 @@ func newKubeVirtStorageConfigForCR(cr *hcov1alpha1.HyperConverged, namespace str
 	}
 
 	labels := map[string]string{
-		appLabel: cr.Name,
+		hcoutil.AppLabel: cr.Name,
 	}
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1597,7 +1594,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtStorageConfig(req *hcoRequest) (
 
 func newKubeVirtMetricsAggregationForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtMetricsAggregation {
 	labels := map[string]string{
-		appLabel: cr.Name,
+		hcoutil.AppLabel: cr.Name,
 	}
 	return &sspv1.KubevirtMetricsAggregation{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1684,8 +1681,8 @@ func (r *ReconcileHyperConverged) setLabels(req *hcoRequest) {
 	if req.instance.ObjectMeta.Labels == nil {
 		req.instance.ObjectMeta.Labels = map[string]string{}
 	}
-	if req.instance.ObjectMeta.Labels[appLabel] == "" {
-		req.instance.ObjectMeta.Labels[appLabel] = req.instance.Name
+	if req.instance.ObjectMeta.Labels[hcoutil.AppLabel] == "" {
+		req.instance.ObjectMeta.Labels[hcoutil.AppLabel] = req.instance.Name
 		req.dirty = true
 	}
 }
@@ -1792,36 +1789,13 @@ func componentResourceRemoval(o interface{}, c client.Client, req *hcoRequest) e
 	}
 
 	labels := resource.GetLabels()
-	if app, labelExists := labels[appLabel]; !labelExists || app != req.instance.Name {
+	if app, labelExists := labels[hcoutil.AppLabel]; !labelExists || app != req.instance.Name {
 		req.logger.Info("Existing resource wasn't deployed by HCO, ignoring", "Kind", resource.GetObjectKind())
 		return nil
 	}
 
 	err = c.Delete(req.ctx, resource)
 	return err
-}
-
-func ensureKubeVirtPriorityClassDeleted(c client.Client, req *hcoRequest) error {
-	pc := hcoutil.NewKubeVirtPriorityClass()
-	key, err := client.ObjectKeyFromObject(pc)
-	if err != nil {
-		req.logger.Error(err, "Failed to get object key for KubeVirt PriorityClass")
-		return err
-	}
-
-	found := &schedulingv1.PriorityClass{}
-	err = c.Get(req.ctx, key, found)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.logger.Info("KubeVirt Priority Class resource doesn't exist, there is nothing to remove")
-			return nil
-		}
-		req.logger.Error(err, "Failed to get KubeVirt Priority Class from kubernetes")
-		return err
-	}
-
-	return componentResourceRemoval(found, c, req)
 }
 
 func ensureKubeVirtDeleted(c client.Client, req *hcoRequest) error {

@@ -99,14 +99,18 @@ func GetCSVfromPod(pod *corev1.Pod, c client.Client, logger logr.Logger) (*csvv1
 	return csv, nil
 }
 
-func NewKubeVirtPriorityClass() *schedulingv1.PriorityClass {
+func NewKubeVirtPriorityClass(crname string) *schedulingv1.PriorityClass {
+	labels := map[string]string{
+		AppLabel: crname,
+	}
 	return &schedulingv1.PriorityClass{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "scheduling.k8s.io/v1",
 			Kind:       "PriorityClass",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-cluster-critical",
+			Name:   "kubevirt-cluster-critical",
+			Labels: labels,
 		},
 		// 1 billion is the highest value we can set
 		// https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass

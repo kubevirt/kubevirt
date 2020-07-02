@@ -233,8 +233,13 @@ func main() {
 	}
 }
 
+// KubeVirtPriorityClass is needed by virt-operator but OLM is not able to
+// create it so we have to create it ASAP.
+// When the user deletes HCO CR virt-operator should continue running
+// so we are never supposed to delete it: because the priority class
+// is completely opaque to OLM it will remain as a leftover on the cluster
 func createPriorityClass(ctx context.Context, mgr manager.Manager) error {
-	pc := hcoutil.NewKubeVirtPriorityClass()
+	pc := hcoutil.NewKubeVirtPriorityClass(hcov1alpha1.HyperConvergedName)
 
 	key, err := client.ObjectKeyFromObject(pc)
 	if err != nil {
