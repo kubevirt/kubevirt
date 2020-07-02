@@ -64,6 +64,12 @@ var validInterfaceModels = map[string]*struct{}{"e1000": nil, "e1000e": nil, "ne
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
 
+var validVmiKubevirtLabels = map[string]bool{
+	"kubevirt.io/os":     true,
+	"kubevirt.io/vm":     true,
+	"kubevirt.io/flavor": true,
+}
+
 type VMICreateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
 }
@@ -73,6 +79,7 @@ func (admitter *VMICreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 		return resp
 	}
 
+	accountName := ar.Request.UserInfo.Username
 	vmi, _, err := getAdmissionReviewVMI(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -80,7 +87,7 @@ func (admitter *VMICreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 
 	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
-	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, admitter.ClusterConfig)...)
+	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, admitter.ClusterConfig, accountName)...)
 	// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
 	causes = append(causes, webhooks.ValidateVirtualMachineInstanceHypervFeatureDependencies(k8sfield.NewPath("spec"), &vmi.Spec)...)
 
@@ -950,9 +957,24 @@ func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *metav1.ObjectMeta, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *metav1.ObjectMeta, config *virtconfig.ClusterConfig, accountName string) []metav1.StatusCause {
+
 	var causes []metav1.StatusCause
 	annotations := metadata.Annotations
+	labels := metadata.Labels
+	filteredLabels := util.FilterKubevirtLabels(labels)
+
+	// Validate kubevirt.io labels presence. Allowed to be created only by known service accounts
+	if len(filteredLabels) > 0 && !hasOnlyWhiteListedLabels(filteredLabels) {
+		allowed := util.GetAllowedServiceAccounts()
+		if _, ok := allowed[accountName]; !ok {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "creation of kubevirt.io/ labels on a VMI object is restricted",
+				Field:   field.Child("labels").String(),
+			})
+		}
+	}
 
 	// Validate ignition feature gate if set when the corresponding annotation is found
 	if annotations[v1.IgnitionAnnotation] != "" && !config.IgnitionEnabled() {
@@ -1619,4 +1641,13 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 	}
 
 	return causes
+}
+
+func hasOnlyWhiteListedLabels(labels map[string]string) bool {
+	for label, _ := range labels {
+		if _, ok := validVmiKubevirtLabels[label]; !ok {
+			return false
+		}
+	}
+	return true
 }
