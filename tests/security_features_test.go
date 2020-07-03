@@ -20,16 +20,10 @@
 package tests_test
 
 import (
-	"encoding/json"
-	"fmt"
-	"time"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -40,48 +34,11 @@ import (
 var _ = Describe("SecurityFeatures", func() {
 	tests.FlagParse()
 
-	var originalKubeVirtConfig *k8sv1.ConfigMap
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	tests.BeforeAll(func() {
-		originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-		if err != nil && !errors.IsNotFound(err) {
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		if errors.IsNotFound(err) {
-			// create an empty kubevirt-config configmap if none exists.
-			cfgMap := &k8sv1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt-config"},
-				Data: map[string]string{
-					"feature-gates": "",
-				},
-			}
-
-			originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Create(cfgMap)
-			Expect(err).ToNot(HaveOccurred())
-		}
-	})
-
-	AfterEach(func() {
-		curKubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		// if revision changed, revert ConfigMap
-		if curKubeVirtConfig.ResourceVersion != originalKubeVirtConfig.ResourceVersion {
-			// Add Spec Patch
-			newData, err := json.Marshal(originalKubeVirtConfig.Data)
-			Expect(err).ToNot(HaveOccurred())
-			data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
-
-			originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
-			Expect(err).ToNot(HaveOccurred())
-
-			// Allow time for virt-controller's ConfigMap cache to sync
-			time.Sleep(3 * time.Second)
-		}
-
+	BeforeEach(func() {
+		tests.BeforeTestCleanup()
 	})
 
 	Context("Check virt-launcher securityContext", func() {
@@ -91,24 +48,7 @@ var _ = Describe("SecurityFeatures", func() {
 
 		Context("With selinuxLauncherType undefined", func() {
 			BeforeEach(func() {
-				kubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				// delete selinuxLauncherType if it's set
-				_, ok := kubeVirtConfig.Data[virtconfig.SELinuxLauncherTypeKey]
-				if ok {
-					delete(kubeVirtConfig.Data, virtconfig.SELinuxLauncherTypeKey)
-
-					newData, err := json.Marshal(kubeVirtConfig.Data)
-					Expect(err).ToNot(HaveOccurred())
-					data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
-
-					kubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
-					Expect(err).ToNot(HaveOccurred())
-
-					// Allow time for virt-controller's ConfigMap cache to sync
-					time.Sleep(3 * time.Second)
-				}
-
+				tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, "")
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			})
 
@@ -148,22 +88,7 @@ var _ = Describe("SecurityFeatures", func() {
 
 			BeforeEach(func() {
 				superPrivilegedType = "spc_t"
-				kubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				if kubeVirtConfig.Data[virtconfig.SELinuxLauncherTypeKey] != superPrivilegedType {
-					kubeVirtConfig.Data[virtconfig.SELinuxLauncherTypeKey] = superPrivilegedType
-
-					newData, err := json.Marshal(kubeVirtConfig.Data)
-					Expect(err).ToNot(HaveOccurred())
-					data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
-
-					kubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
-					Expect(err).ToNot(HaveOccurred())
-
-					// Allow time for virt-controller's ConfigMap cache to sync
-					time.Sleep(3 * time.Second)
-				}
-
+				tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, superPrivilegedType)
 				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			})
 
@@ -220,7 +145,6 @@ var _ = Describe("SecurityFeatures", func() {
 			for _, cap := range caps.Add {
 				Expect(tests.IsLauncherCapabilityValid(cap)).To(BeTrue(), "Expected compute container of virt_launcher to be granted only specific capabilities")
 			}
-
 		})
 	})
 })
