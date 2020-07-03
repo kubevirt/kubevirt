@@ -16,7 +16,6 @@ require (
 	github.com/emicklei/go-restful v2.10.0+incompatible
 	github.com/emicklei/go-restful-openapi v0.10.0
 	github.com/evanphx/json-patch v4.5.0+incompatible
-	github.com/fatih/color v1.7.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-kit/kit v0.9.0
@@ -39,7 +38,6 @@ require (
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.0.1
 	github.com/libvirt/libvirt-go v5.0.0+incompatible
-	github.com/mattn/go-colorable v0.1.1 // indirect
 	github.com/mattn/go-runewidth v0.0.0-20181218000649-703b5e6b11ae // indirect
 	github.com/mfranczy/crd-rest-coverage v0.1.0
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
@@ -51,21 +49,19 @@ require (
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 	github.com/operator-framework/operator-marketplace v0.0.0-20190508022032-93d436f211c1
 	github.com/pborman/uuid v1.2.0
-	github.com/prometheus/client_golang v0.9.3
+	github.com/prometheus/client_golang v1.1.0
 	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5
 	github.com/subgraph/libmacouflage v0.0.1
 	github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
 	golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
-	golang.org/x/lint v0.0.0-20190313153728-d0100b6bd8b3 // indirect
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
 	golang.org/x/sys v0.0.0-20191220220014-0732a990476f
 	google.golang.org/grpc v1.30.0
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	gopkg.in/ini.v1 v1.42.0
 	gopkg.in/yaml.v2 v2.2.4
-	honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc // indirect
 	k8s.io/api v0.17.0
 	k8s.io/apiextensions-apiserver v0.16.4
 	k8s.io/apimachinery v0.17.1-beta.0
@@ -81,7 +77,6 @@ require (
 
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v11.0.0+incompatible
-	github.com/coreos/prometheus-operator => github.com/coreos/prometheus-operator v0.0.0-20181206002233-dd6f23e7207c
 	github.com/go-kit/kit => github.com/go-kit/kit v0.3.0
 	github.com/golang/glog => ./staging/src/github.com/golang/glog
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c

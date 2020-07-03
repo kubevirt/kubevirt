@@ -6,6 +6,7 @@ go_library(
         "doc.go",
         "fake_alertmanager.go",
         "fake_monitoring_client.go",
+        "fake_podmonitor.go",
         "fake_prometheus.go",
         "fake_prometheusrule.go",
         "fake_servicemonitor.go",
