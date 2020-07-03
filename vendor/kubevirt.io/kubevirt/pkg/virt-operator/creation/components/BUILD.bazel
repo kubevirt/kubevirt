@@ -19,6 +19,7 @@ go_library(
         "//pkg/virt-operator/creation/rbac:go_default_library",
         "//pkg/virt-operator/util:go_default_library",
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/apis/snapshot/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring:go_default_library",
         "//vendor/github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",

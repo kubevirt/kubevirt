@@ -45,17 +45,18 @@ const (
 	//#### Tiger VNC ####
 	//# https://github.com/TigerVNC/tigervnc/releases
 	// Compatible with multiple Tiger VNC versions
-	TIGER_VNC_PATTERN = `/Applications/TigerVNC Viewer*.app/Contents/MacOS/TigerVNC Viewer`
+	MACOS_TIGER_VNC_PATTERN = `/Applications/TigerVNC Viewer*.app/Contents/MacOS/TigerVNC Viewer`
 
 	//#### Chicken VNC ####
 	//# https://sourceforge.net/projects/chicken/
-	CHICKEN_VNC = "/Applications/Chicken.app/Contents/MacOS/Chicken"
+	MACOS_CHICKEN_VNC = "/Applications/Chicken.app/Contents/MacOS/Chicken"
 
 	//####  Real VNC ####
 	//# https://www.realvnc.com/en/connect/download/viewer/macos/
-	REAL_VNC = "/Applications/VNC Viewer.app/Contents/MacOS/vncviewer"
+	MACOS_REAL_VNC = "/Applications/VNC Viewer.app/Contents/MacOS/vncviewer"
 
 	REMOTE_VIEWER = "remote-viewer"
+	TIGER_VNC     = "vncviewer"
 )
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -174,21 +175,21 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		osType := runtime.GOOS
 		switch osType {
 		case "darwin":
-			if matches, err := filepath.Glob(TIGER_VNC_PATTERN); err == nil && len(matches) > 0 {
+			if matches, err := filepath.Glob(MACOS_TIGER_VNC_PATTERN); err == nil && len(matches) > 0 {
 				// Always use the latest version
 				vncBin = matches[len(matches)-1]
 				args = tigerVncArgs(port)
 			} else if err == filepath.ErrBadPattern {
 				viewResChan <- err
 				return
-			} else if _, err := os.Stat(CHICKEN_VNC); err == nil {
-				vncBin = CHICKEN_VNC
+			} else if _, err := os.Stat(MACOS_CHICKEN_VNC); err == nil {
+				vncBin = MACOS_CHICKEN_VNC
 				args = chickenVncArgs(port)
 			} else if !os.IsNotExist(err) {
 				viewResChan <- err
 				return
-			} else if _, err := os.Stat(REAL_VNC); err == nil {
-				vncBin = REAL_VNC
+			} else if _, err := os.Stat(MACOS_REAL_VNC); err == nil {
+				vncBin = MACOS_REAL_VNC
 				args = realVncArgs(port)
 			} else if !os.IsNotExist(err) {
 				viewResChan <- err
@@ -202,16 +203,18 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 				return
 			}
 		case "linux", "windows":
-			_, err := exec.LookPath(REMOTE_VIEWER)
-			if exec.ErrNotFound == err {
-				viewResChan <- fmt.Errorf("could not find the remote-viewer binary in $PATH")
-				return
-			} else if err != nil {
+			if _, err := exec.LookPath(REMOTE_VIEWER); err == nil {
+				vncBin = REMOTE_VIEWER
+				args = remoteViewerArgs(port)
+			} else if _, err := exec.LookPath(TIGER_VNC); err == nil {
+				vncBin = TIGER_VNC
+				args = tigerVncArgs(port)
+			} else {
+				viewResChan <- fmt.Errorf("could not find %s or %s binary in $PATH",
+					REMOTE_VIEWER, TIGER_VNC)
 				viewResChan <- err
 				return
 			}
-			vncBin = REMOTE_VIEWER
-			args = remoteViewerArgs(port)
 		default:
 			viewResChan <- fmt.Errorf("virtctl does not support VNC on %v", osType)
 			return

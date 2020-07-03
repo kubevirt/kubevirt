@@ -90,9 +90,12 @@ func dirBytesAvailable(path string) (uint64, error) {
 
 func createSparseRaw(fullPath string, size int64) error {
 	offset := size - 1
-	f, _ := os.Create(fullPath)
+	f, err := os.Create(fullPath)
 	defer f.Close()
-	_, err := f.WriteAt([]byte{0}, offset)
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteAt([]byte{0}, offset)
 	if err != nil {
 		return err
 	}
@@ -166,12 +169,14 @@ func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 				}
 				err = createSparseRaw(diskPath, int64(diskSize))
 				if err != nil {
+					log.Log.Reason(err).Errorf("Couldn't create a sparse raw file for disk path: %s, error: %v", diskPath, err)
 					return err
 				}
 			} else if err != nil {
 				return err
 			}
 			if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(diskPath); err != nil {
+				log.Log.Reason(err).Errorf("Couldn't set Ownership on %s: %v", diskPath, err)
 				return err
 			}
 		}

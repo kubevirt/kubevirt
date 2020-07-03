@@ -133,6 +133,17 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"snapshot.kubevirt.io",
+				},
+				Resources: []string{
+					"*",
+				},
+				Verbs: []string{
+					"*",
+				},
+			},
+			{
+				APIGroups: []string{
 					"kubevirt.io",
 				},
 				Resources: []string{
@@ -186,6 +197,48 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"create",
+				},
+			},
+			{
+				APIGroups: []string{
+					"snapshot.storage.k8s.io",
+				},
+				Resources: []string{
+					"volumesnapshotclasses",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"snapshot.storage.k8s.io",
+				},
+				Resources: []string{
+					"volumesnapshots",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"create",
+					"update",
+					"delete",
+				},
+			},
+			{
+				APIGroups: []string{
+					"storage.k8s.io",
+				},
+				Resources: []string{
+					"storageclasses",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
 				},
 			},
 		},

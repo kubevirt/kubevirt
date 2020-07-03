@@ -705,7 +705,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 
 		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
-			if vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot != nil && *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot {
+			if vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot {
 				domain.Spec.OS.BootLoader = &Loader{
 					Path:     filepath.Join(c.OVMFPath, EFICodeSecureBoot),
 					ReadOnly: "yes",

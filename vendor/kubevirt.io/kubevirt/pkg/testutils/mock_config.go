@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/cache"
 
+	KVv1 "kubevirt.io/client-go/api/v1"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -15,16 +16,31 @@ const (
 	namespace     = "kubevirt"
 )
 
-func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
 	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
 	crdInformer, _ := NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
+	kubeVirtInformer, _ := NewFakeInformerFor(&KVv1.KubeVirt{})
 
-	copy := copy(cfgMap)
-	configMapInformer.GetStore().Add(copy)
+	if cfgMap != nil {
+		copy := copy(cfgMap)
+		configMapInformer.GetStore().Add(copy)
+	}
 
 	AddDataVolumeAPI(crdInformer)
 
-	return virtconfig.NewClusterConfig(configMapInformer, crdInformer, namespace), configMapInformer, crdInformer
+	return virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, namespace), configMapInformer, crdInformer, kubeVirtInformer
+}
+
+func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
+	crdInformer, _ := NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
+	kubeVirtInformer, _ := NewFakeInformerFor(&KVv1.KubeVirt{})
+
+	kubeVirtInformer.GetStore().Add(kv)
+
+	AddDataVolumeAPI(crdInformer)
+
+	return virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, namespace), configMapInformer, crdInformer, kubeVirtInformer
 }
 
 func RemoveDataVolumeAPI(crdInformer cache.SharedIndexInformer) {

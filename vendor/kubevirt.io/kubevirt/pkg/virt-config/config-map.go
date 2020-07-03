@@ -20,26 +20,20 @@
 package virtconfig
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	clientutil "kubevirt.io/client-go/util"
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
 const (
@@ -47,11 +41,11 @@ const (
 	FeatureGatesKey                   = "feature-gates"
 	EmulatedMachinesKey               = "emulated-machines"
 	MachineTypeKey                    = "machine-type"
-	useEmulationKey                   = "debug.useEmulation"
+	UseEmulationKey                   = "debug.useEmulation"
 	ImagePullPolicyKey                = "dev.imagePullPolicy"
 	MigrationsConfigKey               = "migrations"
-	CpuModelKey                       = "default-cpu-model"
-	CpuRequestKey                     = "cpu-request"
+	CPUModelKey                       = "default-cpu-model"
+	CPURequestKey                     = "cpu-request"
 	MemoryOvercommitKey               = "memory-overcommit"
 	LessPVCSpaceTolerationKey         = "pvc-tolerate-less-space-up-to-percent"
 	NodeSelectorsKey                  = "node-selectors"
@@ -67,56 +61,26 @@ const (
 
 type ConfigModifiedFn func()
 
-func getConfigMap() *k8sv1.ConfigMap {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
-
-	var cfgMap *k8sv1.ConfigMap
-	err = wait.PollImmediate(time.Second*1, time.Second*10, func() (bool, error) {
-
-		namespace, curErr := clientutil.GetNamespace()
-		if err != nil {
-			return false, err
-		}
-
-		cfgMap, curErr = virtClient.CoreV1().ConfigMaps(namespace).Get(ConfigMapName, metav1.GetOptions{})
-
-		if curErr != nil {
-			if errors.IsNotFound(curErr) {
-				logger := log.DefaultLogger()
-				logger.Infof("%s ConfigMap does not exist. Using defaults.", ConfigMapName)
-				cfgMap = &k8sv1.ConfigMap{}
-				return true, nil
-			}
-			return false, curErr
-		}
-
-		return true, nil
-	})
-
-	if err != nil {
-		panic(err)
-	}
-
-	return cfgMap
-}
-
 // NewClusterConfig represents the `kubevirt-config` config map. It can be used to live-update
 // values if the config changes. The config update works like this:
 // 1. Check if the config exists. If it does not exist, return the default config
 // 2. Check if the config got updated. If so, try to parse and return it
 // 3. In case of errors or no updates (resource version stays the same), it returns the values from the last good config
-func NewClusterConfig(configMapInformer cache.SharedIndexInformer, crdInformer cache.SharedIndexInformer, namespace string) *ClusterConfig {
+func NewClusterConfig(configMapInformer cache.SharedIndexInformer,
+	crdInformer cache.SharedIndexInformer,
+	kubeVirtInformer cache.SharedIndexInformer,
+	namespace string) *ClusterConfig {
+
+	defaultConfig := defaultClusterConfig()
 
 	c := &ClusterConfig{
 		configMapInformer: configMapInformer,
 		crdInformer:       crdInformer,
+		kubeVirtInformer:  kubeVirtInformer,
 		lock:              &sync.Mutex{},
 		namespace:         namespace,
-		lastValidConfig:   defaultClusterConfig(),
-		defaultConfig:     defaultClusterConfig(),
+		lastValidConfig:   defaultConfig,
+		defaultConfig:     defaultConfig,
 	}
 
 	c.configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -131,17 +95,25 @@ func NewClusterConfig(configMapInformer cache.SharedIndexInformer, crdInformer c
 		UpdateFunc: c.crdUpdated,
 	})
 
+	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.configAddedDeleted,
+		UpdateFunc: c.configUpdated,
+	})
+
 	return c
 }
 
 func (c *ClusterConfig) configAddedDeleted(obj interface{}) {
+	go c.GetConfig()
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.configModifiedCallback != nil {
 		go c.configModifiedCallback()
 	}
 }
+
 func (c *ClusterConfig) configUpdated(old, cur interface{}) {
+	go c.GetConfig()
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	if c.configModifiedCallback != nil {
@@ -155,10 +127,10 @@ func isDataVolumeCrd(crd *extv1beta1.CustomResourceDefinition) bool {
 	}
 
 	return false
-
 }
 
 func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
+	go c.GetConfig()
 	crd := obj.(*extv1beta1.CustomResourceDefinition)
 	if !isDataVolumeCrd(crd) {
 		return
@@ -175,7 +147,7 @@ func (c *ClusterConfig) crdUpdated(old, cur interface{}) {
 	c.crdAddedDeleted(cur)
 }
 
-func defaultClusterConfig() *Config {
+func defaultClusterConfig() *v1.KubeVirtConfiguration {
 	parallelOutboundMigrationsPerNodeDefault := ParallelOutboundMigrationsPerNodeDefault
 	parallelMigrationsPerClusterDefault := ParallelMigrationsPerClusterDefault
 	bandwithPerMigrationDefault := resource.MustParse(BandwithPerMigrationDefault)
@@ -187,17 +159,22 @@ func defaultClusterConfig() *Config {
 	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	defaultNetworkInterface := DefaultNetworkInterface
-	SmbiosDefaultConfig := &cmdv1.SMBios{
+	SmbiosDefaultConfig := &v1.SMBiosConfiguration{
 		Family:       SmbiosConfigDefaultFamily,
 		Manufacturer: SmbiosConfigDefaultManufacturer,
 		Product:      SmbiosConfigDefaultProduct,
 	}
 	supportedQEMUGuestAgentVersions := strings.Split(strings.TrimRight(SupportedGuestAgentVersions, ","), ",")
-	return &Config{
-		ResourceVersion: "0",
+
+	return &v1.KubeVirtConfiguration{
 		ImagePullPolicy: DefaultImagePullPolicy,
-		UseEmulation:    DefaultUseEmulation,
-		MigrationConfig: &MigrationConfig{
+		DeveloperConfiguration: &v1.DeveloperConfiguration{
+			UseEmulation:           DefaultUseEmulation,
+			MemoryOvercommit:       DefaultMemoryOvercommit,
+			LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
+			NodeSelectors:          nodeSelectorsDefault,
+		},
+		MigrationConfiguration: &v1.MigrationConfiguration{
 			ParallelMigrationsPerCluster:      &parallelMigrationsPerClusterDefault,
 			ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNodeDefault,
 			BandwidthPerMigration:             &bandwithPerMigrationDefault,
@@ -207,63 +184,31 @@ func defaultClusterConfig() *Config {
 			UnsafeMigrationOverride:           DefaultUnsafeMigrationOverride,
 			AllowAutoConverge:                 allowAutoConverge,
 		},
-		MachineType:                       DefaultMachineType,
-		CPURequest:                        cpuRequestDefault,
-		MemoryOvercommit:                  DefaultMemoryOvercommit,
-		EmulatedMachines:                  emulatedMachinesDefault,
-		LessPVCSpaceToleration:            DefaultLessPVCSpaceToleration,
-		NodeSelectors:                     nodeSelectorsDefault,
-		NetworkInterface:                  defaultNetworkInterface,
-		PermitSlirpInterface:              DefaultPermitSlirpInterface,
-		PermitBridgeInterfaceOnPodNetwork: DefaultPermitBridgeInterfaceOnPodNetwork,
-		SmbiosConfig:                      SmbiosDefaultConfig,
-		SELinuxLauncherType:               DefaultSELinuxLauncherType,
-		SupportedGuestAgentVersions:       supportedQEMUGuestAgentVersions,
-		OVMFPath:                          DefaultOVMFPath,
+		MachineType:      DefaultMachineType,
+		CPURequest:       &cpuRequestDefault,
+		EmulatedMachines: emulatedMachinesDefault,
+		NetworkConfiguration: &v1.NetworkConfiguration{
+			NetworkInterface:                  defaultNetworkInterface,
+			PermitSlirpInterface:              DefaultPermitSlirpInterface,
+			PermitBridgeInterfaceOnPodNetwork: DefaultPermitBridgeInterfaceOnPodNetwork,
+		},
+		SMBIOSConfig:                SmbiosDefaultConfig,
+		SELinuxLauncherType:         DefaultSELinuxLauncherType,
+		SupportedGuestAgentVersions: supportedQEMUGuestAgentVersions,
+		OVMFPath:                    DefaultOVMFPath,
 	}
-}
-
-type Config struct {
-	ResourceVersion                   string
-	UseEmulation                      bool
-	MigrationConfig                   *MigrationConfig
-	ImagePullPolicy                   k8sv1.PullPolicy
-	MachineType                       string
-	CPUModel                          string
-	CPURequest                        resource.Quantity
-	MemoryOvercommit                  int
-	EmulatedMachines                  []string
-	FeatureGates                      string
-	LessPVCSpaceToleration            int
-	NodeSelectors                     map[string]string
-	NetworkInterface                  string
-	PermitSlirpInterface              bool
-	PermitBridgeInterfaceOnPodNetwork bool
-	SmbiosConfig                      *cmdv1.SMBios
-	SELinuxLauncherType               string
-	SupportedGuestAgentVersions       []string
-	OVMFPath                          string
-}
-
-type MigrationConfig struct {
-	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,omitempty"`
-	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,omitempty"`
-	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
-	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
-	ProgressTimeout                   *int64             `json:"progressTimeout,omitempty"`
-	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,omitempty"`
-	UnsafeMigrationOverride           bool               `json:"unsafeMigrationOverride"`
-	AllowAutoConverge                 bool               `json:"allowAutoConverge"`
 }
 
 type ClusterConfig struct {
 	configMapInformer                cache.SharedIndexInformer
 	crdInformer                      cache.SharedIndexInformer
+	kubeVirtInformer                 cache.SharedIndexInformer
 	namespace                        string
 	lock                             *sync.Mutex
-	lastValidConfig                  *Config
-	defaultConfig                    *Config
+	lastValidConfig                  *v1.KubeVirtConfiguration
+	defaultConfig                    *v1.KubeVirtConfiguration
 	lastInvalidConfigResourceVersion string
+	lastValidConfigResourceVersion   string
 	configModifiedCallback           ConfigModifiedFn
 }
 
@@ -274,18 +219,14 @@ func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
 	go c.configModifiedCallback()
 }
 
-// setConfig parses the provided config map and updates the provided config.
-// Default values in the provided config stay intact.
-func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
-
-	// set revision
-	config.ResourceVersion = configMap.ResourceVersion
-
+// setConfigFromConfigMap parses the provided config map and updates the provided config.
+// Default values in the provided config stay in tact.
+func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.ConfigMap) error {
 	// set migration options
 	rawConfig := strings.TrimSpace(configMap.Data[MigrationsConfigKey])
 	if rawConfig != "" {
 		// only sets values if they were specified, default values stay intact
-		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(config.MigrationConfig)
+		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(config.MigrationConfiguration)
 		if err != nil {
 			return fmt.Errorf("failed to parse migration config: %v", err)
 		}
@@ -295,7 +236,7 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	smbiosConfig := strings.TrimSpace(configMap.Data[SmbiosConfigKey])
 	if smbiosConfig != "" {
 		// only set values if they were specified, default  values stay intact
-		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(smbiosConfig), 1024).Decode(config.SmbiosConfig)
+		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(smbiosConfig), 1024).Decode(config.SMBIOSConfig)
 		if err != nil {
 			return fmt.Errorf("failed to parse SMBIOS config: %v", err)
 		}
@@ -317,14 +258,14 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	}
 
 	// set if emulation is used
-	useEmulation := strings.TrimSpace(configMap.Data[useEmulationKey])
+	useEmulation := strings.TrimSpace(configMap.Data[UseEmulationKey])
 	switch useEmulation {
 	case "":
 		// keep the default
 	case "true":
-		config.UseEmulation = true
+		config.DeveloperConfiguration.UseEmulation = true
 	case "false":
-		config.UseEmulation = false
+		config.DeveloperConfiguration.UseEmulation = false
 	default:
 		return fmt.Errorf("invalid debug.useEmulation in config: %v", useEmulation)
 	}
@@ -334,39 +275,35 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		config.MachineType = machineType
 	}
 
-	if cpuModel := strings.TrimSpace(configMap.Data[CpuModelKey]); cpuModel != "" {
+	if cpuModel := strings.TrimSpace(configMap.Data[CPUModelKey]); cpuModel != "" {
 		config.CPUModel = cpuModel
 	}
 
-	if cpuRequest := strings.TrimSpace(configMap.Data[CpuRequestKey]); cpuRequest != "" {
-		config.CPURequest = resource.MustParse(cpuRequest)
+	if cpuRequest := strings.TrimSpace(configMap.Data[CPURequestKey]); cpuRequest != "" {
+		*config.CPURequest = resource.MustParse(cpuRequest)
 	}
 
 	if memoryOvercommit := strings.TrimSpace(configMap.Data[MemoryOvercommitKey]); memoryOvercommit != "" {
 		if value, err := strconv.Atoi(memoryOvercommit); err == nil && value > 0 {
-			config.MemoryOvercommit = value
+			config.DeveloperConfiguration.MemoryOvercommit = value
 		} else {
 			return fmt.Errorf("Invalid memoryOvercommit in ConfigMap: %s", memoryOvercommit)
 		}
 	}
 
 	if emulatedMachines := strings.TrimSpace(configMap.Data[EmulatedMachinesKey]); emulatedMachines != "" {
-		vals := strings.Split(emulatedMachines, ",")
-		for i := range vals {
-			vals[i] = strings.TrimSpace(vals[i])
-		}
-		config.EmulatedMachines = vals
+		config.EmulatedMachines = stringToStringArray(emulatedMachines)
 	}
 
 	if featureGates := strings.TrimSpace(configMap.Data[FeatureGatesKey]); featureGates != "" {
-		config.FeatureGates = featureGates
+		config.DeveloperConfiguration.FeatureGates = stringToStringArray(featureGates)
 	}
 
 	if toleration := strings.TrimSpace(configMap.Data[LessPVCSpaceTolerationKey]); toleration != "" {
 		if value, err := strconv.Atoi(toleration); err != nil || value < 0 || value > 100 {
 			return fmt.Errorf("Invalid lessPVCSpaceToleration in ConfigMap: %s", toleration)
 		} else {
-			config.LessPVCSpaceToleration = value
+			config.DeveloperConfiguration.LessPVCSpaceToleration = value
 		}
 	}
 
@@ -374,7 +311,7 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		if selectors, err := parseNodeSelectors(nodeSelectors); err != nil {
 			return err
 		} else {
-			config.NodeSelectors = selectors
+			config.DeveloperConfiguration.NodeSelectors = selectors
 		}
 	}
 
@@ -384,9 +321,9 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	case "":
 		// keep the default
 	case "true":
-		config.PermitSlirpInterface = true
+		config.NetworkConfiguration.PermitSlirpInterface = true
 	case "false":
-		config.PermitSlirpInterface = false
+		config.NetworkConfiguration.PermitSlirpInterface = false
 	default:
 		return fmt.Errorf("invalid value for permitSlirpInterfaces in config: %v", permitSlirp)
 	}
@@ -397,9 +334,9 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	case "":
 		// keep the default
 	case "false":
-		config.PermitBridgeInterfaceOnPodNetwork = false
+		config.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork = false
 	case "true":
-		config.PermitBridgeInterfaceOnPodNetwork = true
+		config.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork = true
 	default:
 		return fmt.Errorf("invalid value for permitBridgeInterfaceOnPodNetwork in config: %v", permitBridge)
 	}
@@ -410,7 +347,7 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	case "":
 		// keep the default
 	case string(v1.BridgeInterface), string(v1.SlirpInterface), string(v1.MasqueradeInterface):
-		config.NetworkInterface = iface
+		config.NetworkConfiguration.NetworkInterface = iface
 	default:
 		return fmt.Errorf("invalid default-network-interface in config: %v", iface)
 	}
@@ -434,34 +371,104 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	return nil
 }
 
+func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) error {
+	kvConfig := &kv.Spec.Configuration
+
+	overrides, err := json.Marshal(kvConfig)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(overrides, &config)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // getConfig returns the latest valid parsed config map result, or updates it
 // if a newer version is available.
 // XXX Rework this, to happen mostly in informer callbacks.
 // This will also allow us then to react to config changes and e.g. restart some controllers
-func (c *ClusterConfig) getConfig() (config *Config) {
+func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	var configMap *k8sv1.ConfigMap
+	var kv *v1.KubeVirt
+	var resourceVersion string
+	var resourceType string
+	useConfigMap := false
+
 	if obj, exists, err := c.configMapInformer.GetStore().GetByKey(c.namespace + "/" + ConfigMapName); err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Error loading the cluster config from cache, falling back to last good resource version '%s'", c.lastValidConfig.ResourceVersion)
+		log.DefaultLogger().Reason(err).Errorf("Error loading the cluster config from ConfigMap cache, falling back to last good resource version '%s'", c.lastValidConfigResourceVersion)
 		return c.lastValidConfig
 	} else if !exists {
-		return c.defaultConfig
+		kv = c.getConfigFromKubeVirtCR()
+		if kv == nil {
+			return c.lastValidConfig
+		}
+
+		resourceType = "KubeVirt"
+		resourceVersion = kv.ResourceVersion
 	} else {
-		configMap := obj.(*k8sv1.ConfigMap)
-		if c.lastValidConfig.ResourceVersion == configMap.ResourceVersion ||
-			c.lastInvalidConfigResourceVersion == configMap.ResourceVersion {
-			return c.lastValidConfig
-		}
-		config := defaultClusterConfig()
-		if err := setConfig(config, configMap); err != nil {
-			c.lastInvalidConfigResourceVersion = configMap.ResourceVersion
-			log.DefaultLogger().Reason(err).Errorf("Invalid cluster config with resource version '%s', falling back to last good resource version '%s'", configMap.ResourceVersion, c.lastValidConfig.ResourceVersion)
-			return c.lastValidConfig
-		}
-		log.DefaultLogger().Infof("Updating cluster config to resource version '%s'", configMap.ResourceVersion)
-		c.lastValidConfig = config
+		useConfigMap = true
+		resourceType = "ConfigMap"
+		configMap = obj.(*k8sv1.ConfigMap)
+		resourceVersion = configMap.ResourceVersion
+	}
+
+	// if there is a configuration config map present we should use its configuration
+	// and ignore configuration in kubevirt
+	if c.lastValidConfigResourceVersion == resourceVersion ||
+		c.lastInvalidConfigResourceVersion == resourceVersion {
 		return c.lastValidConfig
+	}
+
+	config = defaultClusterConfig()
+	var err error
+	if useConfigMap {
+		err = setConfigFromConfigMap(config, configMap)
+	} else {
+		err = setConfigFromKubeVirt(config, kv)
+	}
+
+	if err != nil {
+		c.lastInvalidConfigResourceVersion = resourceVersion
+		log.DefaultLogger().Reason(err).Errorf("Invalid cluster config using '%s' resource version '%s', falling back to last good resource version '%s'", resourceType, resourceVersion, c.lastValidConfigResourceVersion)
+		return c.lastValidConfig
+	}
+
+	log.DefaultLogger().Infof("Updating cluster config to resource version '%s'", resourceVersion)
+	c.lastValidConfigResourceVersion = resourceVersion
+	c.lastValidConfig = config
+	return c.lastValidConfig
+}
+
+func (c *ClusterConfig) getConfigFromKubeVirtCR() *v1.KubeVirt {
+	objects := c.kubeVirtInformer.GetStore().List()
+	var kubeVirtName string
+	for _, obj := range objects {
+		if kv, ok := obj.(*v1.KubeVirt); ok && kv.DeletionTimestamp == nil {
+			if kv.Status.Phase != "" {
+				kubeVirtName = kv.Name
+			}
+		}
+	}
+
+	if kubeVirtName == "" {
+		return nil
+	}
+
+	if obj, exists, err := c.kubeVirtInformer.GetStore().GetByKey(c.namespace + "/" + kubeVirtName); err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Error loading the cluster config from KubeVirt cache, falling back to last good resource version '%s'", c.lastValidConfigResourceVersion)
+		return nil
+	} else if !exists {
+		// this path should not be possible
+		return nil
+	} else {
+		return obj.(*v1.KubeVirt)
 	}
 }
 
@@ -490,4 +497,12 @@ func parseNodeSelectors(str string) (map[string]string, error) {
 		nodeSelectors[v[0]] = v[1]
 	}
 	return nodeSelectors, nil
+}
+
+func stringToStringArray(str string) []string {
+	vals := strings.Split(str, ",")
+	for i := range vals {
+		vals[i] = strings.TrimSpace(vals[i])
+	}
+	return vals
 }

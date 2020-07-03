@@ -33,6 +33,7 @@ import (
 	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -918,6 +919,8 @@ const (
 //
 // +k8s:openapi-gen=true
 type VirtualMachineStatus struct {
+	// SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing
+	SnapshotInProgress *string `json:"snapshotInProgress,omitempty"`
 	// Created indicates if the virtual machine is created in the cluster
 	Created bool `json:"created,omitempty"`
 	// Ready indicates if the virtual machine is running and ready
@@ -1109,6 +1112,10 @@ type KubeVirtSpec struct {
 	UninstallStrategy KubeVirtUninstallStrategy `json:"uninstallStrategy,omitempty"`
 
 	CertificateRotationStrategy KubeVirtCertificateRotateStrategy `json:"certificateRotateStrategy,omitempty"`
+
+	// holds kubevirt configurations.
+	// same as the virt-configMap
+	Configuration KubeVirtConfiguration `json:"configuration,omitempty"`
 }
 
 type KubeVirtUninstallStrategy string
@@ -1276,4 +1283,60 @@ type RenameOptions struct {
 	metav1.TypeMeta `json:",inline"`
 	NewName         string  `json:"newName"`
 	OldName         *string `json:"oldName,omitempty"`
+}
+
+// KubeVirtConfiguration holds all kubevirt configurations
+// +k8s:openapi-gen=true
+type KubeVirtConfiguration struct {
+	CPUModel                    string                  `json:"cpuModel,omitempty"`
+	CPURequest                  *resource.Quantity      `json:"cpuRequest,string,omitempty"`
+	DeveloperConfiguration      *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
+	EmulatedMachines            []string                `json:"emulatedMachines,omitempty"`
+	ImagePullPolicy             k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
+	MigrationConfiguration      *MigrationConfiguration `json:"migrations,omitempty"`
+	MachineType                 string                  `json:"machineType,omitempty"`
+	NetworkConfiguration        *NetworkConfiguration   `json:"network,omitempty"`
+	OVMFPath                    string                  `json:"ovmfPath,omitempty"`
+	SELinuxLauncherType         string                  `json:"selinuxLauncherType,omitempty"`
+	SMBIOSConfig                *SMBiosConfiguration    `json:"smbiOS,omitempty"`
+	SupportedGuestAgentVersions []string                `json:"supportedGuestAgentVersions,omitempty"`
+}
+
+type SMBiosConfiguration struct {
+	Manufacturer string `json:"manufacturer,omitempty"`
+	Product      string `json:"product,omitempty"`
+	Version      string `json:"version,omitempty"`
+	Sku          string `json:"sku,omitempty"`
+	Family       string `json:"family,omitempty"`
+}
+
+// MigrationConfiguration holds migration options
+// +k8s:openapi-gen=true
+type MigrationConfiguration struct {
+	AllowAutoConverge                 bool               `json:"allowAutoConverge,string"`
+	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
+	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
+	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
+	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,string,omitempty"`
+	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,string,omitempty"`
+	ProgressTimeout                   *int64             `json:"progressTimeout,string,omitempty"`
+	UnsafeMigrationOverride           bool               `json:"unsafeMigrationOverride,string"`
+}
+
+// DeveloperConfiguration holds developer options
+// +k8s:openapi-gen=true
+type DeveloperConfiguration struct {
+	FeatureGates           []string          `json:"featureGates,omitempty"`
+	LessPVCSpaceToleration int               `json:"pvcTolerateLessSpaceUpToPercent,string,omitempty"`
+	MemoryOvercommit       int               `json:"memoryOvercommit,string,omitempty"`
+	NodeSelectors          map[string]string `json:"nodeSelectors,omitempty"`
+	UseEmulation           bool              `json:"useEmulation,string,omitempty"`
+}
+
+// NetworkConfiguration holds network options
+// +k8s:openapi-gen=true
+type NetworkConfiguration struct {
+	NetworkInterface                  string `json:"defaultNetworkInterface,omitempty"`
+	PermitSlirpInterface              bool   `json:"permitSlirpInterface,string,omitempty"`
+	PermitBridgeInterfaceOnPodNetwork bool   `json:"permitBridgeInterfaceOnPodNetwork,string,omitempty"`
 }

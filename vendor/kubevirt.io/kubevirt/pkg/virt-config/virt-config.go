@@ -29,7 +29,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	v1 "kubevirt.io/client-go/api/v1"
 )
 
 const (
@@ -72,69 +72,79 @@ func getDefaultMachinesForArch() (string, string) {
 var DefaultMachineType, DefaultEmulatedMachines = getDefaultMachinesForArch()
 
 func (c *ClusterConfig) IsUseEmulation() bool {
-	return c.getConfig().UseEmulation
+	return c.GetConfig().DeveloperConfiguration.UseEmulation
 }
 
-func (c *ClusterConfig) GetMigrationConfig() *MigrationConfig {
-	return c.getConfig().MigrationConfig
+func (c *ClusterConfig) GetMigrationConfiguration() *v1.MigrationConfiguration {
+	return c.GetConfig().MigrationConfiguration
 }
 
 func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {
-	return c.getConfig().ImagePullPolicy
+	return c.GetConfig().ImagePullPolicy
+}
+
+func (c *ClusterConfig) GetResourceVersion() string {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.lastValidConfigResourceVersion
 }
 
 func (c *ClusterConfig) GetMachineType() string {
-	return c.getConfig().MachineType
+	return c.GetConfig().MachineType
 }
 
 func (c *ClusterConfig) GetCPUModel() string {
-	return c.getConfig().CPUModel
+	return c.GetConfig().CPUModel
 }
 
-func (c *ClusterConfig) GetCPURequest() resource.Quantity {
-	return c.getConfig().CPURequest
+func (c *ClusterConfig) GetCPURequest() *resource.Quantity {
+	return c.GetConfig().CPURequest
 }
 
 func (c *ClusterConfig) GetMemoryOvercommit() int {
-	return c.getConfig().MemoryOvercommit
+	return c.GetConfig().DeveloperConfiguration.MemoryOvercommit
 }
 
 func (c *ClusterConfig) GetEmulatedMachines() []string {
-	return c.getConfig().EmulatedMachines
+	return c.GetConfig().EmulatedMachines
 }
 
 func (c *ClusterConfig) GetLessPVCSpaceToleration() int {
-	return c.getConfig().LessPVCSpaceToleration
+	return c.GetConfig().DeveloperConfiguration.LessPVCSpaceToleration
 }
 
 func (c *ClusterConfig) GetNodeSelectors() map[string]string {
-	return c.getConfig().NodeSelectors
+	return c.GetConfig().DeveloperConfiguration.NodeSelectors
 }
 
 func (c *ClusterConfig) GetDefaultNetworkInterface() string {
-	return c.getConfig().NetworkInterface
+	return c.GetConfig().NetworkConfiguration.NetworkInterface
 }
 
 func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
-	return c.getConfig().PermitSlirpInterface
+	return c.GetConfig().NetworkConfiguration.PermitSlirpInterface
 }
 
-func (c *ClusterConfig) GetSMBIOS() *cmdv1.SMBios {
-	return c.getConfig().SmbiosConfig
+func (c *ClusterConfig) GetSMBIOS() *v1.SMBiosConfiguration {
+	return c.GetConfig().SMBIOSConfig
 }
 
 func (c *ClusterConfig) IsBridgeInterfaceOnPodNetworkEnabled() bool {
-	return c.getConfig().PermitBridgeInterfaceOnPodNetwork
+	return c.GetConfig().NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork
+}
+
+func (c *ClusterConfig) GetDefaultClusterConfig() *v1.KubeVirtConfiguration {
+	return c.defaultConfig
 }
 
 func (c *ClusterConfig) GetSELinuxLauncherType() string {
-	return c.getConfig().SELinuxLauncherType
+	return c.GetConfig().SELinuxLauncherType
 }
 
 func (c *ClusterConfig) GetSupportedAgentVersions() []string {
-	return c.getConfig().SupportedGuestAgentVersions
+	return c.GetConfig().SupportedGuestAgentVersions
 }
 
 func (c *ClusterConfig) GetOVMFPath() string {
-	return c.getConfig().OVMFPath
+	return c.GetConfig().OVMFPath
 }

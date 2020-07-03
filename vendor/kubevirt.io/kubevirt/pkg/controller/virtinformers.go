@@ -26,27 +26,30 @@ import (
 	"time"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	secv1 "github.com/openshift/api/security/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	v1beta12 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
-	corev1 "k8s.io/api/core/v1"
-
 	kubev1 "kubevirt.io/client-go/api/v1"
+	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
@@ -84,6 +87,12 @@ type KubeInformerFactory interface {
 
 	// Watches VirtualMachineInstanceMigration objects
 	VirtualMachineInstanceMigration() cache.SharedIndexInformer
+
+	// Watches VirtualMachineSnapshot objects
+	VirtualMachineSnapshot() cache.SharedIndexInformer
+
+	// Watches VirtualMachineSnapshot objects
+	VirtualMachineSnapshotContent() cache.SharedIndexInformer
 
 	// Watches for k8s extensions api configmap
 	ApiAuthConfigMap() cache.SharedIndexInformer
@@ -186,6 +195,9 @@ type KubeInformerFactory interface {
 
 	// Fake PrometheusRule informer used when Prometheus not installed
 	DummyOperatorPrometheusRule() cache.SharedIndexInformer
+
+	// PVC StorageClasses
+	StorageClass() cache.SharedIndexInformer
 
 	K8SInformerFactory() informers.SharedInformerFactory
 }
@@ -327,6 +339,55 @@ func (f *kubeInformerFactory) VirtualMachine() cache.SharedIndexInformer {
 	return f.getInformer("vmInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachines", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachine{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer {
+	return f.getInformer("vmSnapshotInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1alpha1().RESTClient(), "virtualmachinesnapshots", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &snapshotv1.VirtualMachineSnapshot{}, f.defaultResync, cache.Indexers{
+			"vm": func(obj interface{}) ([]string, error) {
+				vms, ok := obj.(*snapshotv1.VirtualMachineSnapshot)
+				if !ok {
+					return nil, fmt.Errorf("unexpected object")
+				}
+
+				if vms.Spec.Source.APIGroup != nil {
+					gv, err := schema.ParseGroupVersion(*vms.Spec.Source.APIGroup)
+					if err != nil {
+						return nil, err
+					}
+
+					if gv.Group == kubev1.GroupName &&
+						vms.Spec.Source.Kind == "VirtualMachine" {
+						return []string{vms.Spec.Source.Name}, nil
+					}
+				}
+
+				return nil, nil
+			},
+		})
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineSnapshotContent() cache.SharedIndexInformer {
+	return f.getInformer("vmSnapshotContentInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1alpha1().RESTClient(), "virtualmachinesnapshotcontents", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &snapshotv1.VirtualMachineSnapshotContent{}, f.defaultResync, cache.Indexers{
+			"volumeSnapshot": func(obj interface{}) ([]string, error) {
+				vmsc, ok := obj.(*snapshotv1.VirtualMachineSnapshotContent)
+				if !ok {
+					return nil, fmt.Errorf("unexpected object")
+				}
+				var volumeSnapshots []string
+				for _, v := range vmsc.Spec.VolumeBackups {
+					if v.VolumeSnapshotName != nil {
+						volumeSnapshots = append(volumeSnapshots, *v.VolumeSnapshotName)
+					}
+				}
+				return volumeSnapshots, nil
+			},
+		})
 	})
 }
 
@@ -692,4 +753,26 @@ func (f *kubeInformerFactory) DummyOperatorPrometheusRule() cache.SharedIndexInf
 		informer, _ := testutils.NewFakeInformerFor(&promv1.PrometheusRule{})
 		return informer
 	})
+}
+
+func (f *kubeInformerFactory) StorageClass() cache.SharedIndexInformer {
+	return f.getInformer("storageClassInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.StorageV1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "storageclasses", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &storagev1.StorageClass{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+// VolumeSnapshotInformer returns an informer for VolumeSnapshots
+func VolumeSnapshotInformer(clientSet kubecli.KubevirtClient, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	restClient := clientSet.KubernetesSnapshotClient().SnapshotV1beta1().RESTClient()
+	lw := cache.NewListWatchFromClient(restClient, "volumesnapshots", k8sv1.NamespaceAll, fields.Everything())
+	return cache.NewSharedIndexInformer(lw, &vsv1beta1.VolumeSnapshot{}, resyncPeriod, cache.Indexers{})
+}
+
+// VolumeSnapshotClassInformer returns an informer for VolumeSnapshotClasses
+func VolumeSnapshotClassInformer(clientSet kubecli.KubevirtClient, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	restClient := clientSet.KubernetesSnapshotClient().SnapshotV1beta1().RESTClient()
+	lw := cache.NewListWatchFromClient(restClient, "volumesnapshotclasses", k8sv1.NamespaceAll, fields.Everything())
+	return cache.NewSharedIndexInformer(lw, &vsv1beta1.VolumeSnapshotClass{}, resyncPeriod, cache.Indexers{})
 }
