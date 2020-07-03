@@ -4273,7 +4273,7 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) 
 	} else {
 		expecter, err = LoggedInCirrosExpecter(vmi)
 		Expect(err).NotTo(HaveOccurred())
-		httpServerMaker = fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\n\\nHello World!\"\n", port)
+		httpServerMaker = fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\nContent-Length: 11\\n\\nHello World!\"\n", port)
 		prompt = "\\$"
 	}
 	defer expecter.Close()
