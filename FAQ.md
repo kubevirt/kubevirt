@@ -34,6 +34,14 @@ containers (i.e. libvirtd).
 But in case that you have issues, please
 [file a bug](https://github.com/kubevirt/kubevirt/issues).
 
+## What's the difference between KubeVirt and Kata containers?
+
+[Kata containers](https://katacontainers.io/) allow you to run containers inside virtual machines.  
+KubeVirt allows you to run full virtual machines on Kubernetes alongside regular containers.  
+One could say they're opposites:  
+Kata containers are containers inside virtual machines.  
+KubeVirt is a virtual machine inside a container.
+
 ## Why don't you answer this question: … ?
 
 We want to, please open an
