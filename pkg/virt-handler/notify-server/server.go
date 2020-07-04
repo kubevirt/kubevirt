@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -154,9 +155,29 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 	case <-done:
 		log.Log.Info("notify server done")
 	case <-stopChan:
-		grpcServer.Stop()
-		log.Log.Info("notify server stopped")
+		grpcServerStop(grpcServer)
 	}
 
 	return nil
+}
+
+func grpcServerStop(grpcServer *grpc.Server) {
+	gracefulShutdownTimeout := 10
+
+	isStopped := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(isStopped)
+	}()
+
+	t := time.NewTimer(time.Second * time.Duration(gracefulShutdownTimeout))
+	defer t.Stop()
+
+	select {
+	case <-t.C:
+		log.Log.Infof("notify server GracefulStop timed out after %d seconds, using Stop", gracefulShutdownTimeout)
+		grpcServer.Stop()
+	case <-isStopped:
+		log.Log.Infof("notify server GracefulStop complete")
+	}
 }
