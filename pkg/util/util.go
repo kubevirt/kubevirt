@@ -2,6 +2,7 @@ package util
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"errors"
@@ -14,8 +15,11 @@ import (
 	csvv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	schedulingv1 "k8s.io/api/scheduling/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func GetOperatorNamespaceFromEnv() (string, error) {
@@ -99,23 +103,70 @@ func GetCSVfromPod(pod *corev1.Pod, c client.Client, logger logr.Logger) (*csvv1
 	return csv, nil
 }
 
-func NewKubeVirtPriorityClass(crname string) *schedulingv1.PriorityClass {
-	labels := map[string]string{
-		AppLabel: crname,
+// toUnstructured convers an arbitrary object (which MUST obey the
+// k8s object conventions) to an Unstructured
+func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
+	b, err := json.Marshal(obj)
+	if err != nil {
+		return nil, err
 	}
-	return &schedulingv1.PriorityClass{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "scheduling.k8s.io/v1",
-			Kind:       "PriorityClass",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "kubevirt-cluster-critical",
-			Labels: labels,
-		},
-		// 1 billion is the highest value we can set
-		// https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
-		Value:         1000000000,
-		GlobalDefault: false,
-		Description:   "This priority class should be used for KubeVirt core components only.",
+	u := &unstructured.Unstructured{}
+	if err := json.Unmarshal(b, u); err != nil {
+		return nil, err
 	}
+	return u, nil
+}
+
+func ComponentResourceRemoval(obj interface{}, c client.Client, ctx context.Context, hcoName string, logger logr.Logger, dryRun bool) error {
+	resource, err := toUnstructured(obj)
+	if err != nil {
+		logger.Error(err, "Failed to convert object to Unstructured")
+		return err
+	}
+
+	err = c.Get(ctx, types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, resource)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.Info("Resource doesn't exist, there is nothing to remove", "Kind", resource.GetObjectKind())
+			return nil
+		}
+		return err
+	}
+
+	labels := resource.GetLabels()
+
+	if app, labelExists := labels[AppLabel]; !labelExists || app != hcoName {
+		logger.Info("Existing resource wasn't deployed by HCO, ignoring", "Kind", resource.GetObjectKind())
+		return nil
+	}
+
+	opts := &client.DeleteOptions{}
+	if dryRun {
+		opts.DryRun = []string{metav1.DryRunAll}
+	}
+
+	logger.Info("Removing resource", "Kind", resource.GetObjectKind(), "DryRun", dryRun)
+
+	return c.Delete(ctx, resource, opts)
+}
+
+func EnsureDeleted(c client.Client, ctx context.Context, hcoName string, obj runtime.Object, logger logr.Logger, dryRun bool) error {
+	key, err := client.ObjectKeyFromObject(obj)
+	if err != nil {
+		logger.Error(err, "Failed to get object key", "Kind", obj.GetObjectKind())
+		return err
+	}
+
+	err = c.Get(ctx, key, obj)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.Info("Resource doesn't exist, there is nothing to remove", "Kind", obj.GetObjectKind())
+			return nil
+		}
+
+		logger.Error(err, "Failed to get object from kubernetes", "Kind", obj.GetObjectKind())
+		return err
+	}
+
+	return ComponentResourceRemoval(obj, c, ctx, hcoName, logger, dryRun)
 }

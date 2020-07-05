@@ -23,7 +23,10 @@ const (
 	WebhookKeyName  = "apiserver.key"
 )
 
-var hcolog = logf.Log.WithName("hyperconverged-resource")
+var (
+	hcolog = logf.Log.WithName("hyperconverged-resource")
+	cli    client.Client
+)
 
 func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	// Make sure the certificates are mounted, this should be handled by the OLM
@@ -34,6 +37,9 @@ func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.M
 			return nil
 		}
 	}
+
+	// Use the client from the manager in the validating functions
+	cli = mgr.GetClient()
 
 	// The OLM limits the webhook scope to the namespaces that are defined in the OperatorGroup
 	// by setting namespaceSelector in the ValidatingWebhookConfiguration.  We would like our webhook to intercept
@@ -80,7 +86,7 @@ func (r *HyperConverged) SetupWebhookWithManager(ctx context.Context, mgr ctrl.M
 var _ webhook.Validator = &HyperConverged{}
 
 func (r *HyperConverged) ValidateCreate() error {
-	hcolog.Info("Validating create for", "name", r.Name, "namespace:", r.Namespace)
+	hcolog.Info("Validating create", "name", r.Name, "namespace:", r.Namespace)
 
 	operatorNsEnv, err := hcoutil.GetOperatorNamespaceFromEnv()
 	if err != nil {
@@ -101,6 +107,20 @@ func (r *HyperConverged) ValidateUpdate(old runtime.Object) error {
 }
 
 func (r *HyperConverged) ValidateDelete() error {
-	hcolog.Info("Validating delete", "name", r.Name)
+	hcolog.Info("Validating delete", "name", r.Name, "namespace", r.Namespace)
+
+	ctx := context.TODO()
+
+	for _, obj := range []runtime.Object{
+		r.NewKubeVirt(),
+		r.NewCDI(),
+	} {
+		err := hcoutil.EnsureDeleted(cli, ctx, r.Name, obj, hcolog, true)
+		if err != nil {
+			hcolog.Error(err, "Delete validation failed", "GVK", obj.GetObjectKind().GroupVersionKind())
+			return err
+		}
+	}
+
 	return nil
 }

@@ -4,6 +4,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
+	"runtime"
+
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/controller"
 	securityv1 "github.com/openshift/api/security/v1"
@@ -15,8 +18,6 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
-	"os"
-	"runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -239,7 +240,7 @@ func main() {
 // so we are never supposed to delete it: because the priority class
 // is completely opaque to OLM it will remain as a leftover on the cluster
 func createPriorityClass(ctx context.Context, mgr manager.Manager) error {
-	pc := hcoutil.NewKubeVirtPriorityClass(hcov1alpha1.HyperConvergedName)
+	pc := (&hcov1alpha1.HyperConverged{}).NewKubeVirtPriorityClass()
 
 	key, err := client.ObjectKeyFromObject(pc)
 	if err != nil {

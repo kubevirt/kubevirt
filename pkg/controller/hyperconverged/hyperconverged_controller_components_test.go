@@ -43,7 +43,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := hcoutil.NewKubeVirtPriorityClass(hcov1alpha1.HyperConvergedName)
+			expectedResource := hco.NewKubeVirtPriorityClass()
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
 			upgradeDone, err := r.ensureKubeVirtPriorityClass(req)
@@ -60,7 +60,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should do nothing if already exists", func() {
-			expectedResource := hcoutil.NewKubeVirtPriorityClass(hcov1alpha1.HyperConvergedName)
+			expectedResource := hco.NewKubeVirtPriorityClass()
 			cl := initClient([]runtime.Object{expectedResource})
 			r := initReconciler(cl)
 			upgradeDone, err := r.ensureKubeVirtPriorityClass(req)
@@ -79,7 +79,7 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(upgradeDone).To(BeFalse())
 			Expect(err).To(BeNil())
 
-			expectedResource := hcoutil.NewKubeVirtPriorityClass(hcov1alpha1.HyperConvergedName)
+			expectedResource := hco.NewKubeVirtPriorityClass()
 			key, err := client.ObjectKeyFromObject(expectedResource)
 			Expect(err).ToNot(HaveOccurred())
 			foundResource := &schedulingv1.PriorityClass{}
@@ -322,7 +322,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := newKubeVirtForCR(hco, namespace)
+			expectedResource := hco.NewKubeVirt(namespace)
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
 			upgradeDone, err := r.ensureKubeVirt(req)
@@ -341,7 +341,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := newKubeVirtForCR(hco, namespace)
+			expectedResource := hco.NewKubeVirt(namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
@@ -377,9 +377,9 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should set default UninstallStrategy if missing", func() {
-			expectedResource := newKubeVirtForCR(hco, namespace)
+			expectedResource := hco.NewKubeVirt(namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			missingUSResource := newKubeVirtForCR(hco, namespace)
+			missingUSResource := hco.NewKubeVirt(namespace)
 			missingUSResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", missingUSResource.Namespace, missingUSResource.Name)
 			missingUSResource.Spec.UninstallStrategy = ""
 
@@ -399,7 +399,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should handle conditions", func() {
-			expectedResource := newKubeVirtForCR(hco, namespace)
+			expectedResource := hco.NewKubeVirt(namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []kubevirtv1.KubeVirtCondition{
 				kubevirtv1.KubeVirtCondition{
@@ -471,7 +471,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := newCDIForCR(hco, UndefinedNamespace)
+			expectedResource := hco.NewCDI()
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
 			upgradeDone, err := r.ensureCDI(req)
@@ -490,7 +490,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := newCDIForCR(hco, UndefinedNamespace)
+			expectedResource := hco.NewCDI()
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
@@ -526,9 +526,9 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should set default UninstallStrategy if missing", func() {
-			expectedResource := newCDIForCR(hco, namespace)
+			expectedResource := hco.NewCDI(namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
-			missingUSResource := newCDIForCR(hco, namespace)
+			missingUSResource := hco.NewCDI(namespace)
 			missingUSResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", missingUSResource.Namespace, missingUSResource.Name)
 			missingUSResource.Spec.UninstallStrategy = nil
 
@@ -548,7 +548,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should handle conditions", func() {
-			expectedResource := newCDIForCR(hco, UndefinedNamespace)
+			expectedResource := hco.NewCDI()
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []conditionsv1.Condition{
 				conditionsv1.Condition{
@@ -620,7 +620,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := newNetworkAddonsForCR(hco, UndefinedNamespace)
+			expectedResource := hco.NewNetworkAddons()
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
 			upgradeDone, err := r.ensureNetworkAddons(req)
@@ -642,7 +642,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := newNetworkAddonsForCR(hco, UndefinedNamespace)
+			expectedResource := hco.NewNetworkAddons()
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
@@ -678,7 +678,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should handle conditions", func() {
-			expectedResource := newNetworkAddonsForCR(hco, UndefinedNamespace)
+			expectedResource := hco.NewNetworkAddons()
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			expectedResource.Status.Conditions = []conditionsv1.Condition{
 				conditionsv1.Condition{
@@ -750,7 +750,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should create if not present", func() {
-			expectedResource := newKubeVirtCommonTemplateBundleForCR(hco, OpenshiftNamespace)
+			expectedResource := hco.NewKubeVirtCommonTemplateBundle()
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
 			upgradeDone, err := r.ensureKubeVirtCommonTemplateBundle(req)
@@ -769,7 +769,7 @@ var _ = Describe("HyperConverged Components", func() {
 		})
 
 		It("should find if present", func() {
-			expectedResource := newKubeVirtCommonTemplateBundleForCR(hco, OpenshiftNamespace)
+			expectedResource := hco.NewKubeVirtCommonTemplateBundle()
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)

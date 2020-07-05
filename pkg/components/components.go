@@ -729,6 +729,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 			admissionregistrationv1.RuleWithOperations{
 				Operations: []admissionregistrationv1.OperationType{
 					admissionregistrationv1.Create,
+					admissionregistrationv1.Delete,
 				},
 				Rule: admissionregistrationv1.Rule{
 					APIGroups:   []string{"hco.kubevirt.io"},

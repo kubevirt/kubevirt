@@ -8,12 +8,9 @@ import (
 	"reflect"
 	"strings"
 
-	"encoding/json"
-
 	"github.com/go-logr/logr"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
 	schedulingv1 "k8s.io/api/scheduling/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -29,7 +26,6 @@ import (
 
 	sspv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
-	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	version "github.com/kubevirt/hyperconverged-cluster-operator/version"
@@ -41,6 +37,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/scheme"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
@@ -56,11 +53,7 @@ const (
 	// use finalizers to manage the cleanup.
 	FinalizerName = "hyperconvergeds.hco.kubevirt.io"
 
-	// UndefinedNamespace is for cluster scoped resources
-	UndefinedNamespace string = ""
-
 	// OpenshiftNamespace is for resources that belong in the openshift namespace
-	OpenshiftNamespace string = "openshift"
 
 	reconcileInit               = "Init"
 	reconcileInitMessage        = "Initializing HyperConverged cluster"
@@ -403,15 +396,13 @@ func (r *ReconcileHyperConverged) setInitialConditions(req *hcoRequest) error {
 }
 
 func (r *ReconcileHyperConverged) ensureHcoDeleted(req *hcoRequest) (reconcile.Result, error) {
-	for i, f := range []func(c client.Client, req *hcoRequest) error{
-		// Keep ensuring that we are trying to delete
-		// protected resources first
-		ensureKubeVirtDeleted,
-		ensureCDIDeleted,
-		ensureNetworkAddonsDeleted,
-		ensureKubeVirtCommonTemplateBundleDeleted,
+	for i, obj := range []runtime.Object{
+		req.instance.NewKubeVirt(),
+		req.instance.NewCDI(),
+		req.instance.NewNetworkAddons(),
+		req.instance.NewKubeVirtCommonTemplateBundle(),
 	} {
-		err := f(r.client, req)
+		err := hcoutil.EnsureDeleted(r.client, req.ctx, req.instance.Name, obj, req.logger, false)
 		if err != nil {
 			req.logger.Error(err, "Failed to manually delete objects")
 
@@ -853,26 +844,9 @@ func (r *ReconcileHyperConverged) ensureKubeVirtConfig(req *hcoRequest) (upgrade
 	return req.componentUpgradeInProgress, nil
 }
 
-// newKubeVirtForCR returns a KubeVirt CR
-func newKubeVirtForCR(cr *hcov1alpha1.HyperConverged, namespace string) *kubevirtv1.KubeVirt {
-	labels := map[string]string{
-		hcoutil.AppLabel: cr.Name,
-	}
-	return &kubevirtv1.KubeVirt{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt-" + cr.Name,
-			Labels:    labels,
-			Namespace: namespace,
-		},
-		Spec: kubevirtv1.KubeVirtSpec{
-			UninstallStrategy: kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
-		},
-	}
-}
-
 func (r *ReconcileHyperConverged) ensureKubeVirtPriorityClass(req *hcoRequest) (upgradeDone bool, err error) {
 	req.logger.Info("Reconciling KubeVirt PriorityClass")
-	pc := hcoutil.NewKubeVirtPriorityClass(req.instance.Name)
+	pc := req.instance.NewKubeVirtPriorityClass()
 
 	key, err := client.ObjectKeyFromObject(pc)
 	if err != nil {
@@ -914,7 +888,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtPriorityClass(req *hcoRequest) (
 }
 
 func (r *ReconcileHyperConverged) ensureKubeVirt(req *hcoRequest) (upgradeDone bool, err error) {
-	virt := newKubeVirtForCR(req.instance, req.Namespace)
+	virt := req.instance.NewKubeVirt()
 	if err = controllerutil.SetControllerReference(req.instance, virt, r.scheme); err != nil {
 		return false, err
 	}
@@ -961,26 +935,8 @@ func (r *ReconcileHyperConverged) ensureKubeVirt(req *hcoRequest) (upgradeDone b
 	return upgradeDone, nil
 }
 
-// newCDIForCr returns a CDI CR
-func newCDIForCR(cr *hcov1alpha1.HyperConverged, namespace string) *cdiv1alpha1.CDI {
-	labels := map[string]string{
-		hcoutil.AppLabel: cr.Name,
-	}
-	uninstallStrategy := cdiv1alpha1.CDIUninstallStrategyBlockUninstallIfWorkloadsExist
-	return &cdiv1alpha1.CDI{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cdi-" + cr.Name,
-			Labels:    labels,
-			Namespace: namespace,
-		},
-		Spec: cdiv1alpha1.CDISpec{
-			UninstallStrategy: &uninstallStrategy,
-		},
-	}
-}
-
 func (r *ReconcileHyperConverged) ensureCDI(req *hcoRequest) (upgradeDone bool, err error) {
-	cdi := newCDIForCR(req.instance, UndefinedNamespace)
+	cdi := req.instance.NewCDI()
 
 	key, err := client.ObjectKeyFromObject(cdi)
 	if err != nil {
@@ -1039,29 +995,8 @@ func (r *ReconcileHyperConverged) ensureCDI(req *hcoRequest) (upgradeDone bool, 
 	return upgradeDone, nil
 }
 
-// newNetworkAddonsForCR returns a NetworkAddonsConfig CR
-func newNetworkAddonsForCR(cr *hcov1alpha1.HyperConverged, namespace string) *networkaddonsv1alpha1.NetworkAddonsConfig {
-	labels := map[string]string{
-		hcoutil.AppLabel: cr.Name,
-	}
-	return &networkaddonsv1alpha1.NetworkAddonsConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      networkaddonsnames.OPERATOR_CONFIG,
-			Labels:    labels,
-			Namespace: namespace,
-		},
-		Spec: networkaddonsv1alpha1.NetworkAddonsConfigSpec{
-			Multus:      &networkaddonsv1alpha1.Multus{},
-			LinuxBridge: &networkaddonsv1alpha1.LinuxBridge{},
-			Ovs:         &networkaddonsv1alpha1.Ovs{},
-			NMState:     &networkaddonsv1alpha1.NMState{},
-			KubeMacPool: &networkaddonsv1alpha1.KubeMacPool{},
-		},
-	}
-}
-
 func (r *ReconcileHyperConverged) ensureNetworkAddons(req *hcoRequest) (upgradeDone bool, err error) {
-	networkAddons := newNetworkAddonsForCR(req.instance, UndefinedNamespace)
+	networkAddons := req.instance.NewNetworkAddons()
 
 	key, err := client.ObjectKeyFromObject(networkAddons)
 	if err != nil {
@@ -1209,26 +1144,13 @@ func (r *ReconcileHyperConverged) componentNotAvailable(req *hcoRequest, compone
 	})
 }
 
-func newKubeVirtCommonTemplateBundleForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtCommonTemplatesBundle {
-	labels := map[string]string{
-		hcoutil.AppLabel: cr.Name,
-	}
-	return &sspv1.KubevirtCommonTemplatesBundle{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "common-templates-" + cr.Name,
-			Labels:    labels,
-			Namespace: OpenshiftNamespace,
-		},
-	}
-}
-
 func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(req *hcoRequest) (upgradeDone bool, err error) {
 
 	if !r.clusterInfo.IsOpenshift() {
 		return true, nil
 	}
 
-	kvCTB := newKubeVirtCommonTemplateBundleForCR(req.instance, OpenshiftNamespace)
+	kvCTB := req.instance.NewKubeVirtCommonTemplateBundle()
 
 	key, err := client.ObjectKeyFromObject(kvCTB)
 	if err != nil {
@@ -1756,139 +1678,6 @@ func drop(slice []string, s string) []string {
 		}
 	}
 	return newSlice
-}
-
-// toUnstructured convers an arbitrary object (which MUST obey the
-// k8s object conventions) to an Unstructured
-func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
-	b, err := json.Marshal(obj)
-	if err != nil {
-		return nil, err
-	}
-	u := &unstructured.Unstructured{}
-	if err := json.Unmarshal(b, u); err != nil {
-		return nil, err
-	}
-	return u, nil
-}
-
-func componentResourceRemoval(o interface{}, c client.Client, req *hcoRequest) error {
-	resource, err := toUnstructured(o)
-	if err != nil {
-		req.logger.Error(err, "Failed to convert object to Unstructured")
-		return err
-	}
-
-	err = c.Get(req.ctx, types.NamespacedName{Name: resource.GetName(), Namespace: resource.GetNamespace()}, resource)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.logger.Info("Resource doesn't exist, there is nothing to remove", "Kind", resource.GetObjectKind())
-			return nil
-		}
-		return err
-	}
-
-	labels := resource.GetLabels()
-	if app, labelExists := labels[hcoutil.AppLabel]; !labelExists || app != req.instance.Name {
-		req.logger.Info("Existing resource wasn't deployed by HCO, ignoring", "Kind", resource.GetObjectKind())
-		return nil
-	}
-
-	err = c.Delete(req.ctx, resource)
-	return err
-}
-
-func ensureKubeVirtDeleted(c client.Client, req *hcoRequest) error {
-	virt := newKubeVirtForCR(req.instance, req.instance.Namespace)
-	key, err := client.ObjectKeyFromObject(virt)
-	if err != nil {
-		req.logger.Error(err, "Failed to get object key for KubeVirt")
-		return err
-	}
-
-	found := &kubevirtv1.KubeVirt{}
-	err = c.Get(req.ctx, key, found)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.logger.Info("KubeVirt resource doesn't exist, there is nothing to remove")
-			return nil
-		}
-		req.logger.Error(err, "Failed to get KubeVirt from kubernetes")
-		return err
-	}
-
-	return componentResourceRemoval(found, c, req)
-}
-
-func ensureCDIDeleted(c client.Client, req *hcoRequest) error {
-	cdi := newCDIForCR(req.instance, UndefinedNamespace)
-	key, err := client.ObjectKeyFromObject(cdi)
-	if err != nil {
-		req.logger.Error(err, "Failed to get object key for CDI")
-		return err
-	}
-
-	found := &cdiv1alpha1.CDI{}
-	err = c.Get(req.ctx, key, found)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.logger.Info("CDI resource doesn't exist, there is nothing to remove")
-			return nil
-		}
-		req.logger.Error(err, "Failed to get CDI from kubernetes")
-		return err
-	}
-
-	return componentResourceRemoval(found, c, req)
-}
-
-func ensureNetworkAddonsDeleted(c client.Client, req *hcoRequest) error {
-	networkAddons := newNetworkAddonsForCR(req.instance, UndefinedNamespace)
-	key, err := client.ObjectKeyFromObject(networkAddons)
-	if err != nil {
-		req.logger.Error(err, "Failed to get object key for Network Addons")
-		return err
-	}
-
-	found := &networkaddonsv1alpha1.NetworkAddonsConfig{}
-	err = c.Get(req.ctx, key, found)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.logger.Info("NetworkAddonsConfig doesn't exist, there is nothing to remove")
-			return nil
-		}
-		req.logger.Error(err, "Failed to get NetworkAddonsConfig from kubernetes")
-		return err
-	}
-
-	return componentResourceRemoval(found, c, req)
-}
-
-func ensureKubeVirtCommonTemplateBundleDeleted(c client.Client, req *hcoRequest) error {
-	kvCTB := newKubeVirtCommonTemplateBundleForCR(req.instance, OpenshiftNamespace)
-
-	key, err := client.ObjectKeyFromObject(kvCTB)
-	if err != nil {
-		req.logger.Error(err, "Failed to get object key for KubeVirt Common Templates Bundle")
-		return err
-	}
-
-	found := &sspv1.KubevirtCommonTemplatesBundle{}
-	err = c.Get(req.ctx, key, found)
-
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			req.logger.Info("KubevirtCommonTemplatesBundle doesn't exist, there is nothing to remove")
-			return nil
-		}
-		req.logger.Error(err, "Failed to get KubeVirt Common Templates Bundle from kubernetes")
-		return err
-	}
-
-	return componentResourceRemoval(found, c, req)
 }
 
 // translateKubeVirtConds translates list of KubeVirt conditions to a list of custom resource

@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"os"
 	"time"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 
 	. "github.com/onsi/ginkgo"
@@ -175,13 +175,13 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
 				expectedKVStorageConfig := newKubeVirtStorageConfigForCR(hco, namespace)
 				expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
-				expectedKV := newKubeVirtForCR(hco, namespace)
+				expectedKV := hco.NewKubeVirt(namespace)
 				expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
-				expectedCDI := newCDIForCR(hco, UndefinedNamespace)
+				expectedCDI := hco.NewCDI()
 				expectedCDI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cdis/%s", expectedCDI.Namespace, expectedCDI.Name)
-				expectedCNA := newNetworkAddonsForCR(hco, UndefinedNamespace)
+				expectedCNA := hco.NewNetworkAddons()
 				expectedCNA.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cnas/%s", expectedCNA.Namespace, expectedCNA.Name)
-				expectedKVCTB := newKubeVirtCommonTemplateBundleForCR(hco, OpenshiftNamespace)
+				expectedKVCTB := hco.NewKubeVirtCommonTemplateBundle()
 				expectedKVCTB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedKVCTB.Namespace, expectedKVCTB.Name)
 				expectedKVNLB := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
 				expectedKVNLB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/nlb/%s", expectedKVNLB.Namespace, expectedKVNLB.Name)
@@ -255,7 +255,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
 				expectedKVStorageConfig := newKubeVirtStorageConfigForCR(hco, namespace)
 				expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
-				expectedKV := newKubeVirtForCR(hco, namespace)
+				expectedKV := hco.NewKubeVirt(namespace)
 				expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
 				expectedKV.Status.Conditions = []kubevirtv1.KubeVirtCondition{
 					{
@@ -271,7 +271,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Status: corev1.ConditionFalse,
 					},
 				}
-				expectedCDI := newCDIForCR(hco, UndefinedNamespace)
+				expectedCDI := hco.NewCDI()
 				expectedCDI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cdis/%s", expectedCDI.Namespace, expectedCDI.Name)
 				expectedCDI.Status.Conditions = []conditionsv1.Condition{
 					{
@@ -287,7 +287,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Status: corev1.ConditionFalse,
 					},
 				}
-				expectedCNA := newNetworkAddonsForCR(hco, UndefinedNamespace)
+				expectedCNA := hco.NewNetworkAddons()
 				expectedCNA.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cnas/%s", expectedCNA.Namespace, expectedCNA.Name)
 				expectedCNA.Status.Conditions = []conditionsv1.Condition{
 					{
@@ -303,7 +303,7 @@ var _ = Describe("HyperconvergedController", func() {
 						Status: corev1.ConditionFalse,
 					},
 				}
-				expectedKVCTB := newKubeVirtCommonTemplateBundleForCR(hco, OpenshiftNamespace)
+				expectedKVCTB := hco.NewKubeVirtCommonTemplateBundle()
 				expectedKVCTB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedKVCTB.Namespace, expectedKVCTB.Name)
 				expectedKVCTB.Status.Conditions = getGenericCompletedConditions()
 				expectedKVNLB := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
@@ -498,7 +498,7 @@ var _ = Describe("HyperconvergedController", func() {
 				os.Setenv("CONVERSION_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-v2v-conversion:v2.0.0")
 				os.Setenv("VMWARE_CONTAINER", "registry.redhat.io/container-native-virtualization/kubevirt-vmware:v2.0.0}")
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
-				os.Setenv(util.HcoKvIoVersionName, version.Version)
+				os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 			})
 
 			It("Should set required fields on init", func() {
@@ -540,24 +540,24 @@ var _ = Describe("HyperconvergedController", func() {
 				os.Setenv("OPERATOR_NAMESPACE", namespace)
 
 				expected.kv.Status.ObservedKubeVirtVersion = newComponentVersion
-				os.Setenv(util.KubevirtVersionEnvV, newComponentVersion)
+				os.Setenv(hcoutil.KubevirtVersionEnvV, newComponentVersion)
 
 				expected.cdi.Status.ObservedVersion = newComponentVersion
-				os.Setenv(util.CdiVersionEnvV, newComponentVersion)
+				os.Setenv(hcoutil.CdiVersionEnvV, newComponentVersion)
 
 				expected.cna.Status.ObservedVersion = newComponentVersion
-				os.Setenv(util.CnaoVersionEnvV, newComponentVersion)
+				os.Setenv(hcoutil.CnaoVersionEnvV, newComponentVersion)
 
 				expected.vmi.Status.ObservedVersion = newComponentVersion
-				os.Setenv(util.VMImportEnvV, newComponentVersion)
+				os.Setenv(hcoutil.VMImportEnvV, newComponentVersion)
 
-				os.Setenv(util.SspVersionEnvV, newComponentVersion)
+				os.Setenv(hcoutil.SspVersionEnvV, newComponentVersion)
 				expected.kvCtb.Status.ObservedVersion = newComponentVersion
 				expected.kvNlb.Status.ObservedVersion = newComponentVersion
 				expected.kvTv.Status.ObservedVersion = newComponentVersion
 				expected.kvMtAg.Status.ObservedVersion = newComponentVersion
 
-				os.Setenv(util.HcoKvIoVersionName, newVersion)
+				os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
 				expected.hco.Status.Conditions = origConditions
 			})
@@ -658,7 +658,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("don't complete upgrade if kubevirt version is not match to the kubevirt version env ver", func() {
-				os.Setenv(util.HcoKvIoVersionName, newVersion)
+				os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
 				// old HCO Version is set
 				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
@@ -701,7 +701,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("don't complete upgrade if CDI version is not match to the CDI version env ver", func() {
-				os.Setenv(util.HcoKvIoVersionName, newVersion)
+				os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
 				// old HCO Version is set
 				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
@@ -744,7 +744,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("don't complete upgrade if CNA version is not match to the CNA version env ver", func() {
-				os.Setenv(util.HcoKvIoVersionName, newVersion)
+				os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
 				// old HCO Version is set
 				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
@@ -787,7 +787,7 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("don't complete upgrade if VM-Import version is not match to the VM-Import version env ver", func() {
-				os.Setenv(util.HcoKvIoVersionName, newVersion)
+				os.Setenv(hcoutil.HcoKvIoVersionName, newVersion)
 
 				// old HCO Version is set
 				expected.hco.Status.UpdateVersion(hcoVersionName, oldVersion)
@@ -832,7 +832,7 @@ var _ = Describe("HyperconvergedController", func() {
 
 		Context("Aggregate Negative Conditions", func() {
 			const errorReason = "CdiTestError1"
-			os.Setenv(util.HcoKvIoVersionName, version.Version)
+			os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 			It("should be degraded when a component is degraded", func() {
 				expected := getBasicDeployment()
 				conditionsv1.SetStatusCondition(&expected.cdi.Status.Conditions, conditionsv1.Condition{
@@ -1138,7 +1138,7 @@ var _ = Describe("HyperconvergedController", func() {
 				)
 				r := initReconciler(cl)
 
-				r.ownVersion = os.Getenv(util.HcoKvIoVersionName)
+				r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
 				if r.ownVersion == "" {
 					r.ownVersion = version.Version
 				}
@@ -1158,7 +1158,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl.Status().(*hcoTestStatusWriter).initiateErrors(apierrors.NewConflict(rs, "hco", errors.New("test error")))
 				r := initReconciler(cl)
 
-				r.ownVersion = os.Getenv(util.HcoKvIoVersionName)
+				r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
 				if r.ownVersion == "" {
 					r.ownVersion = version.Version
 				}

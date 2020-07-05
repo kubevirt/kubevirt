@@ -12,7 +12,6 @@ import (
 	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
@@ -125,7 +124,7 @@ func getBasicDeployment() *basicExpected {
 	}
 	res.hco = hco
 
-	res.pc = hcoutil.NewKubeVirtPriorityClass(hcov1alpha1.HyperConvergedName)
+	res.pc = hco.NewKubeVirtPriorityClass()
 	// These are all of the objects that we expect to "find" in the client because
 	// we already created them in a previous reconcile.
 	expectedKVConfig := newKubeVirtConfigForCR(hco, namespace)
@@ -136,7 +135,7 @@ func getBasicDeployment() *basicExpected {
 	expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageConfig = expectedKVStorageConfig
 
-	expectedKV := newKubeVirtForCR(hco, namespace)
+	expectedKV := hco.NewKubeVirt(namespace)
 	expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
 	expectedKV.Status.Conditions = []kubevirtv1.KubeVirtCondition{
 		{
@@ -154,17 +153,17 @@ func getBasicDeployment() *basicExpected {
 	}
 	res.kv = expectedKV
 
-	expectedCDI := newCDIForCR(hco, UndefinedNamespace)
+	expectedCDI := hco.NewCDI()
 	expectedCDI.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cdis/%s", expectedCDI.Namespace, expectedCDI.Name)
 	expectedCDI.Status.Conditions = getGenericCompletedConditions()
 	res.cdi = expectedCDI
 
-	expectedCNA := newNetworkAddonsForCR(hco, UndefinedNamespace)
+	expectedCNA := hco.NewNetworkAddons()
 	expectedCNA.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/cnas/%s", expectedCNA.Namespace, expectedCNA.Name)
 	expectedCNA.Status.Conditions = getGenericCompletedConditions()
 	res.cna = expectedCNA
 
-	expectedKVCTB := newKubeVirtCommonTemplateBundleForCR(hco, OpenshiftNamespace)
+	expectedKVCTB := hco.NewKubeVirtCommonTemplateBundle()
 	expectedKVCTB.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/ctbs/%s", expectedKVCTB.Namespace, expectedKVCTB.Name)
 	expectedKVCTB.Status.Conditions = getGenericCompletedConditions()
 	res.kvCtb = expectedKVCTB
@@ -212,7 +211,7 @@ func checkAvailability(hco *hcov1alpha1.HyperConverged, expected corev1.Conditio
 func doReconcile(cl client.Client, hco *hcov1alpha1.HyperConverged) (*hcov1alpha1.HyperConverged, bool) {
 	r := initReconciler(cl)
 
-	r.ownVersion = os.Getenv(util.HcoKvIoVersionName)
+	r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
 	if r.ownVersion == "" {
 		r.ownVersion = version.Version
 	}
