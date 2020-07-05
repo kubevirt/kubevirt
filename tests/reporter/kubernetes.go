@@ -103,6 +103,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logSecrets(virtCli)
 	r.logAuditLogs(virtCli, since)
 	r.logDMESG(virtCli, since)
+	r.logJournal(virtCli, duration+5*time.Second)
 	r.logVMs(virtCli)
 	r.logDomainXMLs(virtCli)
 	r.logLogs(virtCli, since)
@@ -299,6 +300,56 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, since 
 				}
 			}
 		}()
+	}
+}
+
+func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, duration time.Duration) {
+
+	const component = "journal"
+
+	logsdir := filepath.Join(r.artifactsDir, "nodes")
+	if err := os.MkdirAll(logsdir, 0777); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to create directory %s: %v\n", logsdir, err)
+		return
+	}
+
+	logDuration := strconv.FormatInt(int64(duration/time.Second), 10)
+
+	nodes := getNodesWithVirtLauncher(virtCli)
+
+	for _, node := range nodes {
+		pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(tests.KubeVirtInstallNamespace).ForNode(node).Pod()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v", node, err)
+			continue
+		}
+
+		commands := []string{
+			"/usr/bin/virt-chroot",
+			"--mount",
+			"/proc/1/ns/mnt",
+			"exec",
+			"--",
+			"/usr/bin/journalctl",
+			"--since",
+			"-" + logDuration + "s",
+		}
+		stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtCli, pod, "virt-handler", commands)
+		if err != nil {
+			fmt.Fprintf(
+				os.Stderr,
+				"failed to execute command %s on node %s, stdout: %s, stderr: %s, error: %v",
+				commands, node, stdout, stderr, err,
+			)
+			continue
+		}
+
+		fileName := fmt.Sprintf("%d_%s_%s.log", r.failureCount, component, node)
+		err = writeStringToFile(filepath.Join(logsdir, fileName), stdout)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write node %s logs: %v", node, err)
+			continue
+		}
 	}
 }
 
@@ -611,4 +662,15 @@ func getNodesWithVirtLauncher(virtCli kubecli.KubevirtClient) []string {
 	}
 
 	return nodes
+}
+
+func writeStringToFile(filePath string, data string) error {
+	f, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open file %s: %v", filePath, err)
+	}
+	defer f.Close()
+
+	_, err = f.WriteString(data)
+	return err
 }
