@@ -48,7 +48,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	var memoryPreset *v1.VirtualMachineInstancePreset
 	var cpuPreset *v1.VirtualMachineInstancePreset
 
-	flavorKey := fmt.Sprintf("virtualmachineinstancepresets.%s/flavor", v1.GroupName)
+	flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
 	memoryFlavor := "memory-test"
 	memoryPrefix := "test-memory-"
 	memory, _ := resource.ParseQuantity("128M")
@@ -293,7 +293,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Context("Conflict", func() {
 		var conflictPreset *v1.VirtualMachineInstancePreset
 
-		conflictKey := fmt.Sprintf("virtualmachineinstancepresets.%s/conflict", v1.GroupName)
+		conflictKey := fmt.Sprintf("%s/conflict", v1.GroupName)
 		conflictFlavor := "conflict-test"
 		conflictMemory, _ := resource.ParseQuantity("256M")
 		conflictPrefix := "test-conflict-"
@@ -332,7 +332,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Context("Override", func() {
 		var overridePreset *v1.VirtualMachineInstancePreset
 
-		overrideKey := fmt.Sprintf("virtualmachineinstancepresets.%s/vmPreset", v1.GroupName)
+		overrideKey := fmt.Sprintf("kubevirt.io/vmPreset")
 		overrideFlavor := "vmi-preset-small"
 		overrideMemory, _ := resource.ParseQuantity("64M")
 		overridePrefix := "test-override-"
@@ -390,7 +390,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	Context("Preset Lifecycle", func() {
 		var preset *v1.VirtualMachineInstancePreset
 		presetNamePrefix := "vmi-preset-small-"
-		selectorKey := fmt.Sprintf("virtualmachineinstancepresets.%s/vmPreset", v1.GroupName)
+		selectorKey := "kubevirt.io/vmPreset"
 		selectorLabel := "vmi-preset-small"
 
 		BeforeEach(func() {
@@ -428,7 +428,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Context("Match Expressions", func() {
 		var preset *v1.VirtualMachineInstancePreset
-		labelKey := fmt.Sprintf("virtualmachineinstancepresets.%s/os", v1.GroupName)
+		labelKey := "kubevirt.io/os"
 
 		var vmiWin7 *v1.VirtualMachineInstance
 		var vmiWin10 *v1.VirtualMachineInstance
@@ -491,7 +491,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Context("[rfe_id:613]MatchLabels", func() {
 		var preset *v1.VirtualMachineInstancePreset
-		labelKey := fmt.Sprintf("virtualmachineinstancepresets.%s/cpu", v1.GroupName)
+		labelKey := "kubevirt.io/cpu"
 		labelValue := "dodecacore"
 		numCores := uint32(12)
 		presetName := "twelve-cores"
