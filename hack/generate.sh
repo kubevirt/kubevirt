@@ -129,5 +129,3 @@ protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/cmd/info/info.proto
 
 mockgen -source pkg/handler-launcher-com/notify/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/notify/info/generated_mock_info.go
 mockgen -source pkg/handler-launcher-com/cmd/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/cmd/info/generated_mock_info.go
-
-hack/sync-kubevirtci.sh
