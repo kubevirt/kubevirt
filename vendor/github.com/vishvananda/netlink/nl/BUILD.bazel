@@ -6,6 +6,7 @@ go_library(
         "addr_linux.go",
         "bridge_linux.go",
         "conntrack_linux.go",
+        "devlink_linux.go",
         "genetlink_linux.go",
         "link_linux.go",
         "mpls_linux.go",

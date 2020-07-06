@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "runewidth.go",
         "runewidth_posix.go",
+        "runewidth_table.go",
         "runewidth_windows.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/mattn/go-runewidth",

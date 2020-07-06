@@ -6,6 +6,7 @@ go_library(
         "decode.go",
         "encode.go",
         "expfmt.go",
+        "openmetrics_create.go",
         "text_create.go",
         "text_parse.go",
     ],
@@ -18,5 +19,6 @@ go_library(
         "//vendor/github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg:go_default_library",
         "//vendor/github.com/prometheus/common/model:go_default_library",
         "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_golang_protobuf//ptypes:go_default_library_gen",
     ],
 )

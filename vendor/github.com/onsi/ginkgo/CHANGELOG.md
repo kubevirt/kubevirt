@@ -1,3 +1,24 @@
+## 1.12.0
+
+### Features
+- Add module definition (#630) [78916ab]
+
+## 1.11.0
+
+### Features
+- Add syscall for riscv64 architecture [f66e896]
+- teamcity reporter: output location of test failure as well as test definition (#626) [9869142]
+- teamcity reporter: output newline after every service message (#625) [3cfa02d]
+- Add support for go module when running `generate` command (#578) [9c89e3f]
+
+## 1.10.3
+
+### Fixes
+- Set go_import_path in travis.yml to allow internal packages in forks (#607) [3b721db]
+- Add integration test [d90e0dc]
+- Fix coverage files combining [e5dde8c]
+- A new CLI option: -ginkgo.reportFile <file path> (#601) [034fd25]
+
 ## 1.10.2
 
 ### Fixes

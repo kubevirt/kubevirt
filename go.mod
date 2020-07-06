@@ -1,16 +1,17 @@
 module kubevirt.io/kubevirt
 
 require (
-	github.com/Azure/go-autorest/autorest v0.9.1 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.6.0 // indirect
 	github.com/Masterminds/semver v1.5.0
-	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
+	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496
+	github.com/aws/aws-sdk-go v1.25.48 // indirect
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/containerd/continuity v0.0.0-20200228182428-0f16d7a0959c // indirect
 	github.com/containernetworking/plugins v0.8.2
 	github.com/coreos/go-iptables v0.4.3
 	github.com/coreos/go-semver v0.3.0
-	github.com/coreos/prometheus-operator v0.35.0
+	github.com/coreos/prometheus-operator v0.38.1-0.20200424145508-7e176fda06cc
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
+	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/elazarl/goproxy v0.0.0-20190421051319-9d40249d3c2f // indirect
 	github.com/elazarl/goproxy/ext v0.0.0-20190421051319-9d40249d3c2f // indirect
 	github.com/emicklei/go-restful v2.10.0+incompatible
@@ -20,59 +21,59 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-kit/kit v0.9.0
 	github.com/go-openapi/errors v0.19.2
-	github.com/go-openapi/spec v0.19.3
-	github.com/go-openapi/strfmt v0.19.0
+	github.com/go-openapi/spec v0.19.4
+	github.com/go-openapi/strfmt v0.19.2
 	github.com/go-openapi/validate v0.19.2
-	github.com/gogo/protobuf v1.3.0
+	github.com/gogo/protobuf v1.3.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/golang/mock v1.2.0
+	github.com/golang/mock v1.4.0
 	github.com/golang/protobuf v1.3.3
 	github.com/google/go-github/v32 v32.0.0
 	github.com/google/goexpect v0.0.0-20190425035906-112704a48083
 	github.com/google/gofuzz v1.0.0
 	github.com/google/goterm v0.0.0-20190311235235-ce302be1d114 // indirect
-	github.com/gophercloud/gophercloud v0.4.0 // indirect
+	github.com/gorilla/mux v1.7.4 // indirect
 	github.com/gorilla/websocket v1.4.0
-	github.com/hashicorp/golang-lru v0.5.3 // indirect
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.0.1
 	github.com/libvirt/libvirt-go v5.0.0+incompatible
-	github.com/mattn/go-runewidth v0.0.0-20181218000649-703b5e6b11ae // indirect
 	github.com/mfranczy/crd-rest-coverage v0.1.0
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
-	github.com/onsi/ginkgo v1.10.2
-	github.com/onsi/gomega v1.7.0
-	github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
-	github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
+	github.com/onsi/ginkgo v1.12.0
+	github.com/onsi/gomega v1.9.0
+	github.com/opencontainers/runc v1.0.0-rc9 // indirect
+	github.com/opencontainers/runtime-spec v0.1.2-0.20190618234442-a950415649c7 // indirect
+	github.com/openshift/api v3.9.1-0.20191213091414-3fbf6bcf78e8+incompatible
+	github.com/openshift/client-go v0.0.0-20200320150128-a906f3d8e723
+	github.com/openshift/sriov-network-operator v0.0.0-20200706140310-0c0ad1c54fc0
 	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 	github.com/operator-framework/operator-marketplace v0.0.0-20190508022032-93d436f211c1
+	github.com/otiai10/curr v0.0.0-20190513014714-f5a3d24e5776 // indirect
 	github.com/pborman/uuid v1.2.0
-	github.com/prometheus/client_golang v1.1.0
-	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
-	github.com/spf13/cobra v0.0.5
+	github.com/prometheus/client_golang v1.5.1
+	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/subgraph/libmacouflage v0.0.1
-	github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
-	golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
-	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
-	golang.org/x/sys v0.0.0-20191220220014-0732a990476f
+	github.com/vishvananda/netlink v1.1.0
+	golang.org/x/crypto v0.0.0-20200414173820-0848c9571904
+	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
+	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
 	google.golang.org/grpc v1.30.0
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
-	gopkg.in/ini.v1 v1.42.0
-	gopkg.in/yaml.v2 v2.2.4
-	k8s.io/api v0.17.0
-	k8s.io/apiextensions-apiserver v0.16.4
-	k8s.io/apimachinery v0.17.1-beta.0
+	gopkg.in/ini.v1 v1.51.0
+	gopkg.in/yaml.v2 v2.2.8
+	k8s.io/api v0.18.2
+	k8s.io/apiextensions-apiserver v0.18.2
+	k8s.io/apimachinery v0.18.2
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-aggregator v0.16.4
-	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
-	k8s.io/utils v0.0.0-20190801114015-581e00157fb1
+	k8s.io/kube-openapi v0.0.0-20200121204235-bf4fb3bd569c
+	k8s.io/utils v0.0.0-20200324210504-a9aa75ae1b89
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer v1.10.9
 	kubevirt.io/qe-tools v0.1.6
-	sigs.k8s.io/controller-runtime v0.1.9 // indirect
 )
 
 replace (

@@ -1,0 +1,36 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "helper.go",
+        "register.go",
+        "sriovibnetwork_types.go",
+        "sriovnetwork_types.go",
+        "sriovnetworknodepolicy_types.go",
+        "sriovnetworknodestate_types.go",
+        "sriovoperatorconfig_types.go",
+        "zz_generated.deepcopy.go",
+        "zz_generated.openapi.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/sriov-network-operator/pkg/apis/sriovnetwork/v1",
+    importpath = "github.com/openshift/sriov-network-operator/pkg/apis/sriovnetwork/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/go-openapi/spec:go_default_library",
+        "//vendor/github.com/openshift/sriov-network-operator/pkg/apis/k8s/v1:go_default_library",
+        "//vendor/github.com/openshift/sriov-network-operator/pkg/render:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1/unstructured:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/kube-openapi/pkg/common:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/client:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/runtime/log:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/scheme:go_default_library",
+    ],
+)

@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "funcs.go",
+        "render.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/sriov-network-operator/pkg/render",
+    importpath = "github.com/openshift/sriov-network-operator/pkg/render",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/Masterminds/sprig:go_default_library",
+        "//vendor/github.com/pkg/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1/unstructured:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
+    ],
+)

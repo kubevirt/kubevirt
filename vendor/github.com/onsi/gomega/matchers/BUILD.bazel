@@ -23,6 +23,7 @@ go_library(
         "be_zero_matcher.go",
         "consist_of.go",
         "contain_element_matcher.go",
+        "contain_elements_matcher.go",
         "contain_substring_matcher.go",
         "equal_matcher.go",
         "have_cap_matcher.go",
@@ -55,6 +56,7 @@ go_library(
         "//vendor/github.com/onsi/gomega/matchers/support/goraph/bipartitegraph:go_default_library",
         "//vendor/github.com/onsi/gomega/types:go_default_library",
         "//vendor/golang.org/x/net/html/charset:go_default_library",
+        "//vendor/golang.org/x/xerrors:go_default_library",
         "//vendor/gopkg.in/yaml.v2:go_default_library",
     ],
 )

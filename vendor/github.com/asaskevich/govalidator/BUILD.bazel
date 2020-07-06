@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "arrays.go",
         "converter.go",
+        "doc.go",
         "error.go",
         "numerics.go",
         "patterns.go",
