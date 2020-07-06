@@ -15052,6 +15052,13 @@ func schema_kubevirtio_client_go_api_v1_KernelBoot(ref common.ReferenceCallback)
 				Description: "Represents the firmware blob used to assist in the kernel boot process. Used for setting the kernel, initrd and cmdline",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name for the kernel disk",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"kernelPath": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The fully-qualified path to the kernel image in the host OS",

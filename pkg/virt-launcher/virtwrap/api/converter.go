@@ -752,15 +752,23 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		if vmi.Spec.Domain.Firmware.KernelBoot != nil {
 			//to extract the disk image from volume
-
+			// newDisk := Disk{}
+			// volume := volumes[vmi.Spec.Domain.Firmware.KernelBoot.Name]
+			// if volume == nil {
+			// 	return fmt.Errorf("No matching volume with name %s found", vmi.Spec.Domain.Firmware.KernelBoot.Name)
+			// }
+			// err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[vmi.Spec.Domain.Firmware.KernelBoot.Name])
+			// if err != nil {
+			// 	return err
+			// }
 			if vmi.Spec.Domain.Firmware.KernelBoot.KernelPath != "" {
-				domain.Spec.OS.Kernel = vmi.Spec.Domain.Firmware.KernelBoot.KernelPath
+				domain.Spec.OS.Kernel = filepath.Join(hostdisk.GetMountedHostDiskDir(vmi.Spec.Domain.Firmware.KernelBoot.Name), vmi.Spec.Domain.Firmware.KernelBoot.KernelPath)
 			} else {
 				//TODO: see for ways on how to add default path for a vmlinuz image
 				domain.Spec.OS.Kernel = "some default path for vmlinuz"
 			}
 			if vmi.Spec.Domain.Firmware.KernelBoot.InitrdPath != "" {
-				domain.Spec.OS.Initrd = vmi.Spec.Domain.Firmware.KernelBoot.InitrdPath
+				domain.Spec.OS.Initrd = filepath.Join(hostdisk.GetMountedHostDiskDir(vmi.Spec.Domain.Firmware.KernelBoot.Name), vmi.Spec.Domain.Firmware.KernelBoot.InitrdPath)
 			}
 			if vmi.Spec.Domain.Firmware.KernelBoot.Cmdline != "" {
 				domain.Spec.OS.KernelArgs = vmi.Spec.Domain.Firmware.KernelBoot.Cmdline

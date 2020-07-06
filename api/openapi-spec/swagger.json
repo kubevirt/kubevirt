@@ -7635,6 +7635,10 @@
      "kernelPath": {
       "description": "The fully-qualified path to the kernel image in the host OS",
       "type": "string"
+     },
+     "name": {
+      "description": "Name for the kernel disk",
+      "type": "string"
      }
     }
    },

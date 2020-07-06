@@ -13,7 +13,10 @@ spec:
           bus: virtio
         name: containerdisk
     firmware:
-      kernelBoot: {}
+      kernelBoot:
+        cmdline: console=ttyS0
+        kernelPath: kernelImage/
+        name: containerdisk
     machine:
       type: ""
     resources:
@@ -22,9 +25,5 @@ spec:
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
-<<<<<<< HEAD
       image: registry:5000/kubevirt/image-with-kernel:devel
-=======
-      image: registry:5000/kubevirt/alpine-container-disk-demo:devel
->>>>>>> dffbf2421... Added table driven tests and some utils for vm-generator
     name: containerdisk

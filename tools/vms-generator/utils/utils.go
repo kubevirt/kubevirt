@@ -89,6 +89,7 @@ const (
 	imageCirros      = "cirros-container-disk-demo"
 	imageFedora      = "fedora-cloud-container-disk-demo"
 	imageMicroLiveCD = "microlivecd-container-disk-demo"
+	imageKernelBoot  = "hritvi/image-with-kernel:1.0"
 )
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 const defaultInterfaceName = "default"
@@ -576,9 +577,13 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 func GetVMIKernelBoot() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiKernelBoot)
 
-	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageAlpine, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageKernelBoot, DockerTag), busVirtio)
 	vmi.Spec.Domain.Firmware = &v1.Firmware{
-		KernelBoot: &v1.KernelBoot{},
+		KernelBoot: &v1.KernelBoot{
+			Name:       "containerdisk",
+			KernelPath: "kernelImage/",
+			Cmdline:    "console=ttyS0",
+		},
 	}
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
