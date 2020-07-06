@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net"
@@ -40,6 +41,9 @@ import (
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
+	sriovnet1 "github.com/openshift/sriov-network-operator/pkg/apis/sriovnetwork/v1"
+	sriovclient "github.com/openshift/sriov-network-operator/pkg/client/clientset/versioned/typed/sriovnetwork/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -48,11 +52,9 @@ import (
 )
 
 const (
-	postUrl                = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
-	linuxBridgeConfCRD     = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"br10\", \"vlan\": 100, \"ipam\": {}},{\"type\": \"tuning\"}]}"}}`
-	ptpConfCRD             = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
-	sriovConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
-	sriovLinkEnableConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	postUrl            = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
+	linuxBridgeConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"br10\", \"vlan\": 100, \"ipam\": {}},{\"type\": \"tuning\"}]}"}}`
+	ptpConfCRD         = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
 )
 
 var _ = Describe("Multus", func() {
@@ -572,10 +574,66 @@ var _ = Describe("SRIOV", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
+	sriovClient, err := sriovclient.NewForConfig(virtClient.Config())
+	tests.PanicOnError(err)
+
 	sriovResourceName := os.Getenv("SRIOV_RESOURCE_NAME")
 
 	if sriovResourceName == "" {
 		sriovResourceName = "openshift.io/sriov_net"
+	}
+
+	createSriovNetwork := func(name, namespace, resourceName, networkNamespace, ipam string, vlan int, trust, spoofCheck, linkState bool) error {
+		spoofCheckString := func(trust bool) string {
+			if !spoofCheck {
+				return "off"
+			}
+
+			return "on"
+		}
+
+		trustString := func(spoofCheck bool) string {
+			if trust {
+				return "on"
+			}
+
+			return "off"
+		}
+
+		linkStateString := func(linkState bool) string {
+			if linkState {
+				return "enabled"
+			}
+
+			return ""
+		}
+
+		sriovNetwork := sriovnet1.SriovNetwork{
+			ObjectMeta: v13.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Spec: sriovnet1.SriovNetworkSpec{
+				NetworkNamespace: networkNamespace,
+				ResourceName:     resourceName,
+				Capabilities:     "",
+				IPAM:             ipam,
+				Vlan:             vlan,
+				VlanQoS:          0,
+				SpoofChk:         spoofCheckString(spoofCheck),
+				Trust:            trustString(trust),
+				LinkState:        linkStateString(linkState),
+				MinTxRate:        nil,
+				MaxTxRate:        nil,
+			},
+		}
+
+		_, err := sriovClient.SriovNetworks(namespace).Create(context.TODO(), &sriovNetwork, metav1.CreateOptions{})
+		if err != nil {
+
+			return err
+		}
+		return err
 	}
 
 	tests.BeforeAll(func() {
@@ -587,24 +645,15 @@ var _ = Describe("SRIOV", func() {
 		}
 
 		// Create two sriov networks referring to the same resource name
-		result := virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault, sriovResourceName))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
-		result = virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov2")).
-			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault, sriovResourceName))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
-		result = virtClient.RestClient().
-			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov-link-enabled")).
-			Body([]byte(fmt.Sprintf(sriovLinkEnableConfCRD, "sriov-link-enabled", tests.NamespaceTestDefault, sriovResourceName))).
-			Do()
-		Expect(result.Error()).NotTo(HaveOccurred())
+		ipam := "{ \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }"
+		err := createSriovNetwork("sriov", tests.NamespaceTestDefault, "sriov_net", tests.NamespaceTestDefault, ipam, 0, false, true, false)
+		Expect(err).NotTo(HaveOccurred(), "should create SriovNetwork sriov")
+
+		err = createSriovNetwork("sriov2", "sriov_net", tests.NamespaceTestDefault, tests.NamespaceTestDefault, ipam, 0, false, true, false)
+		Expect(err).NotTo(HaveOccurred(), "should create SriovNetwork sriov2")
+
+		err = createSriovNetwork("sriov-link-enabled", "sriov_net", tests.NamespaceTestAlternative, tests.NamespaceTestDefault, ipam, 0, false, true, true)
+		Expect(err).NotTo(HaveOccurred(), "should create SriovNetwork sriov-link-enabled")
 	})
 
 	BeforeEach(func() {
