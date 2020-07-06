@@ -57,7 +57,7 @@ spec:
         - name: HPPO_VERSION
           value: v0.4.3
         - name: VM_IMPORT_VERSION
-          value: v0.0.3
+          value: v0.0.4
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.2.0
         imagePullPolicy: IfNotPresent
         name: hyperconverged-cluster-operator
@@ -424,17 +424,19 @@ spec:
         - name: DEPLOY_CLUSTER_RESOURCES
           value: "true"
         - name: OPERATOR_VERSION
-          value: v0.0.3
+          value: v0.0.4
         - name: CONTROLLER_IMAGE
-          value: quay.io/kubevirt/vm-import-controller:v0.0.3
+          value: quay.io/kubevirt/vm-import-controller:v0.0.4
         - name: PULL_POLICY
           value: IfNotPresent
+        - name: OS_CONFIGMAP_NAME
+        - name: OS_CONFIGMAP_NAMESPACE
         - name: WATCH_NAMESPACE
         - name: POD_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        image: quay.io/kubevirt/vm-import-operator:v0.0.3
+        image: quay.io/kubevirt/vm-import-operator:v0.0.4
         imagePullPolicy: IfNotPresent
         name: vm-import-operator
         resources: {}
