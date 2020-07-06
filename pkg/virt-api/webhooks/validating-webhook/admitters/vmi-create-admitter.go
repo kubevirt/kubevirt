@@ -64,7 +64,7 @@ var validInterfaceModels = map[string]*struct{}{"e1000": nil, "e1000e": nil, "ne
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
 
-var filteredVmiKubevirtLabels = map[string]bool{
+var restriectedVmiLabels = map[string]bool{
 	v1.CreatedByLabel:               true,
 	v1.MigrationJobLabel:            true,
 	v1.NodeNameLabel:                true,
@@ -965,15 +965,14 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	var causes []metav1.StatusCause
 	annotations := metadata.Annotations
 	labels := metadata.Labels
-
 	// Validate kubevirt.io labels presence. Restricted labels allowed
 	// to be created only by known service accounts
-	if len(FilterKubevirtLabels(labels)) > 0 {
-		allowed := GetAllowedServiceAccounts()
-		if _, ok := allowed[accountName]; !ok {
+	allowed := getAllowedServiceAccounts()
+	if _, ok := allowed[accountName]; !ok {
+		if len(filterKubevirtLabels(labels)) > 0 {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "creation of kubevirt.io/ labels on a VMI object is restricted",
+				Message: "creation of the following reserved kubevirt.io/ labels on a VMI object is prohibited",
 				Field:   field.Child("labels").String(),
 			})
 		}

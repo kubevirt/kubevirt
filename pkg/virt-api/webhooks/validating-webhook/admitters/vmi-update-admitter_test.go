@@ -166,24 +166,24 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			Expect(resp).To(BeNil())
 		},
 		table.Entry("Update by API",
-			map[string]string{"kubevirt.io/l": "someValue"},
-			map[string]string{"kubevirt.io/l": "someNewValue"},
+			map[string]string{v1.NodeNameLabel: "someValue"},
+			map[string]string{v1.NodeNameLabel: "someNewValue"},
 			rbac.ApiServiceAccountName,
 		),
 		table.Entry("Update by Handler",
-			map[string]string{"kubevirt.io/l": "someValue"},
-			map[string]string{"kubevirt.io/l": "someNewValue"},
+			map[string]string{v1.NodeNameLabel: "someValue"},
+			map[string]string{v1.NodeNameLabel: "someNewValue"},
 			rbac.HandlerServiceAccountName,
 		),
 		table.Entry("Update by Controller",
-			map[string]string{"kubevirt.io/l": "someValue"},
-			map[string]string{"kubevirt.io/l": "someNewValue"},
+			map[string]string{v1.NodeNameLabel: "someValue"},
+			map[string]string{v1.NodeNameLabel: "someNewValue"},
 			rbac.ControllerServiceAccountName,
 		),
 	)
 
 	table.DescribeTable(
-		"Should reject VMI upon modification of kubevirt.io/ labels by non kubevirt user or service account",
+		"Should reject VMI upon modification of kubevirt.io/ reserved labels by non kubevirt user or service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string) {
 			vmi := v1.NewMinimalVMI("testvmi")
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels
@@ -207,22 +207,22 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			resp := admitVMILabelsUpdate(updateVmi, vmi, ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("modification of kubevirt.io/ labels on a VMI object is restricted"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("modification of the following reserved kubevirt.io/ labels on a VMI object is prohibited"))
 		},
 		table.Entry("Update of an existing label",
-			map[string]string{"kubevirt.io/l": "someValue"},
-			map[string]string{"kubevirt.io/l": "someNewValue"},
+			map[string]string{v1.CreatedByLabel: "someValue"},
+			map[string]string{v1.CreatedByLabel: "someNewValue"},
 		),
 		table.Entry("Add kubevirt.io/ label when no labels we defined at all",
 			nil,
-			map[string]string{"kubevirt.io/l": "someValue"},
+			map[string]string{v1.CreatedByLabel: "someValue"},
 		),
 		table.Entry("Delete kubevirt.io/ label",
-			map[string]string{"kubevirt.io/l": "someValue", "kubevirt.io/l2": "anotherValue"},
+			map[string]string{"kubevirt.io/l": "someValue", v1.CreatedByLabel: "anotherValue"},
 			map[string]string{"kubevirt.io/l": "someValue"},
 		),
 		table.Entry("Delete all kubevirt.io/ labels",
-			map[string]string{"kubevirt.io/l": "someValue", "kubevirt.io/l2": "anotherValue"},
+			map[string]string{v1.CreatedByLabel: "someValue", "kubevirt.io/l2": "anotherValue"},
 			nil,
 		),
 	)

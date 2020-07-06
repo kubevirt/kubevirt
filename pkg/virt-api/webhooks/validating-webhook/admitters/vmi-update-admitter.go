@@ -73,19 +73,19 @@ func admitVMILabelsUpdate(
 	ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	// Skip admission for internal components
-	allowed := GetAllowedServiceAccounts()
+	allowed := getAllowedServiceAccounts()
 	if _, ok := allowed[ar.Request.UserInfo.Username]; ok {
 		return nil
 	}
 
-	oldLabels := FilterKubevirtLabels(oldVMI.ObjectMeta.Labels)
-	newLabels := FilterKubevirtLabels(newVMI.ObjectMeta.Labels)
+	oldLabels := filterKubevirtLabels(oldVMI.ObjectMeta.Labels)
+	newLabels := filterKubevirtLabels(newVMI.ObjectMeta.Labels)
 
 	if !reflect.DeepEqual(oldLabels, newLabels) {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "modification of kubevirt.io/ labels on a VMI object is restricted",
+				Message: "modification of the following reserved kubevirt.io/ labels on a VMI object is prohibited",
 			},
 		})
 	}
@@ -93,7 +93,7 @@ func admitVMILabelsUpdate(
 	return nil
 }
 
-func GetAllowedServiceAccounts() map[string]struct{} {
+func getAllowedServiceAccounts() map[string]struct{} {
 	ns, err := clientutil.GetNamespace()
 	logger := log.DefaultLogger()
 
@@ -111,14 +111,14 @@ func GetAllowedServiceAccounts() map[string]struct{} {
 	}
 }
 
-func FilterKubevirtLabels(labels map[string]string) map[string]string {
+func filterKubevirtLabels(labels map[string]string) map[string]string {
 	m := make(map[string]string)
 	if len(labels) == 0 {
 		// Return the empty map to avoid edge cases
 		return m
 	}
 	for label, value := range labels {
-		if _, ok := filteredVmiKubevirtLabels[label]; ok {
+		if _, ok := restriectedVmiLabels[label]; ok {
 			m[label] = value
 		}
 	}

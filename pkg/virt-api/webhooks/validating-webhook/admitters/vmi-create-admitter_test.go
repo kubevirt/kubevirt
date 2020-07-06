@@ -344,7 +344,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				ar := &v1beta1.AdmissionReview{
 					Request: &v1beta1.AdmissionRequest{
 						Operation: v1beta1.Create,
-						UserInfo:  authv1.UserInfo{Username: userAccount},
+						UserInfo:  authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + userAccount},
 						Resource:  webhooks.VirtualMachineInstanceGroupVersionResource,
 						Object: runtime.RawExtension{
 							Raw: vmiBytes,
@@ -354,11 +354,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				resp := vmiCreateAdmitter.Admit(ar)
 				if positive {
 					Expect(resp.Allowed).To(BeTrue())
-					Expect(len(resp.Result.Details.Causes)).To(Equal(0))
 				} else {
 					Expect(resp.Allowed).To(BeFalse())
 					Expect(len(resp.Result.Details.Causes)).To(Equal(1))
-					Expect(resp.Result.Details.Causes[0].Message).To(Equal("creation of kubevirt.io/ labels on a VMI object is restricted"))
+					Expect(resp.Result.Details.Causes[0].Message).To(Equal("creation of the following reserved kubevirt.io/ labels on a VMI object is prohibited"))
 				}
 			},
 			table.Entry("Create restricted label by API",
@@ -393,8 +392,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Annotations: annotations,
 			}
 
-			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config)
-			Expect(len(causes)).To(Equal(1), "fake-account")
+			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config, "fake-account")
+			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			Expect(causes[0].Message).To(ContainSubstring(expectedMsg))
 		},
