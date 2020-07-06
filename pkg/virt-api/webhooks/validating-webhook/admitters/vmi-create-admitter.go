@@ -965,12 +965,12 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	var causes []metav1.StatusCause
 	annotations := metadata.Annotations
 	labels := metadata.Labels
-	filteredLabels := util.FilterKubevirtLabels(labels)
+	filteredLabels, hasRestrictedLabels := FilterKubevirtLabels(labels)
 
 	// Validate kubevirt.io labels presence. Restricted labels allowed
 	// to be created only by known service accounts
-	if len(filteredLabels) > 0 && hasRestrictedLabels(filteredLabels) {
-		allowed := util.GetAllowedServiceAccounts()
+	if len(filteredLabels) > 0 && hasRestrictedLabels {
+		allowed := GetAllowedServiceAccounts()
 		if _, ok := allowed[accountName]; !ok {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
@@ -1645,13 +1645,4 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 	}
 
 	return causes
-}
-
-func hasRestrictedLabels(labels map[string]string) bool {
-	for label, _ := range labels {
-		if _, ok := filteredVmiKubevirtLabels[label]; !ok {
-			return false
-		}
-	}
-	return true
 }
