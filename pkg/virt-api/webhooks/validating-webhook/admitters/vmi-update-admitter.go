@@ -22,7 +22,6 @@ package admitters
 import (
 	"fmt"
 	"reflect"
-	"strings"
 
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
@@ -79,8 +78,8 @@ func admitVMILabelsUpdate(
 		return nil
 	}
 
-	oldLabels, _ := FilterKubevirtLabels(oldVMI.ObjectMeta.Labels)
-	newLabels, _ := FilterKubevirtLabels(newVMI.ObjectMeta.Labels)
+	oldLabels := FilterKubevirtLabels(oldVMI.ObjectMeta.Labels)
+	newLabels := FilterKubevirtLabels(newVMI.ObjectMeta.Labels)
 
 	if !reflect.DeepEqual(oldLabels, newLabels) {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
@@ -112,22 +111,17 @@ func GetAllowedServiceAccounts() map[string]struct{} {
 	}
 }
 
-func FilterKubevirtLabels(labels map[string]string) (map[string]string, bool) {
-	hasRestrictedLabels := false
+func FilterKubevirtLabels(labels map[string]string) map[string]string {
 	m := make(map[string]string)
 	if len(labels) == 0 {
 		// Return the empty map to avoid edge cases
-		return m, hasRestrictedLabels
+		return m
 	}
 	for label, value := range labels {
-		if strings.HasPrefix(label, "kubevirt.io") {
-			if !hasRestrictedLabels {
-				if _, ok := filteredVmiKubevirtLabels[label]; ok {
-					hasRestrictedLabels = true
-				}
-			}
+		if _, ok := filteredVmiKubevirtLabels[label]; ok {
 			m[label] = value
 		}
 	}
-	return m, hasRestrictedLabels
+
+	return m
 }
