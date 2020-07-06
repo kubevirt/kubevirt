@@ -91,7 +91,8 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 		return
 	}
 
-	since := time.Now().Add(-duration).Add(-5 * time.Second)
+	duration += 5 * time.Second
+	since := time.Now().Add(-duration)
 
 	r.logEvents(virtCli, since)
 	r.logNodes(virtCli)
@@ -103,7 +104,8 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logSecrets(virtCli)
 	r.logAuditLogs(virtCli, since)
 	r.logDMESG(virtCli, since)
-	r.logJournal(virtCli, duration+5*time.Second)
+	r.logJournal(virtCli, duration, "")
+	r.logJournal(virtCli, duration, "kubelet")
 	r.logVMs(virtCli)
 	r.logDomainXMLs(virtCli)
 	r.logLogs(virtCli, since)
@@ -303,9 +305,15 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, since 
 	}
 }
 
-func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, duration time.Duration) {
+func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, duration time.Duration, unit string) {
 
-	const component = "journal"
+	var component string = "journal"
+	var unitCommandArgs []string
+
+	if unit != "" {
+		component += "_" + unit
+		unitCommandArgs = append(unitCommandArgs, "-u", unit)
+	}
 
 	logsdir := filepath.Join(r.artifactsDir, "nodes")
 	if err := os.MkdirAll(logsdir, 0777); err != nil {
@@ -334,6 +342,8 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, duration
 			"--since",
 			"-" + logDuration + "s",
 		}
+		commands = append(commands, unitCommandArgs...)
+
 		stdout, stderr, err := tests.ExecuteCommandOnPodV2(virtCli, pod, "virt-handler", commands)
 		if err != nil {
 			fmt.Fprintf(
