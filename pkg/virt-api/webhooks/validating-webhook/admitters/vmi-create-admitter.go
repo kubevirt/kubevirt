@@ -965,11 +965,10 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	var causes []metav1.StatusCause
 	annotations := metadata.Annotations
 	labels := metadata.Labels
-	filteredLabels, hasRestrictedLabels := FilterKubevirtLabels(labels)
 
 	// Validate kubevirt.io labels presence. Restricted labels allowed
 	// to be created only by known service accounts
-	if len(filteredLabels) > 0 && hasRestrictedLabels {
+	if len(FilterKubevirtLabels(labels)) > 0 {
 		allowed := GetAllowedServiceAccounts()
 		if _, ok := allowed[accountName]; !ok {
 			causes = append(causes, metav1.StatusCause{
