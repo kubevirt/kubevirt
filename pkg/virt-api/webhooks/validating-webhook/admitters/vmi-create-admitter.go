@@ -64,10 +64,13 @@ var validInterfaceModels = map[string]*struct{}{"e1000": nil, "e1000e": nil, "ne
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
 
-var validVmiKubevirtLabels = map[string]bool{
-	"kubevirt.io/os":     true,
-	"kubevirt.io/vm":     true,
-	"kubevirt.io/flavor": true,
+var filteredVmiKubevirtLabels = map[string]bool{
+	v1.CreatedByLabel:               true,
+	v1.MigrationJobLabel:            true,
+	v1.NodeNameLabel:                true,
+	v1.MigrationTargetNodeNameLabel: true,
+	v1.NodeSchedulable:              true,
+	v1.InstallStrategyLabel:         true,
 }
 
 type VMICreateAdmitter struct {
@@ -964,8 +967,9 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	labels := metadata.Labels
 	filteredLabels := util.FilterKubevirtLabels(labels)
 
-	// Validate kubevirt.io labels presence. Allowed to be created only by known service accounts
-	if len(filteredLabels) > 0 && !hasOnlyWhiteListedLabels(filteredLabels) {
+	// Validate kubevirt.io labels presence. Restricted labels allowed
+	// to be created only by known service accounts
+	if len(filteredLabels) > 0 && hasRestrictedLabels(filteredLabels) {
 		allowed := util.GetAllowedServiceAccounts()
 		if _, ok := allowed[accountName]; !ok {
 			causes = append(causes, metav1.StatusCause{
@@ -1643,9 +1647,9 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 	return causes
 }
 
-func hasOnlyWhiteListedLabels(labels map[string]string) bool {
+func hasRestrictedLabels(labels map[string]string) bool {
 	for label, _ := range labels {
-		if _, ok := validVmiKubevirtLabels[label]; !ok {
+		if _, ok := filteredVmiKubevirtLabels[label]; !ok {
 			return false
 		}
 	}
