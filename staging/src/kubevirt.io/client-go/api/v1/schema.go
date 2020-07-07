@@ -355,6 +355,11 @@ type Devices struct {
 	// Whether to attach the default serial console or not.
 	// Serial console access will not be available if set to false. Defaults to true.
 	AutoattachSerialConsole *bool `json:"autoattachSerialConsole,omitempty"`
+	// Whether to attach the Memory balloon device with default period.
+	// Period can be adjusted in virt-config.
+	// Defaults to true.
+	// +optional
+	AutoattachMemBalloon *bool `json:"autoattachMemBalloon,omitempty"`
 	// Whether to have random number generator from host
 	// +optional
 	Rng *Rng `json:"rng,omitempty"`

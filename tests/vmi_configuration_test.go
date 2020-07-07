@@ -508,7 +508,7 @@ var _ = Describe("Configurations", func() {
 
 				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: "105"},
+					&expect.BExp{R: "104"},
 				}, 10*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -533,7 +533,7 @@ var _ = Describe("Configurations", func() {
 
 				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: "105"},
+					&expect.BExp{R: "104"},
 				}, 10*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())

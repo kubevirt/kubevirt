@@ -21,12 +21,14 @@ package api
 
 import (
 	"encoding/xml"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
+var exampleXMLwithNoneMemballoon string
 var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvmi</name>
   <memory unit="MB">9</memory>
@@ -46,7 +48,7 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
-    <memballoon model="none"></memballoon>
+    %s
     <disk device="disk" type="network">
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
@@ -100,6 +102,7 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
   <iothreads>2</iothreads>
 </domain>`
 
+var exampleXMLppc64lewithNoneMemballoon string
 var exampleXMLppc64le = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvmi</name>
   <memory unit="MB">9</memory>
@@ -119,7 +122,7 @@ var exampleXMLppc64le = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schem
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
-    <memballoon model="none"></memballoon>
+    %s
     <disk device="disk" type="network">
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
@@ -174,8 +177,23 @@ var exampleXMLppc64le = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schem
 </domain>`
 
 var _ = Describe("Schema", func() {
+	exampleXMLwithNoneMemballoon = fmt.Sprintf(exampleXML,
+		`<memballoon model="none"></memballoon>`)
+	exampleXML = fmt.Sprintf(exampleXML,
+		`<memballoon model="virtio">
+      <stats period="10"></stats>
+    </memballoon>`)
+
+	exampleXMLppc64lewithNoneMemballoon = fmt.Sprintf(exampleXMLppc64le,
+		`<memballoon model="none"></memballoon>`)
+	exampleXMLppc64le = fmt.Sprintf(exampleXMLppc64le,
+		`<memballoon model="virtio">
+      <stats period="10"></stats>
+    </memballoon>`)
+
 	//The example domain should stay in sync to the xml above
 	var exampleDomain *Domain
+	var exampleDomainWithMemballonDevice *Domain
 
 	BeforeEach(func() {
 		exampleDomain = NewMinimalDomainWithNS("mynamespace", "testvmi")
@@ -289,6 +307,9 @@ var _ = Describe("Schema", func() {
 		exampleDomain.Spec.Metadata.KubeVirt.GracePeriod = &GracePeriodMetadata{}
 		exampleDomain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = 5
 		exampleDomain.Spec.IOThreads = &IOThreads{IOThreads: 2}
+		exampleDomain.Spec.Devices.Ballooning = &MemBalloon{Model: "virtio", Stats: &Stats{Period: 10}}
+		exampleDomainWithMemballonDevice = exampleDomain.DeepCopy()
+		exampleDomainWithMemballonDevice.Spec.Devices.Ballooning = &MemBalloon{Model: "none"}
 	})
 
 	Context("With schema", func() {
@@ -305,29 +326,48 @@ var _ = Describe("Schema", func() {
 			Expect(newDomain).To(Equal(*domain))
 		})
 	})
+	unmarshalTest := func(arch, domainStr string, domain *Domain) {
+		NewDefaulter(arch).SetObjectDefaults_Domain(domain)
+		newDomain := DomainSpec{}
+		err := xml.Unmarshal([]byte(domainStr), &newDomain)
+		newDomain.XMLName.Local = ""
+		newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
+		Expect(err).To(BeNil())
+
+		Expect(newDomain).To(Equal(domain.Spec))
+	}
+
+	marshalTest := func(arch, domainStr string, domain *Domain) {
+		NewDefaulter(arch).SetObjectDefaults_Domain(domain)
+		buf, err := xml.MarshalIndent(domain.Spec, "", "  ")
+		Expect(err).To(BeNil())
+		Expect(string(buf)).To(Equal(domainStr))
+	}
 	Context("With example schema", func() {
 		table.DescribeTable("Unmarshal into struct", func(arch string, domainStr string) {
-			NewDefaulter(arch).SetObjectDefaults_Domain(exampleDomain)
-			var err error
-			newDomain := DomainSpec{}
-			err = xml.Unmarshal([]byte(domainStr), &newDomain)
-			newDomain.XMLName.Local = ""
-			newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
-			Expect(err).To(BeNil())
-
-			Expect(newDomain).To(Equal(exampleDomain.Spec))
+			unmarshalTest(arch, domainStr, exampleDomain)
 		},
 			table.Entry("for ppc64le", "ppc64le", exampleXMLppc64le),
 			table.Entry("for amd64", "amd64", exampleXML),
 		)
 		table.DescribeTable("Marshal into xml", func(arch string, domainStr string) {
-			NewDefaulter(arch).SetObjectDefaults_Domain(exampleDomain)
-			buf, err := xml.MarshalIndent(exampleDomain.Spec, "", "  ")
-			Expect(err).To(BeNil())
-			Expect(string(buf)).To(Equal(domainStr))
+			marshalTest(arch, domainStr, exampleDomain)
 		},
 			table.Entry("for ppc64le", "ppc64le", exampleXMLppc64le),
 			table.Entry("for amd64", "amd64", exampleXML),
+		)
+
+		table.DescribeTable("Unmarshal into struct", func(arch string, domainStr string) {
+			unmarshalTest(arch, domainStr, exampleDomainWithMemballonDevice)
+		},
+			table.Entry("for ppc64le and Memballoon device is specified", "ppc64le", exampleXMLppc64lewithNoneMemballoon),
+			table.Entry("for amd64 and Memballoon device is specified", "amd64", exampleXMLwithNoneMemballoon),
+		)
+		table.DescribeTable("Marshal into xml", func(arch string, domainStr string) {
+			marshalTest(arch, domainStr, exampleDomainWithMemballonDevice)
+		},
+			table.Entry("for ppc64le and Memballoon device is specified", "ppc64le", exampleXMLppc64lewithNoneMemballoon),
+			table.Entry("for amd64 and Memballoon device is specified", "amd64", exampleXMLwithNoneMemballoon),
 		)
 	})
 	Context("With cpu pinning", func() {
