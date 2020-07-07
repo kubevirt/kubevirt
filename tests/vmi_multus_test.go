@@ -863,8 +863,8 @@ var _ = Describe("SRIOV", func() {
 			configInterface(vmi2, "eth1", cidrB, "#")
 
 			// now check ICMP goes both ways
-			pingVirtualMachine(vmi1, cidrToIP(cidrA), "#")
-			pingVirtualMachine(vmi2, cidrToIP(cidrB), "#")
+			pingVirtualMachine(vmi1, cidrToIP(cidrB), "#")
+			pingVirtualMachine(vmi2, cidrToIP(cidrA), "#")
 		}
 
 		It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
