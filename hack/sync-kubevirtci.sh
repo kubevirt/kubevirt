@@ -10,7 +10,10 @@ version_file="cluster-up/version.txt"
 sha_file="cluster-up-sha.txt"
 download_cluster_up=true
 function getClusterUpShasum() {
-    find ${KUBEVIRT_DIR}/cluster-up -type f | sort | xargs sha1sum | sha1sum | awk '{print $1}'
+    (
+        cd ${KUBEVIRT_DIR}
+        find cluster-up -type f | sort | xargs sha1sum | sha1sum | awk '{print $1}'
+    )
 }
 
 # check if we got a new cluster-up git commit hash
