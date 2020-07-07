@@ -2497,6 +2497,113 @@ var _ = Describe("Configurations", func() {
 		)
 	})
 
+	Context("Custom PCI Adresses with slots and function", func() {
+
+		It("should configure custom pci address across all slots", func() {
+			pciSlotsAddr := make([]string, 25)
+			for i := range pciSlotsAddr {
+				pciSlotsAddr[i] = fmt.Sprintf("%x", i+2)
+				if len(pciSlotsAddr[i]) == 1 {
+					pciSlotsAddr[i] = "0" + pciSlotsAddr[i]
+				}
+				pciSlotsAddr[i] = fmt.Sprintf("0000:00:%v.0", pciSlotsAddr[i])
+			}
+			vmi1 := tests.NewRandomFedoraVMIWitGuestAgent()
+			for i, pci := range pciSlotsAddr[:len(pciSlotsAddr)/2] {
+				vmi1.Spec.Domain.Devices.Disks = append(vmi1.Spec.Domain.Devices.Disks,
+					v1.Disk{
+						Name: fmt.Sprintf("test%v", i),
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus:        "virtio",
+								PciAddress: pci,
+							},
+						},
+					})
+				vmi1.Spec.Volumes = append(vmi1.Spec.Volumes,
+					v1.Volume{
+						Name: fmt.Sprintf("test%v", i),
+						VolumeSource: v1.VolumeSource{
+							EmptyDisk: &v1.EmptyDiskSource{
+								Capacity: resource.MustParse("1Mi"),
+							},
+						},
+					})
+			}
+
+			vmi2 := tests.NewRandomFedoraVMIWitGuestAgent()
+			for i, pci := range pciSlotsAddr[len(pciSlotsAddr)/2:] {
+				vmi2.Spec.Domain.Devices.Disks = append(vmi2.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: fmt.Sprintf("test%v", i),
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus:        "virtio",
+							PciAddress: pci,
+						},
+					},
+				})
+				vmi2.Spec.Volumes = append(vmi2.Spec.Volumes, v1.Volume{
+					Name: fmt.Sprintf("test%v", i),
+					VolumeSource: v1.VolumeSource{
+						EmptyDisk: &v1.EmptyDiskSource{
+							Capacity: resource.MustParse("1Mi"),
+						},
+					},
+				})
+			}
+
+			vmi1, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi1)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmi1, tests.LoggedInFedoraExpecter)
+			Expect(len(vmi1.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", 14))
+
+			vmi2, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi2)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmi2, tests.LoggedInFedoraExpecter)
+			Expect(len(vmi2.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", 15))
+
+			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi1.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi2.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("should configure custom pci address across all slot functions", func() {
+			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+			pciSlotsAddr := make([]string, 7)
+			for i := range pciSlotsAddr {
+				pciSlotsAddr[i] = fmt.Sprintf("0000:00:02.%d", i)
+			}
+
+			for i, pci := range pciSlotsAddr {
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: fmt.Sprintf("test%v", i),
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus:        "virtio",
+							PciAddress: pci,
+						},
+					},
+				})
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: fmt.Sprintf("test%v", i),
+					VolumeSource: v1.VolumeSource{
+						EmptyDisk: &v1.EmptyDiskSource{
+							Capacity: resource.MustParse("1Mi"),
+						},
+					},
+				})
+			}
+
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
+			Expect(len(vmi.Spec.Domain.Devices.Disks)).Should(BeNumerically("==", 9))
+
+			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
 	It("[test_id:4153]VMI with masquerade binding and guest agent should expose Pod IP as its public address", func() {
 		vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 
