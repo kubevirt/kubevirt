@@ -44,6 +44,7 @@
 MAX_STEPS=8
 CUR_STEP=1
 RELEASE_DELTA="${RELEASE_DELTA:-1}"
+HCO_DEPLOYMENT_NAME=hco-operator
 
 function Msg {
     { set +x; } 2>/dev/null
@@ -178,15 +179,12 @@ EOF
 ./hack/retry.sh 20 30 "${CMD} get subscription -n kubevirt-hyperconverged | grep -v EOF"
 ./hack/retry.sh 20 30 "${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator"
 
-HCO_OPERATOR_POD=`${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator  | grep 'Running\|ContainerCreating' | head -1 | awk '{ print $1 }'`
-${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverged --timeout="1200s"
+${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
 
 ${CMD} create -f ./deploy/hco.cr.yaml -n kubevirt-hyperconverged
 
-HCO_OPERATOR_POD=`${CMD} get pods -n ${HCO_NAMESPACE} | grep hco-operator | grep 'Running\|ContainerCreating' | head -1 | awk '{ print $1 }'`
-
 ${CMD} wait -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} --for condition=Available --timeout=30m
-${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n ${HCO_NAMESPACE} --timeout=30m
+${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
 
 Msg "check that cluster is operational before upgrade"
 timeout 10m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh' 
@@ -223,9 +221,12 @@ ${CMD} wait pod $CATALOG_OPERATOR_POD --for condition=Ready -n openshift-operato
 Msg "verify the subscription's currentCSV and installedCSV have moved to the new version"
 
 sleep 60
-HCO_OPERATOR_POD=`${CMD} get pods -n kubevirt-hyperconverged | grep hco-operator | head -1 | awk '{ print $1 }'`
 ${CMD} get pods -n kubevirt-hyperconverged
-${CMD} wait pod $HCO_OPERATOR_POD --for condition=Ready -n kubevirt-hyperconverged --timeout="1200s"
+${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
+
+Msg "verify new operator version"
+HCO_VERSION=$( ${CMD} get hco ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} -o jsonpath="{ .status.versions[?(@.name=='operator')].version }")
+[[ "${LATEST_VERSION}" == "${HCO_VERSION}" ]]
 
 ./hack/retry.sh 30 60 "${CMD} get subscriptions -n kubevirt-hyperconverged -o yaml | grep currentCSV | grep v100.0.0"
 ./hack/retry.sh 2 30 "${CMD} get subscriptions -n kubevirt-hyperconverged -o yaml | grep installedCSV | grep v100.0.0"
