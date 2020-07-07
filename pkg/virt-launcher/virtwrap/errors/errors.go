@@ -23,7 +23,7 @@ import (
 	"errors"
 	"fmt"
 
-	lv "github.com/libvirt/libvirt-go"
+	lv "libvirt.org/libvirt-go"
 )
 
 var MigrationAbortInProgressError = errors.New("Migration abort is in progress")

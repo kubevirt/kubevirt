@@ -87,7 +87,7 @@ go_library(
     ],
     cgo = True,
     copts = ["-Ibazel-out/k8-fastbuild/genfiles"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/libvirt/libvirt-go",
-    importpath = "github.com/libvirt/libvirt-go",
+    importmap = "kubevirt.io/kubevirt/vendor/libvirt.org/libvirt-go",
+    importpath = "libvirt.org/libvirt-go",
     visibility = ["//visibility:public"],
 )

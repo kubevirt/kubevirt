@@ -163,8 +163,6 @@ github.com/krolaw/dhcp4
 github.com/krolaw/dhcp4/conn
 # github.com/kubernetes-csi/external-snapshotter/v2 v2.0.1
 github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1
-# github.com/libvirt/libvirt-go v5.0.0+incompatible
-github.com/libvirt/libvirt-go
 # github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
@@ -791,6 +789,8 @@ kubevirt.io/containerized-data-importer/pkg/apis/upload
 # kubevirt.io/qe-tools v0.1.6
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
+# libvirt.org/libvirt-go v5.0.0+incompatible
+libvirt.org/libvirt-go
 # sigs.k8s.io/controller-runtime v0.1.9
 sigs.k8s.io/controller-runtime/pkg/runtime/scheme
 # sigs.k8s.io/yaml v1.1.0

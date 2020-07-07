@@ -29,8 +29,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
+	"libvirt.org/libvirt-go"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"

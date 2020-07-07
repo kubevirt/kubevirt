@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	libvirt "github.com/libvirt/libvirt-go"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	libvirt "libvirt.org/libvirt-go"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
