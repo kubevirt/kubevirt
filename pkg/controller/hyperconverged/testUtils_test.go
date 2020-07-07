@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,19 +32,21 @@ import (
 )
 
 type basicExpected struct {
-	hco             *hcov1alpha1.HyperConverged
-	pc              *schedulingv1.PriorityClass
-	kvConfig        *corev1.ConfigMap
-	kvStorageConfig *corev1.ConfigMap
-	kv              *kubevirtv1.KubeVirt
-	cdi             *cdiv1alpha1.CDI
-	cna             *networkaddonsv1alpha1.NetworkAddonsConfig
-	kvCtb           *sspv1.KubevirtCommonTemplatesBundle
-	kvNlb           *sspv1.KubevirtNodeLabellerBundle
-	kvTv            *sspv1.KubevirtTemplateValidator
-	vmi             *vmimportv1.VMImportConfig
-	kvMtAg          *sspv1.KubevirtMetricsAggregation
-	imsConfig       *corev1.ConfigMap
+	hco                  *hcov1alpha1.HyperConverged
+	pc                   *schedulingv1.PriorityClass
+	kvConfig             *corev1.ConfigMap
+	kvStorageConfig      *corev1.ConfigMap
+	kvStorageRole        *rbacv1.Role
+	kvStorageRoleBinding *rbacv1.RoleBinding
+	kv                   *kubevirtv1.KubeVirt
+	cdi                  *cdiv1alpha1.CDI
+	cna                  *networkaddonsv1alpha1.NetworkAddonsConfig
+	kvCtb                *sspv1.KubevirtCommonTemplatesBundle
+	kvNlb                *sspv1.KubevirtNodeLabellerBundle
+	kvTv                 *sspv1.KubevirtTemplateValidator
+	vmi                  *vmimportv1.VMImportConfig
+	kvMtAg               *sspv1.KubevirtMetricsAggregation
+	imsConfig            *corev1.ConfigMap
 }
 
 func (be basicExpected) toArray() []runtime.Object {
@@ -52,6 +55,8 @@ func (be basicExpected) toArray() []runtime.Object {
 		be.pc,
 		be.kvConfig,
 		be.kvStorageConfig,
+		be.kvStorageRole,
+		be.kvStorageRoleBinding,
 		be.kv,
 		be.cdi,
 		be.cna,
@@ -134,6 +139,13 @@ func getBasicDeployment() *basicExpected {
 	expectedKVStorageConfig := newKubeVirtStorageConfigForCR(hco, namespace)
 	expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
 	res.kvStorageConfig = expectedKVStorageConfig
+	expectedKVStorageRole := newKubeVirtStorageRoleForCR(hco, namespace)
+	expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/roles/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
+	res.kvStorageRole = expectedKVStorageRole
+
+	expectedKVStorageRoleBinding := newKubeVirtStorageRoleBindingForCR(hco, namespace)
+	expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/rolebindings/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
+	res.kvStorageRoleBinding = expectedKVStorageRoleBinding
 
 	expectedKV := hco.NewKubeVirt(namespace)
 	expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)

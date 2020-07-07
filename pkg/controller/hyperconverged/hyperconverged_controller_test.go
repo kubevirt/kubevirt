@@ -175,6 +175,10 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
 				expectedKVStorageConfig := newKubeVirtStorageConfigForCR(hco, namespace)
 				expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
+				expectedKVStorageRole := newKubeVirtStorageRoleForCR(hco, namespace)
+				expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/roles/%s", expectedKVStorageRole.Namespace, expectedKVStorageRole.Name)
+				expectedKVStorageRoleBinding := newKubeVirtStorageRoleBindingForCR(hco, namespace)
+				expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/rolebindings/%s", expectedKVStorageRoleBinding.Namespace, expectedKVStorageRoleBinding.Name)
 				expectedKV := hco.NewKubeVirt(namespace)
 				expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
 				expectedCDI := hco.NewCDI()
@@ -188,7 +192,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedKVTV := newKubeVirtTemplateValidatorForCR(hco, namespace)
 				expectedKVTV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/tv/%s", expectedKVTV.Namespace, expectedKVTV.Name)
 				// Add all of the objects to the client
-				cl := initClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
+				cl := initClient([]runtime.Object{hco, expectedKVConfig, expectedKVStorageConfig, expectedKVStorageRole, expectedKVStorageRoleBinding, expectedKV, expectedCDI, expectedCNA, expectedKVCTB, expectedKVNLB, expectedKVTV})
 				r := initReconciler(cl)
 
 				// Do the reconcile
@@ -255,6 +259,10 @@ var _ = Describe("HyperconvergedController", func() {
 				expectedKVConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVConfig.Namespace, expectedKVConfig.Name)
 				expectedKVStorageConfig := newKubeVirtStorageConfigForCR(hco, namespace)
 				expectedKVStorageConfig.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/configmaps/%s", expectedKVStorageConfig.Namespace, expectedKVStorageConfig.Name)
+				expectedKVStorageRole := newKubeVirtStorageRoleForCR(hco, namespace)
+				expectedKVStorageRole.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/role/%s", expectedKVStorageRole.Namespace, expectedKVStorageRole.Name)
+				expectedKVStorageRoleBinding := newKubeVirtStorageRoleBindingForCR(hco, namespace)
+				expectedKVStorageRoleBinding.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/role/%s", expectedKVStorageRoleBinding.Namespace, expectedKVStorageRoleBinding.Name)
 				expectedKV := hco.NewKubeVirt(namespace)
 				expectedKV.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/kubevirts/%s", expectedKV.Namespace, expectedKV.Name)
 				expectedKV.Status.Conditions = []kubevirtv1.KubeVirtCondition{
@@ -463,7 +471,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(12))
+				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(14))
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 
 				// Now, delete HCO
