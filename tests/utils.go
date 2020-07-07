@@ -266,6 +266,12 @@ const (
 	tmpPath         = "/tmp/kubevirt.io/tests"
 )
 
+const (
+	capNetAdmin k8sv1.Capability = "NET_ADMIN"
+	capNetRaw   k8sv1.Capability = "NET_RAW"
+	capSysNice  k8sv1.Capability = "SYS_NICE"
+)
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
@@ -4813,4 +4819,15 @@ func IsIPv6Cluster(virtClient kubecli.KubevirtClient) bool {
 
 func retcode(retcode string) string {
 	return "\n" + retcode
+}
+
+func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
+	switch capability {
+	case
+		capNetAdmin,
+		capNetRaw,
+		capSysNice:
+		return true
+	}
+	return false
 }
