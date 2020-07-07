@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-	"libvirt.org/libvirt-go"
+	libvirt "libvirt.org/libvirt-go"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
