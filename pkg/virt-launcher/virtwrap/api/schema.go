@@ -349,7 +349,7 @@ type Devices struct {
 	Controllers []Controller `xml:"controller,omitempty"`
 	Video       []Video      `xml:"video"`
 	Graphics    []Graphics   `xml:"graphics"`
-	Ballooning  *Ballooning  `xml:"memballoon,omitempty"`
+	Ballooning  *MemBalloon  `xml:"memballoon,omitempty"`
 	Disks       []Disk       `xml:"disk"`
 	Inputs      []Input      `xml:"input"`
 	Serials     []Serial     `xml:"serial"`
@@ -759,8 +759,14 @@ type Address struct {
 
 //END Video -------------------
 
-type Ballooning struct {
-	Model string `xml:"model,attr"`
+type Stats struct {
+	Period uint `xml:"period,attr"`
+}
+
+type MemBalloon struct {
+	Model   string   `xml:"model,attr"`
+	Stats   *Stats   `xml:"stats,omitempty"`
+	Address *Address `xml:"address,emitempty"`
 }
 
 type Watchdog struct {

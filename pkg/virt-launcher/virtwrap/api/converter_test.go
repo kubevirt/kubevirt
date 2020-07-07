@@ -420,7 +420,7 @@ var _ = Describe("Converter", func() {
     <graphics type="vnc">
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
-    <memballoon model="none"></memballoon>
+    %s
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
@@ -565,7 +565,19 @@ var _ = Describe("Converter", func() {
   </cpu>
   <vcpu placement="static">1</vcpu>
   <iothreads>3</iothreads>
-</domain>`, domainType)
+</domain>`, domainType, "%s")
+		var convertedDomainWith5Period = fmt.Sprintf(convertedDomain,
+			`<memballoon model="virtio">
+      <stats period="5"></stats>
+    </memballoon>`)
+		var convertedDomainWith0Period = fmt.Sprintf(convertedDomain,
+			`<memballoon model="virtio"></memballoon>`)
+		var convertedDomainWithFalseAutoattach = fmt.Sprintf(convertedDomain,
+			`<memballoon model="none"></memballoon>`)
+		convertedDomain = fmt.Sprintf(convertedDomain,
+			`<memballoon model="virtio">
+      <stats period="10"></stats>
+    </memballoon>`)
 
 		var convertedDomainppc64le = fmt.Sprintf(`<domain type="%s" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvmi</name>
@@ -604,7 +616,7 @@ var _ = Describe("Converter", func() {
     <graphics type="vnc">
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
-    <memballoon model="none"></memballoon>
+    %s
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
@@ -749,7 +761,21 @@ var _ = Describe("Converter", func() {
   </cpu>
   <vcpu placement="static">1</vcpu>
   <iothreads>3</iothreads>
-</domain>`, domainType)
+</domain>`, domainType, "%s")
+
+		var convertedDomainppc64leWith5Period = fmt.Sprintf(convertedDomainppc64le,
+			`<memballoon model="virtio">
+      <stats period="5"></stats>
+    </memballoon>`)
+		var convertedDomainppc64leWith0Period = fmt.Sprintf(convertedDomainppc64le,
+			`<memballoon model="virtio"></memballoon>`)
+
+		var convertedDomainppc64leWithFalseAutoattach = fmt.Sprintf(convertedDomainppc64le,
+			`<memballoon model="none"></memballoon>`)
+		convertedDomainppc64le = fmt.Sprintf(convertedDomainppc64le,
+			`<memballoon model="virtio">
+      <stats period="10"></stats>
+    </memballoon>`)
 
 		var convertedDomainWithDevicesOnRootBus = fmt.Sprintf(`<domain type="%s" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvmi</name>
@@ -794,7 +820,10 @@ var _ = Describe("Converter", func() {
     <graphics type="vnc">
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
-    <memballoon model="none"></memballoon>
+    <memballoon model="virtio">
+      <stats period="10"></stats>
+      <address type="pci" domain="0x0000" bus="0x00" slot="0x0a" function="0x0"></address>
+    </memballoon>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
@@ -962,12 +991,13 @@ var _ = Describe("Converter", func() {
 						},
 					},
 				},
-				UseEmulation: true,
-				IsBlockPVC:   isBlockPVCMap,
-				IsBlockDV:    isBlockDVMap,
-				SRIOVDevices: map[string][]string{},
-				SMBios:       TestSmbios,
-				GpuDevices:   []string{},
+				UseEmulation:          true,
+				IsBlockPVC:            isBlockPVCMap,
+				IsBlockDV:             isBlockDVMap,
+				SRIOVDevices:          map[string][]string{},
+				SMBios:                TestSmbios,
+				GpuDevices:            []string{},
+				MemBalloonStatsPeriod: 10,
 			}
 		})
 
@@ -979,6 +1009,30 @@ var _ = Describe("Converter", func() {
 		},
 			table.Entry("for amd64", "amd64", convertedDomain),
 			table.Entry("for ppc64le", "ppc64le", convertedDomainppc64le),
+		)
+
+		table.DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string, period uint) {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			c.Architecture = arch
+			c.MemBalloonStatsPeriod = period
+			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
+		},
+			table.Entry("when context define 5 period on memballoon device for amd64", "amd64", convertedDomainWith5Period, uint(5)),
+			table.Entry("when context define 5 period on memballoon device for ppc64le", "ppc64le", convertedDomainppc64leWith5Period, uint(5)),
+			table.Entry("when context define 0 period on memballoon device for amd64 ", "amd64", convertedDomainWith0Period, uint(0)),
+			table.Entry("when context define 0 period on memballoon device for ppc64le", "ppc64le", convertedDomainppc64leWith0Period, uint(0)),
+		)
+
+		table.DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string) {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = &_false
+			c.Architecture = arch
+			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
+		},
+			table.Entry("when Autoattach memballoon device is false for amd64", "amd64", convertedDomainWithFalseAutoattach),
+			table.Entry("when Autoattach memballoon device is false for ppc64le", "ppc64le", convertedDomainppc64leWithFalseAutoattach),
 		)
 
 		It("should use kvm if present", func() {

@@ -74,7 +74,7 @@ var _ = Describe("Generated deepcopy functions", func() {
 			&Graphics{},
 			&GraphicsListen{},
 			&Address{},
-			&Ballooning{},
+			&MemBalloon{},
 			&Rng{},
 			&RngBackend{},
 			&RngRate{},
