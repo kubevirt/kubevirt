@@ -22,6 +22,7 @@ package tests_test
 import (
 	"fmt"
 	"os"
+	"path"
 	"strconv"
 	"testing"
 
@@ -35,7 +36,9 @@ import (
 
 func TestTests(t *testing.T) {
 	maxFails := getMaxFailsFromEnv()
-	reporters := []Reporter{reporter.NewKubernetesReporter(os.Getenv("ARTIFACTS"), maxFails)}
+	reporters := []Reporter{
+		reporter.NewKubernetesReporter(path.Join(os.Getenv("ARTIFACTS"), "k8s-reporter"), maxFails),
+	}
 	if ginkgo_reporters.Polarion.Run {
 		reporters = append(reporters, &ginkgo_reporters.Polarion)
 	}
