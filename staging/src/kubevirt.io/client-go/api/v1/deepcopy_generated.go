@@ -432,6 +432,11 @@ func (in *Devices) DeepCopyInto(out *Devices) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.AutoattachMemBalloon != nil {
+		in, out := &in.AutoattachMemBalloon, &out.AutoattachMemBalloon
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Rng != nil {
 		in, out := &in.Rng, &out.Rng
 		*out = new(Rng)

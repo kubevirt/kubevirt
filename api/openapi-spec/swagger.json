@@ -6757,6 +6757,10 @@
       "description": "Whether to attach the default graphics device or not. VNC will not be available if set to false. Defaults to true.",
       "type": "boolean"
      },
+     "autoattachMemBalloon": {
+      "description": "Whether to attach the Memory balloon device with default period. Period can be adjusted in virt-config. Defaults to true.",
+      "type": "boolean"
+     },
      "autoattachPodInterface": {
       "description": "Whether to attach a pod network interface. Defaults to true.",
       "type": "boolean"
@@ -7473,6 +7477,10 @@
      },
      "machineType": {
       "type": "string"
+     },
+     "memBalloonStatsPeriod": {
+      "type": "integer",
+      "format": "int32"
      },
      "migrations": {
       "$ref": "#/definitions/v1.MigrationConfiguration"

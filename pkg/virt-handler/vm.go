@@ -1974,6 +1974,8 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		}
 
 		smbios := d.clusterConfig.GetSMBIOS()
+		period := d.clusterConfig.GetMemBalloonStatsPeriod()
+
 		options := &cmdv1.VirtualMachineOptions{
 			VirtualMachineSMBios: &cmdv1.SMBios{
 				Family:       smbios.Family,
@@ -1982,6 +1984,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				Sku:          smbios.Sku,
 				Version:      smbios.Version,
 			},
+			MemBalloonStatsPeriod: uint32(period),
 		}
 
 		err = client.SyncVirtualMachine(vmi, options)

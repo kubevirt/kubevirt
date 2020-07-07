@@ -59,6 +59,12 @@ func PlacePCIDevicesOnRootComplex(spec *DomainSpec) (err error) {
 			return err
 		}
 	}
+	if spec.Devices.Ballooning != nil {
+		spec.Devices.Ballooning.Address, err = assigner.PlacePCIDeviceAtNextSlot(spec.Devices.Ballooning.Address)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
