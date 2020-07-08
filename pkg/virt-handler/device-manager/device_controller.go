@@ -100,3 +100,13 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	logger.Info("Shutting down device plugin controller")
 	return nil
 }
+
+func (c *DeviceController) Initialized() bool {
+	for _, dev := range c.devicePlugins {
+		if !dev.GetInitialized() {
+			return false
+		}
+	}
+
+	return true
+}
