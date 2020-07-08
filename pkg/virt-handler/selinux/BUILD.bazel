@@ -5,10 +5,7 @@ go_library(
     srcs = ["labels.go"],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/selinux",
     visibility = ["//visibility:public"],
-    deps = [
-        "//pkg/util:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
-    ],
+    deps = ["//staging/src/kubevirt.io/client-go/log:go_default_library"],
 )
 
 go_test(

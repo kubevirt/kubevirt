@@ -9,10 +9,12 @@ import (
 	"strings"
 
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/util"
 )
 
+const procOnePrefix = "/proc/1/root"
+
 type execFunc = func(binary string, args ...string) ([]byte, error)
+type copyPolicy = func(policyName string, dir string) (err error)
 
 func defaultExecFunc(binary string, args ...string) ([]byte, error) {
 	return exec.Command(binary, args...).CombinedOutput()
@@ -21,9 +23,11 @@ func defaultExecFunc(binary string, args ...string) ([]byte, error) {
 var POLICY_FILES = []string{"base_container", "virt_launcher"}
 
 type SELinuxImpl struct {
-	Paths         []string
-	execFunc      execFunc
-	procOnePrefix string
+	Paths          []string
+	execFunc       execFunc
+	copyPolicyFunc copyPolicy
+	procOnePrefix  string
+	mode           string
 }
 
 func NewSELinux() (SELinux, bool, error) {
@@ -34,38 +38,26 @@ func NewSELinux() (SELinux, bool, error) {
 		"/usr/bin/",
 	}
 	selinux := &SELinuxImpl{
-		Paths:         paths,
-		execFunc:      defaultExecFunc,
-		procOnePrefix: util.HostRootMount,
+		Paths:          paths,
+		execFunc:       defaultExecFunc,
+		procOnePrefix:  procOnePrefix,
+		copyPolicyFunc: defaultCopyPolicyFunc,
 	}
-	present, err := selinux.IsPresent()
+	present, mode, err := selinux.IsPresent()
+	selinux.mode = mode
 	return selinux, present, err
 }
 
-func (se *SELinuxImpl) IsPresent() (present bool, err error) {
-	_, exists, err := lookupPath("getenforce", se.procOnePrefix, se.Paths)
-	if !exists {
-		return exists, err
-	}
-	out, err := se.execute("getenforce", se.Paths)
+func (se *SELinuxImpl) IsPresent() (present bool, mode string, err error) {
+	out, err := se.selinux("getenforce")
 	if err != nil {
-		return false, err
+		return false, string(out), err
 	}
-	if strings.Contains(string(out), "Disabled") {
-		return false, nil
+	outStr := strings.TrimSpace(string(out))
+	if outStr == "disabled" {
+		return false, outStr, nil
 	}
-	return true, nil
-}
-
-func (se *SELinuxImpl) IsPermissive() (present bool, err error) {
-	out, err := se.execute("getenforce", se.Paths)
-	if err != nil {
-		return false, err
-	}
-	if strings.Contains(string(out), "Permissive") {
-		return true, nil
-	}
-	return false, nil
+	return true, outStr, nil
 }
 
 func lookupPath(binary string, prefix string, paths []string) (string, bool, error) {
@@ -83,12 +75,18 @@ func lookupPath(binary string, prefix string, paths []string) (string, bool, err
 	return "", false, nil
 }
 
-func (se *SELinuxImpl) execute(binary string, paths []string, args ...string) (out []byte, err error) {
-	path, exists, err := lookupPath(binary, se.procOnePrefix, paths)
+func (se *SELinuxImpl) semodule(args ...string) (out []byte, err error) {
+	path, exists, err := lookupPath("semodule", se.procOnePrefix, se.Paths)
 	if err != nil {
 		return []byte{}, err
 	} else if !exists {
-		return []byte{}, fmt.Errorf("could not find binary %v", binary)
+		// on some environments some selinux related binaries are missing, e.g. when the cluster runs in containers (kind).
+		// In such a case, inform the admin, but continue.
+		if se.isPermissive() {
+			log.DefaultLogger().Warning("Permissive mode, ignoring missing 'semodule' binary. SELinux policies will not be installed.")
+			return []byte{}, nil
+		}
+		return []byte{}, fmt.Errorf("could not find 'semodule' binary")
 	}
 
 	argsArray := []string{"--mount", "/proc/1/ns/mnt", "exec", "--", path}
@@ -96,10 +94,33 @@ func (se *SELinuxImpl) execute(binary string, paths []string, args ...string) (o
 		argsArray = append(argsArray, arg)
 	}
 
+	out, err = se.execFunc("/usr/bin/virt-chroot", argsArray...)
+	if err != nil && se.isPermissive() {
+		log.DefaultLogger().Warningf("Permissive mode, ignoring 'semodule' failure: out: %q, error: %v", string(out), err)
+		return []byte{}, nil
+	}
+
+	return out, err
+}
+
+func (se *SELinuxImpl) isPermissive() bool {
+	return se.mode == "permissive"
+}
+
+func (se *SELinuxImpl) Mode() string {
+	return se.mode
+}
+
+func (se *SELinuxImpl) selinux(args ...string) (out []byte, err error) {
+	argsArray := []string{"--mount", "/proc/1/ns/mnt", "selinux"}
+	for _, arg := range args {
+		argsArray = append(argsArray, arg)
+	}
+
 	return se.execFunc("/usr/bin/virt-chroot", argsArray...)
 }
 
-func copyPolicy(policyName string, dir string) (err error) {
+func defaultCopyPolicyFunc(policyName string, dir string) (err error) {
 	sourceFile := "/" + policyName + ".cil"
 
 	input, err := ioutil.ReadFile(sourceFile)
@@ -115,71 +136,26 @@ func copyPolicy(policyName string, dir string) (err error) {
 	return nil
 }
 
-// Label sets selinux label on the directory
-func (se *SELinuxImpl) Label(label string, dir string) error {
-	dir = strings.TrimRight(dir, "/") + "(/.*)?"
-	if out, err := se.execute("semanage", se.Paths, "fcontext", "-a", "-t", label, dir); err != nil {
-		if perm, _ := se.IsPermissive(); perm {
-			log.Log.Warningf("Permissive mode, ignoring 'semanage' failure: out: %q, error: %v", string(out), err)
-			return nil
-		}
-		return fmt.Errorf("failed to set label for directory %v: out: %q, error: %v", dir, string(out), err)
-	}
-	return nil
-}
-
-// IsLabeled verifies if the directory already labeled
-func (se *SELinuxImpl) IsLabeled(dir string) (bool, error) {
-	dir = strings.TrimRight(dir, "/") + "(/.*)?"
-	out, err := se.execute("semanage", se.Paths, "fcontext", "-l")
-	if err != nil {
-		if perm, _ := se.IsPermissive(); perm {
-			log.Log.Warningf("Permissive mode, ignoring 'semanage' failure: out: %q, error: %v", string(out), err)
-			return false, nil
-		}
-		return false, fmt.Errorf("failed to list labels: out: %q, error: %v", string(out), err)
-	}
-	if strings.Contains(string(out), dir) {
-		return true, nil
-	}
-	return false, nil
-}
-
-// Restore restores selinux labels on the directory
-func (se *SELinuxImpl) Restore(dir string) error {
-	dir = strings.TrimRight(dir, "/") + "/"
-	if out, err := se.execute("restorecon", se.Paths, "-r", "-v", dir); err != nil {
-		if perm, _ := se.IsPermissive(); perm {
-			log.Log.Warningf("Permissive mode, ignoring 'restorecon' failure: out: %q, error: %v", string(out), err)
-			return nil
-		}
-		return fmt.Errorf("failed to set selinux permissions: out: %q, error: %v", string(out), err)
-	}
-	return nil
-}
-
 func (se *SELinuxImpl) InstallPolicy(dir string) (err error) {
 	for _, policyName := range POLICY_FILES {
 		fileDest := dir + "/" + policyName + ".cil"
-		err := copyPolicy(policyName, dir)
+		err := se.copyPolicyFunc(policyName, dir)
 		if err != nil {
-			return fmt.Errorf("failed to copy policy %v - err: % v", fileDest, err)
+			return fmt.Errorf("failed to copy policy %v - err: %v", fileDest, err)
 		}
-		out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "exec", "--", "/usr/sbin/semodule", "-i", fileDest).CombinedOutput()
+		out, err := se.semodule("-i", fileDest)
 		if err != nil {
-			if perm, _ := se.IsPermissive(); perm {
-				log.Log.Warningf("Permissive mode, ignoring 'semodule' failure: out: %q, error: %v", string(out), err)
-				return nil
+			if len(out) > 0 {
+				return fmt.Errorf("failed to install policy %v - out: %q, error: %v", fileDest, string(out), err)
+			} else {
+				return fmt.Errorf("failed to install policy %v - err: %v", fileDest, err)
 			}
-			return fmt.Errorf("failed to install policy %v - err: % v", fileDest, err)
 		}
 	}
 	return nil
 }
 
 type SELinux interface {
-	Label(dir string, label string) (err error)
-	IsLabeled(dir string) (labeled bool, err error)
-	Restore(dir string) (err error)
 	InstallPolicy(dir string) (err error)
+	Mode() string
 }

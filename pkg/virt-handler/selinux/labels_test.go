@@ -32,133 +32,77 @@ var _ = Describe("selinux", func() {
 	})
 
 	Context("detecting if selinux is present", func() {
-
-		It("should detect that it is disabled if getenforce is not in path", func() {
-			present, err := selinux.IsPresent()
-			Expect(err).To(BeNil())
-			Expect(present).To(BeFalse())
-		})
 		It("should detect that it is disabled if getenforce returns Disabled", func() {
-			touch(filepath.Join(tempDir, "/usr/bin", "getenforce"))
 			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
-				return []byte("Disabled"), nil
+				return []byte("disabled"), nil
 			}
-			present, err := selinux.IsPresent()
+			present, mode, err := selinux.IsPresent()
 			Expect(err).To(BeNil())
 			Expect(present).To(BeFalse())
+			Expect(mode).To(Equal("disabled"))
 		})
 		It("should detect that it is enabled if getenforce returns Permissive", func() {
 			touch(filepath.Join(tempDir, "/usr/bin", "getenforce"))
 			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
 				return []byte("Permissive"), nil
 			}
-			present, err := selinux.IsPresent()
+			present, _, err := selinux.IsPresent()
 			Expect(err).To(BeNil())
 			Expect(present).To(BeTrue())
 		})
 		It("should detect that it is enabled if getenforce does not return Disabled", func() {
-			touch(filepath.Join(tempDir, "/usr/bin", "getenforce"))
 			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
-				return []byte("Enforced"), nil
+				return []byte("enabled"), nil
 			}
-			present, err := selinux.IsPresent()
+			present, mode, err := selinux.IsPresent()
 			Expect(err).To(BeNil())
 			Expect(present).To(BeTrue())
+			Expect(mode).To(Equal("enabled"))
 		})
 	})
 
-	Context("labeling a directory", func() {
-
-		It("should fail if semanage does not exist", func() {
-			Expect(selinux.Label("whatever", "nothing")).ToNot(Succeed())
-		})
+	Context("installing the selinux policy", func() {
 
 		It("should fail if semanage exists but the command fails", func() {
-			touch(filepath.Join(tempDir, "/usr/bin", "semanage"))
+			touch(filepath.Join(tempDir, "/usr/bin", "semodule"))
 			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
 				return nil, fmt.Errorf("I failed")
 			}
-			Expect(selinux.Label("whatever", "nothing")).ToNot(Succeed())
+			selinux.copyPolicyFunc = func(policyName string, dir string) (err error) {
+				return fmt.Errorf("someting went wrong")
+			}
+			Expect(selinux.InstallPolicy("whatever")).ToNot(Succeed())
 		})
 
 		It("should succeed if semanage exists and the command runs successful", func() {
-			touch(filepath.Join(tempDir, "/usr/bin", "semanage"))
+			touch(filepath.Join(tempDir, "/usr/bin", "semodule"))
 			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
 				return []byte("I succeeded"), nil
 			}
-			Expect(selinux.Label("whatever", "nothing")).To(Succeed())
-		})
-	})
-
-	Context("getting the label of a directory", func() {
-
-		It("should fail if semanage does not exist", func() {
-			_, err := selinux.IsLabeled("whatever")
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("should fail if semanage exists but the command fails", func() {
-			touch(filepath.Join(tempDir, "/usr/bin", "semanage"))
-			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
-				return nil, fmt.Errorf("I failed")
+			selinux.copyPolicyFunc = func(policyName string, dir string) (err error) {
+				return nil
 			}
-			_, err := selinux.IsLabeled("whatever")
-			Expect(err).To(HaveOccurred())
+			Expect(selinux.InstallPolicy("whatever")).To(Succeed())
 		})
-
-		It("should succeed if semanage exists and the command fails, but we are in Permissive mode", func() {
-			touch(filepath.Join(tempDir, "/usr/bin", "semanage"))
-			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
-				if binary == "/usr/sbin/getenforce" {
-					return []byte("Permissive"), nil
-				}
-				return nil, fmt.Errorf("I failed")
-			}
-			_, err := selinux.IsLabeled("whatever")
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("should detect if the directory is not labeled", func() {
-			touch(filepath.Join(tempDir, "/usr/bin", "semanage"))
-			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
-				return []byte("not found"), nil
-			}
-			labeled, err := selinux.IsLabeled("whatever")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(labeled).To(BeFalse())
-		})
-
-		It("should detect if the directory is labeled", func() {
-			touch(filepath.Join(tempDir, "/usr/bin", "semanage"))
-			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
-				return []byte("whatever(/.*)?"), nil
-			}
-			labeled, err := selinux.IsLabeled("whatever")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(labeled).To(BeTrue())
-		})
-	})
-
-	Context("restoring labels on a directory", func() {
-
-		It("should fail if restorecon does not exist", func() {
-			Expect(selinux.Restore("whatever")).ToNot(Succeed())
-		})
-
-		It("should fail if restorecon exists but the command fails", func() {
-			touch(filepath.Join(tempDir, "/usr/bin", "restorecon"))
-			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
-				return nil, fmt.Errorf("I failed")
-			}
-			Expect(selinux.Restore("nothing")).ToNot(Succeed())
-		})
-
-		It("should succeed if restorecon exists and the command runs successful", func() {
-			touch(filepath.Join(tempDir, "/usr/bin", "restorecon"))
+		It("should fail if the semanage command does not exist and selinux is enabled", func() {
+			selinux.mode = "enabled"
 			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
 				return []byte("I succeeded"), nil
 			}
-			Expect(selinux.Restore("nothing")).To(Succeed())
+			selinux.copyPolicyFunc = func(policyName string, dir string) (err error) {
+				return nil
+			}
+			Expect(selinux.InstallPolicy("whatever")).To(Not(Succeed()))
+		})
+		It("should succeed if the semanage command does not exist and selinux is permissive", func() {
+			selinux.mode = "permissive"
+			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
+				return []byte("I succeeded"), nil
+			}
+			selinux.copyPolicyFunc = func(policyName string, dir string) (err error) {
+				return nil
+			}
+			Expect(selinux.InstallPolicy("whatever")).To(Succeed())
 		})
 	})
 })
