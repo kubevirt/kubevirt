@@ -43,6 +43,7 @@ require (
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
 	github.com/onsi/ginkgo v1.10.2
 	github.com/onsi/gomega v1.7.0
+	github.com/opencontainers/selinux v1.6.0
 	github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
 	github.com/operator-framework/go-appr v0.0.0-20180917210448-f2aef88446f2 // indirect

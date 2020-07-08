@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "errors.go",
+        "go113.go",
         "stack.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/pkg/errors",
