@@ -790,7 +790,6 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-
 			})
 		})
 		Context("with an Cirros shared ISCSI PVC", func() {
@@ -858,18 +857,8 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			})
 
 			AfterEach(func() {
-				By("Deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				// PVs can't be reused
 				tests.DeletePvAndPvc(pvName)
-
-				By("Deleting NFS pod")
-				Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
-				By("Waiting for NFS pod to disappear")
-				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
 			})
 			It("[test_id:2653]  should be migrated successfully, using guest agent on VM", func() {
 				// Start the VirtualMachineInstance with the PVC attached
@@ -923,6 +912,16 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				}, 30*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "Should be able to access the mounted service account file")
 
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
+				By("Deleting NFS pod")
+				Expect(virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(tests.NFSTargetName, &metav1.DeleteOptions{})).To(Succeed())
+				By("Waiting for NFS pod to disappear")
+				tests.WaitForPodToDisappearWithTimeout(tests.NFSTargetName, 120)
 			})
 		})
 
