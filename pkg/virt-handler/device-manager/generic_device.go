@@ -46,33 +46,36 @@ type GenericDevice interface {
 	Start(chan struct{}) (err error)
 	GetDevicePath() string
 	GetDeviceName() string
+	GetInitialized() bool
 }
 
 type GenericDevicePlugin struct {
-	counter    int
-	devs       []*pluginapi.Device
-	server     *grpc.Server
-	socketPath string
-	stop       chan struct{}
-	health     chan string
-	devicePath string
-	deviceName string
-	done       chan struct{}
-	deviceRoot string
-	preOpen    bool
+	counter     int
+	devs        []*pluginapi.Device
+	server      *grpc.Server
+	socketPath  string
+	stop        chan struct{}
+	health      chan string
+	devicePath  string
+	deviceName  string
+	done        chan struct{}
+	deviceRoot  string
+	preOpen     bool
+	initialized bool
 }
 
 func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int, preOpen bool) *GenericDevicePlugin {
 	serverSock := SocketPath(deviceName)
 	dpi := &GenericDevicePlugin{
-		counter:    0,
-		devs:       []*pluginapi.Device{},
-		socketPath: serverSock,
-		health:     make(chan string),
-		deviceName: deviceName,
-		devicePath: devicePath,
-		deviceRoot: util.HostRootMount,
-		preOpen:    preOpen,
+		counter:     0,
+		devs:        []*pluginapi.Device{},
+		socketPath:  serverSock,
+		health:      make(chan string),
+		deviceName:  deviceName,
+		devicePath:  devicePath,
+		deviceRoot:  util.HostRootMount,
+		preOpen:     preOpen,
+		initialized: false,
 	}
 	for i := 0; i < maxDevices; i++ {
 		dpi.addNewGenericDevice()
@@ -166,6 +169,7 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (err error) {
 		errChan <- dpi.healthCheck()
 	}()
 
+	dpi.setInitialized(true)
 	logger.Infof("%s device plugin started", dpi.deviceName)
 	err = <-errChan
 
@@ -176,6 +180,7 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (err error) {
 func (dpi *GenericDevicePlugin) Stop() error {
 	defer close(dpi.done)
 	dpi.server.Stop()
+	dpi.setInitialized(false)
 	return dpi.cleanup()
 }
 
@@ -339,4 +344,16 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 
 func SocketPath(deviceName string) string {
 	return filepath.Join(pluginapi.DevicePluginPath, fmt.Sprintf("kubevirt-%s.sock", deviceName))
+}
+
+func (dpi *GenericDevicePlugin) GetInitialized() bool {
+	dpi.lock.Lock()
+	defer dpi.lock.Unlock()
+	return dpi.initialized
+}
+
+func (dpi *GenericDevicePlugin) setInitialized(initialized bool) {
+	dpi.lock.Lock()
+	dpi.initialized = initialized
+	dpi.lock.Unlock()
 }
