@@ -16,7 +16,21 @@ fi
 GIT_USER=${GIT_USER:-`git config user.name`}
 GIT_EMAIL=${GIT_EMAIL:-`git config user.email`}
 
+echo "git user:  $GIT_USER"
+echo "git email: $GIT_EMAIL"
+
 docker pull kubevirtci/release-tool:latest
+
+echo "docker run -it --rm \
+-v ${GPG_PRIVATE_KEY_FILE}:/home/releaser/gpg-private \
+-v ${GPG_PASSPHRASE_FILE}:/home/releaser/gpg-passphrase \
+-v ${GITHUB_API_TOKEN_FILE}:/home/releaser/github-api-token \
+kubevirtci/release-tool:latest \
+--org=kubevirt \
+--repo=kubevirt \
+--git-email \"${GIT_EMAIL}\" \
+--git-user \"${GIT_USER}\"
+\"$@\""
 
 docker run -it --rm \
 -v ${GPG_PRIVATE_KEY_FILE}:/home/releaser/gpg-private \
@@ -25,8 +39,8 @@ docker run -it --rm \
 kubevirtci/release-tool:latest \
 --org=kubevirt \
 --repo=kubevirt \
---git-email "${GIT_USER}" \
---git-user ${GIT_EMAIL} \
+--git-email "${GIT_EMAIL}" \
+--git-user "${GIT_USER}" \
 "$@"
 
 
