@@ -601,7 +601,11 @@ func AfterTestSuitCleanup() {
 	if DeployTestingInfrastructureFlag {
 		WipeTestingInfrastructure()
 	}
-	removeNamespaces()
+
+	err := removeNamespaces()
+	if err != nil {
+		log.Log.Errorf("Could not delete all namespaces %v", err)
+	}
 
 	CleanNodes()
 
@@ -1721,15 +1725,19 @@ func cleanNamespaces() {
 	}
 }
 
-func removeNamespaces() {
+func removeNamespaces() error {
 	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
+	if err != nil {
+		return err
+	}
 
 	// First send an initial delete to every namespace
 	for _, namespace := range testNamespaces {
 		err := virtCli.CoreV1().Namespaces().Delete(namespace, nil)
 		if !errors.IsNotFound(err) {
-			PanicOnError(err)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1740,6 +1748,8 @@ func removeNamespaces() {
 		EventuallyWithOffset(1, func() bool { return errors.IsNotFound(virtCli.CoreV1().Namespaces().Delete(namespace, nil)) }, 240*time.Second, 1*time.Second).
 			Should(BeTrue(), fmt.Sprintf("should succesfully delete namespace %s", namespace))
 	}
+
+	return nil
 }
 
 func createNamespaces() {
