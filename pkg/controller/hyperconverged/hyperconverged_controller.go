@@ -83,12 +83,12 @@ const (
 
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+func Add(mgr manager.Manager, ci hcoutil.ClusterInfo) error {
+	return add(mgr, newReconciler(mgr, ci))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) reconcile.Reconciler {
 
 	ownVersion := os.Getenv(hcoutil.HcoKvIoVersionName)
 	if ownVersion == "" {
@@ -101,7 +101,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		recorder:    mgr.GetEventRecorderFor(hcov1alpha1.HyperConvergedName),
 		upgradeMode: false,
 		ownVersion:  ownVersion,
-		clusterInfo: hcoutil.NewClusterInfo(mgr.GetClient()),
+		clusterInfo: ci,
 		shouldRemoveOldCrd: map[string]bool{
 			commonTemplatesBundleOldCrdName: true,
 			metricsAggregationOldCrdName:    true,
@@ -252,10 +252,6 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 }
 
 func (r *ReconcileHyperConverged) doReconcile(req *hcoRequest) (reconcile.Result, error) {
-
-	if err := r.clusterInfo.CheckRunningInOpenshift(req.ctx, req.logger); err != nil {
-		return reconcile.Result{}, err
-	}
 
 	valid, err := r.validateNamespace(req)
 	if !valid {

@@ -178,8 +178,14 @@ func main() {
 		}
 	}
 
+	ci := hcoutil.GetClusterInfo()
+	err = ci.CheckRunningInOpenshift(log, runInLocal)
+	if err != nil {
+		log.Error(err, "Cannot detect cluster type")
+	}
+
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr); err != nil {
+	if err := controller.AddToManager(mgr, ci); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

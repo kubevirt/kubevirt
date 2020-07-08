@@ -294,10 +294,14 @@ func initReconciler(client client.Client) *ReconcileHyperConverged {
 
 type clusterInfoMock struct{}
 
-func (clusterInfoMock) CheckRunningInOpenshift(_ context.Context, _ logr.Logger) error {
+func (clusterInfoMock) CheckRunningInOpenshift(_ logr.Logger, _ bool) error {
 	return nil
 }
 
 func (clusterInfoMock) IsOpenshift() bool {
 	return true
+}
+
+func (clusterInfoMock) IsRunningLocally() bool {
+	return false
 }
