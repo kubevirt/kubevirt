@@ -140,7 +140,8 @@ func main() {
 				if latestVersion != "" {
 					// prevent generating the same version again
 					if strings.HasSuffix(latestVersion, *csvVersion) {
-						panic(fmt.Errorf("CSV version %s is already published!", *csvVersion))
+						fmt.Printf("CSV version %s is already published!\n", *csvVersion)
+						os.Exit(0)
 					}
 					data.ReplacesCsvVersion = latestVersion
 					// also copy old manifests to out dir
