@@ -162,10 +162,24 @@ func main() {
 		},
 	}
 
+	selinuxCmd := &cobra.Command{
+		Use:   "selinux",
+		Short: "run selinux operations in specific namespaces",
+		Args:  cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			_, _ = fmt.Fprint(cmd.OutOrStderr(), cmd.UsageString())
+		},
+	}
+
+	selinuxCmd.AddCommand(
+		NewGetEnforceCommand(),
+	)
+
 	rootCmd.AddCommand(
 		execCmd,
 		mntCmd,
 		umntCmd,
+		selinuxCmd,
 	)
 
 	if err := rootCmd.Execute(); err != nil {
