@@ -25,11 +25,13 @@ import (
 )
 
 const (
-	sriovEntityURITemplate       = "/apis/sriovnetwork.openshift.io/v1/namespaces/%s/%s/"
-	sriovNetworksEntity          = "sriovnetworks"
-	sriovNodeNetworkPolicyEntity = "sriovnetworknodepolicies"
-	sriovNodeStateEntity         = "sriovnetworknodestates"
-	sriovOperatorConfigsEntity   = "sriovoperatorconfigs"
+	sriovEntityURITemplate            = "/apis/sriovnetwork.openshift.io/v1/namespaces/%s/%s/"
+	sriovNetworksEntity               = "sriovnetworks"
+	sriovNodeNetworkPolicyEntity      = "sriovnetworknodepolicies"
+	sriovNodeStateEntity              = "sriovnetworknodestates"
+	sriovOperatorConfigsEntity        = "sriovoperatorconfigs"
+	k8sCNICNCFEntityURLTemplate       = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/%s/"
+	networkAttachmentDefinitionEntity = "network-attachment-definitions"
 )
 
 type KubernetesReporter struct {
@@ -111,6 +113,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logDomainXMLs(virtCli)
 	r.logLogs(virtCli, since)
 	r.logSRIOVInfo(virtCli)
+	r.logNetworkAttachmentDefinitionInfo(virtCli)
 }
 
 // Cleanup cleans up the current content of the artifactsDir
@@ -641,6 +644,17 @@ func (r *KubernetesReporter) logSRIOVNetworks(virtCli kubecli.KubevirtClient, ou
 func (r *KubernetesReporter) logSRIOVOperatorConfigs(virtCli kubecli.KubevirtClient, outputFolder string) {
 	operatorConfigPath := filepath.Join(outputFolder, fmt.Sprintf("%d_operatorconfigs.log", r.failureCount))
 	r.dumpK8sEntityToFile(virtCli, sriovOperatorConfigsEntity, v1.NamespaceAll, operatorConfigPath)
+}
+
+func (r *KubernetesReporter) logNetworkAttachmentDefinitionInfo(virtCli kubecli.KubevirtClient) {
+	nadOutputDir := r.artifactsDir
+
+	r.logNetworkAttachmentDefinition(virtCli, nadOutputDir)
+}
+
+func (r *KubernetesReporter) logNetworkAttachmentDefinition(virtCli kubecli.KubevirtClient, outputFolder string) {
+	networkAttachmentDefinitionsPath := filepath.Join(outputFolder, fmt.Sprintf("%d_networkAttachmentDefinitions.log", r.failureCount))
+	r.dumpK8sEntityToFile(virtCli, networkAttachmentDefinitionEntity, v1.NamespaceAll, networkAttachmentDefinitionsPath)
 }
 
 func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient, entityName string, namespace string, outputFilePath string) {
