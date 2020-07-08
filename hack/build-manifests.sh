@@ -25,18 +25,13 @@ set -ex
 PROJECT_ROOT="$(readlink -e $(dirname "$BASH_SOURCE[0]")/../)"
 source "${PROJECT_ROOT}"/hack/config
 
-# REPLACES_VERSION is the old CSV_VERSION
-#   if REPLACES_VERSION == CSV_VERSION it will be ignored
-REPLACES_CSV_VERSION="${REPLACES_VERSION:-1.1.0}"
-CSV_VERSION="${CSV_VERSION:-1.2.0}"
-
 DEPLOY_DIR="${PROJECT_ROOT}/deploy"
 CRD_DIR="${DEPLOY_DIR}/crds"
 CSV_DIR="${DEPLOY_DIR}/olm-catalog/kubevirt-hyperconverged/${CSV_VERSION}"
 
 OPERATOR_NAME="${NAME:-kubevirt-hyperconverged-operator}"
 OPERATOR_NAMESPACE="${NAMESPACE:-kubevirt-hyperconverged}"
-OPERATOR_IMAGE="${OPERATOR_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:1.2.0}"
+OPERATOR_IMAGE="${OPERATOR_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-operator:$CSV_VERSION}"
 IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 
 # Component Images

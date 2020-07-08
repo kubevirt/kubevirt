@@ -12,3 +12,9 @@ VMWARE_CONTAINER_VERSION="v2.0.0-5"
 VM_IMPORT_VERSION="v0.0.4"
 
 CONTAINER_REGISTRY="quay.io/kubevirt"
+
+RELEASE_DELTA="${RELEASE_DELTA:-0}"
+
+PACKAGE_DIR="./deploy/olm-catalog/kubevirt-hyperconverged"
+CSV_VERSION=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==$((RELEASE_DELTA+1))" | cut -d '/' -f 5)
+REPLACES_CSV_VERSION=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==$((RELEASE_DELTA+2))" | cut -d '/' -f 5)

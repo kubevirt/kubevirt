@@ -26,6 +26,12 @@ build: $(SOURCES) ## Build binary from source
 	go build -i -ldflags="-s -w" -o _out/hyperconverged-cluster-operator ./cmd/hyperconverged-cluster-operator
 	go build -i -ldflags="-s -w" -o _out/csv-merger tools/csv-merger/csv-merger.go
 
+build-manifests:
+	./hack/build-manifests.sh
+
+build-manifests-prev:
+	RELEASE_DELTA=1 ./hack/build-manifests.sh
+
 install:
 	go install ./cmd/...
 
@@ -126,6 +132,8 @@ local:
 .PHONY: start \
 		clean \
 		build \
+		build-manifests \
+		build-manifests-prev \
 		help \
 		hack-clean \
 		container-build \
