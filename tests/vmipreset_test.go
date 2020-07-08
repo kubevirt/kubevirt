@@ -39,8 +39,6 @@ import (
 )
 
 var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]VMIPreset", func() {
-	tests.FlagParse()
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 

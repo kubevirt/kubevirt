@@ -34,8 +34,6 @@ import (
 
 var _ = Describe("Health Monitoring", func() {
 
-	tests.FlagParse()
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 

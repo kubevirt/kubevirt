@@ -52,8 +52,6 @@ const (
 type VMICreationFunc func(string) *v1.VirtualMachineInstance
 
 var _ = Describe("Storage", func() {
-	tests.FlagParse()
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 

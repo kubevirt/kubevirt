@@ -49,8 +49,6 @@ func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string, prompt strin
 }
 
 var _ = Describe("GPU", func() {
-	tests.FlagParse()
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 

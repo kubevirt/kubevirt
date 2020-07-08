@@ -15,8 +15,6 @@ import (
 )
 
 var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kubectl get vm/vmi tests", func() {
-	tests.FlagParse()
-
 	var k8sClient, result string
 	var vm *v1.VirtualMachine
 	var virtCli kubecli.KubevirtClient

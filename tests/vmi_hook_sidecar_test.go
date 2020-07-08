@@ -42,8 +42,6 @@ const hookSidecarImage = "example-hook-sidecar"
 
 var _ = Describe("HookSidecars", func() {
 
-	tests.FlagParse()
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 

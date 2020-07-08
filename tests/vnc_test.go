@@ -40,8 +40,6 @@ import (
 
 var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]VNC", func() {
 
-	tests.FlagParse()
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var vmi *v1.VirtualMachineInstance

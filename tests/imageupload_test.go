@@ -26,8 +26,6 @@ const (
 
 var _ = Describe("ImageUpload", func() {
 
-	tests.FlagParse()
-
 	namespace := tests.NamespaceTestDefault
 	dvName := "alpine-dv"
 	pvcSize := "100Mi"

@@ -141,8 +141,6 @@ func createCommandWithNSAndRedirect(namespace, cmdName string, args ...string) (
 }
 
 var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component]VmWatch", func() {
-	tests.FlagParse()
-
 	var err error
 	var virtCli kubecli.KubevirtClient
 

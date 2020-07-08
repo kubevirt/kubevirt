@@ -46,8 +46,6 @@ func waitForJobToCompleteWithStatus(virtClient *kubecli.KubevirtClient, jobPod *
 
 var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose", func() {
 
-	tests.FlagParse()
-
 	var virtClient kubecli.KubevirtClient
 	var err error
 

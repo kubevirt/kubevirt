@@ -37,8 +37,6 @@ import (
 )
 
 var _ = Describe("MultiQueue", func() {
-	tests.FlagParse()
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 

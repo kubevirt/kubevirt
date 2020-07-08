@@ -10,8 +10,6 @@ import (
 
 var _ = PDescribe("Ensure stable functionality", func() {
 
-	tests.FlagParse()
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 

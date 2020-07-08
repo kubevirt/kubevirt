@@ -34,8 +34,6 @@ import (
 
 var _ = Describe("[rfe_id:609]VMIheadless", func() {
 
-	tests.FlagParse()
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var vmi *v1.VirtualMachineInstance

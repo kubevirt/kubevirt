@@ -62,8 +62,6 @@ var _ = Describe("[ref_id:2717]KubeVirt control plane resilience", func() {
 		var nodeNames []string
 		var selectedNodeName string
 
-		tests.FlagParse()
-
 		getRunningReadyPods := func(podList *v1.PodList, podNames []string, nodeNames ...string) (pods []*v1.Pod) {
 			pods = make([]*v1.Pod, 0)
 			for _, pod := range podList.Items {

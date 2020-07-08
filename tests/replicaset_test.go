@@ -44,8 +44,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	tests.FlagParse()
-
 	BeforeEach(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)

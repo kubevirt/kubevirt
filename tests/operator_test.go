@@ -61,7 +61,6 @@ type vmYamlDefinition struct {
 }
 
 var _ = Describe("Operator", func() {
-	tests.FlagParse()
 	var originalKv *v1.KubeVirt
 	var originalCDI *cdiv1.CDI
 	var originalKubeVirtConfig *k8sv1.ConfigMap

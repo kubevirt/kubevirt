@@ -40,8 +40,6 @@ func assertPingFail(ip string, vmi *v1.VirtualMachineInstance) {
 
 var _ = Describe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", func() {
 
-	tests.FlagParse()
-
 	var virtClient kubecli.KubevirtClient
 
 	var vmia *v1.VirtualMachineInstance

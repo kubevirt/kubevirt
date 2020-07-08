@@ -46,8 +46,6 @@ const InvalidDataVolumeUrl = "http://127.0.0.1/invalid"
 const DummyFilePath = "/usr/share/nginx/html/dummy.file"
 
 var _ = Describe("DataVolume Integration", func() {
-	tests.FlagParse()
-
 
 	var virtClient kubecli.KubevirtClient
 	var err error
