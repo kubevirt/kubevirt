@@ -25,7 +25,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/emicklei/go-restful"
@@ -34,6 +36,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -125,6 +128,14 @@ func (app *virtHandlerApp) prepareCertManager() (err error) {
 	return
 }
 
+func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
+	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable))
+	_, err := app.virtCli.CoreV1().Nodes().Patch(app.HostOverride, types.StrategicMergePatchType, data)
+	if err != nil {
+		logger.V(1).Level(log.ERROR).Log("Unable to mark node as unschedulable", err.Error())
+	}
+}
+
 func (app *virtHandlerApp) Run() {
 	// HostOverride should default to os.Hostname(), to make sure we handle errors ensure it here.
 	if app.HostOverride == "" {
@@ -159,6 +170,20 @@ func (app *virtHandlerApp) Run() {
 	if err != nil {
 		panic(err)
 	}
+
+	app.markNodeAsUnschedulable(logger)
+
+	go func() {
+		sigint := make(chan os.Signal, 1)
+
+		signal.Notify(sigint, syscall.SIGTERM)
+
+		<-sigint
+
+		app.markNodeAsUnschedulable(logger)
+		os.Exit(0)
+	}()
+
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.virtCli.CoreV1().Events(k8sv1.NamespaceAll)})
 	// Scheme is used to create an ObjectReference from an Object (e.g. VirtualMachineInstance) during Event creation

@@ -32,6 +32,10 @@ func (fp *FakePlugin) GetDeviceName() string {
 	return fp.deviceName
 }
 
+func (fp *FakePlugin) GetInitialized() bool {
+	return true
+}
+
 func NewFakePlugin(name string, path string) *FakePlugin {
 	return &FakePlugin{
 		deviceName: name,
@@ -100,6 +104,7 @@ var _ = Describe("Device Controller", func() {
 			Eventually(func() int {
 				return int(atomic.LoadInt32(&plugin2.Starts))
 			}, 500*time.Millisecond).Should(BeNumerically(">=", 3))
+			Expect(deviceController.Initialized()).To(BeTrue())
 		})
 
 		It("should restart the device plugin with delays if it returns errors", func() {
