@@ -22,16 +22,16 @@ package admitters
 import (
 	"fmt"
 	"reflect"
-	"strings"
+
+	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 )
 
 type VMIUpdateAdmitter struct {
@@ -78,33 +78,19 @@ func admitVMILabelsUpdate(
 		return nil
 	}
 
-	oldLabels := filterKubevirtLabels(oldVMI)
-	newLabels := filterKubevirtLabels(newVMI)
+	oldLabels := filterKubevirtLabels(oldVMI.ObjectMeta.Labels)
+	newLabels := filterKubevirtLabels(newVMI.ObjectMeta.Labels)
 
 	if !reflect.DeepEqual(oldLabels, newLabels) {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: "modification of kubevirt.io/ labels on a VMI object is restricted",
+				Message: "modification of the following reserved kubevirt.io/ labels on a VMI object is prohibited",
 			},
 		})
 	}
 
 	return nil
-}
-
-func filterKubevirtLabels(vmi *v1.VirtualMachineInstance) map[string]string {
-	m := make(map[string]string)
-	if vmi.Labels == nil {
-		// Return the empty map to avoid edge cases
-		return m
-	}
-	for label, value := range vmi.Labels {
-		if strings.HasPrefix(label, "kubevirt.io") {
-			m[label] = value
-		}
-	}
-	return m
 }
 
 func getAllowedServiceAccounts() map[string]struct{} {
@@ -123,4 +109,19 @@ func getAllowedServiceAccounts() map[string]struct{} {
 		fmt.Sprintf("%s:%s", prefix, rbac.HandlerServiceAccountName):    {},
 		fmt.Sprintf("%s:%s", prefix, rbac.ControllerServiceAccountName): {},
 	}
+}
+
+func filterKubevirtLabels(labels map[string]string) map[string]string {
+	m := make(map[string]string)
+	if len(labels) == 0 {
+		// Return the empty map to avoid edge cases
+		return m
+	}
+	for label, value := range labels {
+		if _, ok := restriectedVmiLabels[label]; ok {
+			m[label] = value
+		}
+	}
+
+	return m
 }
