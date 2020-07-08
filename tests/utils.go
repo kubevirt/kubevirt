@@ -1741,6 +1741,27 @@ func removeNamespaces() error {
 		}
 	}
 
+	// Force namesapce deletion by removing Finalizers
+	for _, namespace := range testNamespaces {
+		currentNamespace, err := virtCli.CoreV1().Namespaces().Get(namespace, metav1.GetOptions{})
+		if err != nil {
+			log.Log.Errorf("Could not get namespace in order to remove Finalizers %v", err)
+			continue
+		}
+		finelizers := currentNamespace.Finalizers
+		currentNamespace.Finalizers = []string{}
+
+		result := virtCli.RestClient().
+			Put().
+			RequestURI(fmt.Sprintf("/api/v1/namespaces/%s/finalize", currentNamespace.Name)).
+			Body([]byte(currentNamespace.String())).
+			Do()
+
+		if result.Error() != nil {
+			log.Log.Errorf("Could remove Finalizers: '%v' remove from namespace '%v'", finelizers, result.Error())
+		}
+	}
+
 	// Wait until all namespaces are terminated
 	fmt.Println("")
 	for _, namespace := range testNamespaces {
