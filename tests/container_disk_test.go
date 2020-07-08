@@ -40,8 +40,6 @@ import (
 
 var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]ContainerDisk", func() {
 
-	tests.FlagParse()
-
 	var virtClient kubecli.KubevirtClient
 	var err error
 

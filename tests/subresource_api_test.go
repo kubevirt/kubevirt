@@ -35,8 +35,6 @@ import (
 
 var _ = Describe("Subresource Api", func() {
 
-	tests.FlagParse()
-
 	var err error
 	var virtCli kubecli.KubevirtClient
 

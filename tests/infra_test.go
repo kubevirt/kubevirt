@@ -53,8 +53,6 @@ import (
 )
 
 var _ = Describe("Infrastructure", func() {
-	tests.FlagParse()
-
 	var virtClient kubecli.KubevirtClient
 	var aggregatorClient *aggregatorclient.Clientset
 	var err error

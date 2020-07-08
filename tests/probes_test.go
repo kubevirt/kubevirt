@@ -14,8 +14,6 @@ import (
 )
 
 var _ = Describe("[ref_id:1182]Probes", func() {
-	tests.FlagParse()
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 

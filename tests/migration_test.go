@@ -61,7 +61,6 @@ const (
 )
 
 var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system] VM Live Migration", func() {
-	tests.FlagParse()
 	var virtClient kubecli.KubevirtClient
 
 	var originalKubeVirtConfig *k8sv1.ConfigMap

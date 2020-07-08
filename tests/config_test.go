@@ -36,7 +36,6 @@ import (
 
 var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component]Config", func() {
 
-	tests.FlagParse()
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

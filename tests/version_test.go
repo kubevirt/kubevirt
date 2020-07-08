@@ -32,8 +32,6 @@ import (
 
 var _ = Describe("Version", func() {
 
-	tests.FlagParse()
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 

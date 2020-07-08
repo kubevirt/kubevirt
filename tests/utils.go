@@ -148,9 +148,7 @@ func init() {
 	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
 }
 
-func FlagParse() {
-	flag.Parse()
-
+func NormalizeFlags() {
 	// When the flags are not provided, copy the values from normal version tag and prefix
 	if KubeVirtUtilityVersionTag == "" {
 		KubeVirtUtilityVersionTag = KubeVirtVersionTag
@@ -748,6 +746,8 @@ func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
 }
 
 func BeforeTestSuitSetup() {
+	NormalizeFlags()
+
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 

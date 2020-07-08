@@ -35,8 +35,6 @@ import (
 
 var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:component]User Access", func() {
 
-	tests.FlagParse()
-
 	view := tests.ViewServiceAccountName
 	edit := tests.EditServiceAccountName
 	admin := tests.AdminServiceAccountName

@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -56,8 +55,6 @@ const (
 )
 
 var _ = Describe("Multus", func() {
-
-	tests.FlagParse()
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -569,8 +566,6 @@ var _ = Describe("Multus", func() {
 })
 
 var _ = Describe("SRIOV", func() {
-
-	flag.Parse()
 
 	var err error
 	var virtClient kubecli.KubevirtClient
