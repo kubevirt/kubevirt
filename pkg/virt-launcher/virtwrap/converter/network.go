@@ -34,6 +34,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
+const (
+	PrimaryPodInterfaceName = "eth0"
+)
+
 func createDomainInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext, virtioNetProhibited bool) ([]api.Interface, error) {
 	if err := validateNetworksTypes(vmi.Spec.Networks); err != nil {
 		return nil, err
@@ -274,4 +278,48 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
 
 	return nameservers, searchDomains, err
+}
+
+func GetPodInterfaceNames(nets []v1.Network) map[string]string {
+	primaryNet := lookupPrimaryNetwork(nets)
+	secondaryNets := filterSecondaryMultusNetworks(nets)
+	return mapPodInterfaceNameByNetwork(primaryNet, secondaryNets)
+}
+
+func mapPodInterfaceNameByNetwork(primaryMultusNetwork *v1.Network, secondaryMultusNetworks []v1.Network) map[string]string {
+	m := map[string]string{}
+	for i, net := range secondaryMultusNetworks {
+		m[net.Name] = getSecondaryPodInterfaceName(i)
+	}
+	if primaryMultusNetwork != nil {
+		m[primaryMultusNetwork.Name] = PrimaryPodInterfaceName
+	}
+	return m
+}
+
+func getSecondaryPodInterfaceName(index int) string {
+	return fmt.Sprintf("net%d", index+1)
+}
+
+func lookupPrimaryNetwork(nets []v1.Network) *v1.Network {
+	for _, net := range nets {
+		if !isSecondaryMultusNetwork(net) {
+			return &net
+		}
+	}
+	return nil
+}
+
+func filterSecondaryMultusNetworks(nets []v1.Network) []v1.Network {
+	var secondary []v1.Network
+	for _, net := range nets {
+		if isSecondaryMultusNetwork(net) {
+			secondary = append(secondary, net)
+		}
+	}
+	return secondary
+}
+
+func isSecondaryMultusNetwork(net v1.Network) bool {
+	return net.Multus != nil && !net.Multus.Default
 }
