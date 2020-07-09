@@ -3436,6 +3436,51 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(1))
 		})
+
+	Context("with Vhostuser interface", func() {
+		It("should accept vhostuser with hugepages", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Vhostuser: &v1.InterfaceVhostuser{},
+				},
+			}}
+
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name:          "default",
+					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
+				},
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			fmt.Println(causes)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should not accept vhostuser without hugepages", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Vhostuser: &v1.InterfaceVhostuser{},
+				},
+			}}
+
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name:          "default",
+					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+		})
 	})
 })
 
