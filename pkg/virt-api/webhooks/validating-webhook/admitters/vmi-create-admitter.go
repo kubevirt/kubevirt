@@ -1144,7 +1144,7 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 
 	if spec.Firmware != nil && spec.Firmware.Bootloader != nil && spec.Firmware.Bootloader.EFI != nil &&
-		spec.Firmware.Bootloader.EFI.SecureBoot != nil && *spec.Firmware.Bootloader.EFI.SecureBoot &&
+		(spec.Firmware.Bootloader.EFI.SecureBoot == nil || *spec.Firmware.Bootloader.EFI.SecureBoot) &&
 		(spec.Features == nil || spec.Features.SMM == nil || !*spec.Features.SMM.Enabled) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
