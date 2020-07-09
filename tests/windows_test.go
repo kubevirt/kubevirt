@@ -114,12 +114,15 @@ var getWindowsVMISpec = func() v1.VirtualMachineInstanceSpec {
 var _ = Describe("Windows VirtualMachineInstance", func() {
 	tests.FlagParse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
 	var windowsVMI *v1.VirtualMachineInstance
 
 	tests.BeforeAll(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.SkipIfNoWindowsImage(virtClient)
 	})
 

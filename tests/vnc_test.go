@@ -42,12 +42,15 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	tests.FlagParse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 	var vmi *v1.VirtualMachineInstance
 
 	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		tests.BeforeAll(func() {
+			virtClient, err = kubecli.GetKubevirtClient()
+			tests.PanicOnError(err)
+
 			tests.BeforeTestCleanup()
 			vmi = tests.NewRandomVMI()
 			Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())

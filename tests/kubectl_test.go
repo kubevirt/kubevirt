@@ -19,11 +19,14 @@ var _ = Describe("[rfe_id:3423][vendor:cnv-qe@redhat.com][level:component]oc/kub
 
 	var k8sClient, result string
 	var vm *v1.VirtualMachine
-
-	virtCli, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtCli kubecli.KubevirtClient
+	var err error
 
 	BeforeEach(func() {
+
+		virtCli, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		k8sClient = tests.GetK8sCmdClient()
 		tests.SkipIfNoCmd(k8sClient)
 		tests.BeforeTestCleanup()

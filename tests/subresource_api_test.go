@@ -37,13 +37,16 @@ var _ = Describe("Subresource Api", func() {
 
 	tests.FlagParse()
 
-	virtCli, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtCli kubecli.KubevirtClient
 
 	manual := v1.RunStrategyManual
 	restartOnError := v1.RunStrategyRerunOnFailure
 
 	BeforeEach(func() {
+		virtCli, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.BeforeTestCleanup()
 	})
 

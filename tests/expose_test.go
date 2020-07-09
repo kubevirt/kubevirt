@@ -48,9 +48,15 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	tests.FlagParse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
+	var err error
+
 	const testPort = 1500
+
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+	})
 
 	Context("Expose service on a VM", func() {
 		var tcpVM *v1.VirtualMachineInstance

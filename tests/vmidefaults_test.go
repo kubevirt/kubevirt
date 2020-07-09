@@ -34,12 +34,15 @@ import (
 var _ = Describe("VMIDefaults", func() {
 	tests.FlagParse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.BeforeTestCleanup()
 		// create VMI with missing disk target
 		vmi = tests.NewRandomVMI()

@@ -51,8 +51,13 @@ func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string, prompt strin
 var _ = Describe("GPU", func() {
 	tests.FlagParse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
+
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+	})
 
 	Context("with ephemeral disk", func() {
 		It("Should create a valid VMI but pod should not go to running state", func() {

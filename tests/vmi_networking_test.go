@@ -51,37 +51,45 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	tests.FlagParse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
 	var inboundVMI *v1.VirtualMachineInstance
 	var inboundVMIWithPodNetworkSet *v1.VirtualMachineInstance
 	var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
 	var outboundVMI *v1.VirtualMachineInstance
 
+	var logPodLogs func(*v12.Pod)
+	var waitForPodToFinish func(*v12.Pod) v12.PodPhase
+
 	const testPort = 1500
 
-	logPodLogs := func(pod *v12.Pod) {
-		defer GinkgoRecover()
+	tests.BeforeAll(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 
-		var s int64 = 500
-		logs := virtClient.CoreV1().Pods(inboundVMI.Namespace).GetLogs(pod.Name, &v12.PodLogOptions{SinceSeconds: &s})
-		rawLogs, err := logs.DoRaw()
-		Expect(err).ToNot(HaveOccurred())
-		log.Log.Infof("%s", string(rawLogs))
-	}
+		logPodLogs = func(pod *v12.Pod) {
+			defer GinkgoRecover()
 
-	waitForPodToFinish := func(pod *v12.Pod) v12.PodPhase {
-		Eventually(func() v12.PodPhase {
+			var s int64 = 500
+			logs := virtClient.CoreV1().Pods(inboundVMI.Namespace).GetLogs(pod.Name, &v12.PodLogOptions{SinceSeconds: &s})
+			rawLogs, err := logs.DoRaw()
+			Expect(err).ToNot(HaveOccurred())
+			log.Log.Infof("%s", string(rawLogs))
+		}
+
+		waitForPodToFinish = func(pod *v12.Pod) v12.PodPhase {
+			Eventually(func() v12.PodPhase {
+				j, err := virtClient.CoreV1().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return j.Status.Phase
+			}, 90*time.Second, 1*time.Second).Should(Or(Equal(v12.PodSucceeded), Equal(v12.PodFailed)))
 			j, err := virtClient.CoreV1().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			logPodLogs(pod)
 			return j.Status.Phase
-		}, 90*time.Second, 1*time.Second).Should(Or(Equal(v12.PodSucceeded), Equal(v12.PodFailed)))
-		j, err := virtClient.CoreV1().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		logPodLogs(pod)
-		return j.Status.Phase
-	}
+		}
+	})
 
 	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string, prompt string) {
 		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{

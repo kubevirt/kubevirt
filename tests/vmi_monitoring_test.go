@@ -36,16 +36,23 @@ var _ = Describe("Health Monitoring", func() {
 
 	tests.FlagParse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
-	launchVMI := func(vmi *v1.VirtualMachineInstance) {
-		By("Starting a VirtualMachineInstance")
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
-		Expect(err).To(BeNil())
+	var launchVMI func(*v1.VirtualMachineInstance)
 
-		tests.WaitForSuccessfulVMIStart(obj)
-	}
+	tests.BeforeAll(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
+		launchVMI = func(vmi *v1.VirtualMachineInstance) {
+			By("Starting a VirtualMachineInstance")
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			Expect(err).To(BeNil())
+
+			tests.WaitForSuccessfulVMIStart(obj)
+		}
+	})
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()

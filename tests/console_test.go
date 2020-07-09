@@ -38,11 +38,15 @@ import (
 var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]Console", func() {
 
 	tests.FlagParse()
+	var virtClient kubecli.KubevirtClient
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
 
 	BeforeEach(func() {
+		var err error
+
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.BeforeTestCleanup()
 	})
 

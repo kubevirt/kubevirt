@@ -36,31 +36,39 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	tests.FlagParse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
-	LaunchVMI := func(vmi *v1.VirtualMachineInstance) {
-		By("Starting a VirtualMachineInstance")
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
-		Expect(err).To(BeNil())
+	var LaunchVMI func(*v1.VirtualMachineInstance)
+	var VerifyIgnitionDataVMI func(*v1.VirtualMachineInstance, []expect.Batcher, time.Duration)
 
-		By("Waiting the VirtualMachineInstance start")
-		_, ok := obj.(*v1.VirtualMachineInstance)
-		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
-	}
+	tests.BeforeAll(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 
-	VerifyIgnitionDataVMI := func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
-		By("Expecting the VirtualMachineInstance console")
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-		Expect(err).ToNot(HaveOccurred())
-		defer expecter.Close()
+		LaunchVMI = func(vmi *v1.VirtualMachineInstance) {
+			By("Starting a VirtualMachineInstance")
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			Expect(err).To(BeNil())
 
-		By("Checking that the VirtualMachineInstance serial console output equals to expected one")
-		resp, err := expecter.ExpectBatch(commands, timeout)
-		log.DefaultLogger().Object(vmi).Infof("%v", resp)
-		Expect(err).ToNot(HaveOccurred())
-	}
+			By("Waiting the VirtualMachineInstance start")
+			_, ok := obj.(*v1.VirtualMachineInstance)
+			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
+			Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
+		}
+
+		VerifyIgnitionDataVMI = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
+			By("Expecting the VirtualMachineInstance console")
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
+			resp, err := expecter.ExpectBatch(commands, timeout)
+			log.DefaultLogger().Object(vmi).Infof("%v", resp)
+			Expect(err).ToNot(HaveOccurred())
+		}
+	})
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
