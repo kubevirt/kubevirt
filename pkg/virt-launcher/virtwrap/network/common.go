@@ -105,7 +105,7 @@ type NetworkHandler interface {
 	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesLoad(fnName string) error
 	GetNFTIPString(proto iptables.Protocol) string
-	CreateTapDevice(tapName string, isMultiqueue bool) error
+	CreateTapDevice(tapName string, pid string, isMultiqueue bool) error
 	ConfigureTapDevice(tapName string, bridgeName string) error
 }
 
@@ -346,13 +346,15 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 	return net.HardwareAddr(append(prefix, suffix...)), nil
 }
 
-func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool) error {
-	createTapDeviceArgs := []string{"-tapName", tapName, "-isMultiqueue", strconv.FormatBool(isMultiqueue)}
-	cmd := exec.Command("/usr/bin/tap-device-maker", createTapDeviceArgs...)
-	err := cmd.Run()
+func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, pid string, isMultiqueue bool) error {
+	syncUserNs := []string{"--user", "qemu", "--memory", "1000", "--cpu", "10", "--mount", fmt.Sprintf("/proc/%s/ns/mnt", pid), "exec", "--"}
+	createTapDeviceArgs := []string{"/usr/bin/tap-device-maker", "-tapName", tapName, "-isMultiqueue", strconv.FormatBool(isMultiqueue)}
+	syncUserNs = append(syncUserNs, createTapDeviceArgs...)
+	cmd := exec.Command("/usr/bin/virt-chroot", syncUserNs...)
+	out, err := cmd.CombinedOutput()
 
 	if err != nil {
-		log.Log.Reason(err).Criticalf("Failed to create tap device %s, because %v", tapName, err)
+		log.Log.Reason(err).Criticalf("Failed to create tap device %s, because %v. stdout: %s", tapName, err, out)
 		return err
 	}
 

@@ -40,7 +40,7 @@ func (_mr *_MockBindMechanismRecorder) discoverPodNetworkInterface() *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "discoverPodNetworkInterface")
 }
 
-func (_m *MockBindMechanism) preparePodNetworkInterfaces(isMultiqueue bool) error {
+func (_m *MockBindMechanism) preparePodNetworkInterfaces(pid string, isMultiqueue bool) error {
 	ret := _m.ctrl.Call(_m, "preparePodNetworkInterfaces", isMultiqueue)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -112,7 +112,7 @@ func (_mr *_MockBindMechanismRecorder) startDHCP(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "startDHCP", arg0)
 }
 
-func (_m *MockBindMechanism) createTapDevice(tapDeviceName string, isMultiqueue bool) error {
+func (_m *MockBindMechanism) createTapDevice(tapDeviceName string, pid string, isMultiqueue bool) error {
 	ret := _m.ctrl.Call(_m, "createTapDevice", tapDeviceName, isMultiqueue)
 	ret0, _ := ret[0].(error)
 	return ret0
