@@ -135,6 +135,7 @@ func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
 	return true
 }
 
+<<<<<<< HEAD
 func HasHugePages(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
 }
@@ -143,4 +144,14 @@ func IsReadOnlyDisk(disk *v1.Disk) bool {
 	isReadOnlyCDRom := disk.CDRom != nil && (disk.CDRom.ReadOnly == nil || *disk.CDRom.ReadOnly == true)
 
 	return isReadOnlyCDRom
+}
+
+// Check if a VMI spec requests vhostuser interface
+func IsVhostuserVmiSpec(spec *v1.VirtualMachineInstanceSpec) bool {
+	for _, iface := range spec.Domain.Devices.Interfaces {
+		if iface.Vhostuser != nil {
+			return true
+		}
+	}
+	return false
 }

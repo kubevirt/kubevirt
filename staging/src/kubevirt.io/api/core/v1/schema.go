@@ -1187,6 +1187,7 @@ type InterfaceBindingMethod struct {
 	Masquerade *InterfaceMasquerade `json:"masquerade,omitempty"`
 	SRIOV      *InterfaceSRIOV      `json:"sriov,omitempty"`
 	Macvtap    *InterfaceMacvtap    `json:"macvtap,omitempty"`
+	Vhostuser  *InterfaceVhostuser  `json:"vhostuser,omitempty"`
 }
 
 type InterfaceBridge struct{}
@@ -1199,7 +1200,9 @@ type InterfaceSRIOV struct{}
 
 type InterfaceMacvtap struct{}
 
-// Port represents a port to expose from the virtual machine.
+type InterfaceVhostuser struct{}
+
+// Port repesents a port to expose from the virtual machine.
 // Default protocol TCP.
 // The port field is mandatory
 type Port struct {
