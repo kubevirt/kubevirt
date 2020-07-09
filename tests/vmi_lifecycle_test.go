@@ -1114,12 +1114,22 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				// Check if the stop event was logged
 				By("Checking that virt-handler logs VirtualMachineInstance deletion")
+				/*
+						Since we deleted the VMI object, there are two possible outcomes and both are expected:
+						1. virt-controller kicks in, registers a deletion request on the launcher pod and K8s deletes the pod
+					       before virt-handler had a chance to set or check the deletion timestamp on the domain.
+						2. virt-handler detects the deletion timestamp on the domain and removes it.
+
+						TODO: https://github.com/kubevirt/kubevirt/issues/3764
+				*/
 				Eventually(func() string {
 					data, err := logsQuery.DoRaw()
 					Expect(err).ToNot(HaveOccurred(), "Should get the virthandler logs")
 					return string(data)
-				}, 30, 0.5).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is marked for deletion","name":"%s"`, vmi.GetObjectMeta().GetName()), "Logs should confirm pod deletion")
-
+				}, 30, 0.5).Should(SatisfyAny(
+					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is marked for deletion","name":"%s"`, vmi.GetObjectMeta().GetName()),               // Domain was deleted by virt-handler
+					MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Shutoff reason Destroyed","name":"%s"`, vmi.GetObjectMeta().GetName()), // Domain was destroyed because the launcher pod is gone
+				), "Logs should confirm pod deletion")
 			},
 				table.Entry("[test_id:1641]"+tests.NamespaceTestDefault, tests.NamespaceTestDefault),
 				table.Entry("[test_id:1642]"+tests.NamespaceTestAlternative, tests.NamespaceTestAlternative),
