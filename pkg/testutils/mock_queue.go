@@ -36,10 +36,13 @@ type MockWorkQueue struct {
 	workqueue.RateLimitingInterface
 	addWG            *sync.WaitGroup
 	rateLimitedEnque int32
+	wgLock           sync.Mutex
 }
 
 func (q *MockWorkQueue) Add(obj interface{}) {
 	q.RateLimitingInterface.Add(obj)
+	q.wgLock.Lock()
+	defer q.wgLock.Unlock()
 	if q.addWG != nil {
 		q.addWG.Done()
 	}
@@ -56,6 +59,8 @@ func (q *MockWorkQueue) GetRateLimitedEnqueueCount() int {
 
 // ExpectAdds allows setting the amount of expected enqueues.
 func (q *MockWorkQueue) ExpectAdds(diff int) {
+	q.wgLock.Lock()
+	defer q.wgLock.Unlock()
 	q.addWG = &sync.WaitGroup{}
 	q.addWG.Add(diff)
 }
@@ -70,7 +75,7 @@ func (q *MockWorkQueue) Wait() {
 }
 
 func NewMockWorkQueue(queue workqueue.RateLimitingInterface) *MockWorkQueue {
-	return &MockWorkQueue{queue, nil, 0}
+	return &MockWorkQueue{queue, nil, 0, sync.Mutex{}}
 }
 
 func NewFakeInformerFor(obj runtime.Object) (cache.SharedIndexInformer, *framework.FakeControllerSource) {
