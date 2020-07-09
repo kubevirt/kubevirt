@@ -106,7 +106,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logVMs(virtCli)
 	r.logDomainXMLs(virtCli)
 	r.logLogs(virtCli, since)
-	r.logPODFiles(virtCli, []string{"/dev/"})
+	r.logPODFiles(virtCli, []string{"/dev/null"})
 	r.logSRIOVInfo(virtCli)
 }
 
@@ -490,7 +490,7 @@ func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, since time.
 	}
 }
 
-func (r *KubernetesReporter) logPODFiles(virtCli kubecli.KubevirtClient, dirs []string) {
+func (r *KubernetesReporter) logPODFiles(virtCli kubecli.KubevirtClient, files []string) {
 
 	logsdir := filepath.Join(r.artifactsDir, "pods")
 
@@ -505,18 +505,22 @@ func (r *KubernetesReporter) logPODFiles(virtCli kubecli.KubevirtClient, dirs []
 		return
 	}
 
+	fmt.Printf("Printing files at  pods %v\n", pods)
 	for _, pod := range pods.Items {
 		for _, container := range pod.Spec.Containers {
-			artifact, err := os.OpenFile(filepath.Join(logsdir, fmt.Sprintf("%d_%s_%s-%s.files", r.failureCount, pod.Namespace, pod.Name, container.Name)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			fmt.Printf("Printing files at containers %v\n", pod.Spec.Containers)
+			filename := fmt.Sprintf("%d_%s_%s-%s.files", r.failureCount, pod.Namespace, pod.Name, container.Name)
+			artifact, err := os.OpenFile(filepath.Join(logsdir, filename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
 				return
 			}
 			defer artifact.Close()
-			for _, dir := range dirs {
-				stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, &pod, container.Name, []string{"/bin/bash", "-c", fmt.Sprintf("find %s -ls -exec file -b {} \\;", dir)})
+			for _, file := range files {
+				stdout, _, err := tests.ExecuteCommandOnPodV2(virtCli, &pod, container.Name, []string{"/bin/bash", "-c", fmt.Sprintf("ls -la %s; file -b %s", file, file)})
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "failed to failed listing files at %s: %v\n", dir, err)
+					fmt.Printf("err: %v\n", err)
+					fmt.Fprintf(os.Stderr, "failed showing file %s: %v\n", file, err)
 					return
 				}
 				fmt.Fprintln(artifact, string(stdout))
