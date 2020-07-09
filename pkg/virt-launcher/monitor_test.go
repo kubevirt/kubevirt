@@ -47,6 +47,7 @@ var _ = Describe("VirtLauncher", func() {
 	var mon *monitor
 	var cmd *exec.Cmd
 	var cmdLock sync.Mutex
+	var gracefulShutdownChannel chan struct{}
 
 	uuid := "123-123-123-123"
 
@@ -56,8 +57,6 @@ var _ = Describe("VirtLauncher", func() {
 	dir = strings.TrimSuffix(dir, "pkg/virt-launcher")
 
 	processStarted := false
-
-	gracefulShutdownCallbackTriggered := false
 
 	StartProcess := func() {
 		cmdLock.Lock()
@@ -115,12 +114,12 @@ var _ = Describe("VirtLauncher", func() {
 	}
 
 	BeforeEach(func() {
-		gracefulShutdownCallbackTriggered = false
+		gracefulShutdownChannel = make(chan struct{})
 		shutdownCallback := func(pid int) {
 			syscall.Kill(pid, syscall.SIGTERM)
 		}
 		gracefulShutdownCallback := func() {
-			gracefulShutdownCallbackTriggered = true
+			close(gracefulShutdownChannel)
 		}
 		mon = &monitor{
 			cmdlineMatchStr:          uuid,
@@ -205,12 +204,9 @@ var _ = Describe("VirtLauncher", func() {
 					done <- "exit"
 				}()
 
-				time.Sleep(time.Second)
-				Expect(gracefulShutdownCallbackTriggered).To(BeFalse())
+				Consistently(gracefulShutdownChannel).Should(Not(BeClosed()))
 				close(stopChan)
-
-				time.Sleep(time.Second)
-				Expect(gracefulShutdownCallbackTriggered).To(BeTrue())
+				Eventually(gracefulShutdownChannel).Should(BeClosed())
 			})
 
 			It("verify grace period works", func() {
