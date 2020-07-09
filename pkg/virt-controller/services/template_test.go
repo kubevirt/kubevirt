@@ -2809,6 +2809,114 @@ var _ = Describe("Template", func() {
 			})
 		})
 
+		Context("with vhostuser interface", func() {
+			var (
+				vmi v1.VirtualMachineInstance
+			)
+			BeforeEach(func() {
+				vmi = v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								Interfaces: []v1.Interface{
+									v1.Interface{
+										Name: "test1",
+										InterfaceBindingMethod: v1.InterfaceBindingMethod{
+											Vhostuser: &v1.InterfaceVhostuser{},
+										},
+									},
+								},
+							},
+						},
+						Networks: []v1.Network{
+							{Name: "test1",
+								NetworkSource: v1.NetworkSource{
+									Multus: &v1.MultusNetwork{NetworkName: "test1"},
+								},
+							},
+						},
+					},
+				}
+			})
+			It("should add volume for vhostuser socket shared directory", func() {
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Hugepages: &v1.Hugepages{
+						PageSize: "1Gi",
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				sharedMount := kubev1.VolumeMount{
+					Name:      "shared-dir",
+					MountPath: VhostuserSocketDir,
+				}
+				sharedVol := kubev1.Volume{
+					Name: "shared-dir",
+					VolumeSource: kubev1.VolumeSource{
+						EmptyDir: &kubev1.EmptyDirVolumeSource{
+							Medium: kubev1.StorageMediumDefault,
+						},
+					},
+				}
+				Expect(pod.Spec.Containers[0].VolumeMounts).Should(ContainElement(sharedMount))
+				Expect(pod.Spec.Volumes).Should(ContainElement(sharedVol))
+			})
+			It("should not have volume for ovs run directory", func() {
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Hugepages: &v1.Hugepages{
+						PageSize: "1Gi",
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				for _, vol := range pod.Spec.Containers[0].VolumeMounts {
+					Expect(vol.MountPath).ShouldNot(Equal("/var/run/openvswitch"))
+				}
+			})
+			It("should add volume for pod info", func() {
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Hugepages: &v1.Hugepages{
+						PageSize: "1Gi",
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				podinfoMount := kubev1.VolumeMount{
+					Name:      "podinfo",
+					MountPath: PodNetInfoDefault,
+				}
+				podinfoVol := kubev1.Volume{
+					Name: "podinfo",
+					VolumeSource: kubev1.VolumeSource{
+						DownwardAPI: &kubev1.DownwardAPIVolumeSource{
+							Items: []kubev1.DownwardAPIVolumeFile{
+								{
+									Path: "labels",
+									FieldRef: &kubev1.ObjectFieldSelector{
+										APIVersion: "v1",
+										FieldPath:  "metadata.labels",
+									},
+								},
+								{
+									Path: "annotations",
+									FieldRef: &kubev1.ObjectFieldSelector{
+										APIVersion: "v1",
+										FieldPath:  "metadata.annotations",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(pod.Spec.Containers[0].VolumeMounts).Should(ContainElement(podinfoMount))
+				Expect(pod.Spec.Volumes).Should(ContainElement(podinfoVol))
+			})
+		})
 	})
 
 	Describe("ServiceAccountName", func() {

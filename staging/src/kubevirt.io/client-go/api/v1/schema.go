@@ -1240,7 +1240,7 @@ type InterfaceSRIOV struct{}
 // +k8s:openapi-gen=true
 type InterfaceMacvtap struct{}
 
-// ---
+//
 // +k8s:openapi-gen=true
 type InterfaceVhostuser struct{}
 

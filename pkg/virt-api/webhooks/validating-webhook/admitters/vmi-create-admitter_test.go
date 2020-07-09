@@ -3436,6 +3436,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(1))
 		})
+	})
 
 	Context("with Vhostuser interface", func() {
 		It("should accept vhostuser with hugepages", func() {
