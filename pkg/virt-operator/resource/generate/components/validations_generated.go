@@ -4405,6 +4405,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   address and its tag will be provided to the guest
                                   via config drive
                                 type: string
+                              vhostuser:
+                                type: object
                             required:
                             - name
                             type: object
@@ -7422,6 +7424,8 @@ var CRDsValidation map[string]string = map[string]string{
                         description: If specified, the virtual network interface address
                           and its tag will be provided to the guest via config drive
                         type: string
+                      vhostuser:
+                        type: object
                     required:
                     - name
                     type: object
@@ -9517,6 +9521,8 @@ var CRDsValidation map[string]string = map[string]string{
                         description: If specified, the virtual network interface address
                           and its tag will be provided to the guest via config drive
                         type: string
+                      vhostuser:
+                        type: object
                     required:
                     - name
                     type: object
@@ -11346,6 +11352,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   address and its tag will be provided to the guest
                                   via config drive
                                 type: string
+                              vhostuser:
+                                type: object
                             required:
                             - name
                             type: object
@@ -18258,6 +18266,8 @@ var CRDsValidation map[string]string = map[string]string{
                                               will be provided to the guest via config
                                               drive
                                             type: string
+                                          vhostuser:
+                                            type: object
                                         required:
                                         - name
                                         type: object
