@@ -347,7 +347,9 @@ func main() {
 		panic(err)
 	}
 	util.StartLibvirt(stopChan)
-	util.StartVirtlog(stopChan)
+	// only single domain should be present
+	domainName := api.VMINamespaceKeyFunc(vm)
+	util.StartVirtlog(stopChan, domainName)
 
 	domainConn := createLibvirtConnection()
 	defer domainConn.Close()
@@ -361,9 +363,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	// only single domain should be present
-	domainName := api.VMINamespaceKeyFunc(vm)
 
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher

@@ -230,7 +230,7 @@ func StartLibvirt(stopChan chan struct{}) {
 	}()
 }
 
-func StartVirtlog(stopChan chan struct{}) {
+func StartVirtlog(stopChan chan struct{}, domainName string) {
 	go func() {
 		for {
 			var args []string
@@ -242,9 +242,39 @@ func StartVirtlog(stopChan chan struct{}) {
 
 			err := cmd.Start()
 			if err != nil {
-				log.Log.Reason(err).Error("failed to start libvirtd")
+				log.Log.Reason(err).Error("failed to start virtlogd")
 				panic(err)
 			}
+
+			go func() {
+				logfile := fmt.Sprintf("/var/log/libvirt/qemu/%s.log", domainName)
+
+				// It can take a few seconds to the log file to be created
+				for {
+					_, err = os.Stat(logfile)
+					if !os.IsNotExist(err) {
+						break
+					}
+					time.Sleep(time.Second)
+				}
+
+				file, err := os.Open(logfile)
+				if err != nil {
+					log.Log.Reason(err).Error("failed to catch virtlogd logs")
+					return
+				}
+				defer file.Close()
+
+				scanner := bufio.NewScanner(file)
+				scanner.Buffer(make([]byte, 1024), 512*1024)
+				for scanner.Scan() {
+					log.LogQemuLogLine(log.Log, scanner.Text())
+				}
+
+				if err := scanner.Err(); err != nil {
+					log.Log.Reason(err).Error("failed to read virtlogd logs")
+				}
+			}()
 
 			go func() {
 				defer close(exitChan)
@@ -256,11 +286,11 @@ func StartVirtlog(stopChan chan struct{}) {
 				cmd.Process.Kill()
 				return
 			case <-exitChan:
-				log.Log.Errorf("libvirtd exited, restarting")
+				log.Log.Errorf("virtlogd exited, restarting")
 			}
 
 			// this sleep is to avoid consumming all resources in the
-			// event of a libvirtd crash loop.
+			// event of a virtlogd crash loop.
 			time.Sleep(time.Second)
 		}
 	}()
