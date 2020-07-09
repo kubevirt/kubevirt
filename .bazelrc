@@ -5,6 +5,7 @@ try-import ci.bazelrc
 build --workspace_status_command=./hack/print-workspace-status.sh --host_force_python=PY3
 run --workspace_status_command=./hack/print-workspace-status.sh --host_force_python=PY3
 test --workspace_status_command=./hack/print-workspace-status.sh --host_force_python=PY3
+test --features race
 
 # Bazel has a rule of precedence so we can specify / overwrite architecture specific commands if needed
 build:x86_64 --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64_cgo
