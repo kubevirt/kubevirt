@@ -26,10 +26,13 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
+	authv1 "k8s.io/api/authentication/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -332,14 +335,64 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	)
 
 	Context("with VirtualMachineInstance metadata", func() {
-
+		table.DescribeTable(
+			"Should allow VMI creation with kubevirt.io/ labels only for kubevirt service accounts",
+			func(vmiLabels map[string]string, userAccount string, positive bool) {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.Labels = vmiLabels
+				vmiBytes, _ := json.Marshal(&vmi)
+				ar := &v1beta1.AdmissionReview{
+					Request: &v1beta1.AdmissionRequest{
+						Operation: v1beta1.Create,
+						UserInfo:  authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + userAccount},
+						Resource:  webhooks.VirtualMachineInstanceGroupVersionResource,
+						Object: runtime.RawExtension{
+							Raw: vmiBytes,
+						},
+					},
+				}
+				resp := vmiCreateAdmitter.Admit(ar)
+				if positive {
+					Expect(resp.Allowed).To(BeTrue())
+				} else {
+					Expect(resp.Allowed).To(BeFalse())
+					Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+					Expect(resp.Result.Details.Causes[0].Message).To(Equal("creation of the following reserved kubevirt.io/ labels on a VMI object is prohibited"))
+				}
+			},
+			table.Entry("Create restricted label by API",
+				map[string]string{v1.NodeNameLabel: "someValue"},
+				rbac.ApiServiceAccountName,
+				true,
+			),
+			table.Entry("Create restricted label by Handler",
+				map[string]string{v1.NodeNameLabel: "someValue"},
+				rbac.HandlerServiceAccountName,
+				true,
+			),
+			table.Entry("Create restricted label by Controller",
+				map[string]string{v1.NodeNameLabel: "someValue"},
+				rbac.ControllerServiceAccountName,
+				true,
+			),
+			table.Entry("Create restricted label by non kubevirt user",
+				map[string]string{v1.NodeNameLabel: "someValue"},
+				"user-account",
+				false,
+			),
+			table.Entry("Create non restricted kubevirt.io prefixed label by non kubevirt user",
+				map[string]string{"kubevirt.io/l": "someValue"},
+				"user-account",
+				true,
+			),
+		)
 		table.DescribeTable("should reject annotations which require feature gate enabled", func(annotations map[string]string, expectedMsg string) {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.ObjectMeta = metav1.ObjectMeta{
 				Annotations: annotations,
 			}
 
-			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config)
+			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config, "fake-account")
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			Expect(causes[0].Message).To(ContainSubstring(expectedMsg))
@@ -360,7 +413,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi.ObjectMeta = metav1.ObjectMeta{
 				Annotations: annotations,
 			}
-			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config)
+			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config, "fake-account")
 			Expect(len(causes)).To(Equal(0))
 		},
 			table.Entry("with ExperimentalIgnitionSupport feature gate enabled",
