@@ -28,9 +28,9 @@ import (
 	"reflect"
 
 	"github.com/golang/mock/gomock"
-	libvirt "github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	libvirt "libvirt.org/libvirt-go"
 
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"

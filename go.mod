@@ -37,7 +37,6 @@ require (
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20191119172530-79f836b90111
 	github.com/krolaw/dhcp4 v0.0.0-20180925202202-7cead472c414
 	github.com/kubernetes-csi/external-snapshotter/v2 v2.0.1
-	github.com/libvirt/libvirt-go v5.0.0+incompatible
 	github.com/mattn/go-runewidth v0.0.0-20181218000649-703b5e6b11ae // indirect
 	github.com/mfranczy/crd-rest-coverage v0.1.0
 	github.com/mitchellh/go-ps v0.0.0-20190716172923-621e5597135b
@@ -72,6 +71,7 @@ require (
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer v1.10.9
 	kubevirt.io/qe-tools v0.1.6
+	libvirt.org/libvirt-go v5.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.1.9 // indirect
 )
 

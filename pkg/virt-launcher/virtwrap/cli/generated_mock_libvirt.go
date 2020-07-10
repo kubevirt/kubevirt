@@ -5,7 +5,7 @@ package cli
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	libvirt_go "github.com/libvirt/libvirt-go"
+	libvirt_go "libvirt.org/libvirt-go"
 
 	stats "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )

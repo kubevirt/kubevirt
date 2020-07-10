@@ -19,10 +19,10 @@
 
 package statsconv
 
-//go:generate mockgen -source $GOFILE -imports "libvirt=github.com/libvirt/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+//go:generate mockgen -source $GOFILE -imports "libvirt=libvirt.org/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
-	"github.com/libvirt/libvirt-go"
+	libvirt "libvirt.org/libvirt-go"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
