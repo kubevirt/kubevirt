@@ -7486,7 +7486,7 @@
      "selinuxLauncherType": {
       "type": "string"
      },
-     "smbiOS": {
+     "smbios": {
       "$ref": "#/definitions/v1.SMBiosConfiguration"
      },
      "supportedGuestAgentVersions": {
