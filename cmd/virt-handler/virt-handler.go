@@ -40,6 +40,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
 
+	"kubevirt.io/kubevirt/pkg/healthz"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -108,6 +110,7 @@ type virtHandlerApp struct {
 	clientcertmanager certificate.Manager
 	servercertmanager certificate.Manager
 	promTLSConfig     *tls.Config
+	clusterConfig     *virtconfig.ClusterConfig
 }
 
 var _ service.Service = &virtHandlerApp{}
@@ -241,7 +244,7 @@ func (app *virtHandlerApp) Run() {
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
 	vmiInformer := factory.VMI()
-	clusterConfig := virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), app.namespace)
+	app.clusterConfig = virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), app.namespace)
 
 	vmController := virthandler.NewController(
 		recorder,
@@ -256,7 +259,7 @@ func (app *virtHandlerApp) Run() {
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
-		clusterConfig,
+		app.clusterConfig,
 		app.serverTLSConfig,
 		app.clientTLSConfig,
 		podIsolationDetector,
@@ -322,8 +325,12 @@ func (app *virtHandlerApp) Run() {
 }
 
 func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
+	mux := restful.NewContainer()
+	webService := new(restful.WebService)
+	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+	webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig)).Doc("Health endpoint"))
+	mux.Add(webService)
 	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
-	mux := http.NewServeMux()
 	mux.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
 	server := http.Server{
 		Addr:      app.ServiceListen.Address(),

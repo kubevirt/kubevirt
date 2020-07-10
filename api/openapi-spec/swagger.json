@@ -4095,6 +4095,17 @@
      }
     }
    },
+   "/healthz": {
+    "get": {
+     "description": "Health endpoint",
+     "operationId": "func1",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
    "/openapi/v2": {
     "get": {
      "consumes": [

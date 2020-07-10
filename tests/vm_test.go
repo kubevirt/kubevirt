@@ -114,8 +114,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	Context("A mutated VirtualMachine given", func() {
 
 		var testingMachineType string = "pc-q35-2.7"
-		// "" is a fine default : the kubevirt will fall back to its hardcoded default.
-		var existingMachineType string = ""
 
 		BeforeEach(func() {
 			_, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
@@ -134,12 +132,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Create(cfgMap)
 				Expect(err).ToNot(HaveOccurred())
 			} else if err == nil {
-				existingMachineType = tests.UpdateClusterConfigValueAndWait("machine-type", testingMachineType)
+				tests.UpdateClusterConfigValueAndWait("machine-type", testingMachineType)
 			}
-		})
-
-		AfterEach(func() {
-			tests.UpdateClusterConfigValueAndWait("machine-type", existingMachineType)
 		})
 
 		newVirtualMachineInstanceWithContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
