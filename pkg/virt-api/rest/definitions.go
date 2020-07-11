@@ -42,6 +42,7 @@ func ComposeAPIDefinitions() []*restful.WebService {
 	vmipGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancepresets"}
 	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
 	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancemigrations"}
+	kubeVirtGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "kubevirt"}
 
 	vmsGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots")
 	vmscGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshotcontents")
@@ -51,6 +52,10 @@ func ComposeAPIDefinitions() []*restful.WebService {
 		panic(err)
 	}
 
+	ws, err = GenericResourceProxy(ws, kubeVirtGVR, &v1.KubeVirt{}, v1.KubeVirtGroupVersionKind.Kind, &v1.KubeVirtList{})
+	if err != nil {
+		panic(err)
+	}
 	ws, err = GenericResourceProxy(ws, vmiGVR, &v1.VirtualMachineInstance{}, v1.VirtualMachineInstanceGroupVersionKind.Kind, &v1.VirtualMachineInstanceList{})
 	if err != nil {
 		panic(err)

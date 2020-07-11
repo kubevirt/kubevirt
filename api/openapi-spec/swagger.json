@@ -118,6 +118,509 @@
      }
     }
    },
+   "/apis/kubevirt.io/v1alpha3/kubevirt": {
+    "get": {
+     "description": "Get a list of all KubeVirt objects.",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "operationId": "listKubeVirtForAllNamespaces",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.KubeVirtList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+      "name": "continue",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+      "name": "fieldSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "If true, partially initialized resources are included in the response.",
+      "name": "includeUninitialized",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+      "name": "labelSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+      "name": "limit",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+      "name": "resourceVersion",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "TimeoutSeconds for the list/watch call.",
+      "name": "timeoutSeconds",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+      "name": "watch",
+      "in": "query"
+     }
+    ]
+   },
+   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/kubevirt": {
+    "get": {
+     "description": "Get a list of KubeVirt objects.",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "operationId": "listNamespacedKubeVirt",
+     "parameters": [
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.KubeVirtList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "post": {
+     "description": "Create a KubeVirt object.",
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "createNamespacedKubeVirt",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.KubeVirt"
+       }
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.KubeVirt"
+       }
+      },
+      "201": {
+       "description": "Created",
+       "schema": {
+        "$ref": "#/definitions/v1.KubeVirt"
+       }
+      },
+      "202": {
+       "description": "Accepted",
+       "schema": {
+        "$ref": "#/definitions/v1.KubeVirt"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "delete": {
+     "description": "Delete a collection of KubeVirt objects.",
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "deleteCollectionNamespacedKubeVirt",
+     "parameters": [
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/kubevirt/{name:[a-z0-9][a-z0-9\\-]*}": {
+    "get": {
+     "description": "Get a KubeVirt object.",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "operationId": "readNamespacedKubeVirt",
+     "parameters": [
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'.",
+       "name": "exact",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Should this value be exported. Export strips fields that a user can not specify.",
+       "name": "export",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.KubeVirt"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "put": {
+     "description": "Update a KubeVirt object.",
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "replaceNamespacedKubeVirt",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.KubeVirt"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.KubeVirt"
+       }
+      },
+      "201": {
+       "description": "Create",
+       "schema": {
+        "$ref": "#/definitions/v1.KubeVirt"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "delete": {
+     "description": "Delete a KubeVirt object.",
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "deleteNamespacedKubeVirt",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.DeleteOptions"
+       }
+      },
+      {
+       "uniqueItems": true,
+       "type": "integer",
+       "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
+       "name": "gracePeriodSeconds",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "boolean",
+       "description": "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both.",
+       "name": "orphanDependents",
+       "in": "query"
+      },
+      {
+       "uniqueItems": true,
+       "type": "string",
+       "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy. Acceptable values are: 'Orphan' - orphan the dependents; 'Background' - allow the garbage collector to delete the dependents in the background; 'Foreground' - a cascading policy that deletes all dependents in the foreground.",
+       "name": "propagationPolicy",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "patch": {
+     "description": "Patch a KubeVirt object.",
+     "consumes": [
+      "application/json-patch+json",
+      "application/merge-patch+json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "patchNamespacedKubeVirt",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.Patch"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.KubeVirt"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
+     }
+    ]
+   },
    "/apis/kubevirt.io/v1alpha3/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/virtualmachineinstancemigrations": {
     "get": {
      "description": "Get a list of VirtualMachineInstanceMigration objects.",
@@ -2609,6 +3112,176 @@
       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
       "name": "limit",
       "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+      "name": "resourceVersion",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "TimeoutSeconds for the list/watch call.",
+      "name": "timeoutSeconds",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+      "name": "watch",
+      "in": "query"
+     }
+    ]
+   },
+   "/apis/kubevirt.io/v1alpha3/watch/kubevirt": {
+    "get": {
+     "description": "Watch a KubeVirtList object.",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "watchKubeVirtListForAllNamespaces",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+      "name": "continue",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+      "name": "fieldSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "If true, partially initialized resources are included in the response.",
+      "name": "includeUninitialized",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+      "name": "labelSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+      "name": "limit",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+      "name": "resourceVersion",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "TimeoutSeconds for the list/watch call.",
+      "name": "timeoutSeconds",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+      "name": "watch",
+      "in": "query"
+     }
+    ]
+   },
+   "/apis/kubevirt.io/v1alpha3/watch/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/kubevirt": {
+    "get": {
+     "description": "Watch a KubeVirt object.",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "watchNamespacedKubeVirt",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+      "name": "continue",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+      "name": "fieldSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "boolean",
+      "description": "If true, partially initialized resources are included in the response.",
+      "name": "includeUninitialized",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+      "name": "labelSelector",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "integer",
+      "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+      "name": "limit",
+      "in": "query"
+     },
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Object name and auth scope, such as for teams and projects",
+      "name": "namespace",
+      "in": "path",
+      "required": true
      },
      {
       "uniqueItems": true,
@@ -6050,6 +6723,33 @@
      }
     }
    },
+   "v1.DeveloperConfiguration": {
+    "description": "DeveloperConfiguration holds developer options",
+    "type": "object",
+    "properties": {
+     "featureGates": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "memoryOvercommit": {
+      "type": "string"
+     },
+     "nodeSelectors": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string"
+      }
+     },
+     "pvcTolerateLessSpaceUpToPercent": {
+      "type": "string"
+     },
+     "useEmulation": {
+      "type": "string"
+     }
+    }
+   },
    "v1.Devices": {
     "type": "object",
     "properties": {
@@ -6224,6 +6924,10 @@
       "$ref": "#/definitions/v1.ResourceRequirements"
      }
     }
+   },
+   "v1.Duration": {
+    "description": "Duration is a wrapper around time.Duration which supports correct marshaling to YAML and JSON. In particular, it marshals into strings, which can be used as map keys in json.",
+    "type": "string"
    },
    "v1.EFI": {
     "description": "If set, EFI will be used instead of BIOS.",
@@ -6677,6 +7381,241 @@
      }
     }
    },
+   "v1.KubeVirt": {
+    "description": "KubeVirt represents the object deploying all KubeVirt resources",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ObjectMeta"
+     },
+     "spec": {
+      "$ref": "#/definitions/v1.KubeVirtSpec"
+     },
+     "status": {
+      "$ref": "#/definitions/v1.KubeVirtStatus"
+     }
+    }
+   },
+   "v1.KubeVirtCertificateRotateStrategy": {
+    "type": "object",
+    "properties": {
+     "selfSigned": {
+      "$ref": "#/definitions/v1.KubeVirtSelfSignConfiguration"
+     }
+    }
+   },
+   "v1.KubeVirtCondition": {
+    "description": "KubeVirtCondition represents a condition of a KubeVirt deployment",
+    "type": "object",
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lastTransitionTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
+   "v1.KubeVirtConfiguration": {
+    "description": "KubeVirtConfiguration holds all kubevirt configurations",
+    "type": "object",
+    "properties": {
+     "cpuModel": {
+      "type": "string"
+     },
+     "cpuRequest": {
+      "type": "string"
+     },
+     "developerConfiguration": {
+      "$ref": "#/definitions/v1.DeveloperConfiguration"
+     },
+     "emulatedMachines": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "imagePullPolicy": {
+      "type": "string"
+     },
+     "machineType": {
+      "type": "string"
+     },
+     "migrations": {
+      "$ref": "#/definitions/v1.MigrationConfiguration"
+     },
+     "network": {
+      "$ref": "#/definitions/v1.NetworkConfiguration"
+     },
+     "ovmfPath": {
+      "type": "string"
+     },
+     "selinuxLauncherType": {
+      "type": "string"
+     },
+     "smbiOS": {
+      "$ref": "#/definitions/v1.SMBiosConfiguration"
+     },
+     "supportedGuestAgentVersions": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "v1.KubeVirtList": {
+    "description": "KubeVirtList is a list of KubeVirts",
+    "type": "object",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.KubeVirt"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ListMeta"
+     }
+    }
+   },
+   "v1.KubeVirtSelfSignConfiguration": {
+    "type": "object",
+    "properties": {
+     "caOverlapInterval": {
+      "$ref": "#/definitions/v1.Duration"
+     },
+     "caRotateInterval": {
+      "$ref": "#/definitions/v1.Duration"
+     },
+     "certRotateInterval": {
+      "$ref": "#/definitions/v1.Duration"
+     }
+    }
+   },
+   "v1.KubeVirtSpec": {
+    "type": "object",
+    "properties": {
+     "certificateRotateStrategy": {
+      "$ref": "#/definitions/v1.KubeVirtCertificateRotateStrategy"
+     },
+     "configuration": {
+      "description": "holds kubevirt configurations. same as the virt-configMap",
+      "$ref": "#/definitions/v1.KubeVirtConfiguration"
+     },
+     "imagePullPolicy": {
+      "description": "The ImagePullPolicy to use.",
+      "type": "string"
+     },
+     "imageRegistry": {
+      "description": "The image registry to pull the container images from Defaults to the same registry the operator's container image is pulled from.",
+      "type": "string"
+     },
+     "imageTag": {
+      "description": "The image tag to use for the continer images installed. Defaults to the same tag as the operator's container image.",
+      "type": "string"
+     },
+     "monitorAccount": {
+      "description": "The name of the Prometheus service account that needs read-access to KubeVirt endpoints Defaults to prometheus-k8s",
+      "type": "string"
+     },
+     "monitorNamespace": {
+      "description": "The namespace Prometheus is deployed in Defaults to openshift-monitor",
+      "type": "string"
+     },
+     "uninstallStrategy": {
+      "description": "Specifies if kubevirt can be deleted if workloads are still present. This is mainly a precaution to avoid accidental data loss",
+      "type": "string"
+     }
+    }
+   },
+   "v1.KubeVirtStatus": {
+    "description": "KubeVirtStatus represents information pertaining to a KubeVirt deployment.",
+    "type": "object",
+    "nullable": true,
+    "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.KubeVirtCondition"
+      }
+     },
+     "observedDeploymentConfig": {
+      "type": "string"
+     },
+     "observedDeploymentID": {
+      "type": "string"
+     },
+     "observedKubeVirtRegistry": {
+      "type": "string"
+     },
+     "observedKubeVirtVersion": {
+      "type": "string"
+     },
+     "operatorVersion": {
+      "type": "string"
+     },
+     "phase": {
+      "type": "string"
+     },
+     "targetDeploymentConfig": {
+      "type": "string"
+     },
+     "targetDeploymentID": {
+      "type": "string"
+     },
+     "targetKubeVirtRegistry": {
+      "type": "string"
+     },
+     "targetKubeVirtVersion": {
+      "type": "string"
+     }
+    }
+   },
    "v1.LabelSelector": {
     "description": "A label selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty label selector matches all objects. A null label selector matches no objects.",
     "type": "object",
@@ -6826,6 +7765,40 @@
      }
     }
    },
+   "v1.MigrationConfiguration": {
+    "description": "MigrationConfiguration holds migration options",
+    "type": "object",
+    "required": [
+     "allowAutoConverge",
+     "unsafeMigrationOverride"
+    ],
+    "properties": {
+     "allowAutoConverge": {
+      "type": "string"
+     },
+     "bandwidthPerMigration": {
+      "$ref": "#/definitions/resource.Quantity"
+     },
+     "completionTimeoutPerGiB": {
+      "type": "string"
+     },
+     "nodeDrainTaintKey": {
+      "type": "string"
+     },
+     "parallelMigrationsPerCluster": {
+      "type": "string"
+     },
+     "parallelOutboundMigrationsPerNode": {
+      "type": "string"
+     },
+     "progressTimeout": {
+      "type": "string"
+     },
+     "unsafeMigrationOverride": {
+      "type": "string"
+     }
+    }
+   },
    "v1.MultusNetwork": {
     "description": "Represents the multus cni network.",
     "type": "object",
@@ -6859,6 +7832,21 @@
      },
      "pod": {
       "$ref": "#/definitions/v1.PodNetwork"
+     }
+    }
+   },
+   "v1.NetworkConfiguration": {
+    "description": "NetworkConfiguration holds network options",
+    "type": "object",
+    "properties": {
+     "defaultNetworkInterface": {
+      "type": "string"
+     },
+     "permitBridgeInterfaceOnPodNetwork": {
+      "type": "string"
+     },
+     "permitSlirpInterface": {
+      "type": "string"
      }
     }
    },
@@ -7522,6 +8510,26 @@
       "items": {
        "type": "string"
       }
+     }
+    }
+   },
+   "v1.SMBiosConfiguration": {
+    "type": "object",
+    "properties": {
+     "family": {
+      "type": "string"
+     },
+     "manufacturer": {
+      "type": "string"
+     },
+     "product": {
+      "type": "string"
+     },
+     "sku": {
+      "type": "string"
+     },
+     "version": {
+      "type": "string"
      }
     }
    },
