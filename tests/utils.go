@@ -1694,8 +1694,9 @@ func removeNamespaces() {
 	fmt.Println("")
 	for _, namespace := range testNamespaces {
 		fmt.Printf("Waiting for namespace %s to be removed, this can take a while ...\n", namespace)
-		EventuallyWithOffset(1, func() bool { return errors.IsNotFound(virtCli.CoreV1().Namespaces().Delete(namespace, nil)) }, 240*time.Second, 1*time.Second).
-			Should(BeTrue())
+		EventuallyWithOffset(1, func() error {
+			return virtCli.CoreV1().Namespaces().Delete(namespace, nil)
+		}, 240*time.Second, 1*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), fmt.Sprintf("should successfuly delete namespace '%s'", namespace))
 	}
 }
 
