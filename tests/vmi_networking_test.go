@@ -839,11 +839,13 @@ sockfd = None`})
 	})
 
 	Context("VirtualMachineInstance connected to the pod network", func() {
-		vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
-		tests.AddExplicitPodNetworkInterface(vmi)
+		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
+
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			tests.AddExplicitPodNetworkInterface(vmi)
 
 			By("Starting tested VMI")
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
