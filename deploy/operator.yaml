@@ -45,7 +45,7 @@ spec:
         - name: HCO_KV_IO_VERSION
           value: 1.2.0
         - name: KUBEVIRT_VERSION
-          value: v0.31.0-rc.1
+          value: v0.31.0
         - name: CDI_VERSION
           value: v1.19.0
         - name: NETWORK_ADDONS_VERSION
@@ -176,12 +176,12 @@ spec:
         - "2"
         env:
         - name: OPERATOR_IMAGE
-          value: docker.io/kubevirt/virt-operator:v0.31.0-rc.1
+          value: docker.io/kubevirt/virt-operator:v0.31.0
         - name: WATCH_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.targetNamespaces']
-        image: docker.io/kubevirt/virt-operator:v0.31.0-rc.1
+        image: docker.io/kubevirt/virt-operator:v0.31.0
         imagePullPolicy: IfNotPresent
         name: virt-operator
         ports:
