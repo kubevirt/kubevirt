@@ -95,6 +95,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	since := time.Now().Add(-duration)
 
 	r.logEvents(virtCli, since)
+	r.logNamespaces(virtCli)
 	r.logNodes(virtCli)
 	r.logPVCs(virtCli)
 	r.logPVs(virtCli)
@@ -428,6 +429,29 @@ func (r *KubernetesReporter) logSecrets(virtCli kubecli.KubevirtClient) {
 	j, err := json.MarshalIndent(secrets, "", "    ")
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to marshal secrets")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) logNamespaces(virtCli kubecli.KubevirtClient) {
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_namespaces.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	namespaces, err := virtCli.CoreV1().Namespaces().List(metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch Namespaces: %v\n", err)
+		return
+	}
+
+	j, err := json.MarshalIndent(namespaces, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal Namespaces")
 		return
 	}
 	fmt.Fprintln(f, string(j))
