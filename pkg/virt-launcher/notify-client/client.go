@@ -200,8 +200,10 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
-			log.Log.Reason(err).Error("Could not fetch the Domain.")
-			client.SendDomainEvent(newWatchEventError(err))
+			errMsg := "Could not fetch the Domain"
+			log.Log.Reason(err).Error(errMsg)
+			canNotFetchDomainError := fmt.Errorf("%s, %s, reason %v", errMsg, domain.Spec.Name, err)
+			client.SendDomainEvent(newWatchEventError(canNotFetchDomainError))
 			return
 		}
 		domain.SetState(api.NoState, api.ReasonNonExistent)
@@ -214,8 +216,10 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		status, reason, err := d.GetState()
 		if err != nil {
 			if !domainerrors.IsNotFound(err) {
-				log.Log.Reason(err).Error("Could not fetch the Domain state.")
-				client.SendDomainEvent(newWatchEventError(err))
+				errMsg := "Could not fetch the Domain state"
+				log.Log.Reason(err).Error(errMsg)
+				canNotFetchStateError := fmt.Errorf("%s, %s, reason %v", errMsg, domain.Spec.Name, err)
+				client.SendDomainEvent(newWatchEventError(canNotFetchStateError))
 				return
 			}
 			domain.SetState(api.NoState, api.ReasonNonExistent)
@@ -227,8 +231,10 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		if err != nil {
 			// NOTE: Getting domain metadata for a live-migrating VM isn't allowed
 			if !domainerrors.IsNotFound(err) && !domainerrors.IsInvalidOperation(err) {
-				log.Log.Reason(err).Error("Could not fetch the Domain specification.")
-				client.SendDomainEvent(newWatchEventError(err))
+				errMsg := "Could not fetch the Domain specification"
+				log.Log.Reason(err).Error(errMsg)
+				canNotFetchSpecError := fmt.Errorf("%s, %s, reason %v", errMsg, domain.Spec.Name, err)
+				client.SendDomainEvent(newWatchEventError(canNotFetchSpecError))
 				return
 			}
 		} else {
@@ -274,7 +280,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		}
 		err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 		if err != nil {
-			log.Log.Reason(err).Error("Could not send domain notify event.")
+			log.Log.Reason(err).Errorf("Could not send %s domain notify event.", domain.Spec.Name)
 		}
 	}
 }
@@ -337,7 +343,7 @@ func (n *Notifier) StartDomainNotifier(
 				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
 					interfaceStatuses, guestOsInfo)
 			case <-reconnectChan:
-				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))
+				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
 				return
 			}
 		}
