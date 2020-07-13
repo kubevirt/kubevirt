@@ -84,25 +84,34 @@
       "State": 1, 
       "StateSet": true, 
       "Time": 23810000000, 
-      "TimeSet": true
+      "TimeSet": true,
+      "WaitSet": false,
+      "Wait": 0
     }, 
     {
       "State": 1, 
       "StateSet": true, 
       "Time": 17800000000, 
-      "TimeSet": true
+      "TimeSet": true,
+      "WaitSet": false,
+      "Wait": 0
+      
     }, 
     {
       "State": 1, 
       "StateSet": true, 
       "Time": 23310000000, 
-      "TimeSet": true
+      "TimeSet": true,
+      "WaitSet": false,
+      "Wait": 0
     }, 
     {
       "State": 1, 
       "StateSet": true, 
       "Time": 17360000000, 
-      "TimeSet": true
+      "TimeSet": true,
+      "WaitSet": true,
+      "Wait": 1500
     }
   ]
 }

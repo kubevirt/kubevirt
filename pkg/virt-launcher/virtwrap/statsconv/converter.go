@@ -105,6 +105,8 @@ func Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in []libvirt.Domai
 			State:    int(inItem.State),
 			TimeSet:  inItem.TimeSet,
 			Time:     inItem.Time,
+			WaitSet:  inItem.WaitSet,
+			Wait:     inItem.Wait,
 		})
 	}
 	return ret
