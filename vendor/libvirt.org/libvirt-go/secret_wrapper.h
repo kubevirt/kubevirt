@@ -34,10 +34,6 @@ int
 virSecretFreeWrapper(virSecretPtr secret,
                      virErrorPtr err);
 
-virConnectPtr
-virSecretGetConnectWrapper(virSecretPtr secret,
-                           virErrorPtr err);
-
 int
 virSecretGetUUIDWrapper(virSecretPtr secret,
                         unsigned char *uuid,

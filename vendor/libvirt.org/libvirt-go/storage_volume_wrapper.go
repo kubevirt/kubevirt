@@ -84,18 +84,6 @@ virStorageVolFreeWrapper(virStorageVolPtr vol,
 }
 
 
-virConnectPtr
-virStorageVolGetConnectWrapper(virStorageVolPtr vol,
-                               virErrorPtr err)
-{
-    virConnectPtr ret = virStorageVolGetConnect(vol);
-    if (!ret) {
-        virCopyLastError(err);
-    }
-    return ret;
-}
-
-
 int
 virStorageVolGetInfoWrapper(virStorageVolPtr vol,
                             virStorageVolInfoPtr info,

@@ -116,7 +116,7 @@
 // To connect to libvirt
 //
 //   import (
-//       libvirt "github.com/libvirt/libvirt-go"
+//       libvirt "libvirt.org/libvirt-go"
 //   )
 //   conn, err := libvirt.NewConnect("qemu:///system")
 //   if err != nil {
