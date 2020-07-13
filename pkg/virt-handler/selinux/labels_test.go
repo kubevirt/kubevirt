@@ -52,12 +52,12 @@ var _ = Describe("selinux", func() {
 		})
 		It("should detect that it is enabled if getenforce does not return Disabled", func() {
 			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
-				return []byte("enabled"), nil
+				return []byte("enforcing"), nil
 			}
 			present, mode, err := selinux.IsPresent()
 			Expect(err).To(BeNil())
 			Expect(present).To(BeTrue())
-			Expect(mode).To(Equal("enabled"))
+			Expect(mode).To(Equal("enforcing"))
 		})
 	})
 
@@ -85,7 +85,7 @@ var _ = Describe("selinux", func() {
 			Expect(selinux.InstallPolicy("whatever")).To(Succeed())
 		})
 		It("should fail if the semanage command does not exist and selinux is enabled", func() {
-			selinux.mode = "enabled"
+			selinux.mode = "enforcing"
 			selinux.execFunc = func(binary string, args ...string) (bytes []byte, e error) {
 				return []byte("I succeeded"), nil
 			}

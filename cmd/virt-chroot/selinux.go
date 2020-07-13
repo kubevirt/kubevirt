@@ -17,7 +17,7 @@ func NewGetEnforceCommand() *cobra.Command {
 			if selinux.GetEnabled() {
 				mode := selinux.EnforceMode()
 				if mode == selinux.Enforcing {
-					fmt.Println("enabled")
+					fmt.Println("enforcing")
 				} else if mode == selinux.Permissive {
 					fmt.Println("permissive")
 				} else {
