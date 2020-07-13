@@ -75,6 +75,8 @@ const (
 	CONNECT_LIST_DOMAINS_NO_AUTOSTART   = ConnectListAllDomainsFlags(C.VIR_CONNECT_LIST_DOMAINS_NO_AUTOSTART)
 	CONNECT_LIST_DOMAINS_HAS_SNAPSHOT   = ConnectListAllDomainsFlags(C.VIR_CONNECT_LIST_DOMAINS_HAS_SNAPSHOT)
 	CONNECT_LIST_DOMAINS_NO_SNAPSHOT    = ConnectListAllDomainsFlags(C.VIR_CONNECT_LIST_DOMAINS_NO_SNAPSHOT)
+	CONNECT_LIST_DOMAINS_HAS_CHECKPOINT = ConnectListAllDomainsFlags(C.VIR_CONNECT_LIST_DOMAINS_HAS_CHECKPOINT)
+	CONNECT_LIST_DOMAINS_NO_CHECKPOINT  = ConnectListAllDomainsFlags(C.VIR_CONNECT_LIST_DOMAINS_NO_CHECKPOINT)
 )
 
 type ConnectListAllNetworksFlags int
@@ -110,6 +112,7 @@ const (
 	CONNECT_LIST_STORAGE_POOLS_GLUSTER      = ConnectListAllStoragePoolsFlags(C.VIR_CONNECT_LIST_STORAGE_POOLS_GLUSTER)
 	CONNECT_LIST_STORAGE_POOLS_ZFS          = ConnectListAllStoragePoolsFlags(C.VIR_CONNECT_LIST_STORAGE_POOLS_ZFS)
 	CONNECT_LIST_STORAGE_POOLS_VSTORAGE     = ConnectListAllStoragePoolsFlags(C.VIR_CONNECT_LIST_STORAGE_POOLS_VSTORAGE)
+	CONNECT_LIST_STORAGE_POOLS_ISCSI_DIRECT = ConnectListAllStoragePoolsFlags(C.VIR_CONNECT_LIST_STORAGE_POOLS_ISCSI_DIRECT)
 )
 
 type ConnectBaselineCPUFlags int
@@ -490,6 +493,90 @@ func closeCallback(conn C.virConnectPtr, reason ConnectCloseReason, goCallbackId
 		panic("Inappropriate callback type called")
 	}
 	callback(&Connect{ptr: conn}, reason)
+}
+
+type ConnectIdentity struct {
+	UserNameSet              bool
+	UserName                 string
+	UNIXUserIDSet            bool
+	UNIXUserID               uint64
+	GroupNameSet             bool
+	GroupName                string
+	UNIXGroupIDSet           bool
+	UNIXGroupID              uint64
+	ProcessIDSet             bool
+	ProcessID                int64
+	ProcessTimeSet           bool
+	ProcessTime              uint64
+	SASLUserNameSet          bool
+	SASLUserName             string
+	X509DistinguishedNameSet bool
+	X509DistinguishedName    string
+	SELinuxContextSet        bool
+	SELinuxContext           string
+}
+
+func getConnectIdentityFieldInfo(params *ConnectIdentity) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		C.VIR_CONNECT_IDENTITY_USER_NAME: typedParamsFieldInfo{
+			set: &params.UserNameSet,
+			s:   &params.UserName,
+		},
+		C.VIR_CONNECT_IDENTITY_UNIX_USER_ID: typedParamsFieldInfo{
+			set: &params.UNIXUserIDSet,
+			ul:  &params.UNIXUserID,
+		},
+		C.VIR_CONNECT_IDENTITY_GROUP_NAME: typedParamsFieldInfo{
+			set: &params.GroupNameSet,
+			s:   &params.GroupName,
+		},
+		C.VIR_CONNECT_IDENTITY_UNIX_GROUP_ID: typedParamsFieldInfo{
+			set: &params.UNIXGroupIDSet,
+			ul:  &params.UNIXGroupID,
+		},
+		C.VIR_CONNECT_IDENTITY_PROCESS_ID: typedParamsFieldInfo{
+			set: &params.ProcessIDSet,
+			l:   &params.ProcessID,
+		},
+		C.VIR_CONNECT_IDENTITY_PROCESS_TIME: typedParamsFieldInfo{
+			set: &params.ProcessTimeSet,
+			ul:  &params.ProcessTime,
+		},
+		C.VIR_CONNECT_IDENTITY_SASL_USER_NAME: typedParamsFieldInfo{
+			set: &params.SASLUserNameSet,
+			s:   &params.SASLUserName,
+		},
+		C.VIR_CONNECT_IDENTITY_X509_DISTINGUISHED_NAME: typedParamsFieldInfo{
+			set: &params.X509DistinguishedNameSet,
+			s:   &params.X509DistinguishedName,
+		},
+		C.VIR_CONNECT_IDENTITY_SELINUX_CONTEXT: typedParamsFieldInfo{
+			set: &params.SELinuxContextSet,
+			s:   &params.SELinuxContext,
+		},
+	}
+}
+
+func (c *Connect) SetIdentity(ident *ConnectIdentity, flags uint) error {
+	if C.LIBVIR_VERSION_NUMBER < 5008000 {
+		return makeNotImplementedError("virConnectSetIdentity")
+	}
+	info := getConnectIdentityFieldInfo(ident)
+
+	cparams, cnparams, gerr := typedParamsPackNew(info)
+	if gerr != nil {
+		return gerr
+	}
+
+	defer C.virTypedParamsFree(cparams, cnparams)
+
+	var err C.virError
+	ret := C.virConnectSetIdentityWrapper(c.ptr, cparams, cnparams, C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
+
+	return nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-host.html#virConnectGetCapabilities
@@ -1738,22 +1825,22 @@ type NodeCPUStats struct {
 
 // See also https://libvirt.org/html/libvirt-libvirt-host.html#virNodeGetCPUStats
 func (c *Connect) GetCPUStats(cpuNum int, flags uint32) (*NodeCPUStats, error) {
-	var nparams C.int
+	var cnparams C.int
 
 	var err C.virError
-	ret := C.virNodeGetCPUStatsWrapper(c.ptr, C.int(cpuNum), nil, &nparams, C.uint(0), &err)
+	ret := C.virNodeGetCPUStatsWrapper(c.ptr, C.int(cpuNum), nil, &cnparams, C.uint(0), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	params := make([]C.virNodeCPUStats, nparams)
-	ret = C.virNodeGetCPUStatsWrapper(c.ptr, C.int(cpuNum), (*C.virNodeCPUStats)(unsafe.Pointer(&params[0])), &nparams, C.uint(flags), &err)
+	params := make([]C.virNodeCPUStats, cnparams)
+	ret = C.virNodeGetCPUStatsWrapper(c.ptr, C.int(cpuNum), (*C.virNodeCPUStats)(unsafe.Pointer(&params[0])), &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
 	stats := &NodeCPUStats{}
-	for i := 0; i < int(nparams); i++ {
+	for i := 0; i < int(cnparams); i++ {
 		param := params[i]
 		field := C.GoString((*C.char)(unsafe.Pointer(&param.field)))
 		switch field {
@@ -1822,8 +1909,8 @@ func (c *Connect) GetFreePages(pageSizes []uint64, startCell int, maxCells uint,
 	}
 
 	var err C.virError
-	ret := C.virNodeGetFreePagesWrapper(c.ptr, C.uint(len(pageSizes)), (*C.uint)(unsafe.Pointer(&cpageSizes)), C.int(startCell),
-		C.uint(maxCells), (*C.ulonglong)(unsafe.Pointer(&ccounts)), C.uint(flags), &err)
+	ret := C.virNodeGetFreePagesWrapper(c.ptr, C.uint(len(pageSizes)), (*C.uint)(unsafe.Pointer(&cpageSizes[0])), C.int(startCell),
+		C.uint(maxCells), (*C.ulonglong)(unsafe.Pointer(&ccounts[0])), C.uint(flags), &err)
 	if ret == -1 {
 		return []uint64{}, makeError(&err)
 	}
@@ -1897,23 +1984,22 @@ func (c *Connect) GetMemoryParameters(flags uint32) (*NodeMemoryParameters, erro
 	params := &NodeMemoryParameters{}
 	info := getMemoryParameterFieldInfo(params)
 
-	var nparams C.int
+	var cnparams C.int
 
 	var err C.virError
-	ret := C.virNodeGetMemoryParametersWrapper(c.ptr, nil, &nparams, C.uint(0), &err)
+	ret := C.virNodeGetMemoryParametersWrapper(c.ptr, nil, &cnparams, C.uint(0), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virNodeGetMemoryParametersWrapper(c.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, C.uint(flags), &err)
+	cparams := typedParamsNew(cnparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
+	ret = C.virNodeGetMemoryParametersWrapper(c.ptr, cparams, &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	_, gerr := typedParamsUnpack(cparams, info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}
@@ -1934,22 +2020,22 @@ type NodeMemoryStats struct {
 
 // See also https://libvirt.org/html/libvirt-libvirt-host.html#virNodeGetMemoryStats
 func (c *Connect) GetMemoryStats(cellNum int, flags uint32) (*NodeMemoryStats, error) {
-	var nparams C.int
+	var cnparams C.int
 
 	var err C.virError
-	ret := C.virNodeGetMemoryStatsWrapper(c.ptr, C.int(cellNum), nil, &nparams, 0, &err)
+	ret := C.virNodeGetMemoryStatsWrapper(c.ptr, C.int(cellNum), nil, &cnparams, 0, &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	params := make([]C.virNodeMemoryStats, nparams)
-	ret = C.virNodeGetMemoryStatsWrapper(c.ptr, C.int(cellNum), (*C.virNodeMemoryStats)(unsafe.Pointer(&params[0])), &nparams, C.uint(flags), &err)
+	params := make([]C.virNodeMemoryStats, cnparams)
+	ret = C.virNodeGetMemoryStatsWrapper(c.ptr, C.int(cellNum), (*C.virNodeMemoryStats)(unsafe.Pointer(&params[0])), &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
 	stats := &NodeMemoryStats{}
-	for i := 0; i < int(nparams); i++ {
+	for i := 0; i < int(cnparams); i++ {
 		param := params[i]
 		field := C.GoString((*C.char)(unsafe.Pointer(&param.field)))
 		switch field {
@@ -1995,28 +2081,18 @@ func (c *Connect) GetSecurityModel() (*NodeSecurityModel, error) {
 func (c *Connect) SetMemoryParameters(params *NodeMemoryParameters, flags uint32) error {
 	info := getMemoryParameterFieldInfo(params)
 
-	var nparams C.int
-
-	var err C.virError
-	ret := C.virNodeGetMemoryParametersWrapper(c.ptr, nil, &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-
-	cparams := make([]C.virTypedParameter, nparams)
-	ret = C.virNodeGetMemoryParametersWrapper(c.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), &nparams, 0, &err)
-	if ret == -1 {
-		return makeError(&err)
-	}
-
-	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams)
-
-	gerr := typedParamsPack(cparams, info)
+	cparams, cnparams, gerr := typedParamsPackNew(info)
 	if gerr != nil {
 		return gerr
 	}
 
-	ret = C.virNodeSetMemoryParametersWrapper(c.ptr, (*C.virTypedParameter)(unsafe.Pointer(&cparams[0])), nparams, C.uint(flags), &err)
+	defer C.virTypedParamsFree(cparams, cnparams)
+
+	var err C.virError
+	ret := C.virNodeSetMemoryParametersWrapper(c.ptr, cparams, cnparams, C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
 
 	return nil
 }
@@ -2049,7 +2125,7 @@ func (c *Connect) DomainSaveImageDefineXML(file string, xml string, flags Domain
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainSaveImageGetXMLDesc
-func (c *Connect) DomainSaveImageGetXMLDesc(file string, flags DomainXMLFlags) (string, error) {
+func (c *Connect) DomainSaveImageGetXMLDesc(file string, flags DomainSaveImageXMLFlags) (string, error) {
 	cfile := C.CString(file)
 	defer C.free(unsafe.Pointer(cfile))
 
@@ -2415,6 +2491,8 @@ type DomainStatsVcpu struct {
 	State    VcpuState
 	TimeSet  bool
 	Time     uint64
+	WaitSet  bool
+	Wait     uint64
 }
 
 func getDomainStatsVcpuFieldInfo(idx int, params *DomainStatsVcpu) map[string]typedParamsFieldInfo {
@@ -2426,6 +2504,10 @@ func getDomainStatsVcpuFieldInfo(idx int, params *DomainStatsVcpu) map[string]ty
 		fmt.Sprintf("vcpu.%d.time", idx): typedParamsFieldInfo{
 			set: &params.TimeSet,
 			ul:  &params.Time,
+		},
+		fmt.Sprintf("vcpu.%d.wait", idx): typedParamsFieldInfo{
+			set: &params.WaitSet,
+			ul:  &params.Wait,
 		},
 	}
 }
@@ -2730,6 +2812,71 @@ func getDomainStatsPerfFieldInfo(params *DomainStatsPerf) map[string]typedParams
 	}
 }
 
+type DomainStatsMemory struct {
+	BandwidthMonitor []DomainStatsMemoryBandwidthMonitor
+}
+
+type DomainStatsMemoryBandwidthMonitor struct {
+	NameSet  bool
+	Name     string
+	VCPUsSet bool
+	VCPUs    string
+	Nodes    []DomainStatsMemoryBandwidthMonitorNode
+}
+
+func getDomainStatsMemoryBandwidthMonitorFieldInfo(idx int, params *DomainStatsMemoryBandwidthMonitor) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		fmt.Sprintf("memory.bandwidth.monitor.%d.name", idx): typedParamsFieldInfo{
+			set: &params.NameSet,
+			s:   &params.Name,
+		},
+		fmt.Sprintf("memory.bandwidth.monitor.%d.vcpus", idx): typedParamsFieldInfo{
+			set: &params.VCPUsSet,
+			s:   &params.VCPUs,
+		},
+	}
+}
+
+type domainStatsMemoryBandwidthMonitorLengths struct {
+	NodeCountSet bool
+	NodeCount    uint
+}
+
+func getDomainStatsMemoryBandwidthMonitorLengthsFieldInfo(idx int, params *domainStatsMemoryBandwidthMonitorLengths) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		fmt.Sprintf("memory.bandwidth.monitor.%d.node.count", idx): typedParamsFieldInfo{
+			set: &params.NodeCountSet,
+			ui:  &params.NodeCount,
+		},
+	}
+}
+
+type DomainStatsMemoryBandwidthMonitorNode struct {
+	IDSet         bool
+	ID            uint
+	BytesLocalSet bool
+	BytesLocal    uint64
+	BytesTotalSet bool
+	BytesTotal    uint64
+}
+
+func getDomainStatsMemoryBandwidthMonitorNodeFieldInfo(idx1, idx2 int, params *DomainStatsMemoryBandwidthMonitorNode) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		fmt.Sprintf("memory.bandwidth.monitor.%d.node.%d.id", idx1, idx2): typedParamsFieldInfo{
+			set: &params.IDSet,
+			ui:  &params.ID,
+		},
+		fmt.Sprintf("memory.bandwidth.monitor.%d.node.%d.bytes.local", idx1, idx2): typedParamsFieldInfo{
+			set: &params.BytesLocalSet,
+			ul:  &params.BytesLocal,
+		},
+		fmt.Sprintf("memory.bandwidth.monitor.%d.node.%d.bytes.total", idx1, idx2): typedParamsFieldInfo{
+			set: &params.BytesTotalSet,
+			ul:  &params.BytesTotal,
+		},
+	}
+}
+
 type DomainStats struct {
 	Domain  *Domain
 	State   *DomainStatsState
@@ -2739,17 +2886,20 @@ type DomainStats struct {
 	Net     []DomainStatsNet
 	Block   []DomainStatsBlock
 	Perf    *DomainStatsPerf
+	Memory  *DomainStatsMemory
 }
 
 type domainStatsLengths struct {
-	VcpuCurrentSet bool
-	VcpuCurrent    uint
-	VcpuMaximumSet bool
-	VcpuMaximum    uint
-	NetCountSet    bool
-	NetCount       uint
-	BlockCountSet  bool
-	BlockCount     uint
+	VcpuCurrentSet    bool
+	VcpuCurrent       uint
+	VcpuMaximumSet    bool
+	VcpuMaximum       uint
+	NetCountSet       bool
+	NetCount          uint
+	BlockCountSet     bool
+	BlockCount        uint
+	BandwidthCountSet bool
+	BandwidthCount    uint
 }
 
 func getDomainStatsLengthsFieldInfo(params *domainStatsLengths) map[string]typedParamsFieldInfo {
@@ -2769,6 +2919,10 @@ func getDomainStatsLengthsFieldInfo(params *domainStatsLengths) map[string]typed
 		"block.count": typedParamsFieldInfo{
 			set: &params.BlockCountSet,
 			ui:  &params.BlockCount,
+		},
+		"memory.bandwidth.monitor.count": typedParamsFieldInfo{
+			set: &params.BandwidthCountSet,
+			ui:  &params.BandwidthCount,
 		},
 	}
 }
@@ -2808,7 +2962,7 @@ func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes,
 		state := &DomainStatsState{}
 		stateInfo := getDomainStatsStateFieldInfo(state)
 
-		count, gerr := typedParamsUnpackLen(cdomstats.params, int(cdomstats.nparams), stateInfo)
+		count, gerr := typedParamsUnpack(cdomstats.params, cdomstats.nparams, stateInfo)
 		if gerr != nil {
 			return []DomainStats{}, gerr
 		}
@@ -2819,7 +2973,7 @@ func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes,
 		cpu := &DomainStatsCPU{}
 		cpuInfo := getDomainStatsCPUFieldInfo(cpu)
 
-		count, gerr = typedParamsUnpackLen(cdomstats.params, int(cdomstats.nparams), cpuInfo)
+		count, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, cpuInfo)
 		if gerr != nil {
 			return []DomainStats{}, gerr
 		}
@@ -2830,7 +2984,7 @@ func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes,
 		balloon := &DomainStatsBalloon{}
 		balloonInfo := getDomainStatsBalloonFieldInfo(balloon)
 
-		count, gerr = typedParamsUnpackLen(cdomstats.params, int(cdomstats.nparams), balloonInfo)
+		count, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, balloonInfo)
 		if gerr != nil {
 			return []DomainStats{}, gerr
 		}
@@ -2841,7 +2995,7 @@ func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes,
 		perf := &DomainStatsPerf{}
 		perfInfo := getDomainStatsPerfFieldInfo(perf)
 
-		count, gerr = typedParamsUnpackLen(cdomstats.params, int(cdomstats.nparams), perfInfo)
+		count, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, perfInfo)
 		if gerr != nil {
 			return []DomainStats{}, gerr
 		}
@@ -2852,7 +3006,7 @@ func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes,
 		lengths := domainStatsLengths{}
 		lengthsInfo := getDomainStatsLengthsFieldInfo(&lengths)
 
-		count, gerr = typedParamsUnpackLen(cdomstats.params, int(cdomstats.nparams), lengthsInfo)
+		count, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, lengthsInfo)
 		if gerr != nil {
 			return []DomainStats{}, gerr
 		}
@@ -2868,7 +3022,7 @@ func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes,
 				vcpu := DomainStatsVcpu{}
 				vcpuInfo := getDomainStatsVcpuFieldInfo(j, &vcpu)
 
-				count, gerr = typedParamsUnpackLen(cdomstats.params, int(cdomstats.nparams), vcpuInfo)
+				count, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, vcpuInfo)
 				if gerr != nil {
 					return []DomainStats{}, gerr
 				}
@@ -2886,7 +3040,7 @@ func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes,
 				block := DomainStatsBlock{}
 				blockInfo := getDomainStatsBlockFieldInfo(j, &block)
 
-				count, gerr = typedParamsUnpackLen(cdomstats.params, int(cdomstats.nparams), blockInfo)
+				count, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, blockInfo)
 				if gerr != nil {
 					return []DomainStats{}, gerr
 				}
@@ -2902,13 +3056,57 @@ func (c *Connect) GetAllDomainStats(doms []*Domain, statsTypes DomainStatsTypes,
 				net := DomainStatsNet{}
 				netInfo := getDomainStatsNetFieldInfo(j, &net)
 
-				count, gerr = typedParamsUnpackLen(cdomstats.params, int(cdomstats.nparams), netInfo)
+				count, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, netInfo)
 				if gerr != nil {
 					return []DomainStats{}, gerr
 				}
 				if count != 0 {
 					domstats.Net[j] = net
 				}
+			}
+		}
+
+		if lengths.BandwidthCountSet && lengths.BandwidthCount > 0 {
+			domstats.Memory = &DomainStatsMemory{
+				BandwidthMonitor: make([]DomainStatsMemoryBandwidthMonitor, lengths.BandwidthCount),
+			}
+
+			for j := 0; j < int(lengths.BandwidthCount); j++ {
+				bwmon := DomainStatsMemoryBandwidthMonitor{}
+
+				bwmonInfo := getDomainStatsMemoryBandwidthMonitorFieldInfo(j, &bwmon)
+
+				_, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, bwmonInfo)
+				if gerr != nil {
+					return []DomainStats{}, gerr
+				}
+
+				bwmonlen := domainStatsMemoryBandwidthMonitorLengths{}
+
+				bwmonlenInfo := getDomainStatsMemoryBandwidthMonitorLengthsFieldInfo(j, &bwmonlen)
+
+				_, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, bwmonlenInfo)
+				if gerr != nil {
+					return []DomainStats{}, gerr
+				}
+
+				if bwmonlen.NodeCountSet && bwmonlen.NodeCount > 0 {
+					bwmon.Nodes = make([]DomainStatsMemoryBandwidthMonitorNode, bwmonlen.NodeCount)
+					for k := 0; k < int(bwmonlen.NodeCount); k++ {
+						bwmonnode := DomainStatsMemoryBandwidthMonitorNode{}
+
+						bwmonnodeInfo := getDomainStatsMemoryBandwidthMonitorNodeFieldInfo(j, k, &bwmonnode)
+
+						_, gerr = typedParamsUnpack(cdomstats.params, cdomstats.nparams, bwmonnodeInfo)
+						if gerr != nil {
+							return []DomainStats{}, gerr
+						}
+
+						bwmon.Nodes[k] = bwmonnode
+					}
+				}
+
+				domstats.Memory.BandwidthMonitor[j] = bwmon
 			}
 		}
 
@@ -2964,17 +3162,17 @@ func (c *Connect) GetSEVInfo(flags uint32) (*NodeSEVParameters, error) {
 	info := getNodeSEVFieldInfo(params)
 
 	var cparams *C.virTypedParameter
-	var nparams C.int
+	var cnparams C.int
 
 	var err C.virError
-	ret := C.virNodeGetSEVInfoWrapper(c.ptr, (*C.virTypedParameterPtr)(unsafe.Pointer(&cparams)), &nparams, C.uint(flags), &err)
+	ret := C.virNodeGetSEVInfoWrapper(c.ptr, (*C.virTypedParameterPtr)(unsafe.Pointer(&cparams)), &cnparams, C.uint(flags), &err)
 	if ret == -1 {
 		return nil, makeError(&err)
 	}
 
-	defer C.virTypedParamsFree(cparams, nparams)
+	defer C.virTypedParamsFree(cparams, cnparams)
 
-	_, gerr := typedParamsUnpackLen(cparams, int(nparams), info)
+	_, gerr := typedParamsUnpack(cparams, cnparams, info)
 	if gerr != nil {
 		return nil, gerr
 	}
@@ -2995,4 +3193,21 @@ func (c *Connect) NWFilterBindingCreateXML(xmlConfig string, flags uint32) (*NWF
 		return nil, makeError(&err)
 	}
 	return &NWFilterBinding{ptr: ptr}, nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-storage.html#virConnectGetStoragePoolCapabilities
+func (c *Connect) GetStoragePoolCapabilities(flags uint32) (string, error) {
+	if C.LIBVIR_VERSION_NUMBER < 5002000 {
+		return "", makeNotImplementedError("virConnectGetStoragePoolCapabilities")
+	}
+
+	var err C.virError
+	ret := C.virConnectGetStoragePoolCapabilitiesWrapper(c.ptr, C.uint(flags), &err)
+	if ret == nil {
+		return "", makeError(&err)
+	}
+
+	defer C.free(unsafe.Pointer(ret))
+
+	return C.GoString(ret), nil
 }

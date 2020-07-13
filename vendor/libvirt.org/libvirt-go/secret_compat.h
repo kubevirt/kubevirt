@@ -58,4 +58,10 @@ typedef void (*virConnectSecretEventGenericCallback)(virConnectPtr conn,
 #define VIR_SECRET_USAGE_TYPE_TLS 4
 #endif
 
+/* 5.6.0 */
+
+#ifndef VIR_SECRET_USAGE_TYPE_VTPM
+#define VIR_SECRET_USAGE_TYPE_VTPM 5
+#endif
+
 #endif /* LIBVIRT_GO_SECRET_COMPAT_H__ */

@@ -52,10 +52,6 @@ int
 virStorageVolFreeWrapper(virStorageVolPtr vol,
                          virErrorPtr err);
 
-virConnectPtr
-virStorageVolGetConnectWrapper(virStorageVolPtr vol,
-                               virErrorPtr err);
-
 int
 virStorageVolGetInfoWrapper(virStorageVolPtr vol,
                             virStorageVolInfoPtr info,

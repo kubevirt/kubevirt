@@ -313,7 +313,7 @@ golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
-# golang.org/x/sys v0.0.0-20191220220014-0732a990476f
+# golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/cpu
@@ -794,7 +794,7 @@ kubevirt.io/containerized-data-importer/pkg/apis/upload
 # kubevirt.io/qe-tools v0.1.6
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
-# libvirt.org/libvirt-go v5.0.0+incompatible
+# libvirt.org/libvirt-go v6.5.0+incompatible
 libvirt.org/libvirt-go
 # sigs.k8s.io/controller-runtime v0.1.9
 sigs.k8s.io/controller-runtime/pkg/runtime/scheme

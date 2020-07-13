@@ -16,6 +16,7 @@ require (
 	github.com/emicklei/go-restful v2.10.0+incompatible
 	github.com/emicklei/go-restful-openapi v0.10.0
 	github.com/evanphx/json-patch v4.5.0+incompatible
+	github.com/fatih/color v1.9.0 // indirect
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-kit/kit v0.9.0
@@ -57,7 +58,7 @@ require (
 	github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
 	golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
-	golang.org/x/sys v0.0.0-20191220220014-0732a990476f
+	golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae
 	google.golang.org/grpc v1.30.0
 	gopkg.in/cheggaaa/pb.v1 v1.0.28
 	gopkg.in/ini.v1 v1.42.0
@@ -72,7 +73,7 @@ require (
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer v1.10.9
 	kubevirt.io/qe-tools v0.1.6
-	libvirt.org/libvirt-go v5.0.0+incompatible
+	libvirt.org/libvirt-go v6.5.0+incompatible
 	sigs.k8s.io/controller-runtime v0.1.9 // indirect
 )
 

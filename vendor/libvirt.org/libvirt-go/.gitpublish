@@ -1,4 +1,0 @@
-[gitpublishprofile "default"]
-base = master
-to = libvir-list@redhat.com
-prefix = go PATCH

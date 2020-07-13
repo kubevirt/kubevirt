@@ -758,12 +758,12 @@ func countPinInfo(cparams C.virTypedParameterPtr, nparams C.int) (int, int) {
 	return maxvcpus + 1, maxiothreads + 1
 }
 
-func domainEventTunableGetPin(params C.virTypedParameterPtr, nparams C.int) *DomainEventTunableCpuPin {
+func domainEventTunableGetPin(params C.virTypedParameterPtr, cnparams C.int) *DomainEventTunableCpuPin {
 	var pin domainEventTunablePinTemp
-	numvcpus, numiothreads := countPinInfo(params, nparams)
+	numvcpus, numiothreads := countPinInfo(params, cnparams)
 	pinInfo := getDomainPinTempFieldInfo(numvcpus, numiothreads, &pin)
 
-	num, err := typedParamsUnpackLen(params, int(nparams), pinInfo)
+	num, err := typedParamsUnpack(params, cnparams, pinInfo)
 	if num == 0 || err != nil {
 		return nil
 	}
@@ -806,13 +806,13 @@ func domainEventTunableGetPin(params C.virTypedParameterPtr, nparams C.int) *Dom
 }
 
 //export domainEventTunableCallback
-func domainEventTunableCallback(c C.virConnectPtr, d C.virDomainPtr, params C.virTypedParameterPtr, nparams C.int, goCallbackId int) {
+func domainEventTunableCallback(c C.virConnectPtr, d C.virDomainPtr, params C.virTypedParameterPtr, cnparams C.int, goCallbackId int) {
 	domain := &Domain{ptr: d}
 	connection := &Connect{ptr: c}
 
 	eventDetails := &DomainEventTunable{}
 
-	pin := domainEventTunableGetPin(params, nparams)
+	pin := domainEventTunableGetPin(params, cnparams)
 	if pin != nil {
 		eventDetails.CpuPin = pin
 	}
@@ -820,7 +820,7 @@ func domainEventTunableCallback(c C.virConnectPtr, d C.virDomainPtr, params C.vi
 	var sched DomainSchedulerParameters
 	schedInfo := getDomainTuneSchedulerParametersFieldInfo(&sched)
 
-	num, _ := typedParamsUnpackLen(params, int(nparams), schedInfo)
+	num, _ := typedParamsUnpack(params, cnparams, schedInfo)
 	if num > 0 {
 		eventDetails.CpuSched = &sched
 	}
@@ -831,12 +831,12 @@ func domainEventTunableCallback(c C.virConnectPtr, d C.virDomainPtr, params C.vi
 			s:   &eventDetails.BlkdevDisk,
 		},
 	}
-	typedParamsUnpackLen(params, int(nparams), blknameInfo)
+	typedParamsUnpack(params, cnparams, blknameInfo)
 
 	var blktune DomainBlockIoTuneParameters
 	blktuneInfo := getTuneBlockIoTuneParametersFieldInfo(&blktune)
 
-	num, _ = typedParamsUnpackLen(params, int(nparams), blktuneInfo)
+	num, _ = typedParamsUnpack(params, cnparams, blktuneInfo)
 	if num > 0 {
 		eventDetails.BlkdevTune = &blktune
 	}
@@ -903,14 +903,14 @@ func domainEventMigrationIterationCallback(c C.virConnectPtr, d C.virDomainPtr, 
 }
 
 //export domainEventJobCompletedCallback
-func domainEventJobCompletedCallback(c C.virConnectPtr, d C.virDomainPtr, params C.virTypedParameterPtr, nparams C.int, goCallbackId int) {
+func domainEventJobCompletedCallback(c C.virConnectPtr, d C.virDomainPtr, params C.virTypedParameterPtr, cnparams C.int, goCallbackId int) {
 	domain := &Domain{ptr: d}
 	connection := &Connect{ptr: c}
 
 	eventDetails := &DomainEventJobCompleted{}
 	info := getDomainJobInfoFieldInfo(&eventDetails.Info)
 
-	typedParamsUnpackLen(params, int(nparams), info)
+	typedParamsUnpack(params, cnparams, info)
 
 	callbackFunc := getCallbackId(goCallbackId)
 	callback, ok := callbackFunc.(DomainEventJobCompletedCallback)
