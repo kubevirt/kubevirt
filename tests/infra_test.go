@@ -484,9 +484,9 @@ var _ = Describe("Infrastructure", func() {
 			By("Writing some data to the disk")
 			_, err = expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "dd if=/dev/zero of=/dev/vdb bs=1M count=1\n"},
-				&expect.BExp{R: "localhost:~#"},
+				&expect.BExp{R: `localhost:~#`},
 				&expect.BSnd{S: "sync\n"},
-				&expect.BExp{R: "localhost:~#"},
+				&expect.BExp{R: `localhost:~#`},
 			}, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -695,7 +695,7 @@ var _ = Describe("Infrastructure", func() {
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
-				if strings.Contains(key, "vdb") {
+				if strings.Contains(key, `drive="vdb"`) {
 					value := metrics[key]
 					Expect(value).To(BeNumerically(">", float64(0.0)))
 				}
