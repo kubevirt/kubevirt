@@ -76,7 +76,11 @@ nogo(
 )
 
 # gazelle:prefix kubevirt.io/kubevirt
-gazelle(name = "gazelle")
+# gazelle:build_tags selinux
+gazelle(
+    name = "gazelle",
+    build_tags = ["selinux"],
+)
 
 load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 

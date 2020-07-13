@@ -219,6 +219,9 @@ github.com/onsi/gomega/gstruct/errors
 github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
+# github.com/opencontainers/selinux v1.6.0
+github.com/opencontainers/selinux/go-selinux
+github.com/opencontainers/selinux/pkg/pwalk
 # github.com/openshift/api v0.0.0-20191219222812-2987a591a72c => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 github.com/openshift/api/security/v1
 # github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a => github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
@@ -244,7 +247,7 @@ github.com/operator-framework/operator-marketplace/pkg/datastore
 github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1
 # github.com/pborman/uuid v1.2.0
 github.com/pborman/uuid
-# github.com/pkg/errors v0.8.1
+# github.com/pkg/errors v0.9.1
 github.com/pkg/errors
 # github.com/prometheus/client_golang v1.1.0
 github.com/prometheus/client_golang/prometheus
@@ -270,6 +273,8 @@ github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc
 github.com/vishvananda/netns
+# github.com/willf/bitset v1.1.11-0.20200630133818-d5bec3311243
+github.com/willf/bitset
 # golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
 golang.org/x/crypto/ssh/terminal
 golang.org/x/crypto/ssh

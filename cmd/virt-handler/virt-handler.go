@@ -287,20 +287,7 @@ func (app *virtHandlerApp) Run() {
 
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
-		for _, dir := range []string{app.VirtShareDir, app.VirtLibDir} {
-			if labeled, err := se.IsLabeled(dir); err != nil {
-				panic(err)
-			} else if !labeled {
-				err := se.Label("container_file_t", dir)
-				if err != nil {
-					panic(err)
-				}
-			}
-			err := se.Restore(dir)
-			if err != nil {
-				panic(err)
-			}
-		}
+		log.DefaultLogger().Infof("SELinux is reported as '%s'", se.Mode())
 		// Install KubeVirt's virt-launcher policy
 		err = se.InstallPolicy("/var/run/kubevirt")
 		if err != nil {
