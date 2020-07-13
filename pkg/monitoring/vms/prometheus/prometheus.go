@@ -90,15 +90,15 @@ func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch 
 
 func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string) {
 	// Initial memory metric labels
-	var memoryResidentLabels = []string{"node", "namespace", "name"}
-	var memoryAvailableLabels = []string{"node", "namespace", "name"}
-	var swapTrafficLabels = []string{"node", "namespace", "name", "type"}
+	var memoryResidentLabels = []string{"node", "namespace", "name", "domain"}
+	var memoryAvailableLabels = []string{"node", "namespace", "name", "domain"}
+	var swapTrafficLabels = []string{"node", "namespace", "name", "domain", "type"}
 
 	// Initial memory metric label values
-	var memoryResidentLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name}
-	var memoryAvailableLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name}
-	var swapTrafficInLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, "in"}
-	var swapTrafficOutLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, "out"}
+	var memoryResidentLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name}
+	var memoryAvailableLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name}
+	var swapTrafficInLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, "in"}
+	var swapTrafficOutLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, "out"}
 
 	// Add k8s metadata.Labels as metric labels
 	memoryResidentLabels = append(memoryResidentLabels, k8sLabels...)
@@ -173,10 +173,10 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string) {
 	for vcpuId, vcpu := range vmStats.Vcpu {
 		// Initial vcpu metrics labels
-		var vcpuUsageLabels = []string{"node", "namespace", "name", "id", "state"}
+		var vcpuUsageLabels = []string{"node", "namespace", "name", "domain", "id", "state"}
 
 		// Initial vcpu metrics labels values
-		var vcpuUsageLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, fmt.Sprintf("%v", vcpuId), fmt.Sprintf("%v", vcpu.State)}
+		var vcpuUsageLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, fmt.Sprintf("%v", vcpuId), fmt.Sprintf("%v", vcpu.State)}
 
 		// Add k8s metadata.Labels as metric labels
 		vcpuUsageLabels = append(vcpuUsageLabels, k8sLabels...)
@@ -205,17 +205,17 @@ func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, c
 func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string) {
 	for blockId, block := range vmStats.Block {
 		// Initial block metrics labels
-		var storageIopsLabels = []string{"node", "namespace", "name", "drive", "type"}
-		var storageTrafficLabels = []string{"node", "namespace", "name", "drive", "type"}
-		var storageTimesLabels = []string{"node", "namespace", "name", "drive", "type"}
+		var storageIopsLabels = []string{"node", "namespace", "name", "domain", "drive", "type"}
+		var storageTrafficLabels = []string{"node", "namespace", "name", "domain", "drive", "type"}
+		var storageTimesLabels = []string{"node", "namespace", "name", "domain", "drive", "type"}
 
 		// Initial block metrics labels values
-		var storageIopsReadLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
-		var storageIopsWriteLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "write"}
-		var storageTrafficReadLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
-		var storageTrafficWriteLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "write"}
-		var storageTimesReadLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "read"}
-		var storageTimesWriteLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, block.Name, "write"}
+		var storageIopsReadLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, block.Name, "read"}
+		var storageIopsWriteLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, block.Name, "write"}
+		var storageTrafficReadLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, block.Name, "read"}
+		var storageTrafficWriteLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, block.Name, "write"}
+		var storageTimesReadLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, block.Name, "read"}
+		var storageTimesWriteLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, block.Name, "write"}
 
 		// Add k8s metadata.Labels as metric labels
 		storageIopsLabels = append(storageIopsLabels, k8sLabels...)
@@ -310,17 +310,17 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string) {
 	for _, net := range vmStats.Net {
 		// Initial network metrics labels
-		var networkTrafficBytesLabels = []string{"node", "namespace", "name", "interface", "type"}
-		var networkTrafficPktsLabels = []string{"node", "namespace", "name", "interface", "type"}
-		var networkErrorsLabels = []string{"node", "namespace", "name", "interface", "type"}
+		var networkTrafficBytesLabels = []string{"node", "namespace", "name", "domain", "interface", "type"}
+		var networkTrafficPktsLabels = []string{"node", "namespace", "name", "domain", "interface", "type"}
+		var networkErrorsLabels = []string{"node", "namespace", "name", "domain", "interface", "type"}
 
 		// Initial network metrics labels values
-		var networkTrafficBytesRxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx"}
-		var networkTrafficBytesTxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "tx"}
-		var networkTrafficPktsRxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx"}
-		var networkTrafficPktsTxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "tx"}
-		var networkErrorsRxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "rx"}
-		var networkErrorsTxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, net.Name, "tx"}
+		var networkTrafficBytesRxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, net.Name, "rx"}
+		var networkTrafficBytesTxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, net.Name, "tx"}
+		var networkTrafficPktsRxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, net.Name, "rx"}
+		var networkTrafficPktsTxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, net.Name, "tx"}
+		var networkErrorsRxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, net.Name, "rx"}
+		var networkErrorsTxLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, net.Name, "tx"}
 
 		// Add k8s metadata.Labels as metric labels
 		networkTrafficBytesLabels = append(networkTrafficBytesLabels, k8sLabels...)
