@@ -46,7 +46,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
@@ -339,7 +339,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	deleteDataVolume := func(dv *cdiv1.DataVolume) {
 		if dv != nil {
 			By("Deleting the DataVolume")
-			ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
+			ExpectWithOffset(1, virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
 		}
 	}
 
@@ -593,7 +593,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				dataVolume.Spec.PVC.VolumeMode = &volMode
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).ToNot(HaveOccurred())
 
 				tests.WaitForSuccessfulDataVolumeImportOfVMI(vmi, 340)
@@ -622,7 +622,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
-				Expect(virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})).To(Succeed())
+				Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})).To(Succeed())
 			})
 		})
 		Context("with an Alpine DataVolume", func() {
@@ -636,7 +636,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
 
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
 				Expect(err).ToNot(HaveOccurred())
 
 				tests.WaitForSuccessfulDataVolumeImportOfVMI(vmi, 240)
@@ -671,7 +671,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
-				Expect(virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})).To(Succeed())
+				Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})).To(Succeed())
 			})
 			It("[test_id:1479] should migrate a vmi with a shared OCS disk", func() {
 				vmi, dv := tests.NewRandomVirtualMachineInstanceWithOCSDisk(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
@@ -1127,7 +1127,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				dv := tests.NewRandomDataVolumeWithPVCSourceWithStorageClass(tests.NamespaceTestDefault, pvName, tests.NamespaceTestDefault, sc, "5Gi", k8sv1.ReadWriteMany)
 				dv.Spec.PVC.VolumeMode = &volMode
-				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(dv)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulDataVolumeImport(dv, 600)
 				vmi := tests.NewRandomVMIWithDataVolume(dv.Name)

@@ -93,7 +93,7 @@ var _ = Describe("ImageUpload", func() {
 			}
 
 			By("Get DataVolume")
-			_, err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(dvName, metav1.GetOptions{})
+			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(dvName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Start VM")

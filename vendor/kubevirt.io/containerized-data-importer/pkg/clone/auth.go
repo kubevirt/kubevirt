@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 
-	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 )
 
 // CanUserClonePVC checks if a user has "appropriate" permission to clone from the given PVC
@@ -105,9 +105,9 @@ func getResourceAttributes(namespace, name string) []authorization.ResourceAttri
 		{
 			Namespace:   namespace,
 			Verb:        "create",
-			Group:       cdiv1alpha1.SchemeGroupVersion.Group,
+			Group:       cdiv1.SchemeGroupVersion.Group,
 			Resource:    "datavolumes",
-			Subresource: cdiv1alpha1.DataVolumeCloneSourceSubresource,
+			Subresource: cdiv1.DataVolumeCloneSourceSubresource,
 			Name:        name,
 		},
 		{

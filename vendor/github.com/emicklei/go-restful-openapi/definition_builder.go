@@ -40,7 +40,7 @@ func (b definitionBuilder) addModel(st reflect.Type, nameOverride string) *spec.
 		st = st.Elem()
 	}
 
-	modelName := b.keyFrom(st)
+	modelName := keyFrom(st, b.Config)
 	if nameOverride != "" {
 		modelName = nameOverride
 	}
@@ -52,8 +52,7 @@ func (b definitionBuilder) addModel(st reflect.Type, nameOverride string) *spec.
 	// JSON arrays, except that []byte encodes as a base64-encoded string.
 	// If we see a []byte here, treat it at as a primitive type (string)
 	// and deal with it in buildArrayTypeProperty.
-	if (st.Kind() == reflect.Slice || st.Kind() == reflect.Array) &&
-		st.Elem().Kind() == reflect.Uint8 {
+	if b.isByteArrayType(st) {
 		return nil
 	}
 	// see if we already have visited this model
@@ -165,7 +164,7 @@ func (b definitionBuilder) buildProperty(field reflect.StructField, model *spec.
 			prop.Type = []string{pType}
 		}
 		if prop.Format == "" {
-			prop.Format = b.jsonSchemaFormat(b.keyFrom(fieldType))
+			prop.Format = b.jsonSchemaFormat(keyFrom(fieldType, b.Config))
 		}
 		return jsonName, modelDescription, prop
 	}
@@ -196,23 +195,22 @@ func (b definitionBuilder) buildProperty(field reflect.StructField, model *spec.
 		prop.Type = []string{stringt}
 		return jsonName, modelDescription, prop
 	case fieldKind == reflect.Map:
-		// if it's a map, it's unstructured, and swagger can't handle it
-		objectType := "object"
-		prop.Type = []string{objectType}
+		jsonName, prop := b.buildMapTypeProperty(field, jsonName, modelName)
 		return jsonName, modelDescription, prop
 	}
 
-	fieldTypeName := b.keyFrom(fieldType)
+	fieldTypeName := keyFrom(fieldType, b.Config)
 	if b.isPrimitiveType(fieldTypeName) {
 		mapped := b.jsonSchemaType(fieldTypeName)
 		prop.Type = []string{mapped}
 		prop.Format = b.jsonSchemaFormat(fieldTypeName)
 		return jsonName, modelDescription, prop
 	}
-	modelType := b.keyFrom(fieldType)
+	modelType := keyFrom(fieldType, b.Config)
 	prop.Ref = spec.MustCreateRef("#/definitions/" + modelType)
 
 	if fieldType.Name() == "" { // override type of anonymous structs
+		// FIXME: Still need a way to handle anonymous struct model naming.
 		nestedTypeName := modelName + "." + jsonName
 		prop.Ref = spec.MustCreateRef("#/definitions/" + nestedTypeName)
 		b.addModel(fieldType, nestedTypeName)
@@ -239,6 +237,7 @@ func (b definitionBuilder) buildStructTypeProperty(field reflect.StructField, js
 	// check for anonymous
 	if len(fieldType.Name()) == 0 {
 		// anonymous
+		// FIXME: Still need a way to handle anonymous struct model naming.
 		anonType := model.ID + "." + jsonName
 		b.addModel(fieldType, anonType)
 		prop.Ref = spec.MustCreateRef("#/definitions/" + anonType)
@@ -249,7 +248,7 @@ func (b definitionBuilder) buildStructTypeProperty(field reflect.StructField, js
 		// embedded struct
 		sub := definitionBuilder{make(spec.Definitions), b.Config}
 		sub.addModel(fieldType, "")
-		subKey := sub.keyFrom(fieldType)
+		subKey := keyFrom(fieldType, b.Config)
 		// merge properties from sub
 		subModel, _ := sub.Definitions[subKey]
 		for k, v := range subModel.Properties {
@@ -279,7 +278,7 @@ func (b definitionBuilder) buildStructTypeProperty(field reflect.StructField, js
 	}
 	// simple struct
 	b.addModel(fieldType, "")
-	var pType = b.keyFrom(fieldType)
+	var pType = keyFrom(fieldType, b.Config)
 	prop.Ref = spec.MustCreateRef("#/definitions/" + pType)
 	return jsonName, prop
 }
@@ -315,6 +314,45 @@ func (b definitionBuilder) buildArrayTypeProperty(field reflect.StructField, jso
 	return jsonName, prop
 }
 
+func (b definitionBuilder) buildMapTypeProperty(field reflect.StructField, jsonName, modelName string) (nameJson string, prop spec.Schema) {
+	setPropertyMetadata(&prop, field)
+	fieldType := field.Type
+	var pType = "object"
+	prop.Type = []string{pType}
+
+	// As long as the element isn't an interface, we should be able to figure out what the
+	// intended type is and represent it in `AdditionalProperties`.
+	// See: https://swagger.io/docs/specification/data-models/dictionaries/
+	if fieldType.Elem().Kind().String() != "interface" {
+		isPrimitive := b.isPrimitiveType(fieldType.Elem().Name())
+		elemTypeName := b.getElementTypeName(modelName, jsonName, fieldType.Elem())
+		prop.AdditionalProperties = &spec.SchemaOrBool{
+			Schema: &spec.Schema{},
+		}
+		// golang encoding/json packages says array and slice values encode as
+		// JSON arrays, except that []byte encodes as a base64-encoded string.
+		// If we see a []byte here, treat it at as a string
+		if b.isByteArrayType(fieldType.Elem()) {
+			prop.AdditionalProperties.Schema.Type = []string{"string"}
+		} else {
+			if isPrimitive {
+				mapped := b.jsonSchemaType(elemTypeName)
+				prop.AdditionalProperties.Schema.Type = []string{mapped}
+			} else {
+				prop.AdditionalProperties.Schema.Ref = spec.MustCreateRef("#/definitions/" + elemTypeName)
+			}
+			// add|overwrite model for element type
+			if fieldType.Elem().Kind() == reflect.Ptr {
+				fieldType = fieldType.Elem()
+			}
+			if !isPrimitive {
+				b.addModel(fieldType.Elem(), elemTypeName)
+			}
+		}
+	}
+	return jsonName, prop
+}
+
 func (b definitionBuilder) buildPointerTypeProperty(field reflect.StructField, jsonName, modelName string) (nameJson string, prop spec.Schema) {
 	setPropertyMetadata(&prop, field)
 	fieldType := field.Type
@@ -330,7 +368,7 @@ func (b definitionBuilder) buildPointerTypeProperty(field reflect.StructField, j
 		}
 		if isPrimitive {
 			primName := b.jsonSchemaType(elemName)
-			prop.Items.Schema.Ref = spec.MustCreateRef("#/definitions/" + primName)
+			prop.Items.Schema.Type = []string{primName}
 		} else {
 			prop.Items.Schema.Ref = spec.MustCreateRef("#/definitions/" + elemName)
 		}
@@ -340,7 +378,7 @@ func (b definitionBuilder) buildPointerTypeProperty(field reflect.StructField, j
 		}
 	} else {
 		// non-array, pointer type
-		fieldTypeName := b.keyFrom(fieldType.Elem())
+		fieldTypeName := keyFrom(fieldType.Elem(), b.Config)
 		var pType = b.jsonSchemaType(fieldTypeName) // no star, include pkg path
 		if b.isPrimitiveType(fieldTypeName) {
 			prop.Type = []string{pType}
@@ -365,13 +403,13 @@ func (b definitionBuilder) getElementTypeName(modelName, jsonName string, t refl
 	if t.Name() == "" {
 		return modelName + "." + jsonName
 	}
-	return b.keyFrom(t)
+	return keyFrom(t, b.Config)
 }
 
-func (b definitionBuilder) keyFrom(st reflect.Type) string {
+func keyFrom(st reflect.Type, cfg Config) string {
 	key := st.String()
-	if b.Config.ModelTypeNameHandler != nil {
-		if name, ok := b.Config.ModelTypeNameHandler(st); ok {
+	if cfg.ModelTypeNameHandler != nil {
+		if name, ok := cfg.ModelTypeNameHandler(st); ok {
 			key = name
 		}
 	}
@@ -384,12 +422,18 @@ func (b definitionBuilder) keyFrom(st reflect.Type) string {
 	return key
 }
 
+// Does the type represent a []byte?
+func (b definitionBuilder) isByteArrayType(t reflect.Type) bool {
+	return (t.Kind() == reflect.Slice || t.Kind() == reflect.Array) &&
+		t.Elem().Kind() == reflect.Uint8
+}
+
 // see also https://golang.org/ref/spec#Numeric_types
 func (b definitionBuilder) isPrimitiveType(modelName string) bool {
 	if len(modelName) == 0 {
 		return false
 	}
-	return strings.Contains("uint uint8 uint16 uint32 uint64 int int8 int16 int32 int64 float32 float64 bool string byte rune time.Time", modelName)
+	return strings.Contains("uint uint8 uint16 uint32 uint64 int int8 int16 int32 int64 float32 float64 bool string byte rune time.Time time.Duration", modelName)
 }
 
 // jsonNameOfField returns the name of the field as it should appear in JSON format
@@ -427,6 +471,7 @@ func (b definitionBuilder) jsonSchemaType(modelName string) string {
 		"float32":   "number",
 		"bool":      "boolean",
 		"time.Time": "string",
+		"time.Duration": "integer",
 	}
 	mapped, ok := schemaMap[modelName]
 	if !ok {
@@ -452,6 +497,8 @@ func (b definitionBuilder) jsonSchemaFormat(modelName string) string {
 		"float32":    "float",
 		"time.Time":  "date-time",
 		"*time.Time": "date-time",
+		"time.Duration": "integer",
+		"*time.Duration": "integer",
 	}
 	mapped, ok := schemaMap[modelName]
 	if !ok {

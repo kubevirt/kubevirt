@@ -3,6 +3,7 @@ package v1
 import (
 	"strings"
 
+	"github.com/operator-framework/operator-marketplace/pkg/apis/operators/shared"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -74,7 +75,7 @@ type OperatorSourceAuthorizationToken struct {
 // OperatorSourceStatus defines the observed state of OperatorSource
 type OperatorSourceStatus struct {
 	// Current phase of the OperatorSource object
-	CurrentPhase ObjectPhase `json:"currentPhase,omitempty"`
+	CurrentPhase shared.ObjectPhase `json:"currentPhase,omitempty"`
 
 	// Packages is a comma separated list of package(s) each of which has been
 	// downloaded and processed by Marketplace operator from the specified
@@ -123,14 +124,14 @@ func (s *OperatorSourceSpec) IsEqual(other *OperatorSourceSpec) bool {
 // RemoveFinalizer removes the operator source finalizer from the
 // OperatorSource ObjectMeta.
 func (s *OperatorSource) RemoveFinalizer() {
-	removeFinalizer(&s.ObjectMeta, OpSrcFinalizer)
+	shared.RemoveFinalizer(&s.ObjectMeta, OpSrcFinalizer)
 }
 
 // EnsureFinalizer ensures that the operator source finalizer is included
 // in the ObjectMeta Finalizers slice. If it already exists, no state change occurs.
 // If it doesn't, the finalizer is appended to the slice.
 func (s *OperatorSource) EnsureFinalizer() {
-	ensureFinalizer(&s.ObjectMeta, OpSrcFinalizer)
+	shared.EnsureFinalizer(&s.ObjectMeta, OpSrcFinalizer)
 }
 
 func init() {

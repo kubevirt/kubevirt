@@ -89,7 +89,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -1787,7 +1787,7 @@ func NewRandomVirtualMachineInstanceWithOCSDisk(imageUrl, namespace string, acce
 
 	dv := newRandomDataVolumeWithHttpImport(imageUrl, namespace, sc, accessMode)
 	dv.Spec.PVC.VolumeMode = &volMode
-	_, err = virtCli.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
+	_, err = virtCli.CdiClient().CdiV1beta1().DataVolumes(dv.Namespace).Create(dv)
 	Expect(err).ToNot(HaveOccurred())
 	WaitForSuccessfulDataVolumeImport(dv, 240)
 	return NewRandomVMIWithDataVolume(dv.Name), dv
@@ -2611,7 +2611,7 @@ func waitForSuccessfulDataVolumeImport(namespace, name string, seconds int) {
 	ExpectWithOffset(2, err).ToNot(HaveOccurred())
 
 	EventuallyWithOffset(2, func() cdiv1.DataVolumePhase {
-		dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(namespace).Get(name, metav1.GetOptions{})
+		dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Get(name, metav1.GetOptions{})
 		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 
 		return dv.Status.Phase

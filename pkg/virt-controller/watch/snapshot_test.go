@@ -29,7 +29,7 @@ import (
 	k8ssnapshotfake "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/fake"
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1beta1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -144,14 +144,14 @@ var _ = Describe("Snapshot controlleer", func() {
 						},
 					},
 				},
-				DataVolumeTemplates: []cdiv1alpha1.DataVolume{
+				DataVolumeTemplates: []cdiv1.DataVolume{
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "alpine-dv",
 						},
-						Spec: cdiv1alpha1.DataVolumeSpec{
-							Source: cdiv1alpha1.DataVolumeSource{
-								HTTP: &cdiv1alpha1.DataVolumeSourceHTTP{
+						Spec: cdiv1.DataVolumeSpec{
+							Source: cdiv1.DataVolumeSource{
+								HTTP: &cdiv1.DataVolumeSourceHTTP{
 									URL: "http://cdi-http-import-server.kubevirt/images/alpine.iso",
 								},
 							},

@@ -31,6 +31,14 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Namespaced
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="ReadyToUse",type=boolean,JSONPath=`.status.readyToUse`,description="Indicates if a snapshot is ready to be used to restore a volume."
+// +kubebuilder:printcolumn:name="SourcePVC",type=string,JSONPath=`.spec.source.persistentVolumeClaimName`,description="Name of the source PVC from where a dynamically taken snapshot will be created."
+// +kubebuilder:printcolumn:name="SourceSnapshotContent",type=string,JSONPath=`.spec.source.volumeSnapshotContentName`,description="Name of the VolumeSnapshotContent which represents a pre-provisioned snapshot."
+// +kubebuilder:printcolumn:name="RestoreSize",type=string,JSONPath=`.status.restoreSize`,description="Represents the complete size of the snapshot."
+// +kubebuilder:printcolumn:name="SnapshotClass",type=string,JSONPath=`.spec.volumeSnapshotClassName`,description="The name of the VolumeSnapshotClass requested by the VolumeSnapshot."
+// +kubebuilder:printcolumn:name="SnapshotContent",type=string,JSONPath=`.status.boundVolumeSnapshotContentName`,description="The name of the VolumeSnapshotContent to which this VolumeSnapshot is bound."
+// +kubebuilder:printcolumn:name="CreationTime",type=date,JSONPath=`.status.creationTime`,description="Timestamp when the point-in-time snapshot is taken by the underlying storage system."
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 type VolumeSnapshot struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
@@ -163,6 +171,9 @@ type VolumeSnapshotStatus struct {
 // VolumeSnapshotClasses are non-namespaced
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
+// +kubebuilder:printcolumn:name="Driver",type=string,JSONPath=`.driver`
+// +kubebuilder:printcolumn:name="DeletionPolicy",type=string,JSONPath=`.deletionPolicy`,description="Determines whether a VolumeSnapshotContent created through the VolumeSnapshotClass should be deleted when its bound VolumeSnapshot is deleted."
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 type VolumeSnapshotClass struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
@@ -212,6 +223,13 @@ type VolumeSnapshotClassList struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Cluster
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="ReadyToUse",type=boolean,JSONPath=`.status.readyToUse`,description="Indicates if a snapshot is ready to be used to restore a volume."
+// +kubebuilder:printcolumn:name="RestoreSize",type=integer,JSONPath=`.status.restoreSize`,description="Represents the complete size of the snapshot in bytes"
+// +kubebuilder:printcolumn:name="DeletionPolicy",type=string,JSONPath=`.spec.deletionPolicy`,description="Determines whether this VolumeSnapshotContent and its physical snapshot on the underlying storage system should be deleted when its bound VolumeSnapshot is deleted."
+// +kubebuilder:printcolumn:name="Driver",type=string,JSONPath=`.spec.driver`,description="Name of the CSI driver used to create the physical snapshot on the underlying storage system."
+// +kubebuilder:printcolumn:name="VolumeSnapshotClass",type=string,JSONPath=`.spec.volumeSnapshotClassName`,description="Name of the VolumeSnapshotClass to which this snapshot belongs."
+// +kubebuilder:printcolumn:name="VolumeSnapshot",type=string,JSONPath=`.spec.volumeSnapshotRef.name`,description="Name of the VolumeSnapshot object to which this VolumeSnapshotContent object is bound."
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 type VolumeSnapshotContent struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
