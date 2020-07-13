@@ -2320,6 +2320,11 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
 
+			test_smbios := &cmdv1.SMBios{Family: "", Product: "", Manufacturer: ""}
+			smbiosJson, err := json.Marshal(test_smbios)
+			Expect(err).ToNot(HaveOccurred())
+			tests.UpdateClusterConfigValueAndWait(virtconfig.SmbiosConfigKey, string(smbiosJson))
+
 			By("Check values in domain XML")
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
