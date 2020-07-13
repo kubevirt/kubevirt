@@ -47,11 +47,6 @@ var (
 	labelPreffix      = "kubernetes_vmi_label_"
 	annotationPreffix = "kubernetes_vmi_annotation_"
 
-	k8sLabels           = []string{}
-	k8sLabelValues      = []string{}
-	k8sAnnotations      = []string{}
-	k8sAnnotationValues = []string{}
-
 	// see https://www.robustperception.io/exposing-the-software-version-to-prometheus
 	versionDesc = prometheus.NewDesc(
 		"kubevirt_info",
@@ -93,7 +88,7 @@ func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch 
 	ch <- mv
 }
 
-func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string, k8sAnnotations []string, k8sAnnotationValues []string) {
 	// Initial memory metric labels
 	var memoryResidentLabels = []string{"node", "namespace", "name"}
 	var memoryAvailableLabels = []string{"node", "namespace", "name"}
@@ -184,7 +179,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 	}
 }
 
-func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string, k8sAnnotations []string, k8sAnnotationValues []string) {
 	for vcpuId, vcpu := range vmStats.Vcpu {
 		// Initial vcpu metrics labels
 		var vcpuUsageLabels = []string{"node", "namespace", "name", "id", "state"}
@@ -220,7 +215,7 @@ func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, c
 	}
 }
 
-func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string, k8sAnnotations []string, k8sAnnotationValues []string) {
 	for blockId, block := range vmStats.Block {
 		// Initial block metrics labels
 		var storageIopsLabels = []string{"node", "namespace", "name", "drive", "type"}
@@ -336,7 +331,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 	}
 }
 
-func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string, k8sAnnotations []string, k8sAnnotationValues []string) {
 	for _, net := range vmStats.Net {
 		// Initial network metrics labels
 		var networkTrafficBytesLabels = []string{"node", "namespace", "name", "interface", "type"}
@@ -617,11 +612,11 @@ func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachine
 		}
 	}()
 
-	updateLabelsAndAnnotations(vmi)
-	updateMemory(vmi, vmStats, ps.ch)
-	updateVcpu(vmi, vmStats, ps.ch)
-	updateBlock(vmi, vmStats, ps.ch)
-	updateNetwork(vmi, vmStats, ps.ch)
+	k8sLabels, k8sLabelValues, k8sAnnotations, k8sAnnotationValues := updateLabelsAndAnnotations(vmi)
+	updateMemory(vmi, vmStats, ps.ch, k8sLabels, k8sLabelValues, k8sAnnotations, k8sAnnotationValues)
+	updateVcpu(vmi, vmStats, ps.ch, k8sLabels, k8sLabelValues, k8sAnnotations, k8sAnnotationValues)
+	updateBlock(vmi, vmStats, ps.ch, k8sLabels, k8sLabelValues, k8sAnnotations, k8sAnnotationValues)
+	updateNetwork(vmi, vmStats, ps.ch, k8sLabels, k8sLabelValues, k8sAnnotations, k8sAnnotationValues)
 }
 
 func Handler(MaxRequestsInFlight int) http.Handler {
@@ -635,12 +630,7 @@ func Handler(MaxRequestsInFlight int) http.Handler {
 	)
 }
 
-func updateLabelsAndAnnotations(vmi *k6tv1.VirtualMachineInstance) {
-	k8sLabels = []string{}
-	k8sLabelValues = []string{}
-	k8sAnnotations = []string{}
-	k8sAnnotationValues = []string{}
-
+func updateLabelsAndAnnotations(vmi *k6tv1.VirtualMachineInstance) (k8sLabels []string, k8sLabelValues []string, k8sAnnotations []string, k8sAnnotationValues []string) {
 	for label, val := range vmi.Labels {
 		k8sLabels = append(k8sLabels, labelPreffix+labelFormatter.Replace(label))
 		k8sLabelValues = append(k8sLabelValues, val)
@@ -650,4 +640,6 @@ func updateLabelsAndAnnotations(vmi *k6tv1.VirtualMachineInstance) {
 		k8sAnnotations = append(k8sAnnotations, annotationPreffix+labelFormatter.Replace(annotation))
 		k8sAnnotationValues = append(k8sAnnotationValues, val)
 	}
+
+	return k8sLabels, k8sLabelValues, k8sAnnotations, k8sAnnotationValues
 }
