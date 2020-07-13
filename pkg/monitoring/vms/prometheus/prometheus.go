@@ -40,12 +40,12 @@ import (
 const statsMaxAge time.Duration = collectionTimeout + 2*time.Second // "a bit more" than timeout, heuristic again
 
 var (
+
 	// Formatter used to sanitize k8s metadata into metric labels
 	labelFormatter = strings.NewReplacer(".", "_", "/", "_", "-", "_")
 
 	// Preffixes used when transforming K8s metadata into metric labels
-	labelPreffix      = "kubernetes_vmi_label_"
-	annotationPreffix = "kubernetes_vmi_annotation_"
+	labelPreffix = "kubernetes_vmi_label_"
 
 	// see https://www.robustperception.io/exposing-the-software-version-to-prometheus
 	versionDesc = prometheus.NewDesc(
@@ -88,7 +88,7 @@ func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch 
 	ch <- mv
 }
 
-func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string, k8sAnnotations []string, k8sAnnotationValues []string) {
+func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string) {
 	// Initial memory metric labels
 	var memoryResidentLabels = []string{"node", "namespace", "name"}
 	var memoryAvailableLabels = []string{"node", "namespace", "name"}
@@ -108,15 +108,6 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 	memoryAvailableLabelValues = append(memoryAvailableLabelValues, k8sLabelValues...)
 	swapTrafficInLabelValues = append(swapTrafficInLabelValues, k8sLabelValues...)
 	swapTrafficOutLabelValues = append(swapTrafficOutLabelValues, k8sLabelValues...)
-
-	// Add k8s metadata.Annotations as metric labels
-	memoryResidentLabels = append(memoryResidentLabels, k8sAnnotations...)
-	memoryAvailableLabels = append(memoryAvailableLabels, k8sAnnotations...)
-	swapTrafficLabels = append(swapTrafficLabels, k8sAnnotations...)
-	memoryResidentLabelValues = append(memoryResidentLabelValues, k8sAnnotationValues...)
-	memoryAvailableLabelValues = append(memoryAvailableLabelValues, k8sAnnotationValues...)
-	swapTrafficInLabelValues = append(swapTrafficInLabelValues, k8sAnnotationValues...)
-	swapTrafficOutLabelValues = append(swapTrafficOutLabelValues, k8sAnnotationValues...)
 
 	memoryResidentDesc = prometheus.NewDesc(
 		"kubevirt_vmi_memory_resident_bytes",
@@ -179,7 +170,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 	}
 }
 
-func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string, k8sAnnotations []string, k8sAnnotationValues []string) {
+func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string) {
 	for vcpuId, vcpu := range vmStats.Vcpu {
 		// Initial vcpu metrics labels
 		var vcpuUsageLabels = []string{"node", "namespace", "name", "id", "state"}
@@ -190,10 +181,6 @@ func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, c
 		// Add k8s metadata.Labels as metric labels
 		vcpuUsageLabels = append(vcpuUsageLabels, k8sLabels...)
 		vcpuUsageLabelValues = append(vcpuUsageLabelValues, k8sLabelValues...)
-
-		// Add k8s metadata.Annotations as metric labels
-		vcpuUsageLabels = append(vcpuUsageLabels, k8sAnnotations...)
-		vcpuUsageLabelValues = append(vcpuUsageLabelValues, k8sAnnotationValues...)
 
 		vcpuUsageDesc = prometheus.NewDesc(
 			"kubevirt_vmi_vcpu_seconds",
@@ -215,7 +202,7 @@ func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, c
 	}
 }
 
-func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string, k8sAnnotations []string, k8sAnnotationValues []string) {
+func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string) {
 	for blockId, block := range vmStats.Block {
 		// Initial block metrics labels
 		var storageIopsLabels = []string{"node", "namespace", "name", "drive", "type"}
@@ -240,17 +227,6 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 		storageTrafficWriteLabelValues = append(storageTrafficWriteLabelValues, k8sLabelValues...)
 		storageTimesReadLabelValues = append(storageTimesReadLabelValues, k8sLabelValues...)
 		storageTimesWriteLabelValues = append(storageTimesWriteLabelValues, k8sLabelValues...)
-
-		// Add k8s metadata.Annotations as metric labels
-		storageIopsLabels = append(storageIopsLabels, k8sAnnotations...)
-		storageTrafficLabels = append(storageTrafficLabels, k8sAnnotations...)
-		storageTimesLabels = append(storageTimesLabels, k8sAnnotations...)
-		storageIopsReadLabelValues = append(storageIopsReadLabelValues, k8sAnnotationValues...)
-		storageIopsWriteLabelValues = append(storageIopsWriteLabelValues, k8sAnnotationValues...)
-		storageTrafficReadLabelValues = append(storageTrafficReadLabelValues, k8sAnnotationValues...)
-		storageTrafficWriteLabelValues = append(storageTrafficWriteLabelValues, k8sAnnotationValues...)
-		storageTimesReadLabelValues = append(storageTimesReadLabelValues, k8sAnnotationValues...)
-		storageTimesWriteLabelValues = append(storageTimesWriteLabelValues, k8sAnnotationValues...)
 
 		storageIopsDesc = prometheus.NewDesc(
 			"kubevirt_vmi_storage_iops_total",
@@ -331,7 +307,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 	}
 }
 
-func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string, k8sAnnotations []string, k8sAnnotationValues []string) {
+func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string) {
 	for _, net := range vmStats.Net {
 		// Initial network metrics labels
 		var networkTrafficBytesLabels = []string{"node", "namespace", "name", "interface", "type"}
@@ -356,17 +332,6 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 		networkTrafficPktsTxLabelValues = append(networkTrafficPktsTxLabelValues, k8sLabelValues...)
 		networkErrorsRxLabelValues = append(networkErrorsRxLabelValues, k8sLabelValues...)
 		networkErrorsTxLabelValues = append(networkErrorsTxLabelValues, k8sLabelValues...)
-
-		// Add k8s metadata.Annotations as metric labels
-		networkTrafficBytesLabels = append(networkTrafficBytesLabels, k8sAnnotations...)
-		networkTrafficPktsLabels = append(networkTrafficPktsLabels, k8sAnnotations...)
-		networkErrorsLabels = append(networkErrorsLabels, k8sAnnotations...)
-		networkTrafficBytesRxLabelValues = append(networkTrafficBytesRxLabelValues, k8sAnnotationValues...)
-		networkTrafficBytesTxLabelValues = append(networkTrafficBytesTxLabelValues, k8sAnnotationValues...)
-		networkTrafficPktsRxLabelValues = append(networkTrafficPktsRxLabelValues, k8sAnnotationValues...)
-		networkTrafficPktsTxLabelValues = append(networkTrafficPktsTxLabelValues, k8sAnnotationValues...)
-		networkErrorsRxLabelValues = append(networkErrorsRxLabelValues, k8sAnnotationValues...)
-		networkErrorsTxLabelValues = append(networkErrorsTxLabelValues, k8sAnnotationValues...)
 
 		networkTrafficBytesDesc = prometheus.NewDesc(
 			"kubevirt_vmi_network_traffic_bytes_total",
@@ -612,11 +577,11 @@ func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachine
 		}
 	}()
 
-	k8sLabels, k8sLabelValues, k8sAnnotations, k8sAnnotationValues := updateLabelsAndAnnotations(vmi)
-	updateMemory(vmi, vmStats, ps.ch, k8sLabels, k8sLabelValues, k8sAnnotations, k8sAnnotationValues)
-	updateVcpu(vmi, vmStats, ps.ch, k8sLabels, k8sLabelValues, k8sAnnotations, k8sAnnotationValues)
-	updateBlock(vmi, vmStats, ps.ch, k8sLabels, k8sLabelValues, k8sAnnotations, k8sAnnotationValues)
-	updateNetwork(vmi, vmStats, ps.ch, k8sLabels, k8sLabelValues, k8sAnnotations, k8sAnnotationValues)
+	k8sLabels, k8sLabelValues := updateLabelsAndAnnotations(vmi)
+	updateMemory(vmi, vmStats, ps.ch, k8sLabels, k8sLabelValues)
+	updateVcpu(vmi, vmStats, ps.ch, k8sLabels, k8sLabelValues)
+	updateBlock(vmi, vmStats, ps.ch, k8sLabels, k8sLabelValues)
+	updateNetwork(vmi, vmStats, ps.ch, k8sLabels, k8sLabelValues)
 }
 
 func Handler(MaxRequestsInFlight int) http.Handler {
@@ -630,16 +595,11 @@ func Handler(MaxRequestsInFlight int) http.Handler {
 	)
 }
 
-func updateLabelsAndAnnotations(vmi *k6tv1.VirtualMachineInstance) (k8sLabels []string, k8sLabelValues []string, k8sAnnotations []string, k8sAnnotationValues []string) {
+func updateLabelsAndAnnotations(vmi *k6tv1.VirtualMachineInstance) (k8sLabels []string, k8sLabelValues []string) {
 	for label, val := range vmi.Labels {
 		k8sLabels = append(k8sLabels, labelPreffix+labelFormatter.Replace(label))
 		k8sLabelValues = append(k8sLabelValues, val)
 	}
 
-	for annotation, val := range vmi.Annotations {
-		k8sAnnotations = append(k8sAnnotations, annotationPreffix+labelFormatter.Replace(annotation))
-		k8sAnnotationValues = append(k8sAnnotationValues, val)
-	}
-
-	return k8sLabels, k8sLabelValues, k8sAnnotations, k8sAnnotationValues
+	return k8sLabels, k8sLabelValues
 }
