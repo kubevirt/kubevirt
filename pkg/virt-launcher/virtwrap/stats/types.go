@@ -74,6 +74,8 @@ type DomainStatsVcpu struct {
 	State    int // VcpuState
 	TimeSet  bool
 	Time     uint64
+	WaitSet  bool
+	Wait     uint64
 }
 
 type DomainStatsNet struct {
