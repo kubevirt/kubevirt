@@ -700,6 +700,9 @@ func (r *ReconcileHyperConverged) aggregateComponentConditions(req *hcoRequest) 
 
 func (r *ReconcileHyperConverged) completeReconciliation(req *hcoRequest) error {
 	allComponentsAreUp := r.aggregateComponentConditions(req)
+
+	hcoReady := false
+
 	if allComponentsAreUp {
 		req.logger.Info("No component operator reported negatively")
 
@@ -717,22 +720,9 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *hcoRequest) error 
 			req.logger.Info(fmt.Sprintf("Successfuly upgraded to version %s", r.ownVersion))
 		}
 
-		// If no operator whose conditions we are watching reports an error, then it is safe
-		// to set readiness.
-		r := ready.NewFileReady()
-		err := r.Set()
-		if err != nil {
-			req.logger.Error(err, "Failed to mark operator ready")
-			return err
-		}
-	} else if cond, conditionFound := req.conditions[conditionsv1.ConditionUpgradeable]; conditionFound && cond.Status == corev1.ConditionFalse {
-		// If for any reason we marked ourselves !upgradeable...then unset readiness
-		r := ready.NewFileReady()
-		err := r.Unset()
-		if err != nil {
-			req.logger.Error(err, "Failed to mark operator unready")
-			return err
-		}
+		// If not in upgrade mode, then we're ready, because all the operators reported positive conditions.
+		// if upgrade was done successfully, r.upgradeMode is already false here.
+		hcoReady = !r.upgradeMode
 	}
 
 	if r.upgradeMode {
@@ -743,6 +733,24 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *hcoRequest) error 
 			Reason:  "HCOUpgrading",
 			Message: "HCO is now upgrading to version " + r.ownVersion,
 		})
+	}
+
+	fr := ready.NewFileReady()
+	if hcoReady {
+		// If no operator whose conditions we are watching reports an error, then it is safe
+		// to set readiness.
+		err := fr.Set()
+		if err != nil {
+			req.logger.Error(err, "Failed to mark operator ready")
+			return err
+		}
+	} else {
+		// If for any reason we marked ourselves !upgradeable...then unset readiness
+		err := fr.Unset()
+		if err != nil {
+			req.logger.Error(err, "Failed to mark operator unready")
+			return err
+		}
 	}
 
 	return r.updateConditions(req)

@@ -3,6 +3,7 @@ package hyperconverged
 import (
 	"context"
 	"fmt"
+	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"os"
 
 	sspopv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis"
@@ -304,4 +305,16 @@ func (clusterInfoMock) IsOpenshift() bool {
 
 func (clusterInfoMock) IsRunningLocally() bool {
 	return false
+}
+
+func checkHcoReady() (bool, error) {
+	_, err := os.Stat(ready.FileName)
+
+	if err == nil {
+		return true, nil
+	} else if os.IsNotExist(err) {
+		return false, nil
+	}
+
+	return false, err
 }
