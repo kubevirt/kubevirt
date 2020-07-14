@@ -96,6 +96,29 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		tests.EnsureKVMPresent()
 	})
 
+	Context("when virt-handler is deleted", func() {
+		It("should label the node with kubevirt.io/schedulable=false", func() {
+			pods, err := virtClient.CoreV1().Pods("").List(metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).ToNot(BeEmpty())
+
+			pod := pods.Items[0]
+			handlerNamespace := pod.GetNamespace()
+			err = virtClient.CoreV1().Pods(handlerNamespace).Delete(pod.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() string {
+				n, err := virtClient.CoreV1().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				return n.Labels[v1.NodeSchedulable]
+			}, 20*time.Second, 1*time.Second).Should(Equal("false"))
+
+		})
+	})
+
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
 		It("[test_id:1619]should success", func() {
 			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
