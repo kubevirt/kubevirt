@@ -782,6 +782,21 @@ var _ = Describe("Infrastructure", func() {
 				}
 			}
 		})
+
+		It("[test_id:4147]should include kubernetes labels to VMI metrics", func() {
+			// Every VMI is labeled with kubevirt.io/nodeName, so just creating a VMI should
+			// be enough to its metrics to contain a kubernetes label
+			containK8sLabel := false
+			metrics := collectMetrics("kubevirt_vmi_vcpu_seconds")
+			By("Checking collected metrics")
+			keys := getKeysFromMetrics(metrics)
+			for _, key := range keys {
+				if strings.Contains(key, "kubernetes_vmi_label_") {
+					containK8sLabel = true
+				}
+			}
+			Expect(containK8sLabel).To(Equal(true))
+		})
 	})
 
 	Describe("Start a VirtualMachineInstance", func() {
