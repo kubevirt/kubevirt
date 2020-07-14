@@ -4840,6 +4840,12 @@ func SkipNFSTestIfRunnigOnKindInfra() {
 	}
 }
 
+func SkipSELinuxTestIfRunnigOnKindInfra() {
+	if IsRunningOnKindInfra() {
+		Skip("Skip SELinux tests till issue https://github.com/kubevirt/kubevirt/issues/3780 is fixed")
+	}
+}
+
 func IsUsingBuiltinNodeDrainKey() bool {
 	return GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
 }
