@@ -1302,7 +1302,7 @@ type KubeVirtConfiguration struct {
 	NetworkConfiguration        *NetworkConfiguration   `json:"network,omitempty"`
 	OVMFPath                    string                  `json:"ovmfPath,omitempty"`
 	SELinuxLauncherType         string                  `json:"selinuxLauncherType,omitempty"`
-	SMBIOSConfig                *SMBiosConfiguration    `json:"smbiOS,omitempty"`
+	SMBIOSConfig                *SMBiosConfiguration    `json:"smbios,omitempty"`
 	SupportedGuestAgentVersions []string                `json:"supportedGuestAgentVersions,omitempty"`
 }
 
