@@ -22,6 +22,7 @@ package imageupload
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -368,9 +369,13 @@ func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) erro
 	if err != nil {
 		return err
 	}
-
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected return value %d", resp.StatusCode)
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("unexpected return value %d, %s", resp.StatusCode, string(body))
 	}
 
 	return nil
