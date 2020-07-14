@@ -1181,7 +1181,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 		log.Log.Object(vmi).V(3).Info("No update processing required")
 	}
 
-	if syncErr != nil {
+	if syncErr != nil && !vmi.IsFinal() {
 		d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
 		log.Log.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
 	}
