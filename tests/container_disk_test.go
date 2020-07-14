@@ -247,7 +247,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking the writable Image Octal mode")
-				Expect(strings.Trim(writableImageOctalMode, "\n")).To(Equal("644"), "Octal Mode of writable Image should be 644")
+				Expect(strings.Trim(writableImageOctalMode, "\n")).To(Equal("640"), "Octal Mode of writable Image should be 640")
 
 				readonlyImageOctalMode, err := tests.ExecuteCommandOnPod(
 					virtClient,
@@ -258,7 +258,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking the read-only Image Octal mode")
-				Expect(strings.Trim(readonlyImageOctalMode, "\n")).To(Equal("555"), "Octal Mode of read-only Image should be 555")
+				Expect(strings.Trim(readonlyImageOctalMode, "\n")).To(Equal("444"), "Octal Mode of read-only Image should be 444")
 			})
 		})
 	})
