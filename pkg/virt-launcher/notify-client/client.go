@@ -201,7 +201,6 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
 			log.Log.Reason(err).Error("Could not fetch the Domain.")
-			client.SendDomainEvent(newWatchEventError(err))
 			return
 		}
 		domain.SetState(api.NoState, api.ReasonNonExistent)
@@ -215,7 +214,6 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		if err != nil {
 			if !domainerrors.IsNotFound(err) {
 				log.Log.Reason(err).Error("Could not fetch the Domain state.")
-				client.SendDomainEvent(newWatchEventError(err))
 				return
 			}
 			domain.SetState(api.NoState, api.ReasonNonExistent)
@@ -228,7 +226,6 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 			// NOTE: Getting domain metadata for a live-migrating VM isn't allowed
 			if !domainerrors.IsNotFound(err) && !domainerrors.IsInvalidOperation(err) {
 				log.Log.Reason(err).Error("Could not fetch the Domain specification.")
-				client.SendDomainEvent(newWatchEventError(err))
 				return
 			}
 		} else {
