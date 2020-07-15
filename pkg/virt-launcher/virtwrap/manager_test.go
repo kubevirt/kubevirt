@@ -106,7 +106,7 @@ var _ = Describe("Manager", func() {
 
 			domainSpec := expectIsolationDetectionForVMI(vmi)
 
-			xml, err := xml.Marshal(domainSpec)
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
@@ -128,7 +128,7 @@ var _ = Describe("Manager", func() {
 			networkData := ""
 			addCloudInitDisk(vmi, userData, networkData)
 			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.Marshal(domainSpec)
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
@@ -149,7 +149,7 @@ var _ = Describe("Manager", func() {
 			networkData := "FakeNetwork"
 			addCloudInitDisk(vmi, userData, networkData)
 			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.Marshal(domainSpec)
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
@@ -165,7 +165,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
 			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.Marshal(domainSpec)
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
@@ -181,7 +181,7 @@ var _ = Describe("Manager", func() {
 				mockDomain.EXPECT().Free()
 				vmi := newVMI(testNamespace, testVmName)
 				domainSpec := expectIsolationDetectionForVMI(vmi)
-				xml, err := xml.Marshal(domainSpec)
+				xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
@@ -203,7 +203,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
 			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.Marshal(domainSpec)
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
@@ -219,7 +219,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
 			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.Marshal(domainSpec)
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
@@ -313,7 +313,7 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 			domainSpec := expectIsolationDetectionForVMI(vmi)
 
-			oldXML, err := xml.Marshal(domainSpec)
+			oldXML, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 
 			t := true
@@ -356,7 +356,7 @@ var _ = Describe("Manager", func() {
 			}
 
 			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.Marshal(domainSpec)
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			manager := &LibvirtDomainManager{
 				virConn:                mockConn,
@@ -398,7 +398,7 @@ var _ = Describe("Manager", func() {
 			}
 
 			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.Marshal(domainSpec)
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			manager := &LibvirtDomainManager{
 				virConn:                mockConn,
@@ -431,7 +431,7 @@ var _ = Describe("Manager", func() {
 			}
 
 			domainSpec := expectIsolationDetectionForVMI(vmi)
-			xml, err := xml.Marshal(domainSpec)
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
@@ -461,7 +461,7 @@ var _ = Describe("Manager", func() {
 				AbortStatus: string(v1.MigrationAbortInProgress),
 			}
 
-			xml, err := xml.Marshal(domainSpec)
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
@@ -528,7 +528,7 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 
-			xml, err := xml.Marshal(domainSpec)
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
 			gomock.InOrder(
@@ -578,7 +578,7 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 
-			xml, err := xml.Marshal(domainSpec)
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
 			Expect(err).To(BeNil())
 
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
@@ -733,7 +733,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Free()
 			mockDomain.EXPECT().GetState().Return(state, libvirtReason, nil).AnyTimes()
 			mockDomain.EXPECT().GetName().Return("test", nil)
-			x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
+			x, err := xml.MarshalIndent(api.NewMinimalDomainSpec("test"), "", "\t")
 			Expect(err).To(BeNil())
 			if !cli.IsDown(state) {
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
