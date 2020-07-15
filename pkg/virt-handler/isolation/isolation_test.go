@@ -24,6 +24,7 @@ var _ = Describe("Isolation", func() {
 		var tmpDir string
 		var podsDir string
 		var podUID string
+		var finished chan struct{} = nil
 
 		podUID = "pid-uid-1234"
 		vm := v1.NewMinimalVMIWithNS("default", "testvm")
@@ -48,10 +49,12 @@ var _ = Describe("Isolation", func() {
 			os.MkdirAll(filepath.Dir(socketFile), os.ModePerm)
 			socket, err = net.Listen("unix", socketFile)
 			Expect(err).ToNot(HaveOccurred())
+			finished = make(chan struct{})
 			go func() {
 				for {
 					conn, err := socket.Accept()
 					if err != nil {
+						close(finished)
 						// closes when socket listener is closed
 						return
 					}
@@ -100,6 +103,9 @@ var _ = Describe("Isolation", func() {
 			socket.Close()
 			os.RemoveAll(tmpDir)
 			os.RemoveAll(podsDir)
+			if finished != nil {
+				<-finished
+			}
 		})
 	})
 })
