@@ -690,8 +690,8 @@ github.com/kubernetes-csi/external-snapshotter v0.0.0-20190509204040-e49856eb417
 github.com/kubernetes-csi/external-snapshotter/v2 v2.0.1/go.mod h1:vUEcwbrEpsQ/rDgaO8WTe1gVIY/4CCj0S4Q+UuOq5wA=
 github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1 h1:t5bmB3Y8nCaLA4aFrIpX0zjHEF/HUkJp6f5rm7BsVzM=
 github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1/go.mod h1:dV5oB3U62KBdlf9ADWkMmjGd3USauqQtwIm2OZb5mqI=
-github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200626184837-0a4151bd2041 h1:PdGEoq3qXB2me026BK9U5pNnhtvnO4eecqI59F9aYbs=
-github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200626184837-0a4151bd2041/go.mod h1:2pVevTSL8OEMJX8HMy1/827YInvw/0Q97r3Zkl06HHk=
+github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200715072547-9876b6dfad40 h1:7DwmkjAnLONF5YDh17BjSwWk/c0mL2c8M55rFukWlKo=
+github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200715072547-9876b6dfad40/go.mod h1:2pVevTSL8OEMJX8HMy1/827YInvw/0Q97r3Zkl06HHk=
 github.com/kubevirt/vm-import-operator v0.0.4 h1:R9Dk7cNn9OUvfUS08nDHj++oOujjs1Z5WPjMyS0itlM=
 github.com/kubevirt/vm-import-operator v0.0.4/go.mod h1:kKEbuf3fawBcnjQPA8CnWT24qTqh9YwK3HLK79nyUBk=
 github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=

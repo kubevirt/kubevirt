@@ -129,7 +129,7 @@ github.com/konsorten/go-windows-terminal-sequences
 github.com/kr/logfmt
 # github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1
 github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1
-# github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200626184837-0a4151bd2041
+# github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200715072547-9876b6dfad40
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1
 github.com/kubevirt/cluster-network-addons-operator/pkg/names
