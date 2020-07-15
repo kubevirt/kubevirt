@@ -246,7 +246,11 @@ func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, v
 					// wait until one of the copy routines exit then
 					// let the fd close
 					err = <-copyErr
-					log.Log.Object(vmi).Infof("closing notify pipe connection for vmi: %v", err)
+					if err != nil {
+						log.Log.Object(vmi).Infof("closing notify pipe connection for vmi with error: %v", err)
+					} else {
+						log.Log.Object(vmi).Infof("gracefully closed notify pipe connection for vmi")
+					}
 
 				}(vmi)
 			}
