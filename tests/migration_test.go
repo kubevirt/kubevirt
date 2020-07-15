@@ -460,6 +460,57 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			})
+
+			// We had a bug that prevent migrations and graceful shutdown when the libvirt connection
+			// is reset. This can occurr for many reasons, one easy way to trigger it is to
+			// force libvirtd down, which will result in virt-launcher respawning it.
+			// Previously, we'd stop getting events after libvirt reconnect, which
+			// prevented things like migration. This test verifies we can migrate after
+			// resetting libvirt
+			It("should migrate even if libvirt has restarted at some point.", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				expecter.Close()
+
+				By("Killing libvirtd")
+				pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(metav1.ListOptions{
+					LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
+				})
+				Expect(err).ToNot(HaveOccurred(), "Should list pods successfully")
+				Expect(pods.Items).To(HaveLen(1), "There should be only one VMI pod")
+
+				_, _, err = tests.ExecuteCommandOnPodV2(virtClient, &pods.Items[0], "compute",
+					[]string{
+						"/usr/bin/killall",
+						"/usr/sbin/libvirtd",
+					})
+				Expect(err).ToNot(HaveOccurred())
+
+				time.Sleep(30)
+
+				// execute a migration, wait for finalized state
+				By(fmt.Sprintf("Starting the Migration"))
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigration(vmi, migrationUID)
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+
+			})
 		})
 		Context("with auto converge enabled", func() {
 			BeforeEach(func() {
