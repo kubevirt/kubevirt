@@ -175,7 +175,7 @@ func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*callBackClien
 }
 
 func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.VirtualMachineInstance) (string, error) {
-	domainSpecXML, err := xml.Marshal(domainSpec)
+	domainSpecXML, err := xml.MarshalIndent(domainSpec, "", "\t")
 	if err != nil {
 		return "", fmt.Errorf("Failed to marshal domain spec: %v", domainSpec)
 	}
