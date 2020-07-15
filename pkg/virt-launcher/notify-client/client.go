@@ -338,7 +338,6 @@ func (n *Notifier) StartDomainNotifier(
 					interfaceStatuses, guestOsInfo)
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))
-				return
 			}
 		}
 	}()
@@ -355,6 +354,7 @@ func (n *Notifier) StartDomainNotifier(
 			log.Log.Infof("Libvirt event channel is full, dropping event.")
 		}
 	}
+
 	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")

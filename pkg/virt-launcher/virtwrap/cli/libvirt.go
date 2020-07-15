@@ -76,6 +76,9 @@ type LibvirtConnection struct {
 	stop          chan struct{}
 	reconnect     chan bool
 	reconnectLock *sync.Mutex
+
+	domainEventCallbacks []libvirt.DomainEventLifecycleCallback
+	agentEventCallbacks  []libvirt.DomainEventAgentLifecycleCallback
 }
 
 func (s *VirStream) Write(p []byte) (n int, err error) {
@@ -134,6 +137,7 @@ func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.Domain
 		return
 	}
 
+	l.domainEventCallbacks = append(l.domainEventCallbacks, callback)
 	_, err = l.Connect.DomainEventLifecycleRegister(nil, callback)
 	l.checkConnectionLost(err)
 	return
@@ -144,6 +148,7 @@ func (l *LibvirtConnection) AgentEventLifecycleRegister(callback libvirt.DomainE
 		return
 	}
 
+	l.agentEventCallbacks = append(l.agentEventCallbacks, callback)
 	_, err = l.Connect.DomainEventAgentLifecycleRegister(nil, callback)
 	l.checkConnectionLost(err)
 	return
@@ -291,6 +296,19 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 			return
 		}
 		l.alive = true
+
+		log.Log.Info("Established new Libvirt Connection")
+
+		for _, callback := range l.domainEventCallbacks {
+			log.Log.Info("Re-registered domain callback")
+			_, err = l.Connect.DomainEventLifecycleRegister(nil, callback)
+		}
+		for _, callback := range l.agentEventCallbacks {
+			log.Log.Info("Re-registered agent callback")
+			_, err = l.Connect.DomainEventAgentLifecycleRegister(nil, callback)
+		}
+
+		log.Log.Error("Re-registered domain and agent callbacks for new connection")
 
 		if l.reconnect != nil {
 			// Notify the callback about the reconnect through channel.

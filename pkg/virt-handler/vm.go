@@ -69,9 +69,9 @@ import (
 )
 
 type launcherClientInfo struct {
-	client     cmdclient.LauncherClient
-	socketFile string
-	domainPipe net.Listener
+	client             cmdclient.LauncherClient
+	socketFile         string
+	domainPipeStopChan chan struct{}
 }
 
 func NewController(
@@ -186,11 +186,83 @@ type virtLauncherCriticalNetworkError struct {
 
 func (e *virtLauncherCriticalNetworkError) Error() string { return e.msg }
 
-func (d *VirtualMachineController) startDomainNotifyPipe(vmi *v1.VirtualMachineInstance) (net.Listener, error) {
+func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
+
+	fdChan := make(chan net.Conn, 100)
+
+	// Listen for new connections,
+	// Close listener and exit when stop encountered
+	go func(vmi *v1.VirtualMachineInstance, ln net.Listener, domainPipeStopChan chan struct{}) {
+		for {
+			select {
+			case <-domainPipeStopChan:
+				log.Log.Object(vmi).Infof("closing notify pipe listener for vmi")
+				ln.Close()
+				return
+			default:
+				fd, err := ln.Accept()
+				if err != nil {
+					log.Log.Reason(err).Error("Domain pipe accept error encountered.")
+					// keep listening until stop invoked
+					time.Sleep(1)
+				} else {
+					fdChan <- fd
+				}
+			}
+		}
+	}(vmi, ln, domainPipeStopChan)
+
+	// Process new connections
+	// exit when stop encountered
+	go func(vmi *v1.VirtualMachineInstance, fdChan chan net.Conn, domainPipeStopChan chan struct{}) {
+		for {
+			select {
+			case <-domainPipeStopChan:
+				return
+			case fd := <-fdChan:
+				go func(vmi *v1.VirtualMachineInstance) {
+					defer fd.Close()
+
+					// pipe the VMI domain-notify.sock to the virt-handler domain-notify.sock
+					// so virt-handler receives notifications from the VMI
+					conn, err := net.Dial("unix", filepath.Join(virtShareDir, "domain-notify.sock"))
+					if err != nil {
+						log.Log.Reason(err).Error("error connecting to domain-notify.sock for proxy connection")
+						return
+					}
+					defer conn.Close()
+
+					log.Log.Object(vmi).Infof("Accepted new notify pipe connection for vmi")
+					copyErr := make(chan error)
+					go func() {
+						_, err := io.Copy(fd, conn)
+						copyErr <- err
+					}()
+					go func() {
+						_, err := io.Copy(conn, fd)
+						copyErr <- err
+					}()
+
+					// wait until one of the copy routines exit then
+					// let the fd close
+					err = <-copyErr
+					if err != nil {
+						log.Log.Object(vmi).Infof("closing notify pipe connection for vmi with error: %v", err)
+					} else {
+						log.Log.Object(vmi).Infof("gracefully closed notify pipe connection for vmi")
+					}
+
+				}(vmi)
+			}
+		}
+	}(vmi, fdChan, domainPipeStopChan)
+}
+
+func (d *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan struct{}, vmi *v1.VirtualMachineInstance) error {
 
 	res, err := d.podIsolationDetector.Detect(vmi)
 	if err != nil {
-		return nil, fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
+		return fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
 	}
 
 	// inject the domain-notify.sock into the VMI pod.
@@ -200,55 +272,18 @@ func (d *VirtualMachineController) startDomainNotifyPipe(vmi *v1.VirtualMachineI
 	err = os.MkdirAll(filepath.Dir(socketPath), 0755)
 	if err != nil {
 		log.Log.Reason(err).Error("unable to create directory for unix socket")
-		return nil, err
+		return err
 	}
 
 	listener, err := net.Listen("unix", socketPath)
 	if err != nil {
 		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
-		return nil, err
+		return err
 	}
 
-	// pipe the VMI domain-notify.sock to the virt-handler domain-notify.sock
-	// so virt-handler receives notifications from the VMI
-	conn, err := net.Dial("unix", filepath.Join(d.virtShareDir, "domain-notify.sock"))
-	if err != nil {
-		listener.Close()
-		return nil, err
-	}
+	handleDomainNotifyPipe(domainPipeStopChan, listener, d.virtShareDir, vmi)
 
-	go func(d *VirtualMachineController, ln net.Listener, socketPath string, vmi *v1.VirtualMachineInstance) {
-		defer conn.Close()
-		for {
-			fd, err := ln.Accept()
-			if err != nil {
-				log.Log.Reason(err).Error("domain pipe listener closed.")
-				break
-			}
-
-			go func(vmi *v1.VirtualMachineInstance) {
-				log.Log.Object(vmi).Infof("Accepted new notify pipe connection for vmi")
-				defer fd.Close()
-				copyErr := make(chan error)
-				go func() {
-					_, err := io.Copy(fd, conn)
-					copyErr <- err
-				}()
-				go func() {
-					_, err := io.Copy(conn, fd)
-					copyErr <- err
-				}()
-
-				// wait until one of the copy routines exit then
-				// let the fd close
-				err := <-copyErr
-				log.Log.Object(vmi).Infof("closing notify pipe connection for vmi: %v", err)
-
-			}(vmi)
-		}
-	}(d, listener, socketPath, vmi)
-
-	return listener, nil
+	return nil
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -1347,9 +1382,8 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	clientInfo, ok := d.launcherClients[vmi.UID]
 	if ok {
 		clientInfo.client.Close()
-		if clientInfo.domainPipe != nil {
-			clientInfo.domainPipe.Close()
-		}
+		close(clientInfo.domainPipeStopChan)
+
 		// With legacy sockets on hostpaths, we have to cleanup the sockets ourselves.
 		if cmdclient.IsLegacySocket(clientInfo.socketFile) {
 			err := os.RemoveAll(clientInfo.socketFile)
@@ -1373,15 +1407,15 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 }
 
 // used by unit tests to add mock clients
-func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, client cmdclient.LauncherClient, socketFile string, domainPipe net.Listener) error {
+func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, client cmdclient.LauncherClient, socketFile string) error {
 	// maps require locks for concurrent access
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 
 	d.launcherClients[vmUID] = &launcherClientInfo{
-		client:     client,
-		socketFile: socketFile,
-		domainPipe: domainPipe,
+		client:             client,
+		socketFile:         socketFile,
+		domainPipeStopChan: make(chan struct{}),
 	}
 
 	return nil
@@ -1420,7 +1454,6 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 }
 
 func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
-	var domainPipe net.Listener
 	var err error
 
 	// maps require locks for concurrent access
@@ -1447,20 +1480,22 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 		return nil, err
 	}
 
+	domainPipeStopChan := make(chan struct{})
 	// if this isn't a legacy socket, we need to
 	// pipe in the domain socket into the VMI's filesystem
 	if !cmdclient.IsLegacySocket(socketFile) {
-		domainPipe, err = d.startDomainNotifyPipe(vmi)
+		err = d.startDomainNotifyPipe(domainPipeStopChan, vmi)
 		if err != nil {
 			client.Close()
+			close(domainPipeStopChan)
 			return nil, err
 		}
 	}
 
 	d.launcherClients[vmi.UID] = &launcherClientInfo{
-		client:     client,
-		socketFile: socketFile,
-		domainPipe: domainPipe,
+		client:             client,
+		socketFile:         socketFile,
+		domainPipeStopChan: domainPipeStopChan,
 	}
 
 	return client, nil
