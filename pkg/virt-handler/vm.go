@@ -233,7 +233,7 @@ func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, v
 					defer conn.Close()
 
 					log.Log.Object(vmi).Infof("Accepted new notify pipe connection for vmi")
-					copyErr := make(chan error)
+					copyErr := make(chan error, 2)
 					go func() {
 						_, err := io.Copy(fd, conn)
 						copyErr <- err
