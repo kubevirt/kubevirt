@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "doc.go",
         "fake_snapshot_client.go",
+        "fake_virtualmachinerestore.go",
         "fake_virtualmachinesnapshot.go",
         "fake_virtualmachinesnapshotcontent.go",
     ],

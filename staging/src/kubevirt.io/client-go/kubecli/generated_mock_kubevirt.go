@@ -161,6 +161,16 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachineSnapshotContent(arg0 inter
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineSnapshotContent", arg0)
 }
 
+func (_m *MockKubevirtClient) VirtualMachineRestore(namespace string) v1alpha16.VirtualMachineRestoreInterface {
+	ret := _m.ctrl.Call(_m, "VirtualMachineRestore", namespace)
+	ret0, _ := ret[0].(v1alpha16.VirtualMachineRestoreInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) VirtualMachineRestore(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachineRestore", arg0)
+}
+
 func (_m *MockKubevirtClient) ServerVersion() *ServerVersion {
 	ret := _m.ctrl.Call(_m, "ServerVersion")
 	ret0, _ := ret[0].(*ServerVersion)

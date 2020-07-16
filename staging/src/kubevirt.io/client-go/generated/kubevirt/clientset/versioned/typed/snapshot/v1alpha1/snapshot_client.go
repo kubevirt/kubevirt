@@ -27,6 +27,7 @@ import (
 
 type SnapshotV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	VirtualMachineRestoresGetter
 	VirtualMachineSnapshotsGetter
 	VirtualMachineSnapshotContentsGetter
 }
@@ -34,6 +35,10 @@ type SnapshotV1alpha1Interface interface {
 // SnapshotV1alpha1Client is used to interact with features provided by the snapshot.kubevirt.io group.
 type SnapshotV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *SnapshotV1alpha1Client) VirtualMachineRestores(namespace string) VirtualMachineRestoreInterface {
+	return newVirtualMachineRestores(c, namespace)
 }
 
 func (c *SnapshotV1alpha1Client) VirtualMachineSnapshots(namespace string) VirtualMachineSnapshotInterface {
