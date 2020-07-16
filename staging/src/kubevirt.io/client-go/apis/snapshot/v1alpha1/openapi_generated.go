@@ -394,6 +394,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.Watchdog":                                            schema_kubevirtio_client_go_api_v1_Watchdog(ref),
 		"kubevirt.io/client-go/api/v1.WatchdogDevice":                                      schema_kubevirtio_client_go_api_v1_WatchdogDevice(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.SourceSpec":                          schema_client_go_apis_snapshot_v1alpha1_SourceSpec(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestore":               schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestore(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreCondition":      schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreCondition(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreList":           schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreList(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreSpec":           schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreStatus":         schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshot":              schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshot(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotCondition":     schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotCondition(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineSnapshotContent":       schema_client_go_apis_snapshot_v1alpha1_VirtualMachineSnapshotContent(ref),
@@ -18160,6 +18165,236 @@ func schema_client_go_apis_snapshot_v1alpha1_SourceSpec(ref common.ReferenceCall
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.VirtualMachine"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestore(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestore defines the operation of restoring a VM",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreSpec", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreStatus"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestoreCondition defines snapshot conditions",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"lastProbeTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestoreList is a list of VirtualMachineRestore resources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestore"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestore"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Description: "initially only VirtualMachine type supported",
+							Ref:         ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
+						},
+					},
+					"virtualMachineSnapshotName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"includeVolumes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "only one of IncludeVolumes/ExcludeVolumes may be specified",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"excludeVolumes": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"target", "virtualMachineSnapshotName"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.TypedLocalObjectReference"},
+	}
+}
+
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"complete": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreCondition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreCondition"},
 	}
 }
 
