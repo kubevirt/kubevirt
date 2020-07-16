@@ -26,14 +26,18 @@ const (
 
 var _ = Describe("ImageUpload", func() {
 
-	tests.FlagParse()
-
 	namespace := tests.NamespaceTestDefault
 	dvName := "alpine-dv"
 	pvcSize := "100Mi"
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
+
+	BeforeEach(func() {
+		var err error
+
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+	})
 
 	BeforeEach(func() {
 		By("Getting CDI HTTP import server pod")

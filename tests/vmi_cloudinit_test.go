@@ -51,80 +51,92 @@ const (
 
 var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component]CloudInit UserData", func() {
 
-	tests.FlagParse()
+	var err error
+	var virtClient kubecli.KubevirtClient
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var (
+		LaunchVMI                 func(*v1.VirtualMachineInstance)
+		VerifyUserDataVMI         func(*v1.VirtualMachineInstance, []expect.Batcher, time.Duration)
+		MountCloudInitNoCloud     func(*v1.VirtualMachineInstance, string)
+		MountCloudInitConfigDrive func(*v1.VirtualMachineInstance, string)
+		CheckCloudInitFile        func(*v1.VirtualMachineInstance, string, string, string)
+		CheckCloudInitMetaData    func(*v1.VirtualMachineInstance, string, string, string)
+	)
 
-	LaunchVMI := func(vmi *v1.VirtualMachineInstance) {
-		By("Starting a VirtualMachineInstance")
-		obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
-		Expect(err).To(BeNil())
+	tests.BeforeAll(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 
-		By("Waiting the VirtualMachineInstance start")
-		_, ok := obj.(*v1.VirtualMachineInstance)
-		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-		Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
-	}
+		LaunchVMI = func(vmi *v1.VirtualMachineInstance) {
+			By("Starting a VirtualMachineInstance")
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			Expect(err).To(BeNil())
 
-	VerifyUserDataVMI := func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
-		By("Expecting the VirtualMachineInstance console")
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-		Expect(err).ToNot(HaveOccurred())
-		defer expecter.Close()
+			By("Waiting the VirtualMachineInstance start")
+			_, ok := obj.(*v1.VirtualMachineInstance)
+			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
+			Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
+		}
 
-		By("Checking that the VirtualMachineInstance serial console output equals to expected one")
-		resp, err := expecter.ExpectBatch(commands, timeout)
-		log.DefaultLogger().Object(vmi).Infof("%v", resp)
-		Expect(err).ToNot(HaveOccurred())
-	}
+		VerifyUserDataVMI = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
+			By("Expecting the VirtualMachineInstance console")
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
 
-	mountCloudInitFunc := func(devName string) func(*v1.VirtualMachineInstance, string) {
-		return func(vmi *v1.VirtualMachineInstance, prompt string) {
-			cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\n", devName)
+			By("Checking that the VirtualMachineInstance serial console output equals to expected one")
+			resp, err := expecter.ExpectBatch(commands, timeout)
+			log.DefaultLogger().Object(vmi).Infof("%v", resp)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		mountCloudInitFunc := func(devName string) func(*v1.VirtualMachineInstance, string) {
+			return func(vmi *v1.VirtualMachineInstance, prompt string) {
+				cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\n", devName)
+				err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+					&expect.BSnd{S: "sudo su -\n"},
+					&expect.BExp{R: prompt},
+					&expect.BSnd{S: cmdCheck},
+					&expect.BExp{R: prompt},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+				}, 15)
+				Expect(err).ToNot(HaveOccurred())
+			}
+		}
+
+		MountCloudInitNoCloud = mountCloudInitFunc("cidata")
+		MountCloudInitConfigDrive = mountCloudInitFunc("config-2")
+
+		CheckCloudInitFile = func(vmi *v1.VirtualMachineInstance, prompt, testFile, testData string) {
+			cmdCheck := "cat /mnt/" + testFile + "\n"
 			err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
 				&expect.BSnd{S: "sudo su -\n"},
 				&expect.BExp{R: prompt},
 				&expect.BSnd{S: cmdCheck},
-				&expect.BExp{R: prompt},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: "0"},
+				&expect.BExp{R: testData},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		}
-	}
+		CheckCloudInitMetaData = func(vmi *v1.VirtualMachineInstance, prompt, testFile, testData string) {
+			cmdCheck := "cat /mnt/" + testFile + "\n"
+			virtClient, err := kubecli.GetKubevirtClient()
+			tests.PanicOnError(err)
+			expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
 
-	MountCloudInitNoCloud := mountCloudInitFunc("cidata")
-	MountCloudInitConfigDrive := mountCloudInitFunc("config-2")
-
-	CheckCloudInitFile := func(vmi *v1.VirtualMachineInstance, prompt, testFile, testData string) {
-		cmdCheck := "cat /mnt/" + testFile + "\n"
-		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-			&expect.BSnd{S: "sudo su -\n"},
-			&expect.BExp{R: prompt},
-			&expect.BSnd{S: cmdCheck},
-			&expect.BExp{R: testData},
-		}, 15)
-		Expect(err).ToNot(HaveOccurred())
-	}
-	CheckCloudInitMetaData := func(vmi *v1.VirtualMachineInstance, prompt, testFile, testData string) {
-		cmdCheck := "cat /mnt/" + testFile + "\n"
-		virtClient, err := kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
-		Expect(err).ToNot(HaveOccurred())
-		defer expecter.Close()
-
-		res, err := expecter.ExpectBatch([]expect.Batcher{
-			&expect.BSnd{S: "sudo su -\n"},
-			&expect.BExp{R: prompt},
-			&expect.BSnd{S: cmdCheck},
-			&expect.BExp{R: testData},
-		}, 15*time.Second)
-		if err != nil {
-			Expect(res[1].Output).To(ContainSubstring(testData))
+			res, err := expecter.ExpectBatch([]expect.Batcher{
+				&expect.BSnd{S: "sudo su -\n"},
+				&expect.BExp{R: prompt},
+				&expect.BSnd{S: cmdCheck},
+				&expect.BExp{R: testData},
+			}, 15*time.Second)
+			if err != nil {
+				Expect(res[1].Output).To(ContainSubstring(testData))
+			}
 		}
-	}
+	})
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()

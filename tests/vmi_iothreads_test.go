@@ -39,22 +39,26 @@ import (
 )
 
 var _ = Describe("IOThreads", func() {
-	tests.FlagParse()
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
 	var vmi *v1.VirtualMachineInstance
 	dedicated := true
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 	})
 
 	Context("IOThreads Policies", func() {
+		var availableCPUs int
 
-		availableCPUs := tests.GetHighestCPUNumberAmongNodes(virtClient)
+		tests.BeforeAll(func() {
+			availableCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
+		})
 
 		It("[test_id:4122]Should honor shared ioThreadsPolicy for single disk", func() {
 			policy := v1.IOThreadsPolicyShared

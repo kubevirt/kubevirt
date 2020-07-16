@@ -47,10 +47,8 @@ const (
 )
 
 var _ = Describe("Templates", func() {
-	tests.FlagParse()
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
 	var (
 		templateParams map[string]string
@@ -60,6 +58,9 @@ var _ = Describe("Templates", func() {
 	)
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.SkipIfNoCmd("oc")
 		tests.BeforeTestCleanup()
 		SetDefaultEventuallyTimeout(120 * time.Second)

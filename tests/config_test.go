@@ -36,11 +36,14 @@ import (
 
 var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component]Config", func() {
 
-	tests.FlagParse()
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
+		var err error
+
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.BeforeTestCleanup()
 	})
 
@@ -236,9 +239,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("With a ServiceAccount defined", func() {
-
-		virtClient, err := kubecli.GetKubevirtClient()
-		tests.PanicOnError(err)
 
 		serviceAccountPath := config.ServiceAccountSourceDir
 

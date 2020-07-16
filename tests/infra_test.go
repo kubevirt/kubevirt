@@ -53,17 +53,23 @@ import (
 )
 
 var _ = Describe("Infrastructure", func() {
-	tests.FlagParse()
+	var virtClient kubecli.KubevirtClient
+	var aggregatorClient *aggregatorclient.Clientset
+	var err error
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 
-	config, err := kubecli.GetConfig()
-	if err != nil {
-		panic(err)
-	}
+		if aggregatorClient == nil {
+			config, err := kubecli.GetConfig()
+			if err != nil {
+				panic(err)
+			}
 
-	aggregatorClient := aggregatorclient.NewForConfigOrDie(config)
+			aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
+		}
+	})
 
 	Describe("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates", func() {
 

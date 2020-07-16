@@ -46,11 +46,15 @@ func waitForJobToCompleteWithStatus(virtClient *kubecli.KubevirtClient, jobPod *
 
 var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose", func() {
 
-	tests.FlagParse()
+	var virtClient kubecli.KubevirtClient
+	var err error
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
 	const testPort = 1500
+
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+	})
 
 	Context("Expose service on a VM", func() {
 		var tcpVM *v1.VirtualMachineInstance

@@ -21,12 +21,15 @@ import (
 
 var _ = Describe("VirtualMachineSnapshot Tests", func() {
 
-	tests.FlagParse()
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
 	groupName := "kubevirt.io/v1alpha3"
+
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+	})
 
 	Context("With simple VM", func() {
 		var vm *v1.VirtualMachine

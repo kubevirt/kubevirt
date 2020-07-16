@@ -141,10 +141,9 @@ func createCommandWithNSAndRedirect(namespace, cmdName string, args ...string) (
 }
 
 var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:component]VmWatch", func() {
-	tests.FlagParse()
+	var err error
+	var virtCli kubecli.KubevirtClient
 
-	virtCli, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
 	var vm *v12.VirtualMachine
 
 	// Reads an error from stderr and fails the test
@@ -162,6 +161,9 @@ var _ = Describe("[rfe_id:3423][crit:high][vendor:cnv-qe@redhat.com][level:compo
 	}
 
 	BeforeEach(func() {
+		virtCli, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.SkipIfVersionBelow("Printing format for `kubectl get -w` on custom resources is only relevant for 1.16.2+", relevantk8sVer)
 		tests.BeforeTestCleanup()
 

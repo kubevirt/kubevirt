@@ -40,16 +40,18 @@ func assertPingFail(ip string, vmi *v1.VirtualMachineInstance) {
 
 var _ = Describe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", func() {
 
-	tests.FlagParse()
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
 
 	var vmia *v1.VirtualMachineInstance
 	var vmib *v1.VirtualMachineInstance
 	var vmic *v1.VirtualMachineInstance
 
 	tests.BeforeAll(func() {
+		var err error
+
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.SkipIfUseFlannel(virtClient)
 		tests.SkipIfNotUseNetworkPolicy(virtClient)
 		tests.BeforeTestCleanup()

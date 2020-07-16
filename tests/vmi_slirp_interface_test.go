@@ -40,10 +40,8 @@ import (
 
 var _ = Describe("Slirp Networking", func() {
 
-	tests.FlagParse()
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
 	var genericVmi *v1.VirtualMachineInstance
 	var deadbeafVmi *v1.VirtualMachineInstance
@@ -57,6 +55,9 @@ var _ = Describe("Slirp Networking", func() {
 	}
 
 	tests.BeforeAll(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		setSlirpEnabled(true)
 		ports := []v1.Port{{Name: "http", Port: 80}}
 		genericVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)

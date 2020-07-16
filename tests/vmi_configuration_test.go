@@ -53,12 +53,13 @@ import (
 
 var _ = Describe("Configurations", func() {
 
-	tests.FlagParse()
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.BeforeTestCleanup()
 	})
 
@@ -168,9 +169,12 @@ var _ = Describe("Configurations", func() {
 
 	Describe("VirtualMachineInstance definition", func() {
 		Context("[rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", func() {
-			availableNumberOfCPUs := tests.GetHighestCPUNumberAmongNodes(virtClient)
-
+			var availableNumberOfCPUs int
 			var vmi *v1.VirtualMachineInstance
+
+			tests.BeforeAll(func() {
+				availableNumberOfCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
+			})
 
 			BeforeEach(func() {
 				requiredNumberOfCpus := 3

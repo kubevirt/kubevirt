@@ -61,14 +61,15 @@ const (
 )
 
 var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system] VM Live Migration", func() {
-	tests.FlagParse()
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
 
 	var originalKubeVirtConfig *k8sv1.ConfigMap
+	var err error
 
 	tests.BeforeAll(func() {
+
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 
 		originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
 		if err != nil && !errors.IsNotFound(err) {

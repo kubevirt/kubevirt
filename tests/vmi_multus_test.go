@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -57,10 +56,8 @@ const (
 
 var _ = Describe("Multus", func() {
 
-	tests.FlagParse()
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
 	var nodes *k8sv1.NodeList
 
@@ -95,6 +92,9 @@ var _ = Describe("Multus", func() {
 	}
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		// Multus tests need to ensure that old VMIs are gone
 		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestDefault).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
 		Expect(virtClient.RestClient().Delete().Namespace(tests.NamespaceTestAlternative).Resource("virtualmachineinstances").Do().Error()).To(Succeed())
@@ -567,10 +567,8 @@ var _ = Describe("Multus", func() {
 
 var _ = Describe("SRIOV", func() {
 
-	flag.Parse()
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
 	sriovResourceName := os.Getenv("SRIOV_RESOURCE_NAME")
 
@@ -579,6 +577,9 @@ var _ = Describe("SRIOV", func() {
 	}
 
 	tests.BeforeAll(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.BeforeTestCleanup()
 		// Check if the hardware supports SRIOV
 		sriovcheck := checkSriovEnabled(virtClient, sriovResourceName)

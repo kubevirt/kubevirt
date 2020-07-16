@@ -37,18 +37,22 @@ import (
 )
 
 var _ = Describe("MultiQueue", func() {
-	tests.FlagParse()
-
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var err error
+	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
 		tests.BeforeTestCleanup()
 	})
 
 	Context("MultiQueue Behavior", func() {
+		var availableCPUs int
 
-		availableCPUs := tests.GetHighestCPUNumberAmongNodes(virtClient)
+		tests.BeforeAll(func() {
+			availableCPUs = tests.GetHighestCPUNumberAmongNodes(virtClient)
+		})
 
 		It("should be able to successfully boot fedora to the login prompt with networking mutiqueues enabled without being blocked by selinux", func() {
 			vmi := tests.NewRandomFedoraVMIWitGuestAgent()
