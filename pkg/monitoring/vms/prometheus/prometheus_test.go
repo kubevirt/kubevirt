@@ -173,6 +173,31 @@ var _ = Describe("Prometheus", func() {
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_vcpu_seconds"))
 		})
 
+		It("should not expose vcpu metrics for invalid DomainStats", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Vcpu: []stats.DomainStatsVcpu{
+					{
+						// vcpu State is not set!
+						TimeSet: true,
+						Time:    2000,
+					},
+				},
+			}
+
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			// metrics about invalid stats never get pushed into the channel
+			Eventually(ch).Should(BeEmpty())
+		})
+
 		It("should handle block read iops metrics", func() {
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
@@ -335,6 +360,29 @@ var _ = Describe("Prometheus", func() {
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_storage_times_ms_total"))
 		})
 
+		It("should not expose nameless block metrics", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Block: []stats.DomainStatsBlock{
+					{
+						RdReqsSet: true,
+						RdReqs:    1000,
+					},
+				},
+			}
+
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			Eventually(ch).Should(BeEmpty())
+		})
+
 		It("should handle network rx traffic bytes metrics", func() {
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
@@ -495,6 +543,29 @@ var _ = Describe("Prometheus", func() {
 			result := <-ch
 			Expect(result).ToNot(BeNil())
 			Expect(result.Desc().String()).To(ContainSubstring("kubevirt_vmi_network_errors_total"))
+		})
+
+		It("should not expose nameless network interface metrics", func() {
+			ch := make(chan prometheus.Metric, 1)
+			defer close(ch)
+
+			ps := prometheusScraper{ch: ch}
+
+			vmStats := &stats.DomainStats{
+				Cpu:    &stats.DomainStatsCPU{},
+				Memory: &stats.DomainStatsMemory{},
+				Net: []stats.DomainStatsNet{
+					{
+						TxErrsSet: true,
+						TxErrs:    1000,
+					},
+				},
+			}
+
+			vmi := k6tv1.VirtualMachineInstance{}
+			ps.Report("test", &vmi, vmStats)
+
+			Eventually(ch).Should(BeEmpty())
 		})
 
 		It("should add kubernetes metadata labels", func() {
