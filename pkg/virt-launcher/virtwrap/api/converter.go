@@ -1323,6 +1323,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				domainIface.Type = "ethernet"
 				if iface.BootOrder != nil {
 					domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
+				} else {
+					domainIface.Rom = &Rom{Enabled: "no"}
 				}
 			} else if iface.Slirp != nil {
 				domainIface.Type = "user"

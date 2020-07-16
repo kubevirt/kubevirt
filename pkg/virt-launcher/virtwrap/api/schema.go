@@ -602,6 +602,7 @@ type Interface struct {
 	FilterRef           *FilterRef       `xml:"filterref,omitempty"`
 	Alias               *Alias           `xml:"alias,omitempty"`
 	Driver              *InterfaceDriver `xml:"driver,omitempty"`
+	Rom                 *Rom             `xml:"rom,omitempty"`
 }
 
 type InterfaceDriver struct {
@@ -654,6 +655,10 @@ type Alias struct {
 }
 
 type UserAlias Alias
+
+type Rom struct {
+	Enabled string `xml:"enabled,attr"`
+}
 
 func (alias Alias) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	userAlias := UserAlias(alias)
