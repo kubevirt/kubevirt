@@ -226,7 +226,7 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					origSpec = vm.Spec.DeepCopy()
-					Expect(origSpec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("64M")))
+					Expect(origSpec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory]).To(Equal(resource.MustParse("128M")))
 
 					vm.Spec.Template.Spec.Domain.Resources.Requests[corev1.ResourceMemory] = resource.MustParse("128M")
 					updatedVM, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)

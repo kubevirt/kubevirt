@@ -115,11 +115,11 @@ var _ = Describe("Configurations", func() {
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 				Requests: kubev1.ResourceList{
 					kubev1.ResourceCPU:    resource.MustParse("1"),
-					kubev1.ResourceMemory: resource.MustParse("64M"),
+					kubev1.ResourceMemory: resource.MustParse("128M"),
 				},
 				Limits: kubev1.ResourceList{
 					kubev1.ResourceCPU:    resource.MustParse("1"),
-					kubev1.ResourceMemory: resource.MustParse("64M"),
+					kubev1.ResourceMemory: resource.MustParse("128M"),
 				},
 			}
 
@@ -145,7 +145,7 @@ var _ = Describe("Configurations", func() {
 				Requests: kubev1.ResourceList{},
 				Limits: kubev1.ResourceList{
 					kubev1.ResourceCPU:    resource.MustParse("1"),
-					kubev1.ResourceMemory: resource.MustParse("64M"),
+					kubev1.ResourceMemory: resource.MustParse("128M"),
 				},
 			}
 
@@ -193,7 +193,7 @@ var _ = Describe("Configurations", func() {
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 
@@ -215,7 +215,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred(), "should report number of cores")
 
 				By("Checking the requested amount of memory allocated for a guest")
-				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
+				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("128M"))
 
 				readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				var computeContainer *kubev1.Container
@@ -228,7 +228,7 @@ var _ = Describe("Configurations", func() {
 				if computeContainer == nil {
 					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
 				}
-				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(243)))
+				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(307)))
 
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -258,7 +258,7 @@ var _ = Describe("Configurations", func() {
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 
@@ -285,7 +285,7 @@ var _ = Describe("Configurations", func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("1200m"),
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 
@@ -311,7 +311,7 @@ var _ = Describe("Configurations", func() {
 				vmi.Spec.Domain.CPU = nil
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 					Limits: kubev1.ResourceList{
 						kubev1.ResourceCPU: resource.MustParse("1200m"),
@@ -344,7 +344,7 @@ var _ = Describe("Configurations", func() {
 				}
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 
@@ -370,7 +370,7 @@ var _ = Describe("Configurations", func() {
 				_true := true
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 						kubev1.ResourceCPU:    resource.MustParse("3"),
 					},
 				}
@@ -395,7 +395,7 @@ var _ = Describe("Configurations", func() {
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 						kubev1.ResourceCPU:    resource.MustParse("3"),
 					},
 				}
@@ -419,7 +419,7 @@ var _ = Describe("Configurations", func() {
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 				vmi.Spec.Domain.Devices.BlockMultiQueue = &_false
@@ -496,7 +496,7 @@ var _ = Describe("Configurations", func() {
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging guest memory from requested memory", func() {
 			It("[test_id:1669]should show the requested guest memory inside the VMI", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
+				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("128M")
 				guestMemory := resource.MustParse("128M")
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guestMemory,
@@ -512,7 +512,7 @@ var _ = Describe("Configurations", func() {
 
 				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: "104"},
+					&expect.BExp{R: "94"},
 				}, 10*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -523,7 +523,7 @@ var _ = Describe("Configurations", func() {
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with diverging memory limit from memory request and no guest memory", func() {
 			It("[test_id:3115]should show the memory limit inside the VMI", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
+				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("128M")
 				vmi.Spec.Domain.Resources.Limits = kubev1.ResourceList{
 					kubev1.ResourceMemory: resource.MustParse("128M"),
 				}
@@ -537,7 +537,7 @@ var _ = Describe("Configurations", func() {
 
 				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: "104"},
+					&expect.BExp{R: "94"},
 				}, 10*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -549,7 +549,7 @@ var _ = Describe("Configurations", func() {
 			It("[test_id:755]should show the requested memory different than guest memory", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				guestMemory := resource.MustParse("256Mi")
-				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64Mi")
+				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("128Mi")
 				vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
 				vmi.Spec.Domain.Memory = &v1.Memory{
 					Guest: &guestMemory,
@@ -566,7 +566,7 @@ var _ = Describe("Configurations", func() {
 				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass'\n"},
 					&expect.BExp{R: tests.RetValue("pass")},
-					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
+					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=100k\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: tests.RetValue("0")},
@@ -585,7 +585,7 @@ var _ = Describe("Configurations", func() {
 				By("Converting pod memory usage")
 				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
 				Expect(err).ToNot(HaveOccurred())
-				By("Checking if pod memory usage is > 64Mi")
+				By("Checking if pod memory usage is > 128Mi")
 				Expect(m > 67108864).To(BeTrue(), "67108864 B = 64 Mi")
 			})
 
@@ -622,7 +622,7 @@ var _ = Describe("Configurations", func() {
 
 				// Check on the VM, if the Free memory is roughly what we expected
 				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 95 ] && echo 'pass'\n"},
+					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 90 ] && echo 'pass'\n"},
 					&expect.BExp{R: tests.RetValue("pass")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
@@ -816,13 +816,13 @@ var _ = Describe("Configurations", func() {
 					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
-							kubev1.ResourceMemory: resource.MustParse("64M"),
+							kubev1.ResourceMemory: resource.MustParse("128M"),
 						},
 					}
 					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 					virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 					return err
-				}, 5*time.Second, 1*time.Second).Should(MatchError("admission webhook \"virtualmachineinstances-create-validator.kubevirt.io\" denied the request: spec.domain.resources.requests.memory '64M' is greater than spec.domain.resources.limits.memory '32Mi'"))
+				}, 5*time.Second, 1*time.Second).Should(MatchError("admission webhook \"virtualmachineinstances-create-validator.kubevirt.io\" denied the request: spec.domain.resources.requests.memory '128M' is greater than spec.domain.resources.limits.memory '32Mi'"))
 			})
 		})
 
@@ -892,7 +892,7 @@ var _ = Describe("Configurations", func() {
 				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 					Limits: kubev1.ResourceList{
 						kubev1.ResourceCPU: resource.MustParse("1000m"),
@@ -904,7 +904,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred(), "should start vmi")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				Expect(vmi.Spec.Domain.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+				Expect(vmi.Spec.Domain.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(128)))
 				Expect(vmi.Spec.Domain.Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(512)))
 				Expect(vmi.Spec.Domain.Resources.Requests.Cpu().MilliValue()).To(Equal(int64(500)))
 				Expect(vmi.Spec.Domain.Resources.Limits.Cpu().MilliValue()).To(Equal(int64(1000)))
@@ -1023,9 +1023,9 @@ var _ = Describe("Configurations", func() {
 				By("Checking that the VM memory equals to a number of consumed hugepages")
 				Eventually(func() bool { return verifyHugepagesConsumption() }, 30*time.Second, 5*time.Second).Should(BeTrue())
 			},
-				table.Entry("[Serial][test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None"),
+				table.Entry("[Serial][test_id:1671]hugepages-2Mi", "2Mi", "128Mi", "None"),
 				table.Entry("[Serial][test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None"),
-				table.Entry("[Serial][test_id:1672]hugepages-1Gi", "2Mi", "70Mi", "64Mi"),
+				table.Entry("[Serial][test_id:1672]hugepages-2Mi with 256Mi guest memory", "2Mi", "140Mi", "128Mi"),
 			)
 
 			Context("with unsupported page size", func() {
@@ -1681,7 +1681,7 @@ var _ = Describe("Configurations", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 				Requests: kubev1.ResourceList{
-					kubev1.ResourceMemory: resource.MustParse("64M"),
+					kubev1.ResourceMemory: resource.MustParse("128M"),
 				},
 			}
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -1698,7 +1698,7 @@ var _ = Describe("Configurations", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 				Requests: kubev1.ResourceList{
-					kubev1.ResourceMemory: resource.MustParse("64M"),
+					kubev1.ResourceMemory: resource.MustParse("128M"),
 				},
 			}
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -1731,7 +1731,7 @@ var _ = Describe("Configurations", func() {
 			tests.SkipPVCTestIfRunnigOnKindInfra()
 
 			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
+			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("128M")
 
 			By("adding disks to a VMI")
 			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
@@ -1951,7 +1951,7 @@ var _ = Describe("Configurations", func() {
 				}
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 
@@ -2011,18 +2011,17 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
-				Skip("Skip test till issue https://github.com/kubevirt/kubevirt/issues/3910 is fixed")
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets:               2,
 					Cores:                 1,
 					DedicatedCPUPlacement: true,
 				}
-				guestMemory := resource.MustParse("64M")
+				guestMemory := resource.MustParse("128M")
 				cpuVmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("80M"),
+						kubev1.ResourceMemory: resource.MustParse("160M"),
 					},
 				}
 
@@ -2050,9 +2049,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass'\n"},
+					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 160 ] && echo 'pass'\n"},
 					&expect.BExp{R: tests.RetValue("pass")},
-					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
+					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=45k\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: tests.RetValue("0")},
@@ -2071,8 +2070,8 @@ var _ = Describe("Configurations", func() {
 				By("Converting pod memory usage")
 				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
 				Expect(err).ToNot(HaveOccurred())
-				By("Checking if pod memory usage is > 80Mi")
-				Expect(m > 83886080).To(BeTrue(), "83886080 B = 80 Mi")
+				By("Checking if pod memory usage is > 160Mi")
+				Expect(m > 167772160).To(BeTrue(), "167772160 B = 160 Mi")
 			})
 			It("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func() {
 
@@ -2084,7 +2083,7 @@ var _ = Describe("Configurations", func() {
 				}
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 
@@ -2154,7 +2153,7 @@ var _ = Describe("Configurations", func() {
 
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 				By("Starting a VirtualMachineInstance")
@@ -2170,7 +2169,7 @@ var _ = Describe("Configurations", func() {
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("2"),
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 				By("Starting a VirtualMachineInstance")
@@ -2202,7 +2201,7 @@ var _ = Describe("Configurations", func() {
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("3"),
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 				By("Starting a VirtualMachineInstance")
@@ -2217,7 +2216,7 @@ var _ = Describe("Configurations", func() {
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("300m"),
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 				By("Starting a VirtualMachineInstance")
@@ -2232,7 +2231,7 @@ var _ = Describe("Configurations", func() {
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("2"),
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 					Limits: kubev1.ResourceList{
 						kubev1.ResourceCPU: resource.MustParse("4"),
@@ -2251,13 +2250,13 @@ var _ = Describe("Configurations", func() {
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("2"),
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 				Vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceCPU:    resource.MustParse("1"),
-						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceMemory: resource.MustParse("128M"),
 					},
 				}
 				Vmi.Spec.NodeSelector = map[string]string{v1.CPUManager: "true"}

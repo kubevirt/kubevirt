@@ -1893,8 +1893,6 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
-
 	diskName := "disk0"
 	bus := "virtio"
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -2049,7 +2047,7 @@ func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInst
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128M")
 	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
 	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedora) {
 		vmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
@@ -2325,7 +2323,7 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128M")
 	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
 	return vmi
 }
@@ -2449,7 +2447,7 @@ func deleteBlockPVAndPVC() {
 func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128M")
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: "disk0",
 		DiskDevice: v1.DiskDevice{
@@ -2474,7 +2472,7 @@ func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
 func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128M")
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: "disk0",
 		DiskDevice: v1.DiskDevice{

@@ -106,7 +106,7 @@ func getBaseVMISpec() *v1.VirtualMachineInstanceSpec {
 		Domain: v1.DomainSpec{
 			Resources: v1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("64M"),
+					k8sv1.ResourceMemory: resource.MustParse("128M"),
 				},
 			},
 		},
@@ -967,7 +967,7 @@ func GetVMIPresetSmall() *v1.VirtualMachineInstancePreset {
 	vmPreset.Spec.Domain = &v1.DomainSpec{
 		Resources: v1.ResourceRequirements{
 			Requests: k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64M"),
+				k8sv1.ResourceMemory: resource.MustParse("128M"),
 			},
 		},
 	}

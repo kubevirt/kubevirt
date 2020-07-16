@@ -73,37 +73,37 @@ http_file(
 # Disk images
 http_file(
     name = "alpine_image",
-    sha256 = "5a4b2588afd32e7024dd61d9558b77b03a4f3189cb4c9fc05e9e944fb780acdd",
+    sha256 = "fe694a34c0e2d30b9e5dea7e2c1a3892c1f14cb474b69cc5c557a52970071da5",
     urls = [
-        "http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso",
-        "https://storage.googleapis.com/builddeps/5a4b2588afd32e7024dd61d9558b77b03a4f3189cb4c9fc05e9e944fb780acdd",
+        "http://dl-cdn.alpinelinux.org/alpine/v3.12/releases/x86_64/alpine-virt-3.12.0-x86_64.iso",
+        "https://storage.googleapis.com/builddeps/fe694a34c0e2d30b9e5dea7e2c1a3892c1f14cb474b69cc5c557a52970071da5",
     ],
 )
 
 http_file(
     name = "alpine_image_ppc64le",
-    sha256 = "4b1d35e7cc9f5e1f5774ed9ea47c85893f20dc8713625e1f8fa7fbddca243a15",
+    sha256 = "b1f552d2ebdf8842d5e0965194fc64c12c5f713e331c043ab1af5f68f32bef5f",
     urls = [
-        "http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/ppc64le/alpine-vanilla-3.7.0-ppc64le.iso",
-        "https://storage.googleapis.com/builddeps/4b1d35e7cc9f5e1f5774ed9ea47c85893f20dc8713625e1f8fa7fbddca243a15",
+        "http://dl-cdn.alpinelinux.org/alpine/v3.12/releases/ppc64le/alpine-standard-3.12.0-ppc64le.iso",
+        "https://storage.googleapis.com/builddeps/b1f552d2ebdf8842d5e0965194fc64c12c5f713e331c043ab1af5f68f32bef5f",
     ],
 )
 
 http_file(
     name = "cirros_image",
-    sha256 = "a8dd75ecffd4cdd96072d60c2237b448e0c8b2bc94d57f10fdbc8c481d9005b8",
+    sha256 = "c4110030e2edf06db87f5b6e4efc27300977683d53f040996d15dcc0ad49bb5a",
     urls = [
-        "https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img",
-        "https://storage.googleapis.com/builddeps/a8dd75ecffd4cdd96072d60c2237b448e0c8b2bc94d57f10fdbc8c481d9005b8",
+        "https://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img",
+        "https://storage.googleapis.com/builddeps/c4110030e2edf06db87f5b6e4efc27300977683d53f040996d15dcc0ad49bb5a",
     ],
 )
 
 http_file(
     name = "cirros_image_ppc64le",
-    sha256 = "175063e409f4019acb760478eb1a94819628a1bec9376d26d3aa333449fe061d",
+    sha256 = "12debf54933e9d724e1a13d68f6ab5d2405656decc49973ba96b6a4e8ffbd4fe",
     urls = [
-        "https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-ppc64le-disk.img",
-        "https://storage.googleapis.com/builddeps/175063e409f4019acb760478eb1a94819628a1bec9376d26d3aa333449fe061d",
+        "https://download.cirros-cloud.net/0.5.1/cirros-0.5.1-ppc64le-disk.img",
+        "https://storage.googleapis.com/builddeps/12debf54933e9d724e1a13d68f6ab5d2405656decc49973ba96b6a4e8ffbd4fe",
     ],
 )
 

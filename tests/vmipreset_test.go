@@ -50,7 +50,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
 	memoryFlavor := "memory-test"
 	memoryPrefix := "test-memory-"
-	memory, _ := resource.ParseQuantity("128M")
+	memory, _ := resource.ParseQuantity("234M")
 
 	cpuPrefix := "test-cpu"
 	cpuFlavor := "cpu-test"
@@ -339,7 +339,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		overrideMemory, _ := resource.ParseQuantity("64M")
 		overridePrefix := "test-override-"
 
-		vmiMemory, _ := resource.ParseQuantity("128M")
+		vmiMemory, _ := resource.ParseQuantity("234M")
 
 		BeforeEach(func() {
 			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{overrideKey: overrideFlavor}}
@@ -363,7 +363,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			// Give virt-api's cache time to sync before proceeding
 			time.Sleep(3 * time.Second)
 
-			By("Creating VMI with 128M")
+			By("Creating VMI with 234M")
 			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi.Labels = map[string]string{overrideKey: overrideFlavor}
 			vmi.Spec.Domain.Resources.Requests["memory"] = vmiMemory

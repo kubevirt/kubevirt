@@ -25,7 +25,7 @@ spec:
           type: ""
         resources:
           requests:
-            memory: 64M
+            memory: 128M
       priorityClassName: non-preemtible
       terminationGracePeriodSeconds: 0
       volumes:
