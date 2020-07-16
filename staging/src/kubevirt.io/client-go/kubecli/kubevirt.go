@@ -55,6 +55,7 @@ type KubevirtClient interface {
 	VirtualMachineInstancePreset(namespace string) VirtualMachineInstancePresetInterface
 	VirtualMachineSnapshot(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotInterface
 	VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface
+	VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface
 	ServerVersion() *ServerVersion
 	RestClient() *rest.RESTClient
 	GeneratedKubeVirtClient() generatedclient.Interface
@@ -127,6 +128,10 @@ func (k kubevirt) VirtualMachineSnapshot(namespace string) vmsnapshotv1alpha1.Vi
 
 func (k kubevirt) VirtualMachineSnapshotContent(namespace string) vmsnapshotv1alpha1.VirtualMachineSnapshotContentInterface {
 	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineSnapshotContents(namespace)
+}
+
+func (k kubevirt) VirtualMachineRestore(namespace string) vmsnapshotv1alpha1.VirtualMachineRestoreInterface {
+	return k.generatedKubeVirtClient.SnapshotV1alpha1().VirtualMachineRestores(namespace)
 }
 
 func (k kubevirt) KubernetesSnapshotClient() k8ssnapshotclient.Interface {

@@ -103,3 +103,43 @@ func (VolumeSnapshotStatus) SwaggerDoc() map[string]string {
 		"error":        "+optional",
 	}
 }
+
+func (VirtualMachineRestore) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "VirtualMachineRestore defines the operation of restoring a VM\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"status": "+optional",
+	}
+}
+
+func (VirtualMachineRestoreSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource",
+		"target":         "initially only VirtualMachine type supported",
+		"includeVolumes": "only one of IncludeVolumes/ExcludeVolumes may be specified\n+optional",
+		"excludeVolumes": "+optional",
+	}
+}
+
+func (VirtualMachineRestoreStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource",
+		"complete":   "+optional",
+		"conditions": "+optional",
+	}
+}
+
+func (VirtualMachineRestoreCondition) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                   "VirtualMachineRestoreCondition defines snapshot conditions",
+		"lastProbeTime":      "+optional",
+		"lastTransitionTime": "+optional",
+		"reason":             "+optional",
+		"message":            "+optional",
+	}
+}
+
+func (VirtualMachineRestoreList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineRestoreList is a list of VirtualMachineRestore resources\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+	}
+}

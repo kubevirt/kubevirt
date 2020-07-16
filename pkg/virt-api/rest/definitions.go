@@ -46,6 +46,7 @@ func ComposeAPIDefinitions() []*restful.WebService {
 
 	vmsGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots")
 	vmscGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshotcontents")
+	vmrGVR := snapshotv1.SchemeGroupVersion.WithResource("virtualmachinerestores")
 
 	ws, err := GroupVersionProxyBase(v1.GroupVersion)
 	if err != nil {
@@ -97,6 +98,11 @@ func ComposeAPIDefinitions() []*restful.WebService {
 	}
 
 	ws2, err = GenericResourceProxy(ws2, vmscGVR, &snapshotv1.VirtualMachineSnapshotContent{}, "VirtualMachineSnapshotContent", &snapshotv1.VirtualMachineSnapshotContentList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws2, err = GenericResourceProxy(ws2, vmrGVR, &snapshotv1.VirtualMachineRestore{}, "VirtualMachineRestore", &snapshotv1.VirtualMachineRestoreList{})
 	if err != nil {
 		panic(err)
 	}

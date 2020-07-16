@@ -203,3 +203,79 @@ type VolumeSnapshotStatus struct {
 	// +optional
 	Error *VirtualMachineSnapshotError `json:"error,omitempty"`
 }
+
+// VirtualMachineRestore defines the operation of restoring a VM
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachineRestore struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec VirtualMachineRestoreSpec `json:"spec"`
+
+	// +optional
+	Status *VirtualMachineRestoreStatus `json:"status,omitempty"`
+}
+
+// VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource
+type VirtualMachineRestoreSpec struct {
+	// initially only VirtualMachine type supported
+	Target corev1.TypedLocalObjectReference `json:"target"`
+
+	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
+
+	// only one of IncludeVolumes/ExcludeVolumes may be specified
+	// +optional
+	IncludeVolumes []string `json:"includeVolumes,omitempty"`
+
+	// +optional
+	ExcludeVolumes []string `json:"excludeVolumes,omitempty"`
+}
+
+// VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource
+type VirtualMachineRestoreStatus struct {
+	// +optional
+	Complete *bool `json:"complete,omitempty"`
+
+	// +optional
+	Conditions []VirtualMachineRestoreCondition `json:"conditions,omitempty"`
+}
+
+// VirtualMachineRestoreConditionType is the type of VirtualMachineRestoreCondition
+type VirtualMachineRestoreConditionType string
+
+const (
+	// VirtualMachineRestoreConditionReady is the "ready" condition type
+	VirtualMachineRestoreConditionReady VirtualMachineRestoreConditionType = "Ready"
+
+	// VirtualMachineRestoreConditionProgressing is the "progressing" condition type
+	VirtualMachineRestoreConditionProgressing VirtualMachineRestoreConditionType = "Progressing"
+)
+
+// VirtualMachineRestoreCondition defines snapshot conditions
+type VirtualMachineRestoreCondition struct {
+	Type VirtualMachineRestoreConditionType `json:"type"`
+
+	Status corev1.ConditionStatus `json:"status"`
+
+	// +optional
+	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"`
+
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+
+	// +optional
+	Reason string `json:"reason,omitempty"`
+
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
+// VirtualMachineRestoreList is a list of VirtualMachineRestore resources
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachineRestoreList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []VirtualMachineRestore `json:"items"`
+}
