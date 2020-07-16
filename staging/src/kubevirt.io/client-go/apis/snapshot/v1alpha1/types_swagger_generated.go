@@ -120,19 +120,9 @@ func (VirtualMachineRestoreSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineRestoreStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":            "VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource",
-		"restoreTime": "+optional",
-		"complete":    "+optional",
-		"error":       "+optional",
-		"conditions":  "+optional",
-	}
-}
-
-func (VirtualMachineRestoreError) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":        "VirtualMachineRestoreError is the last error encountered while performing the restore",
-		"time":    "+optional",
-		"message": "+optional",
+		"":           "VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource",
+		"complete":   "+optional",
+		"conditions": "+optional",
 	}
 }
 
