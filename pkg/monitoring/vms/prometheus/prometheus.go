@@ -45,7 +45,7 @@ var (
 	labelFormatter = strings.NewReplacer(".", "_", "/", "_", "-", "_")
 
 	// Preffixes used when transforming K8s metadata into metric labels
-	labelPreffix = "kubernetes_vmi_label_"
+	labelPrefix = "kubernetes_vmi_label_"
 
 	// see https://www.robustperception.io/exposing-the-software-version-to-prometheus
 	versionDesc = prometheus.NewDesc(
@@ -606,7 +606,7 @@ func Handler(MaxRequestsInFlight int) http.Handler {
 
 func updateKubernetesLabels(vmi *k6tv1.VirtualMachineInstance) (k8sLabels []string, k8sLabelValues []string) {
 	for label, val := range vmi.Labels {
-		k8sLabels = append(k8sLabels, labelPreffix+labelFormatter.Replace(label))
+		k8sLabels = append(k8sLabels, labelPrefix+labelFormatter.Replace(label))
 		k8sLabelValues = append(k8sLabelValues, val)
 	}
 
