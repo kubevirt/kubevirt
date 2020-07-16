@@ -228,25 +228,10 @@ type VirtualMachineRestoreSpec struct {
 // VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource
 type VirtualMachineRestoreStatus struct {
 	// +optional
-	RestoreTime *metav1.Time `json:"restoreTime,omitempty"`
-
-	// +optional
 	Complete *bool `json:"complete,omitempty"`
 
 	// +optional
-	Error *VirtualMachineRestoreError `json:"error,omitempty"`
-
-	// +optional
 	Conditions []VirtualMachineRestoreCondition `json:"conditions,omitempty"`
-}
-
-// VirtualMachineRestoreError is the last error encountered while performing the restore
-type VirtualMachineRestoreError struct {
-	// +optional
-	Time *metav1.Time `json:"time,omitempty"`
-
-	// +optional
-	Message *string `json:"message,omitempty"`
 }
 
 // VirtualMachineRestoreConditionType is the type of VirtualMachineRestoreCondition
