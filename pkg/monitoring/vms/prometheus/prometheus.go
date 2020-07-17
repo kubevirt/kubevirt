@@ -27,6 +27,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	k8sv1 "k8s.io/api/core/v1"
 
 	k6tv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -75,6 +76,35 @@ func tryToPushMetric(desc *prometheus.Desc, mv prometheus.Metric, err error, ch 
 }
 
 func (metrics *vmiMetrics) updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric, k8sLabels []string, k8sLabelValues []string) {
+	requestsMemory := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+	limitsMemory := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory]
+	totalMemory, _ := requestsMemory.AsInt64()
+	if limitsMemory, _ := limitsMemory.AsInt64(); limitsMemory != 0 {
+		totalMemory = limitsMemory
+	}
+
+	if totalMemory != 0 {
+		var memoryTotalLabels = []string{"node", "namespace", "name", "domain"}
+		memoryTotalLabels = append(memoryTotalLabels, k8sLabels...)
+		metrics.memoryTotalDesc = prometheus.NewDesc(
+			"kubevirt_vmi_memory_total_bytes",
+			"Total amount of memory available to the VMI.",
+			memoryTotalLabels,
+			nil,
+		)
+
+		var memoryTotalLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name}
+		memoryTotalLabelValues = append(memoryTotalLabelValues, k8sLabelValues...)
+
+		mv, err := prometheus.NewConstMetric(
+			metrics.memoryTotalDesc, prometheus.GaugeValue,
+			// the libvirt value is in KiB
+			float64(totalMemory),
+			memoryTotalLabelValues...,
+		)
+		tryToPushMetric(metrics.memoryTotalDesc, mv, err, ch)
+	}
+
 	if vmStats.Memory.RSSSet {
 		// Initial label set for a given metric
 		var memoryResidentLabels = []string{"node", "namespace", "name", "domain"}
@@ -455,6 +485,7 @@ type vmiMetrics struct {
 	memoryAvailableDesc     *prometheus.Desc
 	memoryResidentDesc      *prometheus.Desc
 	swapTrafficDesc         *prometheus.Desc
+	memoryTotalDesc         *prometheus.Desc
 }
 
 func newVmiMetrics() *vmiMetrics {
