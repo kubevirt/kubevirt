@@ -168,12 +168,7 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			proxyOnlyCommand := tests.NewVirtctlCommand("vnc", "--proxy-only", "--namespace", vmi.Namespace, vmi.Name)
 
 			r, w, _ := os.Pipe()
-
-			// Stdout should be set back to previous value after the test
-			oldStdout := os.Stdout
-			os.Stdout = w
-			defer w.Close()
-			defer func() { os.Stdout = oldStdout }()
+			proxyOnlyCommand.SetOut(w)
 
 			// Run this as go routine to keep proxy open in the background
 			go func() {
