@@ -61,6 +61,7 @@ const (
 )
 
 var proxyOnly bool
+var customPort = 0
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
@@ -74,6 +75,8 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&proxyOnly, "proxy-only", proxyOnly, "--proxy-only=false: Setting this true will run only the virtctl vnc proxy and show the localhost port where VNC viewers can connect")
+	cmd.Flags().IntVar(&customPort, "custom-port", customPort,
+		"--custom-port=0: Assigning a port value to this will try to run the proxy on the given port if the port is accessible; If unassigned, the proxy will run on a random port")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -101,7 +104,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Can't access VMI %s: %s", vmi, err.Error())
 	}
 
-	lnAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	lnAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("127.0.0.1:%d", customPort))
 	if err != nil {
 		return fmt.Errorf("Can't resolve the address: %s", err.Error())
 	}
@@ -179,7 +182,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("Error encountered: %s", err.Error())
 		}
-		fmt.Println(string(optionString))
+		fmt.Fprintln(cmd.OutOrStdout(), string(optionString))
 	} else {
 		// execute VNC Viewer
 		go checkAndRunVNCViewer(doneChan, viewResChan, port)
