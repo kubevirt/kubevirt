@@ -39,6 +39,7 @@ bazel-test:
 generate:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh && hack/bazel-fmt.sh"
+	hack/sync-kubevirtci.sh
 
 generate-verify: TARGET_TO_RUN='make generate'
 generate-verify: generate check-for-binaries check-git-tree-state
