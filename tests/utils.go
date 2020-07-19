@@ -2791,31 +2791,6 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	}, timeout, opts...)
 }
 
-type ContainerDisk string
-
-const (
-	ContainerDiskCirrosCustomLocation ContainerDisk = "cirros-custom"
-	ContainerDiskCirros               ContainerDisk = "cirros"
-	ContainerDiskAlpine               ContainerDisk = "alpine"
-	ContainerDiskFedora               ContainerDisk = "fedora-cloud"
-	ContainerDiskMicroLiveCD          ContainerDisk = "microlivecd"
-	ContainerDiskVirtio               ContainerDisk = "virtio-container-disk"
-	ContainerDiskEmpty                ContainerDisk = "empty"
-)
-
-// ContainerDiskFor takes the name of an image and returns the full
-// registry diks image path.
-// Supported values are: cirros, fedora, alpine, guest-agent
-func ContainerDiskFor(name ContainerDisk) string {
-	switch name {
-	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora, ContainerDiskMicroLiveCD, ContainerDiskCirrosCustomLocation:
-		return fmt.Sprintf("%s/%s-container-disk-demo:%s", KubeVirtUtilityRepoPrefix, name, KubeVirtUtilityVersionTag)
-	case ContainerDiskVirtio:
-		return fmt.Sprintf("%s/virtio-container-disk:%s", KubeVirtUtilityRepoPrefix, KubeVirtUtilityVersionTag)
-	}
-	panic(fmt.Sprintf("Unsupported registry disk %s", name))
-}
-
 func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
