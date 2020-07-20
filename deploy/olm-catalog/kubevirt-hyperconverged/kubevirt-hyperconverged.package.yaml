@@ -12,4 +12,4 @@ channels:
   currentCSV: kubevirt-hyperconverged-operator.v0.0.2
 - name: "0.0.1"
   currentCSV: kubevirt-hyperconverged-operator.v0.0.1
-defaultChannel: "1.1.0"
+defaultChannel: "1.2.0"

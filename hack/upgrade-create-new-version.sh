@@ -35,4 +35,5 @@ mv "${UPGRADE_CSV_DIR}/${LATEST_CSV_NAME}" "${UPGRADE_CSV}"
 sed -i "s|${OPERATOR_NAME}.v${LATEST_VERSION}|${OPERATOR_NAME}.v${UPGRADE_VERSION}|g" "${UPGRADE_CSV}"
 sed -i "s|replaces:.*|replaces: ${OPERATOR_NAME}.v${LATEST_VERSION}|" "${UPGRADE_CSV}"
 sed -i "s|version:\s*${LATEST_VERSION}|version: ${UPGRADE_VERSION}|g" "${UPGRADE_CSV}"
-sed -i "s|currentCSV: ${OPERATOR_NAME}.v$LATEST_VERSION|currentCSV: ${OPERATOR_NAME}.v$UPGRADE_VERSION|g" ./deploy/olm-catalog/kubevirt-hyperconverged/kubevirt-hyperconverged.package.yaml
+sed -i "s|value:\s*${LATEST_VERSION}|value: ${UPGRADE_VERSION}|g" "${UPGRADE_CSV}"
+sed -i "/^channels:/a - name: \"${UPGRADE_VERSION}\"\n  currentCSV: ${OPERATOR_NAME}.v${UPGRADE_VERSION}" ./deploy/olm-catalog/kubevirt-hyperconverged/kubevirt-hyperconverged.package.yaml
