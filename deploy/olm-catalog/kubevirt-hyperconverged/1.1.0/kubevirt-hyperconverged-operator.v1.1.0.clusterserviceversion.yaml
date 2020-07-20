@@ -9,7 +9,7 @@ metadata:
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.1.0
-    createdAt: "2020-07-08 08:23:28"
+    createdAt: "2020-07-15 15:32:41"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -1469,11 +1469,11 @@ spec:
                 - name: HCO_KV_IO_VERSION
                   value: 1.1.0
                 - name: KUBEVIRT_VERSION
-                  value: v0.30.3
+                  value: v0.30.4
                 - name: CDI_VERSION
                   value: v1.18.2
                 - name: NETWORK_ADDONS_VERSION
-                  value: 0.39.2
+                  value: 0.39.3
                 - name: SSP_VERSION
                   value: v1.0.40
                 - name: NMO_VERSION
@@ -1527,11 +1527,11 @@ spec:
                 - name: MACVTAP_CNI_IMAGE
                   value: quay.io/kubevirt/macvtap-cni:v0.2.0
                 - name: OPERATOR_IMAGE
-                  value: quay.io/kubevirt/cluster-network-addons-operator:0.39.2
+                  value: quay.io/kubevirt/cluster-network-addons-operator:0.39.3
                 - name: OPERATOR_NAME
                   value: cluster-network-addons-operator
                 - name: OPERATOR_VERSION
-                  value: 0.39.2
+                  value: 0.39.3
                 - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -1545,7 +1545,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.name
                 - name: WATCH_NAMESPACE
-                image: quay.io/kubevirt/cluster-network-addons-operator:0.39.2
+                image: quay.io/kubevirt/cluster-network-addons-operator:0.39.3
                 imagePullPolicy: IfNotPresent
                 name: cluster-network-addons-operator
                 resources: {}
@@ -1588,12 +1588,12 @@ spec:
                 - "2"
                 env:
                 - name: OPERATOR_IMAGE
-                  value: docker.io/kubevirt/virt-operator:v0.30.3
+                  value: docker.io/kubevirt/virt-operator:v0.30.4
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: docker.io/kubevirt/virt-operator:v0.30.3
+                image: docker.io/kubevirt/virt-operator:v0.30.4
                 imagePullPolicy: IfNotPresent
                 name: virt-operator
                 ports:
