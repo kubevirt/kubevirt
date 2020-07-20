@@ -1,5 +1,12 @@
 package templates
 
+import (
+	"errors"
+	"fmt"
+
+	"github.com/spf13/cobra"
+)
+
 // UsageTemplate returns the usage template for all subcommands
 func UsageTemplate() string {
 	return `Usage:{{if .Runnable}}
@@ -38,4 +45,16 @@ func OptionsUsageTemplate() string {
 
 {{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}
 `
+}
+
+// ExactArgs validate the number of input parameters
+func ExactArgs(nameOfCommand string, n int) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) != n {
+			fmt.Printf("fatal: Number of input parameters is incorrect, %s accepts %d arg(s), received %d\n\n", nameOfCommand, n, len(args))
+			cmd.Help()
+			return errors.New("argument validation failed")
+		}
+		return nil
+	}
 }
