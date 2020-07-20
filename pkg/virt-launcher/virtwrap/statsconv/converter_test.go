@@ -23,9 +23,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"os"
 	"reflect"
+	"strings"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -34,6 +34,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv/util"
 )
 
 var _ = Describe("StatsConverter", func() {
@@ -46,7 +47,7 @@ var _ = Describe("StatsConverter", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockDomainIdent = NewMockDomainIdentifier(ctrl)
-		testStats, _ = loadStats("domstats.json")
+		testStats, _ = util.LoadStats()
 	})
 
 	Context("on conversion attempt", func() {
@@ -101,7 +102,7 @@ var _ = Describe("StatsConverter", func() {
 			err = enc.Encode(out)
 			Expect(err).To(BeNil())
 
-			equal, err := JSONCompareWithFile(loaded, "domstats_expected.json")
+			equal, err := JSONEqual(loaded, strings.NewReader(util.Testdataexpected))
 			Expect(err).To(BeNil())
 			if !equal {
 				enc := json.NewEncoder(os.Stderr)
@@ -112,37 +113,6 @@ var _ = Describe("StatsConverter", func() {
 		})
 	})
 })
-
-func loadFile(path string) ([]byte, error) {
-	fh, err := os.Open(path)
-	if err != nil {
-		return []byte{}, err
-	}
-	defer fh.Close()
-	return ioutil.ReadAll(fh)
-}
-
-func loadStats(path string) ([]libvirt.DomainStats, error) {
-	ret := []libvirt.DomainStats{}
-	data, err := loadFile(path)
-	if err != nil {
-		return ret, err
-	}
-
-	buf := bytes.NewBuffer(data)
-	dec := json.NewDecoder(buf)
-	err = dec.Decode(&ret)
-	return ret, err
-}
-
-func JSONCompareWithFile(buf io.Reader, path string) (bool, error) {
-	fh, err := os.Open(path)
-	if err != nil {
-		return false, err
-	}
-	defer fh.Close()
-	return JSONEqual(buf, fh)
-}
 
 func JSONEqual(a, b io.Reader) (bool, error) {
 	var j, j2 interface{}

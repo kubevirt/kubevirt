@@ -21,13 +21,10 @@ go_test(
         "converter_test.go",
         "stats_suite_test.go",
     ],
-    data = [
-        "domstats.json",
-        "domstats_expected.json",
-    ],
     embed = [":go_default_library"],
     deps = [
         "//pkg/virt-launcher/virtwrap/stats:go_default_library",
+        "//pkg/virt-launcher/virtwrap/statsconv/util:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
