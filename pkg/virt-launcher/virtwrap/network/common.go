@@ -58,10 +58,10 @@ type VIF struct {
 }
 
 type CriticalNetworkError struct {
-	msg string
+	Msg string
 }
 
-func (e *CriticalNetworkError) Error() string { return e.msg }
+func (e *CriticalNetworkError) Error() string { return e.Msg }
 
 func (vif VIF) String() string {
 	return fmt.Sprintf(
