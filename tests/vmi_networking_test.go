@@ -118,10 +118,28 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		tests.UpdateClusterConfigValueAndWait("permitBridgeInterfaceOnPodNetwork", fmt.Sprintf("%t", enable))
 	}
 
-	testMultipleVirtualMachinesConnectivityUsingDefaultBindingMechanism := func() {
-		Describe("Multiple virtual machines connectivity using bridge binding interface", func() {
+	setDefaultBindingMechanism := func(bindingMechanism v1.NetworkInterfaceType) {
+		tests.UpdateClusterConfigValueAndWait("default-network-interface", string(bindingMechanism))
+	}
+
+	setDefaultNetworkExplicitly := func(vmi *v1.VirtualMachineInstance, bindingMechanism v1.NetworkInterfaceType) {
+		switch bindingMechanism {
+		case v1.BridgeInterface:
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		case v1.MasqueradeInterface:
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+		default:
+			panic(fmt.Sprintf("Selected binding %q is invalid", bindingMechanism))
+		}
+		vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+	}
+
+	testMultipleVirtualMachinesConnectivityUsingDefaultBindingMechanism := func(bindingMechanism v1.NetworkInterfaceType) {
+		Describe(fmt.Sprintf("Multiple virtual machines connectivity using %s binding mechanism", bindingMechanism), func() {
 			tests.BeforeAll(func() {
 				tests.BeforeTestCleanup()
+
+				setDefaultBindingMechanism(bindingMechanism)
 
 				// Prepare inbound and outbound VMI definitions
 
@@ -130,31 +148,23 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				inboundVMI.Labels = map[string]string{"expose": "me"}
 				inboundVMI.Spec.Subdomain = "myvmi"
 				inboundVMI.Spec.Hostname = "my-subdomain"
-				// Remove the masquerade interface to use the default bridge one
+				// Remove the masquerade interface to use the default one
 				inboundVMI.Spec.Domain.Devices.Interfaces = nil
 				inboundVMI.Spec.Networks = nil
 
 				// outboundVMI is used to connect to other vms
 				outboundVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				// Remove the masquerade interface to use the default bridge one
+				// Remove the masquerade interface to use the default one
 				outboundVMI.Spec.Domain.Devices.Interfaces = nil
 				outboundVMI.Spec.Networks = nil
 
 				// inboudnVMIWithPodNetworkSet adds itself in an explicit fashion to the pod network
 				inboundVMIWithPodNetworkSet = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				// Remove the masquerade interface to use the default bridge one
-				inboundVMIWithPodNetworkSet.Spec.Domain.Devices.Interfaces = nil
-				inboundVMIWithPodNetworkSet.Spec.Networks = nil
-				v1.SetDefaults_NetworkInterface(inboundVMIWithPodNetworkSet)
-				Expect(inboundVMIWithPodNetworkSet.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+				setDefaultNetworkExplicitly(inboundVMIWithPodNetworkSet, bindingMechanism)
 
 				// inboundVMIWithCustomMacAddress specifies a custom MAC address
 				inboundVMIWithCustomMacAddress = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				// Remove the masquerade interface to use the default bridge one
-				inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces = nil
-				inboundVMIWithCustomMacAddress.Spec.Networks = nil
-				v1.SetDefaults_NetworkInterface(inboundVMIWithCustomMacAddress)
-				Expect(inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+				setDefaultNetworkExplicitly(inboundVMIWithCustomMacAddress, bindingMechanism)
 				inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 
 				// Create VMIs
@@ -415,7 +425,8 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	}
 
-	testMultipleVirtualMachinesConnectivityUsingDefaultBindingMechanism()
+	testMultipleVirtualMachinesConnectivityUsingDefaultBindingMechanism(v1.BridgeInterface)
+	testMultipleVirtualMachinesConnectivityUsingDefaultBindingMechanism(v1.MasqueradeInterface)
 
 	Context("VirtualMachineInstance with custom interface model", func() {
 		BeforeEach(func() {
