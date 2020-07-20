@@ -41,13 +41,13 @@ func (_mr *_MockBindMechanismRecorder) discoverPodNetworkInterface() *gomock.Cal
 }
 
 func (_m *MockBindMechanism) preparePodNetworkInterfaces(pid string, isMultiqueue bool) error {
-	ret := _m.ctrl.Call(_m, "preparePodNetworkInterfaces", isMultiqueue)
+	ret := _m.ctrl.Call(_m, "preparePodNetworkInterfaces", pid, isMultiqueue)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) preparePodNetworkInterfaces(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "preparePodNetworkInterfaces", arg0)
+func (_mr *_MockBindMechanismRecorder) preparePodNetworkInterfaces(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "preparePodNetworkInterfaces", arg0, arg1)
 }
 
 func (_m *MockBindMechanism) loadCachedInterface(pid string, name string) (bool, error) {
@@ -113,13 +113,13 @@ func (_mr *_MockBindMechanismRecorder) startDHCP(arg0 interface{}) *gomock.Call 
 }
 
 func (_m *MockBindMechanism) createTapDevice(tapDeviceName string, pid string, isMultiqueue bool) error {
-	ret := _m.ctrl.Call(_m, "createTapDevice", tapDeviceName, isMultiqueue)
+	ret := _m.ctrl.Call(_m, "createTapDevice", tapDeviceName, pid, isMultiqueue)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) createTapDevice(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "createTapDevice", arg0, arg1)
+func (_mr *_MockBindMechanismRecorder) createTapDevice(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "createTapDevice", arg0, arg1, arg2)
 }
 
 func (_m *MockBindMechanism) configureTapDevice() error {

@@ -8,5 +8,3 @@
 (allow process cpu_online_t (file (getattr open read)))
 (allow container_runtime_t process (key (create link read search setattr view write)))
 )
-
-(typetransition spc_t container_file_t process container_t)
