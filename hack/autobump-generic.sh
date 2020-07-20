@@ -56,7 +56,7 @@ git commit -m "${title}"
 git push -f "https://${user}@github.com/kubevirt/kubevirt.git" HEAD:autoupdate-$@
 
 echo "Creating PR to merge ${user}:autoupdate into master..." >&2
-/pr-creator -- \
+pr-creator -- \
     --github-token-path="${token}" \
     --org=kubevirt --repo=kubevirt --branch=master \
     --title="${title}" --match-title="${title}" \
