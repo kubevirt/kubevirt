@@ -25,5 +25,5 @@ spec:
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
-      image: registry:5000/kubevirt/image-with-kernel:devel
+      image: registry:5000/kubevirt/hritvi/image-with-kernel:1.0:devel
     name: containerdisk
