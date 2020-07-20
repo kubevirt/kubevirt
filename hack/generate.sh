@@ -75,6 +75,13 @@ ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DI
 
 (cd ${KUBEVIRT_DIR}/tools/resource-generator/ && go_build)
 (cd ${KUBEVIRT_DIR}/tools/csv-generator/ && go_build)
+(cd ${KUBEVIRT_DIR}/tools/doc-generator/ && go_build)
+(
+    cd ${KUBEVIRT_DIR}/docs
+    ${KUBEVIRT_DIR}/tools/doc-generator/doc-generator
+    mv newmetrics.md ${KUBEVIRT_DIR}/docs/metrics.md
+)
+
 rm -f ${KUBEVIRT_DIR}/manifests/generated/*
 rm -f ${KUBEVIRT_DIR}/examples/*
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=priorityclass >${KUBEVIRT_DIR}/manifests/generated/kubevirt-priority-class.yaml
