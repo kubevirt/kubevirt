@@ -2,13 +2,10 @@
 
 aliases:
   approvers:
-      - slintes
       - davidvossel
       - vladikr
       - rmohr
-      - cynepco3hahue
       - stu-gott
-      - SchSeba
       - fabiand
       - codificat
       - danielBelenky
@@ -17,19 +14,17 @@ aliases:
       - jean-edouard
       - ashleyschuett
   emeritus_approvers:
+      - cynepco3hahue
+      - slintes
       - mfranczy
+      - SchSeba
   code-reviewers:
       - davidvossel
       - rmohr
       - stu-gott
-      - booxter
       - vladikr
-      - slintes
-      - cynepco3hahue
       - phoracek
-      - SchSeba
       - dhiller
-      - pkotas
       - vatsalparekh
       - danielBelenky
       - enp0s3
@@ -45,3 +40,4 @@ aliases:
       - rnetser
   ci-approvers:
       - dhiller
+      - danielBelenky
