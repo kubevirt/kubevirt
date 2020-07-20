@@ -102,6 +102,9 @@ build-push-all: container-build-operator container-push-operator container-build
 upgrade-test:
 	./hack/upgrade-test.sh
 
+kubevirt-nightly-test:
+	./hack/kubevirt-nightly-test.sh
+
 dump-state:
 	./hack/dump-state.sh 
 
@@ -155,4 +158,5 @@ local:
 		test-functional \
 		test-functional-prow \
 		charts \
+		kubevirt-nightly-test \
 		local \
