@@ -40,6 +40,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 const InvalidDataVolumeUrl = "http://127.0.0.1/invalid"
@@ -129,7 +130,7 @@ var _ = Describe("DataVolume Integration", func() {
 			}
 
 			deleteDummyFile := func(fileName string) {
-				httpPod, err := tests.GetRunningPodByLabel("cdi-http-import-server", "kubevirt.io", tests.KubeVirtInstallNamespace, "")
+				httpPod, err := tests.GetRunningPodByLabel("cdi-http-import-server", "kubevirt.io", flags.KubeVirtInstallNamespace, "")
 				Expect(err).ToNot(HaveOccurred())
 				By("Deleting dummy file")
 				_, err = tests.ExecuteCommandOnPod(
@@ -142,7 +143,7 @@ var _ = Describe("DataVolume Integration", func() {
 			}
 
 			createDummyFile := func(fileName string, sizeInMB string) {
-				httpPod, err := tests.GetRunningPodByLabel("cdi-http-import-server", "kubevirt.io", tests.KubeVirtInstallNamespace, "")
+				httpPod, err := tests.GetRunningPodByLabel("cdi-http-import-server", "kubevirt.io", flags.KubeVirtInstallNamespace, "")
 				Expect(err).ToNot(HaveOccurred())
 				_, _, err = tests.ExecuteCommandOnPodV2(
 					virtClient,

@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 const (
@@ -92,7 +93,7 @@ var _ = Describe("[ref_id:2717]KubeVirt control plane resilience", func() {
 		}
 
 		getPodList := func() (podList *v1.PodList, err error) {
-			podList, err = virtCli.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+			podList, err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
 			return
 		}
 
@@ -102,7 +103,7 @@ var _ = Describe("[ref_id:2717]KubeVirt control plane resilience", func() {
 		}
 
 		waitForDeploymentsToStabilize := func() (bool, error) {
-			deploymentsClient := virtCli.AppsV1().Deployments(tests.KubeVirtInstallNamespace)
+			deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
 			for _, deploymentName := range controlPlaneDeploymentNames {
 				deployment, err := deploymentsClient.Get(deploymentName, metav1.GetOptions{})
 				if err != nil {
@@ -136,7 +137,7 @@ var _ = Describe("[ref_id:2717]KubeVirt control plane resilience", func() {
 
 		// Add nodeSelector to deployments so that they get scheduled to selectedNode
 		addNodeSelectorToDeployments := func() (bool, error) {
-			deploymentsClient := virtCli.AppsV1().Deployments(tests.KubeVirtInstallNamespace)
+			deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
 			for _, deploymentName := range controlPlaneDeploymentNames {
 				deployment, err := deploymentsClient.Get(deploymentName, metav1.GetOptions{})
 				if err != nil {
@@ -219,7 +220,7 @@ var _ = Describe("[ref_id:2717]KubeVirt control plane resilience", func() {
 		})
 
 		removeNodeSelectorFromDeployments := func() (bool, error) {
-			deploymentsClient := virtCli.AppsV1().Deployments(tests.KubeVirtInstallNamespace)
+			deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
 			for _, deploymentName := range controlPlaneDeploymentNames {
 				deployment, err := deploymentsClient.Get(deploymentName, metav1.GetOptions{})
 				if err != nil {
@@ -281,7 +282,7 @@ var _ = Describe("[ref_id:2717]KubeVirt control plane resilience", func() {
 				Expect(err).ToNot(HaveOccurred())
 				runningPods := getRunningReadyPods(podList, []string{podName})
 				for index, pod := range runningPods {
-					err = virtCli.CoreV1().Pods(tests.KubeVirtInstallNamespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					err = virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					if index < len(runningPods)-1 {
 						Expect(err).ToNot(HaveOccurred())
 					}
@@ -301,7 +302,7 @@ var _ = Describe("[ref_id:2717]KubeVirt control plane resilience", func() {
 		When("control plane pods are running", func() {
 
 			It("[test_id:2806]virt-controller and virt-api pods have a pod disruption budget", func() {
-				deploymentsClient := virtCli.AppsV1().Deployments(tests.KubeVirtInstallNamespace)
+				deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
 				By("check deployments")
 				deployments, err := deploymentsClient.List(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -321,7 +322,7 @@ var _ = Describe("[ref_id:2717]KubeVirt control plane resilience", func() {
 				}
 
 				By("check pod disruption budgets exist")
-				podDisruptionBudgetList, err := virtCli.PolicyV1beta1().PodDisruptionBudgets(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+				podDisruptionBudgetList, err := virtCli.PolicyV1beta1().PodDisruptionBudgets(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, controlPlaneDeploymentName := range controlPlaneDeploymentNames {
 					pdbName := controlPlaneDeploymentName + "-pdb"
