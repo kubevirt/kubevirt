@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
 	"regexp"
 	"strings"
 	"time"
@@ -65,7 +66,6 @@ type vmYamlDefinition struct {
 var _ = Describe("[Serial]Operator", func() {
 	var originalKv *v1.KubeVirt
 	var originalCDI *cdiv1.CDI
-	var originalKubeVirtConfig *k8sv1.ConfigMap
 	var originalOperatorVersion string
 	var err error
 	var workDir string
@@ -532,25 +532,6 @@ var _ = Describe("[Serial]Operator", func() {
 
 		originalKv = tests.GetCurrentKv(virtClient)
 
-		originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-		if err != nil && !errors.IsNotFound(err) {
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		if errors.IsNotFound(err) {
-			// create an empty kubevirt-config configmap if none exists.
-			cfgMap := &k8sv1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt-config"},
-				Data: map[string]string{
-					"feature-gates": "",
-				},
-			}
-
-			originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Create(cfgMap)
-			Expect(err).ToNot(HaveOccurred())
-
-		}
-
 		// save the operator sha
 		_, _, _, _, version := parseOperatorImage()
 		Expect(strings.HasPrefix(version, "@")).To(BeTrue())
@@ -653,22 +634,6 @@ spec:
 
 	AfterEach(func() {
 		ignoreDeleteOriginalKV := true
-
-		curKubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		// if revision changed, patch data and reload everything
-		if curKubeVirtConfig.ResourceVersion != originalKubeVirtConfig.ResourceVersion {
-			ignoreDeleteOriginalKV = false
-
-			// Add Spec Patch
-			newData, err := json.Marshal(originalKubeVirtConfig.Data)
-			Expect(err).ToNot(HaveOccurred())
-			data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
-
-			originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
-			Expect(err).ToNot(HaveOccurred())
-		}
 
 		deleteAllKvAndWait(ignoreDeleteOriginalKV)
 

@@ -37,6 +37,7 @@ import (
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	netutils "k8s.io/utils/net"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -52,6 +53,7 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 
 	var err error
 	var virtClient kubecli.KubevirtClient
+	var currentConfiguration v1.KubeVirtConfiguration
 
 	var inboundVMI *v1.VirtualMachineInstance
 	var inboundVMIWithPodNetworkSet *v1.VirtualMachineInstance
@@ -63,6 +65,9 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
+
+		kv := tests.GetCurrentKv(virtClient)
+		currentConfiguration = kv.Spec.Configuration
 	})
 
 	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string, prompt string) {
@@ -91,7 +96,13 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 	}
 
 	setBridgeEnabled := func(enable bool) {
-		tests.UpdateClusterConfigValueAndWait("permitBridgeInterfaceOnPodNetwork", fmt.Sprintf("%t", enable))
+		if currentConfiguration.NetworkConfiguration == nil {
+			currentConfiguration.NetworkConfiguration = &v1.NetworkConfiguration{}
+		}
+
+		currentConfiguration.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork = pointer.BoolPtr(enable)
+		kv := tests.UpdateKubeVirtConfigValueAndWait(currentConfiguration)
+		currentConfiguration = kv.Spec.Configuration
 	}
 
 	Describe("Multiple virtual machines connectivity using bridge binding interface", func() {
@@ -366,12 +377,22 @@ var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][le
 	})
 
 	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
+
+		setPermitSlirpInterface := func(enable bool) {
+			if currentConfiguration.NetworkConfiguration == nil {
+				currentConfiguration.NetworkConfiguration = &v1.NetworkConfiguration{}
+			}
+
+			currentConfiguration.NetworkConfiguration.PermitSlirpInterface = pointer.BoolPtr(enable)
+			kv := tests.UpdateKubeVirtConfigValueAndWait(currentConfiguration)
+			currentConfiguration = kv.Spec.Configuration
+		}
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
-			tests.UpdateClusterConfigValueAndWait("permitSlirpInterface", "true")
+			setPermitSlirpInterface(true)
 		})
 		AfterEach(func() {
-			tests.UpdateClusterConfigValueAndWait("permitSlirpInterface", "false")
+			setPermitSlirpInterface(false)
 		})
 
 		It("[test_id:1773]should configure custom MAC address", func() {
@@ -816,7 +837,6 @@ sockfd = None`})
 			tests.AddEphemeralDisk(vmi, "disk0", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Bridge interface is not enabled in kubevirt-config"))
 		})
 	})
