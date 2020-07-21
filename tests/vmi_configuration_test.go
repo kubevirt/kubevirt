@@ -49,6 +49,7 @@ import (
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 var _ = Describe("Configurations", func() {
@@ -1626,7 +1627,7 @@ var _ = Describe("Configurations", func() {
 		var originalFeatureGates string
 
 		BeforeEach(func() {
-			cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
+			cfgMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
 			tests.EnableFeatureGate(virtconfig.HostDiskGate)

@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 const (
@@ -390,7 +391,7 @@ var _ = Describe("Storage", func() {
 
 				BeforeEach(func() {
 					nodeName = ""
-					cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
+					cfgMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
 					tests.EnableFeatureGate(virtconfig.HostDiskGate)
@@ -608,7 +609,7 @@ var _ = Describe("Storage", func() {
 
 				BeforeEach(func() {
 					By("Enabling the HostDisk feature gate")
-					cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
+					cfgMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
 					tests.EnableFeatureGate(virtconfig.HostDiskGate)

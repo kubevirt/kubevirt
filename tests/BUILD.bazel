@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "config.go",
         "containerdisk.go",
-        "flags.go",
         "test.go",
         "utils.go",
     ],
@@ -26,6 +25,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//tests/flags:go_default_library",
         "//tools/vms-generator/utils:go_default_library",
         "//vendor/github.com/Masterminds/semver:go_default_library",
         "//vendor/github.com/google/go-github/v32/github:go_default_library",
@@ -145,6 +145,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/subresources:go_default_library",
+        "//tests/flags:go_default_library",
         "//tests/reporter:go_default_library",
         "//tools/vms-generator/utils:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",

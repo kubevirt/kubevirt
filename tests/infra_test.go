@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 var _ = Describe("Infrastructure", func() {
@@ -86,12 +87,12 @@ var _ = Describe("Infrastructure", func() {
 			}, 10*time.Second, 1*time.Second).Should(BeNumerically(">", 0))
 
 			By("destroying the certificate")
-			secret, err := virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Get(components.KubeVirtCASecretName, metav1.GetOptions{})
+			secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(components.KubeVirtCASecretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			secret.Data = map[string][]byte{
 				"random": []byte("nonsense"),
 			}
-			_, err = virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Update(secret)
+			_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(secret)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking that the CA secret gets restored with a new ca bundle")
@@ -144,12 +145,12 @@ var _ = Describe("Infrastructure", func() {
 
 		// Flaky, randomly fails with timeout
 		PIt("[test_id:4100] [flaky] should be valid during the whole rotation process", func() {
-			oldAPICert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), tests.KubeVirtInstallNamespace, "8443")
-			oldHandlerCert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), tests.KubeVirtInstallNamespace, "8186")
+			oldAPICert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
+			oldHandlerCert := tests.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
 			Expect(err).ToNot(HaveOccurred())
 
 			By("destroying the CA certificate")
-			err = virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Delete(components.KubeVirtCASecretName, &metav1.DeleteOptions{})
+			err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Delete(components.KubeVirtCASecretName, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
@@ -161,9 +162,9 @@ var _ = Describe("Infrastructure", func() {
 				expecter.Close()
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), tests.KubeVirtInstallNamespace, "8443")
+				newAPICert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-api"), flags.KubeVirtInstallNamespace, "8443")
 				Expect(err).ToNot(HaveOccurred())
-				newHandlerCert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), tests.KubeVirtInstallNamespace, "8186")
+				newHandlerCert, _, err := tests.GetPodsCertIfSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"), flags.KubeVirtInstallNamespace, "8186")
 				Expect(err).ToNot(HaveOccurred())
 				return !reflect.DeepEqual(oldHandlerCert, newHandlerCert) && !reflect.DeepEqual(oldAPICert, newAPICert)
 			}, 120*time.Second).Should(BeTrue())
@@ -171,12 +172,12 @@ var _ = Describe("Infrastructure", func() {
 
 		table.DescribeTable("should be rotated when deleted for ", func(secretName string) {
 			By("destroying the certificate")
-			secret, err := virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Get(secretName, metav1.GetOptions{})
+			secret, err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(secretName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			secret.Data = map[string][]byte{
 				"random": []byte("nonsense"),
 			}
-			_, err = virtClient.CoreV1().Secrets(tests.KubeVirtInstallNamespace).Update(secret)
+			_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Update(secret)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking that the secret gets restored with a new certificate")
@@ -215,7 +216,7 @@ var _ = Describe("Infrastructure", func() {
 			var kvPods *k8sv1.PodList
 			By("finding all nodes that are running kubevirt components", func() {
 				kvPods, err = virtClient.CoreV1().
-					Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+					Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred(), "failed listing kubevirt pods")
 				Expect(len(kvPods.Items)).
 					To(BeNumerically(">", 0), "no kubevirt pods found")
@@ -270,7 +271,7 @@ var _ = Describe("Infrastructure", func() {
 			}()
 
 			By("watching for terminated kubevirt pods", func() {
-				lw, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).Watch(metav1.ListOptions{})
+				lw, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Watch(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				// in the test env, we also deploy non core-kubevirt apps
 				kvCoreApps := map[string]string{
@@ -340,7 +341,7 @@ var _ = Describe("Infrastructure", func() {
 			startVMI(vmi)
 
 			By("finding virt-operator pod")
-			ops, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).
+			ops, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).
 				List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-operator"})
 			Expect(err).ToNot(HaveOccurred(), "failed to list virt-operators")
 			Expect(ops.Size).ToNot(Equal(0), "no virt-operators found")
@@ -514,14 +515,14 @@ var _ = Describe("Infrastructure", func() {
 			prepareVMIForTests(nodeName)
 
 			By("Finding the prometheus endpoint")
-			pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(tests.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
+			pod, err = kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(nodeName).Pod()
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 			metricsURL = fmt.Sprintf("https://%s:%d/metrics", tests.FormatIPForURL(pod.Status.PodIP), 8443)
 		})
 
 		PIt("[test_id:4136][flaky] should find one leading virt-controller and two ready", func() {
 			endpoint, err := virtClient.CoreV1().
-				Endpoints(tests.KubeVirtInstallNamespace).
+				Endpoints(flags.KubeVirtInstallNamespace).
 				Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			foundMetrics := map[string]int{
@@ -562,7 +563,7 @@ var _ = Describe("Infrastructure", func() {
 
 		It("[test_id:4137]should find one leading virt-operator and two ready", func() {
 			endpoint, err := virtClient.CoreV1().
-				Endpoints(tests.KubeVirtInstallNamespace).
+				Endpoints(flags.KubeVirtInstallNamespace).
 				Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			foundMetrics := map[string]int{
@@ -602,11 +603,11 @@ var _ = Describe("Infrastructure", func() {
 		})
 
 		It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
-			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
+			endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			l, err := labels.Parse("prometheus.kubevirt.io")
 			Expect(err).ToNot(HaveOccurred())
-			pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
+			pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(endpoint.Subsets).To(HaveLen(1))
 
@@ -628,7 +629,7 @@ var _ = Describe("Infrastructure", func() {
 			}
 		})
 		It("[test_id:4139]should return Prometheus metrics", func() {
-			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
+			endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			for _, ep := range endpoint.Subsets[0].Addresses {
 				stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
@@ -831,18 +832,18 @@ var _ = Describe("Infrastructure", func() {
 				Eventually(func() string {
 					leaderPodName := getLeader()
 
-					Expect(virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).Delete(leaderPodName, &metav1.DeleteOptions{})).To(BeNil())
+					Expect(virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(leaderPodName, &metav1.DeleteOptions{})).To(BeNil())
 
 					Eventually(getLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
 
-					leaderPod, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).Get(getLeader(), metav1.GetOptions{})
+					leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(getLeader(), metav1.GetOptions{})
 					Expect(err).To(BeNil())
 
 					return leaderPod.Name
 				}, 90*time.Second, 5*time.Second).Should(Equal(newLeaderPod.Name))
 
 				Expect(func() k8sv1.ConditionStatus {
-					leaderPod, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).Get(newLeaderPod.Name, metav1.GetOptions{})
+					leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(newLeaderPod.Name, metav1.GetOptions{})
 					Expect(err).To(BeNil())
 
 					for _, condition := range leaderPod.Status.Conditions {
@@ -869,7 +870,7 @@ func getLeader() string {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	controllerEndpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get(leaderelectionconfig.DefaultEndpointName, metav1.GetOptions{})
+	controllerEndpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(leaderelectionconfig.DefaultEndpointName, metav1.GetOptions{})
 	tests.PanicOnError(err)
 
 	var record resourcelock.LeaderElectionRecord
@@ -884,7 +885,7 @@ func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
 	labelSelector, err := labels.Parse(fmt.Sprint(v1.AppLabel + "=virt-controller"))
 	tests.PanicOnError(err)
 	fieldSelector := fields.ParseSelectorOrDie("status.phase=" + string(k8sv1.PodRunning))
-	controllerPods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(
+	controllerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
 		metav1.ListOptions{LabelSelector: labelSelector.String(), FieldSelector: fieldSelector.String()})
 	leaderPodName := getLeader()
 	for _, pod := range controllerPods.Items {
