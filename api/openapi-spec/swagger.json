@@ -10929,6 +10929,18 @@
      }
     }
    },
+   "v1alpha1.VirtualMachineRestoreError": {
+    "description": "VirtualMachineRestoreError is the last error encountered while performing the restore",
+    "type": "object",
+    "properties": {
+     "message": {
+      "type": "string"
+     },
+     "time": {
+      "$ref": "#/definitions/v1.Time"
+     }
+    }
+   },
    "v1alpha1.VirtualMachineRestoreList": {
     "description": "VirtualMachineRestoreList is a list of VirtualMachineRestore resources",
     "type": "object",
@@ -10999,6 +11011,12 @@
       "items": {
        "$ref": "#/definitions/v1alpha1.VirtualMachineRestoreCondition"
       }
+     },
+     "error": {
+      "$ref": "#/definitions/v1alpha1.VirtualMachineRestoreError"
+     },
+     "restoreTime": {
+      "$ref": "#/definitions/v1.Time"
      }
     }
    },
