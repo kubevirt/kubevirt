@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
@@ -260,7 +261,7 @@ var _ = Describe("Templates", func() {
 		AfterEach(AssertTestCleanupSuccess())
 
 		Context("with Fedora Template", func() {
-			BeforeEach(AssertTemplateSetupSuccess(vmsgen.GetTemplateFedoraWithContainerDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora)), nil))
+			BeforeEach(AssertTemplateSetupSuccess(vmsgen.GetTemplateFedoraWithContainerDisk(cd.ContainerDiskFor(cd.ContainerDiskFedora)), nil))
 
 			AssertTemplateTestSuccess()
 		})

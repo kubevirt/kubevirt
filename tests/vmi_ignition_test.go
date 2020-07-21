@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component]IgnitionData", func() {
@@ -79,7 +80,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with IgnitionData annotation", func() {
 			Context("with injected data", func() {
 				It("[test_id:1616]should have injected data under firmware directory", func() {
-					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(tests.ContainerDiskFor(tests.ContainerDiskFedora), "#!/bin/sh\n\necho fedora| passwd --stdin fedora\n")
+					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), "#!/bin/sh\n\necho fedora| passwd --stdin fedora\n")
 
 					ignitionData := "ignition injected"
 					vmi.Annotations = map[string]string{v1.IgnitionAnnotation: ignitionData}

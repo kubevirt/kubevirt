@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
@@ -136,7 +137,7 @@ var _ = Describe("Infrastructure", func() {
 			}, 10*time.Second, 1*time.Second).Should(BeTrue())
 
 			By("checking that we can still start virtual machines and connect to the VMI")
-			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vmi = tests.RunVMI(vmi, 60)
 			expecter, err := tests.LoggedInAlpineExpecter(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -155,7 +156,7 @@ var _ = Describe("Infrastructure", func() {
 
 			By("repeatedly starting VMIs until virt-api and virt-handler certificates are updated")
 			Eventually(func() (rotated bool) {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi = tests.RunVMI(vmi, 60)
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -337,7 +338,7 @@ var _ = Describe("Infrastructure", func() {
 
 			By("creating a VMI in a user defined namespace")
 			vmi := tests.NewRandomVMIWithEphemeralDisk(
-				tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			startVMI(vmi)
 
 			By("finding virt-operator pod")
@@ -470,7 +471,7 @@ var _ = Describe("Infrastructure", func() {
 			// but if the default disk is not vda, the test will break
 			// TODO: introspect the VMI and get the device name of this
 			// block device?
-			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			tests.AppendEmptyDisk(vmi, "testdisk", "virtio", "1Gi")
 
 			if preferredNodeName != "" {
