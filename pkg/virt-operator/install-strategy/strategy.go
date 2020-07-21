@@ -273,6 +273,20 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		}
 	}
 
+	var productName string
+	var productVersion string
+
+	if isValidLabel(config.AdditionalProperties[operatorutil.ProductNameKey]) {
+		productName = config.AdditionalProperties[operatorutil.ProductNameKey]
+	} else {
+		log.Log.Errorf("invalid kubevirt.spec.productName: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash")
+	}
+	if isValidLabel(config.AdditionalProperties[operatorutil.ProductVersionKey]) {
+		productVersion = config.AdditionalProperties[operatorutil.ProductVersionKey]
+	} else {
+		log.Log.Errorf("invalid kubevirt.spec.productVersion: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash")
+	}
+
 	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewOpertorValidatingWebhookConfiguration(operatorNamespace))
 	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewVirtAPIValidatingWebhookConfiguration(config.GetNamespace()))
 	strategy.mutatingWebhookConfigurations = append(strategy.mutatingWebhookConfigurations, components.NewVirtAPIMutatingWebhookConfiguration(config.GetNamespace()))
@@ -280,13 +294,13 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.services = append(strategy.services, components.NewPrometheusService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewOperatorWebhookService(operatorNamespace))
-	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), productName, productVersion, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
 	}
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller, err := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	controller, err := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), productName, productVersion, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-controller deployment %v", err)
 	}
@@ -294,7 +308,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 
 	strategy.configMaps = append(strategy.configMaps, components.NewKubeVirtCAConfigMap(operatorNamespace))
 
-	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
+	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), productName, productVersion, config.GetImagePullPolicy(), config.GetVerbosity(), config.GetExtraEnv())
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}
