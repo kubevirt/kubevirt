@@ -52,6 +52,7 @@ import (
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 const (
@@ -71,7 +72,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 
-		originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
+		originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -85,7 +86,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				},
 			}
 
-			originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Create(cfgMap)
+			originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Create(cfgMap)
 			if err != nil {
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -124,7 +125,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 	})
 
 	AfterEach(func() {
-		curKubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
+		curKubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
 		if err != nil {
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -136,7 +137,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 			Expect(err).ToNot(HaveOccurred())
 			data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
 
-			newConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch(virtconfig.ConfigMapName, types.JSONPatchType, []byte(data))
+			newConfig, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Patch(virtconfig.ConfigMapName, types.JSONPatchType, []byte(data))
 			Expect(err).ToNot(HaveOccurred())
 
 			// update the restored originalKubeVirtConfig
@@ -1033,7 +1034,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						return &cert, nil
 					},
 				}
-				handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(tests.KubeVirtInstallNamespace).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
+				handler, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
 				Expect(err).ToNot(HaveOccurred())
 
 				var wg sync.WaitGroup
@@ -1485,7 +1486,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					vmi = cirrosVMIWithEvictionStrategy()
 
 					By("Configuring a custom nodeDrainTaintKey in kubevirt-config")
-					cfg, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
+					cfg, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					// set a custom taint value
@@ -1495,7 +1496,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					Expect(err).ToNot(HaveOccurred())
 					data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
 
-					_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch(virtconfig.ConfigMapName, types.JSONPatchType, []byte(data))
+					_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Patch(virtconfig.ConfigMapName, types.JSONPatchType, []byte(data))
 					Expect(err).ToNot(HaveOccurred())
 					// this sleep is to allow the config to stick. The informers on virt-controller have to
 					// be notified of the config change.

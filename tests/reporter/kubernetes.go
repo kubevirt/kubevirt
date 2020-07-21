@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 const (
@@ -225,7 +226,7 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, since time
 				return
 			}
 			defer f.Close()
-			pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(tests.KubeVirtInstallNamespace).ForNode(node).Pod()
+			pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v", node, err)
 				return
@@ -280,7 +281,7 @@ func (r *KubernetesReporter) logAuditLogs(virtCli kubecli.KubevirtClient, since 
 				return
 			}
 			defer f.Close()
-			pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(tests.KubeVirtInstallNamespace).ForNode(node).Pod()
+			pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v", node, err)
 				return
@@ -334,7 +335,7 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, duration
 	nodes := getNodesWithVirtLauncher(virtCli)
 
 	for _, node := range nodes {
-		pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(tests.KubeVirtInstallNamespace).ForNode(node).Pod()
+		pod, err := kubecli.NewVirtHandlerClient(virtCli).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to get virt-handler pod on node %s: %v", node, err)
 			continue
@@ -478,7 +479,7 @@ func (r *KubernetesReporter) logConfigMaps(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	configmaps, err := virtCli.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+	configmaps, err := virtCli.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch configmaps: %v\n", err)
 		return
@@ -501,7 +502,7 @@ func (r *KubernetesReporter) logSecrets(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	secrets, err := virtCli.CoreV1().Secrets(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+	secrets, err := virtCli.CoreV1().Secrets(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch secrets: %v\n", err)
 		return
