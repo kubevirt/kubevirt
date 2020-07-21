@@ -47,13 +47,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
 const kubevirtConfig = "kubevirt-config"
 
 func newCirrosVMI() *v1.VirtualMachineInstance {
-	return tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	return tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 }
 
 func addNodeAffinityToVMI(vmi *v1.VirtualMachineInstance, nodeName string) {
@@ -86,7 +87,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		tests.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})
 
 	AfterEach(func() {
@@ -240,7 +241,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("when name is longer than 63 characters", func() {
 			BeforeEach(func() {
-				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 				vmi.Name = "testvmi" + rand.String(63)
 			})
 			It("[test_id:1625]should start it", func() {
@@ -280,9 +281,9 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with boot order", func() {
 			table.DescribeTable("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]should be able to boot from selected disk", func(alpineBootOrder uint, cirrosBootOrder uint, consoleText string, wait int) {
 				By("defining a VirtualMachineInstance with an Alpine disk")
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(tests.ContainerDiskFor(tests.ContainerDiskAlpine), "#!/bin/sh\n\necho 'hi'\n")
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskAlpine), "#!/bin/sh\n\necho 'hi'\n")
 				By("adding a Cirros Disk")
-				tests.AddEphemeralDisk(vmi, "disk2", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
+				tests.AddEphemeralDisk(vmi, "disk2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 				By("setting boot order")
 				vmi = tests.AddBootOrderToDisk(vmi, "disk0", &alpineBootOrder)
@@ -330,7 +331,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Context("without k8s secret", func() {
 				It("[test_id:1629][posneg:negative]should not be able to start virt-launcher pod", func() {
 					userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
-					vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
+					vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
 
 					for _, volume := range vmi.Spec.Volumes {
 						if volume.CloudInitNoCloud != nil {
@@ -361,7 +362,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				It("[test_id:1630]should log warning and proceed once the secret is there", func() {
 					userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
 					userData64 := ""
-					vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
+					vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
 
 					for _, volume := range vmi.Spec.Volumes {
 						if volume.CloudInitNoCloud != nil {
@@ -579,7 +580,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			BeforeEach(func() {
 
 				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "echo hi!")
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				nodeName = tests.WaitForSuccessfulVMIStart(vmi)
@@ -689,7 +690,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:1635]the vmi with tolerations should be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Tolerations = []k8sv1.Toleration{{Key: "test", Value: "123"}}
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
@@ -698,7 +699,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:1636]the vmi without tolerations should not be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
@@ -724,7 +725,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:1637]the vmi with node affinity and no conflicts should be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
@@ -736,7 +737,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:1638]the vmi with node affinity and anti-pod affinity should not be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
@@ -745,7 +746,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 				Expect(curVMI.Status.NodeName).To(Equal(nodes.Items[0].Name), "VMI should run on the same node")
 
-				vmiB := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmiB := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				addNodeAffinityToVMI(vmiB, nodes.Items[0].Name)
 
 				vmiB.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
@@ -806,7 +807,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			It("[test_id:3199]should set default cpu model when vmi doesn't have it set", func() {
 				tests.UpdateClusterConfigValueAndWait(defaultCPUModelKey, defaultCPUModel)
 
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
@@ -820,7 +821,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			It("[test_id:3200]should not set default cpu model when vmi has it set", func() {
 				tests.UpdateClusterConfigValueAndWait(defaultCPUModelKey, defaultCPUModel)
 
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Model: vmiCPUModel,
 				}
@@ -835,7 +836,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:3201]should not set cpu model when vmi does not have it set and default cpu model is not set", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
@@ -875,7 +876,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:1639]the vmi with cpu.model matching a nfd label on a node should be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Model: "Conroe",
@@ -899,7 +900,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:1640]the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Model: "Conroe",
@@ -932,7 +933,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			It("[test_id:3202]the vmi with cpu.features matching nfd labels on a node should be scheduled", func() {
 
 				By("adding a node-feature-discovery CPU model label to a node")
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Features: []v1.CPUFeature{
@@ -971,7 +972,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			It("[test_id:3203]the vmi with cpu.features that cannot match nfd labels on a node should not be scheduled", func() {
 
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Features: []v1.CPUFeature{
@@ -1017,7 +1018,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			It("[test_id:3204]the vmi with cpu.feature policy 'forbid' should not be scheduled on a node with that cpu feature label", func() {
 
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Features: []v1.CPUFeature{
