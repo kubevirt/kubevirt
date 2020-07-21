@@ -63,10 +63,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
-func StubOutNetworkForTest() {
-	network.SetupPodNetworkPhase1 = func(vm *v1.VirtualMachineInstance, pid int) error { return nil }
-}
-
 var _ = Describe("VirtualMachineInstance", func() {
 	var client *cmdclient.MockLauncherClient
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
@@ -163,7 +159,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
-		mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).AnyTimes()
 		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
 		mockIsolationResult.EXPECT().MountRoot().Return(vmiShareDir).AnyTimes()
 
@@ -208,8 +203,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		go domainInformer.Run(stop)
 		go gracefulShutdownInformer.Run(stop)
 		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
-
-		StubOutNetworkForTest()
 
 		go func() {
 			notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
@@ -504,6 +497,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
+			mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).Times(1)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
 				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
@@ -803,15 +797,15 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
-		It("should move VirtualMachineInstance to Failed if configuring the networks on the virt-launcher fails", func() {
+		It("should move VirtualMachineInstance to Failed if configuring the networks on the virt-launcher fails with critical error", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
-
-			network.SetupPodNetworkPhase1 = func(vm *v1.VirtualMachineInstance, pid int) error { return fmt.Errorf("SetupPodNetworkPhase1 error") }
+			mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(&network.CriticalNetworkError{Msg: "Critical SetupPodNetworkPhase1 error"}).Times(1)
 
 			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
 				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
@@ -843,6 +837,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
+			mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).Times(1)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
@@ -897,6 +892,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
+			mockIsolationResult.EXPECT().DoNetNS(gomock.Any()).Return(nil).Times(1)
 
 			// something has to be listening to the cmd socket
 			// for the proxy to work.

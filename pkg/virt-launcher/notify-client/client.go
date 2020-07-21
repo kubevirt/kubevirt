@@ -330,7 +330,7 @@ func (n *Notifier) StartDomainNotifier(
 			case agentUpdate := <-agentStore.AgentUpdated:
 				interfaceStatuses = agentUpdate.DomainInfo.Interfaces
 				guestOsInfo = agentUpdate.DomainInfo.OSInfo
-				if domainCache != nil && interfaceStatuses != nil {
+				if interfaceStatuses != nil {
 					interfaceStatuses = agentpoller.MergeAgentStatusesWithDomainData(domainCache.Spec.Devices.Interfaces, interfaceStatuses)
 				}
 
