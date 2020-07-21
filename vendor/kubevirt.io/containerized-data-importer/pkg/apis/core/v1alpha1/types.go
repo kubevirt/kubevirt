@@ -191,6 +191,9 @@ const (
 	// UploadReady represents a data volume with a current phase of UploadReady
 	UploadReady DataVolumePhase = "UploadReady"
 
+	// WaitForFirstConsumer represents a data volume with a current phase of WaitForFirstConsumer
+	WaitForFirstConsumer DataVolumePhase = "WaitForFirstConsumer"
+
 	// Succeeded represents a DataVolumePhase of Succeeded
 	Succeeded DataVolumePhase = "Succeeded"
 	// Failed represents a DataVolumePhase of Failed
