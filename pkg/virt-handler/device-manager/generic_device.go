@@ -26,6 +26,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -62,6 +63,7 @@ type GenericDevicePlugin struct {
 	deviceRoot  string
 	preOpen     bool
 	initialized bool
+	lock        *sync.Mutex
 }
 
 func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int, preOpen bool) *GenericDevicePlugin {
@@ -76,6 +78,7 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 		deviceRoot:  util.HostRootMount,
 		preOpen:     preOpen,
 		initialized: false,
+		lock:        &sync.Mutex{},
 	}
 	for i := 0; i < maxDevices; i++ {
 		dpi.addNewGenericDevice()
