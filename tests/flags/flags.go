@@ -17,7 +17,7 @@
  *
  */
 
-package tests
+package flags
 
 import (
 	"flag"

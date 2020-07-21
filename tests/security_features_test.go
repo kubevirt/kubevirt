@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 var _ = Describe("SecurityFeatures", func() {
@@ -121,7 +122,7 @@ var _ = Describe("SecurityFeatures", func() {
 			It("[test_id:3787]Should honor custom SELinux type for virt-launcher", func() {
 
 				superPrivilegedType := "spc_t"
-				kubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+				kubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if kubeVirtConfig.Data[virtconfig.SELinuxLauncherTypeKey] != superPrivilegedType {
 					tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, superPrivilegedType)
@@ -154,7 +155,7 @@ var _ = Describe("SecurityFeatures", func() {
 			It("[test_id:4298]qemu process type is virt_launcher.process, when selinuxLauncherType is virt_launcher.process", func() {
 
 				launcherType := "virt_launcher.process"
-				kubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+				kubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if kubeVirtConfig.Data[virtconfig.SELinuxLauncherTypeKey] != launcherType {
 					tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, launcherType)

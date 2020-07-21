@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 // KubeVirtTestsConfiguration contains the configuration for KubeVirt tests
@@ -43,7 +45,7 @@ type KubeVirtTestsConfiguration struct {
 
 func loadConfig() (*KubeVirtTestsConfiguration, error) {
 	// open configuration file
-	jsonFile, err := os.Open(ConfigFile)
+	jsonFile, err := os.Open(flags.ConfigFile)
 	if err != nil {
 		return nil, err
 	}

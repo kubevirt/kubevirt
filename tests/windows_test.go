@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 const (
@@ -163,7 +164,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 					Containers: []k8sv1.Container{
 						{
 							Name:    winrmCli,
-							Image:   fmt.Sprintf("%s/%s:%s", tests.KubeVirtUtilityRepoPrefix, winrmCli, tests.KubeVirtUtilityVersionTag),
+							Image:   fmt.Sprintf("%s/%s:%s", flags.KubeVirtUtilityRepoPrefix, winrmCli, flags.KubeVirtUtilityVersionTag),
 							Command: []string{"sleep"},
 							Args:    []string{"3600"},
 						},
