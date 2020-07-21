@@ -337,6 +337,35 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		time.Sleep(15 * time.Second)
 	}
 
+	getLibvirtdPid := func(pod *k8sv1.Pod) string {
+		stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient, pod, "compute",
+			[]string{
+				"ps",
+				"-x",
+			})
+		Expect(err).ToNot(HaveOccurred())
+
+		pid := ""
+		for _, str := range strings.Split(stdout, "\n") {
+			if !strings.Contains(str, "libvirtd") {
+				continue
+			}
+			words := strings.Fields(str)
+			Expect(len(words)).To(Equal(5))
+
+			// verify it is numeric
+			_, err = strconv.Atoi(words[0])
+			Expect(err).ToNot(HaveOccurred(), "should have found pid for libvirtd that is numeric")
+
+			pid = words[0]
+			break
+
+		}
+
+		Expect(pid).ToNot(Equal(""), "libvirtd pid not found")
+		return pid
+	}
+
 	deleteDataVolume := func(dv *cdiv1.DataVolume) {
 		if dv != nil {
 			By("Deleting the DataVolume")
@@ -480,21 +509,31 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 
-				By("Killing libvirtd")
 				pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(metav1.ListOptions{
 					LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
 				})
 				Expect(err).ToNot(HaveOccurred(), "Should list pods successfully")
 				Expect(pods.Items).To(HaveLen(1), "There should be only one VMI pod")
 
+				// find libvirtd pid
+				pid := getLibvirtdPid(&pods.Items[0])
+
+				// kill libvirtd
+				By(fmt.Sprintf("Killing libvirtd with pid %s", pid))
 				_, _, err = tests.ExecuteCommandOnPodV2(virtClient, &pods.Items[0], "compute",
 					[]string{
-						"/usr/bin/killall",
-						"/usr/sbin/libvirtd",
+						"kill",
+						"-9",
+						pid,
 					})
 				Expect(err).ToNot(HaveOccurred())
 
-				time.Sleep(30)
+				// wait for both libvirt to respawn and all connections to re-establish
+				time.Sleep(30 * time.Second)
+
+				// ensure new pid comes online
+				newPid := getLibvirtdPid(&pods.Items[0])
+				Expect(pid).ToNot(Equal(newPid), fmt.Sprintf("expected libvirtd to be cycled. original pid %s new pid %s", pid, newPid))
 
 				// execute a migration, wait for finalized state
 				By(fmt.Sprintf("Starting the Migration"))
