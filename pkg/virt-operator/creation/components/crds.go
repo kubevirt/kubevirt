@@ -352,6 +352,8 @@ func NewVirtualMachineRestoreCrd() *extv1beta1.CustomResourceDefinition {
 			{Name: "TargetKind", Type: "string", JSONPath: ".spec.target.kind"},
 			{Name: "TargetName", Type: "string", JSONPath: ".spec.target.name"},
 			{Name: "Complete", Type: "boolean", JSONPath: ".status.complete"},
+			{Name: "RestoreTime", Type: "date", JSONPath: ".status.restoreTime"},
+			{Name: "Error", Type: "string", JSONPath: ".status.error.message"},
 		},
 	}
 

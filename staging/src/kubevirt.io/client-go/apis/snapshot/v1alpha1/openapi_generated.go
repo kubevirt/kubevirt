@@ -396,6 +396,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.SourceSpec":                          schema_client_go_apis_snapshot_v1alpha1_SourceSpec(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestore":               schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestore(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreCondition":      schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreCondition(ref),
+		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreError":          schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreError(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreList":           schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreList(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreSpec":           schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref),
 		"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreStatus":         schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref),
@@ -18263,6 +18264,32 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreCondition(ref 
 	}
 }
 
+func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreError(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestoreError is the last error encountered while performing the restore",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"time": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18372,10 +18399,20 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref com
 				Description: "VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"restoreTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
 					"complete": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreError"),
 						},
 					},
 					"conditions": {
@@ -18394,7 +18431,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreStatus(ref com
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreCondition"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreCondition", "kubevirt.io/client-go/apis/snapshot/v1alpha1.VirtualMachineRestoreError"},
 	}
 }
 
