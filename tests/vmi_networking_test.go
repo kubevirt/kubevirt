@@ -191,6 +191,10 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				switch destination {
 				case "Internet":
+					if netutils.IsIPv6String(inboundVMI.Status.Interfaces[0].IP) {
+						By("Skipping external connectivity check on IPv6 cluster")
+						return
+					}
 					addr = "kubevirt.io"
 				case "InboundVMI":
 					addr = inboundVMI.Status.Interfaces[0].IP
