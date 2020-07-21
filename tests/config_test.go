@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component]Config", func() {
@@ -336,8 +337,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				By("Running VMI")
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(
-					tests.ContainerDiskFor(
-						tests.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+					cd.ContainerDiskFor(
+						cd.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
 				tests.AddConfigMapDisk(vmi, configMapName, configMapName)
 				tests.AddSecretDisk(vmi, secretName, secretName)
 				tests.AddConfigMapDiskWithCustomLabel(vmi, configMapName, "random1", "configlabel")
@@ -460,8 +461,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Running VMI")
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(
-					tests.ContainerDiskFor(
-						tests.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+					cd.ContainerDiskFor(
+						cd.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
 				tests.AddSecretDisk(vmi, secretName, secretName)
 				tests.RunVMIAndExpectLaunch(vmi, 90)
 

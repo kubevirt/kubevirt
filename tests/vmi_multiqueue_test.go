@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 var _ = Describe("MultiQueue", func() {
@@ -78,7 +79,7 @@ var _ = Describe("MultiQueue", func() {
 		})
 
 		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			numCpus := 3
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
@@ -89,7 +90,7 @@ var _ = Describe("MultiQueue", func() {
 			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
 
-			tests.AddEphemeralDisk(vmi, "disk1", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By("Creating VMI with 2 disks, 3 CPUs and multi-queue enabled")
 			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)

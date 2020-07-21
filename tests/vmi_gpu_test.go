@@ -18,6 +18,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 func parseDeviceAddress(addrString string) []string {
@@ -60,7 +61,7 @@ var _ = Describe("GPU", func() {
 	Context("with ephemeral disk", func() {
 		It("Should create a valid VMI but pod should not go to running state", func() {
 			gpuName := "random.com/gpu"
-			randomVMI := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			randomVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			gpus := []v1.GPU{
 				v1.GPU{
 					Name:       "gpu1",
@@ -93,7 +94,7 @@ var _ = Describe("GPU", func() {
 				}
 			}
 			Expect(gpuName).ToNot(Equal(""))
-			randomVMI := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			randomVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			gpus := []v1.GPU{
 				v1.GPU{
 					Name:       "gpu1",

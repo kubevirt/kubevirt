@@ -31,6 +31,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
@@ -88,7 +89,7 @@ var _ = Describe("CloudInitHookSidecars", func() {
 		tests.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#FAKE")
+		vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#FAKE")
 		vmi.ObjectMeta.Annotations = map[string]string{
 			"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, flags.KubeVirtUtilityRepoPrefix, cloudinitHookSidecarImage, flags.KubeVirtUtilityVersionTag),
 		}

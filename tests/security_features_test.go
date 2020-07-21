@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
@@ -56,7 +57,7 @@ var _ = Describe("SecurityFeatures", func() {
 		Context("With selinuxLauncherType undefined", func() {
 			BeforeEach(func() {
 				tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, "")
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			})
 
 			It("[test_id:2953]Ensure virt-launcher pod securityContext type is not forced", func() {
@@ -128,7 +129,7 @@ var _ = Describe("SecurityFeatures", func() {
 					tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, superPrivilegedType)
 				}
 
-				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				By("Starting a New VMI")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -161,7 +162,7 @@ var _ = Describe("SecurityFeatures", func() {
 					tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, launcherType)
 				}
 
-				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				By("Starting a New VMI")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -200,7 +201,7 @@ var _ = Describe("SecurityFeatures", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		It("[test_id:4300]has precisely the documented extra capabilities relative to a regular user pod", func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 			By("Starting a New VMI")
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)

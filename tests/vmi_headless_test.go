@@ -30,6 +30,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 var _ = Describe("[rfe_id:609]VMIheadless", func() {
@@ -43,7 +44,7 @@ var _ = Describe("[rfe_id:609]VMIheadless", func() {
 		tests.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})
 
 	Describe("[rfe_id:609]Creating a VirtualMachineInstance", func() {
@@ -98,7 +99,7 @@ var _ = Describe("[rfe_id:609]VMIheadless", func() {
 			})
 
 			It("[test_id:713]should have more memory on pod when headless", func() {
-				normalVmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				normalVmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
 				normalVmi = tests.RunVMIAndExpectLaunch(normalVmi, 30)

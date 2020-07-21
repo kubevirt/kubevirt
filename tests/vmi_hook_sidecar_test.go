@@ -36,6 +36,7 @@ import (
 	hooksv1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
@@ -53,7 +54,7 @@ var _ = Describe("HookSidecars", func() {
 		tests.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
 	})
 

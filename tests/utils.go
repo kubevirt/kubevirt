@@ -100,6 +100,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 
 	"github.com/Masterminds/semver"
@@ -1925,7 +1926,7 @@ func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(containerImag
 }
 
 func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskHighMemory(ContainerDiskFor(ContainerDiskAlpine))
+	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 	// EFI needs more memory than other images
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
@@ -1942,7 +1943,7 @@ func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
 }
 
 func NewRandomVMIWithSecureBoot() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskHighMemory(ContainerDiskFor(ContainerDiskMicroLiveCD))
+	vmi := NewRandomVMIWithEphemeralDiskHighMemory(cd.ContainerDiskFor(cd.ContainerDiskMicroLiveCD))
 
 	// EFI needs more memory than other images
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
@@ -1982,7 +1983,7 @@ func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInst
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
-	if containerImage == ContainerDiskFor(ContainerDiskFedora) {
+	if containerImage == cd.ContainerDiskFor(cd.ContainerDiskFedora) {
 		vmi.Spec.Domain.Devices.Rng = &v1.Rng{} // newer fedora kernels may require hardware RNG to boot
 	}
 	return vmi
@@ -2062,7 +2063,7 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, 
 }
 
 func NewRandomFedora32VMIWithFedoraUser() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), `#!/bin/bash
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedora), `#!/bin/bash
 	    echo "fedora" |passwd fedora --stdin
         echo `)
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
@@ -2079,7 +2080,7 @@ func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
 	searchDomains := getVMISeachDomains()
 	networkData := GetCloudInitNetworkData(ipv6MasqueradeAddress, ipv6MasqueradeGateway, dnsServerIP, searchDomains)
 
-	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(ContainerDiskFor(ContainerDiskFedora), GetGuestAgentUserData(), networkData, false)
+	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(cd.ContainerDiskFor(cd.ContainerDiskFedora), GetGuestAgentUserData(), networkData, false)
 	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return agentVMI
 }
@@ -2091,7 +2092,7 @@ func NewRandomFedoraVMIWithDmidecode() *v1.VirtualMachineInstance {
 	    curl %s > /usr/local/bin/dmidecode
 	    chmod +x /usr/local/bin/dmidecode
 	`, GetUrl(DmidecodeHttpUrl))
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(ContainerDiskFor(ContainerDiskFedora), dmidecodeUserData)
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), dmidecodeUserData)
 	return vmi
 }
 
@@ -2423,7 +2424,7 @@ func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeNam
 }
 
 func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(ContainerDiskFor(ContainerDiskAlpine))
+	vmi := NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 	vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 		Name: "mywatchdog",
@@ -2532,14 +2533,14 @@ func AddExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 
 func NewRandomVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
 	// Use alpine because cirros dhcp client starts prematurily before link is ready
-	vmi := NewRandomVMIWithEphemeralDisk(ContainerDiskFor(ContainerDiskAlpine))
+	vmi := NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	return vmi
 }
 
 func NewRandomVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(ContainerDiskFor(ContainerDiskAlpine))
+	vmi := NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 	return vmi
@@ -3519,7 +3520,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
 }
 
-func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string) {
+func CreateISCSITargetPOD(containerDiskName cd.ContainerDisk) (iscsiTargetIP string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	image := fmt.Sprintf("%s/cdi-http-import-server:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag)
@@ -3544,7 +3545,7 @@ func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string
 			},
 		},
 	}
-	if containerDiskName == ContainerDiskEmpty {
+	if containerDiskName == cd.ContainerDiskEmpty {
 		asEmpty := []k8sv1.EnvVar{
 			{
 				Name:  "AS_EMPTY",
