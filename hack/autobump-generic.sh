@@ -52,14 +52,14 @@ fi
 make test
 
 title="Run make $@"
-git commit -m "${title}"
-git push -f "https://${user}@github.com/kubevirt/kubevirt.git" HEAD:autoupdate-$@
+git commit -s -m "${title}"
+git push -f "https://${user}@github.com/${user}/kubevirt.git" HEAD:autoupdate-$@
 
 echo "Creating PR to merge ${user}:autoupdate into master..." >&2
-pr-creator -- \
+pr-creator \
     --github-token-path="${token}" \
     --org=kubevirt --repo=kubevirt --branch=master \
     --title="${title}" --match-title="${title}" \
     --body="Automatic run of \"$@\". Please review" \
-    --source="${user}":autoupdate \
+    --source="${user}":autoupdate-$@ \
     --confirm
