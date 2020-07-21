@@ -49,7 +49,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/flags"
 )
 
 var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachine", func() {
@@ -211,24 +210,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var testingMachineType string = "pc-q35-2.7"
 
 		BeforeEach(func() {
-			_, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-			if err != nil && !errors.IsNotFound(err) {
-				Expect(err).ToNot(HaveOccurred())
-			}
-			if errors.IsNotFound(err) {
-				// create an empty kubevirt-config configmap if none exists.
-				cfgMap := &k8sv1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{Name: "kubevirt-config"},
-					Data: map[string]string{
-						"machine-type": testingMachineType,
-					},
-				}
+			kv := tests.GetCurrentKv(virtClient)
+			kubevirtConfiguration := kv.Spec.Configuration
 
-				_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Create(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
-			} else if err == nil {
-				tests.UpdateClusterConfigValueAndWait("machine-type", testingMachineType)
-			}
+			kubevirtConfiguration.MachineType = testingMachineType
+			tests.UpdateKubeVirtConfigValueAndWait(kubevirtConfiguration)
 		})
 
 		newVirtualMachineInstanceWithContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {

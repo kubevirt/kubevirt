@@ -108,7 +108,7 @@ import (
 )
 
 var Config *KubeVirtTestsConfiguration
-var KubeVirtDefaultConfig map[string]string
+var KubeVirtDefaultConfig v1.KubeVirtConfiguration
 
 type EventType string
 
@@ -720,6 +720,7 @@ func CalculateNamespaces() {
 	testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
 }
 
+// CHECK THIS
 func SynchronizedBeforeTestSetup() []byte {
 	var err error
 	Config, err = loadConfig()
@@ -755,12 +756,6 @@ func SynchronizedBeforeTestSetup() []byte {
 	EnsureKVMPresent()
 	AdjustKubeVirtResource()
 
-	// TODO, if a previous run was really killed, we could not restore the map and we may pick up a config here which is bad
-	cfgMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		PanicOnError(err)
-	}
-	KubeVirtDefaultConfig = cfgMap.Data
 	return nil
 }
 
@@ -802,10 +797,19 @@ func AdjustKubeVirtResource() {
 		CAOverlapInterval:  &metav1.Duration{Duration: 4 * time.Minute},
 	}}
 
+	// match default kubevirt-config testing resource
+	if kv.Spec.Configuration.DeveloperConfiguration == nil {
+		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+	}
+
+	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CPUManager", "LiveMigration", "ExperimentalIgnitionSupport", "Sidecar", "Snapshot"}
+	kv.Spec.Configuration.SELinuxLauncherType = "virt_launcher.process"
+
 	data, err := json.Marshal(kv.Spec)
 	Expect(err).ToNot(HaveOccurred())
 	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
-	_, err = virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData))
+	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(kv.Name, types.JSONPatchType, []byte(patchData))
+	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
 	PanicOnError(err)
 }
 
@@ -854,24 +858,24 @@ func deleteStorageClass(name string) {
 	PanicOnError(err)
 }
 
-func EnsureKVMPresent() {
+func ShouldUseEmulation(virtClient kubecli.KubevirtClient) bool {
 	useEmulation := false
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	options := metav1.GetOptions{}
-	cfgMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
-	if err == nil {
-		val, ok := cfgMap.Data["debug.useEmulation"]
-		useEmulation = ok && (val == "true")
-	} else {
-		// If the cfgMap is missing, default to useEmulation=false
-		// no other error is expected
-		if !errors.IsNotFound(err) {
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		}
+	kv := GetCurrentKv(virtClient)
+	if kv.Spec.Configuration.DeveloperConfiguration != nil {
+		useEmulation = kv.Spec.Configuration.DeveloperConfiguration.UseEmulation
 	}
-	if !useEmulation {
+
+	return useEmulation
+}
+
+func EnsureKVMPresent() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	if !ShouldUseEmulation(virtClient) {
 		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 		virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(listOptions)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -3934,23 +3938,22 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 }
 
 func HasFeature(feature string) bool {
-	hasFeature := false
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	options := metav1.GetOptions{}
-	cfgMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, options)
-	if err == nil {
-		val, ok := cfgMap.Data[virtconfig.FeatureGatesKey]
-		if !ok {
-			return hasFeature
-		}
-		hasFeature = strings.Contains(val, feature)
-	} else {
-		if !errors.IsNotFound(err) {
-			PanicOnError(err)
+
+	featureGates := []string{}
+	kv := GetCurrentKv(virtClient)
+	if kv.Spec.Configuration.DeveloperConfiguration != nil {
+		featureGates = kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
+	}
+
+	for _, fg := range featureGates {
+		if fg == feature {
+			return true
 		}
 	}
-	return hasFeature
+
+	return false
 }
 
 func DisableFeatureGate(feature string) {
@@ -3959,30 +3962,47 @@ func DisableFeatureGate(feature string) {
 	}
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
-	cfg, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
 
-	val, _ := cfg.Data["feature-gates"]
+	kv := GetCurrentKv(virtClient)
+	if kv.Spec.Configuration.DeveloperConfiguration == nil {
+		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+			FeatureGates: []string{},
+		}
+	}
 
-	newVal := strings.Replace(val, feature+",", "", 1)
-	newVal = strings.Replace(newVal, feature, "", 1)
+	newArray := []string{}
+	featureGates := kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
+	for _, fg := range featureGates {
+		if fg == feature {
+			continue
+		}
 
-	UpdateClusterConfigValueAndWait("feature-gates", newVal)
+		newArray = append(newArray, fg)
+	}
+
+	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = newArray
+
+	UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
 
-func EnableFeatureGate(feature string) {
-	if HasFeature(feature) {
-		return
-	}
+func EnableFeatureGate(feature string) *v1.KubeVirt {
 	virtClient, err := kubecli.GetKubevirtClient()
 	Expect(err).ToNot(HaveOccurred())
-	cfg, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
 
-	val, _ := cfg.Data["feature-gates"]
-	newVal := fmt.Sprintf("%s,%s", val, feature)
+	kv := GetCurrentKv(virtClient)
+	if HasFeature(feature) {
+		return kv
+	}
 
-	UpdateClusterConfigValueAndWait("feature-gates", newVal)
+	if kv.Spec.Configuration.DeveloperConfiguration == nil {
+		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+			FeatureGates: []string{},
+		}
+	}
+
+	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, feature)
+
+	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
 
 func HasDataVolumeCRD() bool {
@@ -4001,7 +4021,7 @@ func HasDataVolumeCRD() bool {
 }
 
 func HasCDI() bool {
-	return HasFeature("DataVolumes")
+	return HasDataVolumeCRD()
 }
 
 func GetCephStorageClass() (string, bool) {
@@ -4170,6 +4190,38 @@ func UpdateClusterConfigValueAndWait(key string, value string) string {
 	return oldValue
 }
 
+// UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
+// and then waits  to allow the configuration events to be propagated to the consumers.
+func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
+	if config.GinkgoConfig.ParallelTotal > 1 {
+		Fail("Tests which alter the global kubevirt configuration must not be executed in parallel")
+	}
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	kv := GetCurrentKv(virtClient)
+	old, err := json.Marshal(kv)
+
+	if reflect.DeepEqual(kv.Spec.Configuration, kvConfig) {
+		return kv
+	}
+
+	updatedKV := kv.DeepCopy()
+	updatedKV.Spec.Configuration = kvConfig
+	newJson, err := json.Marshal(updatedKV)
+
+	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, kv)
+	Expect(err).ToNot(HaveOccurred())
+
+	kv, err = virtClient.KubeVirt(kv.Namespace).Patch(kv.GetName(), types.MergePatchType, patch)
+	Expect(err).ToNot(HaveOccurred())
+
+	waitForConfigToBePropagated(kv.ResourceVersion)
+	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
+
+	return kv
+}
+
 // resetToDefaultConfig resets the config to the state found when the test suite started. It will wait for the config to
 // be propagated to all components before it returns. It will only update the config map and wait for it to be
 // propagated if the current config in use does not match the original one.
@@ -4180,18 +4232,7 @@ func resetToDefaultConfig() {
 		return
 	}
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-	cfgMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	if reflect.DeepEqual(cfgMap.Data, KubeVirtDefaultConfig) {
-		return
-	}
-	cfgMap.Data = KubeVirtDefaultConfig
-	cfg, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Update(cfgMap)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	waitForConfigToBePropagated(cfg.ResourceVersion)
-	log.DefaultLogger().Infof("Deployment is in sync with config resource version %s", cfg.ResourceVersion)
+	UpdateKubeVirtConfigValueAndWait(KubeVirtDefaultConfig)
 }
 
 func waitForConfigToBePropagated(resourceVersion string) {
@@ -4203,6 +4244,8 @@ func waitForConfigToBePropagated(resourceVersion string) {
 func waitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
+	rv, _ := strconv.ParseInt(resourceVersion, 10, 32)
+
 	EventuallyWithOffset(3, func() bool {
 		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: podLabel})
 		if err != nil {
@@ -4224,8 +4267,10 @@ func waitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 				log.DefaultLogger().Reason(err).Errorf("Failed to parse response from healthz endpoint on %s", pod.Name)
 				return false
 			}
-			if resourceVersion != result["config-resource-version"] {
-				log.DefaultLogger().Reason(err).Errorf("Config is not in sync on %s. Expected %s, Got %s", pod.Name, resourceVersion, result["config-resource-version"])
+
+			crv, _ := strconv.ParseInt(result["config-resource-version"].(string), 10, 32)
+			if rv > crv {
+				log.DefaultLogger().Reason(err).Errorf("Config is not in sync on %s. Expected %s/%d, Got %s/%d", pod.Name, resourceVersion, rv, result["config-resource-version"], crv)
 				return false
 			}
 		}
@@ -4656,20 +4701,15 @@ func IsUsingBuiltinNodeDrainKey() bool {
 }
 
 func GetNodeDrainKey() string {
-	var data map[string]string
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
 
-	key := virtconfig.NodeDrainTaintDefaultKey
-	cfgMap, err := GetKubeVirtConfigMap()
-	if err == nil {
-		if val, ok := cfgMap.Data[virtconfig.MigrationsConfigKey]; ok {
-			json.Unmarshal([]byte(val), &data)
-			if val, ok = data["nodeDrainTaintKey"]; ok {
-				key = val
-			}
-		}
+	kv := GetCurrentKv(virtClient)
+	if kv.Spec.Configuration.MigrationConfiguration != nil && kv.Spec.Configuration.MigrationConfiguration.NodeDrainTaintKey != nil {
+		return *kv.Spec.Configuration.MigrationConfiguration.NodeDrainTaintKey
 	}
 
-	return key
+	return virtconfig.NodeDrainTaintDefaultKey
 }
 
 func GetKubeVirtConfigMap() (*k8sv1.ConfigMap, error) {
