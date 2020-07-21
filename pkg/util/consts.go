@@ -15,4 +15,8 @@ const (
 	AppLabel             = "app"
 	UndefinedNamespace   = ""
 	OpenshiftNamespace   = "openshift"
+	APIVersionAlpha      = "v1alpha1"
+	APIVersionBeta       = "v1beta1"
+	APIVersionGroup      = "hco.kubevirt.io"
+	APIVersion           = APIVersionGroup + "/" + APIVersionBeta
 )

@@ -25,7 +25,7 @@ import (
 
 	sspopv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
-	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
 	csvv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
@@ -220,7 +220,7 @@ func main() {
 
 	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
 	// necessary to configure Prometheus to scrape metrics from this operator.
-	if err = (&hcov1alpha1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr); err != nil {
+	if err = (&hcov1beta1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr); err != nil {
 		log.Error(err, "unable to create webhook", "webhook", "HyperConverged")
 		os.Exit(1)
 	}
@@ -246,7 +246,7 @@ func main() {
 // so we are never supposed to delete it: because the priority class
 // is completely opaque to OLM it will remain as a leftover on the cluster
 func createPriorityClass(ctx context.Context, mgr manager.Manager) error {
-	pc := (&hcov1alpha1.HyperConverged{}).NewKubeVirtPriorityClass()
+	pc := (&hcov1beta1.HyperConverged{}).NewKubeVirtPriorityClass()
 
 	key, err := client.ObjectKeyFromObject(pc)
 	if err != nil {

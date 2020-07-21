@@ -28,7 +28,7 @@ Use 'LocalStorageClassName' spec to specify the name of the local class name.
 
 ## Example
 ```
-apiVersion: hco.kubevirt.io/v1alpha1
+apiVersion: hco.kubevirt.io/v1beta1
 kind: HyperConverged
 metadata:
   name: hyperconverged-cluster

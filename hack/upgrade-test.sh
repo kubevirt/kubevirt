@@ -97,7 +97,7 @@ if [ -n "$KUBEVIRT_PROVIDER" ]; then
   make cluster-clean
 fi
 
-"${CMD}" delete -f ./deploy/hco.cr.yaml -n ${HCO_NAMESPACE} || true
+"${CMD}" delete ${HCO_KIND} ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} || true
 "${CMD}" delete subscription ${HCO_SUBSCRIPTION_NAME} -n ${HCO_NAMESPACE} || true
 "${CMD}" delete catalogsource ${HCO_CATALOGSOURCE_NAME} -n ${HCO_CATALOG_NAMESPACE} || true
 "${CMD}" delete operatorgroup ${HCO_OPERATORGROUP_NAME} -n ${HCO_NAMESPACE} || true
@@ -117,7 +117,7 @@ fi
 
 Msg "create catalogsource and subscription to install HCO"
 
-${CMD} create ns ${HCO_NAMESPACE} | true
+${CMD} create ns ${HCO_NAMESPACE} || true
 ${CMD} get pods -n ${HCO_NAMESPACE}
 
 cat <<EOF | ${CMD} create -f -
@@ -158,7 +158,7 @@ ${CMD} wait pod $PACKAGESERVER_POD --for condition=Ready -n openshift-operator-l
 # Creating a subscription immediately after the catalog
 # source is ready can cause delays. Sometimes the catalog-operator
 # isn't ready to create the install plan. As a temporary workaround
-# we wait for 15 seconds here. 
+# we wait for 15 seconds here.
 sleep 15
 
 cat <<EOF | ${CMD} create -f -
@@ -182,7 +182,9 @@ EOF
 
 ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
 
-${CMD} create -f ./deploy/hco.cr.yaml -n ${HCO_NAMESPACE}
+CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE})
+HCO_API_VERSION=$( ${CMD} get -n ${HCO_NAMESPACE} "${CSV}" -o jsonpath="{ .spec.customresourcedefinitions.owned[?(@.kind=='HyperConverged')].version }")
+sed -e "s|hco.kubevirt.io/v1beta1|hco.kubevirt.io/${HCO_API_VERSION}|g" deploy/hco.cr.yaml | ${CMD} apply -n kubevirt-hyperconverged -f -
 
 ${CMD} wait -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} --for condition=Available --timeout=30m
 ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"

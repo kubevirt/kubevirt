@@ -27,7 +27,7 @@ import (
 	"github.com/openshift/custom-resource-status/testlib"
 
 	// networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
-	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,13 +61,13 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should ignore invalid requests", func() {
-				hco := &hcov1alpha1.HyperConverged{
+				hco := &hcov1beta1.HyperConverged{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "invalid",
 						Namespace: "invalid",
 					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-					Status: hcov1alpha1.HyperConvergedStatus{
+					Spec: hcov1beta1.HyperConvergedSpec{},
+					Status: hcov1beta1.HyperConvergedStatus{
 						Conditions: []conditionsv1.Condition{},
 					},
 				}
@@ -86,7 +86,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(res).Should(Equal(reconcile.Result{}))
 
 				// Get the HCO
-				foundResource := &hcov1alpha1.HyperConverged{}
+				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
@@ -94,7 +94,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 				// Check conditions
 				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    hcov1alpha1.ConditionReconcileComplete,
+					Type:    hcov1beta1.ConditionReconcileComplete,
 					Status:  corev1.ConditionFalse,
 					Reason:  invalidRequestReason,
 					Message: fmt.Sprintf(invalidRequestMessageFormat, name, namespace),
@@ -112,7 +112,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
 				// Get the HCO
-				foundResource := &hcov1alpha1.HyperConverged{}
+				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
@@ -120,7 +120,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 				// Check conditions
 				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    hcov1alpha1.ConditionReconcileComplete,
+					Type:    hcov1beta1.ConditionReconcileComplete,
 					Status:  corev1.ConditionUnknown,
 					Reason:  reconcileInit,
 					Message: reconcileInitMessage,
@@ -152,16 +152,16 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should find all managed resources", func() {
-				hco := &hcov1alpha1.HyperConverged{
+				hco := &hcov1beta1.HyperConverged{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      name,
 						Namespace: namespace,
 					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-					Status: hcov1alpha1.HyperConvergedStatus{
+					Spec: hcov1beta1.HyperConvergedSpec{},
+					Status: hcov1beta1.HyperConvergedStatus{
 						Conditions: []conditionsv1.Condition{
 							conditionsv1.Condition{
-								Type:    hcov1alpha1.ConditionReconcileComplete,
+								Type:    hcov1beta1.ConditionReconcileComplete,
 								Status:  corev1.ConditionTrue,
 								Reason:  reconcileCompleted,
 								Message: reconcileCompletedMessage,
@@ -201,7 +201,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(res).Should(Equal(reconcile.Result{}))
 
 				// Get the HCO
-				foundResource := &hcov1alpha1.HyperConverged{}
+				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
@@ -209,7 +209,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 				// Check conditions
 				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    hcov1alpha1.ConditionReconcileComplete,
+					Type:    hcov1beta1.ConditionReconcileComplete,
 					Status:  corev1.ConditionTrue,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
@@ -236,16 +236,16 @@ var _ = Describe("HyperconvergedController", func() {
 			})
 
 			It("should complete when components are finished", func() {
-				hco := &hcov1alpha1.HyperConverged{
+				hco := &hcov1beta1.HyperConverged{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      name,
 						Namespace: namespace,
 					},
-					Spec: hcov1alpha1.HyperConvergedSpec{},
-					Status: hcov1alpha1.HyperConvergedStatus{
+					Spec: hcov1beta1.HyperConvergedSpec{},
+					Status: hcov1beta1.HyperConvergedStatus{
 						Conditions: []conditionsv1.Condition{
 							conditionsv1.Condition{
-								Type:    hcov1alpha1.ConditionReconcileComplete,
+								Type:    hcov1beta1.ConditionReconcileComplete,
 								Status:  corev1.ConditionTrue,
 								Reason:  reconcileCompleted,
 								Message: reconcileCompletedMessage,
@@ -330,7 +330,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(res).Should(Equal(reconcile.Result{}))
 
 				// Get the HCO
-				foundResource := &hcov1alpha1.HyperConverged{}
+				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},
@@ -338,7 +338,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 				// Check conditions
 				Expect(foundResource.Status.Conditions).To(ContainElement(testlib.RepresentCondition(conditionsv1.Condition{
-					Type:    hcov1alpha1.ConditionReconcileComplete,
+					Type:    hcov1beta1.ConditionReconcileComplete,
 					Status:  corev1.ConditionTrue,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
@@ -463,7 +463,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{}))
 
-				foundResource := &hcov1alpha1.HyperConverged{}
+				foundResource := &hcov1beta1.HyperConverged{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
@@ -485,7 +485,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(err).To(BeNil())
 				Expect(res).Should(Equal(reconcile.Result{Requeue: true}))
 
-				foundResource = &hcov1alpha1.HyperConverged{}
+				foundResource = &hcov1beta1.HyperConverged{}
 				Expect(
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: expected.hco.Name, Namespace: expected.hco.Namespace},
@@ -516,7 +516,7 @@ var _ = Describe("HyperconvergedController", func() {
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeTrue())
 
-				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcov1alpha1.HyperConvergedName))
+				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcov1beta1.HyperConvergedName))
 			})
 
 			It("Should set required fields when missing", func() {
@@ -526,7 +526,7 @@ var _ = Describe("HyperconvergedController", func() {
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
 
-				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcov1alpha1.HyperConvergedName))
+				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcov1beta1.HyperConvergedName))
 			})
 		})
 
@@ -899,7 +899,7 @@ var _ = Describe("HyperconvergedController", func() {
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1alpha1.ConditionReconcileComplete)
+				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
 				Expect(cd.Status).Should(BeEquivalentTo("True"))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
@@ -942,7 +942,7 @@ var _ = Describe("HyperconvergedController", func() {
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1alpha1.ConditionReconcileComplete)
+				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
 				Expect(cd.Status).Should(BeEquivalentTo("True"))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
@@ -982,7 +982,7 @@ var _ = Describe("HyperconvergedController", func() {
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1alpha1.ConditionReconcileComplete)
+				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
 				Expect(cd.Status).Should(BeEquivalentTo("True"))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
@@ -1016,7 +1016,7 @@ var _ = Describe("HyperconvergedController", func() {
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1alpha1.ConditionReconcileComplete)
+				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
 				Expect(cd.Status).Should(BeEquivalentTo("True"))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
@@ -1056,7 +1056,7 @@ var _ = Describe("HyperconvergedController", func() {
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1alpha1.ConditionReconcileComplete)
+				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
 				Expect(cd.Status).Should(BeEquivalentTo("True"))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
@@ -1090,7 +1090,7 @@ var _ = Describe("HyperconvergedController", func() {
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1alpha1.ConditionReconcileComplete)
+				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
 				Expect(cd.Status).Should(BeEquivalentTo("True"))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
@@ -1118,7 +1118,7 @@ var _ = Describe("HyperconvergedController", func() {
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1alpha1.ConditionReconcileComplete)
+				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
 				Expect(cd.Status).Should(BeEquivalentTo("True"))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)
@@ -1158,7 +1158,7 @@ var _ = Describe("HyperconvergedController", func() {
 				wr.SetIndent("", "  ")
 				_ = wr.Encode(conditions)
 
-				cd := conditionsv1.FindStatusCondition(conditions, hcov1alpha1.ConditionReconcileComplete)
+				cd := conditionsv1.FindStatusCondition(conditions, hcov1beta1.ConditionReconcileComplete)
 				Expect(cd.Status).Should(BeEquivalentTo("True"))
 				Expect(cd.Reason).Should(Equal(reconcileCompleted))
 				cd = conditionsv1.FindStatusCondition(conditions, conditionsv1.ConditionAvailable)

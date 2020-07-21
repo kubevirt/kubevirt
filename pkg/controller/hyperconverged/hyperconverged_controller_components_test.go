@@ -5,7 +5,7 @@ import (
 
 	sspv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
-	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
@@ -34,7 +34,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 	Context("KubeVirt Priority Classes", func() {
 
-		var hco *hcov1alpha1.HyperConverged
+		var hco *hcov1beta1.HyperConverged
 		var req *hcoRequest
 
 		BeforeEach(func() {
@@ -120,7 +120,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 	Context("KubeVirt Config", func() {
 
-		var hco *hcov1alpha1.HyperConverged
+		var hco *hcov1beta1.HyperConverged
 		var req *hcoRequest
 
 		updatableKeys := [...]string{virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey}
@@ -245,7 +245,7 @@ var _ = Describe("HyperConverged Components", func() {
 	})
 
 	Context("KubeVirt Storage Config", func() {
-		var hco *hcov1alpha1.HyperConverged
+		var hco *hcov1beta1.HyperConverged
 		var req *hcoRequest
 
 		BeforeEach(func() {
@@ -313,7 +313,7 @@ var _ = Describe("HyperConverged Components", func() {
 	})
 
 	Context("KubeVirt", func() {
-		var hco *hcov1alpha1.HyperConverged
+		var hco *hcov1beta1.HyperConverged
 		var req *hcoRequest
 
 		BeforeEach(func() {
@@ -462,7 +462,7 @@ var _ = Describe("HyperConverged Components", func() {
 	})
 
 	Context("CDI", func() {
-		var hco *hcov1alpha1.HyperConverged
+		var hco *hcov1beta1.HyperConverged
 		var req *hcoRequest
 
 		BeforeEach(func() {
@@ -611,7 +611,7 @@ var _ = Describe("HyperConverged Components", func() {
 	})
 
 	Context("NetworkAddonsConfig", func() {
-		var hco *hcov1alpha1.HyperConverged
+		var hco *hcov1beta1.HyperConverged
 		var req *hcoRequest
 
 		BeforeEach(func() {
@@ -741,7 +741,7 @@ var _ = Describe("HyperConverged Components", func() {
 	})
 
 	Context("KubeVirtCommonTemplatesBundle", func() {
-		var hco *hcov1alpha1.HyperConverged
+		var hco *hcov1beta1.HyperConverged
 		var req *hcoRequest
 
 		BeforeEach(func() {
@@ -851,7 +851,7 @@ var _ = Describe("HyperConverged Components", func() {
 	})
 
 	Context("KubeVirtNodeLabellerBundle", func() {
-		var hco *hcov1alpha1.HyperConverged
+		var hco *hcov1beta1.HyperConverged
 		var req *hcoRequest
 
 		BeforeEach(func() {
@@ -986,7 +986,7 @@ var _ = Describe("HyperConverged Components", func() {
 	})
 
 	Context("KubeVirtTemplateValidator", func() {
-		var hco *hcov1alpha1.HyperConverged
+		var hco *hcov1beta1.HyperConverged
 		var req *hcoRequest
 
 		BeforeEach(func() {
@@ -1109,7 +1109,7 @@ var _ = Describe("HyperConverged Components", func() {
 
 	Context("Vm Import", func() {
 
-		var hco *hcov1alpha1.HyperConverged
+		var hco *hcov1beta1.HyperConverged
 		var req *hcoRequest
 
 		BeforeEach(func() {

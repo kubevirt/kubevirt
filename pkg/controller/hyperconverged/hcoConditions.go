@@ -1,13 +1,13 @@
 package hyperconverged
 
 import (
-	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 )
 
 var (
 	hcoConditionTypes = []conditionsv1.ConditionType{
-		hcov1alpha1.ConditionReconcileComplete,
+		hcov1beta1.ConditionReconcileComplete,
 		conditionsv1.ConditionAvailable,
 		conditionsv1.ConditionProgressing,
 		conditionsv1.ConditionDegraded,

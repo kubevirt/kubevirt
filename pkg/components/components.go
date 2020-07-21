@@ -8,7 +8,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 
 	"github.com/blang/semver"
-	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	csvVersion "github.com/operator-framework/api/pkg/lib/version"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -486,15 +486,20 @@ func GetOperatorCRD(namespace string) *extv1beta1.CustomResourceDefinition {
 			Name: "hyperconvergeds.hco.kubevirt.io",
 		},
 		Spec: extv1beta1.CustomResourceDefinitionSpec{
-			Group:   "hco.kubevirt.io",
-			Version: "v1alpha1",
+			Group:   util.APIVersionGroup,
+			Version: util.APIVersionBeta,
 			Scope:   "Namespaced",
 
 			Versions: []extv1beta1.CustomResourceDefinitionVersion{
 				{
-					Name:    "v1alpha1",
+					Name:    util.APIVersionBeta,
 					Served:  true,
 					Storage: true,
+				},
+				{
+					Name:    util.APIVersionAlpha,
+					Served:  true,
+					Storage: false,
 				},
 			},
 			Names: extv1beta1.CustomResourceDefinitionNames{
@@ -522,7 +527,7 @@ func GetOperatorCRD(namespace string) *extv1beta1.CustomResourceDefinition {
 							Properties: map[string]extv1beta1.JSONSchemaProps{
 								"name": extv1beta1.JSONSchemaProps{
 									Type:    "string",
-									Pattern: hcov1alpha1.HyperConvergedName,
+									Pattern: hcov1beta1.HyperConvergedName,
 								},
 							},
 						},
@@ -662,16 +667,16 @@ func GetV2VOvirtProviderCRD() *extv1beta1.CustomResourceDefinition {
 	}
 }
 
-func GetOperatorCR() *hcov1alpha1.HyperConverged {
-	return &hcov1alpha1.HyperConverged{
+func GetOperatorCR() *hcov1beta1.HyperConverged {
+	return &hcov1beta1.HyperConverged{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "hco.kubevirt.io/v1alpha1",
+			APIVersion: "hco.kubevirt.io/v1beta1",
 			Kind:       "HyperConverged",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt-hyperconverged",
 		},
-		Spec: hcov1alpha1.HyperConvergedSpec{
+		Spec: hcov1beta1.HyperConvergedSpec{
 			BareMetalPlatform:     false,
 			LocalStorageClassName: "",
 		},
@@ -701,7 +706,7 @@ func GetInstallStrategyBase(namespace, image, imagePullPolicy, conversionContain
 func GetCSVBase(name, namespace, displayName, description, image, replaces string, version semver.Version, crdDisplay string) *csvv1alpha1.ClusterServiceVersion {
 	almExamples, _ := json.Marshal([]interface{}{
 		map[string]interface{}{
-			"apiVersion": "hco.kubevirt.io/v1alpha1",
+			"apiVersion": "hco.kubevirt.io/v1beta1",
 			"kind":       "HyperConverged",
 			"metadata": map[string]string{
 				"name":      "kubevirt-hyperconverged",
@@ -832,7 +837,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 				Owned: []csvv1alpha1.CRDDescription{
 					{
 						Name:        "hyperconvergeds.hco.kubevirt.io",
-						Version:     "v1alpha1",
+						Version:     util.APIVersionBeta,
 						Kind:        "HyperConverged",
 						DisplayName: crdDisplay + " Deployment",
 						Description: "Represents the deployment of " + crdDisplay,

@@ -26,7 +26,7 @@ import (
 
 	sspv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
-	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	version "github.com/kubevirt/hyperconverged-cluster-operator/version"
 	vmimportv1alpha1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
@@ -98,7 +98,7 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) reconcile.Reconc
 	return &ReconcileHyperConverged{
 		client:      mgr.GetClient(),
 		scheme:      mgr.GetScheme(),
-		recorder:    mgr.GetEventRecorderFor(hcov1alpha1.HyperConvergedName),
+		recorder:    mgr.GetEventRecorderFor(hcov1beta1.HyperConvergedName),
 		upgradeMode: false,
 		ownVersion:  ownVersion,
 		clusterInfo: ci,
@@ -120,7 +120,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource HyperConverged
-	err = c.Watch(&source.Kind{Type: &hcov1alpha1.HyperConverged{}}, &handler.EnqueueRequestForObject{}, predicate.GenerationChangedPredicate{})
+	err = c.Watch(&source.Kind{Type: &hcov1beta1.HyperConverged{}}, &handler.EnqueueRequestForObject{}, predicate.GenerationChangedPredicate{})
 	if err != nil {
 		return err
 	}
@@ -176,14 +176,14 @@ type ReconcileHyperConverged struct {
 
 // hcoRequest - gather data for a specific request
 type hcoRequest struct {
-	reconcile.Request                                      // inheritance of operator request
-	logger                     logr.Logger                 // request logger
-	conditions                 hcoConditions               // in-memory conditions
-	ctx                        context.Context             // context of this request, to be use for any other call
-	instance                   *hcov1alpha1.HyperConverged // the current state of the CR, as read from K8s
-	componentUpgradeInProgress bool                        // if in upgrade mode, accumulate the component upgrade status
-	dirty                      bool                        // is something was changed in the CR
-	statusDirty                bool                        // is something was changed in the CR's Status
+	reconcile.Request                                     // inheritance of operator request
+	logger                     logr.Logger                // request logger
+	conditions                 hcoConditions              // in-memory conditions
+	ctx                        context.Context            // context of this request, to be use for any other call
+	instance                   *hcov1beta1.HyperConverged // the current state of the CR, as read from K8s
+	componentUpgradeInProgress bool                       // if in upgrade mode, accumulate the component upgrade status
+	dirty                      bool                       // is something was changed in the CR
+	statusDirty                bool                       // is something was changed in the CR's Status
 }
 
 // Reconcile reads that state of the cluster for a HyperConverged object and makes changes based on the state read
@@ -314,8 +314,8 @@ func (r *ReconcileHyperConverged) doReconcile(req *hcoRequest) (reconcile.Result
 	return reconcile.Result{}, err
 }
 
-func (r *ReconcileHyperConverged) getHcoInstanceFromK8s(req *hcoRequest) (*hcov1alpha1.HyperConverged, error) {
-	instance := &hcov1alpha1.HyperConverged{}
+func (r *ReconcileHyperConverged) getHcoInstanceFromK8s(req *hcoRequest) (*hcov1beta1.HyperConverged, error) {
+	instance := &hcov1beta1.HyperConverged{}
 	err := r.client.Get(req.ctx, req.NamespacedName, instance)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -328,6 +328,11 @@ func (r *ReconcileHyperConverged) getHcoInstanceFromK8s(req *hcoRequest) (*hcov1
 		// Error reading the object - requeue the request.
 		return nil, err
 	}
+
+	//gvk := instance.TypeMeta.GroupVersionKind()
+	//gvk.Version = "v1beta1"
+	//instance.SetGroupVersionKind(gvk)
+	//req.logger.Info(gvk.Version)
 	return instance, nil
 }
 
@@ -342,7 +347,7 @@ func (r *ReconcileHyperConverged) validateNamespace(req *hcoRequest) (bool, erro
 	if req.NamespacedName != hco {
 		req.logger.Info("Invalid request", "HyperConverged.Namespace", hco.Namespace, "HyperConverged.Name", hco.Name)
 		req.conditions.setStatusCondition(conditionsv1.Condition{
-			Type:    hcov1alpha1.ConditionReconcileComplete,
+			Type:    hcov1beta1.ConditionReconcileComplete,
 			Status:  corev1.ConditionFalse,
 			Reason:  invalidRequestReason,
 			Message: fmt.Sprintf(invalidRequestMessageFormat, hco.Name, hco.Namespace),
@@ -359,7 +364,7 @@ func (r *ReconcileHyperConverged) setInitialConditions(req *hcoRequest) error {
 	req.dirty = true
 
 	req.conditions.setStatusCondition(conditionsv1.Condition{
-		Type:    hcov1alpha1.ConditionReconcileComplete,
+		Type:    hcov1beta1.ConditionReconcileComplete,
 		Status:  corev1.ConditionUnknown, // we just started trying to reconcile
 		Reason:  reconcileInit,
 		Message: reconcileInitMessage,
@@ -441,7 +446,7 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *hcoRequest) (reconcile.R
 	return reconcile.Result{Requeue: true}, nil
 }
 
-func (r *ReconcileHyperConverged) emitEvent(instance *hcov1alpha1.HyperConverged, logger logr.Logger, kind string, errT string, errMsg string) error {
+func (r *ReconcileHyperConverged) emitEvent(instance *hcov1beta1.HyperConverged, logger logr.Logger, kind string, errT string, errMsg string) error {
 	r.recorder.Event(instance, kind, errT, errMsg)
 
 	pod, pod_err := hcoutil.GetPod(r.client, logger)
@@ -486,7 +491,7 @@ func (r *ReconcileHyperConverged) ensureHco(req *hcoRequest) error {
 		if err != nil {
 			req.componentUpgradeInProgress = false
 			req.conditions.setStatusCondition(conditionsv1.Condition{
-				Type:    hcov1alpha1.ConditionReconcileComplete,
+				Type:    hcov1beta1.ConditionReconcileComplete,
 				Status:  corev1.ConditionFalse,
 				Reason:  reconcileFailed,
 				Message: fmt.Sprintf("Error while reconciling: %v", err),
@@ -608,7 +613,7 @@ func (r *ReconcileHyperConverged) aggregateComponentConditions(req *hcoRequest) 
 	*/
 	allComponentsAreUp := req.conditions.empty()
 	req.conditions.setStatusCondition(conditionsv1.Condition{
-		Type:    hcov1alpha1.ConditionReconcileComplete,
+		Type:    hcov1beta1.ConditionReconcileComplete,
 		Status:  corev1.ConditionTrue,
 		Reason:  reconcileCompleted,
 		Message: reconcileCompletedMessage,
@@ -761,7 +766,7 @@ func (r *ReconcileHyperConverged) checkComponentVersion(versionEnvName, actualVe
 	return expectedVersion != "" && expectedVersion == actualVersion
 }
 
-func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
+func newKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
 	labels := map[string]string{
 		hcoutil.AppLabel: cr.Name,
 	}
@@ -1223,7 +1228,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtCommonTemplateBundle(req *hcoReq
 	return req.componentUpgradeInProgress, nil
 }
 
-func newKubeVirtNodeLabellerBundleForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtNodeLabellerBundle {
+func newKubeVirtNodeLabellerBundleForCR(cr *hcov1beta1.HyperConverged, namespace string) *sspv1.KubevirtNodeLabellerBundle {
 	labels := map[string]string{
 		hcoutil.AppLabel: cr.Name,
 	}
@@ -1292,7 +1297,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtNodeLabellerBundle(req *hcoReque
 	return req.componentUpgradeInProgress, nil
 }
 
-func newIMSConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
+func newIMSConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
 	labels := map[string]string{
 		hcoutil.AppLabel: cr.Name,
 	}
@@ -1393,7 +1398,7 @@ func (r *ReconcileHyperConverged) ensureVMImport(req *hcoRequest) (upgradeDone b
 }
 
 // newVMImportForCR returns a VM import CR
-func newVMImportForCR(cr *hcov1alpha1.HyperConverged, namespace string) *vmimportv1alpha1.VMImportConfig {
+func newVMImportForCR(cr *hcov1beta1.HyperConverged, namespace string) *vmimportv1alpha1.VMImportConfig {
 	labels := map[string]string{
 		hcoutil.AppLabel: cr.Name,
 	}
@@ -1407,7 +1412,7 @@ func newVMImportForCR(cr *hcov1alpha1.HyperConverged, namespace string) *vmimpor
 	}
 }
 
-func newKubeVirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtTemplateValidator {
+func newKubeVirtTemplateValidatorForCR(cr *hcov1beta1.HyperConverged, namespace string) *sspv1.KubevirtTemplateValidator {
 	labels := map[string]string{
 		hcoutil.AppLabel: cr.Name,
 	}
@@ -1472,7 +1477,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtTemplateValidator(req *hcoReques
 	return req.componentUpgradeInProgress, nil
 }
 
-func newKubeVirtStorageRoleForCR(cr *hcov1alpha1.HyperConverged, namespace string) *rbacv1.Role {
+func newKubeVirtStorageRoleForCR(cr *hcov1beta1.HyperConverged, namespace string) *rbacv1.Role {
 	labels := map[string]string{
 		"app": cr.Name,
 	}
@@ -1493,7 +1498,7 @@ func newKubeVirtStorageRoleForCR(cr *hcov1alpha1.HyperConverged, namespace strin
 	}
 }
 
-func newKubeVirtStorageRoleBindingForCR(cr *hcov1alpha1.HyperConverged, namespace string) *rbacv1.RoleBinding {
+func newKubeVirtStorageRoleBindingForCR(cr *hcov1beta1.HyperConverged, namespace string) *rbacv1.RoleBinding {
 	labels := map[string]string{
 		"app": cr.Name,
 	}
@@ -1518,7 +1523,7 @@ func newKubeVirtStorageRoleBindingForCR(cr *hcov1alpha1.HyperConverged, namespac
 	}
 }
 
-func newKubeVirtStorageConfigForCR(cr *hcov1alpha1.HyperConverged, namespace string) *corev1.ConfigMap {
+func newKubeVirtStorageConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *corev1.ConfigMap {
 	localSC := "local-sc"
 	if *(&cr.Spec.LocalStorageClassName) != "" {
 		localSC = *(&cr.Spec.LocalStorageClassName)
@@ -1641,7 +1646,7 @@ func (r *ReconcileHyperConverged) ensureKubeVirtStorageConfig(req *hcoRequest) (
 	return req.componentUpgradeInProgress, nil
 }
 
-func newKubeVirtMetricsAggregationForCR(cr *hcov1alpha1.HyperConverged, namespace string) *sspv1.KubevirtMetricsAggregation {
+func newKubeVirtMetricsAggregationForCR(cr *hcov1beta1.HyperConverged, namespace string) *sspv1.KubevirtMetricsAggregation {
 	labels := map[string]string{
 		hcoutil.AppLabel: cr.Name,
 	}
@@ -1776,7 +1781,7 @@ func isKVMAvailable() bool {
 // getHyperconverged returns the name/namespace of the HyperConverged resource
 func getHyperconverged() (types.NamespacedName, error) {
 	hco := types.NamespacedName{
-		Name: hcov1alpha1.HyperConvergedName,
+		Name: hcov1beta1.HyperConvergedName,
 	}
 
 	namespace, err := hcoutil.GetOperatorNamespaceFromEnv()

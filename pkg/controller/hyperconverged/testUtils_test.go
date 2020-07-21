@@ -12,7 +12,7 @@ import (
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
-	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1beta1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
@@ -33,7 +33,7 @@ import (
 )
 
 type basicExpected struct {
-	hco                  *hcov1alpha1.HyperConverged
+	hco                  *hcov1beta1.HyperConverged
 	pc                   *schedulingv1.PriorityClass
 	kvConfig             *corev1.ConfigMap
 	kvStorageConfig      *corev1.ConfigMap
@@ -84,17 +84,17 @@ var (
 	}
 )
 
-func newHco() *hcov1alpha1.HyperConverged {
-	return &hcov1alpha1.HyperConverged{
+func newHco() *hcov1beta1.HyperConverged {
+	return &hcov1beta1.HyperConverged{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: hcov1alpha1.HyperConvergedSpec{},
+		Spec: hcov1beta1.HyperConvergedSpec{},
 	}
 }
 
-func newReq(inst *hcov1alpha1.HyperConverged) *hcoRequest {
+func newReq(inst *hcov1beta1.HyperConverged) *hcoRequest {
 	return &hcoRequest{
 		Request:    request,
 		logger:     log,
@@ -108,22 +108,22 @@ func getBasicDeployment() *basicExpected {
 
 	res := &basicExpected{}
 
-	hco := &hcov1alpha1.HyperConverged{
+	hco := &hcov1beta1.HyperConverged{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: hcov1alpha1.HyperConvergedSpec{},
-		Status: hcov1alpha1.HyperConvergedStatus{
+		Spec: hcov1beta1.HyperConvergedSpec{},
+		Status: hcov1beta1.HyperConvergedStatus{
 			Conditions: []conditionsv1.Condition{
 				{
-					Type:    hcov1alpha1.ConditionReconcileComplete,
+					Type:    hcov1beta1.ConditionReconcileComplete,
 					Status:  corev1.ConditionTrue,
 					Reason:  reconcileCompleted,
 					Message: reconcileCompletedMessage,
 				},
 			},
-			Versions: hcov1alpha1.Versions{
+			Versions: hcov1beta1.Versions{
 				{Name: hcoVersionName, Version: version.Version},
 			},
 		},
@@ -205,7 +205,7 @@ func getBasicDeployment() *basicExpected {
 	return res
 }
 
-func checkAvailability(hco *hcov1alpha1.HyperConverged, expected corev1.ConditionStatus) {
+func checkAvailability(hco *hcov1beta1.HyperConverged, expected corev1.ConditionStatus) {
 	found := false
 	for _, cond := range hco.Status.Conditions {
 		if cond.Type == conditionsv1.ConditionType(kubevirtv1.KubeVirtConditionAvailable) {
@@ -221,7 +221,7 @@ func checkAvailability(hco *hcov1alpha1.HyperConverged, expected corev1.Conditio
 }
 
 // returns the HCO after reconcile, and the returned requeue
-func doReconcile(cl client.Client, hco *hcov1alpha1.HyperConverged) (*hcov1alpha1.HyperConverged, bool) {
+func doReconcile(cl client.Client, hco *hcov1beta1.HyperConverged) (*hcov1beta1.HyperConverged, bool) {
 	r := initReconciler(cl)
 
 	r.ownVersion = os.Getenv(hcoutil.HcoKvIoVersionName)
@@ -232,7 +232,7 @@ func doReconcile(cl client.Client, hco *hcov1alpha1.HyperConverged) (*hcov1alpha
 	res, err := r.Reconcile(request)
 	Expect(err).To(BeNil())
 
-	foundResource := &hcov1alpha1.HyperConverged{}
+	foundResource := &hcov1beta1.HyperConverged{}
 	Expect(
 		cl.Get(context.TODO(),
 			types.NamespacedName{Name: hco.Name, Namespace: hco.Namespace},

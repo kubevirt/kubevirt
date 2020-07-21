@@ -136,7 +136,7 @@ EOF
 
     echo "Creating the HCO's Custom Resource"
     cat <<EOF | oc create -f -
-apiVersion: hco.kubevirt.io/v1alpha1
+apiVersion: hco.kubevirt.io/v1beta1
 kind: HyperConverged
 metadata:
   name: kubevirt-hyperconverged
