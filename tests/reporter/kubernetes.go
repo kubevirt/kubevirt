@@ -105,6 +105,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logPods(virtCli)
 	r.logAPIServices(virtCli)
 	r.logServices(virtCli)
+	r.logEndpoints(virtCli)
 	r.logVMIs(virtCli)
 	r.logConfigMaps(virtCli)
 	r.logSecrets(virtCli)
@@ -440,6 +441,29 @@ func (r *KubernetesReporter) logAPIServices(virtCli kubecli.KubevirtClient) {
 	j, err := json.MarshalIndent(apiServices, "", "    ")
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to marshal apiServices")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) logEndpoints(virtCli kubecli.KubevirtClient) {
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_endpoints.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		return
+	}
+	defer f.Close()
+
+	endpoints, err := virtCli.CoreV1().Endpoints(v1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch endpointss: %v\n", err)
+		return
+	}
+
+	j, err := json.MarshalIndent(endpoints, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal endpoints")
 		return
 	}
 	fmt.Fprintln(f, string(j))
