@@ -775,14 +775,15 @@ func AdjustKubeVirtResource() {
 }
 
 func RestoreKubeVirtResource() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	data, err := json.Marshal(originalKV.Spec)
-	Expect(err).ToNot(HaveOccurred())
-	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
-	_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(originalKV.Name, types.JSONPatchType, []byte(patchData))
-	PanicOnError(err)
+	if originalKV != nil {
+		virtClient, err := kubecli.GetKubevirtClient()
+		PanicOnError(err)
+		data, err := json.Marshal(originalKV.Spec)
+		Expect(err).ToNot(HaveOccurred())
+		patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
+		_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(originalKV.Name, types.JSONPatchType, []byte(patchData))
+		PanicOnError(err)
+	}
 }
 
 func createStorageClass(name string) {
