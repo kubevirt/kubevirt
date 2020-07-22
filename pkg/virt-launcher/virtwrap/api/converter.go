@@ -749,7 +749,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if len(vmi.Spec.Domain.Firmware.Serial) > 0 {
 			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
 		}
-
+		log.Log.Infof("Libvirt domain XML..")
 		if vmi.Spec.Domain.Firmware.KernelBoot != nil {
 			//to extract the disk image from volume
 			// newDisk := Disk{}
@@ -761,6 +761,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			// if err != nil {
 			// 	return err
 			// }
+			log.Log.Infof("Conv to kernel boot..")
 			if vmi.Spec.Domain.Firmware.KernelBoot.KernelPath != "" {
 				log.Log.Infof("Coverting it to libvirt domain XML..")
 				log.Log.Infof(hostdisk.GetMountedHostDiskDir(vmi.Spec.Domain.Firmware.KernelBoot.Name))
