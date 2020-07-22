@@ -133,7 +133,7 @@ github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis
 github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1
 github.com/kubevirt/cluster-network-addons-operator/pkg/names
-# github.com/kubevirt/vm-import-operator v0.0.4
+# github.com/kubevirt/vm-import-operator v0.1.0
 github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1
 # github.com/mailru/easyjson v0.0.0-20190626092158-b2ccc519800e
 github.com/mailru/easyjson/buffer
