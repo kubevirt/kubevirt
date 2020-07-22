@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
@@ -762,6 +763,105 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			table.Entry("without a specific port number", []v1.Port{}, defaultCIDR),
 			table.Entry("with custom CIDR", []v1.Port{}, customCIDR),
 		)
+
+		When("performing migration", func() {
+			var vmi *v1.VirtualMachineInstance
+			var virtHandlerIP string
+			var jobCleanup func() error
+
+			ping := func(ipAddr string) error {
+				return tests.PingFromVMConsole(vmi, ipAddr, "-c 1", "-w 2")
+			}
+
+			getVirtHandlerPod := func() (*k8sv1.Pod, error) {
+				node := vmi.Status.NodeName
+				pod, err := kubecli.NewVirtHandlerClient(virtClient).Namespace(flags.KubeVirtInstallNamespace).ForNode(node).Pod()
+				if err != nil {
+					return nil, fmt.Errorf("failed to get virt-handler pod on node %s: %v", node, err)
+				}
+				return pod, nil
+			}
+
+			runMigrationAndExpectCompletion := func(migration *v1.VirtualMachineInstanceMigration, timeout int) {
+				migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() error {
+					migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &v13.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed))
+
+					if migration.Status.Phase == v1.MigrationSucceeded {
+						return nil
+					}
+					return fmt.Errorf("Migration is in phase %s", migration.Status.Phase)
+
+				}, timeout, time.Second).Should(Succeed(), fmt.Sprintf("migration should succeed after %d s", timeout))
+			}
+
+			BeforeEach(func() {
+				var err error
+
+				By("Create VMI")
+				vmi = masqueradeVMI([]v1.Port{}, "")
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				virtHandlerPod, err := getVirtHandlerPod()
+				Expect(err).ToNot(HaveOccurred())
+				virtHandlerIP = virtHandlerPod.Status.PodIPs[0].IP
+
+				By("Check connectivity")
+				Expect(ping(virtHandlerIP)).To(Succeed())
+
+				By("Execute migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				runMigrationAndExpectCompletion(migration, migrationWaitTime)
+
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Phase).To(Equal(v1.Running))
+			})
+
+			AfterEach(func() {
+				if vmi != nil {
+					By("Delete VMI")
+					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &v13.DeleteOptions{})).To(Succeed())
+
+					Eventually(func() error {
+						_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+						return err
+					}, time.Minute, time.Second).Should(
+						SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())),
+						"The VMI should be gone within the given timeout",
+					)
+				}
+			})
+
+			AfterEach(func() {
+				if jobCleanup != nil {
+					Expect(jobCleanup()).To(Succeed())
+				}
+			})
+
+			It("preserves connectivity", func() {
+				// Workaround a live-migration limitation:
+				// Post migration, the gateway mac points to the old pod bridge and not to the new one.
+				// Initiate ingress traffic in order to refresh the VM arp table.
+				vmiPodIP := vmi.Status.Interfaces[0].IPs[0]
+				jobCleanup, err = tests.PingAppJob(vmiPodIP, "8080")
+				Eventually(func() error {
+					return ping(virtHandlerIP)
+				}, 10*time.Second).Should(Succeed(), "application ping resulted with error: %v", err)
+			})
+		})
 	})
 
 	Context("VirtualMachineInstance with TX offload disabled", func() {
