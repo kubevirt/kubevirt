@@ -17,6 +17,7 @@ import (
 	"github.com/onsi/ginkgo/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiservices "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 
 	v12 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -102,6 +103,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logPVCs(virtCli)
 	r.logPVs(virtCli)
 	r.logPods(virtCli)
+	r.logAPIServices(virtCli)
 	r.logServices(virtCli)
 	r.logVMIs(virtCli)
 	r.logConfigMaps(virtCli)
@@ -410,6 +412,34 @@ func (r *KubernetesReporter) logServices(virtCli kubecli.KubevirtClient) {
 	j, err := json.MarshalIndent(services, "", "    ")
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to marshal services")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) logAPIServices(virtCli kubecli.KubevirtClient) {
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_apiServices.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		return
+	}
+	defer f.Close()
+
+	result, err := virtCli.RestClient().Get().RequestURI("/apis/apiregistration.k8s.io/v1/").Resource("apiservices").Do().Raw()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch apiServices: %v\n", err)
+		return
+	}
+	apiServices := apiservices.APIServiceList{}
+	err = json.Unmarshal(result, &apiServices)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to unmarshal raw result to apiServicesList: %v\n", err)
+	}
+
+	j, err := json.MarshalIndent(apiServices, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal apiServices")
 		return
 	}
 	fmt.Fprintln(f, string(j))
