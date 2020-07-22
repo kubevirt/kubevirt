@@ -102,6 +102,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logPVCs(virtCli)
 	r.logPVs(virtCli)
 	r.logPods(virtCli)
+	r.logServices(virtCli)
 	r.logVMIs(virtCli)
 	r.logConfigMaps(virtCli)
 	r.logSecrets(virtCli)
@@ -386,6 +387,29 @@ func (r *KubernetesReporter) logPods(virtCli kubecli.KubevirtClient) {
 	j, err := json.MarshalIndent(pods, "", "    ")
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to marshal pods")
+		return
+	}
+	fmt.Fprintln(f, string(j))
+}
+
+func (r *KubernetesReporter) logServices(virtCli kubecli.KubevirtClient) {
+	f, err := os.OpenFile(filepath.Join(r.artifactsDir, fmt.Sprintf("%d_services.log", r.failureCount)),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open the file: %v", err)
+		return
+	}
+	defer f.Close()
+
+	services, err := virtCli.CoreV1().Services(v1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to fetch services: %v\n", err)
+		return
+	}
+
+	j, err := json.MarshalIndent(services, "", "    ")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Failed to marshal services")
 		return
 	}
 	fmt.Fprintln(f, string(j))
