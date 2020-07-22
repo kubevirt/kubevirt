@@ -27,6 +27,7 @@ import (
 
 	expect "github.com/google/goexpect"
 	"google.golang.org/grpc/codes"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -97,4 +98,37 @@ func vmiConsoleExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Bat
 		log.DefaultLogger().Object(vmi).Infof("%v", resp)
 	}
 	return err
+}
+
+// PingAppJob performs a netcat check (tcp by default) using a pod.
+// Optional port and arguments for the netcat command may be provided.
+// Returns the job deletion/cleanup function and an error.
+// The caller is expected to use the returned function to cleanup the resources.
+func PingAppJob(host, port string, args ...string) (func() error, error) {
+	const (
+		netcat = "nc"
+
+		jobRetry   = 1
+		jobTimeout = 40
+	)
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return nil, err
+	}
+
+	args = append([]string{netcat}, args...)
+	args = append(args, host, port)
+
+	args = []string{strings.Join(args, " ")}
+	job := NewJob("ping-application", []string{"/bin/bash", "-c"}, args, jobRetry, JobTTL, jobTimeout)
+	job, err = virtClient.BatchV1().Jobs(NamespaceTestDefault).Create(job)
+	if err != nil {
+		return nil, err
+	}
+
+	err = WaitForJobToSucceed(job, jobTimeout*time.Second)
+	return func() error {
+		return virtClient.BatchV1().Jobs(NamespaceTestDefault).Delete(job.Name, &metav1.DeleteOptions{})
+	}, err
 }
