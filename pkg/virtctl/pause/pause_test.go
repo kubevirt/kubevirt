@@ -27,6 +27,13 @@ var _ = Describe("Pausing", func() {
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 	})
 
+	Context("With missing input parameters", func() {
+		It("should fail", func() {
+			cmd := tests.NewRepeatableVirtctlCommand("pause")
+			Expect(cmd()).NotTo(BeNil())
+		})
+	})
+
 	It("should pause VMI", func() {
 		vmi := v1.NewMinimalVMI(vmName)
 

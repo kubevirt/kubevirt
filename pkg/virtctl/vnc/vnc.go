@@ -64,7 +64,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "vnc (VMI)",
 		Short:   "Open a vnc connection to a virtual machine instance.",
 		Example: usage(),
-		Args:    cobra.ExactArgs(1),
+		Args:    templates.ExactArgs("vnc", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := VNC{clientConfig: clientConfig}
 			return c.Run(cmd, args)
