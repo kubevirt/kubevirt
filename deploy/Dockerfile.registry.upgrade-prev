@@ -7,6 +7,7 @@ WORKDIR /go/src/github.com/kubevirt/hyperconverged-cluster-operator/
 COPY . .
 RUN dnf install -y dep golang make findutils tar && dnf clean all -y
 RUN export UPGRADE_VERSION=${UPGRADE_VERSION} && \
+    export PREV=true && \
     ./hack/upgrade-create-new-version.sh
 
 FROM quay.io/openshift/origin-operator-registry:latest

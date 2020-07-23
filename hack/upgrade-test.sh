@@ -139,7 +139,7 @@ metadata:
   namespace: ${HCO_CATALOG_NAMESPACE}
 spec:
   sourceType: grpc
-  image: ${REGISTRY_IMAGE}
+  image: ${REGISTRY_IMAGE_UPGRADE}
   displayName: KubeVirt HyperConverged
   publisher: Red Hat
 EOF
@@ -204,19 +204,6 @@ ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep
 # We create a new CSV based off of the latest version and update the replaces attribute so that the new
 # version updates the latest version.
 # The currentCSV in the package manifest is also updated to point to the new version.
-
-Msg "patch existing catalog source with new registry image" "and wait for hco-catalogsource pod to be in Ready state"
-
-# Patch the HCO catalogsource image to the upgrade version
-${CMD} patch catalogsource ${HCO_CATALOGSOURCE_NAME} -n ${HCO_CATALOG_NAMESPACE} -p "{\"spec\": {\"image\": \"${REGISTRY_IMAGE_UPGRADE}\"}}"  --type merge
-sleep 5
-./hack/retry.sh 20 30 "${CMD} get pods -n ${HCO_CATALOG_NAMESPACE} | grep hco-catalogsource | grep -v Terminating"
-HCO_CATALOGSOURCE_POD=`${CMD} get pods -n ${HCO_CATALOG_NAMESPACE} | grep hco-catalogsource | grep -v Terminating | head -1 | awk '{ print $1 }'`
-${CMD} wait pod $HCO_CATALOGSOURCE_POD --for condition=Ready -n ${HCO_CATALOG_NAMESPACE} --timeout="1800s"
-
-sleep 15
-CATALOG_OPERATOR_POD=`${CMD} get pods -n openshift-operator-lifecycle-manager | grep catalog-operator | head -1 | awk '{ print $1 }'`
-${CMD} wait pod $CATALOG_OPERATOR_POD --for condition=Ready -n openshift-operator-lifecycle-manager --timeout="120s"
 
 Msg "Patch the subscription to move to the new channel"
 ${CMD} patch subscription ${HCO_SUBSCRIPTION_NAME} -n ${HCO_NAMESPACE} -p "{\"spec\": {\"channel\": \"${TARGET_CHANNEL}\"}}"  --type merge
