@@ -159,16 +159,6 @@ func (in *VirtualMachineRestoreList) DeepCopyObject() runtime.Object {
 func (in *VirtualMachineRestoreSpec) DeepCopyInto(out *VirtualMachineRestoreSpec) {
 	*out = *in
 	in.Target.DeepCopyInto(&out.Target)
-	if in.IncludeVolumes != nil {
-		in, out := &in.IncludeVolumes, &out.IncludeVolumes
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
-	if in.ExcludeVolumes != nil {
-		in, out := &in.ExcludeVolumes, &out.ExcludeVolumes
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	return
 }
 

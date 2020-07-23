@@ -113,10 +113,8 @@ func (VirtualMachineRestore) SwaggerDoc() map[string]string {
 
 func (VirtualMachineRestoreSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":               "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource",
-		"target":         "initially only VirtualMachine type supported",
-		"includeVolumes": "only one of IncludeVolumes/ExcludeVolumes may be specified\n+optional",
-		"excludeVolumes": "+optional",
+		"":       "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource",
+		"target": "initially only VirtualMachine type supported",
 	}
 }
 
