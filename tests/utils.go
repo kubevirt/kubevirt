@@ -2845,7 +2845,7 @@ func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batc
 	}
 	defer expecter.Close()
 
-	resp, err := expecter.ExpectBatch(expected, time.Second*time.Duration(wait))
+	resp, err := ExpectBatchWithValidatedSend(expecter, expected, time.Second*time.Duration(wait))
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("%v", resp)
 	}
@@ -2880,7 +2880,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "ip a | grep -q eth0; echo $?\n"},
 			&expect.BExp{R: retcode("0")}})
-		_, err := expecter.ExpectBatch(hasNetEth0Batch, 30*time.Second)
+		_, err := ExpectBatchWithValidatedSend(expecter, hasNetEth0Batch, 30*time.Second)
 		return err == nil
 	}
 
@@ -2890,7 +2890,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "ip -6 address show dev eth0 scope global | grep -q inet6; echo $?\n"},
 			&expect.BExp{R: retcode("0")}})
-		_, err := expecter.ExpectBatch(hasGlobalIPv6Batch, 30*time.Second)
+		_, err := ExpectBatchWithValidatedSend(expecter, hasGlobalIPv6Batch, 30*time.Second)
 		return err == nil
 	}
 
@@ -2913,7 +2913,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "sudo ip -6 addr add fd10:0:2::2/120 dev eth0; echo $?\n"},
 		&expect.BExp{R: retcode("0")}})
-	resp, err := expecter.ExpectBatch(addIPv6Address, 30*time.Second)
+	resp, err := ExpectBatchWithValidatedSend(expecter, addIPv6Address, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("addIPv6Address failed: %v", resp)
 		expecter.Close()
@@ -2926,7 +2926,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2; echo $?\n"},
 		&expect.BExp{R: retcode("0")}})
-	resp, err = expecter.ExpectBatch(addIPv6DefaultRoute, 30*time.Second)
+	resp, err = ExpectBatchWithValidatedSend(expecter, addIPv6DefaultRoute, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("addIPv6DefaultRoute failed: %v", resp)
 		expecter.Close()
@@ -4254,7 +4254,7 @@ func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
 	Expect(err).ToNot(HaveOccurred())
 	defer expecter.Close()
 
-	resp, err := expecter.ExpectBatch([]expect.Batcher{
+	resp, err := ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", port)},
@@ -4285,7 +4285,7 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) 
 	}
 	defer expecter.Close()
 
-	resp, err := expecter.ExpectBatch([]expect.Batcher{
+	resp, err := ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: httpServerMaker},
