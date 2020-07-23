@@ -49,7 +49,7 @@ spec:
         - name: CDI_VERSION
           value: v1.20.1
         - name: NETWORK_ADDONS_VERSION
-          value: 0.39.3
+          value: 0.40.1
         - name: SSP_VERSION
           value: v1.0.40
         - name: NMO_VERSION
@@ -99,21 +99,21 @@ spec:
         - name: LINUX_BRIDGE_MARKER_IMAGE
           value: quay.io/kubevirt/bridge-marker:0.3.0
         - name: NMSTATE_HANDLER_IMAGE
-          value: quay.io/nmstate/kubernetes-nmstate-handler:v0.21.0
+          value: quay.io/nmstate/kubernetes-nmstate-handler:v0.25.0
         - name: OVS_CNI_IMAGE
           value: quay.io/kubevirt/ovs-cni-plugin:v0.12.0
         - name: OVS_MARKER_IMAGE
           value: quay.io/kubevirt/ovs-cni-marker:v0.12.0
         - name: KUBEMACPOOL_IMAGE
-          value: quay.io/kubevirt/kubemacpool:v0.14.5
+          value: quay.io/kubevirt/kubemacpool:v0.16.0
         - name: MACVTAP_CNI_IMAGE
           value: quay.io/kubevirt/macvtap-cni:v0.2.0
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator:0.39.3
+          value: quay.io/kubevirt/cluster-network-addons-operator:0.40.1
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_VERSION
-          value: 0.39.3
+          value: 0.40.1
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -127,7 +127,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: WATCH_NAMESPACE
-        image: quay.io/kubevirt/cluster-network-addons-operator:0.39.3
+        image: quay.io/kubevirt/cluster-network-addons-operator:0.40.1
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources: {}

@@ -690,8 +690,8 @@ github.com/kubernetes-csi/external-snapshotter v0.0.0-20190509204040-e49856eb417
 github.com/kubernetes-csi/external-snapshotter/v2 v2.0.1/go.mod h1:vUEcwbrEpsQ/rDgaO8WTe1gVIY/4CCj0S4Q+UuOq5wA=
 github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1 h1:t5bmB3Y8nCaLA4aFrIpX0zjHEF/HUkJp6f5rm7BsVzM=
 github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1/go.mod h1:dV5oB3U62KBdlf9ADWkMmjGd3USauqQtwIm2OZb5mqI=
-github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200715072547-9876b6dfad40 h1:7DwmkjAnLONF5YDh17BjSwWk/c0mL2c8M55rFukWlKo=
-github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200715072547-9876b6dfad40/go.mod h1:2pVevTSL8OEMJX8HMy1/827YInvw/0Q97r3Zkl06HHk=
+github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200723053622-08b753ce4bb5 h1:xW1/wc3yZoqpk1Ejmrt/W18hbKXVCTxGSMt419vKRLE=
+github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200723053622-08b753ce4bb5/go.mod h1:3cv7xxHJ0aszJYxQAUKOnf6b5AbVIg6P0p2R+uRc/T8=
 github.com/kubevirt/vm-import-operator v0.1.0 h1:/Q9GpJElgf+KV1Rcgrw/RLK9uLM3GA2XRe3zCqMn3lU=
 github.com/kubevirt/vm-import-operator v0.1.0/go.mod h1:kKEbuf3fawBcnjQPA8CnWT24qTqh9YwK3HLK79nyUBk=
 github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
@@ -889,7 +889,6 @@ github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b
 github.com/operator-framework/operator-lifecycle-manager v0.0.0-20191115003340-16619cd27fa5/go.mod h1:zL34MNy92LPutBH5gQK+gGhtgTUlZZX03I2G12vWHF4=
 github.com/operator-framework/operator-lifecycle-manager v0.0.0-20200321030439-57b580e57e88 h1:ByKBik0i2aTEr7iKdSCmUGULydHwr6hA0h4INv9LkSA=
 github.com/operator-framework/operator-lifecycle-manager v0.0.0-20200321030439-57b580e57e88/go.mod h1:7Ut8p9jJ8C6RZyyhZfZypmlibCIJwK5Wcc+WZDgLkOA=
-github.com/operator-framework/operator-lifecycle-manager v3.11.0+incompatible h1:Po8C8RVLRWq7pNQ5pKonM9CXpC/osoBWbmsuf+HJnSI=
 github.com/operator-framework/operator-marketplace v0.0.0-20190216021216-57300a3ef3ba/go.mod h1:msZSL8pXwzQjB+hU+awVrZQw94IwJi3sNZVD3NoESIs=
 github.com/operator-framework/operator-marketplace v0.0.0-20190508022032-93d436f211c1/go.mod h1:msZSL8pXwzQjB+hU+awVrZQw94IwJi3sNZVD3NoESIs=
 github.com/operator-framework/operator-marketplace v0.0.0-20190617165322-1cbd32624349/go.mod h1:msZSL8pXwzQjB+hU+awVrZQw94IwJi3sNZVD3NoESIs=
