@@ -54,7 +54,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "start (VM)",
 		Short:   "Start a virtual machine.",
 		Example: usage(COMMAND_START),
-		Args:    cobra.ExactArgs(1),
+		Args:    templates.ExactArgs("start", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_START, clientConfig: clientConfig}
 			return c.Run(cmd, args)
@@ -69,7 +69,7 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "stop (VM)",
 		Short:   "Stop a virtual machine.",
 		Example: usage(COMMAND_STOP),
-		Args:    cobra.ExactArgs(1),
+		Args:    templates.ExactArgs("stop", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_STOP, clientConfig: clientConfig}
 			return c.Run(cmd, args)
@@ -84,7 +84,7 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "restart (VM)",
 		Short:   "Restart a virtual machine.",
 		Example: usage(COMMAND_RESTART),
-		Args:    cobra.ExactArgs(1),
+		Args:    templates.ExactArgs("restart", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_RESTART, clientConfig: clientConfig}
 			return c.Run(cmd, args)
@@ -101,7 +101,7 @@ func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "migrate (VM)",
 		Short:   "Migrate a virtual machine.",
 		Example: usage(COMMAND_MIGRATE),
-		Args:    cobra.ExactArgs(1),
+		Args:    templates.ExactArgs("migrate", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_MIGRATE, clientConfig: clientConfig}
 			return c.Run(cmd, args)
@@ -116,7 +116,7 @@ func NewRenameCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "rename [vm_name] [new_vm_name]",
 		Short:   "Rename a stopped virtual machine.",
 		Example: usage(COMMAND_RENAME),
-		Args:    cobra.ExactArgs(2),
+		Args:    templates.ExactArgs("rename", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_RENAME, clientConfig: clientConfig}
 			return c.Run(cmd, args)
@@ -131,7 +131,7 @@ func NewGuestOsInfoCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "guestosinfo (VMI)",
 		Short:   "Return guest agent info about operating system.",
 		Example: usage(COMMAND_GUESTOSINFO),
-		Args:    cobra.ExactArgs(1),
+		Args:    templates.ExactArgs("guestosinfo", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_GUESTOSINFO, clientConfig: clientConfig}
 			return c.Run(cmd, args)
@@ -146,7 +146,7 @@ func NewUserListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "userlist (VMI)",
 		Short:   "Return full list of logged in users on the guest machine.",
 		Example: usage(COMMAND_USERLIST),
-		Args:    cobra.ExactArgs(1),
+		Args:    templates.ExactArgs("userlist", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_USERLIST, clientConfig: clientConfig}
 			return c.Run(cmd, args)
@@ -161,7 +161,7 @@ func NewFSListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "fslist (VMI)",
 		Short:   "Return full list of filesystems available on the guest machine.",
 		Example: usage(COMMAND_FSLIST),
-		Args:    cobra.ExactArgs(1),
+		Args:    templates.ExactArgs("fslist", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_FSLIST, clientConfig: clientConfig}
 			return c.Run(cmd, args)
