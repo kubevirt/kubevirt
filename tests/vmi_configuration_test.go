@@ -2306,7 +2306,7 @@ var _ = Describe("Configurations", func() {
 			By("Check value in VM with dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
 			res, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "[ $(sudo dmidecode -s chassis-asset-tag | tr -s ' ') -eq Test-123 ] && echo 'pa''ss'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s chassis-asset-tag | tr -s ' ') = Test-123 ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
@@ -2349,11 +2349,11 @@ var _ = Describe("Configurations", func() {
 			By("Check values in dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
 			res, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') -eq KubeVirt ] && echo 'pa''ss'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = KubeVirt ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') -eq None ] && echo 'pa''ss'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = None ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') -eq KubeVirt ] && echo 'pa''ss'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = KubeVirt ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
@@ -2389,11 +2389,11 @@ var _ = Describe("Configurations", func() {
 
 			// Check on the VM, if expected values are there with dmidecode
 			res, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') -eq test ] && echo 'pa''ss'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = test ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') -eq test ] && echo 'pa''ss'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = test ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') -eq None ] && echo 'pa''ss'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = None ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
