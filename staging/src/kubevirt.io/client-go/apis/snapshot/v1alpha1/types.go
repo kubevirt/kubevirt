@@ -223,13 +223,6 @@ type VirtualMachineRestoreSpec struct {
 	Target corev1.TypedLocalObjectReference `json:"target"`
 
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
-
-	// only one of IncludeVolumes/ExcludeVolumes may be specified
-	// +optional
-	IncludeVolumes []string `json:"includeVolumes,omitempty"`
-
-	// +optional
-	ExcludeVolumes []string `json:"excludeVolumes,omitempty"`
 }
 
 // VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource
