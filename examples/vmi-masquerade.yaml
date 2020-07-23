@@ -27,7 +27,7 @@ spec:
       type: ""
     resources:
       requests:
-        memory: 1024M
+        memory: 4096M
   networks:
   - name: testmasquerade
     pod: {}
