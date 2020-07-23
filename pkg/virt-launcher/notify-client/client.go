@@ -162,12 +162,14 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 		status := event.Object.(*metav1.Status)
 		statusJSON, err = json.Marshal(status)
 		if err != nil {
+			log.Log.Reason(err).Infof("JSON marshal of notify ERROR event failed")
 			return err
 		}
 	} else {
 		domain := event.Object.(*api.Domain)
 		domainJSON, err = json.Marshal(domain)
 		if err != nil {
+			log.Log.Reason(err).Infof("JSON marshal of notify event failed")
 			return err
 		}
 	}
@@ -182,6 +184,7 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 	response, err := n.v1client.HandleDomainEvent(ctx, &request)
 
 	if err != nil {
+		log.Log.Reason(err).Infof("Failed to send domain notify event")
 		return err
 	} else if response.Success != true {
 		msg := fmt.Sprintf("failed to notify domain event: %s", response.Message)
