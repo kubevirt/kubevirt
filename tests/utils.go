@@ -2792,6 +2792,40 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	}, timeout, opts...)
 }
 
+func ExpectBatch(expecter expect.Expecter, batch []expect.Batcher, timeout time.Duration) ([]expect.BatchRes, error) {
+	sendFlag := 0
+	expectFlag := 0
+	previousSend := ""
+	for i, batcher := range batch {
+		switch batcher.Cmd() {
+		case expect.BatchExpect:
+			if expectFlag == 1 {
+				return nil, fmt.Errorf("Two sequential expect.BExp are not allowed")
+			}
+			expectFlag = 1
+			sendFlag = 0
+			bExp, _ := batch[i].(*expect.BExp)
+			bExp.R = fmt.Sprintf("(?s)%s%s%s", regexp.QuoteMeta(previousSend), ".*", bExp.R)
+
+			previousSend = ""
+		case expect.BatchSend:
+			if sendFlag == 1 {
+				return nil, fmt.Errorf("Two sequential expect.BSend are not allowed")
+			}
+			sendFlag = 1
+			expectFlag = 0
+			previousSend = batcher.Arg()
+		case expect.BatchSwitchCase:
+			return nil, fmt.Errorf("ExpectBatch doesn't support BatchSwitchCase")
+		default:
+			return nil, fmt.Errorf("Unkown command: ExpectBatch supports only BatchExpect and BatchSend")
+		}
+	}
+
+	res, err := expecter.ExpectBatch(batch, timeout)
+	return res, err
+}
+
 func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
