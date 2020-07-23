@@ -18356,33 +18356,6 @@ func schema_client_go_apis_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref commo
 							Format: "",
 						},
 					},
-					"includeVolumes": {
-						SchemaProps: spec.SchemaProps{
-							Description: "only one of IncludeVolumes/ExcludeVolumes may be specified",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
-					"excludeVolumes": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
 				},
 				Required: []string{"target", "virtualMachineSnapshotName"},
 			},

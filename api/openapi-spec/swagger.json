@@ -10844,19 +10844,6 @@
      "virtualMachineSnapshotName"
     ],
     "properties": {
-     "excludeVolumes": {
-      "type": "array",
-      "items": {
-       "type": "string"
-      }
-     },
-     "includeVolumes": {
-      "description": "only one of IncludeVolumes/ExcludeVolumes may be specified",
-      "type": "array",
-      "items": {
-       "type": "string"
-      }
-     },
      "target": {
       "description": "initially only VirtualMachine type supported",
       "$ref": "#/definitions/v1.TypedLocalObjectReference"
