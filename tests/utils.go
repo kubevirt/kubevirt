@@ -2795,6 +2795,47 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	}, timeout, opts...)
 }
 
+// ExpectBatchWithValidatedSend adds the expect.BSnd command to the exect.BExp expression.
+// It is done to make sure the match was found in the result of the expect.BSnd
+// command and not in a leftover that wasn't removed from the buffer.
+// NOTE: the method doesn't support multiline commands in the sent value.
+func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batcher, timeout time.Duration) ([]expect.BatchRes, error) {
+	sendFlag := false
+	expectFlag := false
+	previousSend := ""
+	for i, batcher := range batch {
+		switch batcher.Cmd() {
+		case expect.BatchExpect:
+			if expectFlag == true {
+				return nil, fmt.Errorf("Two sequential expect.BExp are not allowed")
+			}
+			expectFlag = true
+			sendFlag = false
+			bExp, _ := batch[i].(*expect.BExp)
+			previousSend := regexp.QuoteMeta(previousSend)
+
+			// Remove the \n since it is translated by the console to \r\n.
+			previousSend = strings.TrimSuffix(previousSend, "\n")
+			bExp.R = fmt.Sprintf("%s%s%s", previousSend, "((?s).*)", bExp.R)
+			previousSend = ""
+		case expect.BatchSend:
+			if sendFlag == true {
+				return nil, fmt.Errorf("Two sequential expect.BSend are not allowed")
+			}
+			sendFlag = true
+			expectFlag = false
+			previousSend = batcher.Arg()
+		case expect.BatchSwitchCase:
+			return nil, fmt.Errorf("ExpectBatchWithValidatedSend doesn't support BatchSwitchCase")
+		default:
+			return nil, fmt.Errorf("Unkown command: ExpectBatchWithValidatedSend supports only BatchExpect and BatchSend")
+		}
+	}
+
+	res, err := expecter.ExpectBatch(batch, timeout)
+	return res, err
+}
+
 func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
