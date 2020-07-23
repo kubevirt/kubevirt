@@ -3,10 +3,9 @@
 set -x
 
 # Setup Environment Variables
-HCO_VERSION="${HCO_VERSION:-1.1.0}"
-HCO_CHANNEL="${HCO_CHANNEL:-1.1.0}"
+HCO_VERSION="${HCO_VERSION:-1.2.0}"
+HCO_CHANNEL="${HCO_CHANNEL:-1.2.0}"
 MARKETPLACE_MODE="${MARKETPLACE_MODE:-true}"
-HCO_REGISTRY_IMAGE="${HCO_REGISTRY_IMAGE:-quay.io/kubevirt/hco-container-registry:latest}"
 PRIVATE_REPO="${PRIVATE_REPO:-false}"
 QUAY_USERNAME="${QUAY_USERNAME:-}"
 QUAY_PASSWORD="${QUAY_PASSWORD:-}"
@@ -21,12 +20,16 @@ main() {
   TARGET_NAMESPACE=$(grep name: $SCRIPT_DIR/namespace.yaml | awk '{print $2}')
   sed -i "s/- kubevirt-hyperconverged/- $TARGET_NAMESPACE/" $SCRIPT_DIR/base/operator_group.yaml
 
+  # setting appropriate version and channel in the subscription manifest
+  sed -ri "s|(startingCSV.+v)[0-9].+|\1${HCO_VERSION}|" deploy/kustomize/base/subscription.yaml
+  sed -ri "s|(channel: ).+|\1\"${HCO_CHANNEL}\"|" deploy/kustomize/base/subscription.yaml
+
   TMPDIR=$(mktemp -d)
   cp -r $SCRIPT_DIR/* $TMPDIR
 
-  if [ "$PRIVATE_REPO" = 'true' ]; then
+  if [ "$PRIVATE_REPO" == "true" ]; then
     get_quay_token
-    oc create secret generic quay-registry-kubevirt-hyperconverged --from-literal="token=$QUAY_TOKEN" -n openshift-marketplace
+    ${OC_TOOL} create secret generic quay-registry-kubevirt-hyperconverged --from-literal="token=$QUAY_TOKEN" -n openshift-marketplace
     cat <<EOF >$TMPDIR/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -34,10 +37,10 @@ kind: Kustomization
 bases:
   - private_repo
 EOF
-    oc apply -k $TMPDIR
+    ${OC_TOOL} apply -k $TMPDIR
 
   else # not private repo
-    if [ "$MARKETPLACE_MODE" = 'true' ]; then
+    if [ "$MARKETPLACE_MODE" == "true" ]; then
       cat <<EOF >$TMPDIR/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -45,7 +48,7 @@ kind: Kustomization
 bases:
   - marketplace
 EOF
-      oc apply -k $TMPDIR
+      ${OC_TOOL} apply -k $TMPDIR
     else
       cat <<EOF >$TMPDIR/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -54,17 +57,17 @@ kind: Kustomization
 bases:
   - image_registry
 EOF
-      oc apply -k $TMPDIR
+      ${OC_TOOL} apply -k $TMPDIR
     fi
   fi
 
-  if [ "$CONTENT_ONLY" = 'true' ]; then
+  if [ "$CONTENT_ONLY" == "true" ]; then
     echo INFO: Content is ready for deployment in OLM.
     exit 0
   fi
 
   # KVM_EMULATION setting is active only when a deployment is done.
-  if [ "$KVM_EMULATION" = 'true' ]; then
+  if [ "$KVM_EMULATION" == "true" ]; then
     cat <<EOF >$TMPDIR/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -75,7 +78,6 @@ bases:
 resources:
   - namespace.yaml
 EOF
-    exit
     retry_loop $TMPDIR
   else
     # In case KVM_EMULATION is not set.

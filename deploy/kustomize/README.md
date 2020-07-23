@@ -20,17 +20,39 @@ $ oc apply -k marketplace
 Which will create the HCO catalog source with default configuration. After processing is complete, the package will be available in OperatorHub.
 
 #### Private Repo
-If the operator source is located in a private Quay.io registry, you should provide the OperatorSource resource with a secret, which can be extracted by:
+- If the operator source is located in a private Quay.io appregistry namespace, you should provide the OperatorSource resource with a secret, which can be extracted by:
 ```bash
-$ curl -sH "Content-Type: application/json" -XPOST https://quay.io/cnr/api/v1/users/login -d '
+$ QUAY_TOKEN=$(curl -sH "Content-Type: application/json" -XPOST https://quay.io/cnr/api/v1/users/login -d '
   {
       "user": {
           "username": "'"${QUAY_USERNAME}"'",
           "password": "'"${QUAY_PASSWORD}"'"
       }
-  }' | jq -r '.token'
+  }' | jq -r '.token')
 ```
-The token should be inserted in `spec.authorizationToken.secretName` of `private_repo/operator_source.patch.yaml`, then run:
+
+- A secret resource containing the Quay token should be created by:
+```bash
+$ oc create secret generic quay-registry-kubevirt-hyperconverged --from-literal="token=$QUAY_TOKEN" -n openshift-marketplace
+```
+
+- The secret name is the value in `spec.authorizationToken.secretName` of `private_repo/operator_source.patch.yaml`.
+- The private appregistry namespace should be added in `private_repo/operator_source.patch.yaml` overlay at `spec.registryNamespace`.
+
+
+`operator_source.patch.yaml:`
+```bash
+apiVersion: operators.coreos.com/v1
+kind: OperatorSource
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  authorizationToken:
+    secretName: "quay-registry-kubevirt-hyperconverged"
+  registryNamespace: <my-private-appregistry>
+```
+
+- Lastly, apply the private_repo overlay to create the OperatorSource (and consequently the CatalogSource) which is connected to the private Quay app-registry:
 ```bash
 $ oc apply -k private_repo
 ```
@@ -69,14 +91,14 @@ MARKETPLACE_MODE=true \ |
 ```bash
 $ MARKETPLACE_MODE=false \
 KVM_EMULATION=true \
-CONTENT_ONLY=false \ |
+CONTENT_ONLY=false \
 ./deploy/kustomize/deploy_kustomize.sh
 ```
 
 In order to change the default HCO bundle image, use the following command prior to executing the script:
 ```bash
-$ DESIRED_IMAGE=< a URL to hco bundle image>
-sed "s/\(image: \)\(.*\)/\1${DESIRED_IMAGE}/" deploy/kustomize/image_registry/catalog_source.yaml
+$ DESIRED_IMAGE=<a URL to hco bundle image>
+$ sed -i "s|\(image: \)\(.*\)|\1${DESIRED_IMAGE}|" deploy/kustomize/image_registry/catalog_source.yaml
 ```
 
 ## Deployment
