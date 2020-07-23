@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	netutils "k8s.io/utils/net"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -938,20 +936,7 @@ func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 }
 
 func pingVirtualMachine(vmi *v1.VirtualMachineInstance, ipAddr, prompt string) {
-	pingString := "ping"
-	if netutils.IsIPv6String(ipAddr) {
-		pingString = "ping -6"
-	}
-	cmdCheck := fmt.Sprintf("%s %s -c 1 -w 5\n", pingString, ipAddr)
-	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("0", prompt)},
-	}, 30)
-	Expect(err).ToNot(HaveOccurred(), "Failed to ping VMI %s within the given timeout", vmi.Name)
+	Expect(tests.PingFromVMConsole(vmi, ipAddr, prompt)).To(Succeed())
 }
 
 // Tests in Multus suite are expecting a Linux bridge to be available on each node, with iptables allowing
