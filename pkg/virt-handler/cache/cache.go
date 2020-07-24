@@ -47,7 +47,7 @@ import (
 
 const socketDialTimeout = 5
 
-func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store) cache.ListerWatcher {
+func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.ListerWatcher {
 	d := &DomainWatcher{
 		backgroundWatcherStarted: false,
 		virtShareDir:             virtShareDir,
@@ -55,6 +55,7 @@ func newListWatchFromNotify(virtShareDir string, watchdogTimeout int, recorder r
 		recorder:                 recorder,
 		vmiStore:                 vmiStore,
 		unresponsiveSockets:      make(map[string]int64),
+		resyncPeriod:             resyncPeriod,
 	}
 
 	return d
@@ -70,6 +71,7 @@ type DomainWatcher struct {
 	watchdogTimeout          int
 	recorder                 record.EventRecorder
 	vmiStore                 cache.Store
+	resyncPeriod             time.Duration
 
 	watchDogLock        sync.Mutex
 	unresponsiveSockets map[string]int64
@@ -299,10 +301,18 @@ func (d *DomainWatcher) startBackground() error {
 	go func() {
 		defer d.wg.Done()
 
+		resyncTicker := time.NewTicker(d.resyncPeriod)
+		resyncTickerChan := resyncTicker.C
+		defer resyncTicker.Stop()
+
 		// Divide the watchdogTimeout by 3 for our ticker.
 		// This ensures we always have at least 2 response failures
 		// in a row before we mark the socket as unavailable (which results in shutdown of VMI)
-		expiredWatchdogTicker := time.NewTicker(time.Duration((d.watchdogTimeout/3)+1) * time.Second).C
+		expiredWatchdogTicker := time.NewTicker(time.Duration((d.watchdogTimeout/3)+1) * time.Second)
+		defer expiredWatchdogTicker.Stop()
+
+		expiredWatchdogTickerChan := expiredWatchdogTicker.C
+
 		srvErr := make(chan error)
 		go func() {
 			defer close(srvErr)
@@ -312,7 +322,9 @@ func (d *DomainWatcher) startBackground() error {
 
 		for {
 			select {
-			case <-expiredWatchdogTicker:
+			case <-resyncTickerChan:
+				d.handleResync()
+			case <-expiredWatchdogTickerChan:
 				d.handleStaleWatchdogFiles()
 				d.handleStaleSocketConnections()
 			case err := <-srvErr:
@@ -346,6 +358,41 @@ func (d *DomainWatcher) handleStaleWatchdogFiles() error {
 		d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
 	}
 	return nil
+}
+
+func (d *DomainWatcher) handleResync() {
+
+	socketFiles, err := listSockets()
+	if err != nil {
+		log.Log.Reason(err).Error("failed to list sockets")
+		return
+	}
+
+	log.Log.Infof("resyncing virt-launcher domains")
+	for _, socket := range socketFiles {
+		client, err := cmdclient.NewClient(socket)
+		if err != nil {
+			log.Log.Reason(err).Error("failed to connect to cmd client socket during resync")
+			// Ignore failure to connect to client.
+			// These are all local connections via unix socket.
+			// A failure to connect means there's nothing on the other
+			// end listening.
+			continue
+		}
+		defer client.Close()
+
+		domain, exists, err := client.GetDomain()
+		if err != nil {
+			// this resync is best effort only.
+			log.Log.Reason(err).Errorf("unable to retrieve domain at socket %s during resync", socket)
+			continue
+		} else if !exists {
+			// nothing to sync if it doesn't exist
+			continue
+		}
+
+		d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
+	}
 }
 
 func (d *DomainWatcher) handleStaleSocketConnections() error {
@@ -531,8 +578,8 @@ func (d *DomainWatcher) ResultChan() <-chan watch.Event {
 	return d.eventChan
 }
 
-func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store) (cache.SharedInformer, error) {
-	lw := newListWatchFromNotify(virtShareDir, watchdogTimeout, recorder, vmiStore)
+func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) (cache.SharedInformer, error) {
+	lw := newListWatchFromNotify(virtShareDir, watchdogTimeout, recorder, vmiStore, resyncPeriod)
 	informer := cache.NewSharedInformer(lw, &api.Domain{}, 0)
 	return informer, nil
 }
