@@ -55,10 +55,12 @@ var _ = Describe("Domain informer", func() {
 	var ctrl *gomock.Controller
 	var domainManager *virtwrap.MockDomainManager
 	var socketPath string
+	var resyncPeriod int
 
 	podUID := "1234"
 
 	BeforeEach(func() {
+		resyncPeriod = 5
 		stopChan = make(chan struct{})
 
 		shareDir, err = ioutil.TempDir("", "kubevirt-share")
@@ -82,7 +84,7 @@ var _ = Describe("Domain informer", func() {
 		socketPath = cmdclient.SocketFilePathOnHost(podUID)
 		os.MkdirAll(filepath.Dir(socketPath), 0755)
 
-		informer, err = NewSharedInformer(shareDir, 10, nil, nil)
+		informer, err = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 
 		ctrl = gomock.NewController(GinkgoT())
@@ -273,6 +275,41 @@ var _ = Describe("Domain informer", func() {
 			verifyObj("default/test", domain)
 		})
 
+		It("should resync active domains after resync period.", func() {
+
+			domain := api.NewMinimalDomain("test")
+			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{domain}, nil)
+
+			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
+
+			// ensure we can connect to the server first.
+			client, err := cmdclient.NewClient(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+			client.Close()
+
+			go informer.Run(stopChan)
+			cache.WaitForCacheSync(stopChan, informer.HasSynced)
+
+			verifyObj("default/test", domain)
+
+			// now prove if we make a change, like adding a label, that the resync
+			// will pick that change up automatically
+			domain.ObjectMeta.Labels = make(map[string]string)
+			domain.ObjectMeta.Labels["some-label"] = "some-value"
+			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{domain}, nil)
+			time.Sleep(time.Duration(resyncPeriod+1) * time.Second)
+
+			obj, exists, err := informer.GetStore().GetByKey("default/test")
+			Expect(err).To(BeNil())
+			Expect(exists).To(BeTrue())
+
+			eventDomain := obj.(*api.Domain)
+			val, ok := eventDomain.ObjectMeta.Labels["some-label"]
+
+			Expect(ok).To(BeTrue())
+			Expect(val).To(Equal("some-value"))
+		})
+
 		It("should detect expired legacy watchdog file.", func() {
 			f, err := os.Create(socketPath)
 			Expect(err).ToNot(HaveOccurred())
@@ -283,6 +320,7 @@ var _ = Describe("Domain informer", func() {
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
+				resyncPeriod:             time.Duration(1) * time.Hour,
 			}
 
 			watchdogFile := watchdog.WatchdogFileFromNamespaceName(shareDir, "default", "test")
@@ -320,6 +358,7 @@ var _ = Describe("Domain informer", func() {
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
+				resyncPeriod:             time.Duration(1) * time.Hour,
 			}
 
 			err = d.startBackground()
@@ -365,6 +404,7 @@ var _ = Describe("Domain informer", func() {
 				virtShareDir:             shareDir,
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
+				resyncPeriod:             time.Duration(1) * time.Hour,
 			}
 
 			err = d.startBackground()
