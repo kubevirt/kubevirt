@@ -767,11 +767,11 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				}
 				By("Checking ping to gateway")
 				ipAddr := gatewayIPFromCIDR(ipv4NetworkCIDR)
-				Expect(tests.PingFromVMConsole(serverVMI, ipAddr, "\\$ ")).To(Succeed())
+				Expect(tests.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
 
 				By("Checking ping to google")
-				Expect(tests.PingFromVMConsole(serverVMI, "8.8.8.8", "\\$ ")).To(Succeed())
-				Expect(tests.PingFromVMConsole(clientVMI, "google.com", "\\$ ")).To(Succeed())
+				Expect(tests.PingFromVMConsole(serverVMI, "8.8.8.8")).To(Succeed())
+				Expect(tests.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
 			}
 
 			By("starting a tcp server")
