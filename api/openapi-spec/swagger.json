@@ -8870,6 +8870,30 @@
      }
     }
    },
+   "v1.HistogramMetric": {
+    "description": "HistogramMetric is responsible for setting up bucket values",
+    "type": "object",
+    "properties": {
+     "bucketValues": {
+      "type": "array",
+      "items": {
+       "type": "number",
+       "format": "double"
+      },
+      "x-kubernetes-list-type": "set"
+     }
+    }
+   },
+   "v1.HistogramsConfig": {
+    "description": "HistogramsConfig is used to set up Histograms with different units from a single component",
+    "type": "object",
+    "properties": {
+     "durationHistogram": {
+      "description": "Used to configure time based histograms. Prefered unit: seconds",
+      "$ref": "#/definitions/v1.HistogramMetric"
+     }
+    }
+   },
    "v1.HostDisk": {
     "description": "Represents a disk created on the cluster level",
     "type": "object",
@@ -9212,6 +9236,10 @@
       "description": "selectors and tolerations that should apply to KubeVirt infrastructure components",
       "$ref": "#/definitions/v1.ComponentConfig"
      },
+     "metricsConfig": {
+      "description": "Configuration to customize some of KubeVirt's metrics",
+      "$ref": "#/definitions/v1.MetricsConfig"
+     },
      "monitorAccount": {
       "description": "The name of the Prometheus service account that needs read-access to KubeVirt endpoints Defaults to prometheus-k8s",
       "type": "string"
@@ -9317,6 +9345,16 @@
      "hugepages": {
       "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
       "$ref": "#/definitions/v1.Hugepages"
+     }
+    }
+   },
+   "v1.MetricsConfig": {
+    "description": "Additional configuration for some of KubeVirt metrics",
+    "type": "object",
+    "properties": {
+     "migrationMetrics": {
+      "description": "MigrationMetrics is used to configure migration related histograms",
+      "$ref": "#/definitions/v1.HistogramsConfig"
      }
     }
    },

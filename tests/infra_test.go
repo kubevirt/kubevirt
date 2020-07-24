@@ -448,14 +448,45 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			return stdout
 		}
 
-		// collect metrics whose key contains the given string, expects non-empty result
-		collectMetrics := func(metricSubstring string) map[string]float64 {
+		// collect metrics from VMI whose key contains the given string, expects non-empty result
+		collectVMMetrics := func(metricSubstring string) map[string]float64 {
 			By("Scraping the Prometheus endpoint")
 			var metrics map[string]float64
 			var lines []string
 
 			Eventually(func() map[string]float64 {
 				out := getKubevirtVMMetrics()
+				lines = takeMetricsWithPrefix(out, metricSubstring)
+				metrics, err = parseMetricsToMap(lines)
+				Expect(err).ToNot(HaveOccurred())
+				return metrics
+			}, 30*time.Second, 2*time.Second).ShouldNot(BeEmpty())
+
+			// troubleshooting helper
+			fmt.Fprintf(GinkgoWriter, "metrics [%s]:\nlines=%s\n%#v\n", metricSubstring, lines, metrics)
+			Expect(len(metrics)).To(BeNumerically(">=", float64(1.0)))
+			Expect(metrics).To(HaveLen(len(lines)))
+
+			return metrics
+		}
+
+		// collect metrics from virt-controller whose key contains the given string, expects non-empty result
+		collectVirtControllerMetrics := func(metricSubstring, virtControllerMetricsURL string) map[string]float64 {
+			By("Scraping the Prometheus endpoint")
+			var metrics map[string]float64
+			var lines []string
+
+			Eventually(func() map[string]float64 {
+				out, _, err := tests.ExecuteCommandOnPodV2(virtClient,
+					pod,
+					"virt-handler",
+					[]string{
+						"curl",
+						"-L",
+						"-k",
+						virtControllerMetricsURL,
+					})
+				Expect(err).ToNot(HaveOccurred())
 				lines = takeMetricsWithPrefix(out, metricSubstring)
 				metrics, err = parseMetricsToMap(lines)
 				Expect(err).ToNot(HaveOccurred())
@@ -567,6 +598,70 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 			Expect(foundMetrics["ready"]).To(Equal(2), "expected 2 ready virt-controllers")
 			Expect(foundMetrics["leading"]).To(Equal(1), "expected 1 leading virt-controller")
+		})
+
+		It("should find migration metrics at leading virt-controller after migration", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
+
+			By("Starting the VirtualMachineInstance")
+			startVMI(vmi)
+
+			By("Migrating the VirtualMachineInstance")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migrationUID := runMigrationAndExpectCompletion(migration, migrationWaitTime, virtClient)
+
+			By("Checking migration state")
+			confirmVMIPostMigration(vmi, migrationUID, virtClient)
+
+			endpoint, err := virtClient.CoreV1().
+				Endpoints(flags.KubeVirtInstallNamespace).
+				Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			var migrationMetrics map[string]float64
+			By("scraping the metrics endpoint on virt-controller pods")
+			for _, ep := range endpoint.Subsets[0].Addresses {
+				if !strings.HasPrefix(ep.TargetRef.Name, "virt-controller") {
+					continue
+				}
+				stdout, _, err := tests.ExecuteCommandOnPodV2(
+					virtClient,
+					pod,
+					"virt-handler",
+					[]string{
+						"curl", "-L", "-k",
+						fmt.Sprintf("https://%s:8443/metrics", tests.FormatIPForURL(ep.IP)),
+					})
+				Expect(err).ToNot(HaveOccurred())
+				scrapedData := strings.Split(stdout, "\n")
+
+				for _, scrapedMetric := range scrapedData {
+					By("finding the leading virt-controller")
+					if scrapedMetric == "leading_virt_controller 1" {
+						// After finding leading virt-controller
+						// get metrics as an array
+						migrationMetrics = collectVirtControllerMetrics(
+							// kubevirt_migration_duration_seconds_count tells us the amount of migrations that have occurred
+							"kubevirt_migration_duration_seconds_count",
+							fmt.Sprintf("https://%s:8443/metrics", tests.FormatIPForURL(ep.IP)),
+						)
+						continue
+					}
+				}
+			}
+
+			keys := getKeysFromMetrics(migrationMetrics)
+			for _, key := range keys {
+				value := migrationMetrics[key]
+				// Amout of migrations should be equal to one
+				Expect(value).To(BeEquivalentTo(1))
+			}
+
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+			By("Waiting for VMI to disappear")
+			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 
 		It("[test_id:4137]should find one leading virt-operator and two ready", func() {
@@ -706,7 +801,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		})
 
 		It("[test_id:4142]should include the storage metrics for a running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_storage_")
+			metrics := collectVMMetrics("kubevirt_vmi_storage_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -718,7 +813,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		})
 
 		It("[test_id:4143]should include the network metrics for a running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_network_")
+			metrics := collectVMMetrics("kubevirt_vmi_network_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -728,7 +823,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		})
 
 		It("[test_id:4144]should include the memory metrics for a running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_memory")
+			metrics := collectVMMetrics("kubevirt_vmi_memory")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -739,7 +834,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		})
 
 		It("[test_id:4553]should include the vcpu wait metrics for running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_vcpu_wait")
+			metrics := collectVMMetrics("kubevirt_vmi_vcpu_wait")
 			for _, v := range metrics {
 				fmt.Fprintf(GinkgoWriter, "vcpu wait was %f", v)
 				Expect(v).To(BeNumerically("==", float64(0.0)))
@@ -747,7 +842,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		})
 
 		It("[test_id:4554]should include the vcpu seconds metrics for running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_vcpu_seconds")
+			metrics := collectVMMetrics("kubevirt_vmi_vcpu_seconds")
 			for _, v := range metrics {
 				fmt.Fprintf(GinkgoWriter, "vcpu seconds was %f", v)
 				Expect(v).To(BeNumerically(">=", float64(0.0)))
@@ -755,7 +850,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		})
 
 		It("[test_id:4145]should include VMI infos for a running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_")
+			metrics := collectVMMetrics("kubevirt_vmi_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			nodeName := pod.Spec.NodeName
@@ -797,7 +892,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			nodeName := startVMI(vmi)
 			Expect(nodeName).To(Equal(preferredNodeName), "Should run VMIs on the same node")
 
-			metrics := collectMetrics("kubevirt_vmi_")
+			metrics := collectVMMetrics("kubevirt_vmi_")
 			By("Checking the collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -812,7 +907,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 			// Every VMI is labeled with kubevirt.io/nodeName, so just creating a VMI should
 			// be enough to its metrics to contain a kubernetes label
 			containK8sLabel := false
-			metrics := collectMetrics("kubevirt_vmi_vcpu_seconds")
+			metrics := collectVMMetrics("kubevirt_vmi_vcpu_seconds")
 			By("Checking collected metrics")
 			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
@@ -825,7 +920,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 
 		// explicit test fo swap metrics as test_id:4144 doesn't catch if they are missing
 		It("[test_id:4555]should include swap metrics", func() {
-			metrics := collectMetrics("kubevirt_vmi_memory_swap_")
+			metrics := collectVMMetrics("kubevirt_vmi_memory_swap_")
 			var in, out bool
 			for k, _ := range metrics {
 				if in && out {
@@ -844,7 +939,7 @@ var _ = Describe("[Serial]Infrastructure", func() {
 		})
 
 		It("[test_id:4556]should include unused memory metric for running VM", func() {
-			metrics := collectMetrics("kubevirt_vmi_memory_unused_bytes")
+			metrics := collectVMMetrics("kubevirt_vmi_memory_unused_bytes")
 			for _, v := range metrics {
 				Expect(v).To(BeNumerically(">=", float64(0.0)))
 			}
@@ -966,4 +1061,55 @@ func getKeysFromMetrics(metrics map[string]float64) []string {
 	// we sort keys only to make debug of test failures easier
 	sort.Strings(keys)
 	return keys
+}
+
+func runMigrationAndExpectCompletion(migration *v1.VirtualMachineInstanceMigration, timeout int, virtClient kubecli.KubevirtClient) string {
+	By("Starting a Migration")
+	var migrationCreated *v1.VirtualMachineInstanceMigration
+	var err error
+	Eventually(func() error {
+		migrationCreated, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+		return err
+	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+	migration = migrationCreated
+	By("Waiting until the Migration Completes")
+
+	uid := ""
+	Eventually(func() error {
+		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed))
+
+		uid = string(migration.UID)
+		if migration.Status.Phase == v1.MigrationSucceeded {
+			return nil
+		}
+		return fmt.Errorf("Migration is in the phase: %s", migration.Status.Phase)
+
+	}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
+	return uid
+}
+
+func confirmVMIPostMigration(vmi *v1.VirtualMachineInstance, migrationUID string, virtClient kubecli.KubevirtClient) {
+	By("Retrieving the VMI post migration")
+	var err error
+	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	By("Verifying the VMI's migration state")
+	Expect(vmi.Status.MigrationState).ToNot(BeNil())
+	Expect(vmi.Status.MigrationState.StartTimestamp).ToNot(BeNil())
+	Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
+	Expect(vmi.Status.MigrationState.TargetNode).To(Equal(vmi.Status.NodeName))
+	Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
+	Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+	Expect(vmi.Status.MigrationState.Failed).To(BeFalse())
+	Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
+	Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
+
+	By("Verifying the VMI's is in the running state")
+	Expect(vmi.Status.Phase).To(Equal(v1.Running))
 }

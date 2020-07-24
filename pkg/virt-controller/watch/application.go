@@ -33,6 +33,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	clientrest "k8s.io/client-go/rest"
@@ -40,6 +41,8 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+
+	k6tv1 "kubevirt.io/client-go/api/v1"
 
 	"kubevirt.io/kubevirt/pkg/healthz"
 
@@ -50,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
+	m7nmetrics "kubevirt.io/kubevirt/pkg/monitoring/migrations/prometheus"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -99,6 +103,10 @@ var (
 			Help: "Indication for a virt-controller that is ready to take the lead.",
 		},
 	)
+
+	// Default values for duration histograms
+	// Values are in seconds and corresponds to: 1m, 5m, 10m, 30m, 1h, 2h, 3h, 4h, 5h, 6h, 7h and 10h
+	DefaultDurationBuckets = []float64{60, 300, 600, 1800, 3600, 7200, 10800, 14400, 18000, 21600, 25200, 36000}
 )
 
 type VirtControllerApp struct {
@@ -426,7 +434,24 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.persistentVolumeClaimInformer, vca.vmiRecorder, vca.clientSet, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
-	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
+
+	// Query the KubeVirt object to get Metrics config
+	kvList, err := vca.clientSet.KubeVirt(k8sv1.NamespaceAll).List(&v1.ListOptions{})
+	if err != nil {
+		golog.Fatal(err)
+	}
+
+	kv := kvList.Items[0]
+	if kv.Spec.MetricsConfig != nil {
+		kv.Spec.MetricsConfig = checkMissingMetricsConfig(kv.Spec.MetricsConfig)
+	} else {
+		log.Log.Info("No configuration for histogram metrics were found. Setting default values")
+		kv.Spec.MetricsConfig = getDefaultMetricsConfig()
+	}
+
+	migrationMetrics := m7nmetrics.NewMigrationMetrics(kv.Spec.MetricsConfig.MigrationMetrics)
+	prometheus.MustRegister(migrationMetrics.MigrationDuration)
+	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig, migrationMetrics)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -587,4 +612,41 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.promKeyFilePath, "prom-key-file", defaultPromKeyFilePath,
 		"Private key for the client certificate used to prove the identity of the virt-controller when it must call out Promethus during a request")
+}
+
+// checkMissingMetricsConfig will look for missing configuration and add default values
+// if that's the case
+func checkMissingMetricsConfig(metricsConfig *k6tv1.MetricsConfig) *k6tv1.MetricsConfig {
+	if metricsConfig.MigrationMetrics == nil {
+		log.Log.Info("No configuration for migration metrics were found. Setting default values")
+		metricsConfig.MigrationMetrics = getDefaultMigrationMetricsConfig()
+	}
+	// Add more defaults here when developing new histograms
+
+	return metricsConfig
+}
+
+// getDefaultMetricsConfig is used when there is no configuration at all at the KubeVirt CR
+func getDefaultMetricsConfig() *k6tv1.MetricsConfig {
+	metricsConfig := &k6tv1.MetricsConfig{}
+
+	metricsConfig.MigrationMetrics = getDefaultMigrationMetricsConfig()
+	// metricsConfig.SnapshotMetrics = getDefaultSnapshotMetricsConfig()
+	// Add more defaults here when developing new histograms
+
+	return metricsConfig
+}
+
+func getDefaultMigrationMetricsConfig() *k6tv1.HistogramsConfig {
+	migrationMetrics := &k6tv1.HistogramsConfig{}
+	migrationMetrics.DurationHistogram = getDefaultDurationHistogramConfig()
+	// migrationMetrics.DataHistogram = getDefaultDataHistogramConfig()
+
+	return migrationMetrics
+}
+
+func getDefaultDurationHistogramConfig() *k6tv1.HistogramMetric {
+	return &k6tv1.HistogramMetric{
+		BucketValues: DefaultDurationBuckets,
+	}
 }

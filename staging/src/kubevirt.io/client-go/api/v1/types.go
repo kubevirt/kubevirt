@@ -1190,6 +1190,9 @@ type KubeVirtSpec struct {
 	// Defaults to prometheus-k8s
 	MonitorAccount string `json:"monitorAccount,omitempty"`
 
+	// Configuration to customize some of KubeVirt's metrics
+	MetricsConfig *MetricsConfig `json:"metricsConfig,omitempty" optional:"true"`
+
 	// Specifies if kubevirt can be deleted if workloads are still present.
 	// This is mainly a precaution to avoid accidental data loss
 	UninstallStrategy KubeVirtUninstallStrategy `json:"uninstallStrategy,omitempty"`
@@ -1242,6 +1245,36 @@ const (
 	MergePatchType          PatchType = "merge"
 	StrategicMergePatchType PatchType = "strategic"
 )
+
+// Additional configuration for some of KubeVirt metrics
+//
+// +k8s:openapi-gen=true
+type MetricsConfig struct {
+	// MigrationMetrics is used to configure migration related histograms
+	MigrationMetrics *HistogramsConfig `json:"migrationMetrics,omitempty" optional:"true"`
+
+	// Will have snapshotMetrics in the future, that the user may need to set different buckets
+}
+
+// HistogramsConfig is used to set up Histograms with different units from a single component
+//
+// +k8s:openapi-gen=true
+type HistogramsConfig struct {
+	// Used to configure time based histograms.
+	// Prefered unit: seconds
+	DurationHistogram *HistogramMetric `json:"durationHistogram,omitempty" optional:"true"`
+
+	// Might have dataHistogram in the future, to monitor how much data in being transfered
+	// Prefered unit: bytes
+}
+
+// HistogramMetric is responsible for setting up bucket values
+//
+// +k8s:openapi-gen=true
+type HistogramMetric struct {
+	// +listType=set
+	BucketValues []float64 `json:"bucketValues,omitempty" required:"true"`
+}
 
 type KubeVirtUninstallStrategy string
 

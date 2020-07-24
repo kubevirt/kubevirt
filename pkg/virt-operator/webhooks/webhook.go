@@ -1,7 +1,9 @@
 package webhooks
 
 import (
+	"encoding/json"
 	"fmt"
+	"math"
 
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,7 +14,14 @@ import (
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 )
 
-const uninstallErrorMsg = "Rejecting the uninstall request, since there are still %s present. Either delete all KubeVirt related workloads or change the uninstall strategy before uninstalling KubeVirt."
+const (
+	uninstallErrorMsg            = "Rejecting the uninstall request, since there are still %s present. Either delete all KubeVirt related workloads or change the uninstall strategy before uninstalling KubeVirt."
+	repeatingBucketsErrorMsg     = "Make sure bucket values don't repeat."
+	unorderedBucketsErrorMsg     = "Make sure bucket values are properly ordered."
+	invalidInitialBucketErrorMsg = "Initial bucket value must be greater than 1."
+	insufficientBucketsErrorMsg  = "BucketValues field must have 2 or more elements."
+	missingFieldErrorMsg         = "Missing bucketValues field for %v metrics."
+)
 
 var KubeVirtGroupVersionResource = metav1.GroupVersionResource{
 	Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
@@ -89,4 +98,74 @@ func (k *KubeVirtDeletionAdmitter) Admit(review *v1beta1.AdmissionReview) *v1bet
 	}
 
 	return validating_webhooks.NewPassingAdmissionResponse()
+}
+
+func NewKubeVirtMutationAdmitter(client kubecli.KubevirtClient) *KubeVirtMutationAdmitter {
+	return &KubeVirtMutationAdmitter{
+		client: client,
+	}
+}
+
+type KubeVirtMutationAdmitter struct {
+	client kubecli.KubevirtClient
+}
+
+func (k *KubeVirtMutationAdmitter) Admit(review *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	raw := review.Request.Object.Raw
+	kv := v1.KubeVirt{}
+
+	err := json.Unmarshal(raw, &kv)
+	if err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	// No configuration was provided, default values will be used
+	if kv.Spec.MetricsConfig == nil {
+		return validating_webhooks.NewPassingAdmissionResponse()
+	}
+
+	return validateMetricsConfig(kv.Spec.MetricsConfig)
+}
+
+func validateMetricsConfig(metricsConfig *v1.MetricsConfig) *v1beta1.AdmissionResponse {
+	if metricsConfig.MigrationMetrics != nil {
+		err := validateDurationBuckets(metricsConfig.MigrationMetrics.DurationHistogram, "migration")
+		if err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
+	}
+	// Add more validations here when developing new histograms
+
+	// Everything is valid
+	// Use default values for missing configuration
+	return validating_webhooks.NewPassingAdmissionResponse()
+}
+
+// validateDurationBuckets validates histogram buckets of time related metrics
+func validateDurationBuckets(histogram *v1.HistogramMetric, metricType string) error {
+	if histogram == nil || histogram.BucketValues == nil {
+		return fmt.Errorf(missingFieldErrorMsg, metricType)
+	}
+
+	lastBucket := float64(math.MinInt64)
+	for _, bucket := range histogram.BucketValues {
+		if bucket < lastBucket {
+			return fmt.Errorf(unorderedBucketsErrorMsg)
+		}
+		if bucket == lastBucket {
+			return fmt.Errorf(repeatingBucketsErrorMsg)
+		}
+		lastBucket = bucket
+	}
+
+	if histogram.BucketValues[0] < 1 {
+		return fmt.Errorf(invalidInitialBucketErrorMsg)
+	}
+
+	if len(histogram.BucketValues) < 2 {
+		return fmt.Errorf(insufficientBucketsErrorMsg)
+	}
+
+	// If it got here, it means the configuration is valid
+	return nil
 }

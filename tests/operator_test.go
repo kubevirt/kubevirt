@@ -1285,6 +1285,98 @@ spec:
 			deleteAllKvAndWait(true)
 		})
 
+		It("should be able to create kubevirt install with custom metrics configuration", func() {
+			allPodsAreReady(originalKv)
+			sanityCheckDeploymentsExist()
+
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+
+			// this is just verifying some common known components do in fact get deleted.
+			By("Sanity Checking Deployments infrastructure is deleted")
+			sanityCheckDeploymentsDeleted()
+
+			kv := copyOriginalKv()
+			kv.Spec.MetricsConfig = &v1.MetricsConfig{
+				MigrationMetrics: &v1.HistogramsConfig{
+					DurationHistogram: &v1.HistogramMetric{
+						BucketValues: []float64{60, 120, 300, 1800, 3600, 7200, 36000},
+					},
+				},
+			}
+			By("Creating KubeVirt Object with custom metrics configuration")
+			createKv(kv)
+
+			By("Creating KubeVirt Object Created and Ready Condition")
+			waitForKv(kv)
+
+			By("Verifying infrastructure is Ready")
+			allPodsAreReady(kv)
+			// We're just verifying that a few common components that
+			// should always exist get re-deployed.
+			sanityCheckDeploymentsExist()
+		})
+
+		It("should be able to update kubevirt with custom metrics configuration", func() {
+			allPodsAreReady(originalKv)
+			sanityCheckDeploymentsExist()
+
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(originalKv.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			kv.Spec.MetricsConfig = &v1.MetricsConfig{
+				MigrationMetrics: &v1.HistogramsConfig{
+					DurationHistogram: &v1.HistogramMetric{
+						BucketValues: []float64{60, 120, 300, 1800, 3600, 7200, 36000},
+					},
+				},
+			}
+			By("Updating KubeVirtObject With custom metrics configuration")
+			_, err = virtClient.KubeVirt(kv.Namespace).Update(kv)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying infrastructure Is Updated")
+			allPodsAreReady(kv)
+
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+		})
+
+		It("should fail to create KubeVirt with invalid metrics configuration", func() {
+			allPodsAreReady(originalKv)
+			sanityCheckDeploymentsExist()
+
+			invalidKv := copyOriginalKv()
+
+			By("Deleting original KubeVirt object")
+			deleteAllKvAndWait(false)
+
+			// this is just verifying some common known components do in fact get deleted.
+			By("Sanity Checking Deployments infrastructure is deleted")
+			sanityCheckDeploymentsDeleted()
+
+			// resourceVersion should not be set on objects to be created
+			invalidKv.ObjectMeta.ResourceVersion = ""
+			invalidKv.Spec.MetricsConfig = &v1.MetricsConfig{
+				MigrationMetrics: &v1.HistogramsConfig{
+					DurationHistogram: &v1.HistogramMetric{
+						// Simple invalid example
+						// Unordered buckets are not allowed
+						BucketValues: []float64{10, 30, 20},
+					},
+				},
+			}
+
+			By("Creating another KubeVirt object")
+			createKv(invalidKv)
+
+			_, err = virtClient.KubeVirt(invalidKv.Namespace).Create(invalidKv)
+			Expect(err).To(HaveOccurred())
+
+			By("Deleting invalid kubevirt Object")
+			deleteAllKvAndWait(false)
+		})
+
 		It("[test_id:4612]should create non-namespaces resources without owner references", func() {
 			crd, err := virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get("virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())

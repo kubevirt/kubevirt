@@ -330,6 +330,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.FloppyTarget":                                               schema_kubevirtio_client_go_api_v1_FloppyTarget(ref),
 		"kubevirt.io/client-go/api/v1.GPU":                                                        schema_kubevirtio_client_go_api_v1_GPU(ref),
 		"kubevirt.io/client-go/api/v1.HPETTimer":                                                  schema_kubevirtio_client_go_api_v1_HPETTimer(ref),
+		"kubevirt.io/client-go/api/v1.HistogramMetric":                                            schema_kubevirtio_client_go_api_v1_HistogramMetric(ref),
+		"kubevirt.io/client-go/api/v1.HistogramsConfig":                                           schema_kubevirtio_client_go_api_v1_HistogramsConfig(ref),
 		"kubevirt.io/client-go/api/v1.HostDisk":                                                   schema_kubevirtio_client_go_api_v1_HostDisk(ref),
 		"kubevirt.io/client-go/api/v1.Hugepages":                                                  schema_kubevirtio_client_go_api_v1_Hugepages(ref),
 		"kubevirt.io/client-go/api/v1.HypervTimer":                                                schema_kubevirtio_client_go_api_v1_HypervTimer(ref),
@@ -353,6 +355,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.LunTarget":                                                  schema_kubevirtio_client_go_api_v1_LunTarget(ref),
 		"kubevirt.io/client-go/api/v1.Machine":                                                    schema_kubevirtio_client_go_api_v1_Machine(ref),
 		"kubevirt.io/client-go/api/v1.Memory":                                                     schema_kubevirtio_client_go_api_v1_Memory(ref),
+		"kubevirt.io/client-go/api/v1.MetricsConfig":                                              schema_kubevirtio_client_go_api_v1_MetricsConfig(ref),
 		"kubevirt.io/client-go/api/v1.MigrationConfiguration":                                     schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.MultusNetwork":                                              schema_kubevirtio_client_go_api_v1_MultusNetwork(ref),
 		"kubevirt.io/client-go/api/v1.Network":                                                    schema_kubevirtio_client_go_api_v1_Network(ref),
@@ -15084,6 +15087,58 @@ func schema_kubevirtio_client_go_api_v1_HPETTimer(ref common.ReferenceCallback) 
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_HistogramMetric(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "HistogramMetric is responsible for setting up bucket values",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"bucketValues": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"number"},
+										Format: "double",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_HistogramsConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "HistogramsConfig is used to set up Histograms with different units from a single component",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"durationHistogram": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Used to configure time based histograms. Prefered unit: seconds",
+							Ref:         ref("kubevirt.io/client-go/api/v1.HistogramMetric"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.HistogramMetric"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_HostDisk(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -15744,6 +15799,12 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"metricsConfig": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configuration to customize some of KubeVirt's metrics",
+							Ref:         ref("kubevirt.io/client-go/api/v1.MetricsConfig"),
+						},
+					},
 					"uninstallStrategy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Specifies if kubevirt can be deleted if workloads are still present. This is mainly a precaution to avoid accidental data loss",
@@ -15797,7 +15858,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.ComponentConfig", "kubevirt.io/client-go/api/v1.CustomizeComponents", "kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/client-go/api/v1.KubeVirtConfiguration"},
+			"kubevirt.io/client-go/api/v1.ComponentConfig", "kubevirt.io/client-go/api/v1.CustomizeComponents", "kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/client-go/api/v1.KubeVirtConfiguration", "kubevirt.io/client-go/api/v1.MetricsConfig"},
 	}
 }
 
@@ -15958,6 +16019,27 @@ func schema_kubevirtio_client_go_api_v1_Memory(ref common.ReferenceCallback) com
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/client-go/api/v1.Hugepages"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_MetricsConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Additional configuration for some of KubeVirt metrics",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"migrationMetrics": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MigrationMetrics is used to configure migration related histograms",
+							Ref:         ref("kubevirt.io/client-go/api/v1.HistogramsConfig"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.HistogramsConfig"},
 	}
 }
 

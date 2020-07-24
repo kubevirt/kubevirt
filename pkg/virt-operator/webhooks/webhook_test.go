@@ -1,6 +1,7 @@
 package webhooks
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/golang/mock/gomock"
@@ -9,12 +10,13 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	k6tv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 )
 
-var _ = Describe("Webhook", func() {
+var _ = Describe("Delete Webhook", func() {
 
 	var ctrl *gomock.Controller
 	var admitter *KubeVirtDeletionAdmitter
@@ -142,4 +144,180 @@ var _ = Describe("Webhook", func() {
 		table.Entry("deleting", k6tv1.KubeVirtPhaseDeleting),
 		table.Entry("deleted", k6tv1.KubeVirtPhaseDeleted),
 	)
+})
+
+var _ = Describe("KubeVirt Mutating Webhook", func() {
+	var ctrl *gomock.Controller
+	var admitter *KubeVirtMutationAdmitter
+
+	var kubeCli *kubecli.MockKubevirtClient
+	var kv *k6tv1.KubeVirt
+
+	BeforeEach(func() {
+		kv = &k6tv1.KubeVirt{Spec: k6tv1.KubeVirtSpec{MetricsConfig: &k6tv1.MetricsConfig{}}}
+		ctrl = gomock.NewController(GinkgoT())
+		kubeCli = kubecli.NewMockKubevirtClient(ctrl)
+		admitter = NewKubeVirtMutationAdmitter(kubeCli)
+
+	})
+	Context("by setting invalid metrics configuration", func() {
+		It("it should deny metrics with missing BucketValues field", func() {
+			kv.Spec.MetricsConfig.MigrationMetrics = &k6tv1.HistogramsConfig{
+				DurationHistogram: &k6tv1.HistogramMetric{
+					BucketValues: nil,
+				},
+			}
+			kvBytes, _ := json.Marshal(&kv)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Object: runtime.RawExtension{
+						Raw: kvBytes,
+					},
+				},
+			}
+
+			response := admitter.Admit(ar)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Message).To(BeEquivalentTo(fmt.Errorf(missingFieldErrorMsg, "migration").Error()))
+		})
+
+		It("it should deny metrics with unordered buckets", func() {
+			kv.Spec.MetricsConfig.MigrationMetrics = &k6tv1.HistogramsConfig{
+				DurationHistogram: &k6tv1.HistogramMetric{
+					BucketValues: []float64{60, 30, 150},
+				},
+			}
+			kvBytes, _ := json.Marshal(&kv)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Object: runtime.RawExtension{
+						Raw: kvBytes,
+					},
+				},
+			}
+
+			response := admitter.Admit(ar)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Message).To(BeEquivalentTo(unorderedBucketsErrorMsg))
+		})
+
+		It("it should deny metrics with invalid initial bucket", func() {
+			kv.Spec.MetricsConfig.MigrationMetrics = &k6tv1.HistogramsConfig{
+				DurationHistogram: &k6tv1.HistogramMetric{
+					BucketValues: []float64{-1, 30, 150},
+				},
+			}
+			kvBytes, _ := json.Marshal(&kv)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Object: runtime.RawExtension{
+						Raw: kvBytes,
+					},
+				},
+			}
+
+			response := admitter.Admit(ar)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Message).To(BeEquivalentTo(invalidInitialBucketErrorMsg))
+		})
+
+		It("it should deny metrics with repeating buckets", func() {
+			kv.Spec.MetricsConfig.MigrationMetrics = &k6tv1.HistogramsConfig{
+				DurationHistogram: &k6tv1.HistogramMetric{
+					BucketValues: []float64{30, 30, 150},
+				},
+			}
+			kvBytes, _ := json.Marshal(&kv)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Object: runtime.RawExtension{
+						Raw: kvBytes,
+					},
+				},
+			}
+
+			response := admitter.Admit(ar)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Message).To(BeEquivalentTo(repeatingBucketsErrorMsg))
+		})
+
+		It("it should deny metrics with insufficient buckets", func() {
+			kv.Spec.MetricsConfig.MigrationMetrics = &k6tv1.HistogramsConfig{
+				DurationHistogram: &k6tv1.HistogramMetric{
+					BucketValues: []float64{30},
+				},
+			}
+			kvBytes, _ := json.Marshal(&kv)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Object: runtime.RawExtension{
+						Raw: kvBytes,
+					},
+				},
+			}
+
+			response := admitter.Admit(ar)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Message).To(BeEquivalentTo(insufficientBucketsErrorMsg))
+		})
+	})
+
+	Context("by setting valid metrics configuration", func() {
+		It("it should allow valid metrics config", func() {
+			kv.Spec.MetricsConfig.MigrationMetrics = &k6tv1.HistogramsConfig{
+				DurationHistogram: &k6tv1.HistogramMetric{
+					BucketValues: []float64{60, 180, 300, 1800, 3600, 36000},
+				},
+			}
+			kvBytes, _ := json.Marshal(&kv)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Object: runtime.RawExtension{
+						Raw: kvBytes,
+					},
+				},
+			}
+
+			response := admitter.Admit(ar)
+			Expect(response.Allowed).To(BeTrue())
+		})
+
+		It("it should allow missing migration metrics config", func() {
+			kv.Spec.MetricsConfig.MigrationMetrics = nil
+			kvBytes, _ := json.Marshal(&kv)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Object: runtime.RawExtension{
+						Raw: kvBytes,
+					},
+				},
+			}
+
+			response := admitter.Admit(ar)
+			Expect(response.Allowed).To(BeTrue())
+		})
+
+		It("it should allow missing metrics config", func() {
+			kv.Spec.MetricsConfig = nil
+			kvBytes, _ := json.Marshal(&kv)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Object: runtime.RawExtension{
+						Raw: kvBytes,
+					},
+				},
+			}
+
+			response := admitter.Admit(ar)
+			Expect(response.Allowed).To(BeTrue())
+		})
+	})
 })

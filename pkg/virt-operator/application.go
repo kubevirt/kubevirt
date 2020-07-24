@@ -337,6 +337,9 @@ func (app *VirtOperatorApp) Run() {
 	mux.HandleFunc("/kubevirt-validate-delete", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtDeletionAdmitter(app.clientSet))
 	}))
+	mux.HandleFunc("/kubevirt-validate-mutate", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtMutationAdmitter(app.clientSet))
+	}))
 	webhookServer.Handler = &mux
 	go func() {
 		err := webhookServer.ListenAndServeTLS("", "")
