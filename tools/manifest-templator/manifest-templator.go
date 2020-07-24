@@ -38,6 +38,7 @@ import (
 
 // flags for the command line arguments we accept
 var (
+	cwd, _             = os.Getwd()
 	deployDir          = flag.String("deploy-dir", "deploy", "Directory where manifests should be written")
 	cnaCsv             = flag.String("cna-csv", "", "Cluster Network Addons CSV string")
 	virtCsv            = flag.String("virt-csv", "", "KubeVirt CSV string")
@@ -60,6 +61,7 @@ var (
 	nmoVersion         = flag.String("nmo-version", "", "NM operator version")
 	hppoVersion        = flag.String("hppo-version", "", "HPP operator version")
 	vmImportVersion    = flag.String("vm-import-version", "", "VM-Import operator version")
+	apiSources         = flag.String("api-sources", cwd+"/...", "Project sources")
 )
 
 // check handles errors
@@ -300,7 +302,7 @@ func main() {
 
 	// Write out CRDs and CR
 	util.MarshallObject(components.GetOperatorCR(), operatorCr)
-	util.MarshallObject(components.GetOperatorCRD(*operatorNamespace), operatorCrd)
+	util.MarshallObject(components.GetOperatorCRD(*apiSources), operatorCrd)
 	util.MarshallObject(components.GetV2VCRD(), v2vCrd)
 	util.MarshallObject(components.GetV2VOvirtProviderCRD(), v2voVirtCrd)
 

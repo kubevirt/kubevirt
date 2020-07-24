@@ -19,6 +19,7 @@ require (
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20200321030439-57b580e57e88
 	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/spf13/pflag v1.0.5
+	golang.org/x/tools v0.0.0-20200403190813-44a64ad78b9b
 	k8s.io/api v0.18.3
 	k8s.io/apiextensions-apiserver v0.18.2
 	k8s.io/apimachinery v0.18.3
@@ -28,6 +29,7 @@ require (
 	kubevirt.io/containerized-data-importer v1.20.1
 	kubevirt.io/kubevirt v0.31.0
 	sigs.k8s.io/controller-runtime v0.6.0
+	sigs.k8s.io/controller-tools v0.3.0
 )
 
 // Pinned to kubernetes-1.16.4 to kubevirt.io/kubevirt v0.31.0-rc.1
@@ -92,3 +94,6 @@ replace (
 replace github.com/operator-framework/operator-sdk => github.com/operator-framework/operator-sdk v0.17.0
 
 replace github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309 // Required by Helm
+
+// Pinned for compatibility with kubernetes-1.16.4
+replace sigs.k8s.io/controller-tools => sigs.k8s.io/controller-tools v0.2.4

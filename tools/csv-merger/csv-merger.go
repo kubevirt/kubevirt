@@ -71,6 +71,7 @@ type ClusterServiceVersionExtended struct {
 }
 
 var (
+	cwd, _              = os.Getwd()
 	outputMode          = flag.String("output-mode", CSVMode, "Working mode: "+strings.Join(validOutputModes, "|"))
 	cnaCsv              = flag.String("cna-csv", "", "Cluster Network Addons CSV string")
 	virtCsv             = flag.String("virt-csv", "", "KubeVirt CSV string")
@@ -105,11 +106,12 @@ var (
 	nmoVersion      = flag.String("nmo-version", "", "NM operator version")
 	hppoVersion     = flag.String("hppo-version", "", "HPP operator version")
 	vmImportVersion = flag.String("vm-import-version", "", "VM-Import operator version")
+	apiSources      = flag.String("api-sources", cwd+"/...", "Project sources")
 )
 
 func gen_hco_crds() {
 	// Write out CRDs and CR
-	util.MarshallObject(components.GetOperatorCRD(*namespace), os.Stdout)
+	util.MarshallObject(components.GetOperatorCRD(*apiSources), os.Stdout)
 	util.MarshallObject(components.GetV2VCRD(), os.Stdout)
 	util.MarshallObject(components.GetV2VOvirtProviderCRD(), os.Stdout)
 }

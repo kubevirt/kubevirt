@@ -22,10 +22,10 @@ type HyperConvergedSpec struct {
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 
 	// BareMetalPlatform indicates whether the infrastructure is baremetal.
-	BareMetalPlatform bool `json:"BareMetalPlatform,omitempty"`
+	BareMetalPlatform bool `json:"bareMetalPlatform,omitempty"`
 
 	// LocalStorageClassName the name of the local storage class.
-	LocalStorageClassName string `json:"LocalStorageClassName,omitempty"`
+	LocalStorageClassName string `json:"localStorageClassName,omitempty"`
 
 	// operator version
 	Version string `json:"version,omitempty"`
@@ -38,12 +38,14 @@ type HyperConvergedStatus struct {
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	// +optional
+	// +listType=set
 	Conditions []conditionsv1.Condition `json:"conditions,omitempty"  patchStrategy:"merge" patchMergeKey:"type"`
 
 	// RelatedObjects is a list of objects created and maintained by this
 	// operator. Object references will be added to this list after they have
 	// been created AND found in the cluster.
 	// +optional
+	// +listType=set
 	RelatedObjects []corev1.ObjectReference `json:"relatedObjects,omitempty"`
 
 	// Versions is a list of HCO component versions, as name/version pairs. The version with a name of "operator"
@@ -102,6 +104,10 @@ const ConditionReconcileComplete conditionsv1.ConditionType = "ReconcileComplete
 
 // HyperConverged is the Schema for the hyperconvergeds API
 // +k8s:openapi-gen=true
+// +kubebuilder:storageversion
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:resource:scope=Namespaced,categories={all},shortName={hco,hcos}
+// +kubebuilder:subresource:status
 type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

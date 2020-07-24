@@ -102,6 +102,9 @@ const ConditionReconcileComplete conditionsv1.ConditionType = "ReconcileComplete
 
 // HyperConverged is the Schema for the hyperconvergeds API
 // +k8s:openapi-gen=true
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:resource:scope=Namespaced,categories={all},shortName={hco,hcos}
+// +kubebuilder:subresource:status
 type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

@@ -3,6 +3,11 @@ package components
 import (
 	"encoding/json"
 	"fmt"
+	"golang.org/x/tools/go/packages"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"sigs.k8s.io/controller-tools/pkg/loader"
+	"sigs.k8s.io/controller-tools/pkg/markers"
 	"time"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -16,8 +21,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	crdgen "sigs.k8s.io/controller-tools/pkg/crd"
+	crdmarkers "sigs.k8s.io/controller-tools/pkg/crd/markers"
 )
 
 const (
@@ -476,66 +485,64 @@ func GetClusterRoleBinding(namespace string) rbacv1.ClusterRoleBinding {
 	}
 }
 
-func GetOperatorCRD(namespace string) *extv1beta1.CustomResourceDefinition {
-	return &extv1beta1.CustomResourceDefinition{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apiextensions.k8s.io/v1beta1",
-			Kind:       "CustomResourceDefinition",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "hyperconvergeds.hco.kubevirt.io",
-		},
-		Spec: extv1beta1.CustomResourceDefinitionSpec{
-			Group:   util.APIVersionGroup,
-			Version: util.APIVersionBeta,
-			Scope:   "Namespaced",
-
-			Versions: []extv1beta1.CustomResourceDefinitionVersion{
-				{
-					Name:    util.APIVersionBeta,
-					Served:  true,
-					Storage: true,
-				},
-				{
-					Name:    util.APIVersionAlpha,
-					Served:  true,
-					Storage: false,
-				},
-			},
-			Names: extv1beta1.CustomResourceDefinitionNames{
-				Plural:     "hyperconvergeds",
-				Singular:   "hyperconverged",
-				Kind:       "HyperConverged",
-				ShortNames: []string{"hco", "hcos"},
-				Categories: []string{"all"},
-			},
-
-			AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
-				{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
-			},
-
-			Subresources: &extv1beta1.CustomResourceSubresources{
-				Status: &extv1beta1.CustomResourceSubresourceStatus{},
-			},
-
-			Validation: &extv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &extv1beta1.JSONSchemaProps{
-					Type: "object",
-					Properties: map[string]extv1beta1.JSONSchemaProps{
-						"metadata": {
-							Type: "object",
-							Properties: map[string]extv1beta1.JSONSchemaProps{
-								"name": extv1beta1.JSONSchemaProps{
-									Type:    "string",
-									Pattern: hcov1beta1.HyperConvergedName,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+func packageErrors(pkg *loader.Package, filterKinds ...packages.ErrorKind) error {
+	toSkip := make(map[packages.ErrorKind]struct{})
+	for _, errKind := range filterKinds {
+		toSkip[errKind] = struct{}{}
 	}
+	var outErr error
+	packages.Visit([]*packages.Package{pkg.Package}, nil, func(pkgRaw *packages.Package) {
+		for _, err := range pkgRaw.Errors {
+			if _, skip := toSkip[err.Kind]; skip {
+				continue
+			}
+			outErr = err
+		}
+	})
+	return outErr
+}
+
+func GetOperatorCRD(relPath string) *extv1.CustomResourceDefinition {
+	pkgs, err := loader.LoadRoots(relPath)
+	if err != nil {
+		panic(err)
+	}
+	reg := &markers.Registry{}
+	crdmarkers.Register(reg)
+
+	parser := &crdgen.Parser{
+		Collector: &markers.Collector{Registry: reg},
+		Checker:   &loader.TypeChecker{},
+	}
+	crdgen.AddKnownTypes(parser)
+	if len(pkgs) == 0 {
+		panic("Failed identifying packages")
+	}
+	for _, p := range pkgs {
+		parser.NeedPackage(p)
+	}
+	groupKind := schema.GroupKind{Kind: "HyperConverged", Group: "hco.kubevirt.io"}
+	parser.NeedCRDFor(groupKind, nil)
+	for _, p := range pkgs {
+		err = packageErrors(p, packages.TypeError)
+		if err != nil {
+			panic(err)
+		}
+	}
+	c := parser.CustomResourceDefinitions[groupKind]
+	// enforce validation of CR name to prevent multiple CRs
+	for _, v := range c.Spec.Versions {
+		v.Schema.OpenAPIV3Schema.Properties["metadata"] = extv1.JSONSchemaProps{
+			Type: "object",
+			Properties: map[string]extv1.JSONSchemaProps{
+				"name": {
+					Type:    "string",
+					Pattern: hcov1beta1.HyperConvergedName,
+				},
+			},
+		}
+	}
+	return &c
 }
 
 // TODO: remove once VMware provider is removed from HCO
