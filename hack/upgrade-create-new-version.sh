@@ -26,23 +26,21 @@ LATEST_CSV_NAME="${OPERATOR_NAME}.v${LATEST_VERSION}.clusterserviceversion.yaml"
 UPGRADE_CSV_DIR="${PACKAGE_DIR}/${UPGRADE_VERSION}"
 UPGRADE_CSV="${UPGRADE_CSV_DIR}/${OPERATOR_NAME}.v${UPGRADE_VERSION}.clusterserviceversion.yaml"
 
-if [[ -n $PREV ]]; then
-  REPLACES_VERSION=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==2" | cut -d '/' -f 5)
-fi
-
 echo "LATEST_VERSION: $LATEST_VERSION"
 echo "UPGRADE_VERSION: $UPGRADE_VERSION"
 
 if [[ -z $PREV ]]; then
   cp -r "${LATEST_CSV_DIR}" "${UPGRADE_CSV_DIR}"
+  REPLACES_VERSION=${LATEST_VERSION}
 else
+  REPLACES_VERSION=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==2" | cut -d '/' -f 5)
   mv "${LATEST_CSV_DIR}" "${UPGRADE_CSV_DIR}"
 fi
 
 mv "${UPGRADE_CSV_DIR}/${LATEST_CSV_NAME}" "${UPGRADE_CSV}"
 
 sed -i "s|${OPERATOR_NAME}.v${LATEST_VERSION}|${OPERATOR_NAME}.v${UPGRADE_VERSION}|g" "${UPGRADE_CSV}"
-sed -i "s|replaces:.*|replaces: ${OPERATOR_NAME}.v${LATEST_VERSION}|" "${UPGRADE_CSV}"
+sed -i "s|replaces:.*|replaces: ${OPERATOR_NAME}.v${REPLACES_VERSION}|" "${UPGRADE_CSV}"
 sed -i "s|version:\s*${LATEST_VERSION}|version: ${UPGRADE_VERSION}|g" "${UPGRADE_CSV}"
 sed -i "s|value:\s*${LATEST_VERSION}|value: ${UPGRADE_VERSION}|g" "${UPGRADE_CSV}"
 if [[ -z $PREV ]]; then
