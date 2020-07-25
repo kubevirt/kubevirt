@@ -25,11 +25,13 @@ import (
 )
 
 const (
-	sriovEntityURITemplate       = "/apis/sriovnetwork.openshift.io/v1/namespaces/%s/%s/"
-	sriovNetworksEntity          = "sriovnetworks"
-	sriovNodeNetworkPolicyEntity = "sriovnetworknodepolicies"
-	sriovNodeStateEntity         = "sriovnetworknodestates"
-	sriovOperatorConfigsEntity   = "sriovoperatorconfigs"
+	sriovEntityURITemplate            = "/apis/sriovnetwork.openshift.io/v1/namespaces/%s/%s/"
+	sriovNetworksEntity               = "sriovnetworks"
+	sriovNodeNetworkPolicyEntity      = "sriovnetworknodepolicies"
+	sriovNodeStateEntity              = "sriovnetworknodestates"
+	sriovOperatorConfigsEntity        = "sriovoperatorconfigs"
+	k8sCNICNCFEntityURLTemplate       = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/%s/"
+	networkAttachmentDefinitionEntity = "network-attachment-definitions"
 )
 
 type KubernetesReporter struct {
@@ -111,6 +113,7 @@ func (r *KubernetesReporter) Dump(duration time.Duration) {
 	r.logDomainXMLs(virtCli)
 	r.logLogs(virtCli, since)
 	r.logSRIOVInfo(virtCli)
+	r.logNetworkAttachmentDefinitionInfo(virtCli)
 }
 
 // Cleanup cleans up the current content of the artifactsDir
@@ -625,26 +628,35 @@ func (r *KubernetesReporter) logSRIOVInfo(virtCli kubecli.KubevirtClient) {
 
 func (r *KubernetesReporter) logSRIOVNodeState(virtCli kubecli.KubevirtClient, outputFolder string) {
 	nodeStateLogPath := filepath.Join(outputFolder, fmt.Sprintf("%d_nodestate.log", r.failureCount))
-	r.dumpK8sEntityToFile(virtCli, sriovNodeStateEntity, v1.NamespaceAll, nodeStateLogPath)
+	r.dumpK8sEntityToFile(virtCli, sriovNodeStateEntity, v1.NamespaceAll, sriovEntityURITemplate, nodeStateLogPath)
 }
 
 func (r *KubernetesReporter) logSRIOVNodeNetworkPolicies(virtCli kubecli.KubevirtClient, outputFolder string) {
 	nodeNetworkPolicyLogPath := filepath.Join(outputFolder, fmt.Sprintf("%d_nodenetworkpolicies.log", r.failureCount))
-	r.dumpK8sEntityToFile(virtCli, sriovNodeNetworkPolicyEntity, v1.NamespaceAll, nodeNetworkPolicyLogPath)
+	r.dumpK8sEntityToFile(virtCli, sriovNodeNetworkPolicyEntity, v1.NamespaceAll, sriovEntityURITemplate, nodeNetworkPolicyLogPath)
 }
 
 func (r *KubernetesReporter) logSRIOVNetworks(virtCli kubecli.KubevirtClient, outputFolder string) {
 	networksPath := filepath.Join(outputFolder, fmt.Sprintf("%d_networks.log", r.failureCount))
-	r.dumpK8sEntityToFile(virtCli, sriovNetworksEntity, v1.NamespaceAll, networksPath)
+	r.dumpK8sEntityToFile(virtCli, sriovNetworksEntity, v1.NamespaceAll, sriovEntityURITemplate, networksPath)
 }
 
 func (r *KubernetesReporter) logSRIOVOperatorConfigs(virtCli kubecli.KubevirtClient, outputFolder string) {
 	operatorConfigPath := filepath.Join(outputFolder, fmt.Sprintf("%d_operatorconfigs.log", r.failureCount))
-	r.dumpK8sEntityToFile(virtCli, sriovOperatorConfigsEntity, v1.NamespaceAll, operatorConfigPath)
+	r.dumpK8sEntityToFile(virtCli, sriovOperatorConfigsEntity, v1.NamespaceAll, sriovEntityURITemplate, operatorConfigPath)
 }
 
-func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient, entityName string, namespace string, outputFilePath string) {
-	requestURI := fmt.Sprintf(sriovEntityURITemplate, namespace, entityName)
+func (r *KubernetesReporter) logNetworkAttachmentDefinitionInfo(virtCli kubecli.KubevirtClient) {
+	r.logNetworkAttachmentDefinition(virtCli, r.artifactsDir)
+}
+
+func (r *KubernetesReporter) logNetworkAttachmentDefinition(virtCli kubecli.KubevirtClient, outputFolder string) {
+	networkAttachmentDefinitionsPath := filepath.Join(outputFolder, fmt.Sprintf("%d_networkAttachmentDefinitions.log", r.failureCount))
+	r.dumpK8sEntityToFile(virtCli, networkAttachmentDefinitionEntity, v1.NamespaceAll, k8sCNICNCFEntityURLTemplate, networkAttachmentDefinitionsPath)
+}
+
+func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient, entityName string, namespace string, entityURITemplate string, outputFilePath string) {
+	requestURI := fmt.Sprintf(entityURITemplate, namespace, entityName)
 	f, err := os.OpenFile(outputFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to open file: %v\n", err)
