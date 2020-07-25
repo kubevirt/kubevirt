@@ -97,12 +97,12 @@ https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_
 https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_VERSION}/network-addons-config.crd.yaml
 https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_VERSION}/namespace.yaml
 https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_VERSION}/operator.yaml
-https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_VERSION}/kubevirt-ssp-operator-crd.yaml
-https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_VERSION}/kubevirt-ssp-operator.yaml
+https://github.com/kubevirt/kubevirt-ssp-operator/releases/download/${SSP_VERSION}/kubevirt-ssp-operator-crd.yaml
+https://github.com/kubevirt/kubevirt-ssp-operator/releases/download/${SSP_VERSION}/kubevirt-ssp-operator.yaml
 https://github.com/kubevirt/vm-import-operator/releases/download/${VM_IMPORT_VERSION}/operator.yaml"
 
 OPERATOR_CRS="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_VERSION}/kubevirt-cr.yaml
 https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_VERSION}/cdi-operator-cr.yaml
 https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_VERSION}/network-addons-config-example.cr.yaml
-https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_VERSION}/kubevirt-ssp-operator-cr.yaml
+https://github.com/kubevirt/kubevirt-ssp-operator/releases/download/${SSP_VERSION}/kubevirt-ssp-operator-cr.yaml
 https://github.com/kubevirt/vm-import-operator/releases/download/${VM_IMPORT_VERSION}/vmimportconfig_cr.yaml"

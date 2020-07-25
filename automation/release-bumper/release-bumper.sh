@@ -61,7 +61,7 @@ function get_updated_versions {
     ["KUBEVIRT"]="kubevirt/kubevirt"
     ["CDI"]="kubevirt/containerized-data-importer"
     ["NETWORK_ADDONS"]="kubevirt/cluster-network-addons-operator"
-    ["SSP"]="MarSik/kubevirt-ssp-operator"
+    ["SSP"]="kubevirt/kubevirt-ssp-operator"
     ["NMO"]="kubevirt/node-maintenance-operator"
     ["HPPO"]="kubevirt/hostpath-provisioner-operator"
     ["HPP"]="kubevirt/hostpath-provisioner"

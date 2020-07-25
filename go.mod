@@ -3,13 +3,13 @@ module github.com/kubevirt/hyperconverged-cluster-operator
 go 1.13
 
 require (
-	github.com/MarSik/kubevirt-ssp-operator v1.0.40
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.7
 	github.com/imdario/mergo v0.3.8
 	github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200723053622-08b753ce4bb5
+	github.com/kubevirt/kubevirt-ssp-operator v1.0.41
 	github.com/kubevirt/vm-import-operator v0.1.0
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.10.0

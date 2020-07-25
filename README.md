@@ -7,7 +7,7 @@
 A unified operator deploying and controlling [KubeVirt](https://github.com/kubevirt/kubevirt) and several adjacent operators:
 
 - [Containerized Data Importer](https://github.com/kubevirt/containerized-data-importer)
-- [Scheduling, Scale and Performance](https://github.com/MarSik/kubevirt-ssp-operator)
+- [Scheduling, Scale and Performance](https://github.com/kubevirt/kubevirt-ssp-operator)
 - [Cluster Network Addons](https://github.com/kubevirt/cluster-network-addons-operator)
 - [Node Maintenance](https://github.com/kubevirt/node-maintenance-operator)
 

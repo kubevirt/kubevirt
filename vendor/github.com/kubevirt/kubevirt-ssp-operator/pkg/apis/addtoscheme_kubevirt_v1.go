@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
+	"github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 )
 
 func init() {

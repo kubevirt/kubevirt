@@ -37,7 +37,7 @@ TEST_PATH="tests/func-tests"
 TEST_OUT_PATH=${TEST_PATH}/_out
 JOB_TYPE=${JOB_TYPE:-}
 
-SSP_URL_PREFIX="https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_VERSION}"
+SSP_URL_PREFIX="https://github.com/kubevirt/kubevirt-ssp-operator/releases/download/${SSP_VERSION}"
 VM_IMPORT_URL_PREFIX="https://github.com/kubevirt/vm-import-operator/releases/download/${VM_IMPORT_VERSION}"
 
 KUBECTL=$(which kubectl 2> /dev/null) || true
