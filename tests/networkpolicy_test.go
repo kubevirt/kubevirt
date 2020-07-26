@@ -20,7 +20,7 @@ func assertPingSucceed(ip string, vmi *v1.VirtualMachineInstance) {
 	defer expecter.Close()
 
 	err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
-		&expect.BSnd{S: fmt.Sprintf("ping -w 3 %s \n", ip)},
+		&expect.BSnd{S: fmt.Sprintf("ping -w 3 %s \r", ip)},
 		&expect.BExp{R: "0% packet loss"},
 	}, 60)
 	Expect(err).ToNot(HaveOccurred())
@@ -32,7 +32,7 @@ func assertPingFail(ip string, vmi *v1.VirtualMachineInstance) {
 	defer expecter.Close()
 
 	err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
-		&expect.BSnd{S: fmt.Sprintf("ping -w 3 %s \n", ip)},
+		&expect.BSnd{S: fmt.Sprintf("ping -w 3 %s \r", ip)},
 		&expect.BExp{R: "100% packet loss"},
 	}, 60)
 	Expect(err).ToNot(HaveOccurred())

@@ -1723,9 +1723,9 @@ var _ = Describe("Configurations", func() {
 		})
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
 			err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\r"},
 				&expect.BExp{R: prompt},
-				&expect.BSnd{S: "grep DEVNAME /sys/bus/pci/devices/" + expectedPciAddress + "/*/block/vda/uevent|awk -F= '{ print $2 }'\n"},
+				&expect.BSnd{S: "grep DEVNAME /sys/bus/pci/devices/" + expectedPciAddress + "/*/block/vda/uevent|awk -F= '{ print $2 }'\r"},
 				&expect.BExp{R: "vda"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())

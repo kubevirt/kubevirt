@@ -207,9 +207,9 @@ var _ = Describe("Multus", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
-				cmdCheck := "sudo /sbin/cirros-dhcpc up eth1 > /dev/null\n"
+				cmdCheck := "sudo /sbin/cirros-dhcpc up eth1 > /dev/null\r"
 				err = tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
+					&expect.BSnd{S: "\r"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: cmdCheck},
 					&expect.BExp{R: "\\$ "},
@@ -249,9 +249,9 @@ var _ = Describe("Multus", func() {
 				By("checking virtual machine instance only has one interface")
 				// lo0, eth0
 				err = tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
+					&expect.BSnd{S: "\r"},
 					&expect.BExp{R: "\\$ "},
-					&expect.BSnd{S: "ip link show | grep -c UP\n"},
+					&expect.BSnd{S: "ip link show | grep -c UP\r"},
 					&expect.BExp{R: "2"},
 				}, 15)
 				Expect(err).ToNot(HaveOccurred())
@@ -294,7 +294,7 @@ var _ = Describe("Multus", func() {
 				configInterface(vmiOne, "eth0", "10.1.1.1/24", "localhost:~#")
 
 				By("Verifying the desired custom MAC is the one that was actually configured on the interface.")
-				ipLinkShow := fmt.Sprintf("ip link show eth0 | grep -i \"%s\" | wc -l\n", customMacAddress)
+				ipLinkShow := fmt.Sprintf("ip link show eth0 | grep -i \"%s\" | wc -l\r", customMacAddress)
 				err = tests.CheckForTextExpecter(vmiOne, []expect.Batcher{
 					&expect.BSnd{S: ipLinkShow},
 					&expect.BExp{R: "1"},
@@ -390,7 +390,7 @@ var _ = Describe("Multus", func() {
 				configInterface(vmiTwo, "eth0", "10.1.1.2/24", "localhost:~#")
 
 				By("Verifying the desired custom MAC is the one that were actually configured on the interface.")
-				ipLinkShow := fmt.Sprintf("ip link show eth0 | grep -i \"%s\" | wc -l\n", customMacAddress)
+				ipLinkShow := fmt.Sprintf("ip link show eth0 | grep -i \"%s\" | wc -l\r", customMacAddress)
 				err = tests.CheckForTextExpecter(vmiOne, []expect.Batcher{
 					&expect.BSnd{S: ipLinkShow},
 					&expect.BExp{R: "1"},
@@ -885,51 +885,51 @@ func cidrToIP(cidr string) string {
 }
 
 func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAddress, prompt string) {
-	cmdCheck := fmt.Sprintf("ip addr add %s dev %s\n", interfaceAddress, interfaceName)
+	cmdCheck := fmt.Sprintf("ip addr add %s dev %s\r", interfaceAddress, interfaceName)
 	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: "echo $?\r"},
 		&expect.BExp{R: "0"},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "Failed to configure address %s for interface %s on VMI %s", interfaceAddress, interfaceName, vmi.Name)
 
-	cmdCheck = fmt.Sprintf("ip link set %s up\n", interfaceName)
+	cmdCheck = fmt.Sprintf("ip link set %s up\r", interfaceName)
 	err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: "echo $?\r"},
 		&expect.BExp{R: "0"},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "Failed to set interface %s up on VMI %s", interfaceName, vmi.Name)
 }
 
 func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName, prompt string) {
-	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
+	cmdCheck := fmt.Sprintf("ip link show %s\r", interfaceName)
 	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: "echo $?\r"},
 		&expect.BExp{R: "0"},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "Interface %q was not found in the VMI %s within the given timeout", interfaceName, vmi.Name)
 }
 
 func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress string) {
-	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
+	cmdCheck := fmt.Sprintf("ip link show %s\r", interfaceName)
 	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: "#"},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: macAddress},
 		&expect.BExp{R: "#"},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: "echo $?\r"},
 		&expect.BExp{R: "0"},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "MAC %q was not found in the VMI %s within the given timeout", macAddress, vmi.Name)
@@ -940,13 +940,13 @@ func pingVirtualMachine(vmi *v1.VirtualMachineInstance, ipAddr, prompt string) {
 	if netutils.IsIPv6String(ipAddr) {
 		pingString = "ping -6"
 	}
-	cmdCheck := fmt.Sprintf("%s %s -c 1 -w 5\n", pingString, ipAddr)
+	cmdCheck := fmt.Sprintf("%s %s -c 1 -w 5\r", pingString, ipAddr)
 	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: "echo $?\r"},
 		&expect.BExp{R: "0"},
 	}, 30)
 	Expect(err).ToNot(HaveOccurred(), "Failed to ping VMI %s within the given timeout", vmi.Name)

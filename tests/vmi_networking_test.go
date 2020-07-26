@@ -91,9 +91,9 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string, prompt string) {
 		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-			&expect.BSnd{S: "\n"},
+			&expect.BSnd{S: "\r"},
 			&expect.BExp{R: prompt},
-			&expect.BSnd{S: "cat /sys/class/net/eth0/address\n"},
+			&expect.BSnd{S: "cat /sys/class/net/eth0/address\r"},
 			&expect.BExp{R: expectedMacAddress},
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
@@ -101,9 +101,9 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	checkNetworkVendor := func(vmi *v1.VirtualMachineInstance, expectedVendor string, prompt string) {
 		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-			&expect.BSnd{S: "\n"},
+			&expect.BSnd{S: "\r"},
 			&expect.BExp{R: prompt},
-			&expect.BSnd{S: "cat /sys/class/net/eth0/device/vendor\n"},
+			&expect.BSnd{S: "cat /sys/class/net/eth0/device/vendor\r"},
 			&expect.BExp{R: expectedVendor},
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
@@ -217,13 +217,13 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
-			addrShow = "ip address show eth0\n"
+			addrShow = "ip address show eth0\r"
 			resp, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\r"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: addrShow},
 				&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
-				&expect.BSnd{S: "echo $?\n"},
+				&expect.BSnd{S: "echo $?\r"},
 				&expect.BExp{R: "0"},
 			}, 180*time.Second)
 			log.Log.Infof("%v", resp)
@@ -236,24 +236,24 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			//
 			// NOTE: cirros ping doesn't support -M do that could be used to
 			// validate end-to-end connectivity with Don't Fragment flag set
-			cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
+			cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5 -s %d\r", addr, payloadSize)
 			err = tests.CheckForTextExpecter(outboundVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\r"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: cmdCheck},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo $?\n"},
+				&expect.BSnd{S: "echo $?\r"},
 				&expect.BExp{R: "0"},
 			}, 180)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking the VirtualMachineInstance can fetch via HTTP")
 			err = tests.CheckForTextExpecter(outboundVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\r"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
+				&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\r"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo $?\n"},
+				&expect.BSnd{S: "echo $?\r"},
 				&expect.BExp{R: "0"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
@@ -520,9 +520,9 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
 			err := tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\r"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "ls /sys/class/net/ | wc -l\n"},
+				&expect.BSnd{S: "ls /sys/class/net/ | wc -l\r"},
 				&expect.BExp{R: "1"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
@@ -579,9 +579,9 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
 			err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\r"},
 				&expect.BExp{R: prompt},
-				&expect.BSnd{S: "grep INTERFACE /sys/bus/pci/devices/" + expectedPciAddress + "/*/net/eth0/uevent|awk -F= '{ print $2 }'\n"},
+				&expect.BSnd{S: "grep INTERFACE /sys/bus/pci/devices/" + expectedPciAddress + "/*/net/eth0/uevent|awk -F= '{ print $2 }'\r"},
 				&expect.BExp{R: "eth0"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
@@ -643,19 +643,19 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			tests.WaitUntilVMIReady(dhcpVMI, tests.LoggedInFedoraExpecter)
 
 			err = tests.CheckForTextExpecter(dhcpVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\r"},
 				&expect.BExp{R: "\\#"},
-				&expect.BSnd{S: "sudo dhclient -1 -r -d eth0\n"},
+				&expect.BSnd{S: "sudo dhclient -1 -r -d eth0\r"},
 				&expect.BExp{R: "\\#"},
-				&expect.BSnd{S: "sudo dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
+				&expect.BSnd{S: "sudo dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\r"},
 				&expect.BExp{R: "\\#"},
-				&expect.BSnd{S: "cat /dhcp-env\n"},
+				&expect.BSnd{S: "cat /dhcp-env\r"},
 				&expect.BExp{R: "new_tftp_server_name=tftp.kubevirt.io"},
 				&expect.BExp{R: "\\#"},
-				&expect.BSnd{S: "cat /dhcp-env\n"},
+				&expect.BSnd{S: "cat /dhcp-env\r"},
 				&expect.BExp{R: "new_bootfile_name=config"},
 				&expect.BExp{R: "\\#"},
-				&expect.BSnd{S: "cat /dhcp-env\n"},
+				&expect.BSnd{S: "cat /dhcp-env\r"},
 				&expect.BExp{R: "new_ntp_servers=127.0.0.1 127.0.0.2"},
 				&expect.BExp{R: "new_unknown_240=private.options.kubevirt.io"},
 				&expect.BExp{R: "\\#"},
@@ -682,19 +682,19 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(dnsVMI, tests.LoggedInCirrosExpecter)
 			err = tests.CheckForTextExpecter(dnsVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n\n"},
+				&expect.BSnd{S: "\r"},
 				&expect.BExp{R: "\\$"},
-				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BSnd{S: "cat /etc/resolv.conf\r"},
 				&expect.BExp{R: "search example.com"},
-				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\r"},
 				&expect.BExp{R: "\\$"},
-				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BSnd{S: "cat /etc/resolv.conf\r"},
 				&expect.BExp{R: "nameserver 8.8.8.8"},
-				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\r"},
 				&expect.BExp{R: "\\$"},
-				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BSnd{S: "cat /etc/resolv.conf\r"},
 				&expect.BExp{R: "nameserver 4.2.2.1"},
-				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\r"},
 				&expect.BExp{R: "\\$"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
@@ -896,24 +896,24 @@ func NewRandomVMIWithInvalidNetworkInterface() *v1.VirtualMachineInstance {
 
 func createExpectTraceroute6(address string) []expect.Batcher {
 	return []expect.Batcher{
-		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "traceroute -6 " + address + " -w1 > tr\n"},
+		&expect.BSnd{S: "traceroute -6 " + address + " -w1 > tr\r"},
 		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "cat tr | grep -q \"*\\|!\"\n"},
+		&expect.BSnd{S: "cat tr | grep -q \"*\\|!\"\r"},
 		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: "echo $?\r"},
 		&expect.BExp{R: "1"},
 	}
 }
 
 func createExpectStartTcpServer(port string) []expect.Batcher {
 	return []expect.Batcher{
-		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "screen -d -m sudo nc -klp " + port + " -e echo -e 'Hello World!'\n"},
+		&expect.BSnd{S: "screen -d -m sudo nc -klp " + port + " -e echo -e 'Hello World!'\r"},
 		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: "echo $?\r"},
 		&expect.BExp{R: "0"},
 	}
 }
@@ -924,11 +924,11 @@ func createExpectConnectToServer(serverIP, tcpPort string, expectSuccess bool) [
 		expectResult = "0"
 	}
 	return []expect.Batcher{
-		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: fmt.Sprintf("echo test | nc %s %s -i 1 -w 1 1> /dev/null\n", serverIP, tcpPort)},
+		&expect.BSnd{S: fmt.Sprintf("echo test | nc %s %s -i 1 -w 1 1> /dev/null\r", serverIP, tcpPort)},
 		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: "echo $?\r"},
 		&expect.BExp{R: expectResult},
 	}
 }

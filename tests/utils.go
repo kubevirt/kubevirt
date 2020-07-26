@@ -2845,9 +2845,9 @@ func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batc
 func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, virtClient kubecli.KubevirtClient, prompt string) error {
 	hasEth0Iface := func(vmi *v1.VirtualMachineInstance) bool {
 		hasNetEth0Batch := append([]expect.Batcher{
-			&expect.BSnd{S: "\n"},
+			&expect.BSnd{S: "\r"},
 			&expect.BExp{R: prompt},
-			&expect.BSnd{S: "ip a | grep -q eth0; echo $?\n"},
+			&expect.BSnd{S: "ip a | grep -q eth0; echo $?\r"},
 			&expect.BExp{R: retcode("0")}})
 		_, err := expecter.ExpectBatch(hasNetEth0Batch, 30*time.Second)
 		return err == nil
@@ -2855,9 +2855,9 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 
 	hasGlobalIPv6 := func(vmi *v1.VirtualMachineInstance) bool {
 		hasGlobalIPv6Batch := append([]expect.Batcher{
-			&expect.BSnd{S: "\n"},
+			&expect.BSnd{S: "\r"},
 			&expect.BExp{R: prompt},
-			&expect.BSnd{S: "ip -6 address show dev eth0 scope global | grep -q inet6; echo $?\n"},
+			&expect.BSnd{S: "ip -6 address show dev eth0 scope global | grep -q inet6; echo $?\r"},
 			&expect.BExp{R: retcode("0")}})
 		_, err := expecter.ExpectBatch(hasGlobalIPv6Batch, 30*time.Second)
 		return err == nil
@@ -2878,9 +2878,9 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 	}
 
 	addIPv6Address := append([]expect.Batcher{
-		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "sudo ip -6 addr add fd10:0:2::2/120 dev eth0; echo $?\n"},
+		&expect.BSnd{S: "sudo ip -6 addr add fd10:0:2::2/120 dev eth0; echo $?\r"},
 		&expect.BExp{R: retcode("0")}})
 	resp, err := expecter.ExpectBatch(addIPv6Address, 30*time.Second)
 	if err != nil {
@@ -2891,9 +2891,9 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 
 	time.Sleep(5 * time.Second)
 	addIPv6DefaultRoute := append([]expect.Batcher{
-		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2; echo $?\n"},
+		&expect.BSnd{S: "sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2; echo $?\r"},
 		&expect.BExp{R: retcode("0")}})
 	resp, err = expecter.ExpectBatch(addIPv6DefaultRoute, 30*time.Second)
 	if err != nil {
@@ -4206,11 +4206,11 @@ func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
 	defer expecter.Close()
 
 	resp, err := expecter.ExpectBatch([]expect.Batcher{
-		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", port)},
+		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\r", port)},
 		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: "echo $?\r"},
 		&expect.BExp{R: "0"},
 	}, 60*time.Second)
 	log.DefaultLogger().Infof("%v", resp)
@@ -4226,12 +4226,12 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) 
 	if isFedoraVM {
 		expecter, err = LoggedInFedoraExpecter(vmi)
 		Expect(err).NotTo(HaveOccurred())
-		httpServerMaker = fmt.Sprintf("python3 -m http.server %d --bind ::0 &\n", port)
+		httpServerMaker = fmt.Sprintf("python3 -m http.server %d --bind ::0 &\r", port)
 		prompt = "\\#"
 	} else {
 		expecter, err = LoggedInCirrosExpecter(vmi)
 		Expect(err).NotTo(HaveOccurred())
-		httpServerMaker = fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\nContent-Length: 11\\n\\nHello World!\"\n", port)
+		httpServerMaker = fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\nContent-Length: 11\\n\\nHello World!\"\r", port)
 		prompt = "\\$"
 	}
 	defer expecter.Close()
@@ -4241,7 +4241,7 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) 
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: httpServerMaker},
 		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: "echo $?\r"},
 		&expect.BExp{R: "0"},
 	}, 60*time.Second)
 	log.DefaultLogger().Infof("%v", resp)

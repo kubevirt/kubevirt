@@ -36,13 +36,13 @@ func parseDeviceAddress(addrString string) []string {
 }
 
 func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string, prompt string) {
-	cmdCheck := fmt.Sprintf("lspci -m %s\n", gpuName)
+	cmdCheck := fmt.Sprintf("lspci -m %s\r", gpuName)
 	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
+		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
+		&expect.BSnd{S: "echo $?\r"},
 		&expect.BExp{R: "0"},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "GPU device %q was not found in the VMI %s within the given timeout", gpuName, vmi.Name)

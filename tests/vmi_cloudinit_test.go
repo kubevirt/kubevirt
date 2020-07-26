@@ -92,13 +92,13 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		mountCloudInitFunc := func(devName string) func(*v1.VirtualMachineInstance, string) {
 			return func(vmi *v1.VirtualMachineInstance, prompt string) {
-				cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\n", devName)
+				cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\r", devName)
 				err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo su -\n"},
+					&expect.BSnd{S: "sudo su -\r"},
 					&expect.BExp{R: prompt},
 					&expect.BSnd{S: cmdCheck},
 					&expect.BExp{R: prompt},
-					&expect.BSnd{S: "echo $?\n"},
+					&expect.BSnd{S: "echo $?\r"},
 					&expect.BExp{R: "0"},
 				}, 15)
 				Expect(err).ToNot(HaveOccurred())
@@ -109,9 +109,9 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		MountCloudInitConfigDrive = mountCloudInitFunc("config-2")
 
 		CheckCloudInitFile = func(vmi *v1.VirtualMachineInstance, prompt, testFile, testData string) {
-			cmdCheck := "cat /mnt/" + testFile + "\n"
+			cmdCheck := "cat /mnt/" + testFile + "\r"
 			err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-				&expect.BSnd{S: "sudo su -\n"},
+				&expect.BSnd{S: "sudo su -\r"},
 				&expect.BExp{R: prompt},
 				&expect.BSnd{S: cmdCheck},
 				&expect.BExp{R: testData},
