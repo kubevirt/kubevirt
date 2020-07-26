@@ -9,6 +9,7 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/virtctl/pause"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -29,8 +30,9 @@ var _ = Describe("Pausing", func() {
 
 	Context("With missing input parameters", func() {
 		It("should fail", func() {
-			cmd := tests.NewRepeatableVirtctlCommand("pause")
-			Expect(cmd()).NotTo(BeNil())
+			cmd := tests.NewRepeatableVirtctlCommand(pause.COMMAND_PAUSE)
+			err := cmd()
+			Expect(err).NotTo(BeNil())
 		})
 	})
 
@@ -40,7 +42,7 @@ var _ = Describe("Pausing", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 		vmiInterface.EXPECT().Pause(vmi.Name).Return(nil).Times(1)
 
-		cmd := tests.NewVirtctlCommand("pause", "vmi", vmName)
+		cmd := tests.NewVirtctlCommand(pause.COMMAND_PAUSE, "vmi", vmName)
 		Expect(cmd.Execute()).To(BeNil())
 	})
 
@@ -50,7 +52,7 @@ var _ = Describe("Pausing", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 		vmiInterface.EXPECT().Unpause(vmi.Name).Return(nil).Times(1)
 
-		cmd := tests.NewVirtctlCommand("unpause", "vmi", vmName)
+		cmd := tests.NewVirtctlCommand(pause.COMMAND_UNPAUSE, "vmi", vmName)
 		Expect(cmd.Execute()).To(BeNil())
 	})
 
@@ -67,7 +69,7 @@ var _ = Describe("Pausing", func() {
 		vmInterface.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil).Times(1)
 		vmiInterface.EXPECT().Pause(vm.Name).Return(nil).Times(1)
 
-		cmd := tests.NewVirtctlCommand("pause", "vm", vmName)
+		cmd := tests.NewVirtctlCommand(pause.COMMAND_PAUSE, "vm", vmName)
 		Expect(cmd.Execute()).To(BeNil())
 	})
 
@@ -84,7 +86,7 @@ var _ = Describe("Pausing", func() {
 		vmInterface.EXPECT().Get(vm.Name, &k8smetav1.GetOptions{}).Return(vm, nil).Times(1)
 		vmiInterface.EXPECT().Unpause(vm.Name).Return(nil).Times(1)
 
-		cmd := tests.NewVirtctlCommand("unpause", "vm", vmName)
+		cmd := tests.NewVirtctlCommand(pause.COMMAND_UNPAUSE, "vm", vmName)
 		Expect(cmd.Execute()).To(BeNil())
 	})
 
