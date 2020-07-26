@@ -296,8 +296,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("Checking console text")
 				err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BSnd{S: "\n"},
+					&expect.BSnd{S: "\r"},
 					&expect.BExp{R: consoleText},
 				}, wait)
 				Expect(err).ToNot(HaveOccurred(), "Should match the console in VMI")
