@@ -37,7 +37,7 @@ var strServiceType string
 var portName string
 var namespace string
 
-// NewExposeCommand generate a new "expose" command
+// NewExposeCommand generates a new "expose" command
 func NewExposeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "expose (TYPE NAME)",
