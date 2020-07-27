@@ -29,6 +29,7 @@
 set -ex
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
+export PARALLEL_CLEANUP="${PARALLEL_CLEANUP:-1}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
@@ -204,14 +205,7 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
-make cluster-build
-
-# I do not have good indication that OKD API server ready to serve requests, so I will just
-# repeat cluster-deploy until it succeeds
-until make cluster-deploy; do
-    sleep 1
-done
-
+make cluster-sync PARALLEL_CLEANUP=$PARALLEL_CLEANUP
 hack/dockerized bazel shutdown
 
 # OpenShift is running important containers under default namespace
