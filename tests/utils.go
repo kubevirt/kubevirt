@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -2805,7 +2806,12 @@ func ExpectBatch(expecter expect.Expecter, batch []expect.Batcher, timeout time.
 			expectFlag = 1
 			sendFlag = 0
 			bExp, _ := batch[i].(*expect.BExp)
-			bExp.R = fmt.Sprintf("(?s)%s%s%s", regexp.QuoteMeta(previousSend), ".*", bExp.R)
+			previousSend := regexp.QuoteMeta(previousSend)
+			// The len of the send command to match is limited since in cirros console after ~70 characters a new line
+			// /r/r/n is automatically added to the send
+			maxSendToMatchLen := math.Min(float64(len(previousSend)), 70)
+			previousSend = previousSend[len(previousSend)-int(maxSendToMatchLen) : len(previousSend)-1]
+			bExp.R = fmt.Sprintf("(?s)%s%s%s", previousSend, ".*", bExp.R)
 
 			previousSend = ""
 		case expect.BatchSend:
