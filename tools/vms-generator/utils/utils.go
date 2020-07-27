@@ -89,7 +89,7 @@ const (
 	imageCirros      = "cirros-container-disk-demo"
 	imageFedora      = "fedora-cloud-container-disk-demo"
 	imageMicroLiveCD = "microlivecd-container-disk-demo"
-	imageKernelBoot  = "image-with-kernel"
+	imageKernelBoot  = "image-kernel"
 )
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 const defaultInterfaceName = "default"

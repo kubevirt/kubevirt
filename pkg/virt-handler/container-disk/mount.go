@@ -234,6 +234,13 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 				if err != nil {
 					return fmt.Errorf("failed to create mount point target %v: %v", targetFile, err)
 				}
+				fmt.Println("-------------------------------")
+				fmt.Println("--------------target-----------------")
+				fmt.Println(nodeRes.MountRoot())
+				fmt.Println(nodeMountInfo.Root)
+				fmt.Println(nodeMountInfo.MountPoint)
+				fmt.Println(targetFile)
+				fmt.Println(sourceFile)
 				f.Close()
 
 				if err = os.Chmod(sourceFile, 0444); err != nil {

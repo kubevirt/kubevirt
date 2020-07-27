@@ -709,6 +709,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		DeletionGracePeriodSeconds: gracePeriodSeconds,
 	}
 
+	volumeIndices := map[string]int{}
+	volumes := map[string]*v1.Volume{}
+	for i, volume := range vmi.Spec.Volumes {
+		volumes[volume.Name] = volume.DeepCopy()
+		volumeIndices[volume.Name] = i
+	}
+
 	domain.Spec.SysInfo = &SysInfo{}
 	if vmi.Spec.Domain.Firmware != nil {
 		domain.Spec.SysInfo.System = []Entry{
@@ -745,7 +752,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				}
 			}
 		}
-
+		
+		
 		if len(vmi.Spec.Domain.Firmware.Serial) > 0 {
 			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
 		}
@@ -764,7 +772,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			log.Log.Infof("Conv to kernel boot..")
 			if vmi.Spec.Domain.Firmware.KernelBoot.KernelPath != "" {
 				log.Log.Infof("Coverting it to libvirt domain XML..")
+				
+				log.Log.Infof(ephemeraldisk.GetFilePath(vmi.Spec.Domain.Firmware.KernelBoot.Name))
 				log.Log.Infof(hostdisk.GetMountedHostDiskDir(vmi.Spec.Domain.Firmware.KernelBoot.Name))
+				log.Log.Infof(containerdisk.GetMountPath(vmi, volumeIndices[vmi.Spec.Domain.Firmware.KernelBoot.Name]))
 				domain.Spec.OS.Kernel = filepath.Join(hostdisk.GetMountedHostDiskDir(vmi.Spec.Domain.Firmware.KernelBoot.Name), vmi.Spec.Domain.Firmware.KernelBoot.KernelPath)
 
 			} else {
@@ -850,13 +861,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.MemoryBacking = &MemoryBacking{
 			HugePages: &HugePages{},
 		}
-	}
-
-	volumeIndices := map[string]int{}
-	volumes := map[string]*v1.Volume{}
-	for i, volume := range vmi.Spec.Volumes {
-		volumes[volume.Name] = volume.DeepCopy()
-		volumeIndices[volume.Name] = i
 	}
 
 	dedicatedThreads := 0
