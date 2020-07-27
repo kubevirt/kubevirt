@@ -4408,9 +4408,9 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 	serverCommand := fmt.Sprintf("screen -d -m sudo nc -klp %d -e echo -e 'Hello World!'\n", testPort)
 	if protocol == "udp" {
 		// nc has to be in a while loop in case of UDP, since it exists after one message
-		serverCommand = fmt.Sprintf("screen -d -m sh -c \"while true\n do nc -uklp %d -e echo -e 'Hello UDP World!'\ndone\n\"\n", testPort)
+		serverCommand = fmt.Sprintf("screen -d -m sh -c \"while true; do nc -uklp %d -e echo -e 'Hello UDP World!';done\"\n", testPort)
 	}
-	_, err = expecter.ExpectBatch([]expect.Batcher{
+	_, err = ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 		&expect.BSnd{S: serverCommand},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
