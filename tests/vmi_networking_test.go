@@ -22,6 +22,7 @@ package tests_test
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -652,13 +653,15 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "cat /dhcp-env\n"},
 				&expect.BExp{R: "new_tftp_server_name=tftp.kubevirt.io"},
+				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "cat /dhcp-env\n"},
 				&expect.BExp{R: "new_bootfile_name=config"},
+				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "cat /dhcp-env\n"},
-				&expect.BExp{R: "new_ntp_servers=127.0.0.1 127.0.0.2"},
-				&expect.BExp{R: "new_unknown_240=private.options.kubevirt.io"},
+				&expect.BExp{R: regexp.QuoteMeta("new_ntp_servers=127.0.0.1 127.0.0.2") + "((?s).*)" + regexp.QuoteMeta("new_unknown_240=private.options.kubevirt.io")},
+				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\#"},
 			}, 15)
 
