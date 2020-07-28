@@ -19,15 +19,19 @@ import (
 var _ = Describe("cert-manager", func() {
 
 	var certDir string
+	var certFilePath string
+	var keyFilePath string
 
 	BeforeEach(func() {
 		var err error
 		certDir, err = ioutil.TempDir("", "certs")
+		certFilePath = filepath.Join(certDir, "tls.crt")
+		keyFilePath = filepath.Join(certDir, "tls.key")
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should return nil if no certificate exists", func() {
-		certManager := NewFileCertificateManager(certDir)
+		certManager := NewFileCertificateManager(certFilePath, keyFilePath)
 		go certManager.Start()
 		defer certManager.Stop()
 		Consistently(func() *tls.Certificate {
@@ -36,7 +40,7 @@ var _ = Describe("cert-manager", func() {
 	})
 
 	It("should load a certificate if it exists", func() {
-		certManager := NewFileCertificateManager(certDir)
+		certManager := NewFileCertificateManager(certFilePath, keyFilePath)
 		writeCertsToDir(certDir)
 		go certManager.Start()
 		defer certManager.Stop()
@@ -46,7 +50,7 @@ var _ = Describe("cert-manager", func() {
 	})
 
 	It("should load a certificate if it appears after the start", func() {
-		certManager := NewFileCertificateManager(certDir)
+		certManager := NewFileCertificateManager(certFilePath, keyFilePath)
 		go certManager.Start()
 		defer certManager.Stop()
 		Consistently(func() *tls.Certificate {
@@ -59,7 +63,7 @@ var _ = Describe("cert-manager", func() {
 	})
 
 	It("should keep the latest certificate if it can't load new certs", func() {
-		certManager := NewFileCertificateManager(certDir)
+		certManager := NewFileCertificateManager(certFilePath, keyFilePath)
 		writeCertsToDir(certDir)
 		go certManager.Start()
 		defer certManager.Stop()
@@ -73,7 +77,7 @@ var _ = Describe("cert-manager", func() {
 	})
 	Context("with fallback handling", func() {
 		It("should return a fallback certificate if the is no certificate", func() {
-			certManager := NewFallbackCertificateManager(NewFileCertificateManager(certDir))
+			certManager := NewFallbackCertificateManager(NewFileCertificateManager(certFilePath, keyFilePath))
 			go certManager.Start()
 			defer certManager.Stop()
 			Expect(certManager.Current().Leaf.Subject.CommonName).To(Equal("fallback.certificate.kubevirt.io"))
@@ -81,7 +85,7 @@ var _ = Describe("cert-manager", func() {
 		It("should return the real certificate if the is one", func() {
 			kubevirtCache := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 			kubevirtCache.Add(&v1.KubeVirt{})
-			certManager := NewFallbackCertificateManager(NewFileCertificateManager(certDir))
+			certManager := NewFallbackCertificateManager(NewFileCertificateManager(certFilePath, keyFilePath))
 			writeCertsToDir(certDir)
 			go certManager.Start()
 			defer certManager.Stop()
