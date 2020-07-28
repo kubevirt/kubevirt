@@ -59,12 +59,12 @@ func NewKubernetesClientCAManager(configMapCache cache.Store) ClientCAManager {
 	}
 }
 
-func NewCAManager(configMapCache cache.Store, namespace string) ClientCAManager {
+func NewCAManager(configMapCache cache.Store, namespace string, configMapName string) ClientCAManager {
 	return &manager{
 		store:     configMapCache,
 		lock:      &sync.Mutex{},
 		namespace: namespace,
-		name:      "kubevirt-ca",
+		name:      configMapName,
 		secretKey: components.CABundleKey,
 	}
 }
