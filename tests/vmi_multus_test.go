@@ -215,8 +215,8 @@ var _ = Describe("Multus", func() {
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: cmdCheck},
 					&expect.BExp{R: "\\$ "},
-					&expect.BSnd{S: "ip addr show eth1 | grep 10.1.1 | wc -l"},
-					&expect.BExp{R: "1"},
+					&expect.BSnd{S: "ip addr show eth1 | grep 10.1.1 | wc -l\n"},
+					&expect.BExp{R: tests.Retcode("1", "\\$ ")},
 				}, 15)
 				Expect(err).ToNot(HaveOccurred())
 
