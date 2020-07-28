@@ -105,6 +105,7 @@ type virtAPIApp struct {
 	tlsKeyFilePath         string
 	handlerCertFilePath    string
 	handlerKeyFilePath     string
+	allowIntermediateCerts bool
 }
 
 var _ service.Service = &virtAPIApp{}
@@ -617,7 +618,7 @@ func (app *virtAPIApp) setupTLS(k8sCAManager webhooksutils.ClientCAManager, kube
 	// if the TLS handshake requests it. As a result, the TLS handshake fails
 	// and our aggregated endpoint never becomes available.
 	app.tlsConfig = webhooksutils.SetupTLSWithCertManager(k8sCAManager, app.certmanager, tls.VerifyClientCertIfGiven)
-	app.handlerTLSConfiguration = webhooksutils.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager)
+	app.handlerTLSConfiguration = webhooksutils.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager, app.allowIntermediateCerts)
 }
 
 func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory, stopCh <-chan struct{}) error {
@@ -727,4 +728,6 @@ func (app *virtAPIApp) AddFlags() {
 		"Client certificate used to prove the identity of the virt-api when it must call virt-handler during a request")
 	flag.StringVar(&app.handlerKeyFilePath, "handler-key-file", defaultHandlerKeyFilePath,
 		"Private key for the client certificate used to prove the identity of the virt-api when it must call virt-handler during a request")
+	flag.BoolVar(&app.allowIntermediateCerts, "allow-intermediate-certificates", false,
+		"Allow intermediate certificates to be used in building up the chain of trust in client certificate validation")
 }
