@@ -4836,6 +4836,12 @@ func SkipSELinuxTestIfRunnigOnKindInfra() {
 	}
 }
 
+func SkipDmidecodeTestIfRunningOnKindInfraIPv6() {
+	if IsRunningOnKindInfraIPv6() {
+		Skip("Skip dmidecode tests till issue https://github.com/kubevirt/kubevirt/issues/3901 is fixed")
+	}
+}
+
 func IsUsingBuiltinNodeDrainKey() bool {
 	return GetNodeDrainKey() == "node.kubernetes.io/unschedulable"
 }
