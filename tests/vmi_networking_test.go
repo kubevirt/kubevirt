@@ -225,7 +225,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BSnd{S: addrShow},
 				&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
 				&expect.BSnd{S: "echo $?\r"},
-				&expect.BExp{R: "0"},
+				&expect.BExp{R: tests.Retcode("0", "\\$ ")},
 			}, 180*time.Second)
 			log.Log.Infof("%v", resp)
 			Expect(err).ToNot(HaveOccurred())
@@ -244,7 +244,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BSnd{S: cmdCheck},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "echo $?\r"},
-				&expect.BExp{R: "0"},
+				&expect.BExp{R: tests.Retcode("0", "\\$ ")},
 			}, 180)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -255,7 +255,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\r"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "echo $?\r"},
-				&expect.BExp{R: "0"},
+				&expect.BExp{R: tests.Retcode("0", "\\$ ")},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		},
@@ -906,7 +906,7 @@ func createExpectTraceroute6(address string) []expect.Batcher {
 		&expect.BSnd{S: "cat tr | grep -q \"*\\|!\"\r"},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\r"},
-		&expect.BExp{R: "1"},
+		&expect.BExp{R: tests.Retcode("1", "\\$ ")},
 	}
 }
 
@@ -917,7 +917,7 @@ func createExpectStartTcpServer(port string) []expect.Batcher {
 		&expect.BSnd{S: "screen -d -m sudo nc -klp " + port + " -e echo -e 'Hello World!'\r"},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\r"},
-		&expect.BExp{R: "0"},
+		&expect.BExp{R: tests.Retcode("0", "\\$ ")},
 	}
 }
 
@@ -932,7 +932,7 @@ func createExpectConnectToServer(serverIP, tcpPort string, expectSuccess bool) [
 		&expect.BSnd{S: fmt.Sprintf("echo test | nc %s %s -i 1 -w 1 1> /dev/null\r", serverIP, tcpPort)},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\r"},
-		&expect.BExp{R: expectResult},
+		&expect.BExp{R: tests.Retcode(expectResult, "\\$ ")},
 	}
 }
 

@@ -104,7 +104,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					// mount iso ConfigMap image
 					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: "0"},
+					&expect.BExp{R: tests.Retcode("0", "\\#")},
 					&expect.BSnd{S: "cat /mnt/option1 /mnt/option2 /mnt/option3\n"},
 					&expect.BExp{R: expectedOutput},
 				}, 200*time.Second)
@@ -198,7 +198,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					// mount iso Secret image
 					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: "0"},
+					&expect.BExp{R: tests.Retcode("0", "\\#")},
 					&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
 					&expect.BExp{R: expectedOutput},
 				}, 200*time.Second)
@@ -281,7 +281,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				// mount service account iso image
 				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: "0"},
+				&expect.BExp{R: tests.Retcode("0", "\\#")},
 				&expect.BSnd{S: "cat /mnt/namespace\n"},
 				&expect.BExp{R: tests.NamespaceTestDefault},
 				&expect.BSnd{S: "tail -c 20 /mnt/token\n"},
@@ -376,7 +376,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					&expect.BExp{R: "#"},
 					&expect.BSnd{S: "mount /dev/vdc /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: "0"},
+					&expect.BExp{R: tests.Retcode("0", "\\#")},
 					&expect.BSnd{S: "cat /mnt/config1 /mnt/config2 /mnt/config3\n"},
 					&expect.BExp{R: expectedOutputCfgMap},
 				}, 200*time.Second)
@@ -402,7 +402,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					// mount Secret image
 					&expect.BSnd{S: "mount /dev/vdd /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: "0"},
+					&expect.BExp{R: tests.Retcode("0", "\\#")},
 					&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
 					&expect.BExp{R: expectedOutputSecret},
 				}, 200*time.Second)
@@ -497,16 +497,16 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				res, err := expecter.ExpectBatch([]expect.Batcher{
 					// mount iso Secret image
 					&expect.BSnd{S: "sudo su -\n"},
-					&expect.BExp{R: "#"},
+					&expect.BExp{R: "\\#"},
 					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: "0"},
+					&expect.BExp{R: tests.Retcode("0", "\\#")},
 					&expect.BSnd{S: "grep \"PRIVATE KEY\" /mnt/ssh-privatekey\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: "0"},
+					&expect.BExp{R: tests.Retcode("0", "\\#")},
 					&expect.BSnd{S: "grep ssh-rsa /mnt/ssh-publickey\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: "0"},
+					&expect.BExp{R: tests.Retcode("0", "\\#")},
 				}, 200*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())

@@ -66,7 +66,7 @@ var _ = Describe("CloudInitHookSidecars", func() {
 			&expect.BSnd{S: cmdCheck},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "echo $?\r"},
-			&expect.BExp{R: "0"},
+			&expect.BExp{R: tests.Retcode("0", prompt)},
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
 	}

@@ -4220,7 +4220,7 @@ func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
 		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\r", port)},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\r"},
-		&expect.BExp{R: "0"},
+		&expect.BExp{R: Retcode("0", "\\$ ")},
 	}, 60*time.Second)
 	log.DefaultLogger().Infof("%v", resp)
 	Expect(err).ToNot(HaveOccurred())
@@ -4251,7 +4251,7 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) 
 		&expect.BSnd{S: httpServerMaker},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\r"},
-		&expect.BExp{R: "0"},
+		&expect.BExp{R: Retcode("0", prompt)},
 	}, 60*time.Second)
 	log.DefaultLogger().Infof("%v", resp)
 	Expect(err).ToNot(HaveOccurred())
@@ -4374,7 +4374,7 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 		&expect.BSnd{S: serverCommand},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\r"},
-		&expect.BExp{R: "0"},
+		&expect.BExp{R: Retcode("0", "\\$ ")},
 	}, 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 }
