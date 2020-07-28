@@ -2857,7 +2857,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 			&expect.BSnd{S: "\r"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "ip a | grep -q eth0; echo $?\r"},
-			&expect.BExp{R: retcode("0")}})
+			&expect.BExp{R: Retcode("0", prompt)}})
 		_, err := ExpectBatchWithValidatedSend(expecter, hasNetEth0Batch, 30*time.Second)
 		return err == nil
 	}
@@ -2867,7 +2867,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 			&expect.BSnd{S: "\r"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "ip -6 address show dev eth0 scope global | grep -q inet6; echo $?\r"},
-			&expect.BExp{R: retcode("0")}})
+			&expect.BExp{R: Retcode("0", prompt)}})
 		_, err := ExpectBatchWithValidatedSend(expecter, hasGlobalIPv6Batch, 30*time.Second)
 		return err == nil
 	}
@@ -2890,7 +2890,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "sudo ip -6 addr add fd10:0:2::2/120 dev eth0; echo $?\r"},
-		&expect.BExp{R: retcode("0")}})
+		&expect.BExp{R: Retcode("0", prompt)}})
 	resp, err := ExpectBatchWithValidatedSend(expecter, addIPv6Address, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("addIPv6Address failed: %v", resp)
@@ -2903,7 +2903,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BSnd{S: "\r"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2; echo $?\r"},
-		&expect.BExp{R: retcode("0")}})
+		&expect.BExp{R: Retcode("0", prompt)}})
 	resp, err = ExpectBatchWithValidatedSend(expecter, addIPv6DefaultRoute, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("addIPv6DefaultRoute failed: %v", resp)
@@ -4986,6 +4986,6 @@ func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	return false
 }
 
-func retcode(retcode string) string {
-	return "\n" + retcode
+func Retcode(retcode string, prompt string) string {
+	return "\n" + retcode + "\r\n" + ".*" + prompt
 }
