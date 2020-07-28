@@ -276,13 +276,13 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	var productName string
 	var productVersion string
 
-	if isValidLabel(config.AdditionalProperties[operatorutil.ProductNameKey]) {
-		productName = config.AdditionalProperties[operatorutil.ProductNameKey]
+	if isValidLabel(config.GetProductName()) {
+		productName = config.GetProductName()
 	} else {
 		log.Log.Errorf("invalid kubevirt.spec.productName: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash")
 	}
-	if isValidLabel(config.AdditionalProperties[operatorutil.ProductVersionKey]) {
-		productVersion = config.AdditionalProperties[operatorutil.ProductVersionKey]
+	if isValidLabel(config.GetProductVersion()) {
+		productVersion = config.GetProductVersion()
 	} else {
 		log.Log.Errorf("invalid kubevirt.spec.productVersion: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash")
 	}
