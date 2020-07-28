@@ -71,7 +71,7 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
 	return tlsConfig
 }
 
-func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager) *tls.Config {
+func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, allowIntermediateCerts bool) *tls.Config {
 	return &tls.Config{
 		InsecureSkipVerify: true,
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
@@ -111,21 +111,31 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 						return fmt.Errorf("no client certificate provided.")
 					}
 
-					c, err := x509.ParseCertificate(rawCerts[0])
+					rawClient, rawIntermediates := rawCerts[0], rawCerts[1:]
+					c, err := x509.ParseCertificate(rawClient)
 					if err != nil {
 						return fmt.Errorf("failed to parse peer certificate: %v", err)
 					}
-					_, err = c.Verify(x509.VerifyOptions{
-						Roots:     certPool,
-						KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
-					})
 
-					if err != nil {
-						return err
+					var intermediatePool *x509.CertPool = nil
+					if allowIntermediateCerts {
+						intermediatePool := x509.NewCertPool()
+						for _, rawIntermediate := range rawIntermediates {
+							if c, err := x509.ParseCertificate(rawIntermediate); err != nil {
+								log.Log.Warningf("failed to parse peer intermediate certificate: %v", err)
+							} else {
+								intermediatePool.AddCert(c)
+							}
+						}
 					}
 
-					if c.Subject.CommonName != "kubevirt.io:system:client:virt-handler" {
-						return fmt.Errorf("common name is invalid, expected %s, but got %s", "kubevirt.io:system:client:virt-handler", c.Subject.CommonName)
+					_, err = c.Verify(x509.VerifyOptions{
+						Roots:         certPool,
+						Intermediates: intermediatePool,
+						KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+					})
+					if err != nil {
+						return err
 					}
 
 					if err != nil {
@@ -140,7 +150,7 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 	}
 }
 
-func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certificate.Manager) *tls.Config {
+func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certificate.Manager, allowIntermediateCerts bool) *tls.Config {
 	return &tls.Config{
 		InsecureSkipVerify: true,
 		ClientAuth:         tls.RequireAndVerifyClientCert,
@@ -169,21 +179,31 @@ func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certif
 				return fmt.Errorf("no client certificate provided.")
 			}
 
-			c, err := x509.ParseCertificate(rawCerts[0])
+			rawClient, rawIntermediates := rawCerts[0], rawCerts[1:]
+			c, err := x509.ParseCertificate(rawClient)
 			if err != nil {
 				return fmt.Errorf("failed to parse peer certificate: %v", err)
 			}
-			_, err = c.Verify(x509.VerifyOptions{
-				Roots:     certPool,
-				KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-			})
 
-			if err != nil {
-				return err
+			var intermediatePool *x509.CertPool = nil
+			if allowIntermediateCerts {
+				intermediatePool := x509.NewCertPool()
+				for _, rawIntermediate := range rawIntermediates {
+					if c, err := x509.ParseCertificate(rawIntermediate); err != nil {
+						log.Log.Warningf("failed to parse peer intermediate certificate: %v", err)
+					} else {
+						intermediatePool.AddCert(c)
+					}
+				}
 			}
 
-			if c.Subject.CommonName != "kubevirt.io:system:node:virt-handler" {
-				return fmt.Errorf("common name is invalid, expected %s, but got %s", "kubevirt.io:system:node:virt-handler", c.Subject.CommonName)
+			_, err = c.Verify(x509.VerifyOptions{
+				Roots:         certPool,
+				Intermediates: intermediatePool,
+				KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			})
+			if err != nil {
+				return err
 			}
 
 			if err != nil {
