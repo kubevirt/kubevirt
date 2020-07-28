@@ -161,26 +161,54 @@ func (metrics *vmiMetrics) updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats
 		// Initial vcpu metrics labels
 		if !vcpu.StateSet || !vcpu.TimeSet {
 			log.Log.V(4).Warningf("State or time not set for vcpu#%d", vcpuId)
+		} else {
+			var vcpuUsageLabels = []string{"node", "namespace", "name", "domain", "id", "state"}
+			vcpuUsageLabels = append(vcpuUsageLabels, k8sLabels...)
+			metrics.vcpuUsageDesc = prometheus.NewDesc(
+				"kubevirt_vmi_vcpu_seconds",
+				"Vcpu elapsed time.",
+				vcpuUsageLabels,
+				nil,
+			)
+
+			var vcpuUsageLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, fmt.Sprintf("%v", vcpuId), fmt.Sprintf("%v", vcpu.State)}
+			vcpuUsageLabelValues = append(vcpuUsageLabelValues, k8sLabelValues...)
+			mv, err := prometheus.NewConstMetric(
+				metrics.vcpuUsageDesc, prometheus.GaugeValue,
+				float64(vcpu.Time/1000000000),
+				vcpuUsageLabelValues...,
+			)
+			tryToPushMetric(metrics.vcpuUsageDesc, mv, err, ch)
+
+		}
+
+		if !vcpu.WaitSet {
+			log.Log.V(4).Warningf("Wait not set for vcpu#%d", vcpuId)
 			continue
 		}
 
-		var vcpuUsageLabels = []string{"node", "namespace", "name", "domain", "id", "state"}
-		vcpuUsageLabels = append(vcpuUsageLabels, k8sLabels...)
-		metrics.vcpuUsageDesc = prometheus.NewDesc(
-			"kubevirt_vmi_vcpu_seconds",
-			"Vcpu elapsed time.",
-			vcpuUsageLabels,
+		vcpuWaitLabels := []string{"node", "namespace", "name", "domain", "id"}
+		vcpuWaitLabels = append(vcpuWaitLabels, k8sLabels...)
+
+		vcpuWaitLabelsValues := []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name,
+			vmStats.Name, fmt.Sprintf("%v", vcpuId),
+		}
+		vcpuWaitLabelsValues = append(vcpuWaitLabelsValues, k8sLabelValues...)
+
+		vcpuWaitDesc := prometheus.NewDesc(
+			"kubevirt_vmi_vcpu_wait_seconds",
+			"vcpu time spent by waiting on I/O",
+			vcpuWaitLabels,
 			nil,
 		)
 
-		var vcpuUsageLabelValues = []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, vmStats.Name, fmt.Sprintf("%v", vcpuId), fmt.Sprintf("%v", vcpu.State)}
-		vcpuUsageLabelValues = append(vcpuUsageLabelValues, k8sLabelValues...)
 		mv, err := prometheus.NewConstMetric(
-			metrics.vcpuUsageDesc, prometheus.GaugeValue,
-			float64(vcpu.Time/1000000000),
-			vcpuUsageLabelValues...,
+			vcpuWaitDesc, prometheus.GaugeValue,
+			float64(vcpu.Wait/1000000),
+			vcpuWaitLabelsValues...,
 		)
-		tryToPushMetric(metrics.vcpuUsageDesc, mv, err, ch)
+		tryToPushMetric(vcpuWaitDesc, mv, err, ch)
+
 	}
 }
 

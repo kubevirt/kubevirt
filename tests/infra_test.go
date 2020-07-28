@@ -729,6 +729,22 @@ var _ = Describe("Infrastructure", func() {
 			}
 		})
 
+		It("should include the vcpu wait metrics for running VM", func() {
+			metrics := collectMetrics("kubevirt_vmi_vcpu_wait")
+			for _, v := range metrics {
+				fmt.Fprintf(GinkgoWriter, "vcpu wait was %f", v)
+				Expect(v).To(BeNumerically("==", float64(0.0)))
+			}
+		})
+
+		It("should include the vcpu seconds metrics for running VM", func() {
+			metrics := collectMetrics("kubevirt_vmi_vcpu_seconds")
+			for _, v := range metrics {
+				fmt.Fprintf(GinkgoWriter, "vcpu seconds was %f", v)
+				Expect(v).To(BeNumerically(">=", float64(0.0)))
+			}
+		})
+
 		It("[test_id:4145]should include VMI infos for a running VM", func() {
 			metrics := collectMetrics("kubevirt_vmi_")
 			By("Checking the collected metrics")

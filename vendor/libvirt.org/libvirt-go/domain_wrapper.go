@@ -2346,5 +2346,130 @@ virDomainUpdateDeviceFlagsWrapper(virDomainPtr domain,
 }
 
 
+int
+virDomainListAllCheckpointsWrapper(virDomainPtr domain,
+                                   virDomainCheckpointPtr **cps,
+                                   unsigned int flags,
+                                   virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 5006000
+    assert(0); // Caller should have checked version
+#else
+    int ret = virDomainListAllCheckpoints(domain, cps, flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+
+virDomainCheckpointPtr
+virDomainCheckpointCreateXMLWrapper(virDomainPtr domain,
+                                  const char *xmlDesc,
+                                  unsigned int flags,
+                                  virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 5006000
+    assert(0); // Caller should have checked version
+#else
+    virDomainCheckpointPtr ret = virDomainCheckpointCreateXML(domain, xmlDesc, flags);
+    if (!ret) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+
+virDomainCheckpointPtr
+virDomainCheckpointLookupByNameWrapper(virDomainPtr domain,
+                                       const char *name,
+                                       unsigned int flags,
+                                       virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 5006000
+    assert(0); // Caller should have checked version
+#else
+    virDomainCheckpointPtr ret = virDomainCheckpointLookupByName(domain, name, flags);
+    if (!ret) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+
+int
+virDomainGetGuestInfoWrapper(virDomainPtr domain,
+			     unsigned int types,
+			     virTypedParameterPtr *params,
+			     int *nparams,
+			     unsigned int flags,
+                             virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 5007000
+    assert(0); // Caller should have checked version
+#else
+    int ret = virDomainGetGuestInfo(domain, types, params, nparams, flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+int
+virDomainAgentSetResponseTimeoutWrapper(virDomainPtr domain,
+                                        int timeout,
+                                        unsigned int flags,
+                                        virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 5010000
+    assert(0); // Caller should have checked version
+#else
+    int ret = virDomainAgentSetResponseTimeout(domain, timeout, flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+int
+virDomainBackupBeginWrapper(virDomainPtr domain,
+			    const char *backupXML,
+			    const char *checkpointXML,
+			    unsigned int flags,
+			    virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 6000000
+    assert(0); // Caller should have checked version
+#else
+    int ret = virDomainBackupBegin(domain, backupXML, checkpointXML, flags);
+    if (ret < 0) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+char *
+virDomainBackupGetXMLDescWrapper(virDomainPtr domain,
+				 unsigned int flags,
+				 virErrorPtr err)
+{
+#if LIBVIR_VERSION_NUMBER < 6000000
+    assert(0); // Caller should have checked version
+#else
+    char *ret = virDomainBackupGetXMLDesc(domain, flags);
+    if (!ret) {
+        virCopyLastError(err);
+    }
+    return ret;
+#endif
+}
+
+
 */
 import "C"

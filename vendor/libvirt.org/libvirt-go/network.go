@@ -34,6 +34,7 @@ package libvirt
 import "C"
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 	"unsafe"
@@ -332,4 +333,83 @@ func (n *Network) GetDHCPLeases() ([]NetworkDHCPLease, error) {
 	}
 	C.free(unsafe.Pointer(cLeases))
 	return leases, nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkPortLookupByUUIDString
+func (n *Network) LookupNetworkPortByUUIDString(uuid string) (*NetworkPort, error) {
+	if C.LIBVIR_VERSION_NUMBER < 5005000 {
+		return nil, makeNotImplementedError("virNetworkPortLookupByUUIDString")
+	}
+
+	cUuid := C.CString(uuid)
+	defer C.free(unsafe.Pointer(cUuid))
+	var err C.virError
+	ptr := C.virNetworkPortLookupByUUIDStringWrapper(n.ptr, cUuid, &err)
+	if ptr == nil {
+		return nil, makeError(&err)
+	}
+	return &NetworkPort{ptr: ptr}, nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkPortLookupByUUID
+func (n *Network) LookupNetworkPortByUUID(uuid []byte) (*NetworkPort, error) {
+	if C.LIBVIR_VERSION_NUMBER < 5005000 {
+		return nil, makeNotImplementedError("virNetworkPortLookupByUUID")
+	}
+
+	if len(uuid) != C.VIR_UUID_BUFLEN {
+		return nil, fmt.Errorf("UUID must be exactly %d bytes in size",
+			int(C.VIR_UUID_BUFLEN))
+	}
+	cUuid := make([]C.uchar, C.VIR_UUID_BUFLEN)
+	for i := 0; i < C.VIR_UUID_BUFLEN; i++ {
+		cUuid[i] = C.uchar(uuid[i])
+	}
+	var err C.virError
+	ptr := C.virNetworkPortLookupByUUIDWrapper(n.ptr, &cUuid[0], &err)
+	if ptr == nil {
+		return nil, makeError(&err)
+	}
+	return &NetworkPort{ptr: ptr}, nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkPortCreateXML
+func (n *Network) PortCreateXML(xmlConfig string, flags uint) (*NetworkPort, error) {
+	if C.LIBVIR_VERSION_NUMBER < 5005000 {
+		return nil, makeNotImplementedError("virNetworkPortCreateXML")
+	}
+	cXml := C.CString(string(xmlConfig))
+	defer C.free(unsafe.Pointer(cXml))
+	var err C.virError
+	ptr := C.virNetworkPortCreateXMLWrapper(n.ptr, cXml, C.uint(flags), &err)
+	if ptr == nil {
+		return nil, makeError(&err)
+	}
+	return &NetworkPort{ptr: ptr}, nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-network.html#virNetworkListAllPorts
+func (n *Network) ListAllPorts(flags uint) ([]NetworkPort, error) {
+	if C.LIBVIR_VERSION_NUMBER < 5005000 {
+		return []NetworkPort{}, makeNotImplementedError("virNetworkListAllPorts")
+	}
+
+	var cList *C.virNetworkPortPtr
+	var err C.virError
+	numPorts := C.virNetworkListAllPortsWrapper(n.ptr, (**C.virNetworkPortPtr)(&cList), C.uint(flags), &err)
+	if numPorts == -1 {
+		return []NetworkPort{}, makeError(&err)
+	}
+	hdr := reflect.SliceHeader{
+		Data: uintptr(unsafe.Pointer(cList)),
+		Len:  int(numPorts),
+		Cap:  int(numPorts),
+	}
+	var ports []NetworkPort
+	slice := *(*[]C.virNetworkPortPtr)(unsafe.Pointer(&hdr))
+	for _, ptr := range slice {
+		ports = append(ports, NetworkPort{ptr})
+	}
+	C.free(unsafe.Pointer(cList))
+	return ports, nil
 }
