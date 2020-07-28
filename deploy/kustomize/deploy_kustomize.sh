@@ -21,8 +21,8 @@ main() {
   sed -i "s/- kubevirt-hyperconverged/- $TARGET_NAMESPACE/" $SCRIPT_DIR/base/operator_group.yaml
 
   # setting appropriate version and channel in the subscription manifest
-  sed -ri "s|(startingCSV.+v)[0-9].+|\1${HCO_VERSION}|" deploy/kustomize/base/subscription.yaml
-  sed -ri "s|(channel: ).+|\1\"${HCO_CHANNEL}\"|" deploy/kustomize/base/subscription.yaml
+  sed -ri "s|(startingCSV.+v)[0-9].+|\1${HCO_VERSION}|" $SCRIPT_DIR/base/subscription.yaml
+  sed -ri "s|(channel: ).+|\1\"${HCO_CHANNEL}\"|" $SCRIPT_DIR/base/subscription.yaml
 
   TMPDIR=$(mktemp -d)
   cp -r $SCRIPT_DIR/* $TMPDIR
