@@ -424,6 +424,18 @@ func (c *KubeVirtDeploymentConfig) GetVerbosity() string {
 	return "2"
 }
 
+func (c *KubeVirtDeploymentConfig) GetProductName() string {
+	return c.AdditionalProperties[ProductNameKey]
+}
+
+func (c *KubeVirtDeploymentConfig) GetProductVersion() string {
+	productVersion, ok := c.AdditionalProperties[ProductVersionKey]
+	if !ok {
+		return c.GetKubeVirtVersion()
+	}
+	return productVersion
+}
+
 func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {
 	// We need an id, which identifies a KubeVirt deployment based on version, shasums, registry, namespace, and other
 	// changeable properties from the KubeVirt CR. This will be used for identifying the correct install strategy job
