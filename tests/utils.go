@@ -2861,11 +2861,11 @@ func configureConsole(expecter expect.Expecter, prompt string, shouldSudo bool) 
 		&expect.BSnd{S: "stty columns 500\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: retcode("0")},
+		&expect.BExp{R: Retcode("0", prompt)},
 		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: retcode("0")}})
+		&expect.BExp{R: Retcode("0", prompt)}})
 	resp, err := expecter.ExpectBatch(batch, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Infof("%v", resp)
@@ -4260,7 +4260,7 @@ func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
 		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", port)},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: "0"},
+		&expect.BExp{R: Retcode("0", "\\$ ")},
 	}, 60*time.Second)
 	log.DefaultLogger().Infof("%v", resp)
 	Expect(err).ToNot(HaveOccurred())
@@ -4291,7 +4291,7 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) 
 		&expect.BSnd{S: httpServerMaker},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: "0"},
+		&expect.BExp{R: Retcode("0", prompt)},
 	}, 60*time.Second)
 	log.DefaultLogger().Infof("%v", resp)
 	Expect(err).ToNot(HaveOccurred())
@@ -4414,7 +4414,7 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 		&expect.BSnd{S: serverCommand},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: "0"},
+		&expect.BExp{R: Retcode("0", "\\$ ")},
 	}, 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 }

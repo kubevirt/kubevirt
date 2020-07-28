@@ -565,7 +565,7 @@ var _ = Describe("Configurations", func() {
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pa''ss'\n"},
 					&expect.BExp{R: "pass"},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k; echo $?\n"},
-					&expect.BExp{R: "0"},
+					&expect.BExp{R: tests.Retcode("0", "\\$ ")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -1983,7 +1983,7 @@ var _ = Describe("Configurations", func() {
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pa''ss'\n"},
 					&expect.BExp{R: "pass"},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k; echo $?\n"},
-					&expect.BExp{R: "0"},
+					&expect.BExp{R: tests.Retcode("0", "\\$ ")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
