@@ -8,6 +8,7 @@ import (
 
 	"k8s.io/api/admission/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v12 "kubevirt.io/client-go/api/v1"
@@ -107,4 +108,78 @@ func ValidateRequestResource(request v1.GroupVersionResource, group string, reso
 	}
 
 	return false
+}
+
+func ValidateStatus(data []byte) *v1beta1.AdmissionResponse {
+	in := map[string]interface{}{}
+	err := json.Unmarshal(data, &in)
+	if err != nil {
+		return ToAdmissionResponseError(err)
+	}
+	obj := unstructured.Unstructured{Object: in}
+	gvk := obj.GroupVersionKind()
+	if gvk.Kind == "" {
+		return ValidationErrorsToAdmissionResponse([]error{fmt.Errorf("could not determine object kind")})
+	}
+	errs := webhooks.Validator.ValidateStatus(gvk, in)
+	if len(errs) > 0 {
+		return ValidationErrorsToAdmissionResponse(errs)
+	}
+	return nil
+}
+
+func GetVMIFromAdmissionReview(ar *v1beta1.AdmissionReview) (new *v12.VirtualMachineInstance, old *v12.VirtualMachineInstance, err error) {
+
+	if !ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstanceGroupVersionResource.Group, webhooks.VirtualMachineInstanceGroupVersionResource.Resource) {
+		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
+	}
+
+	raw := ar.Request.Object.Raw
+	newVMI := v12.VirtualMachineInstance{}
+
+	err = json.Unmarshal(raw, &newVMI)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if ar.Request.Operation == v1beta1.Update {
+		raw := ar.Request.OldObject.Raw
+		oldVMI := v12.VirtualMachineInstance{}
+
+		err = json.Unmarshal(raw, &oldVMI)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &newVMI, &oldVMI, nil
+	}
+
+	return &newVMI, nil, nil
+}
+
+func GetVMFromAdmissionReview(ar *v1beta1.AdmissionReview) (new *v12.VirtualMachine, old *v12.VirtualMachine, err error) {
+
+	if !ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineGroupVersionResource.Group, webhooks.VirtualMachineGroupVersionResource.Resource) {
+		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineGroupVersionResource.Resource)
+	}
+
+	raw := ar.Request.Object.Raw
+	newVM := v12.VirtualMachine{}
+
+	err = json.Unmarshal(raw, &newVM)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if ar.Request.Operation == v1beta1.Update {
+		raw := ar.Request.OldObject.Raw
+		oldVM := v12.VirtualMachine{}
+
+		err = json.Unmarshal(raw, &oldVM)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &newVM, &oldVM, nil
+	}
+
+	return &newVM, nil, nil
 }
