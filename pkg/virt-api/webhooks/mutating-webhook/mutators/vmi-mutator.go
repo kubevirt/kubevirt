@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"k8s.io/api/admission/v1beta1"
@@ -50,74 +51,90 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	if resp := webhookutils.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
-
-	raw := ar.Request.Object.Raw
-	vmi := v1.VirtualMachineInstance{}
-
-	err := json.Unmarshal(raw, &vmi)
+	// Get new VMI from admission response
+	newVMI, oldVMI, err := webhookutils.GetVMIFromAdmissionReview(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
-
-	informers := webhooks.GetInformers()
-
-	// Apply presets
-	err = applyPresets(&vmi, informers.VMIPresetInformer)
-	if err != nil {
-		return &v1beta1.AdmissionResponse{
-			Result: &metav1.Status{
-				Message: err.Error(),
-				Code:    http.StatusUnprocessableEntity,
-			},
-		}
-	}
-
-	// Apply namespace limits
-	applyNamespaceLimitRangeValues(&vmi, informers.NamespaceLimitsInformer)
-
-	// Set VMI defaults
-	log.Log.Object(&vmi).V(4).Info("Apply defaults")
-	mutator.setDefaultCPUModel(&vmi)
-	mutator.setDefaultMachineType(&vmi)
-	mutator.setDefaultResourceRequests(&vmi)
-	mutator.setDefaultPullPoliciesOnContainerDisks(&vmi)
-	err = mutator.setDefaultNetworkInterface(&vmi)
-	if err != nil {
-		return webhookutils.ToAdmissionResponseError(err)
-	}
-	v1.SetObjectDefaults_VirtualMachineInstance(&vmi)
-
-	// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
-	// Until that time, we need to handle the hyperv deps to avoid obscure rejections from QEMU later on
-	log.Log.V(4).Info("Set HyperV dependencies")
-	err = webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(&vmi)
-	if err != nil {
-		// HyperV is a special case. If our best-effort attempt fails, we should leave
-		// rejection to be performed later on in the validating webhook, and continue here.
-		// Please note this means that partial changes may have been performed.
-		// This is OK since each dependency must be atomic and independent (in ACID sense),
-		// so the VMI configuration is still legal.
-		log.Log.V(2).Infof("Failed to set HyperV dependencies: %s", err)
-	}
-
-	// Add foreground finalizer
-	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
 
 	var patch []patchOperation
-	var value interface{}
-	value = vmi.Spec
-	patch = append(patch, patchOperation{
-		Op:    "replace",
-		Path:  "/spec",
-		Value: value,
-	})
 
-	value = vmi.ObjectMeta
-	patch = append(patch, patchOperation{
-		Op:    "replace",
-		Path:  "/metadata",
-		Value: value,
-	})
+	// Patch the spec with defaults if we deal with a create operation
+	if ar.Request.Operation == v1beta1.Create {
+		informers := webhooks.GetInformers()
+
+		// Apply presets
+		err = applyPresets(newVMI, informers.VMIPresetInformer)
+		if err != nil {
+			return &v1beta1.AdmissionResponse{
+				Result: &metav1.Status{
+					Message: err.Error(),
+					Code:    http.StatusUnprocessableEntity,
+				},
+			}
+		}
+
+		// Apply namespace limits
+		applyNamespaceLimitRangeValues(newVMI, informers.NamespaceLimitsInformer)
+
+		// Set VMI defaults
+		log.Log.Object(newVMI).V(4).Info("Apply defaults")
+		mutator.setDefaultCPUModel(newVMI)
+		mutator.setDefaultMachineType(newVMI)
+		mutator.setDefaultResourceRequests(newVMI)
+		mutator.setDefaultPullPoliciesOnContainerDisks(newVMI)
+		err = mutator.setDefaultNetworkInterface(newVMI)
+		if err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
+		v1.SetObjectDefaults_VirtualMachineInstance(newVMI)
+
+		// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
+		// Until that time, we need to handle the hyperv deps to avoid obscure rejections from QEMU later on
+		log.Log.V(4).Info("Set HyperV dependencies")
+		err = webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(newVMI)
+		if err != nil {
+			// HyperV is a special case. If our best-effort attempt fails, we should leave
+			// rejection to be performed later on in the validating webhook, and continue here.
+			// Please note this means that partial changes may have been performed.
+			// This is OK since each dependency must be atomic and independent (in ACID sense),
+			// so the VMI configuration is still legal.
+			log.Log.V(2).Infof("Failed to set HyperV dependencies: %s", err)
+		}
+
+		// Add foreground finalizer
+		newVMI.Finalizers = append(newVMI.Finalizers, v1.VirtualMachineInstanceFinalizer)
+
+		var value interface{}
+		value = newVMI.Spec
+		patch = append(patch, patchOperation{
+			Op:    "replace",
+			Path:  "/spec",
+			Value: value,
+		})
+
+		value = newVMI.ObjectMeta
+		patch = append(patch, patchOperation{
+			Op:    "replace",
+			Path:  "/metadata",
+			Value: value,
+		})
+	} else if ar.Request.Operation == v1beta1.Update {
+		// Ignore status updates if they are not coming from our service accounts
+		// TODO: As soon as CRDs support field selectors we can remove this and just enable
+		// the status subresource. Until then we need to update Status and Metadata labels in parallel for e.g. Migrations.
+		if !reflect.DeepEqual(newVMI.Status, oldVMI.Status) {
+			allowed := webhooks.GetAllowedServiceAccounts()
+			if _, ok := allowed[ar.Request.UserInfo.Username]; !ok {
+				patch = append(patch, patchOperation{
+					Op:    "replace",
+					Path:  "/status",
+					Value: oldVMI.Status,
+				})
+			}
+		}
+
+	}
 
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {

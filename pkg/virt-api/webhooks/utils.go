@@ -20,11 +20,15 @@
 package webhooks
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -108,5 +112,23 @@ func newInformers() *Informers {
 		VMIInformer:             kubeInformerFactory.VMI(),
 		VMIPresetInformer:       kubeInformerFactory.VirtualMachinePreset(),
 		NamespaceLimitsInformer: kubeInformerFactory.LimitRanges(),
+	}
+}
+
+func GetAllowedServiceAccounts() map[string]struct{} {
+	ns, err := clientutil.GetNamespace()
+	logger := log.DefaultLogger()
+
+	if err != nil {
+		logger.Info("Failed to get namespace. Fallback to default: 'kubevirt'")
+		ns = "kubevirt"
+	}
+
+	// system:serviceaccount:{namespace}:{kubevirt-component}
+	prefix := fmt.Sprintf("%s:%s:%s", "system", "serviceaccount", ns)
+	return map[string]struct{}{
+		fmt.Sprintf("%s:%s", prefix, rbac.ApiServiceAccountName):        {},
+		fmt.Sprintf("%s:%s", prefix, rbac.HandlerServiceAccountName):    {},
+		fmt.Sprintf("%s:%s", prefix, rbac.ControllerServiceAccountName): {},
 	}
 }
