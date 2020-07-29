@@ -29,6 +29,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
+	v12 "k8s.io/api/authentication/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 )
+
+var privilegedUser = fmt.Sprintf("%s:%s:%s:%s", "system", "serviceaccount", "kubevirt", rbac.ControllerServiceAccountName)
 
 var _ = Describe("VirtualMachineInstance Mutator", func() {
 	var vmi *v1.VirtualMachineInstance
@@ -63,7 +67,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		By("Creating the test admissions review from the VMI")
 		ar := &v1beta1.AdmissionReview{
 			Request: &v1beta1.AdmissionRequest{
-				Resource: k8smetav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
+				Operation: v1beta1.Create,
+				Resource:  k8smetav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
 				Object: runtime.RawExtension{
 					Raw: vmiBytes,
 				},
@@ -85,6 +90,45 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(patch).NotTo(BeEmpty())
 
 		return vmiSpec, vmiMeta
+	}
+
+	getVMIStatusFromResponse := func(oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance, user string) *v1.VirtualMachineInstanceStatus {
+		oldVMIBytes, err := json.Marshal(oldVMI)
+		Expect(err).ToNot(HaveOccurred())
+		newVMIBytes, err := json.Marshal(newVMI)
+		Expect(err).ToNot(HaveOccurred())
+		By("Creating the test admissions review from the VMI")
+		ar := &v1beta1.AdmissionReview{
+			Request: &v1beta1.AdmissionRequest{
+				UserInfo: v12.UserInfo{
+					Username: user,
+				},
+				Operation: v1beta1.Update,
+				Resource:  k8smetav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
+				Object: runtime.RawExtension{
+					Raw: newVMIBytes,
+				},
+				OldObject: runtime.RawExtension{
+					Raw: oldVMIBytes,
+				},
+			},
+		}
+		By("Mutating the VMI")
+		resp := mutator.Mutate(ar)
+		Expect(resp.Allowed).To(BeTrue())
+
+		By("Getting the VMI spec from the response")
+		vmiStatus := &v1.VirtualMachineInstanceStatus{}
+		patch := []patchOperation{
+			{Value: vmiStatus},
+		}
+		err = json.Unmarshal(resp.Patch, &patch)
+		Expect(err).ToNot(HaveOccurred())
+		if len(patch) == 0 {
+			return &newVMI.Status
+		}
+
+		return vmiStatus
 	}
 
 	BeforeEach(func() {
@@ -669,4 +713,23 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		}
 		Expect(ok).To(BeTrue())
 	})
+	table.DescribeTable("modify the VMI status", func(user string, shouldChange bool) {
+		oldVMI := &v1.VirtualMachineInstance{}
+		oldVMI.Status = v1.VirtualMachineInstanceStatus{
+			Phase: v1.Running,
+		}
+		newVMI := oldVMI.DeepCopy()
+		newVMI.Status = v1.VirtualMachineInstanceStatus{
+			Phase: v1.Failed,
+		}
+		status := getVMIStatusFromResponse(oldVMI, newVMI, user)
+		if shouldChange {
+			Expect(&newVMI.Status).To(Equal(status))
+		} else {
+			Expect(&oldVMI.Status).To(Equal(status))
+		}
+	},
+		table.Entry("if our service accounts modfies it", privilegedUser, true),
+		table.Entry("not if the user is not one of ours", "unknown", false),
+	)
 })

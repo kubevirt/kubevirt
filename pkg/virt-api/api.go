@@ -569,6 +569,9 @@ func (app *virtAPIApp) registerValidatingWebhooks() {
 	http.HandleFunc(components.VMSnapshotValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMSnapshots(w, r, app.clusterConfig, app.virtCli)
 	})
+	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeStatusValidation(w, r)
+	})
 }
 
 func (app *virtAPIApp) registerMutatingWebhook() {
