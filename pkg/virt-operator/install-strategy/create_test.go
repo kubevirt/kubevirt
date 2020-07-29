@@ -1,17 +1,23 @@
 package installstrategy
 
 import (
+	"encoding/json"
 	"fmt"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -60,16 +66,18 @@ var _ = Describe("Create", func() {
 		var expectations *util.Expectations
 		var stores util.Stores
 		var mockPodDisruptionBudgetCacheStore *MockStore
-		var kubeClient *fake.Clientset
+		var pdbClient *fake.Clientset
 		var cachedPodDisruptionBudget *v1beta1.PodDisruptionBudget
 		var patched bool
 		var shouldPatchFail bool
 		var created bool
 		var shouldCreateFail bool
+		var ctrl *gomock.Controller
+		var extClient *extclientfake.Clientset
 
 		BeforeEach(func() {
 
-			ctrl := gomock.NewController(GinkgoT())
+			ctrl = gomock.NewController(GinkgoT())
 			kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
 
 			patched = false
@@ -77,9 +85,10 @@ var _ = Describe("Create", func() {
 			created = false
 			shouldCreateFail = false
 
-			kubeClient = fake.NewSimpleClientset()
+			pdbClient = fake.NewSimpleClientset()
+			extClient = extclientfake.NewSimpleClientset()
 
-			kubeClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			pdbClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				_, ok := action.(testing.PatchAction)
 				Expect(ok).To(BeTrue())
 				if shouldPatchFail {
@@ -89,7 +98,7 @@ var _ = Describe("Create", func() {
 				return true, nil, nil
 			})
 
-			kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			pdbClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				_, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
 				if shouldCreateFail {
@@ -98,23 +107,32 @@ var _ = Describe("Create", func() {
 				created = true
 				return true, nil, nil
 			})
-
+			extClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				Expect(action).To(BeNil())
+				return true, nil, nil
+			})
 			stores = util.Stores{}
 			mockPodDisruptionBudgetCacheStore = &MockStore{}
 			stores.PodDisruptionBudgetCache = mockPodDisruptionBudgetCacheStore
+			stores.CrdCache = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 			expectations = &util.Expectations{}
 			expectations.PodDisruptionBudget = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets"))
 
 			clientset = kubecli.NewMockKubevirtClient(ctrl)
 			clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
-			clientset.EXPECT().PolicyV1beta1().Return(kubeClient.PolicyV1beta1()).AnyTimes()
+			clientset.EXPECT().PolicyV1beta1().Return(pdbClient.PolicyV1beta1()).AnyTimes()
+			clientset.EXPECT().ExtensionsClient().Return(extClient).AnyTimes()
 			kv = &v1.KubeVirt{}
 
 			deployment, err = components.NewApiServerDeployment(Namespace, Registry, "", Version, corev1.PullIfNotPresent, "verbosity", map[string]string{})
 			Expect(err).ToNot(HaveOccurred())
 
 			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
 		})
 
 		It("should not fail creation", func() {
@@ -171,6 +189,91 @@ var _ = Describe("Create", func() {
 			Expect(patched).To(BeFalse())
 		})
 
+		It("should not roll out subresources on existing CRDs before controll-plane rollover", func() {
+			crd := &extv1beta1.CustomResourceDefinition{
+				ObjectMeta: v12.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+				},
+				Spec: extv1beta1.CustomResourceDefinitionSpec{
+					Subresources: &extv1beta1.CustomResourceSubresources{
+						Scale: &extv1beta1.CustomResourceSubresourceScale{
+							SpecReplicasPath: "blub",
+						},
+						Status: &extv1beta1.CustomResourceSubresourceStatus{},
+					},
+				},
+			}
+			targetStrategy := &InstallStrategy{
+				crds: []*extv1beta1.CustomResourceDefinition{
+					crd,
+				},
+			}
+
+			crdWithoutSubresource := crd.DeepCopy()
+			crdWithoutSubresource.Spec.Subresources = nil
+
+			stores.CrdCache.Add(crdWithoutSubresource)
+			extClient.Fake.PrependReactor("patch", "customresourcedefinitions", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				a := action.(testing.PatchActionImpl)
+				patch, err := jsonpatch.DecodePatch(a.Patch)
+				Expect(err).ToNot(HaveOccurred())
+				obj, err := json.Marshal(crdWithoutSubresource)
+				Expect(err).To(BeNil())
+				obj, err = patch.Apply(obj)
+				Expect(err).To(BeNil())
+				crd := &extv1beta1.CustomResourceDefinition{}
+				Expect(json.Unmarshal(obj, crd)).To(Succeed())
+				Expect(crd.Spec.Subresources.Status).To(BeNil())
+				Expect(crd.Spec.Subresources.Scale).ToNot(BeNil())
+				return true, crd, nil
+			})
+
+			Expect(createOrUpdateCrds(kv, targetStrategy, stores, clientset, expectations)).To(Succeed())
+		})
+
+		It("should not roll out subresources on existing CRDs after the controll-plane rollover", func() {
+			crd := &extv1beta1.CustomResourceDefinition{
+				ObjectMeta: v12.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+				},
+				Spec: extv1beta1.CustomResourceDefinitionSpec{
+					Subresources: &extv1beta1.CustomResourceSubresources{
+						Scale: &extv1beta1.CustomResourceSubresourceScale{
+							SpecReplicasPath: "blub",
+						},
+						Status: &extv1beta1.CustomResourceSubresourceStatus{},
+					},
+				},
+			}
+			targetStrategy := &InstallStrategy{
+				crds: []*extv1beta1.CustomResourceDefinition{
+					crd,
+				},
+			}
+
+			crdWithoutSubresource := crd.DeepCopy()
+			crdWithoutSubresource.Spec.Subresources = nil
+
+			stores.CrdCache.Add(crdWithoutSubresource)
+			extClient.Fake.PrependReactor("patch", "customresourcedefinitions", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				a := action.(testing.PatchActionImpl)
+				patch, err := jsonpatch.DecodePatch(a.Patch)
+				Expect(err).ToNot(HaveOccurred())
+				obj, err := json.Marshal(crdWithoutSubresource)
+				Expect(err).To(BeNil())
+				obj, err = patch.Apply(obj)
+				Expect(err).To(BeNil())
+				crd := &extv1beta1.CustomResourceDefinition{}
+				Expect(json.Unmarshal(obj, crd)).To(Succeed())
+				Expect(crd.Spec.Subresources.Status).ToNot(BeNil())
+				Expect(crd.Spec.Subresources.Scale).ToNot(BeNil())
+				return true, crd, nil
+			})
+
+			Expect(rolloutNonCompatibleCRDChanges(kv, targetStrategy, stores, clientset, expectations)).To(Succeed())
+		})
 	})
 
 })

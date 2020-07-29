@@ -1672,29 +1672,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 	Context("VM rename", func() {
 		var (
-			vm  *v1.VirtualMachine
 			cli kubecli.VirtualMachineInterface
 		)
 
 		BeforeEach(func() {
-			vm = tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			cli = virtClient.VirtualMachine(tests.NamespaceTestDefault)
-		})
-
-		Context("VM creation", func() {
-			It("should fail if a VM is created with a rename request", func() {
-				vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{
-					{
-						Action: v1.RenameRequest,
-						Data: map[string]string{
-							"newName": "something-new",
-						},
-					},
-				}
-				_, err := cli.Create(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("Creating a VM with a rename request is not allowed"))
-			})
 		})
 
 		Context("VM update", func() {
