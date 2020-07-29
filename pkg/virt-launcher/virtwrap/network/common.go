@@ -104,7 +104,7 @@ type NetworkHandler interface {
 	NftablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesLoad(fnName string) error
 	GetNFTIPString(proto iptables.Protocol) string
-	CreateTapDevice(tapName string, isMultiqueue bool) error
+	CreateTapDevice(tapName string, isMultiqueue bool, launcherPID int) error
 	BindTapDeviceToBridge(tapName string, bridgeName string) error
 }
 
@@ -345,7 +345,7 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 	return net.HardwareAddr(append(prefix, suffix...)), nil
 }
 
-func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool) error {
+func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool, launcherPID int) error {
 	args := []string{"tuntap", "add", "mode", "tap", "user", "qemu", "group", "qemu", "name", tapName}
 	if isMultiqueue {
 		args = append(args, "multi_queue")
