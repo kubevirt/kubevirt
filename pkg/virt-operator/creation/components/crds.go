@@ -107,6 +107,9 @@ func NewVirtualMachineCrd() *extv1beta1.CustomResourceDefinition {
 			{Name: "Volume", Description: "Primary Volume", Type: "string", JSONPath: ".spec.volumes[0].name"},
 			{Name: "Created", Type: "boolean", JSONPath: ".status.created", Priority: 1},
 		},
+		Subresources: &extv1beta1.CustomResourceSubresources{
+			Status: &extv1beta1.CustomResourceSubresourceStatus{},
+		},
 	}
 
 	return crd
@@ -171,6 +174,7 @@ func NewReplicaSetCrd() *extv1beta1.CustomResourceDefinition {
 				StatusReplicasPath: ".status.replicas",
 				LabelSelectorPath:  &labelSelector,
 			},
+			Status: &extv1beta1.CustomResourceSubresourceStatus{},
 		},
 	}
 
@@ -195,6 +199,9 @@ func NewVirtualMachineInstanceMigrationCrd() *extv1beta1.CustomResourceDefinitio
 			Categories: []string{
 				"all",
 			},
+		},
+		Subresources: &extv1beta1.CustomResourceSubresources{
+			Status: &extv1beta1.CustomResourceSubresourceStatus{},
 		},
 	}
 
@@ -238,6 +245,9 @@ func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
 			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
 			{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+		},
+		Subresources: &extv1beta1.CustomResourceSubresources{
+			Status: &extv1beta1.CustomResourceSubresourceStatus{},
 		},
 	}
 
