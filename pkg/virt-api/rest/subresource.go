@@ -39,6 +39,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
+	"kubevirt.io/kubevirt/pkg/util/status"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -50,6 +52,7 @@ type SubresourceAPIApp struct {
 	consoleServerPort       int
 	handlerTLSConfiguration *tls.Config
 	credentialsLock         *sync.Mutex
+	statusUpdater           *status.VMStatusUpdater
 }
 
 func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int, tlsConfiguration *tls.Config) *SubresourceAPIApp {
@@ -58,6 +61,7 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 		consoleServerPort:       consoleServerPort,
 		credentialsLock:         &sync.Mutex{},
 		handlerTLSConfiguration: tlsConfiguration,
+		statusUpdater:           status.NewVMStatusUpdater(virtCli),
 	}
 }
 
@@ -382,7 +386,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	}
 
 	log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
-	_, err = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), types.JSONPatchType, []byte(bodyString))
+	err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(bodyString))
 	if err != nil {
 		if strings.Contains(err.Error(), "jsonpatch test operation does not apply") {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
@@ -500,7 +504,7 @@ func (app *SubresourceAPIApp) RenameVMRequestHandler(request *restful.Request, r
 		return
 	}
 
-	_, err = app.virtCli.VirtualMachine(namespace).Patch(name, types.JSONPatchType, []byte(renameRequestJson))
+	err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, []byte(renameRequestJson))
 
 	if err != nil {
 		writeError(errors.NewInternalError(err), response)
@@ -570,8 +574,8 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		return
 	}
 
-	bodyString := ""
 	patchType := types.MergePatchType
+	var patchErr error
 
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
@@ -584,7 +588,9 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	// RunStrategyRerunOnFailure -> doesn't make sense
 	switch runStrategy {
 	case v1.RunStrategyHalted:
-		bodyString = getRunningJson(vm, true)
+		bodyString := getRunningJson(vm, true)
+		log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
+		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString))
 	case v1.RunStrategyRerunOnFailure, v1.RunStrategyManual:
 		patchType = types.JSONPatchType
 
@@ -597,6 +603,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			return
 		}
 
+		var bodyString string
 		if needsRestart {
 			bodyString, err = getChangeRequestJson(vm,
 				v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID},
@@ -609,18 +616,18 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			writeError(errors.NewInternalError(err), response)
 			return
 		}
+		log.Log.Object(vm).V(4).Infof("Patching VM status: %s", bodyString)
+		patchErr = app.statusUpdater.PatchStatus(vm, patchType, []byte(bodyString))
 	case v1.RunStrategyAlways:
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual start requests", v1.RunStrategyAlways)), response)
 		return
 	}
 
-	log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
-	_, err = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString))
-	if err != nil {
-		if strings.Contains(err.Error(), "jsonpatch test operation does not apply") {
-			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
+	if patchErr != nil {
+		if strings.Contains(patchErr.Error(), "jsonpatch test operation does not apply") {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, patchErr), response)
 		} else {
-			writeError(errors.NewInternalError(err), response)
+			writeError(errors.NewInternalError(patchErr), response)
 		}
 		return
 	}
@@ -658,8 +665,8 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		return
 	}
 
-	bodyString := ""
 	patchType := types.MergePatchType
+	var patchErr error
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
 		writeError(errors.NewInternalError(err), response)
@@ -673,23 +680,25 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		// pass the buck and ask virt-controller to stop the VM. this way the
 		// VM will retain RunStrategy = manual
 		patchType = types.JSONPatchType
-		bodyString, err = getChangeRequestJson(vm,
+		bodyString, err := getChangeRequestJson(vm,
 			v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID})
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)
 			return
 		}
+		log.Log.Object(vm).V(4).Infof("Patching VM status: %s", bodyString)
+		patchErr = app.statusUpdater.PatchStatus(vm, patchType, []byte(bodyString))
 	case v1.RunStrategyRerunOnFailure, v1.RunStrategyAlways:
-		bodyString = getRunningJson(vm, false)
+		bodyString := getRunningJson(vm, false)
+		log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
+		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString))
 	}
 
-	log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
-	_, err = app.virtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString))
-	if err != nil {
-		if strings.Contains(err.Error(), "jsonpatch test operation does not apply") {
-			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
+	if patchErr != nil {
+		if strings.Contains(patchErr.Error(), "jsonpatch test operation does not apply") {
+			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, patchErr), response)
 		} else {
-			writeError(errors.NewInternalError(err), response)
+			writeError(errors.NewInternalError(patchErr), response)
 		}
 		return
 	}
