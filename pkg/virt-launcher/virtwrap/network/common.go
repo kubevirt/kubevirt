@@ -30,6 +30,8 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/opencontainers/selinux/go-selinux"
+
 	"github.com/coreos/go-iptables/iptables"
 
 	lmf "github.com/subgraph/libmacouflage"
@@ -346,18 +348,32 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 }
 
 func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool, launcherPID string) error {
-	args := []string{"tuntap", "add", "mode", "tap", "user", "qemu", "group", "qemu", "name", tapName}
-	if isMultiqueue {
-		args = append(args, "multi_queue")
+	launcherSELinuxLabel, err := selinux.FileLabel(fmt.Sprintf("/proc/%s/attr/current", launcherPID))
+	if err != nil {
+		log.Log.Reason(err).Errorf("Could not retrieve the file label associated w/ PID: %s", launcherPID)
+		return err
 	}
-	cmd := exec.Command("ip", args...)
 
+	synchNamespaces := []string{
+		"--mount", "/proc/1/ns/mnt",
+		"exec", "--selinux-label", launcherSELinuxLabel, "--",
+	}
+	tapDeviceArgs := []string{
+		fmt.Sprintf("/proc/%s/root/usr/bin/tap-device-maker", launcherPID), "--tap-name", tapName,
+	}
+	if isMultiqueue {
+		tapDeviceArgs = append(tapDeviceArgs, "--multiqueue")
+	}
+	createTapDeviceArgs := append(synchNamespaces, tapDeviceArgs...)
+
+	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Log.Reason(err).Criticalf("Failed to create tap device %s. Reason: %s", tapName, out)
 		return err
 	}
-	log.Log.Infof("Created tap device: %s", tapName)
+
+	log.Log.Infof("Created tap device: %s in PID: %s using selinux label: %s", tapName, launcherPID, launcherSELinuxLabel)
 	return nil
 }
 
