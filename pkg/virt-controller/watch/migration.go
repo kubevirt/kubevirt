@@ -35,6 +35,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/util/status"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -57,6 +59,7 @@ type MigrationController struct {
 	podExpectations    *controller.UIDTrackingControllerExpectations
 	migrationStartLock *sync.Mutex
 	clusterConfig      *virtconfig.ClusterConfig
+	statusUpdater      *status.MigrationStatusUpdater
 }
 
 func NewMigrationController(templateService services.TemplateService,
@@ -79,6 +82,7 @@ func NewMigrationController(templateService services.TemplateService,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		migrationStartLock: &sync.Mutex{},
 		clusterConfig:      clusterConfig,
+		statusUpdater:      status.NewMigrationStatusUpdater(clientset),
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -164,7 +168,7 @@ func (c *MigrationController) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(migration) {
 		migration := migration.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(migration)
-		_, err = c.clientset.VirtualMachineInstanceMigration(migration.ObjectMeta.Namespace).Update(migration)
+		_, err = c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(migration)
 		return err
 	}
 
@@ -357,9 +361,13 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		}
 	}
 
-	if !reflect.DeepEqual(migration.Status, migrationCopy.Status) ||
-		!reflect.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
-		_, err := c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(migrationCopy)
+	if !reflect.DeepEqual(migration.Status, migrationCopy.Status) {
+		err := c.statusUpdater.UpdateStatus(migrationCopy)
+		if err != nil {
+			return err
+		}
+	} else if !reflect.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
+		_, err := c.clientset.VirtualMachineInstanceMigration(migrationCopy.Namespace).Update(migrationCopy)
 		if err != nil {
 			return err
 		}

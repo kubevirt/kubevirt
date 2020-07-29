@@ -34,6 +34,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/util/status"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
@@ -66,6 +68,7 @@ func NewVMController(vmiInformer cache.SharedIndexInformer,
 		cloneAuthFunc: func(pvcNamespace, pvcName, saNamespace, saName string) (bool, string, error) {
 			return cdiclone.CanServiceAccountClonePVC(clientset, pvcNamespace, pvcName, saNamespace, saName)
 		},
+		statusUpdater: status.NewVMStatusUpdater(clientset),
 	}
 
 	c.vmiVMInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -100,6 +103,7 @@ type VMController struct {
 	expectations           *controller.UIDTrackingControllerExpectations
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
 	cloneAuthFunc          CloneAuthFunc
+	statusUpdater          *status.VMStatusUpdater
 }
 
 func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
@@ -162,7 +166,7 @@ func (c *VMController) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(vm) {
 		vm := vm.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(vm)
-		_, err = c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Update(vm)
+		_, err = c.clientset.VirtualMachine(vm.Namespace).Update(vm)
 
 		if err != nil {
 			logger.Reason(err).Error("Updating api version annotations failed")
@@ -1205,7 +1209,7 @@ func (c *VMController) updateStatus(vmOrig *virtv1.VirtualMachine, vmi *virtv1.V
 	// only update if necessary
 	err = nil
 	if !reflect.DeepEqual(vm.Status, vmOrig.Status) {
-		_, err = c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Update(vm)
+		err = c.statusUpdater.UpdateStatus(vm)
 	}
 
 	return err
