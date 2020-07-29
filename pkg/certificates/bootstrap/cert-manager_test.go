@@ -49,6 +49,29 @@ var _ = Describe("cert-manager", func() {
 		}, time.Second).Should(Not(BeNil()))
 	})
 
+	It("should load a certificate even if cert and key file are in different directories", func() {
+		writeCertsToDir(certDir)
+
+		var err error
+		newCertDir, err := ioutil.TempDir("", "certs")
+		newKeyDir, err := ioutil.TempDir("", "keys")
+		crt, err := ioutil.ReadFile(certFilePath)
+		key, err := ioutil.ReadFile(keyFilePath)
+		Expect(err).ToNot(HaveOccurred())
+
+		newCertFilePath := filepath.Join(newCertDir, "tls.crt")
+		newKeyFilePath := filepath.Join(newKeyDir, "tls.key")
+		Expect(ioutil.WriteFile(newCertFilePath, crt, 0777)).To(Succeed())
+		Expect(ioutil.WriteFile(newKeyFilePath, key, 0777)).To(Succeed())
+
+		certManager := NewFileCertificateManager(newCertFilePath, newKeyFilePath)
+		go certManager.Start()
+		defer certManager.Stop()
+		Eventually(func() *tls.Certificate {
+			return certManager.Current()
+		}, time.Second).Should(Not(BeNil()))
+	})
+
 	It("should load a certificate if it appears after the start", func() {
 		certManager := NewFileCertificateManager(certFilePath, keyFilePath)
 		go certManager.Start()
@@ -75,6 +98,7 @@ var _ = Describe("cert-manager", func() {
 			return certManager.Current()
 		}, 2*time.Second).ShouldNot(BeNil())
 	})
+
 	Context("with fallback handling", func() {
 		It("should return a fallback certificate if the is no certificate", func() {
 			certManager := NewFallbackCertificateManager(NewFileCertificateManager(certFilePath, keyFilePath))
