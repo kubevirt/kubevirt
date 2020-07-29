@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
 )
@@ -115,8 +116,18 @@ func main() {
 
 	execCmd := &cobra.Command{
 		Use:   "exec",
-		Short: "execute a sandboxed command in a specific mount namespace",
+		Short: "execute a sandboxed command in a specific mount namespace using the desired selinux label",
 		Args:  cobra.MinimumNArgs(1),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			targetSELinuxContext := cmd.Flag("selinux-label").Value.String()
+			if targetSELinuxContext != "" {
+				err := selinux.SetExecLabel(targetSELinuxContext)
+				if err != nil {
+					return fmt.Errorf("failed to switch selinux context to %s. Reason: %v", targetSELinuxContext, err)
+				}
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := syscall.Exec(args[0], args, os.Environ())
 			if err != nil {
@@ -125,6 +136,7 @@ func main() {
 			return nil
 		},
 	}
+	execCmd.Flags().String("selinux-label", "", "run the command in a specific selinux context")
 
 	mntCmd := &cobra.Command{
 		Use:   "mount",
