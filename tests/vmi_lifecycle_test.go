@@ -1598,8 +1598,8 @@ func shouldUseEmulation(virtClient kubecli.KubevirtClient) bool {
 	return useEmulation
 }
 
-func renderPkillAllJob(processName string) *k8sv1.Pod {
-	return tests.RenderJob("vmi-killer", []string{"pkill"}, []string{"-9", processName})
+func renderPkillAllPod(processName string) *k8sv1.Pod {
+	return tests.RenderPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
 }
 
 func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
@@ -1632,15 +1632,15 @@ func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineI
 }
 
 func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
-	job := renderPkillAllJob("virt-handler")
-	job.Spec.NodeName = node
-	pod, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
+	pod := renderPkillAllPod("virt-handler")
+	pod.Spec.NodeName = node
+	createdPod, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
 	Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
 
 	getStatus := func() k8sv1.PodPhase {
-		pod, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
+		podG, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Get(createdPod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Should return current status")
-		return pod.Status.Phase
+		return podG.Status.Phase
 	}
 
 	Eventually(getStatus, 30, 0.5).Should(Equal(k8sv1.PodSucceeded), "Pod should end itself")
@@ -1649,17 +1649,17 @@ func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
 }
 
 func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node string) error {
-	job := renderPkillAllJob("virt-launcher")
-	job.Spec.NodeName = node
-	_, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
+	pod := renderPkillAllPod("virt-launcher")
+	pod.Spec.NodeName = node
+	_, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
 
 	return err
 }
 
 func pkillAllVMIs(virtCli kubecli.KubevirtClient, node string) error {
-	job := renderPkillAllJob("qemu")
-	job.Spec.NodeName = node
-	_, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
+	pod := renderPkillAllPod("qemu")
+	pod.Spec.NodeName = node
+	_, err := virtCli.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
 
 	return err
 }
