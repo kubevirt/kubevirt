@@ -2701,6 +2701,10 @@ func NewInt32(x int32) *int32 {
 	return &x
 }
 
+func NewInt64(x int64) *int64 {
+	return &x
+}
+
 func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
 	name := "replicaset" + rand.String(5)
 	rs := &v1.VirtualMachineInstanceReplicaSet{
@@ -2726,8 +2730,8 @@ func NewBool(x bool) *bool {
 	return &x
 }
 
-func RenderJob(name string, cmd []string, args []string) *k8sv1.Pod {
-	job := k8sv1.Pod{
+func RenderPod(name string, cmd []string, args []string) *k8sv1.Pod {
+	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name,
 			Labels: map[string]string{
@@ -2755,7 +2759,7 @@ func RenderJob(name string, cmd []string, args []string) *k8sv1.Pod {
 		},
 	}
 
-	return &job
+	return &pod
 }
 
 func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
@@ -3573,9 +3577,9 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	job := newDeleteHostDisksJob(diskPath)
+	pod := newDeleteHostDisksPod(diskPath)
 	// remove a disk image from a specific node
-	job.Spec.Affinity = &k8sv1.Affinity{
+	pod.Spec.Affinity = &k8sv1.Affinity{
 		NodeAffinity: &k8sv1.NodeAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -3592,13 +3596,13 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 			},
 		},
 	}
-	job, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Create(job)
+	pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Create(pod)
 	PanicOnError(err)
 
 	getStatus := func() k8sv1.PodPhase {
-		pod, err := virtClient.CoreV1().Pods(NamespaceTestDefault).Get(job.Name, metav1.GetOptions{})
+		podG, err := virtClient.CoreV1().Pods(NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		return pod.Status.Phase
+		return podG.Status.Phase
 	}
 	Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
 }
@@ -3868,28 +3872,28 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 	dir := filepath.Dir(diskPath)
 
 	args := []string{fmt.Sprintf(`dd if=/dev/zero of=%s bs=1 count=0 seek=1G && ls -l %s`, diskPath, dir)}
-	job := RenderHostPathJob("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+	pod := RenderHostPathPod("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
-	return job
+	return pod
 }
 
-func newDeleteHostDisksJob(diskPath string) *k8sv1.Pod {
+func newDeleteHostDisksPod(diskPath string) *k8sv1.Pod {
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
 
 	args := []string{fmt.Sprintf(`rm -rf %s`, diskPath)}
-	job := RenderHostPathJob("hostdisk-delete-job", filepath.Dir(diskPath), hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
+	pod := RenderHostPathPod("hostdisk-delete-job", filepath.Dir(diskPath), hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
-	return job
+	return pod
 }
 
-func RenderHostPathJob(jobName string, dir string, hostPathType k8sv1.HostPathType, mountPropagation k8sv1.MountPropagationMode, cmd []string, args []string) *k8sv1.Pod {
-	job := RenderJob(jobName, cmd, args)
-	job.Spec.Containers[0].VolumeMounts = append(job.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+func RenderHostPathPod(podName string, dir string, hostPathType k8sv1.HostPathType, mountPropagation k8sv1.MountPropagationMode, cmd []string, args []string) *k8sv1.Pod {
+	pod := RenderPod(podName, cmd, args)
+	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
 		Name:             "hostpath-mount",
 		MountPropagation: &mountPropagation,
 		MountPath:        dir,
 	})
-	job.Spec.Volumes = append(job.Spec.Volumes, k8sv1.Volume{
+	pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 		Name: "hostpath-mount",
 		VolumeSource: k8sv1.VolumeSource{
 			HostPath: &k8sv1.HostPathVolumeSource{
@@ -3899,46 +3903,7 @@ func RenderHostPathJob(jobName string, dir string, hostPathType k8sv1.HostPathTy
 		},
 	})
 
-	return job
-}
-
-// NewHelloWorldJob takes a DNS entry or an IP and a port which it will use create a pod
-// which tries to contact the host on the provided port. It expects to receive "Hello World!" to succeed.
-func NewHelloWorldJob(host string, port string) *k8sv1.Pod {
-	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s %s -i 3 -w 3))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)}
-	job := RenderJob("netcat", []string{"/bin/bash", "-c"}, check)
-
-	return job
-}
-
-// NewHelloWorldJobUDP takes a DNS entry or an IP and a port which it will use create a pod
-// which tries to contact the host on the provided port. It expects to receive "Hello World!" to succeed.
-// Note that in case of UDP, the server will not see the connection unless something is sent over it
-// However, netcat does not work well with UDP and closes before the answer arrives, for that another netcat call is needed,
-// this time as a UDP listener
-func NewHelloWorldJobUDP(host string, port string) *k8sv1.Pod {
-	localPort, err := strconv.Atoi(port)
-	if err != nil {
-		return nil
-	}
-	// local port is used to catch the reply - any number can be used
-	// we make it different than the port to be safe if both are running on the same machine
-	localPort--
-	check := []string{fmt.Sprintf(`set -x; trap "kill 0" EXIT; x="$(head -n 1 < <(echo | nc -up %d %s %s -i 3 -w 3 & nc -ul %d))"; echo "$x" ; if [ "$x" = "Hello UDP World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`,
-		localPort, host, port, localPort)}
-	job := RenderJob("netcat", []string{"/bin/bash", "-c"}, check)
-
-	return job
-}
-
-// NewHelloWorldJobHttp gets an IP address and a port, which it uses to create a pod.
-// This pod tries to contact the host on the provided port, over HTTP.
-// On success - it expects to receive "Hello World!".
-func NewHelloWorldJobHttp(host string, port string) *k8sv1.Pod {
-	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, FormatIPForURL(host), port)}
-	job := RenderJob("curl", []string{"/bin/bash", "-c"}, check)
-
-	return job
+	return pod
 }
 
 func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.ResourceName) *k8sv1.Node {
