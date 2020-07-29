@@ -71,7 +71,7 @@ func SetupTLSWithCertManager(caManager ClientCAManager, certManager certificate.
 	return tlsConfig
 }
 
-func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, allowIntermediateCerts bool) *tls.Config {
+func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool) *tls.Config {
 	return &tls.Config{
 		InsecureSkipVerify: true,
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
@@ -118,7 +118,7 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 					}
 
 					var intermediatePool *x509.CertPool = nil
-					if allowIntermediateCerts {
+					if externallyManaged {
 						intermediatePool := x509.NewCertPool()
 						for _, rawIntermediate := range rawIntermediates {
 							if c, err := x509.ParseCertificate(rawIntermediate); err != nil {
@@ -126,6 +126,10 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 							} else {
 								intermediatePool.AddCert(c)
 							}
+						}
+					} else {
+						if c.Subject.CommonName != "kubevirt.io:system:client:virt-handler" {
+							return fmt.Errorf("common name is invalid, expected %s, but got %s", "kubevirt.io:system:client:virt-handler", c.Subject.CommonName)
 						}
 					}
 
@@ -135,12 +139,9 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 						KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 					})
 					if err != nil {
-						return err
-					}
-
-					if err != nil {
 						return fmt.Errorf("could not verify peer certificate: %v", err)
 					}
+
 					return nil
 				},
 				ClientAuth: tls.RequireAndVerifyClientCert,
@@ -150,7 +151,7 @@ func SetupTLSForVirtHandlerServer(caManager ClientCAManager, certManager certifi
 	}
 }
 
-func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certificate.Manager, allowIntermediateCerts bool) *tls.Config {
+func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certificate.Manager, externallyManaged bool) *tls.Config {
 	return &tls.Config{
 		InsecureSkipVerify: true,
 		ClientAuth:         tls.RequireAndVerifyClientCert,
@@ -186,7 +187,7 @@ func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certif
 			}
 
 			var intermediatePool *x509.CertPool = nil
-			if allowIntermediateCerts {
+			if externallyManaged {
 				intermediatePool := x509.NewCertPool()
 				for _, rawIntermediate := range rawIntermediates {
 					if c, err := x509.ParseCertificate(rawIntermediate); err != nil {
@@ -194,6 +195,10 @@ func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certif
 					} else {
 						intermediatePool.AddCert(c)
 					}
+				}
+			} else {
+				if c.Subject.CommonName != "kubevirt.io:system:client:virt-handler" {
+					return fmt.Errorf("common name is invalid, expected %s, but got %s", "kubevirt.io:system:client:virt-handler", c.Subject.CommonName)
 				}
 			}
 
@@ -203,12 +208,9 @@ func SetupTLSForVirtHandlerClients(caManager ClientCAManager, certManager certif
 				KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 			})
 			if err != nil {
-				return err
-			}
-
-			if err != nil {
 				return fmt.Errorf("could not verify peer certificate: %v", err)
 			}
+
 			return nil
 		},
 	}
