@@ -139,3 +139,30 @@ func (v *rc) Patch(name string, pt types.PatchType, data []byte, subresources ..
 		Into(result)
 	return
 }
+
+func (v *rc) PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result = &v1.VirtualMachineInstanceReplicaSet{}
+	err = v.restClient.Patch(pt).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Name(name).
+		Body(data).
+		Do().
+		Into(result)
+	return
+}
+
+func (v *rc) UpdateStatus(vmi *v1.VirtualMachineInstanceReplicaSet) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result = &v1.VirtualMachineInstanceReplicaSet{}
+	err = v.restClient.Put().
+		Name(vmi.ObjectMeta.Name).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Body(vmi).
+		Do().
+		Into(result)
+	result.SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
+	return
+}
