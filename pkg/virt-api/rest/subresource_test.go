@@ -39,6 +39,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 
+	"kubevirt.io/kubevirt/pkg/util/status"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,6 +86,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		flag.Set("kubeconfig", "")
 		flag.Set("master", server.URL())
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
+		app.statusUpdater = status.NewVMStatusUpdater(app.virtCli)
 		app.credentialsLock = &sync.Mutex{}
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 
@@ -378,7 +381,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			vm := v1.VirtualMachine{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name: "testvm",
+					Name:      "testvm",
+					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineSpec{
 					Running: &running,
@@ -420,7 +424,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm/status"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -458,7 +462,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			vm := v1.VirtualMachine{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name: "testvm",
+					Name:      "testvm",
+					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineSpec{
 					Running: &running,
@@ -488,7 +493,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm/status"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -513,7 +518,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			vm := v1.VirtualMachine{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name: "testvm",
+					Name:      "testvm",
+					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineSpec{
 					Running: &running,
@@ -542,7 +548,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm/status"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -560,7 +566,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			vm := v1.VirtualMachine{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name: "testvm",
+					Name:      "testvm",
+					Namespace: "default",
 				},
 				Spec: v1.VirtualMachineSpec{
 					Running: &running,
@@ -583,7 +590,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm/status"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -746,7 +753,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 								BeforeEach(func() {
 									server.AppendHandlers(
 										ghttp.CombineHandlers(
-											ghttp.VerifyRequest("PATCH", getVMPath("v1alpha3", vm.Namespace, vm.Name)),
+											ghttp.VerifyRequest("PATCH", getVMPath("v1alpha3", vm.Namespace, vm.Name)+"/status"),
 											ghttp.RespondWith(http.StatusInternalServerError, nil),
 										),
 									)
@@ -779,7 +786,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 									server.AppendHandlers(
 										ghttp.CombineHandlers(
-											ghttp.VerifyRequest("PATCH", getVMPath("v1alpha3", vm.Namespace, vm.Name)),
+											ghttp.VerifyRequest("PATCH", getVMPath("v1alpha3", vm.Namespace, vm.Name)+"/status"),
 											ghttp.RespondWithJSONEncodedPtr(&vmPatchStatus, patchedVM),
 										),
 									)
@@ -845,7 +852,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm/status"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
@@ -976,7 +983,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				server.AppendHandlers(
 					ghttp.CombineHandlers(
-						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm/status"),
 						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 					),
 				)
@@ -1093,12 +1100,21 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				),
 			)
 
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-				),
-			)
+			if runStrategy == v1.RunStrategyManual {
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm/status"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+				)
+			} else {
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+				)
+			}
 
 			app.StopVMRequestHandler(request, response)
 
@@ -1517,7 +1533,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 func newVirtualMachineWithRunStrategy(runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
 	return &v1.VirtualMachine{
 		ObjectMeta: k8smetav1.ObjectMeta{
-			Name: "testvm",
+			Name:      "testvm",
+			Namespace: "default",
 		},
 		Spec: v1.VirtualMachineSpec{
 			RunStrategy: &runStrategy,
