@@ -688,7 +688,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	vmCopy.Status.SnapshotInProgress = &s.snapshot.Name
 	controller.AddFinalizer(vmCopy, sourceFinalizer)
 
-	_, err := s.client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+	_, err := s.client.VirtualMachine(vmCopy.Namespace).UpdateStatus(vmCopy)
 	if err != nil {
 		return false, err
 	}
@@ -705,7 +705,7 @@ func (s *vmSnapshotSource) Unlock() error {
 	vmCopy.Status.SnapshotInProgress = nil
 	controller.RemoveFinalizer(vmCopy, sourceFinalizer)
 
-	_, err := s.client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+	_, err := s.client.VirtualMachine(vmCopy.Namespace).UpdateStatus(vmCopy)
 	if err != nil {
 		return err
 	}

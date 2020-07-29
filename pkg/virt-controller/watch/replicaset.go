@@ -33,6 +33,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/util/status"
+
 	virtv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -73,6 +75,7 @@ func NewVMIReplicaSet(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache
 		clientset:     clientset,
 		expectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		burstReplicas: burstReplicas,
+		statusUpdater: status.NewVMIRSStatusUpdater(clientset),
 	}
 
 	c.vmiRSInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -98,6 +101,7 @@ type VMIReplicaSet struct {
 	recorder      record.EventRecorder
 	expectations  *controller.UIDTrackingControllerExpectations
 	burstReplicas uint
+	statusUpdater *status.VMIRSStatusUpdater
 }
 
 func (c *VMIReplicaSet) Run(threadiness int, stopCh <-chan struct{}) {
@@ -158,7 +162,7 @@ func (c *VMIReplicaSet) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(rs) {
 		rs := rs.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(rs)
-		_, err = c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+		_, err = c.clientset.ReplicaSet(rs.Namespace).Update(rs)
 		return err
 	}
 
@@ -683,7 +687,7 @@ func (c *VMIReplicaSet) updateStatus(rs *virtv1.VirtualMachineInstanceReplicaSet
 	// Add/Remove Failure condition if necessary
 	c.checkFailure(rs, diff, scaleErr)
 
-	_, err = c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+	err = c.statusUpdater.UpdateStatus(rs)
 
 	if err != nil {
 		return err

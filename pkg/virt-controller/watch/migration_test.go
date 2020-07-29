@@ -93,51 +93,57 @@ var _ = Describe("Migration watcher", func() {
 	}
 
 	shouldExpectMigrationSchedulingState := func(migration *v1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationScheduling))
-		}).Return(migration, nil)
+			return arg, nil
+		})
 	}
 
 	shouldExpectMigrationPreparingTargetState := func(migration *v1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationPreparingTarget))
-		}).Return(migration, nil)
+			return arg, nil
+		})
 	}
 
 	shouldExpectMigrationTargetReadyState := func(migration *v1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationTargetReady))
-		}).Return(migration, nil)
+			return arg, nil
+		})
 	}
 
 	shouldExpectMigrationRunningState := func(migration *v1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationRunning))
-		}).Return(migration, nil)
+			return arg, nil
+		})
 	}
 
 	shouldExpectMigrationCompletedState := func(migration *v1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationSucceeded))
-		}).Return(migration, nil)
+			return arg, nil
+		})
 	}
 
 	shouldExpectMigrationFailedState := func(migration *v1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) (interface{}, interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationFailed))
-		}).Return(migration, nil)
+			return arg, nil
+		})
 	}
 
 	shouldExpectVirtualMachineHandoff := func(vmi *v1.VirtualMachineInstance, migrationUid types.UID, targetNode string) {
-		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		vmiInterface.EXPECT().Update(gomock.Any()).DoAndReturn(func(arg interface{}) (interface{}, interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState).ToNot(BeNil())
 			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.MigrationUID).To(Equal(migrationUid))
 
 			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
 			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.TargetNode).To(Equal(targetNode))
 			Expect(arg.(*v1.VirtualMachineInstance).Labels[v1.MigrationTargetNodeNameLabel]).To(Equal(targetNode))
-
-		}).Return(vmi, nil)
+			return arg, nil
+		})
 	}
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
@@ -202,7 +208,7 @@ var _ = Describe("Migration watcher", func() {
 		ctrl.Finish()
 	})
 
-	addVirtualMachine := func(vmi *v1.VirtualMachineInstance) {
+	addVirtualMachineInstance := func(vmi *v1.VirtualMachineInstance) {
 		mockQueue.ExpectAdds(1)
 		vmiSource.Add(vmi)
 		mockQueue.Wait()
@@ -220,7 +226,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
 
 			controller.Execute()
@@ -234,7 +240,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 
 			// Ensure that 4 migrations are there which are in non-final state
 			for i := 0; i < 4; i++ {
@@ -243,7 +249,7 @@ var _ = Describe("Migration watcher", func() {
 				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, v1.MigrationScheduling)
 
 				addMigration(migration)
-				addVirtualMachine(vmi)
+				addVirtualMachineInstance(vmi)
 			}
 
 			// Add two pending migrations without a target pod to see that tye get ignored
@@ -253,7 +259,7 @@ var _ = Describe("Migration watcher", func() {
 				vmi.Status.NodeName = fmt.Sprintf("node%v", i)
 
 				addMigration(migration)
-				addVirtualMachine(vmi)
+				addVirtualMachineInstance(vmi)
 			}
 
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
@@ -267,7 +273,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 
 			// Ensure that 5 migrations are there which are in non-final state
 			for i := 0; i < 5; i++ {
@@ -276,7 +282,7 @@ var _ = Describe("Migration watcher", func() {
 				vmi.Status.NodeName = fmt.Sprintf("node%v", i)
 
 				addMigration(migration)
-				addVirtualMachine(vmi)
+				addVirtualMachineInstance(vmi)
 			}
 
 			controller.Execute()
@@ -288,7 +294,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 
 			// Ensure that 3 migrations are there which are running
 			for i := 0; i < 3; i++ {
@@ -297,7 +303,7 @@ var _ = Describe("Migration watcher", func() {
 				vmi.Status.NodeName = fmt.Sprintf("node%v", i)
 
 				addMigration(migration)
-				addVirtualMachine(vmi)
+				addVirtualMachineInstance(vmi)
 			}
 
 			// Ensure that 2 migrations are pending but have a target pod
@@ -308,7 +314,7 @@ var _ = Describe("Migration watcher", func() {
 				vmi.Status.NodeName = fmt.Sprintf("node%v", i)
 
 				addMigration(migration)
-				addVirtualMachine(vmi)
+				addVirtualMachineInstance(vmi)
 				podInformer.GetStore().Add(pod)
 			}
 
@@ -321,7 +327,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 
 			// Ensure that 4 migrations are there which are in non-final state
 			for i := 0; i < 1; i++ {
@@ -329,7 +335,7 @@ var _ = Describe("Migration watcher", func() {
 				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, v1.MigrationScheduling)
 
 				addMigration(migration)
-				addVirtualMachine(vmi)
+				addVirtualMachineInstance(vmi)
 			}
 
 			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
@@ -343,7 +349,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 
 			// Ensure that 5 migrations are there which are in non-final state
 			for i := 0; i < 2; i++ {
@@ -351,7 +357,7 @@ var _ = Describe("Migration watcher", func() {
 				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, v1.MigrationScheduling)
 
 				addMigration(migration)
-				addVirtualMachine(vmi)
+				addVirtualMachineInstance(vmi)
 			}
 
 			controller.Execute()
@@ -407,7 +413,7 @@ var _ = Describe("Migration watcher", func() {
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			shouldExpectPodCreation(vmi.UID, migration.UID, 2, 1, 1)
 
 			controller.Execute()
@@ -421,7 +427,7 @@ var _ = Describe("Migration watcher", func() {
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
 			shouldExpectMigrationSchedulingState(migration)
@@ -440,7 +446,7 @@ var _ = Describe("Migration watcher", func() {
 			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
 			shouldExpectMigrationFailedState(migration)
@@ -466,7 +472,7 @@ var _ = Describe("Migration watcher", func() {
 			pod.Spec.NodeName = "node01"
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
 			shouldExpectMigrationFailedState(migration)
@@ -496,7 +502,7 @@ var _ = Describe("Migration watcher", func() {
 			pod.Spec.NodeName = "node01"
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
 			shouldExpectMigrationFailedState(migration)
@@ -523,7 +529,7 @@ var _ = Describe("Migration watcher", func() {
 			pod.Spec.NodeName = "node01"
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
 			shouldExpectVirtualMachineHandoff(vmi, migration.UID, "node01")
@@ -540,7 +546,7 @@ var _ = Describe("Migration watcher", func() {
 			pod.Spec.NodeName = "node01"
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
 			shouldExpectVirtualMachineHandoff(vmi, migration.UID, "node01")
@@ -560,7 +566,7 @@ var _ = Describe("Migration watcher", func() {
 			pod.Spec.NodeName = "node01"
 
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
 			shouldExpectVirtualMachineHandoff(vmi, migration.UID, "node01")
@@ -584,7 +590,7 @@ var _ = Describe("Migration watcher", func() {
 			}
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "node01"
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
 			shouldExpectMigrationPreparingTargetState(migration)
@@ -605,7 +611,7 @@ var _ = Describe("Migration watcher", func() {
 				TargetNodeAddress: "10.10.10.10:1234",
 			}
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
 			shouldExpectMigrationTargetReadyState(migration)
@@ -627,7 +633,7 @@ var _ = Describe("Migration watcher", func() {
 				StartTimestamp:    now(),
 			}
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
 			shouldExpectMigrationRunningState(migration)
@@ -652,7 +658,7 @@ var _ = Describe("Migration watcher", func() {
 				Completed:         true,
 			}
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
 			shouldExpectMigrationCompletedState(migration)
@@ -689,7 +695,7 @@ var _ = Describe("Migration watcher", func() {
 				StartTimestamp:    now(),
 			}
 			addMigration(migration)
-			addVirtualMachine(vmi)
+			addVirtualMachineInstance(vmi)
 			podFeeder.Add(pod)
 
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Return(vmi, nil)
