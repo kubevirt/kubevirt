@@ -1922,6 +1922,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should be able to start a vm with guest memory different from requested and keed guaranteed qos", func() {
+				Skip("Skip test till issue https://github.com/kubevirt/kubevirt/issues/3910 is fixed")
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets:               2,
@@ -1959,10 +1960,12 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				res, err := expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass' || echo 'fail'\n"},
-					&expect.BExp{R: "pass"},
-					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k; echo $?\n"},
+				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass' || echo 'fail'\r"},
+					&expect.BExp{R: "\npass.*\\$"},
+					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\r"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: "echo $?\r"},
 					&expect.BExp{R: tests.Retcode("0", "\\$ ")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
