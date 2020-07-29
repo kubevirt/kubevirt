@@ -131,3 +131,30 @@ func (v *migration) Patch(name string, pt types.PatchType, data []byte, subresou
 		Into(result)
 	return result, err
 }
+
+func (v *migration) PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceMigration, err error) {
+	result = &v1.VirtualMachineInstanceMigration{}
+	err = v.restClient.Patch(pt).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Name(name).
+		Body(data).
+		Do().
+		Into(result)
+	return
+}
+
+func (v *migration) UpdateStatus(vmi *v1.VirtualMachineInstanceMigration) (result *v1.VirtualMachineInstanceMigration, err error) {
+	result = &v1.VirtualMachineInstanceMigration{}
+	err = v.restClient.Put().
+		Name(vmi.ObjectMeta.Name).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Body(vmi).
+		Do().
+		Into(result)
+	result.SetGroupVersionKind(v1.VirtualMachineInstanceMigrationGroupVersionKind)
+	return
+}
