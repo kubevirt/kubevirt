@@ -40,14 +40,14 @@ func (_mr *_MockBindMechanismRecorder) discoverPodNetworkInterface() *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "discoverPodNetworkInterface")
 }
 
-func (_m *MockBindMechanism) preparePodNetworkInterfaces(isMultiqueue bool) error {
-	ret := _m.ctrl.Call(_m, "preparePodNetworkInterfaces", isMultiqueue)
+func (_m *MockBindMechanism) preparePodNetworkInterfaces(isMultiqueue bool, launcherPID string) error {
+	ret := _m.ctrl.Call(_m, "preparePodNetworkInterfaces", isMultiqueue, launcherPID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) preparePodNetworkInterfaces(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "preparePodNetworkInterfaces", arg0)
+func (_mr *_MockBindMechanismRecorder) preparePodNetworkInterfaces(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "preparePodNetworkInterfaces", arg0, arg1)
 }
 
 func (_m *MockBindMechanism) loadCachedInterface(pid string, name string) (bool, error) {
@@ -112,14 +112,14 @@ func (_mr *_MockBindMechanismRecorder) startDHCP(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "startDHCP", arg0)
 }
 
-func (_m *MockBindMechanism) createVirtualNetworkingDevice(deviceName string, isMultiqueue bool) error {
-	ret := _m.ctrl.Call(_m, "createVirtualNetworkingDevice", deviceName, isMultiqueue)
+func (_m *MockBindMechanism) createVirtualNetworkingDevice(deviceName string, isMultiqueue bool, launcherPID string) error {
+	ret := _m.ctrl.Call(_m, "createVirtualNetworkingDevice", deviceName, isMultiqueue, launcherPID)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockBindMechanismRecorder) createVirtualNetworkingDevice(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "createVirtualNetworkingDevice", arg0, arg1)
+func (_mr *_MockBindMechanismRecorder) createVirtualNetworkingDevice(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "createVirtualNetworkingDevice", arg0, arg1, arg2)
 }
 
 func (_m *MockBindMechanism) configureVirtualNetworkingDevice() error {
