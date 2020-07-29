@@ -731,6 +731,61 @@ func createOrUpdateConfigMaps(kv *v1.KubeVirt,
 
 	return nil
 }
+func rolloutNonCompatibleCRDChanges(kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	ext := clientset.ExtensionsClient()
+
+	version := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+	id := kv.Status.TargetDeploymentID
+
+	for _, crd := range targetStrategy.crds {
+		var cachedCrd *extv1beta1.CustomResourceDefinition
+
+		crd := crd.DeepCopy()
+		obj, exists, _ := stores.CrdCache.Get(crd)
+		if exists {
+			cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
+		}
+
+		injectOperatorMetadata(kv, &crd.ObjectMeta, version, imageRegistry, id)
+		if exists && objectMatchesVersion(&cachedCrd.ObjectMeta, version, imageRegistry, id) {
+			// Patch if in the deployed version the subresource is not enabled
+			var ops []string
+
+			// enable the status subresources now, in case that they were disabled before
+			if crd.Spec.Subresources == nil || crd.Spec.Subresources.Status == nil {
+				continue
+			} else if crd.Spec.Subresources != nil && crd.Spec.Subresources.Status != nil {
+				if cachedCrd.Spec.Subresources != nil && cachedCrd.Spec.Subresources.Status != nil {
+					continue
+				}
+			}
+
+			// Add Spec Patch
+			newSpec, err := json.Marshal(crd.Spec)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+
+			_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Patch(crd.Name, types.JSONPatchType, generatePatchBytes(ops))
+			if err != nil {
+				return fmt.Errorf("unable to patch crd %+v: %v", crd, err)
+			}
+			log.Log.V(2).Infof("crd %v updated", crd.GetName())
+
+		} else {
+			log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())
+		}
+	}
+
+	return nil
+}
 
 func createOrUpdateCrds(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
@@ -779,6 +834,14 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 				return err
 			}
 			ops = append(ops, labelAnnotationPatch...)
+
+			// subresource support needs to be introduced carefully after the controll plane roll-over
+			// to avoid creating zombie entities which don't get processed du to ignored status updates
+			if cachedCrd.Spec.Subresources == nil || cachedCrd.Spec.Subresources.Status == nil {
+				if crd.Spec.Subresources != nil && crd.Spec.Subresources.Status != nil {
+					crd.Spec.Subresources.Status = nil
+				}
+			}
 
 			// Add Spec Patch
 			newSpec, err := json.Marshal(crd.Spec)
@@ -2559,12 +2622,19 @@ func SyncAll(queue workqueue.RateLimitingInterface, kv *v1.KubeVirt, prevStrateg
 		return false, err
 	}
 
-	// -------- CLEAN UP OLD UNUSED OBJECTS --------
 	if !infrastructureRolledOver {
 		// still waiting on roll out before cleaning up.
 		return false, nil
 	}
 
+	// -------- ROLLOUT INCOMPATIBLE CHANGES WHICH REQUIRE A FULL CONTROLL PLANE ROLL OVER --------
+	// some changes can only be done after the control plane rolled over
+	err = rolloutNonCompatibleCRDChanges(kv, targetStrategy, stores, clientset, expectations)
+	if err != nil {
+		return false, err
+	}
+
+	// -------- CLEAN UP OLD UNUSED OBJECTS --------
 	// outdated webhooks can potentially block deletes of other objects during the cleanup and need to be removed first
 
 	// remove unused validating webhooks
