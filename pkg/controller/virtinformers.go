@@ -199,6 +199,9 @@ type KubeInformerFactory interface {
 	// PVC StorageClasses
 	StorageClass() cache.SharedIndexInformer
 
+	// Pod returns an informer for ALL Pods in the system
+	Pod() cache.SharedIndexInformer
+
 	K8SInformerFactory() informers.SharedInformerFactory
 }
 
@@ -436,7 +439,7 @@ func (f *kubeInformerFactory) PersistentVolumeClaim() cache.SharedIndexInformer 
 	return f.getInformer("persistentVolumeClaimInformer", func() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "persistentvolumeclaims", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &k8sv1.PersistentVolumeClaim{}, f.defaultResync, cache.Indexers{})
+		return cache.NewSharedIndexInformer(lw, &k8sv1.PersistentVolumeClaim{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
@@ -760,6 +763,13 @@ func (f *kubeInformerFactory) StorageClass() cache.SharedIndexInformer {
 		restClient := f.clientSet.StorageV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "storageclasses", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &storagev1.StorageClass{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) Pod() cache.SharedIndexInformer {
+	return f.getInformer("podInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

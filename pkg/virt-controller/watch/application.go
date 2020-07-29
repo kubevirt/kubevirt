@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/snapshot"
 )
 
 const (
@@ -104,7 +105,7 @@ type VirtControllerApp struct {
 	templateService services.TemplateService
 	restClient      *clientrest.RESTClient
 	informerFactory controller.KubeInformerFactory
-	podInformer     cache.SharedIndexInformer
+	kvPodInformer   cache.SharedIndexInformer
 
 	nodeInformer   cache.SharedIndexInformer
 	nodeController *NodeController
@@ -132,10 +133,11 @@ type VirtControllerApp struct {
 	migrationController *MigrationController
 	migrationInformer   cache.SharedIndexInformer
 
-	snapshotController        *SnapshotController
+	snapshotController        *snapshot.VMSnapshotController
 	vmSnapshotInformer        cache.SharedIndexInformer
 	vmSnapshotContentInformer cache.SharedIndexInformer
 	storageClassInformer      cache.SharedIndexInformer
+	allPodInformer            cache.SharedIndexInformer
 
 	crdInformer cache.SharedIndexInformer
 
@@ -233,7 +235,7 @@ func Execute() {
 	restful.Add(webService)
 
 	app.vmiInformer = app.informerFactory.VMI()
-	app.podInformer = app.informerFactory.KubeVirtPod()
+	app.kvPodInformer = app.informerFactory.KubeVirtPod()
 	app.nodeInformer = app.informerFactory.KubeVirtNode()
 
 	app.vmiCache = app.vmiInformer.GetStore()
@@ -253,6 +255,7 @@ func Execute() {
 	app.vmSnapshotInformer = app.informerFactory.VirtualMachineSnapshot()
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
 	app.storageClassInformer = app.informerFactory.StorageClass()
+	app.allPodInformer = app.informerFactory.Pod()
 
 	if app.hasCDI {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
@@ -407,10 +410,10 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.launcherSubGid,
 	)
 
-	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.persistentVolumeClaimInformer, vca.vmiRecorder, vca.clientSet, vca.dataVolumeInformer)
+	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.persistentVolumeClaimInformer, vca.vmiRecorder, vca.clientSet, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
-	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
+	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.kvPodInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -455,17 +458,20 @@ func (vca *VirtControllerApp) initEvacuationController() {
 
 func (vca *VirtControllerApp) initSnapshotController() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "snapshot-controller")
-	vca.snapshotController = NewSnapshotController(
-		vca.clientSet,
-		vca.vmSnapshotInformer,
-		vca.vmSnapshotContentInformer,
-		vca.vmInformer,
-		vca.storageClassInformer,
-		vca.persistentVolumeClaimInformer,
-		vca.crdInformer,
-		recorder,
-		vca.snapshotControllerResyncPeriod,
-	)
+	vca.snapshotController = &snapshot.VMSnapshotController{
+		Client:                    vca.clientSet,
+		VMSnapshotInformer:        vca.vmSnapshotInformer,
+		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
+		VMInformer:                vca.vmInformer,
+		VMIInformer:               vca.vmiInformer,
+		StorageClassInformer:      vca.storageClassInformer,
+		PVCInformer:               vca.persistentVolumeClaimInformer,
+		CRDInformer:               vca.crdInformer,
+		PodInformer:               vca.allPodInformer,
+		Recorder:                  recorder,
+		ResyncPeriod:              vca.snapshotControllerResyncPeriod,
+	}
+	vca.snapshotController.Init()
 }
 
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {

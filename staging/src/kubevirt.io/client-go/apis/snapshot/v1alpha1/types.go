@@ -158,7 +158,7 @@ type SourceSpec struct {
 
 // VolumeBackup contains the data neeed to restore a PVC
 type VolumeBackup struct {
-	DiskName string `json:"diskName"`
+	VolumeName string `json:"volumeName"`
 
 	PersistentVolumeClaim corev1.PersistentVolumeClaim `json:"persistentVolumeClaim"`
 

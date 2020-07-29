@@ -1,4 +1,4 @@
-package watch
+package snapshot
 
 import (
 	"fmt"
@@ -178,6 +178,41 @@ var _ = Describe("Snapshot controlleer", func() {
 		return vm
 	}
 
+	createVMI := func(vm *v1.VirtualMachine) *v1.VirtualMachineInstance {
+		return &v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: vm.Namespace,
+				Name:      vm.Name,
+			},
+		}
+	}
+
+	createPodsUsingPVCs := func(vm *v1.VirtualMachine) []corev1.Pod {
+		var pods []corev1.Pod
+		for _, dv := range vm.Spec.DataVolumeTemplates {
+			pod := corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: vm.Namespace,
+					Name:      "pod-" + dv.Name,
+				},
+				Spec: corev1.PodSpec{
+					Volumes: []corev1.Volume{
+						{
+							Name: "vol-" + dv.Name,
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: dv.Name,
+								},
+							},
+						},
+					},
+				},
+			}
+			pods = append(pods, pod)
+		}
+		return pods
+	}
+
 	createPersistentVolumeClaims := func() []corev1.PersistentVolumeClaim {
 		vm := createLockedVM()
 		var pvcs []corev1.PersistentVolumeClaim
@@ -205,9 +240,9 @@ var _ = Describe("Snapshot controlleer", func() {
 
 		for i, pvc := range createPersistentVolumeClaims() {
 			diskName := fmt.Sprintf("disk%d", i+1)
-			volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-disk-%s", vmSnapshot.UID, diskName)
+			volumeSnapshotName := fmt.Sprintf("vmsnapshot-%s-volume-%s", vmSnapshot.UID, diskName)
 			vb := snapshotv1.VolumeBackup{
-				DiskName:              diskName,
+				VolumeName:            diskName,
 				PersistentVolumeClaim: pvc,
 				VolumeSnapshotName:    &volumeSnapshotName,
 			}
@@ -294,6 +329,10 @@ var _ = Describe("Snapshot controlleer", func() {
 		var vmSnapshotContentInformer cache.SharedIndexInformer
 		var vmInformer cache.SharedIndexInformer
 		var vmSource *framework.FakeControllerSource
+		var vmiInformer cache.SharedIndexInformer
+		var vmiSource *framework.FakeControllerSource
+		var podInformer cache.SharedIndexInformer
+		var podSource *framework.FakeControllerSource
 		var volumeSnapshotInformer cache.SharedIndexInformer
 		var volumeSnapshotSource *framework.FakeControllerSource
 		var volumeSnapshotClassInformer cache.SharedIndexInformer
@@ -305,7 +344,7 @@ var _ = Describe("Snapshot controlleer", func() {
 		var crdInformer cache.SharedIndexInformer
 		var crdSource *framework.FakeControllerSource
 		var stop chan struct{}
-		var controller *SnapshotController
+		var controller *VMSnapshotController
 		var recorder *record.FakeRecorder
 		var mockVMSnapshotQueue *testutils.MockWorkQueue
 		var mockVMSnapshotContentQueue *testutils.MockWorkQueue
@@ -322,6 +361,8 @@ var _ = Describe("Snapshot controlleer", func() {
 			go storageClassInformer.Run(stop)
 			go pvcInformer.Run(stop)
 			go crdInformer.Run(stop)
+			go vmiInformer.Run(stop)
+			go podInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(
 				stop,
 				vmSnapshotInformer.HasSynced,
@@ -330,6 +371,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClassInformer.HasSynced,
 				pvcInformer.HasSynced,
 				crdInformer.HasSynced,
+				vmiInformer.HasSynced,
+				podInformer.HasSynced,
 			)).To(BeTrue())
 		}
 
@@ -363,6 +406,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				},
 			})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
+			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			podInformer, podSource = testutils.NewFakeInformerFor(&corev1.Pod{})
 			volumeSnapshotInformer, volumeSnapshotSource = testutils.NewFakeInformerFor(&vsv1beta1.VolumeSnapshot{})
 			volumeSnapshotClassInformer, volumeSnapshotClassSource = testutils.NewFakeInformerFor(&vsv1beta1.VolumeSnapshotClass{})
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
@@ -371,17 +416,20 @@ var _ = Describe("Snapshot controlleer", func() {
 
 			recorder = record.NewFakeRecorder(100)
 
-			controller = NewSnapshotController(
-				virtClient,
-				vmSnapshotInformer,
-				vmSnapshotContentInformer,
-				vmInformer,
-				storageClassInformer,
-				pvcInformer,
-				crdInformer,
-				recorder,
-				60*time.Second,
-			)
+			controller = &VMSnapshotController{
+				Client:                    virtClient,
+				VMSnapshotInformer:        vmSnapshotInformer,
+				VMSnapshotContentInformer: vmSnapshotContentInformer,
+				VMInformer:                vmInformer,
+				VMIInformer:               vmiInformer,
+				PodInformer:               podInformer,
+				StorageClassInformer:      storageClassInformer,
+				PVCInformer:               pvcInformer,
+				CRDInformer:               crdInformer,
+				Recorder:                  recorder,
+				ResyncPeriod:              60 * time.Second,
+			}
+			controller.Init()
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
 			mockVMSnapshotQueue = testutils.NewMockWorkQueue(controller.vmSnapshotQueue)
@@ -661,6 +709,29 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm := createVM()
 				vm.Spec.Running = &t
 
+				vmSource.Add(vm)
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+			})
+
+			It("should not lock source if VMI exists", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createVM()
+				vm.Spec.Running = &f
+
+				vmiSource.Add(createVMI(vm))
+				vmSource.Add(vm)
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+			})
+
+			It("should not lock source if pods using PVCs", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createVM()
+				vm.Spec.Running = &f
+
+				pods := createPodsUsingPVCs(vm)
+				podSource.Add(&pods[0])
 				vmSource.Add(vm)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
