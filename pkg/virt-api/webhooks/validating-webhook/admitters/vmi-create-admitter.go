@@ -21,7 +21,6 @@ package admitters
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net"
 	"regexp"
@@ -83,7 +82,7 @@ func (admitter *VMICreateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 	}
 
 	accountName := ar.Request.UserInfo.Username
-	vmi, _, err := getAdmissionReviewVMI(ar)
+	vmi, _, err := webhookutils.GetVMIFromAdmissionReview(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -967,7 +966,7 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	labels := metadata.Labels
 	// Validate kubevirt.io labels presence. Restricted labels allowed
 	// to be created only by known service accounts
-	allowed := getAllowedServiceAccounts()
+	allowed := webhooks.GetAllowedServiceAccounts()
 	if _, ok := allowed[accountName]; !ok {
 		if len(filterKubevirtLabels(labels)) > 0 {
 			causes = append(causes, metav1.StatusCause{
@@ -999,34 +998,6 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 	}
 
 	return causes
-}
-
-func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstance, old *v1.VirtualMachineInstance, err error) {
-
-	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstanceGroupVersionResource.Group, webhooks.VirtualMachineInstanceGroupVersionResource.Resource) {
-		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
-	}
-
-	raw := ar.Request.Object.Raw
-	newVMI := v1.VirtualMachineInstance{}
-
-	err = json.Unmarshal(raw, &newVMI)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if ar.Request.Operation == v1beta1.Update {
-		raw := ar.Request.OldObject.Raw
-		oldVMI := v1.VirtualMachineInstance{}
-
-		err = json.Unmarshal(raw, &oldVMI)
-		if err != nil {
-			return nil, nil, err
-		}
-		return &newVMI, &oldVMI, nil
-	}
-
-	return &newVMI, nil, nil
 }
 
 func ValidateDuplicateDHCPPrivateOptions(PrivateOptions []v1.DHCPPrivateOptions) error {
