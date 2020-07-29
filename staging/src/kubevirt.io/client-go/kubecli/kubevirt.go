@@ -167,6 +167,8 @@ type ReplicaSetInterface interface {
 	GetScale(replicaSetName string, options k8smetav1.GetOptions) (*autov1.Scale, error)
 	UpdateScale(replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error)
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error)
+	UpdateStatus(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
+	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceReplicaSet, err error)
 }
 
 type VirtualMachineInstancePresetInterface interface {
@@ -187,6 +189,8 @@ type VirtualMachineInterface interface {
 	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error)
+	UpdateStatus(*v1.VirtualMachine) (*v1.VirtualMachine, error)
+	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachine, err error)
 	Restart(name string) error
 	ForceRestart(name string, graceperiod int) error
 	Start(name string) error
@@ -202,6 +206,8 @@ type VirtualMachineInstanceMigrationInterface interface {
 	Update(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error)
+	UpdateStatus(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
+	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachineInstanceMigration, err error)
 }
 
 type KubeVirtInterface interface {
@@ -211,4 +217,6 @@ type KubeVirtInterface interface {
 	Update(*v1.KubeVirt) (*v1.KubeVirt, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.KubeVirt, err error)
+	UpdateStatus(*v1.KubeVirt) (*v1.KubeVirt, error)
+	PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.KubeVirt, err error)
 }
