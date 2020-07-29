@@ -118,12 +118,12 @@ type virtHandlerApp struct {
 	MaxRequestsInFlight       int
 	domainResyncPeriodSeconds int
 
-	caConfigMapName        string
-	clientCertFilePath     string
-	clientKeyFilePath      string
-	serverCertFilePath     string
-	serverKeyFilePath      string
-	allowIntermediateCerts bool
+	caConfigMapName    string
+	clientCertFilePath string
+	clientKeyFilePath  string
+	serverCertFilePath string
+	serverKeyFilePath  string
+	externallyManaged  bool
 
 	virtCli   kubecli.KubevirtClient
 	namespace string
@@ -446,8 +446,8 @@ func (app *virtHandlerApp) AddFlags() {
 	flag.StringVar(&app.serverKeyFilePath, "tls-key-file", defaultTlsKeyFilePath,
 		"File containing the default x509 private key matching --tls-cert-file")
 
-	flag.BoolVar(&app.allowIntermediateCerts, "allow-intermediate-certificates", false,
-		"Allow intermediate certificates to be used in building up the chain of trust in client certificate validation")
+	flag.BoolVar(&app.externallyManaged, "externally-managed", false,
+		"Allow intermediate certificates to be used in building up the chain of trust when certificates are externally managed")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
 		"Watchdog file timeout")
@@ -474,8 +474,8 @@ func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) erro
 	caManager := webhooks.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
 
 	app.promTLSConfig = webhooks.SetupPromTLS(app.servercertmanager)
-	app.serverTLSConfig = webhooks.SetupTLSForVirtHandlerServer(caManager, app.servercertmanager, app.allowIntermediateCerts)
-	app.clientTLSConfig = webhooks.SetupTLSForVirtHandlerClients(caManager, app.clientcertmanager, app.allowIntermediateCerts)
+	app.serverTLSConfig = webhooks.SetupTLSForVirtHandlerServer(caManager, app.servercertmanager, app.externallyManaged)
+	app.clientTLSConfig = webhooks.SetupTLSForVirtHandlerClients(caManager, app.clientcertmanager, app.externallyManaged)
 
 	return nil
 }
