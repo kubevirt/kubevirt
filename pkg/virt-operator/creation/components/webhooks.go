@@ -137,6 +137,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *v1beta1.Mu
 				Rules: []v1beta1.RuleWithOperations{{
 					Operations: []v1beta1.OperationType{
 						v1beta1.Create,
+						v1beta1.Update,
 					},
 					Rule: v1beta1.Rule{
 						APIGroups:   []string{virtv1.GroupName},
@@ -187,6 +188,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 	migrationCreatePath := MigrationCreateValidatePath
 	migrationUpdatePath := MigrationUpdateValidatePath
 	vmSnapshotValidatePath := VMSnapshotValidatePath
+	statusValidatePath := StatusValidatePath
 	failurePolicy := v1beta1.Fail
 
 	return &v1beta1.ValidatingWebhookConfiguration{
@@ -377,6 +379,28 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *v1beta1.
 					},
 				},
 			},
+			{
+				Name:          "kubevirt-crd-status-validator.kubevirt.io",
+				FailurePolicy: &failurePolicy,
+				Rules: []v1beta1.RuleWithOperations{{
+					Operations: []v1beta1.OperationType{
+						v1beta1.Create,
+						v1beta1.Update,
+					},
+					Rule: v1beta1.Rule{
+						APIGroups:   []string{virtv1.GroupName},
+						APIVersions: []string{virtv1.VirtualMachineInstanceGroupVersionKind.Version},
+						Resources:   []string{"*/status"},
+					},
+				}},
+				ClientConfig: v1beta1.WebhookClientConfig{
+					Service: &v1beta1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &statusValidatePath,
+					},
+				},
+			},
 		},
 	}
 }
@@ -418,3 +442,5 @@ const KubevirtOperatorWebhookServiceName = "kubevirt-operator-webhook"
 const KubeVirtOperatorValidatingWebhookName = "virt-operator-validator"
 
 const VMSnapshotValidatePath = "/virtualmachinesnapshots-validate"
+
+const StatusValidatePath = "/status-validate"
