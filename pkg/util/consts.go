@@ -17,6 +17,9 @@ const (
 	OpenshiftNamespace   = "openshift"
 	APIVersionAlpha      = "v1alpha1"
 	APIVersionBeta       = "v1beta1"
+	CurrentAPIVersion    = APIVersionBeta
 	APIVersionGroup      = "hco.kubevirt.io"
 	APIVersion           = APIVersionGroup + "/" + APIVersionBeta
+	// HyperConvergedName is the name of the HyperConverged resource that will be reconciled
+	HyperConvergedName = "kubevirt-hyperconverged"
 )

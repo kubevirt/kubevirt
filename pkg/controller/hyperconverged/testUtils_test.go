@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/go-logr/logr"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
@@ -290,7 +291,12 @@ func initReconciler(client client.Client) *ReconcileHyperConverged {
 	}
 
 	// Create a ReconcileHyperConverged object with the scheme and fake client
-	return &ReconcileHyperConverged{client: client, scheme: s, clusterInfo: clusterInfoMock{}}
+	return &ReconcileHyperConverged{
+		client:       client,
+		scheme:       s,
+		clusterInfo:  clusterInfoMock{},
+		eventEmitter: &eventEmitterMock{},
+	}
 }
 
 type clusterInfoMock struct{}
@@ -317,4 +323,13 @@ func checkHcoReady() (bool, error) {
 	}
 
 	return false, err
+}
+
+type eventEmitterMock struct{}
+
+func (eventEmitterMock) Init(_ context.Context, _ manager.Manager, _ hcoutil.ClusterInfo, _ logr.Logger) error {
+	return nil
+}
+
+func (eventEmitterMock) EmitEvent(_ runtime.Object, _, _, _ string) {
 }

@@ -98,7 +98,7 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) reconcile.Reconc
 	return &ReconcileHyperConverged{
 		client:      mgr.GetClient(),
 		scheme:      mgr.GetScheme(),
-		recorder:    mgr.GetEventRecorderFor(hcov1beta1.HyperConvergedName),
+		recorder:    mgr.GetEventRecorderFor(hcoutil.HyperConvergedName),
 		upgradeMode: false,
 		ownVersion:  ownVersion,
 		clusterInfo: ci,
@@ -108,6 +108,7 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo) reconcile.Reconc
 			nodeLabellerBundlesOldCrdName:   true,
 			templateValidatorsOldCrdName:    true,
 		},
+		eventEmitter: hcoutil.GetEventEmitter(),
 	}
 }
 
@@ -172,6 +173,7 @@ type ReconcileHyperConverged struct {
 	ownVersion         string
 	clusterInfo        hcoutil.ClusterInfo
 	shouldRemoveOldCrd map[string]bool
+	eventEmitter       hcoutil.EventEmitter
 }
 
 // hcoRequest - gather data for a specific request
@@ -328,11 +330,6 @@ func (r *ReconcileHyperConverged) getHcoInstanceFromK8s(req *hcoRequest) (*hcov1
 		// Error reading the object - requeue the request.
 		return nil, err
 	}
-
-	//gvk := instance.TypeMeta.GroupVersionKind()
-	//gvk.Version = "v1beta1"
-	//instance.SetGroupVersionKind(gvk)
-	//req.logger.Info(gvk.Version)
 	return instance, nil
 }
 
@@ -398,7 +395,7 @@ func (r *ReconcileHyperConverged) setInitialConditions(req *hcoRequest) error {
 }
 
 func (r *ReconcileHyperConverged) ensureHcoDeleted(req *hcoRequest) (reconcile.Result, error) {
-	for i, obj := range []runtime.Object{
+	for _, obj := range []runtime.Object{
 		req.instance.NewKubeVirt(),
 		req.instance.NewCDI(),
 		req.instance.NewNetworkAddons(),
@@ -413,26 +410,19 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *hcoRequest) (reconcile.R
 			// to be able to clearly distinguish between an explicit
 			// refuse from other operator and any other kind of error that
 			// could potentially happen in the process
+
 			errT := ErrHCOUninstall
 			errMsg := uninstallHCOErrorMsg
-			switch i {
-			case 0:
+			switch obj.(type) {
+			case *kubevirtv1.KubeVirt:
 				errT = ErrVirtUninstall
 				errMsg = uninstallVirtErrorMsg + err.Error()
-			case 1:
+			case *cdiv1alpha1.CDI:
 				errT = ErrCDIUninstall
 				errMsg = uninstallCDIErrorMsg + err.Error()
 			}
 
-			errE := r.emitEvent(req.instance, req.logger, corev1.EventTypeWarning, errT, errMsg)
-			if errE != nil {
-				req.logger.Error(errE, "Failed emitting uninstall error event")
-			}
-
-			// TODO: implement a validating webhook to try to delete virt and CDI CRs
-			// in dry run mode before really accepting the deletion request.
-			// This event should still stay here because no strategy can ensure we are
-			// 100% race conditions free
+			r.eventEmitter.EmitEvent(req.instance, corev1.EventTypeWarning, errT, errMsg)
 
 			return reconcile.Result{}, err
 		}
@@ -444,32 +434,6 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *hcoRequest) (reconcile.R
 
 	// Need to requeue because finalizer update does not change metadata.generation
 	return reconcile.Result{Requeue: true}, nil
-}
-
-func (r *ReconcileHyperConverged) emitEvent(instance *hcov1beta1.HyperConverged, logger logr.Logger, kind string, errT string, errMsg string) error {
-	r.recorder.Event(instance, kind, errT, errMsg)
-
-	pod, pod_err := hcoutil.GetPod(r.client, logger)
-	if pod_err != nil {
-		if logger != nil {
-			logger.Error(pod_err, "Failed to identify HCO POD, emitting warning event only on hyperconverged instance")
-		}
-		return pod_err
-	}
-
-	r.recorder.Event(pod, kind, errT, errMsg)
-
-	csv, csv_err := hcoutil.GetCSVfromPod(pod, r.client, logger)
-	if csv_err != nil {
-		if logger != nil {
-			logger.Error(csv_err, "Failed to identify HCO CSV, emitting warning event only on HCO pod and hyperconverged instance")
-		}
-		return csv_err
-	}
-
-	r.recorder.Event(csv, kind, errT, errMsg)
-	return nil
-
 }
 
 func (r *ReconcileHyperConverged) ensureHco(req *hcoRequest) error {
@@ -1781,7 +1745,7 @@ func isKVMAvailable() bool {
 // getHyperconverged returns the name/namespace of the HyperConverged resource
 func getHyperconverged() (types.NamespacedName, error) {
 	hco := types.NamespacedName{
-		Name: hcov1beta1.HyperConvergedName,
+		Name: hcoutil.HyperConvergedName,
 	}
 
 	namespace, err := hcoutil.GetOperatorNamespaceFromEnv()

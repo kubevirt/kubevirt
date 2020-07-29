@@ -45,8 +45,8 @@ var (
 	metricsHost               = "0.0.0.0"
 	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
+	log                       = logf.Log.WithName("cmd")
 )
-var log = logf.Log.WithName("cmd")
 
 func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
@@ -159,6 +159,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	ci := hcoutil.GetClusterInfo()
+	err = ci.CheckRunningInOpenshift(log, runInLocal)
+	if err != nil {
+		log.Error(err, "Cannot detect cluster type")
+	}
+
+	eventEmitter := hcoutil.GetEventEmitter()
+	err = eventEmitter.Init(ctx, mgr, ci, log)
+	if err != nil {
+		log.Error(err, "failed to initiate event emitter")
+		os.Exit(1)
+	}
+
 	log.Info("Registering Components.")
 
 	// Setup Scheme for all resources
@@ -178,12 +191,6 @@ func main() {
 		}
 	}
 
-	ci := hcoutil.GetClusterInfo()
-	err = ci.CheckRunningInOpenshift(log, runInLocal)
-	if err != nil {
-		log.Error(err, "Cannot detect cluster type")
-	}
-
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr, ci); err != nil {
 		log.Error(err, "")
@@ -192,7 +199,7 @@ func main() {
 
 	if !runInLocal {
 		if err = serveCRMetrics(cfg); err != nil {
-			log.Info("Could not generate and serve custom resource metrics", "error", err.Error())
+			log.Error(err, "Could not generate and serve custom resource metrics")
 		}
 
 		// Add to the below struct any other metrics ports you want to expose.
@@ -204,16 +211,16 @@ func main() {
 		// Create Service object to expose the metrics port(s).
 		service, err := metrics.CreateMetricsService(ctx, cfg, servicePorts)
 		if err != nil {
-			log.Info("Could not create metrics Service", "error", err.Error())
+			log.Error(err, "Could not create metrics Service")
 		}
 		services := []*corev1.Service{service}
 		_, err = metrics.CreateServiceMonitors(cfg, depOperatorNs, services)
 		if err != nil {
-			log.Info("Could not create ServiceMonitor object", "error", err.Error())
+			log.Error(err, "Could not create ServiceMonitor object")
 			// If this operator is deployed to a cluster without the prometheus-operator running, it will return
 			// ErrServiceMonitorNotPresent, which can be used to safely skip ServiceMonitor creation.
 			if err == metrics.ErrServiceMonitorNotPresent {
-				log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects", "error", err.Error())
+				log.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects")
 			}
 		}
 	}
@@ -222,6 +229,7 @@ func main() {
 	// necessary to configure Prometheus to scrape metrics from this operator.
 	if err = (&hcov1beta1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr); err != nil {
 		log.Error(err, "unable to create webhook", "webhook", "HyperConverged")
+		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "unable to create webhook")
 		os.Exit(1)
 	}
 
@@ -232,10 +240,11 @@ func main() {
 	}
 
 	log.Info("Starting the Cmd.")
-
+	eventEmitter.EmitEvent(nil, corev1.EventTypeNormal, "Init", "Starting the HyperConverged Pod")
 	// Start the Cmd
 	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
 		log.Error(err, "Manager exited non-zero")
+		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "UnexpectedError", "HyperConverged crashed; "+err.Error())
 		os.Exit(1)
 	}
 }

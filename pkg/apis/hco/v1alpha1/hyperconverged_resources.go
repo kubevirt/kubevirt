@@ -19,7 +19,7 @@ func (r *HyperConverged) getNamespace(defaultNamespace string, opts []string) st
 }
 
 func (r *HyperConverged) getLabels() map[string]string {
-	hcoName := HyperConvergedName
+	hcoName := hcoutil.HyperConvergedName
 
 	if r.Name != "" {
 		hcoName = r.Name

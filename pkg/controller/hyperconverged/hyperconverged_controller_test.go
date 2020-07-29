@@ -516,7 +516,7 @@ var _ = Describe("HyperconvergedController", func() {
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeTrue())
 
-				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcov1beta1.HyperConvergedName))
+				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcoutil.HyperConvergedName))
 			})
 
 			It("Should set required fields when missing", func() {
@@ -526,7 +526,7 @@ var _ = Describe("HyperconvergedController", func() {
 				foundResource, requeue := doReconcile(cl, expected.hco)
 				Expect(requeue).To(BeFalse())
 
-				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcov1beta1.HyperConvergedName))
+				Expect(foundResource.ObjectMeta.Labels[hcoutil.AppLabel]).Should(Equal(hcoutil.HyperConvergedName))
 			})
 		})
 
@@ -1181,7 +1181,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected := getBasicDeployment()
 				expected.hco.Status.Conditions = nil
 				cl := expected.initClient()
-				rsc := schema.GroupResource{Group: "hco.kubevirt.io", Resource: "hyperconvergeds.hco.kubevirt.io"}
+				rsc := schema.GroupResource{Group: hcoutil.APIVersionGroup, Resource: "hyperconvergeds.hco.kubevirt.io"}
 				cl.initiateWriteErrors(
 					apierrors.NewConflict(rsc, "hco", errors.New("test error")),
 				)
@@ -1203,7 +1203,7 @@ var _ = Describe("HyperconvergedController", func() {
 				expected := getBasicDeployment()
 				expected.hco.Status.Conditions = nil
 				cl := expected.initClient()
-				rs := schema.GroupResource{"hco.kubevirt.io", "hyperconvergeds.hco.kubevirt.io"}
+				rs := schema.GroupResource{hcoutil.APIVersionGroup, "hyperconvergeds.hco.kubevirt.io"}
 				cl.Status().(*hcoTestStatusWriter).initiateErrors(apierrors.NewConflict(rs, "hco", errors.New("test error")))
 				r := initReconciler(cl)
 

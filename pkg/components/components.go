@@ -192,7 +192,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 	return []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{
-				"hco.kubevirt.io",
+				util.APIVersionGroup,
 			},
 			Resources: []string{
 				"*",
@@ -744,8 +744,8 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 					admissionregistrationv1.Delete,
 				},
 				Rule: admissionregistrationv1.Rule{
-					APIGroups:   []string{"hco.kubevirt.io"},
-					APIVersions: []string{"v1alpha1"},
+					APIGroups:   []string{util.APIVersionGroup},
+					APIVersions: []string{util.APIVersionAlpha, util.APIVersionBeta},
 					Resources:   []string{"hyperconvergeds"},
 				},
 			},
@@ -844,7 +844,7 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 				Owned: []csvv1alpha1.CRDDescription{
 					{
 						Name:        "hyperconvergeds.hco.kubevirt.io",
-						Version:     util.APIVersionBeta,
+						Version:     util.CurrentAPIVersion,
 						Kind:        "HyperConverged",
 						DisplayName: crdDisplay + " Deployment",
 						Description: "Represents the deployment of " + crdDisplay,
