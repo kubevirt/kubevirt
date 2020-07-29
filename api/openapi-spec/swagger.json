@@ -11228,15 +11228,15 @@
     "description": "VolumeBackup contains the data neeed to restore a PVC",
     "type": "object",
     "required": [
-     "diskName",
+     "volumeName",
      "persistentVolumeClaim"
     ],
     "properties": {
-     "diskName": {
-      "type": "string"
-     },
      "persistentVolumeClaim": {
       "$ref": "#/definitions/v1.PersistentVolumeClaim"
+     },
+     "volumeName": {
+      "type": "string"
      },
      "volumeSnapshotName": {
       "type": "string"

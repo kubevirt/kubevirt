@@ -18884,7 +18884,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VolumeBackup(ref common.ReferenceCa
 				Description: "VolumeBackup contains the data neeed to restore a PVC",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"diskName": {
+					"volumeName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -18902,7 +18902,7 @@ func schema_client_go_apis_snapshot_v1alpha1_VolumeBackup(ref common.ReferenceCa
 						},
 					},
 				},
-				Required: []string{"diskName", "persistentVolumeClaim"},
+				Required: []string{"volumeName", "persistentVolumeClaim"},
 			},
 		},
 		Dependencies: []string{

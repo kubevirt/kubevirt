@@ -181,7 +181,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 				for _, vb := range content.Spec.VolumeBackups {
 					if vol.DataVolume.Name == vb.PersistentVolumeClaim.Name {
 						found = true
-						Expect(vol.Name).To(Equal(vb.DiskName))
+						Expect(vol.Name).To(Equal(vb.VolumeName))
 
 						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(vol.DataVolume.Name, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
