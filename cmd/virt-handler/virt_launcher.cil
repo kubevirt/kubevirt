@@ -7,4 +7,5 @@
     (allow process hugetlbfs_t (dir (add_name create write remove_name rmdir setattr)))
     (allow process hugetlbfs_t (file (create unlink)))
     (allow process sysfs_t (file (write)))
+    (allow process tun_tap_device_t (chr_file (read write open ioctl)))
 )
