@@ -2852,6 +2852,27 @@ func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batc
 	return err
 }
 
+func configureConsole(expecter expect.Expecter, prompt string, shouldSudo bool) error {
+	sudoString := ""
+	if shouldSudo {
+		sudoString = "sudo "
+	}
+	batch := append([]expect.Batcher{
+		&expect.BSnd{S: "stty columns 500\n"},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: retcode("0")},
+		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: retcode("0")}})
+	resp, err := expecter.ExpectBatch(batch, 30*time.Second)
+	if err != nil {
+		log.DefaultLogger().Infof("%v", resp)
+	}
+	return err
+}
+
 func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, virtClient kubecli.KubevirtClient, prompt string) error {
 	hasEth0Iface := func(vmi *v1.VirtualMachineInstance) bool {
 		hasNetEth0Batch := append([]expect.Batcher{
@@ -2953,6 +2974,12 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return nil, err
 	}
 
+	err = configureConsole(expecter, "\\$ ", true)
+	if err != nil {
+		expecter.Close()
+		return nil, err
+	}
+
 	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "\\$ ")
 }
 
@@ -2973,6 +3000,12 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
+		expecter.Close()
+		return nil, err
+	}
+
+	err = configureConsole(expecter, "localhost:~\\#", false)
+	if err != nil {
 		expecter.Close()
 		return nil, err
 	}
@@ -3023,6 +3056,12 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
 		expecter.Close()
 		return expecter, err
+	}
+
+	err = configureConsole(expecter, "\\#", false)
+	if err != nil {
+		expecter.Close()
+		return nil, err
 	}
 
 	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "\\#")
