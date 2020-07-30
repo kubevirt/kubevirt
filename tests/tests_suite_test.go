@@ -32,6 +32,8 @@ import (
 
 	"kubevirt.io/kubevirt/tests"
 	ginkgo_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
+
+	_ "kubevirt.io/kubevirt/tests/network"
 )
 
 func TestTests(t *testing.T) {
