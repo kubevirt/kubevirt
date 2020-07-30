@@ -23,6 +23,10 @@ import (
 	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("Placeholder for tests to come", func() {
-	It("should run this", func() {})
-})
+func SIGDescribe(text string, body func()) bool {
+	return Describe("[sig-network] "+text, body)
+}
+
+func FSIGDescribe(text string, body func()) bool {
+	return FDescribe("[sig-network] "+text, body)
+}
