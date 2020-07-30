@@ -686,7 +686,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(dnsVMI, tests.LoggedInCirrosExpecter)
 			err = tests.CheckForTextExpecter(dnsVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n\n"},
+				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$"},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
 				&expect.BExp{R: "search example.com"},
