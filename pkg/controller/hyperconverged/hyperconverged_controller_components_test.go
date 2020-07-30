@@ -257,8 +257,7 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource := newKubeVirtStorageConfigForCR(hco, namespace)
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtStorageConfig(req)
-			Expect(upgradeDone).To(BeFalse())
+			err := r.ensureKubeVirtStorageConfig(req)
 			Expect(err).To(BeNil())
 
 			foundResource := &corev1.ConfigMap{}
@@ -277,8 +276,7 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtStorageConfig(req)
-			Expect(upgradeDone).To(BeFalse())
+			err := r.ensureKubeVirtStorageConfig(req)
 			Expect(err).To(BeNil())
 
 			// Check HCO's status

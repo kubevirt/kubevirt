@@ -440,7 +440,6 @@ func (r *ReconcileHyperConverged) ensureHco(req *hcoRequest) error {
 	for _, f := range []func(*hcoRequest) (upgradeDone bool, err error){
 		r.ensureKubeVirtPriorityClass,
 		r.ensureKubeVirtConfig,
-		r.ensureKubeVirtStorageConfig,
 		r.ensureKubeVirt,
 		r.ensureCDI,
 		r.ensureNetworkAddons,
@@ -930,6 +929,11 @@ func (r *ReconcileHyperConverged) ensureCDI(req *hcoRequest) (upgradeDone bool, 
 	}
 
 	req.logger.Info("CDI already exists", "CDI.Namespace", found.Namespace, "CDI.Name", found.Name)
+
+	err = r.ensureKubeVirtStorageConfig(req)
+	if err != nil {
+		return false, err
+	}
 
 	err = r.ensureKubeVirtStorageRole(req)
 	if err != nil {
@@ -1577,10 +1581,10 @@ func (r *ReconcileHyperConverged) ensureKubeVirtStorageRoleBinding(req *hcoReque
 	return nil
 }
 
-func (r *ReconcileHyperConverged) ensureKubeVirtStorageConfig(req *hcoRequest) (upgradeDone bool, err error) {
+func (r *ReconcileHyperConverged) ensureKubeVirtStorageConfig(req *hcoRequest) error {
 	kubevirtStorageConfig := newKubeVirtStorageConfigForCR(req.instance, req.Namespace)
-	if err = controllerutil.SetControllerReference(req.instance, kubevirtStorageConfig, r.scheme); err != nil {
-		return false, err
+	if err := controllerutil.SetControllerReference(req.instance, kubevirtStorageConfig, r.scheme); err != nil {
+		return err
 	}
 
 	key, err := client.ObjectKeyFromObject(kubevirtStorageConfig)
@@ -1592,22 +1596,22 @@ func (r *ReconcileHyperConverged) ensureKubeVirtStorageConfig(req *hcoRequest) (
 	err = r.client.Get(req.ctx, key, found)
 	if err != nil && apierrors.IsNotFound(err) {
 		req.logger.Info("Creating kubevirt storage config")
-		return false, r.client.Create(req.ctx, kubevirtStorageConfig)
+		return r.client.Create(req.ctx, kubevirtStorageConfig)
 	}
 
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	req.logger.Info("KubeVirt storage config already exists", "KubeVirtConfig.Namespace", found.Namespace, "KubeVirtConfig.Name", found.Name)
 	// Add it to the list of RelatedObjects if found
 	objectRef, err := reference.GetReference(r.scheme, found)
 	if err != nil {
-		return false, err
+		return err
 	}
 	objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
 
-	return req.componentUpgradeInProgress, nil
+	return nil
 }
 
 func newKubeVirtMetricsAggregationForCR(cr *hcov1beta1.HyperConverged, namespace string) *sspv1.KubevirtMetricsAggregation {
