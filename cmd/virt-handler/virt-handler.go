@@ -25,6 +25,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -151,6 +152,22 @@ func (app *virtHandlerApp) Run() {
 	}
 	err = copy("/usr/bin/container-disk", targetFile)
 	if err != nil {
+		panic(err)
+	}
+
+	// Copy the tap device maker binary
+	if err = copy("/usr/bin/tap-device-maker", filepath.Join(app.VirtLibDir, "tap-device-maker")); err != nil {
+		panic(err)
+	}
+	// relabel the binary to container_file_t (no categories) so the handler can execute it
+	relabelTapMakerBinaryCmdArgs := []string{
+		"--mount", "/proc/1/ns/mnt",
+		"exec", "--",
+		"/usr/bin/chcon", "-t", "container_file_t", "-l", "s0",
+		fmt.Sprintf("/proc/%d/root/var/lib/kubevirt/tap-device-maker", os.Getpid()),
+	}
+	relabelTapMakerBinaryCmd := exec.Command("virt-chroot", relabelTapMakerBinaryCmdArgs...)
+	if err = relabelTapMakerBinaryCmd.Run(); err != nil {
 		panic(err)
 	}
 

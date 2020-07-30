@@ -359,7 +359,7 @@ func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool,
 		"exec", "--selinux-label", launcherSELinuxLabel, "--",
 	}
 	tapDeviceArgs := []string{
-		fmt.Sprintf("/proc/%s/root/usr/bin/tap-device-maker", launcherPID), "--tap-name", tapName,
+		"/var/lib/kubevirt/tap-device-maker", "--tap-name", tapName,
 	}
 	if isMultiqueue {
 		tapDeviceArgs = append(tapDeviceArgs, "--multiqueue")

@@ -85,6 +85,7 @@ container_image(
     files = [
         ":virt-handler",
         "//cmd/container-disk-v2alpha:container-disk",
+        "//cmd/tap-device-maker",
         "//cmd/virt-chroot",
     ],
     visibility = ["//visibility:public"],
