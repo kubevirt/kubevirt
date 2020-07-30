@@ -816,30 +816,6 @@ sockfd = None`})
 			Expect(err.Error()).To(ContainSubstring("Bridge interface is not enabled in kubevirt-config"))
 		})
 	})
-
-	Context("VirtualMachineInstance connected to the pod network", func() {
-		var vmi *v1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			tests.BeforeTestCleanup()
-
-			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
-			tests.AddExplicitPodNetworkInterface(vmi)
-
-			By("Starting tested VMI")
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).NotTo(HaveOccurred(), "VMI should be successfully created")
-			vmi = tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
-		})
-
-		It("should report IP address matching the launcher PodIP in its status", func() {
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-
-			Expect(vmi.Status.Interfaces[0].IP).To(Equal(vmiPod.Status.PodIP), "The address reported in VMI's IP should match the PodIP")
-			Expect(vmi.Status.Interfaces[0].IPs).NotTo(BeEmpty(), "VMI should report a list of its IP addresses")
-			Expect(vmi.Status.Interfaces[0].IPs[0]).To(Equal(vmiPod.Status.PodIP), "The first address reported in VMI's IPs should match the PodIP")
-		})
-	})
 })
 
 func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory tests.VMIExpecterFactory) *v1.VirtualMachineInstance {
