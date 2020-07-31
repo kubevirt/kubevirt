@@ -1645,7 +1645,7 @@ var _ = Describe("Template", func() {
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				// Skip first three mounts that are generic for all launcher pods
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
-				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/sys/devices/"))
+				Expect(pod.Spec.Volumes[1].HostPath.Path).To(Equal("/sys/devices/"))
 
 				resources := pod.Spec.Containers[0].Resources
 				val, ok := resources.Requests["vendor.com/qat_name"]

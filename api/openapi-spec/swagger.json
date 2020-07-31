@@ -6806,7 +6806,7 @@
       "type": "boolean"
      },
      "qats": {
-      "description": "Whether to assign a QAT vf device to the vmi.\n+optional",
+      "description": "Whether to assign a QAT vf device to the vmi.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.QAT"
@@ -8450,6 +8450,7 @@
     }
    },
    "v1.QAT": {
+    "type": "object",
     "required": [
      "name",
      "deviceName"

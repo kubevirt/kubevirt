@@ -60,21 +60,21 @@ const (
 
 // +k8s:deepcopy-gen=false
 type ConverterContext struct {
-	Architecture      string
-	UseEmulation      bool
-	Secrets           map[string]*k8sv1.Secret
-	VirtualMachine    *v1.VirtualMachineInstance
-	CPUSet            []int
-	IsBlockPVC        map[string]bool
-	IsBlockDV         map[string]bool
-	DiskType          map[string]*containerdisk.DiskInfo
-	SRIOVDevices      map[string][]string
-	SMBios            *cmdv1.SMBios
-	GpuDevices        []string
-	VgpuDevices       []string
-	QATDevices        []string
-	EmulatorThreadCpu *int
-	OVMFPath          string
+	Architecture          string
+	UseEmulation          bool
+	Secrets               map[string]*k8sv1.Secret
+	VirtualMachine        *v1.VirtualMachineInstance
+	CPUSet                []int
+	IsBlockPVC            map[string]bool
+	IsBlockDV             map[string]bool
+	DiskType              map[string]*containerdisk.DiskInfo
+	SRIOVDevices          map[string][]string
+	SMBios                *cmdv1.SMBios
+	GpuDevices            []string
+	VgpuDevices           []string
+	QATDevices            []string
+	EmulatorThreadCpu     *int
+	OVMFPath              string
 	MemBalloonStatsPeriod uint
 }
 

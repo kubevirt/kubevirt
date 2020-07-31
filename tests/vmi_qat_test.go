@@ -18,6 +18,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 func checkQATDevice(vmi *v1.VirtualMachineInstance, QATName string, prompt string) {
@@ -34,15 +35,18 @@ func checkQATDevice(vmi *v1.VirtualMachineInstance, QATName string, prompt strin
 }
 
 var _ = Describe("QAT", func() {
-	tests.FlagParse()
+	var err error
+	var virtClient kubecli.KubevirtClient
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+	})
 
 	Context("with ephemeral disk", func() {
 		It("Should create a valid VMI but pod should not go to running state", func() {
 			QATName := "qat.intel.com/generic"
-			randomVMI := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			randomVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			qats := []v1.QAT{
 				v1.QAT{
 					Name:       "qat1",
@@ -75,7 +79,7 @@ var _ = Describe("QAT", func() {
 				}
 			}
 			Expect(QATName).ToNot(Equal(""))
-			randomVMI := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			randomVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			qats := []v1.QAT{
 				v1.QAT{
 					Name:       "qat1",
