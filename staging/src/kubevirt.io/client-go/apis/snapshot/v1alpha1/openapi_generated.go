@@ -280,6 +280,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta":                                    schema_pkg_apis_meta_v1_TypeMeta(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.UpdateOptions":                               schema_pkg_apis_meta_v1_UpdateOptions(ref),
 		"k8s.io/apimachinery/pkg/apis/meta/v1.WatchEvent":                                  schema_pkg_apis_meta_v1_WatchEvent(ref),
+		"kubevirt.io/client-go/api/v1.AccessCredential":                                    schema_kubevirtio_client_go_api_v1_AccessCredential(ref),
+		"kubevirt.io/client-go/api/v1.AccessCredentialSecretSource":                        schema_kubevirtio_client_go_api_v1_AccessCredentialSecretSource(ref),
+		"kubevirt.io/client-go/api/v1.AuthorizedKeysFile":                                  schema_kubevirtio_client_go_api_v1_AuthorizedKeysFile(ref),
 		"kubevirt.io/client-go/api/v1.BIOS":                                                schema_kubevirtio_client_go_api_v1_BIOS(ref),
 		"kubevirt.io/client-go/api/v1.Bootloader":                                          schema_kubevirtio_client_go_api_v1_Bootloader(ref),
 		"kubevirt.io/client-go/api/v1.CDRomTarget":                                         schema_kubevirtio_client_go_api_v1_CDRomTarget(ref),
@@ -292,6 +295,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.CloudInitConfigDriveSource":                          schema_kubevirtio_client_go_api_v1_CloudInitConfigDriveSource(ref),
 		"kubevirt.io/client-go/api/v1.CloudInitNoCloudSource":                              schema_kubevirtio_client_go_api_v1_CloudInitNoCloudSource(ref),
 		"kubevirt.io/client-go/api/v1.ComponentConfig":                                     schema_kubevirtio_client_go_api_v1_ComponentConfig(ref),
+		"kubevirt.io/client-go/api/v1.ConfigDriveAccessCredentialPropagation":              schema_kubevirtio_client_go_api_v1_ConfigDriveAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.ConfigMapVolumeSource":                               schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ContainerDiskSource":                                 schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref),
 		"kubevirt.io/client-go/api/v1.CustomizeComponents":                                 schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref),
@@ -362,11 +366,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.PodNetwork":                                          schema_kubevirtio_client_go_api_v1_PodNetwork(ref),
 		"kubevirt.io/client-go/api/v1.Port":                                                schema_kubevirtio_client_go_api_v1_Port(ref),
 		"kubevirt.io/client-go/api/v1.Probe":                                               schema_kubevirtio_client_go_api_v1_Probe(ref),
+		"kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation":           schema_kubevirtio_client_go_api_v1_QemuGuestAgentAccessCredentialPropagation(ref),
 		"kubevirt.io/client-go/api/v1.RTCTimer":                                            schema_kubevirtio_client_go_api_v1_RTCTimer(ref),
 		"kubevirt.io/client-go/api/v1.ResourceRequirements":                                schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref),
 		"kubevirt.io/client-go/api/v1.RestartOptions":                                      schema_kubevirtio_client_go_api_v1_RestartOptions(ref),
 		"kubevirt.io/client-go/api/v1.Rng":                                                 schema_kubevirtio_client_go_api_v1_Rng(ref),
 		"kubevirt.io/client-go/api/v1.SMBiosConfiguration":                                 schema_kubevirtio_client_go_api_v1_SMBiosConfiguration(ref),
+		"kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredential":                        schema_kubevirtio_client_go_api_v1_SSHPublicKeyAccessCredential(ref),
+		"kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredentialPropagationMethod":       schema_kubevirtio_client_go_api_v1_SSHPublicKeyAccessCredentialPropagationMethod(ref),
+		"kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredentialSource":                  schema_kubevirtio_client_go_api_v1_SSHPublicKeyAccessCredentialSource(ref),
 		"kubevirt.io/client-go/api/v1.SecretVolumeSource":                                  schema_kubevirtio_client_go_api_v1_SecretVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource":                          schema_kubevirtio_client_go_api_v1_ServiceAccountVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.Timer":                                               schema_kubevirtio_client_go_api_v1_Timer(ref),
@@ -13341,6 +13349,67 @@ func schema_pkg_apis_meta_v1_WatchEvent(ref common.ReferenceCallback) common.Ope
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_AccessCredential(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AccessCredential represents a credential source that can be used to authorize remote access to the vm guest Only one of its members may be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"sshPublicKey": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredential"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredential"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_AccessCredentialSecretSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"secretName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretName represents the name of the secret in the VMI's namespace",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"secretName"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_AuthorizedKeysFile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AuthorizedKeysFile represents a path within the guest that ssh public keys should be propagated to",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"filePath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FilePath represents the place on the guest that the authorized_keys file should be writen to. This is expected to be a full path including both the base directory and file name.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"filePath"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_BIOS(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -13771,6 +13840,16 @@ func schema_kubevirtio_client_go_api_v1_ComponentConfig(ref common.ReferenceCall
 		},
 		Dependencies: []string{
 			"kubevirt.io/client-go/api/v1.NodePlacement"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_ConfigDriveAccessCredentialPropagation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
 	}
 }
 
@@ -16462,6 +16541,38 @@ func schema_kubevirtio_client_go_api_v1_Probe(ref common.ReferenceCallback) comm
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_QemuGuestAgentAccessCredentialPropagation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authorizedKeysFiles": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/api/v1.AuthorizedKeysFile"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.AuthorizedKeysFile"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_RTCTimer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -16628,6 +16739,82 @@ func schema_kubevirtio_client_go_api_v1_SMBiosConfiguration(ref common.Reference
 				},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_SSHPublicKeyAccessCredential(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SSHPublicKeyAccessCredential represents a source and propagation method for injecting ssh public keys into a vm guest Only one of its members may be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source represents where the public keys are pulled from",
+							Ref:         ref("kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredentialSource"),
+						},
+					},
+					"propagationMethod": {
+						SchemaProps: spec.SchemaProps{
+							Description: "propagationMethod represents how the public key is injected into the vm guest.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredentialPropagationMethod"),
+						},
+					},
+				},
+				Required: []string{"source", "propagationMethod"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredentialPropagationMethod", "kubevirt.io/client-go/api/v1.SSHPublicKeyAccessCredentialSource"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_SSHPublicKeyAccessCredentialPropagationMethod(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SSHPublicKeyAccessCredentialPropagationMethod represents the method used to inject a ssh public key into the vm guest. Only one of its members may be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"configDrive": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConfigDrivePropagation means that the ssh public keys are injected into the VM using metadata using the configDrive cloud-init provider",
+							Ref:         ref("kubevirt.io/client-go/api/v1.ConfigDriveAccessCredentialPropagation"),
+						},
+					},
+					"qemuGuestAgent": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.ConfigDriveAccessCredentialPropagation", "kubevirt.io/client-go/api/v1.QemuGuestAgentAccessCredentialPropagation"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_SSHPublicKeyAccessCredentialSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SSHPublicKeyAccessCredentialSource represents where to retrieve the ssh key credentials Only one of its members may be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"secret": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Secret means that the access credential is pulled from a kubernetes secret",
+							Ref:         ref("kubevirt.io/client-go/api/v1.AccessCredentialSecretSource"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.AccessCredentialSecretSource"},
 	}
 }
 
@@ -18160,12 +18347,30 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref common.Re
 							Ref:         ref("k8s.io/api/core/v1.PodDNSConfig"),
 						},
 					},
+					"accessCredentials": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies a set of public keys to inject into the vm guest",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/client-go/api/v1.AccessCredential"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"domain"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.Toleration", "kubevirt.io/client-go/api/v1.DomainSpec", "kubevirt.io/client-go/api/v1.Network", "kubevirt.io/client-go/api/v1.Probe", "kubevirt.io/client-go/api/v1.Volume"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.Toleration", "kubevirt.io/client-go/api/v1.AccessCredential", "kubevirt.io/client-go/api/v1.DomainSpec", "kubevirt.io/client-go/api/v1.Network", "kubevirt.io/client-go/api/v1.Probe", "kubevirt.io/client-go/api/v1.Volume"},
 	}
 }
 

@@ -62,6 +62,7 @@ import (
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -110,6 +111,8 @@ type LibvirtDomainManager struct {
 	domainModifyLock sync.Mutex
 	// mutex to control access to the guest time context
 	setGuestTimeLock sync.Mutex
+
+	credManager *accesscredentials.AccessCredentialManager
 
 	virtShareDir           string
 	notifier               *eventsclient.Notifier
@@ -163,8 +166,9 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 		paused: pausedVMIs{
 			paused: make(map[types.UID]bool, 0),
 		},
-		agentData: agentStore,
-		ovmfPath:  ovmfPath,
+		agentData:   agentStore,
+		ovmfPath:    ovmfPath,
+		credManager: accesscredentials.NewManager(connection),
 	}
 
 	return &manager, nil
@@ -989,18 +993,8 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
 
-	err := cloudinit.ResolveNoCloudSecrets(vmi, config.SecretSourceDir)
-	if err != nil {
-		return nil, err
-	}
-
-	err = cloudinit.ResolveConfigDriveSecrets(vmi, config.SecretSourceDir)
-	if err != nil {
-		return nil, err
-	}
-
 	// generate cloud-init data
-	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi)
+	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, config.SecretSourceDir)
 	if err != nil {
 		return domain, fmt.Errorf("PreCloudInitIso hook failed: %v", err)
 	}
@@ -1081,6 +1075,8 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		}
 		api.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 	}
+
+	l.credManager.HandleQemuAgentAccessCredentials(vmi)
 
 	return domain, err
 }
