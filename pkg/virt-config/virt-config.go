@@ -129,7 +129,7 @@ func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 }
 
 func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
-	return c.GetConfig().NetworkConfiguration.PermitSlirpInterface
+	return *c.GetConfig().NetworkConfiguration.PermitSlirpInterface
 }
 
 func (c *ClusterConfig) GetSMBIOS() *v1.SMBiosConfiguration {
@@ -137,7 +137,7 @@ func (c *ClusterConfig) GetSMBIOS() *v1.SMBiosConfiguration {
 }
 
 func (c *ClusterConfig) IsBridgeInterfaceOnPodNetworkEnabled() bool {
-	return c.GetConfig().NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork
+	return *c.GetConfig().NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork
 }
 
 func (c *ClusterConfig) GetDefaultClusterConfig() *v1.KubeVirtConfiguration {
