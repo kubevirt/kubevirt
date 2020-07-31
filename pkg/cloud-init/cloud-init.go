@@ -27,6 +27,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -60,19 +62,30 @@ const (
 // CloudInitData is a data source independent struct that
 // holds cloud-init user and network data
 type CloudInitData struct {
-	DataSource  DataSourceType
-	MetaData    *Metadata
-	UserData    string
-	NetworkData string
-	DevicesData *[]DeviceData
+	DataSource          DataSourceType
+	NoCloudMetaData     *NoCloudMetadata
+	ConfigDriveMetaData *ConfigDriveMetadata
+	UserData            string
+	NetworkData         string
+	DevicesData         *[]DeviceData
 }
 
-type Metadata struct {
-	InstanceID    string        `json:"instance-id"`
-	LocalHostname string        `json:"local-hostname,omitempty"`
-	Hostname      string        `json:"hostname,omitempty"`
-	UUID          string        `json:"uuid,omitempty"`
-	Devices       *[]DeviceData `json:"devices,omitempty"`
+type PublicSSHKey struct {
+	string
+}
+
+type NoCloudMetadata struct {
+	InstanceID    string `json:"instance-id"`
+	LocalHostname string `json:"local-hostname,omitempty"`
+}
+
+type ConfigDriveMetadata struct {
+	InstanceID    string            `json:"instance_id"`
+	LocalHostname string            `json:"local_hostname,omitempty"`
+	Hostname      string            `json:"hostname,omitempty"`
+	UUID          string            `json:"uuid,omitempty"`
+	Devices       *[]DeviceData     `json:"devices,omitempty"`
+	PublicSSHKeys map[string]string `json:"public_keys,omitempty"`
 }
 
 type DeviceData struct {
@@ -86,37 +99,48 @@ type DeviceData struct {
 
 // IsValidCloudInitData checks if the given CloudInitData object is valid in the sense that GenerateLocalData can be called with it.
 func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
-	return cloudInitData != nil && cloudInitData.UserData != "" && cloudInitData.MetaData != nil
+	return cloudInitData != nil && cloudInitData.UserData != "" && (cloudInitData.NoCloudMetaData != nil || cloudInitData.ConfigDriveMetaData != nil)
 }
 
 // ReadCloudInitVolumeDataSource scans the given VMI for CloudInit volumes and
 // reads their content into a CloudInitData struct. Does not resolve secret refs.
-// To ensure that secrets are read correctly, call ResolveNoCloudSecrets beforehand.
-func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance) (cloudInitData *CloudInitData, err error) {
+func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceDir string) (cloudInitData *CloudInitData, err error) {
 	precond.MustNotBeNil(vmi)
+
 	hostname := dns.SanitizeHostname(vmi)
 
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.CloudInitNoCloud != nil {
+			err := resolveNoCloudSecrets(vmi, secretSourceDir)
+			if err != nil {
+				return nil, err
+			}
+
 			cloudInitData, err = readCloudInitNoCloudSource(volume.CloudInitNoCloud)
-			cloudInitData.MetaData = readCloudInitNoCloudMetaData(vmi.Name, hostname, vmi.Namespace)
+			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(vmi.Name, hostname, vmi.Namespace)
 			return cloudInitData, err
 		}
 		if volume.CloudInitConfigDrive != nil {
+
+			keys, err := resolveConfigDriveSecrets(vmi, secretSourceDir)
+			if err != nil {
+				return nil, err
+			}
+
 			cloudInitData, err = readCloudInitConfigDriveSource(volume.CloudInitConfigDrive)
-			cloudInitData.MetaData = readCloudInitConfigDriveMetaData(string(vmi.UID), vmi.Name, hostname, vmi.Namespace)
+			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(string(vmi.UID), vmi.Name, hostname, vmi.Namespace, keys)
 			return cloudInitData, err
 		}
 	}
 	return nil, nil
 }
 
-// ResolveNoCloudSecrets is looking for CloudInitNoCloud volumes with UserDataSecretRef
+// resolveNoCloudSecrets is looking for CloudInitNoCloud volumes with UserDataSecretRef
 // requests. It reads the `userdata` secret the corresponds to the given CloudInitNoCloud
 // volume and sets the UserData field on that volume.
 //
 // Note: when using this function, make sure that your code can access the secret volumes.
-func ResolveNoCloudSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir string) error {
+func resolveNoCloudSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir string) error {
 	volume := findCloudInitNoCloudSecretVolume(vmi.Spec.Volumes)
 	if volume == nil {
 		return nil
@@ -139,22 +163,64 @@ func ResolveNoCloudSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir strin
 	return nil
 }
 
-// ResolveConfigDriveSecrets is looking for CloudInitConfigDriveSource volume source with
+// resolveConfigDriveSecrets is looking for CloudInitConfigDriveSource volume source with
 // UserDataSecretRef and NetworkDataSecretRef and resolves the secret from the corresponding
 // VolumeMount.
 //
 // Note: when using this function, make sure that your code can access the secret volumes.
-func ResolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir string) error {
+func resolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir string) (map[string]string, error) {
+	keys := make(map[string]string)
+	count := 0
+	for _, accessCred := range vmi.Spec.AccessCredentials {
+
+		// check to see if access credential is propagated by config drive or not
+		if accessCred.SSHPublicKey == nil || accessCred.SSHPublicKey.PropagationMethod.ConfigDrive == nil {
+			continue
+		}
+
+		secretName := ""
+		if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.Source.Secret != nil {
+			secretName = accessCred.SSHPublicKey.Source.Secret.Name
+		}
+
+		if secretName == "" {
+			continue
+		}
+
+		baseDir := filepath.Join(secretSourceDir, secretName+"-access-cred")
+		files, err := ioutil.ReadDir(baseDir)
+		if err != nil {
+			return keys, err
+		}
+
+		for _, file := range files {
+			if file.IsDir() || strings.HasPrefix(file.Name(), "..") {
+				continue
+			}
+			keyData, keyDataError := readFileFromDir(baseDir, file.Name())
+
+			if keyDataError != nil {
+				return keys, fmt.Errorf("no public keys found at at volume: %s/%s", baseDir, file.Name())
+			}
+
+			if keyData == "" {
+				continue
+			}
+			keys[strconv.Itoa(count)] = keyData
+			count++
+		}
+	}
+
 	volume := findCloudInitConfigDriveSecretVolume(vmi.Spec.Volumes)
 	if volume == nil {
-		return nil
+		return keys, nil
 	}
 
 	baseDir := filepath.Join(secretSourceDir, volume.Name)
 	userData, userDataError := readFileFromDir(baseDir, "userdata")
 	networkData, networkDataError := readFileFromDir(baseDir, "networkdata")
 	if userDataError != nil && networkDataError != nil {
-		return fmt.Errorf("no cloud-init data-source found at volume: %s", volume.Name)
+		return keys, fmt.Errorf("no cloud-init data-source found at volume: %s", volume.Name)
 	}
 
 	if userData != "" {
@@ -164,7 +230,7 @@ func ResolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir s
 		volume.CloudInitConfigDrive.NetworkData = networkData
 	}
 
-	return nil
+	return keys, nil
 }
 
 // findCloudInitConfigDriveSecretVolume loops over a given list of volumes and return a pointer
@@ -263,18 +329,19 @@ func readCloudInitConfigDriveSource(source *v1.CloudInitConfigDriveSource) (*Clo
 	}, nil
 }
 
-func readCloudInitNoCloudMetaData(name, hostname, namespace string) *Metadata {
-	return &Metadata{
+func readCloudInitNoCloudMetaData(name, hostname, namespace string) *NoCloudMetadata {
+	return &NoCloudMetadata{
 		InstanceID:    fmt.Sprintf("%s.%s", name, namespace),
 		LocalHostname: hostname,
 	}
 }
 
-func readCloudInitConfigDriveMetaData(uid, name, hostname, namespace string) *Metadata {
-	return &Metadata{
-		UUID:       uid,
-		InstanceID: fmt.Sprintf("%s.%s", name, namespace),
-		Hostname:   hostname,
+func readCloudInitConfigDriveMetaData(uid, name, hostname, namespace string, keys map[string]string) *ConfigDriveMetadata {
+	return &ConfigDriveMetadata{
+		UUID:          uid,
+		InstanceID:    fmt.Sprintf("%s.%s", name, namespace),
+		Hostname:      hostname,
+		PublicSSHKeys: keys,
 	}
 }
 
@@ -367,6 +434,9 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 	precond.MustNotBeEmpty(vmiName)
 	precond.MustNotBeNil(data)
 
+	var metaData []byte
+	var err error
+
 	domainBasePath := getDomainBasePath(vmiName, namespace)
 	dataBasePath := fmt.Sprintf("%s/data", domainBasePath)
 
@@ -379,6 +449,16 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network-config")
 		iso = GetIsoFilePath(DataSourceNoCloud, vmiName, namespace)
 		isoStaging = fmt.Sprintf("%s.staging", iso)
+		if data.NoCloudMetaData == nil {
+			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
+			data.NoCloudMetaData = &NoCloudMetadata{
+				InstanceID: fmt.Sprintf("%s.%s", vmiName, namespace),
+			}
+		}
+		metaData, err = json.Marshal(data.NoCloudMetaData)
+		if err != nil {
+			return err
+		}
 	case DataSourceConfigDrive:
 		dataPath = fmt.Sprintf("%s/openstack/latest", dataBasePath)
 		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta_data.json")
@@ -386,11 +466,24 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network_data.json")
 		iso = GetIsoFilePath(DataSourceConfigDrive, vmiName, namespace)
 		isoStaging = fmt.Sprintf("%s.staging", iso)
+		if data.ConfigDriveMetaData == nil {
+			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
+			data.ConfigDriveMetaData = &ConfigDriveMetadata{
+				InstanceID: fmt.Sprintf("%s.%s", vmiName, namespace),
+			}
+		}
+
+		data.ConfigDriveMetaData.Devices = data.DevicesData
+		metaData, err = json.Marshal(data.ConfigDriveMetaData)
+		if err != nil {
+			return err
+		}
+
 	default:
 		return fmt.Errorf("Invalid cloud-init data source: '%v'", data.DataSource)
 	}
 
-	err := os.MkdirAll(dataPath, 0755)
+	err = os.MkdirAll(dataPath, 0755)
 	if err != nil {
 		log.Log.V(2).Reason(err).Errorf("unable to create cloud-init base path %s", domainBasePath)
 		return err
@@ -404,19 +497,6 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 	var networkData []byte
 	if data.NetworkData != "" {
 		networkData = []byte(data.NetworkData)
-	}
-
-	var metaData []byte
-	if data.MetaData == nil {
-		log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
-		data.MetaData = &Metadata{
-			InstanceID: fmt.Sprintf("%s.%s", vmiName, namespace),
-		}
-	}
-	data.MetaData.Devices = data.DevicesData
-	metaData, err = json.Marshal(data.MetaData)
-	if err != nil {
-		return err
 	}
 
 	diskutils.RemoveFile(userFile)

@@ -97,10 +97,10 @@ var _ = Describe("CloudInit", func() {
 	})
 	Describe("Data Model", func() {
 		Context("verify meta-data model", func() {
-			It("shuold match the generated devices metadata", func() {
+			It("should match the generated configdrive metadata", func() {
 				exampleJSONParsed := `{
-  "instance-id": "fake.fake-namespace",
-  "local-hostname": "fake",
+  "instance_id": "fake.fake-namespace",
+  "local_hostname": "fake",
   "uuid": "5d307ca9-b3ef-428c-8861-06e72d69f223",
   "devices": [
     {
@@ -112,7 +112,10 @@ var _ = Describe("CloudInit", func() {
         "testtag"
       ]
     }
-  ]
+  ],
+  "public_keys": {
+    "0": "somekey"
+  }
 }`
 				devices := []DeviceData{
 					{
@@ -124,11 +127,26 @@ var _ = Describe("CloudInit", func() {
 					},
 				}
 
-				metadataStruct := Metadata{
+				metadataStruct := ConfigDriveMetadata{
 					InstanceID:    "fake.fake-namespace",
 					LocalHostname: "fake",
 					UUID:          "5d307ca9-b3ef-428c-8861-06e72d69f223",
 					Devices:       &devices,
+					PublicSSHKeys: map[string]string{"0": "somekey"},
+				}
+				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
+				Expect(err).To(BeNil())
+				Expect(string(buf)).To(Equal(exampleJSONParsed))
+			})
+			It("should match the generated nocloud metadata", func() {
+				exampleJSONParsed := `{
+  "instance-id": "fake.fake-namespace",
+  "local-hostname": "fake"
+}`
+
+				metadataStruct := NoCloudMetadata{
+					InstanceID:    "fake.fake-namespace",
+					LocalHostname: "fake",
 				}
 				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
 				Expect(err).To(BeNil())

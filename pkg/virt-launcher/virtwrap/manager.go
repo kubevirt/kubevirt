@@ -929,18 +929,8 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
 
-	err := cloudinit.ResolveNoCloudSecrets(vmi, config.SecretSourceDir)
-	if err != nil {
-		return nil, err
-	}
-
-	err = cloudinit.ResolveConfigDriveSecrets(vmi, config.SecretSourceDir)
-	if err != nil {
-		return nil, err
-	}
-
 	// generate cloud-init data
-	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi)
+	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, config.SecretSourceDir)
 	if err != nil {
 		return domain, fmt.Errorf("PreCloudInitIso hook failed: %v", err)
 	}

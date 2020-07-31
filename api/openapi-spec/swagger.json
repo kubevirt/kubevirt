@@ -7036,6 +7036,27 @@
      }
     }
    },
+   "v1.AccessCredential": {
+    "description": "AccessCredential represents a credential source that can be used to authorize remote access to the vm guest Only one of its members may be specified.",
+    "type": "object",
+    "properties": {
+     "sshPublicKey": {
+      "$ref": "#/definitions/v1.SSHPublicKeyAccessCredential"
+     }
+    }
+   },
+   "v1.AccessCredentialSecretSource": {
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name represents the name of the secret in the VMI's namespace",
+      "type": "string"
+     }
+    }
+   },
    "v1.Affinity": {
     "description": "Affinity is a group of affinity scheduling rules.",
     "type": "object",
@@ -7255,6 +7276,9 @@
       "type": "string"
      }
     }
+   },
+   "v1.ConfigDriveAccessCredentialPropagation": {
+    "type": "object"
    },
    "v1.ConfigMapVolumeSource": {
     "description": "ConfigMapVolumeSource adapts a ConfigMap into a volume. More info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
@@ -9258,6 +9282,44 @@
      }
     }
    },
+   "v1.SSHPublicKeyAccessCredential": {
+    "description": "SSHPublicKeyAccessCredential represents a source and propagation method for injecting ssh public keys into a vm guest Only one of its members may be specified.",
+    "type": "object",
+    "required": [
+     "source",
+     "propagationMethod"
+    ],
+    "properties": {
+     "propagationMethod": {
+      "description": "propagationMethod represents how the public key is injected into the vm guest.",
+      "$ref": "#/definitions/v1.SSHPublicKeyAccessCredentialPropagationMethod"
+     },
+     "source": {
+      "description": "Source represents where the public keys are pulled from",
+      "$ref": "#/definitions/v1.SSHPublicKeyAccessCredentialSource"
+     }
+    }
+   },
+   "v1.SSHPublicKeyAccessCredentialPropagationMethod": {
+    "description": "SSHPublicKeyAccessCredentialPropagationMethod represents the method used to inject a ssh public key into the vm guest. Only one of its members may be specified.",
+    "type": "object",
+    "properties": {
+     "configDrive": {
+      "description": "ConfigDrivePropagation means that the ssh public keys are injected into the VM using metadata using the configDrive cloud-init provider",
+      "$ref": "#/definitions/v1.ConfigDriveAccessCredentialPropagation"
+     }
+    }
+   },
+   "v1.SSHPublicKeyAccessCredentialSource": {
+    "description": "SSHPublicKeyAccessCredentialSource represents where to retrieve the ssh key credentials Only one of its members may be specified.",
+    "type": "object",
+    "properties": {
+     "secret": {
+      "description": "Secret means that the access credential is pulled from a kubernetes secret",
+      "$ref": "#/definitions/v1.AccessCredentialSecretSource"
+     }
+    }
+   },
    "v1.SecretVolumeSource": {
     "description": "SecretVolumeSource adapts a Secret into a volume.",
     "type": "object",
@@ -10245,6 +10307,13 @@
      "domain"
     ],
     "properties": {
+     "accessCredentials": {
+      "description": "Specifies a set of public keys to inject into the vm guest",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.AccessCredential"
+      }
+     },
      "affinity": {
       "description": "If affinity is specifies, obey all the affinity rules",
       "$ref": "#/definitions/v1.Affinity"
