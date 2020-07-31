@@ -1751,7 +1751,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					_, err := cli.Get(vm1.Name+"new", &v12.GetOptions{})
 
 					return err
-				}).Should(BeNil())
+				}, 10*time.Second, 1*time.Second).Should(BeNil())
 
 				_, err = cli.Get(vm1.Name, &v12.GetOptions{})
 				Expect(err).To(HaveOccurred())
