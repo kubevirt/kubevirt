@@ -75,6 +75,7 @@ import (
 const LibvirtLocalConnectionPort = 22222
 const gpuEnvPrefix = "GPU_PASSTHROUGH_DEVICES"
 const vgpuEnvPrefix = "VGPU_PASSTHROUGH_DEVICES"
+const QATEnvPrefix = "QAT"
 
 type contextStore struct {
 	ctx    context.Context
@@ -1177,6 +1178,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		SRIOVDevices:      getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
 		GpuDevices:        getEnvAddressListByPrefix(gpuEnvPrefix),
 		VgpuDevices:       getEnvAddressListByPrefix(vgpuEnvPrefix),
+		QATDevices:        getEnvAddressListByPrefix(QATEnvPrefix),
 		EmulatorThreadCpu: emulatorThreadCpu,
 		OVMFPath:          l.ovmfPath,
 	}

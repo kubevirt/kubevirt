@@ -290,12 +290,14 @@ elif [[ $TARGET =~ sriov.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=SRIOV"
 elif [[ $TARGET =~ gpu.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=GPU"
+elif [[ $TARGET =~ qat.* ]]; then
+  ginko_params="$ginko_params --ginkgo.focus=QAT"
 elif [[ $TARGET =~ (okd|ocp).* ]]; then
-  ginko_params="$ginko_params --ginkgo.skip=SRIOV|GPU"
+  ginko_params="$ginko_params --ginkgo.skip=SRIOV|GPU|QAT"
 elif [[ $TARGET =~ ipv6.* ]]; then
-  ginko_params="$ginko_params --ginkgo.skip=Multus|SRIOV|GPU|.*slirp.*|.*bridge.*"
+  ginko_params="$ginko_params --ginkgo.skip=Multus|SRIOV|GPU|QAT|.*slirp.*|.*bridge.*"
 else
-  ginko_params="$ginko_params --ginkgo.skip=Multus|SRIOV|GPU"
+  ginko_params="$ginko_params --ginkgo.skip=Multus|SRIOV|GPU|QAT"
 fi
 
 # Prepare RHEL PV for Template testing

@@ -106,6 +106,7 @@ go_test(
         "vmi_multiqueue_test.go",
         "vmi_multus_test.go",
         "vmi_networking_test.go",
+        "vmi_qat_test.go",
         "vmi_slirp_interface_test.go",
         "vmidefaults_test.go",
         "vmipreset_test.go",

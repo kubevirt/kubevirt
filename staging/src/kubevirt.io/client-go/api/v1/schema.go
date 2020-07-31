@@ -372,6 +372,17 @@ type Devices struct {
 	//Whether to attach a GPU device to the vmi.
 	// +optional
 	GPUs []GPU `json:"gpus,omitempty"`
+	//Whether to assign a QAT vf device to the vmi.
+	// +optional
+	QATs []QAT `json:"qats,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type QAT struct {
+	// Name of the QAT device as exposed by a device plugin
+	Name       string `json:"name"`
+	DeviceName string `json:"deviceName"`
 }
 
 //

@@ -56,6 +56,7 @@ const (
 	VmiMultusMultipleNet = "vmi-multus-multiple-net"
 	VmiHostDisk          = "vmi-host-disk"
 	VmiGPU               = "vmi-gpu"
+	VmiQAT               = "vmi-qat"
 	VmTemplateFedora     = "vm-template-fedora"
 	VmTemplateRHEL7      = "vm-template-rhel7"
 	VmTemplateWindows    = "vm-template-windows2012r2"
@@ -998,6 +999,21 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 		},
 	}
 	vmi.Spec.Domain.Devices.GPUs = GPUs
+	initFedora(&vmi.Spec)
+	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	return vmi
+}
+
+func GetVMIQAT() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiQAT)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	QATs := []v1.QAT{
+		v1.QAT{
+			Name:       "qat1",
+			DeviceName: "qat.intel.com/generic",
+		},
+	}
+	vmi.Spec.Domain.Devices.QATs = QATs
 	initFedora(&vmi.Spec)
 	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 	return vmi

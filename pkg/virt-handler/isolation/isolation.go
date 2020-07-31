@@ -154,7 +154,7 @@ func prLimit(pid int, limit uintptr, rlimit *unix.Rlimit) error {
 
 func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance) error {
 	// only VFIO attached domains require MEMLOCK adjustment
-	if !util.IsSRIOVVmi(vm) && !util.IsGPUVMI(vm) {
+	if !util.IsSRIOVVmi(vm) && !util.IsGPUVMI(vm) && !util.IsQATVMI(vm) {
 		return nil
 	}
 

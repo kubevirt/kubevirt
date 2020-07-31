@@ -6805,6 +6805,13 @@
       "description": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature",
       "type": "boolean"
      },
+     "qats": {
+      "description": "Whether to assign a QAT vf device to the vmi.\n+optional",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.QAT"
+      }
+     },
      "rng": {
       "description": "Whether to have random number generator from host",
       "$ref": "#/definitions/v1.Rng"
@@ -8439,6 +8446,21 @@
       "description": "Number of seconds after which the probe times out. Defaults to 1 second. Minimum value is 1. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
       "type": "integer",
       "format": "int32"
+     }
+    }
+   },
+   "v1.QAT": {
+    "required": [
+     "name",
+     "deviceName"
+    ],
+    "properties": {
+     "deviceName": {
+      "type": "string"
+     },
+     "name": {
+      "description": "Name of the QAT device as exposed by a device plugin",
+      "type": "string"
      }
     }
    },

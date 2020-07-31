@@ -34,3 +34,11 @@ func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
 	}
 	return false
 }
+
+// Check if a VMI spec requests QAT
+func IsQATVMI(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.QATs != nil && len(vmi.Spec.Domain.Devices.QATs) != 0 {
+		return true
+	}
+	return false
+}

@@ -360,7 +360,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		},
 	})
 
-	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) {
+	if util.IsSRIOVVmi(vmi) || util.IsGPUVMI(vmi) || util.IsQATVMI(vmi) {
 		// libvirt needs this volume to access PCI device config;
 		// note that the volume should not be read-only because libvirt
 		// opens the config for writing
@@ -829,6 +829,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	if util.IsGPUVMI(vmi) {
 		for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
 			requestResource(&resources, gpu.DeviceName)
+		}
+	}
+
+	if util.IsQATVMI(vmi) {
+		for _, qat := range vmi.Spec.Domain.Devices.QATs {
+			requestResource(&resources, qat.DeviceName)
 		}
 	}
 

@@ -935,6 +935,14 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		})
 	}
 
+	if spec.Domain.Devices.QATs != nil && !config.QATPassthroughEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("QAT feature gate is not enabled in kubevirt-config"),
+			Field:   field.Child("QATs").String(),
+		})
+	}
+
 	return causes
 }
 

@@ -97,6 +97,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].name"))
 	})
+
 	It("should reject VMIs without memory after presets were applied", func() {
 		vmi := v1.NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
@@ -1758,6 +1759,20 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should reject QAT devices when QAT feature gate is disabled(default)", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.QATs = []v1.QAT{
+				v1.QAT{
+					Name:       "qat1",
+					DeviceName: "vendor.com/qat_name",
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.QATs"))
 		})
 
 		It("should allow valid ioThreadsPolicy", func() {
