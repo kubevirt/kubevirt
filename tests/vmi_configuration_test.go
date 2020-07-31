@@ -228,6 +228,24 @@ var _ = Describe("Configurations", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 			})
+			It("should set a correct memory units", func() {
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("512Mi"),
+					},
+				}
+				expectedMemoryInKiB := 512 * 1024
+				expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
+			})
 
 			It("[test_id:1660]should report 3 sockets under guest OS", func() {
 				vmi.Spec.Domain.CPU = &v1.CPU{
