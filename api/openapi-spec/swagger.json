@@ -8002,6 +8002,40 @@
     "type": "string",
     "format": "int-or-string"
    },
+   "v1.AccessCredential": {
+    "description": "AccessCredential represents a credential source that can be used to authorize remote access to the vm guest Only one of its members may be specified.",
+    "type": "object",
+    "properties": {
+     "sshPublicKey": {
+      "$ref": "#/definitions/v1.SSHPublicKeyAccessCredential"
+     }
+    }
+   },
+   "v1.AccessCredentialSecretSource": {
+    "type": "object",
+    "required": [
+     "secretName"
+    ],
+    "properties": {
+     "secretName": {
+      "description": "SecretName represents the name of the secret in the VMI's namespace",
+      "type": "string"
+     }
+    }
+   },
+   "v1.AuthorizedKeysFile": {
+    "description": "AuthorizedKeysFile represents a path within the guest that ssh public keys should be propagated to",
+    "type": "object",
+    "required": [
+     "filePath"
+    ],
+    "properties": {
+     "filePath": {
+      "description": "FilePath represents the place on the guest that the authorized_keys file should be writen to. This is expected to be a full path including both the base directory and file name.",
+      "type": "string"
+     }
+    }
+   },
    "v1.BIOS": {
     "description": "If set (default), BIOS will be used.",
     "type": "object",
@@ -8218,6 +8252,9 @@
       "$ref": "#/definitions/v1.NodePlacement"
      }
     }
+   },
+   "v1.ConfigDriveAccessCredentialPropagation": {
+    "type": "object"
    },
    "v1.ConfigMapVolumeSource": {
     "description": "ConfigMapVolumeSource adapts a ConfigMap into a volume. More info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
@@ -9617,6 +9654,19 @@
      }
     }
    },
+   "v1.QemuGuestAgentAccessCredentialPropagation": {
+    "type": "object",
+    "properties": {
+     "authorizedKeysFiles": {
+      "description": "AuthorizedKeysFiles represents all the paths within the guest that ssh public keys should be propagated to",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.AuthorizedKeysFile"
+      },
+      "x-kubernetes-list-type": "set"
+     }
+    }
+   },
    "v1.RTCTimer": {
     "type": "object",
     "properties": {
@@ -9697,6 +9747,48 @@
      },
      "version": {
       "type": "string"
+     }
+    }
+   },
+   "v1.SSHPublicKeyAccessCredential": {
+    "description": "SSHPublicKeyAccessCredential represents a source and propagation method for injecting ssh public keys into a vm guest Only one of its members may be specified.",
+    "type": "object",
+    "required": [
+     "source",
+     "propagationMethod"
+    ],
+    "properties": {
+     "propagationMethod": {
+      "description": "propagationMethod represents how the public key is injected into the vm guest.",
+      "$ref": "#/definitions/v1.SSHPublicKeyAccessCredentialPropagationMethod"
+     },
+     "source": {
+      "description": "Source represents where the public keys are pulled from",
+      "$ref": "#/definitions/v1.SSHPublicKeyAccessCredentialSource"
+     }
+    }
+   },
+   "v1.SSHPublicKeyAccessCredentialPropagationMethod": {
+    "description": "SSHPublicKeyAccessCredentialPropagationMethod represents the method used to inject a ssh public key into the vm guest. Only one of its members may be specified.",
+    "type": "object",
+    "properties": {
+     "configDrive": {
+      "description": "ConfigDrivePropagation means that the ssh public keys are injected into the VM using metadata using the configDrive cloud-init provider",
+      "$ref": "#/definitions/v1.ConfigDriveAccessCredentialPropagation"
+     },
+     "qemuGuestAgent": {
+      "description": "QemuGuestAgentAccessCredentailPropagation means ssh public keys are dynamically injected into the vm at runtime via the qemu guest agent. This feature requires the qemu guest agent to be running within the guest.",
+      "$ref": "#/definitions/v1.QemuGuestAgentAccessCredentialPropagation"
+     }
+    }
+   },
+   "v1.SSHPublicKeyAccessCredentialSource": {
+    "description": "SSHPublicKeyAccessCredentialSource represents where to retrieve the ssh key credentials Only one of its members may be specified.",
+    "type": "object",
+    "properties": {
+     "secret": {
+      "description": "Secret means that the access credential is pulled from a kubernetes secret",
+      "$ref": "#/definitions/v1.AccessCredentialSecretSource"
      }
     }
    },
@@ -10508,6 +10600,14 @@
      "domain"
     ],
     "properties": {
+     "accessCredentials": {
+      "description": "Specifies a set of public keys to inject into the vm guest",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.AccessCredential"
+      },
+      "x-kubernetes-list-type": "set"
+     },
      "affinity": {
       "description": "If affinity is specifies, obey all the affinity rules",
       "$ref": "#/definitions/k8s.io.api.core.v1.Affinity"
