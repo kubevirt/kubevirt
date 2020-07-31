@@ -150,6 +150,10 @@ type VirtualMachineInstanceSpec struct {
 	// configuration based on DNSPolicy.
 	// +optional
 	DNSConfig *k8sv1.PodDNSConfig `json:"dnsConfig,omitempty" protobuf:"bytes,26,opt,name=dnsConfig"`
+	// Specifies a set of public keys to inject into the vm guest
+	// +optional
+	// +listType=set
+	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
 }
 
 // VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual

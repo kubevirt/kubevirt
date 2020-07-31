@@ -1139,6 +1139,86 @@ type Port struct {
 	Port int32 `json:"port"`
 }
 
+//
+// +k8s:openapi-gen=true
+type AccessCredentialSecretSource struct {
+	// SecretName represents the name of the secret in the VMI's namespace
+	SecretName string `json:"secretName"`
+}
+
+//
+// +k8s:openapi-gen=true
+type ConfigDriveAccessCredentialPropagation struct{}
+
+// AuthorizedKeysFile represents a path within the guest
+// that ssh public keys should be propagated to
+//
+// +k8s:openapi-gen=true
+type AuthorizedKeysFile struct {
+	// FilePath represents the place on the guest that the authorized_keys
+	// file should be writen to. This is expected to be a full path including
+	// both the base directory and file name.
+	FilePath string `json:"filePath"`
+}
+
+//
+// +k8s:openapi-gen=true
+type QemuGuestAgentAccessCredentialPropagation struct {
+	// AuthorizedKeysFiles represents all the paths within the guest
+	// that ssh public keys should be propagated to
+	// +optional
+	// +listType=set
+	AuthorizedKeysFiles []AuthorizedKeysFile `json:"authorizedKeysFiles,omitempty"`
+}
+
+// SSHPublicKeyAccessCredentialSource represents where to retrieve the ssh key
+// credentials
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type SSHPublicKeyAccessCredentialSource struct {
+	// Secret means that the access credential is pulled from a kubernetes secret
+	Secret *AccessCredentialSecretSource `json:"secret,omitempty"`
+}
+
+// SSHPublicKeyAccessCredentialPropagationMethod represents the method used to
+// inject a ssh public key into the vm guest.
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type SSHPublicKeyAccessCredentialPropagationMethod struct {
+	// ConfigDrivePropagation means that the ssh public keys are injected
+	// into the VM using metadata using the configDrive cloud-init provider
+	ConfigDrive *ConfigDriveAccessCredentialPropagation `json:"configDrive,omitempty"`
+
+	// QemuGuestAgentAccessCredentailPropagation means ssh public keys are
+	// dynamically injected into the vm at runtime via the qemu guest agent.
+	// This feature requires the qemu guest agent to be running within the guest.
+	QemuGuestAgent *QemuGuestAgentAccessCredentialPropagation `json:"qemuGuestAgent,omitempty"`
+}
+
+// SSHPublicKeyAccessCredential represents a source and propagation method for
+// injecting ssh public keys into a vm guest
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type SSHPublicKeyAccessCredential struct {
+	// Source represents where the public keys are pulled from
+	Source SSHPublicKeyAccessCredentialSource `json:"source"`
+
+	// propagationMethod represents how the public key is injected into the vm guest.
+	PropagationMethod SSHPublicKeyAccessCredentialPropagationMethod `json:"propagationMethod"`
+}
+
+// AccessCredential represents a credential source that can be used to
+// authorize remote access to the vm guest
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type AccessCredential struct {
+	SSHPublicKey *SSHPublicKeyAccessCredential `json:"sshPublicKey,omitempty"`
+}
+
 // Network represents a network type and a resource that should be connected to the vm.
 //
 // +k8s:openapi-gen=true

@@ -26,6 +26,7 @@ if cmp ${KUBEVIRT_DIR}/api/api-rule-violations.list ${KUBEVIRT_DIR}/api/api-rule
 else
     diff -u ${KUBEVIRT_DIR}/api/api-rule-violations-known.list ${KUBEVIRT_DIR}/api/api-rule-violations.list || true
     echo "You introduced new API rule violation"
+    diff ${KUBEVIRT_DIR}/api/api-rule-violations.list ${KUBEVIRT_DIR}/api/api-rule-violations-known.list
     exit 2
 fi
 
