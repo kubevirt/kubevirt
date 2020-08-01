@@ -87,19 +87,23 @@ const (
 	maxRequestsInFlight = 3
 	// Default port that virt-handler listens to console requests
 	defaultConsoleServerPort = 8186
+
+	// Default period for resyncing virt-launcher domain cache
+	defaultDomainResyncPeriodSeconds = 300
 )
 
 type virtHandlerApp struct {
 	service.ServiceListen
-	HostOverride            string
-	PodIpAddress            string
-	VirtShareDir            string
-	VirtPrivateDir          string
-	VirtLibDir              string
-	KubeletPodsDir          string
-	WatchdogTimeoutDuration time.Duration
-	MaxDevices              int
-	MaxRequestsInFlight     int
+	HostOverride              string
+	PodIpAddress              string
+	VirtShareDir              string
+	VirtPrivateDir            string
+	VirtLibDir                string
+	KubeletPodsDir            string
+	WatchdogTimeoutDuration   time.Duration
+	MaxDevices                int
+	MaxRequestsInFlight       int
+	domainResyncPeriodSeconds int
 
 	virtCli   kubecli.KubevirtClient
 	namespace string
@@ -186,7 +190,7 @@ func (app *virtHandlerApp) Run() {
 	)
 
 	// Wire Domain controller
-	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmSourceSharedInformer.GetStore())
+	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmSourceSharedInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
 	if err != nil {
 		panic(err)
 	}
@@ -392,6 +396,10 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.IntVar(&app.consoleServerPort, "console-server-port", defaultConsoleServerPort,
 		"The port virt-handler listens on for console requests")
+
+	flag.IntVar(&app.domainResyncPeriodSeconds, "domain-resync-period-seconds", defaultDomainResyncPeriodSeconds,
+		"Recurring period for resyncing all known virt-launcher domains.")
+
 }
 
 func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) error {
