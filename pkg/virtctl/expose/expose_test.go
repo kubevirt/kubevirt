@@ -102,6 +102,12 @@ var _ = Describe("Expose", func() {
 				kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 			})
 		})
+		Context("With missing input parameters", func() {
+			It("should fail", func() {
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE)
+				Expect(cmd()).NotTo(BeNil())
+			})
+		})
 		Context("With missing resource", func() {
 			It("should fail", func() {
 				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", "--name", "my-service",

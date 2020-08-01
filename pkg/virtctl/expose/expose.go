@@ -37,7 +37,7 @@ var strServiceType string
 var portName string
 var namespace string
 
-// generate a new "expose" command
+// NewExposeCommand generates a new "expose" command
 func NewExposeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "expose (TYPE NAME)",
@@ -51,7 +51,7 @@ Possible types are (case insensitive, both single and plurant forms):
         
 virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplicaset (vmirs)`,
 		Example: usage(),
-		Args:    cobra.ExactArgs(2),
+		Args:    templates.ExactArgs("expose", 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_EXPOSE, clientConfig: clientConfig}
 			return c.RunE(cmd, args)

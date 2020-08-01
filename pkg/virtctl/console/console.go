@@ -42,7 +42,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Use:     "console (VMI)",
 		Short:   "Connect to a console of a virtual machine instance.",
 		Example: usage(),
-		Args:    cobra.ExactArgs(1),
+		Args:    templates.ExactArgs("console", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Console{clientConfig: clientConfig}
 			return c.Run(cmd, args)

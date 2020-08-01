@@ -51,7 +51,7 @@ func NewPauseCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Long: `Pauses a virtual machine by freezing it. Machine state is kept in memory.
 First argument is the resource type, possible types are (case insensitive, both singular and plural forms) virtualmachineinstance (vmi) or virtualmachine (vm).
 Second argument is the name of the resource.`,
-		Args:    cobra.ExactArgs(2),
+		Args:    templates.ExactArgs(COMMAND_PAUSE, 2),
 		Example: usage(COMMAND_PAUSE),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := VirtCommand{
@@ -72,7 +72,7 @@ func NewUnpauseCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Long: `Unpauses a virtual machine.
 First argument is the resource type, possible types are (case insensitive, both singular and plural forms) virtualmachineinstance (vmi) or virtualmachine (vm).
 Second argument is the name of the resource.`,
-		Args:    cobra.ExactArgs(2),
+		Args:    templates.ExactArgs("unpause", 2),
 		Example: usage(COMMAND_UNPAUSE),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := VirtCommand{

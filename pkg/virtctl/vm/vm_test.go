@@ -34,6 +34,41 @@ var _ = Describe("VirtualMachine", func() {
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 	})
 
+	Context("With missing input parameters", func() {
+		It("should fail", func() {
+			cmd := tests.NewRepeatableVirtctlCommand("start")
+			Expect(cmd()).NotTo(BeNil())
+		})
+	})
+
+	Context("With missing input parameters", func() {
+		It("should fail", func() {
+			cmd := tests.NewRepeatableVirtctlCommand("stop")
+			Expect(cmd()).NotTo(BeNil())
+		})
+	})
+
+	Context("With missing input parameters", func() {
+		It("should fail", func() {
+			cmd := tests.NewRepeatableVirtctlCommand("restart")
+			Expect(cmd()).NotTo(BeNil())
+		})
+	})
+
+	Context("With missing input parameters", func() {
+		It("should fail", func() {
+			cmd := tests.NewRepeatableVirtctlCommand("migrate")
+			Expect(cmd()).NotTo(BeNil())
+		})
+	})
+
+	Context("With missing input parameters", func() {
+		It("should fail", func() {
+			cmd := tests.NewRepeatableVirtctlCommand("rename")
+			Expect(cmd()).NotTo(BeNil())
+		})
+	})
+
 	Context("should patch VM", func() {
 		It("with spec:running:true", func() {
 			vm := kubecli.NewMinimalVM(vmName)
