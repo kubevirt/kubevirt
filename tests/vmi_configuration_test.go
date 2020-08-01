@@ -542,7 +542,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				res, err := expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass' || echo 'fail'\n"},
+					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pa''ss'\n"},
 					&expect.BExp{R: "pass"},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k; echo $?\n"},
 					&expect.BExp{R: "0"},
@@ -598,7 +598,7 @@ var _ = Describe("Configurations", func() {
 
 				// Check on the VM, if the Free memory is roughly what we expected
 				res, err := expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 95 ] && echo 'pass' || echo 'fail'\n"},
+					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 95 ] && echo 'pa''ss'\n"},
 					&expect.BExp{R: "pass"},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
@@ -1921,7 +1921,7 @@ var _ = Describe("Configurations", func() {
 				log.DefaultLogger().Object(cpuVmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
 			})
-			It("should be able to start a vm with guest memory different from requested and keed guaranteed qos", func() {
+			It("should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Sockets:               2,
@@ -1960,7 +1960,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				res, err := expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass' || echo 'fail'\n"},
+					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pa''ss'\n"},
 					&expect.BExp{R: "pass"},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k; echo $?\n"},
 					&expect.BExp{R: "0"},
@@ -2283,6 +2283,7 @@ var _ = Describe("Configurations", func() {
 	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check Chassis value", func() {
 
 		It("[test_id:2927]Test Chassis value in a newly created VM", func() {
+			tests.SkipDmidecodeTestIfRunningOnKindInfraIPv6()
 			vmi := tests.NewRandomFedoraVMIWithDmidecode()
 			vmi.Spec.Domain.Chassis = &v1.Chassis{
 				Asset: "Test-123",
@@ -2306,7 +2307,7 @@ var _ = Describe("Configurations", func() {
 			By("Check value in VM with dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
 			res, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "[ $(sudo dmidecode -s chassis-asset-tag | tr -s ' ') -eq Test-123 ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s chassis-asset-tag | tr -s ' ') = Test-123 ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
@@ -2319,6 +2320,7 @@ var _ = Describe("Configurations", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
+			tests.SkipDmidecodeTestIfRunningOnKindInfraIPv6()
 			vmi = tests.NewRandomFedoraVMIWithDmidecode()
 		})
 
@@ -2349,11 +2351,11 @@ var _ = Describe("Configurations", func() {
 			By("Check values in dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
 			res, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') -eq KubeVirt ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = KubeVirt ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') -eq None ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = None ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') -eq KubeVirt ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = KubeVirt ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
@@ -2389,11 +2391,11 @@ var _ = Describe("Configurations", func() {
 
 			// Check on the VM, if expected values are there with dmidecode
 			res, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') -eq test ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = test ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') -eq test ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = test ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
-				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') -eq None ] && echo 'pass' || echo 'fail'\n"},
+				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = None ] && echo 'pa''ss'\n"},
 				&expect.BExp{R: "pass"},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
