@@ -384,7 +384,7 @@ var _ = Describe("Converter", func() {
 
 		var convertedDomain = fmt.Sprintf(`<domain type="%s" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvmi</name>
-  <memory unit="B">8388608</memory>
+  <memory unit="b">8388608</memory>
   <os>
     <type arch="x86_64" machine="q35">hvm</type>
     <smbios mode="sysinfo"></smbios>
@@ -569,7 +569,7 @@ var _ = Describe("Converter", func() {
 
 		var convertedDomainppc64le = fmt.Sprintf(`<domain type="%s" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvmi</name>
-  <memory unit="B">8388608</memory>
+  <memory unit="b">8388608</memory>
   <os>
     <type arch="ppc64le" machine="pseries">hvm</type>
   </os>
@@ -753,7 +753,7 @@ var _ = Describe("Converter", func() {
 
 		var convertedDomainWithDevicesOnRootBus = fmt.Sprintf(`<domain type="%s" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvmi</name>
-  <memory unit="B">8388608</memory>
+  <memory unit="b">8388608</memory>
   <os>
     <type arch="x86_64" machine="q35">hvm</type>
     <smbios mode="sysinfo"></smbios>
@@ -1272,7 +1272,7 @@ var _ = Describe("Converter", func() {
 			m64, _ := resource.ParseQuantity("64M")
 			memory, err := QuantityToByte(m64)
 			Expect(memory.Value).To(Equal(uint64(64000000)))
-			Expect(memory.Unit).To(Equal("B"))
+			Expect(memory.Unit).To(Equal("b"))
 			Expect(err).ToNot(HaveOccurred())
 
 			By("specifying memory 64Mi")
@@ -1320,7 +1320,7 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.MemoryBacking.HugePages).ToNot(BeNil())
 
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(8388608)))
-			Expect(domainSpec.Memory.Unit).To(Equal("B"))
+			Expect(domainSpec.Memory.Unit).To(Equal("b"))
 		})
 
 		It("should use guest memory instead of requested memory if present", func() {
@@ -1333,7 +1333,7 @@ var _ = Describe("Converter", func() {
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(128974848)))
-			Expect(domainSpec.Memory.Unit).To(Equal("B"))
+			Expect(domainSpec.Memory.Unit).To(Equal("b"))
 		})
 
 		It("should not add RNG when not present", func() {
