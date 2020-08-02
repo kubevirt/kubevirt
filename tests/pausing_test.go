@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"regexp"
 	"strings"
 	"time"
 
@@ -363,30 +364,32 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 	Context("A long running process", func() {
 
-		startProcess := func(expecter expect.Expecter) string {
-			By("Start a long running process")
-			res, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "sleep 5&\n"},
-				&expect.BExp{R: "\\# "}, // prompt
+		grepSleepPid := func(expecter expect.Expecter) string {
+			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: `pgrep -f "sleep 5"` + "\n"},
-				&expect.BExp{R: "sleep 5"},    // command
-				&expect.BExp{R: "[0-9]+\r\n"}, // pid
+				&expect.BExp{R: tests.Retcode("[0-9]+", "\\# ")}, // pid
 			}, 15*time.Second)
 			log.DefaultLogger().Infof("a:%+v\n", res)
 			Expect(err).ToNot(HaveOccurred())
-			return strings.TrimSpace(res[2].Match[0])
+			re := regexp.MustCompile("\r\n[0-9]+\r\n")
+			return strings.TrimSpace(re.FindString(res[0].Match[0]))
+		}
+
+		startProcess := func(expecter expect.Expecter) string {
+			By("Start a long running process")
+			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
+				&expect.BSnd{S: "sleep 5&\n"},
+				&expect.BExp{R: "\\# "}, // prompt
+			}, 15*time.Second)
+			log.DefaultLogger().Infof("a:%+v\n", res)
+			Expect(err).ToNot(HaveOccurred())
+
+			return grepSleepPid(expecter)
 		}
 
 		checkProcess := func(expecter expect.Expecter) string {
 			By("Checking the long running process")
-			res, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: `pgrep -f "sleep 5"` + "\n"},
-				&expect.BExp{R: "sleep 5"},    // command
-				&expect.BExp{R: "[0-9]+\r\n"}, // pid
-			}, 15*time.Second)
-			log.DefaultLogger().Infof("a:%+v\n", res)
-			Expect(err).ToNot(HaveOccurred())
-			return strings.TrimSpace(res[1].Match[0])
+			return grepSleepPid(expecter)
 		}
 
 		It("[test_id:3090]should be continued after the VMI is unpaused", func() {
