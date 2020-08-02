@@ -813,6 +813,26 @@ var _ = Describe("Infrastructure", func() {
 			}
 			Expect(containK8sLabel).To(Equal(true))
 		})
+
+		// explicit test fo swap metrics as test_id:4144 doesn't catch if they are missing
+		It("[test_id:4555]should include swap metrics", func() {
+			metrics := collectMetrics("kubevirt_vmi_memory_swap_")
+			var in, out bool
+			for k, _ := range metrics {
+				if in && out {
+					break
+				}
+				if strings.Contains(k, `type="in"`) {
+					in = true
+				}
+				if strings.Contains(k, `type="out"`) {
+					out = true
+				}
+			}
+
+			Expect(in).To(BeTrue())
+			Expect(out).To(BeTrue())
+		})
 	})
 
 	Describe("Start a VirtualMachineInstance", func() {
