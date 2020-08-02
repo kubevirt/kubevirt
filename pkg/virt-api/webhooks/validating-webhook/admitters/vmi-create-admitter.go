@@ -1629,6 +1629,15 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			})
 		}
 
+		if disk.IO != "" && disk.IO != v1.IODefault && disk.IO != v1.IONative && disk.IO != v1.IOThreads {
+			field := field.Child("domain", "devices", "disks").Index(idx).Child("io").String()
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("Disk IO mode for %s is not supported. Supported modes are: native, threads, default.", field),
+				Field:   field,
+			})
+		}
+
 		// Verify disk and volume name can be a valid container name since disk
 		// name can become a container name which will fail to schedule if invalid
 		errs := validation.IsDNS1123Label(disk.Name)
