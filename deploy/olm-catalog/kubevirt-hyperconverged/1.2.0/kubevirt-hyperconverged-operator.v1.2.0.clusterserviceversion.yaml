@@ -4,12 +4,12 @@ kind: ClusterServiceVersion
 metadata:
   annotations:
     alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{"BareMetalPlatform":false}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1alpha1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"nmstate":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1alpha3","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtCommonTemplatesBundle","metadata":{"name":"kubevirt-common-template-bundle"},"spec":{"version":"v0.7.0"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtMetricsAggregation","metadata":{"name":"kubevirt-metrics-aggregation"},"spec":{"version":"v0.0.1"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtNodeLabellerBundle","metadata":{"name":"kubevirt-node-labeller-bundle"},"spec":{"version":"v0.1.1"}},{"apiVersion":"ssp.kubevirt.io/v1","kind":"KubevirtTemplateValidator","metadata":{"name":"kubevirt-template-validator","namespace":"kubevirt"},"spec":{"templateValidatorReplicas":2,"version":"v0.6.6"}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"nodemaintenance.kubevirt.io/v1beta1","kind":"NodeMaintenance","metadata":{"name":"nodemaintenance-xyz"},"spec":{"nodeName":"node02","reason":"Test
-      node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1alpha1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","pathConfig":{"path":"/var/hpvolumes","useNamingPrefix":"false"}}},{"apiVersion":"v2v.kubevirt.io/v1alpha1","kind":"VMImportConfig","metadata":{"name":"vm-import-operator-config"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
+      node maintenance"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","pathConfig":{"path":"/var/hpvolumes","useNamingPrefix":false}}},{"apiVersion":"v2v.kubevirt.io/v1alpha1","kind":"VMImportConfig","metadata":{"name":"vm-import-operator-config"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
     capabilities: Full Lifecycle
     categories: OpenShift Optional
     certified: "false"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.2.0
-    createdAt: "2020-07-25 10:02:36"
+    createdAt: "2020-07-31 20:59:06"
     description: |-
       **HyperConverged Cluster Operator** is an Operator pattern for managing multi-operator products.
       Specifcally, the HyperConverged Cluster Operator manages the deployment of KubeVirt,
@@ -144,7 +144,7 @@ spec:
       displayName: HostPathProvisioner deployment
       kind: HostPathProvisioner
       name: hostpathprovisioners.hostpathprovisioner.kubevirt.io
-      version: v1alpha1
+      version: v1beta1
     - description: Represents a virtual machine import config
       displayName: Virtual Machine import config
       kind: VMImportConfig
@@ -1537,7 +1537,7 @@ spec:
                 - name: NMO_VERSION
                   value: v0.6.0
                 - name: HPPO_VERSION
-                  value: v0.4.3
+                  value: v0.5.2
                 - name: VM_IMPORT_VERSION
                   value: v0.1.0
                 image: quay.io/kubevirt/hyperconverged-cluster-operator:1.2.0
@@ -1837,10 +1837,10 @@ spec:
                 - name: OPERATOR_NAME
                   value: hostpath-provisioner-operator
                 - name: PROVISIONER_IMAGE
-                  value: quay.io/kubevirt/hostpath-provisioner:v0.4.0
+                  value: quay.io/kubevirt/hostpath-provisioner:v0.5.1
                 - name: PULL_POLICY
                   value: IfNotPresent
-                image: quay.io/kubevirt/hostpath-provisioner-operator:v0.4.3
+                image: quay.io/kubevirt/hostpath-provisioner-operator:v0.5.2
                 imagePullPolicy: IfNotPresent
                 name: hostpath-provisioner-operator
                 resources: {}

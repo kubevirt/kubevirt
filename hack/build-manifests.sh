@@ -22,7 +22,7 @@ set -ex
 #
 # Lastly, we take give the component CSVs to the csv-merger that combines all
 # of the manifests into a single, unified, ClusterServiceVersion.
-PROJECT_ROOT="$(readlink -e $(dirname "$BASH_SOURCE[0]")/../)"
+PROJECT_ROOT="$(readlink -e $(dirname "${BASH_SOURCE[0]}")/../)"
 source "${PROJECT_ROOT}"/hack/config
 
 DEPLOY_DIR="${PROJECT_ROOT}/deploy"
@@ -229,7 +229,7 @@ EOM
 # Write HCO CRDs
 (cd ${PROJECT_ROOT}/tools/csv-merger/ && go build)
 hco_crds=${TEMPDIR}/hco.crds.yaml
-${PROJECT_ROOT}/tools/csv-merger/csv-merger  --api-sources=${PROJECT_ROOT}/pkg/apis/... --output-mode=CRDs > $hco_crds
+(cd ${PROJECT_ROOT} && ${PROJECT_ROOT}/tools/csv-merger/csv-merger  --api-sources=${PROJECT_ROOT}/pkg/apis/... --output-mode=CRDs > $hco_crds)
 csplit --digits=2 --quiet --elide-empty-files \
   --prefix=hco \
   --suffix-format="%02d.${CRD_EXT}" \

@@ -55,7 +55,7 @@ spec:
         - name: NMO_VERSION
           value: v0.6.0
         - name: HPPO_VERSION
-          value: v0.4.3
+          value: v0.5.2
         - name: VM_IMPORT_VERSION
           value: v0.1.0
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.2.0
@@ -391,10 +391,10 @@ spec:
         - name: OPERATOR_NAME
           value: hostpath-provisioner-operator
         - name: PROVISIONER_IMAGE
-          value: quay.io/kubevirt/hostpath-provisioner:v0.4.0
+          value: quay.io/kubevirt/hostpath-provisioner:v0.5.1
         - name: PULL_POLICY
           value: IfNotPresent
-        image: quay.io/kubevirt/hostpath-provisioner-operator:v0.4.3
+        image: quay.io/kubevirt/hostpath-provisioner-operator:v0.5.2
         imagePullPolicy: IfNotPresent
         name: hostpath-provisioner-operator
         resources: {}
