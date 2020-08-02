@@ -14,9 +14,6 @@ bazel-generate:
 bazel-build:
 	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-build.sh"
 
-bazel-build-verify: TARGET_TO_RUN='make'
-bazel-build-verify: bazel-build check-git-tree-state build-verify bazel-test
-
 bazel-build-images:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/bazel-build-images.sh"
 
@@ -25,14 +22,6 @@ bazel-push-images:
 
 push: bazel-push-images
 
-check-git-tree-state:
-ifneq ($(strip $(shell git status --porcelain 2>/dev/null)),)
-	$(error git tree is not clean, you probably need to run '${TARGET_TO_RUN}' and commit the changes)
-endif
-
-check-for-binaries:
-	hack/check-for-binaries.sh
-
 bazel-test:
 	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-test.sh"
 
@@ -40,9 +29,6 @@ generate:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh && hack/bazel-fmt.sh"
 	hack/sync-kubevirtci.sh
-
-generate-verify: TARGET_TO_RUN='make generate'
-generate-verify: generate check-for-binaries check-git-tree-state
 
 apidocs:
 	hack/dockerized "./hack/generate.sh && ./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"

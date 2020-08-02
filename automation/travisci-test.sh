@@ -1,8 +1,23 @@
 #!/bin/bash -e
 
 
-make generate-verify
-make bazel-build-verify
+make generate
+if [[ -n "$(git status --porcelain)" ]] ; then
+    echo "It seems like you need to run 'make generate'. Please run it and commit the changes"
+    git status --porcelain; false
+fi
+
+if diff <(git grep -c '') <(git grep -cI '') | egrep -v -e 'docs/.*\.png|swagger-ui' -e 'vendor/*' -e 'assets/*' | grep '^<'; then
+    echo "Binary files are present in git repostory."; false
+fi
+
+make
+
+if [[ -n "$(git status --porcelain)" ]] ; then
+    echo "It seems like you need to run 'make'. Please run it and commit the changes"; git status --porcelain; false
+fi
+
+make build-verify # verify that we set version on the packages built by bazel
 
 # The make bazel-test might take longer then the current timeout for a command in Travis-CI of 10 min, so adding a keep alive loop while it runs
 while sleep 9m; do echo "Long running job - keep alive"; done & LOOP_PID=$!
