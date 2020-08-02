@@ -228,12 +228,14 @@ echo "----- Images after upgrade"
 ${CMD} get deployments -n ${HCO_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 ${CMD} get pod $HCO_CATALOGSOURCE_POD -n ${HCO_CATALOG_NAMESPACE} -o yaml | grep image | grep -v imagePullPolicy
 
+echo "----- Pod after upgrade"
+Msg "verify that the hyperconverged-cluster Pod is using the new image"
+./hack/retry.sh 10 30 "CMD=${CMD} HCO_NAMESPACE=${HCO_NAMESPACE} ./hack/check_pod_upgrade.sh"
+
 Msg "wait that cluster is operational after upgrade"
-timeout 10m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
+timeout 15m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
 
 Msg "verify new operator version reported after the upgrade"
-HCO_VERSION=$( ${CMD} get hco ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} -o jsonpath="{ .status.versions[?(@.name=='operator')].version }")
-[[ "${TARGET_VERSION}" == "${HCO_VERSION}" ]]
-
+./hack/retry.sh 10 30 "CMD=${CMD} HCO_RESOURCE_NAME=${HCO_RESOURCE_NAME} HCO_NAMESPACE=${HCO_NAMESPACE} TARGET_VERSION=${TARGET_VERSION} hack/check_hco_version.sh"
 dump_sccs_after
 echo "upgrade-test completed successfully."
