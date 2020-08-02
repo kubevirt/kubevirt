@@ -31,6 +31,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 var _ = Describe("Subresource Api", func() {
@@ -239,7 +240,7 @@ func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, reso
 			Containers: []k8sv1.Container{
 				{
 					Name:    name,
-					Image:   fmt.Sprintf("%s/subresource-access-test:%s", tests.KubeVirtUtilityRepoPrefix, tests.KubeVirtUtilityVersionTag),
+					Image:   fmt.Sprintf("%s/subresource-access-test:%s", flags.KubeVirtUtilityRepoPrefix, flags.KubeVirtUtilityVersionTag),
 					Command: []string{"/subresource-access-test", resource},
 				},
 			},

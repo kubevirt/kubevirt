@@ -17,6 +17,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 var _ = Describe("VirtualMachineSnapshot Tests", func() {
@@ -36,7 +37,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 
 		BeforeEach(func() {
 			var err error
-			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
+			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			vm = tests.NewRandomVirtualMachine(vmi, false)
 			vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)

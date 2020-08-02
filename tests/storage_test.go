@@ -43,6 +43,8 @@ import (
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 const (
@@ -72,7 +74,7 @@ var _ = Describe("Storage", func() {
 				_pvName = "test-nfs" + rand.String(48)
 				// Prepare a NFS backed PV
 				By("Starting an NFS POD")
-				os := string(tests.ContainerDiskAlpine)
+				os := string(cd.ContainerDiskAlpine)
 				nfsIP := tests.CreateNFSTargetPOD(os)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
@@ -163,7 +165,7 @@ var _ = Describe("Storage", func() {
 			It("[test_id:3134]should create a writeable emptyDisk with the right capacity", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "echo hi!")
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 					Name: "emptydisk1",
 					DiskDevice: v1.DiskDevice{
@@ -212,7 +214,7 @@ var _ = Describe("Storage", func() {
 			It("[test_id:3135]should create a writeable emptyDisk with the specified serial number", func() {
 
 				// Start the VirtualMachineInstance with the empty disk attached
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "echo hi!")
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "echo hi!")
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 					Name:   "emptydisk1",
 					Serial: diskSerial,
@@ -390,7 +392,7 @@ var _ = Describe("Storage", func() {
 
 				BeforeEach(func() {
 					nodeName = ""
-					cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
+					cfgMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
 					tests.EnableFeatureGate(virtconfig.HostDiskGate)
@@ -608,7 +610,7 @@ var _ = Describe("Storage", func() {
 
 				BeforeEach(func() {
 					By("Enabling the HostDisk feature gate")
-					cfgMap, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
+					cfgMap, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					originalFeatureGates = cfgMap.Data[virtconfig.FeatureGatesKey]
 					tests.EnableFeatureGate(virtconfig.HostDiskGate)
@@ -731,7 +733,7 @@ var _ = Describe("Storage", func() {
 				}
 				// Start a ISCSI POD and service
 				By("Creating a ISCSI POD")
-				iscsiTargetIP := tests.CreateISCSITargetPOD(tests.ContainerDiskAlpine)
+				iscsiTargetIP := tests.CreateISCSITargetPOD(cd.ContainerDiskAlpine)
 				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeBlock)
 			})
 

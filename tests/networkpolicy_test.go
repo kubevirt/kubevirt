@@ -12,6 +12,7 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 func assertPingSucceed(ip string, vmi *v1.VirtualMachineInstance) {
@@ -56,16 +57,16 @@ var _ = Describe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		tests.SkipIfNotUseNetworkPolicy(virtClient)
 		tests.BeforeTestCleanup()
 		// Create three vmis, vmia and vmib are in same namespace, vmic is in different namespace
-		vmia = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		vmia = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		vmia.Labels = map[string]string{"type": "test"}
 		vmia, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmia)
 		Expect(err).ToNot(HaveOccurred())
 
-		vmib = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		vmib = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmib)
 		Expect(err).ToNot(HaveOccurred())
 
-		vmic = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		vmic = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		vmic.Namespace = tests.NamespaceTestAlternative
 		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).Create(vmic)
 		Expect(err).ToNot(HaveOccurred())

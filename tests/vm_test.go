@@ -48,6 +48,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/flags"
 )
 
 var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachine", func() {
@@ -68,7 +70,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	Context("An invalid VirtualMachine given", func() {
 
 		It("[test_id:1518]should be rejected on POST", func() {
-			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
+			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			newVM := tests.NewRandomVirtualMachine(template, false)
 
@@ -86,7 +88,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		})
 		It("[test_id:1519]should reject POST if validation webhoook deems the spec is invalid", func() {
-			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
+			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			// Add a disk that doesn't map to a volume.
 			// This should get rejected which tells us the webhook validator is working.
@@ -205,7 +207,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var testingMachineType string = "pc-q35-2.7"
 
 		BeforeEach(func() {
-			_, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+			_, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -218,7 +220,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					},
 				}
 
-				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Create(cfgMap)
+				_, err = virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Create(cfgMap)
 				Expect(err).ToNot(HaveOccurred())
 			} else if err == nil {
 				tests.UpdateClusterConfigValueAndWait("machine-type", testingMachineType)
@@ -226,7 +228,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		newVirtualMachineInstanceWithContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
+			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
 		}
 
@@ -268,7 +270,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		type vmiBuilder func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume)
 
 		newVirtualMachineInstanceWithContainerDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
+			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			return tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n"), nil
 		}
 
@@ -301,7 +303,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		newVirtualMachineWithRunStrategy := func(runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
-			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
+			vmiImage := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 
 			var newVM *v1.VirtualMachine
@@ -813,7 +815,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", func() {
 
 				By("getting a VM with high TerminationGracePeriod")
-				newVMI := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				newVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedora))
 				gracePeriod := int64(600)
 				newVMI.Spec.TerminationGracePeriodSeconds = &gracePeriod
 				newVM := tests.NewRandomVirtualMachine(newVMI, true)
@@ -1463,7 +1465,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:243][posneg:negative]should create VM only once", func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vm := tests.NewRandomVirtualMachine(vmi, true)
 
 			vmJson, err = tests.GenerateVMJson(vm, workDir)
@@ -1486,7 +1488,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:299]should create VM via command line", func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			vm := tests.NewRandomVirtualMachine(vmi, true)
 
 			vmJson, err = tests.GenerateVMJson(vm, workDir)
@@ -1518,7 +1520,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:264]should create and delete via command line", func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			thisVm := tests.NewRandomVirtualMachine(vmi, false)
 
 			vmJson, err = tests.GenerateVMJson(thisVm, workDir)
@@ -1555,7 +1557,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:232]should create same manifest twice via command line", func() {
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 			thisVm := tests.NewRandomVirtualMachine(vmi, true)
 
 			vmJson, err = tests.GenerateVMJson(thisVm, workDir)
@@ -1584,7 +1586,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:233][posneg:negative]should fail when deleting nonexistent VM", func() {
-			vmi := tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi := tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, stdErr, err := tests.RunCommand(k8sClient, "delete", "vm", vmi.Name)
@@ -1622,7 +1624,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				It("[test_id:2839]should create VM via command line", func() {
-					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					vm := tests.NewRandomVirtualMachine(vmi, true)
 
 					vmJson, err = tests.GenerateVMJson(vm, workDir)
@@ -1650,7 +1652,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 
 				It("[test_id:2914]should create VM via command line", func() {
-					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+					vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 					vm := tests.NewRandomVirtualMachine(vmi, true)
 
 					vmJson, err = tests.GenerateVMJson(vm, workDir)
@@ -1675,7 +1677,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		)
 
 		BeforeEach(func() {
-			vm = tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			vm = tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			cli = virtClient.VirtualMachine(tests.NamespaceTestDefault)
 		})
 
@@ -1701,12 +1703,12 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			)
 
 			BeforeEach(func() {
-				vm1 = tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+				vm1 = tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				cli.Create(vm1)
 			})
 
 			It("should fail if the new name is already taken", func() {
-				vm2 := tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+				vm2 := tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				cli.Create(vm2)
 
 				err := cli.Rename(vm1.Name, &v1.RenameOptions{NewName: vm2.Name})

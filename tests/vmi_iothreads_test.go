@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
 var _ = Describe("IOThreads", func() {
@@ -50,7 +51,7 @@ var _ = Describe("IOThreads", func() {
 		tests.PanicOnError(err)
 
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})
 
 	Context("IOThreads Policies", func() {
@@ -93,8 +94,8 @@ var _ = Describe("IOThreads", func() {
 			// The disk that came with the VMI
 			vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread = &dedicated
 
-			tests.AddEphemeralDisk(vmi, "shr1", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "shr2", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			By("Creating VMI with 1 dedicated and 2 shared ioThreadPolicies")
 			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -146,13 +147,13 @@ var _ = Describe("IOThreads", func() {
 
 			vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread = &dedicated
 
-			tests.AddEphemeralDisk(vmi, "ded2", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ded2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[1].DedicatedIOThread = &dedicated
 
-			tests.AddEphemeralDisk(vmi, "shr1", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "shr2", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "shr3", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "shr4", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr3", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr4", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 
 			cpuReq := resource.MustParse(fmt.Sprintf("%d", numCpus))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = cpuReq
@@ -239,8 +240,8 @@ var _ = Describe("IOThreads", func() {
 				},
 			}
 
-			tests.AddEphemeralDisk(vmi, "disk1", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
-			tests.AddEphemeralDisk(vmi, "ded2", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "disk1", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ded2", "virtio", cd.ContainerDiskFor(cd.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[2].DedicatedIOThread = &dedicated
 
 			By("Starting a VirtualMachineInstance")
