@@ -420,6 +420,10 @@ type Disk struct {
 	// Cache specifies which kvm disk cache mode should be used.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
+	// IO specifies which QEMU disk IO mode should be used.
+	// Supported values are: native, default, threads.
+	// +optional
+	IO DriverIO `json:"io,omitempty"`
 	// If specified, disk address and its tag will be provided to the guest via config drive metadata
 	// +optional
 	Tag string `json:"tag,omitempty"`
