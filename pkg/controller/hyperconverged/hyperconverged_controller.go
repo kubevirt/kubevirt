@@ -215,6 +215,9 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	req.instance = instance
 
 	res, err := r.doReconcile(req)
+	if err != nil {
+		r.eventEmitter.EmitEvent(req.instance, corev1.EventTypeWarning, "ReconcileError", err.Error())
+	}
 
 	/*
 		From K8s API reference: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/
@@ -230,18 +233,31 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		In addition, updating the status should not update the metadata, so we need to update both the CR and the
 		CR Status, and we need to update the status first, in order to prevent a conflict.
 	*/
+
 	if req.statusDirty {
 		updateErr := r.client.Status().Update(req.ctx, req.instance)
 		if updateErr != nil {
-			req.logger.Error(updateErr, "failed to update the CR Status")
+			updateErrorMsg := "failed to update HCO Status"
+			r.eventEmitter.EmitEvent(req.instance, corev1.EventTypeWarning, "HcoUpdateError", updateErrorMsg)
+			req.logger.Error(updateErr, updateErrorMsg)
 			err = updateErr
 		}
+	}
+
+	// recover Spec.Version if upgrade missed when upgrade completed
+	// Doing it here because status.update overrides spec for some reason
+	knownHcoVersion, versionFound := req.instance.Status.GetVersion(hcoVersionName)
+	if (!r.upgradeMode) && versionFound && (knownHcoVersion == r.ownVersion) && (req.instance.Spec.Version != r.ownVersion) {
+		req.instance.Spec.Version = r.ownVersion
+		req.dirty = true
 	}
 
 	if req.dirty {
 		updateErr := r.client.Update(req.ctx, req.instance)
 		if updateErr != nil {
-			req.logger.Error(updateErr, "failed to update the CR")
+			updateErrorMsg := "failed to update HCO CR"
+			r.eventEmitter.EmitEvent(req.instance, corev1.EventTypeWarning, "HcoUpdateError", updateErrorMsg)
+			req.logger.Error(updateErr, updateErrorMsg)
 			err = updateErr
 		}
 	}
@@ -262,6 +278,7 @@ func (r *ReconcileHyperConverged) doReconcile(req *hcoRequest) (reconcile.Result
 	// Add conditions if there are none
 	init := req.instance.Status.Conditions == nil
 	if init {
+		r.eventEmitter.EmitEvent(req.instance, corev1.EventTypeNormal, "InitHCO", "Initiating the HyperConverged")
 		err = r.setInitialConditions(req)
 		if err != nil {
 			req.logger.Error(err, "Failed to add conditions to status")
@@ -294,9 +311,10 @@ func (r *ReconcileHyperConverged) doReconcile(req *hcoRequest) (reconcile.Result
 
 	if !r.upgradeMode && !init && knownHcoVersion != r.ownVersion {
 		r.upgradeMode = true
-
+		r.eventEmitter.EmitEvent(req.instance, corev1.EventTypeNormal, "UpgradeHCO", "Upgrading the HyperConverged to version "+r.ownVersion)
 		req.logger.Info(fmt.Sprintf("Start upgrating from version %s to version %s", knownHcoVersion, r.ownVersion))
 	}
+
 	req.componentUpgradeInProgress = r.upgradeMode
 
 	err = r.ensureHco(req)
@@ -686,6 +704,7 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *hcoRequest) error 
 			r.upgradeMode = false
 			req.componentUpgradeInProgress = false
 			req.logger.Info(fmt.Sprintf("Successfuly upgraded to version %s", r.ownVersion))
+			r.eventEmitter.EmitEvent(req.instance, corev1.EventTypeNormal, "UpgradeHCO", fmt.Sprintf("Successfuly upgraded to version %s", r.ownVersion))
 		}
 
 		// If not in upgrade mode, then we're ready, because all the operators reported positive conditions.
@@ -707,6 +726,7 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *hcoRequest) error 
 	if hcoReady {
 		// If no operator whose conditions we are watching reports an error, then it is safe
 		// to set readiness.
+		r.eventEmitter.EmitEvent(req.instance, corev1.EventTypeNormal, "ReconcileHCO", "HCO Reconcile completed successfully")
 		err := fr.Set()
 		if err != nil {
 			req.logger.Error(err, "Failed to mark operator ready")
@@ -714,13 +734,17 @@ func (r *ReconcileHyperConverged) completeReconciliation(req *hcoRequest) error 
 		}
 	} else {
 		// If for any reason we marked ourselves !upgradeable...then unset readiness
+		if r.upgradeMode {
+			r.eventEmitter.EmitEvent(req.instance, corev1.EventTypeNormal, "ReconcileHCO", "HCO Upgrade in progress")
+		} else {
+			r.eventEmitter.EmitEvent(req.instance, corev1.EventTypeWarning, "ReconcileHCO", "Not all the operators are ready")
+		}
 		err := fr.Unset()
 		if err != nil {
 			req.logger.Error(err, "Failed to mark operator unready")
 			return err
 		}
 	}
-
 	return r.updateConditions(req)
 }
 
