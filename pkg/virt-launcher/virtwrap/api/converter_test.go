@@ -64,6 +64,32 @@ var _ = Describe("Converter", func() {
 			Expect(xml).To(Equal(convertedDisk))
 		})
 
+		It("should set disk I/O mode if requested", func() {
+			v1Disk := &v1.Disk{
+				IO: "native",
+			}
+			xml := diskToDiskXML(v1Disk)
+			expectedXML := `<Disk device="" type="">
+  <source></source>
+  <target></target>
+  <driver io="native" name="qemu" type=""></driver>
+  <alias name="ua-"></alias>
+</Disk>`
+			Expect(xml).To(Equal(expectedXML))
+		})
+
+		It("should not set disk I/O mode if not requested", func() {
+			v1Disk := &v1.Disk{}
+			xml := diskToDiskXML(v1Disk)
+			expectedXML := `<Disk device="" type="">
+  <source></source>
+  <target></target>
+  <driver name="qemu" type=""></driver>
+  <alias name="ua-"></alias>
+</Disk>`
+			Expect(xml).To(Equal(expectedXML))
+		})
+
 		It("Should omit boot order when not provided", func() {
 			kubevirtDisk := &v1.Disk{
 				Name: "mydisk",
