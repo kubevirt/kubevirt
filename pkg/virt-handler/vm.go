@@ -146,7 +146,7 @@ func NewController(
 
 	c.domainNotifyPipes = make(map[string]string)
 
-	c.kvmController = device_manager.NewDeviceController(c.host, maxDevices)
+	c.deviceManagerController = device_manager.NewDeviceController(c.host, maxDevices, clusterConfig)
 
 	return c
 }
@@ -167,7 +167,7 @@ type VirtualMachineController struct {
 	launcherClientLock       sync.Mutex
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
-	kvmController            *device_manager.DeviceController
+	deviceManagerController  *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
 	containerDiskMounter     container_disk.Mounter
@@ -873,7 +873,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	go c.domainInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced)
 
-	go c.kvmController.Run(stopCh)
+	go c.deviceManagerController.Run(stopCh)
 
 	// Poplulate the VirtualMachineInstance store with known Domains on the host, to get deletes since the last run
 	for _, domain := range c.domainInformer.GetStore().List() {
