@@ -60,6 +60,8 @@ const (
 	OVMFPathKey                       = "ovmfPath"
 	MemBalloonStatsPeriod             = "memBalloonStatsPeriod"
 	CPUAllocationRatio                = "cpu-allocation-ratio"
+	PermittedHostDevicesKey           = "permittedHostDevices"
+	HostDevConfigMapName              = "kubevirt-host-device-plugin-config"
 )
 
 type ConfigModifiedFn func()
@@ -72,6 +74,7 @@ type ConfigModifiedFn func()
 func NewClusterConfig(configMapInformer cache.SharedIndexInformer,
 	crdInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedIndexInformer,
+	hostDevConfigMapInformer cache.SharedIndexInformer,
 	namespace string) *ClusterConfig {
 
 	defaultConfig := defaultClusterConfig()
@@ -84,9 +87,16 @@ func NewClusterConfig(configMapInformer cache.SharedIndexInformer,
 		namespace:         namespace,
 		lastValidConfig:   defaultConfig,
 		defaultConfig:     defaultConfig,
+		hostDevConfigMapInformer: hostDevConfigMapInformer,
 	}
 
 	c.configMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.configAddedDeleted,
+		DeleteFunc: c.configAddedDeleted,
+		UpdateFunc: c.configUpdated,
+	})
+
+	c.hostDevConfigMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.configAddedDeleted,
 		DeleteFunc: c.configAddedDeleted,
 		UpdateFunc: c.configUpdated,
@@ -210,6 +220,7 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 
 type ClusterConfig struct {
 	configMapInformer                cache.SharedIndexInformer
+	hostDevConfigMapInformer         cache.SharedIndexInformer
 	crdInformer                      cache.SharedIndexInformer
 	kubeVirtInformer                 cache.SharedIndexInformer
 	namespace                        string
@@ -218,6 +229,8 @@ type ClusterConfig struct {
 	defaultConfig                    *v1.KubeVirtConfiguration
 	lastInvalidConfigResourceVersion string
 	lastValidConfigResourceVersion   string
+	lastInvalidHostDevConfigResourceVersion string
+	lastValidHostDevConfigResourceVersion   string
 	configModifiedCallback           ConfigModifiedFn
 }
 
@@ -432,6 +445,21 @@ func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) er
 	return nil
 }
 
+// updateConfigFromHostDevConfigMap parses the provided config map and updates hostdevs in the config.
+// Default values in the provided config stay in tact.
+func updateConfigFromHostDevConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.ConfigMap) error {
+	// set migration options
+	rawConfig := strings.TrimSpace(configMap.Data[PermittedHostDevicesKey])
+	if rawConfig != "" {
+		// only sets values if they were specified, default values stay intact
+		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(&config.PermittedHostDevices)
+		if err != nil {
+			return fmt.Errorf("failed to parse host devices config: %v", err)
+		}
+	}
+	return nil
+}
+
 // getConfig returns the latest valid parsed config map result, or updates it
 // if a newer version is available.
 // XXX Rework this, to happen mostly in informer callbacks.
@@ -441,8 +469,10 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 	defer c.lock.Unlock()
 
 	var configMap *k8sv1.ConfigMap
+	var hostDevConfigMap *k8sv1.ConfigMap
 	var kv *v1.KubeVirt
 	var resourceVersion string
+	var hostDevResourceVersion string
 	var resourceType string
 	useConfigMap := false
 
@@ -464,25 +494,51 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 		resourceVersion = configMap.ResourceVersion
 	}
 
-	// if there is a configuration config map present we should use its configuration
-	// and ignore configuration in kubevirt
-	if c.lastValidConfigResourceVersion == resourceVersion ||
-		c.lastInvalidConfigResourceVersion == resourceVersion {
+	// get host devices configMap
+	if obj, exists, err := c.hostDevConfigMapInformer.GetStore().GetByKey(c.namespace + "/" + HostDevConfigMapName); err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Error loading the cluster host devices config from ConfigMap cache, falling back to last good resource version '%s'", c.lastValidHostDevConfigResourceVersion)
 		return c.lastValidConfig
+	} else if exists {
+		hostDevConfigMap = obj.(*k8sv1.ConfigMap)
+		hostDevResourceVersion = hostDevConfigMap.ResourceVersion
 	}
+
+	/*/ if there is a configuration config map present we should use its configuration
+	// and ignore configuration in kubevirt
+	if c.lastValidConfigResourceVersion == resourceVersion {
+		if c.lastValidHostDevConfigResourceVersion == hostDevResourceVersion)||
+		c.lastInvalidConfigResourceVersion == resourceVersion || c.lastInvalidHostDevConfigResourceVersion == hostDevResourceVersion{
+		return c.lastValidConfig
+	}*/
 
 	config = defaultClusterConfig()
 	var err error
-	if useConfigMap {
-		err = setConfigFromConfigMap(config, configMap)
-	} else {
-		err = setConfigFromKubeVirt(config, kv)
+	if c.lastValidConfigResourceVersion != resourceVersion && c.lastInvalidConfigResourceVersion != resourceVersion {
+		if useConfigMap {
+			err = setConfigFromConfigMap(config, configMap)
+		} else {
+			err = setConfigFromKubeVirt(config, kv)
+		}
+		if err != nil {
+			c.lastInvalidConfigResourceVersion = resourceVersion
+			log.DefaultLogger().Reason(err).Errorf("Invalid cluster config using '%s' resource version '%s', falling back to last good resource version '%s'", resourceType, resourceVersion, c.lastValidConfigResourceVersion)
+		} else {
+			log.DefaultLogger().Infof("Updating cluster config to resource version '%s'", resourceVersion)
+			c.lastValidConfigResourceVersion = resourceVersion
+			c.lastValidConfig = config
+		}
 	}
-
-	if err != nil {
-		c.lastInvalidConfigResourceVersion = resourceVersion
-		log.DefaultLogger().Reason(err).Errorf("Invalid cluster config using '%s' resource version '%s', falling back to last good resource version '%s'", resourceType, resourceVersion, c.lastValidConfigResourceVersion)
-		return c.lastValidConfig
+	if hostDevConfigMap != nil && c.lastValidHostDevConfigResourceVersion != hostDevResourceVersion && c.lastInvalidHostDevConfigResourceVersion != hostDevResourceVersion{
+		workingConf := c.lastValidConfig
+		hostDevErr := updateConfigFromHostDevConfigMap(workingConf, hostDevConfigMap)
+		if hostDevErr != nil {
+			c.lastInvalidHostDevConfigResourceVersion = hostDevResourceVersion
+			log.DefaultLogger().Reason(hostDevErr).Errorf("Invalid cluster host devices config using resource version '%s', falling back to last good host devices resource version '%s'", hostDevResourceVersion, c.lastValidHostDevConfigResourceVersion)
+		} else {
+			log.DefaultLogger().Infof("Updating cluster host devices config to resource version '%s'", hostDevResourceVersion)
+			c.lastValidHostDevConfigResourceVersion = hostDevResourceVersion
+			c.lastValidConfig = workingConf
+		}
 	}
 
 	log.DefaultLogger().Infof("Updating cluster config from %s to resource version '%s'", resourceType, resourceVersion)
