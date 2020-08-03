@@ -23,8 +23,10 @@ import (
 	"math"
 	"os"
 	"time"
+	"strings"
 
 	"kubevirt.io/client-go/log"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -41,10 +43,11 @@ type DeviceController struct {
 	host          string
 	maxDevices    int
 	backoff       []time.Duration
+	virtConfig    *virtconfig.ClusterConfig
 }
 
-func NewDeviceController(host string, maxDevices int) *DeviceController {
-	return &DeviceController{
+func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.ClusterConfig) *DeviceController {
+	controller := &DeviceController{
 		devicePlugins: []GenericDevice{
 			NewGenericDevicePlugin(KVMName, KVMPath, maxDevices, false),
 			NewGenericDevicePlugin(TunName, TunPath, maxDevices, true),
@@ -54,6 +57,9 @@ func NewDeviceController(host string, maxDevices int) *DeviceController {
 		maxDevices: maxDevices,
 		backoff:    []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
 	}
+	controller.virtConfig = clusterConfig
+
+	return controller
 }
 
 func (c *DeviceController) nodeHasDevice(devicePath string) bool {
