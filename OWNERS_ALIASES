@@ -45,3 +45,14 @@ aliases:
   ci-approvers:
       - dhiller
       - danielBelenky
+  network-reviewers:
+      - AlonaKaplan
+      - EdDev
+      - RamLavi
+      - alonSadan
+      - maiqueb
+      - ormergi
+      - oshoval
+      - phoracek
+      - qinqon
+      - rhrazdil
