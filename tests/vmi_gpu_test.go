@@ -44,7 +44,7 @@ func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string, prompt strin
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.Retcode("0", prompt)},
+		&expect.BExp{R: tests.RetValue("0", prompt)},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "GPU device %q was not found in the VMI %s within the given timeout", gpuName, vmi.Name)
 }
