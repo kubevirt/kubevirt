@@ -13429,7 +13429,7 @@ func schema_pkg_apis_core_v1alpha1_CDI(ref common.ReferenceCallback) common.Open
 						},
 					},
 				},
-				Required: []string{"spec", "status"},
+				Required: []string{"spec"},
 			},
 		},
 		Dependencies: []string{
@@ -13539,14 +13539,16 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigSpec(ref common.ReferenceCallback) c
 				Properties: map[string]spec.Schema{
 					"uploadProxyURLOverride": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Override the URL used when uploading to a DataVolume",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"scratchSpaceStorageClass": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Override the storage class to used for scratch space during transfer operations. The scratch space storage class is determined in the following order: 1. value of scratchSpaceStorageClass, if that doesn't exist, use the default storage class, if there is no default storage class, use the storage class of the DataVolume, if no storage class specified, use no storage class for scratch space",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"podResourceRequirements": {
@@ -13566,19 +13568,21 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigStatus(ref common.ReferenceCallback)
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CDIConfigStatus provides",
+				Description: "CDIConfigStatus provides the most recently observed status of the CDI Config resource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"uploadProxyURL": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The calculated upload proxy URL",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"scratchSpaceStorageClass": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The calculated storage class to be used for scratch space",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"defaultPodResourceRequirements": {
@@ -13651,8 +13655,9 @@ func schema_pkg_apis_core_v1alpha1_CDISpec(ref common.ReferenceCallback) common.
 				Properties: map[string]spec.Schema{
 					"imagePullPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "PullPolicy describes a policy for if/when to pull a container image",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"uninstallStrategy": {
@@ -13682,7 +13687,8 @@ func schema_pkg_apis_core_v1alpha1_CDIStatus(ref common.ReferenceCallback) commo
 					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "A list of current conditions of the CDI resource",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -13694,20 +13700,23 @@ func schema_pkg_apis_core_v1alpha1_CDIStatus(ref common.ReferenceCallback) commo
 					},
 					"operatorVersion": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The version of the CDI resource as defined by the operator",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"targetVersion": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The desired version of the CDI resource",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"observedVersion": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The observed version of the CDI resource",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -13722,7 +13731,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolume(ref common.ReferenceCallback) comm
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DataVolume provides a representation of our data volume",
+				Description: "DataVolume is an abstraction on top of PersistentVolumeClaims to allow easy population of those PersistentVolumeClaims with relation to VirtualMachines",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -13798,7 +13807,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeCondition(ref common.ReferenceCallb
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
-					"lastHeartBeatTime": {
+					"lastHeartbeatTime": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
@@ -13926,31 +13935,32 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourceHTTP(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DataVolumeSourceHTTP provides the parameters to create a Data Volume from an HTTP source",
+				Description: "DataVolumeSourceHTTP can be either an http or https endpoint, with an optional basic auth user name and password, and an optional configmap containing additional CAs",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"url": {
 						SchemaProps: spec.SchemaProps{
-							Description: "URL is the URL of the http source",
+							Description: "URL is the URL of the http(s) endpoint",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"secretRef": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SecretRef provides the secret reference needed to access the HTTP source",
+							Description: "SecretRef A Secret reference, the secret should contain accessKeyId (user name) base64 encoded, and secretKey (password) also base64 encoded",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"certConfigMap": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CertConfigMap provides a reference to the Registry certs",
+							Description: "CertConfigMap is a configmap reference, containing a Certificate Authority(CA) public key, and a base64 encoded pem certificate",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
+				Required: []string{"url"},
 			},
 		},
 	}
@@ -13992,6 +14002,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourceImageIO(ref common.ReferenceC
 						},
 					},
 				},
+				Required: []string{"url", "diskId"},
 			},
 		},
 	}
@@ -14006,17 +14017,20 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourcePVC(ref common.ReferenceCallb
 				Properties: map[string]spec.Schema{
 					"namespace": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The namespace of the source PVC",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The name of the source PVC",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
+				Required: []string{"namespace", "name"},
 			},
 		},
 	}
@@ -14031,7 +14045,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourceRegistry(ref common.Reference
 				Properties: map[string]spec.Schema{
 					"url": {
 						SchemaProps: spec.SchemaProps{
-							Description: "URL is the url of the Registry source",
+							Description: "URL is the url of the Docker registry source",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -14051,6 +14065,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourceRegistry(ref common.Reference
 						},
 					},
 				},
+				Required: []string{"url"},
 			},
 		},
 	}
@@ -14078,6 +14093,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSourceS3(ref common.ReferenceCallba
 						},
 					},
 				},
+				Required: []string{"url"},
 			},
 		},
 	}
@@ -14098,7 +14114,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSpec(ref common.ReferenceCallback) 
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DataVolumeSpec defines our specification for a DataVolume type",
+				Description: "DataVolumeSpec defines the DataVolume type specification",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"source": {
@@ -14109,7 +14125,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeSpec(ref common.ReferenceCallback) 
 					},
 					"pvc": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PVC is a pointer to the PVC Spec we want to use",
+							Description: "PVC is the PVC specification",
 							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimSpec"),
 						},
 					},
@@ -14133,7 +14149,7 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeStatus(ref common.ReferenceCallback
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DataVolumeStatus provides the parameters to store the phase of the Data Volume",
+				Description: "DataVolumeStatus contains the current status of the DataVolume",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"phase": {
@@ -14151,16 +14167,12 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeStatus(ref common.ReferenceCallback
 					},
 					"restartCount": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Description: "RestartCount is the number of times the pod populating the DataVolume has restarted",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 					"conditions": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{

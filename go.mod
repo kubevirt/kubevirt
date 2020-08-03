@@ -11,8 +11,8 @@ require (
 	github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200723053622-08b753ce4bb5
 	github.com/kubevirt/kubevirt-ssp-operator v1.0.41
 	github.com/kubevirt/vm-import-operator v0.1.0
-	github.com/onsi/ginkgo v1.12.0
-	github.com/onsi/gomega v1.10.0
+	github.com/onsi/ginkgo v1.12.1
+	github.com/onsi/gomega v1.10.1
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/openshift/custom-resource-status v0.0.0-20200602122900-c002fd1547ca
 	github.com/operator-framework/api v0.3.5
@@ -26,7 +26,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20200204173128-addea2498afe
 	kubevirt.io/client-go v0.31.0
-	kubevirt.io/containerized-data-importer v1.20.1
+	kubevirt.io/containerized-data-importer v1.21.0
 	kubevirt.io/kubevirt v0.31.0
 	sigs.k8s.io/controller-runtime v0.6.0
 	sigs.k8s.io/controller-tools v0.3.0
@@ -72,7 +72,7 @@ replace (
 	kubevirt.io/client-go => kubevirt.io/client-go v0.31.0-rc.1
 )
 
-// Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.20.1
+// Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.21.0
 replace (
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
