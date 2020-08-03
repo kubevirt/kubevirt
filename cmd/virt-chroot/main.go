@@ -184,7 +184,7 @@ func main() {
 	}
 
 	selinuxCmd.AddCommand(
-		NewGetEnforceCommand(),
+		NewGetEnforceCommand(), RelabelFile(),
 	)
 
 	rootCmd.AddCommand(

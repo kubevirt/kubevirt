@@ -31,3 +31,22 @@ func NewGetEnforceCommand() *cobra.Command {
 	}
 	return cmd
 }
+
+func RelabelFile() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "relabel",
+		Short:   "relabel a file with the given selinux label",
+		Example: "virt-chroot selinux relabel <file-path> <new-label>",
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			filePath := args[0]
+			label := args[1]
+
+			if err := selinux.Chcon(filePath, label, false); err != nil {
+				return fmt.Errorf("error relabeling file %s with label %s. Reason: %v", filePath, label, err)
+			}
+			return nil
+		},
+	}
+	return cmd
+}

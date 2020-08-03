@@ -161,10 +161,8 @@ func (app *virtHandlerApp) Run() {
 	}
 	// relabel the binary to container_file_t (no categories) so the handler can execute it
 	relabelTapMakerBinaryCmdArgs := []string{
-		"--mount", "/proc/1/ns/mnt",
-		"exec", "--",
-		"/usr/bin/chcon", "-t", "container_file_t", "-l", "s0",
-		fmt.Sprintf("/proc/%d/root/var/lib/kubevirt/tap-device-maker", os.Getpid()),
+		"selinux", "relabel",
+		fmt.Sprintf("/proc/%d/root/var/lib/kubevirt/tap-device-maker", os.Getpid()), "system_u:object_r:container_file_t:s0",
 	}
 	relabelTapMakerBinaryCmd := exec.Command("virt-chroot", relabelTapMakerBinaryCmdArgs...)
 	if err = relabelTapMakerBinaryCmd.Run(); err != nil {
