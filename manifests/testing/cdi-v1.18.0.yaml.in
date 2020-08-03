@@ -403,7 +403,7 @@ spec:
         - name: UPLOAD_PROXY_IMAGE
           value: kubevirt/cdi-uploadproxy:v1.18.0
         - name: VERBOSITY
-          value: "1"
+          value: "3"
         - name: PULL_POLICY
           value: IfNotPresent
         image: kubevirt/cdi-operator:v1.18.0
