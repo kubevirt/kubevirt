@@ -392,6 +392,9 @@ type Devices struct {
 	// Filesystems describes filesystem which is connected to the vmi.
 	// +optional
 	Filesystems []Filesystem `json:"filesystems,omitempty"`
+	//Whether to attach a host device to the vmi.
+	// +optional
+	HostDevices []HostDevice `json:"hostDevices,omitempty"`
 }
 
 //
@@ -424,6 +427,14 @@ type FilesystemVirtiofs struct{}
 // +k8s:openapi-gen=true
 type GPU struct {
 	// Name of the GPU device as exposed by a device plugin
+	Name       string `json:"name"`
+	DeviceName string `json:"deviceName"`
+}
+
+//
+// +k8s:openapi-gen=true
+type HostDevice struct {
+	// DeviceName is the resource name of the host device exposed by a device plugin
 	Name       string `json:"name"`
 	DeviceName string `json:"deviceName"`
 }
