@@ -77,6 +77,9 @@ message ListAndWatchResponse {
 * struct Device {
 *    ID: "GPU-fef8089b-4820-abfc-e83e-94318197576e",
 *    State: "Healthy",
+*    Topology:
+*      Node:
+         ID: 1
 *} */
 message Device {
 	// A unique ID assigned by the device plugin used
@@ -85,6 +88,8 @@ message Device {
 	string ID = 1;
 	// Health of the device, can be healthy or unhealthy, see constants.go
 	string health = 2;
+	// Topology for device
+	TopologyInfo topology = 3;
 }
 
 // - PreStartContainer is expected to be called before each container start if indicated by plugin during registration phase.
@@ -94,6 +99,15 @@ message Device {
 message PreStartContainerRequest {
         repeated string devicesIDs = 1;
 }
+
+message TopologyInfo {
+        NUMANode node = 1;
+}
+
+message NUMANode {
+    int64 ID = 1;
+}
+
 
 // PreStartContainerResponse will be send by plugin in response to PreStartContainerRequest
 message PreStartContainerResponse {
