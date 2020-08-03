@@ -1424,7 +1424,7 @@ type RenameOptions struct {
 // +k8s:openapi-gen=true
 type KubeVirtConfiguration struct {
 	CPUModel                    string                  `json:"cpuModel,omitempty"`
-	CPURequest                  *resource.Quantity      `json:"cpuRequest,string,omitempty"`
+	CPURequest                  *resource.Quantity      `json:"cpuRequest,omitempty"`
 	DeveloperConfiguration      *DeveloperConfiguration `json:"developerConfiguration,omitempty"`
 	EmulatedMachines            []string                `json:"emulatedMachines,omitempty"`
 	ImagePullPolicy             k8sv1.PullPolicy        `json:"imagePullPolicy,omitempty"`
