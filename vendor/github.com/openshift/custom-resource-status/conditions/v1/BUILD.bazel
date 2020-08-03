@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "conditions.go",
+        "doc.go",
         "types.go",
         "zz_generated.deepcopy.go",
     ],

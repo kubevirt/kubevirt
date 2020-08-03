@@ -62,10 +62,11 @@ _kubectl create -f ${MANIFESTS_OUT_DIR}/testing
 # Deploy CDI with operator.
 _kubectl apply -f - <<EOF
 ---
-apiVersion: cdi.kubevirt.io/v1alpha1
+apiVersion: cdi.kubevirt.io/v1beta1
 kind: CDI
 metadata:
   name: cdi
+spec: {}
 EOF
 
 # Deploy kubevirt operator

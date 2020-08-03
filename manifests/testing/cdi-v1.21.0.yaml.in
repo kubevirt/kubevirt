@@ -1,0 +1,527 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    cdi.kubevirt.io: ""
+  name: {{.CDINamespace}}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    operator.cdi.kubevirt.io: ""
+  name: cdis.cdi.kubevirt.io
+spec:
+  conversion:
+    strategy: None
+  group: cdi.kubevirt.io
+  names:
+    kind: CDI
+    listKind: CDIList
+    plural: cdis
+    shortNames:
+    - cdi
+    - cdis
+    singular: cdi
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: CDI is the CDI Operator CRD
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CDISpec defines our specification for the CDI installation
+            properties:
+              imagePullPolicy:
+                description: PullPolicy describes a policy for if/when to pull a container image
+                enum:
+                - Always
+                - IfNotPresent
+                - Never
+                type: string
+              uninstallStrategy:
+                description: CDIUninstallStrategy defines the state to leave CDI on uninstall
+                enum:
+                - RemoveWorkloads
+                - BlockUninstallIfWorkloadsExist
+                type: string
+            type: object
+          status:
+            description: CDIStatus defines the status of the CDI installation
+            properties:
+              conditions:
+                description: A list of current conditions of the CDI resource
+                items:
+                  description: Condition represents the state of the operator's reconciliation functionality.
+                  properties:
+                    lastHeartbeatTime:
+                      format: date-time
+                      type: string
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      description: ConditionType is the state of the operator's reconciliation functionality.
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedVersion:
+                description: The observed version of the CDI resource
+                type: string
+              operatorVersion:
+                description: The version of the CDI resource as defined by the operator
+                type: string
+              phase:
+                description: CDIPhase is the current phase of the CDI deployment
+                type: string
+              targetVersion:
+                description: The desired version of the CDI resource
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: false
+    subresources: {}
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: CDI is the CDI Operator CRD
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CDISpec defines our specification for the CDI installation
+            properties:
+              imagePullPolicy:
+                description: PullPolicy describes a policy for if/when to pull a container image
+                enum:
+                - Always
+                - IfNotPresent
+                - Never
+                type: string
+              uninstallStrategy:
+                description: CDIUninstallStrategy defines the state to leave CDI on uninstall
+                enum:
+                - RemoveWorkloads
+                - BlockUninstallIfWorkloadsExist
+                type: string
+            type: object
+          status:
+            description: CDIStatus defines the status of the CDI installation
+            properties:
+              conditions:
+                description: A list of current conditions of the CDI resource
+                items:
+                  description: Condition represents the state of the operator's reconciliation functionality.
+                  properties:
+                    lastHeartbeatTime:
+                      format: date-time
+                      type: string
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      description: ConditionType is the state of the operator's reconciliation functionality.
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedVersion:
+                description: The observed version of the CDI resource
+                type: string
+              operatorVersion:
+                description: The version of the CDI resource as defined by the operator
+                type: string
+              phase:
+                description: CDIPhase is the current phase of the CDI deployment
+                type: string
+              targetVersion:
+                description: The desired version of the CDI resource
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    operator.cdi.kubevirt.io: ""
+  name: cdi-operator-cluster
+rules:
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  verbs:
+  - '*'
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - '*'
+- apiGroups:
+  - cdi.kubevirt.io
+  - upload.cdi.kubevirt.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  - mutatingwebhookconfigurations
+  verbs:
+  - '*'
+- apiGroups:
+  - apiregistration.k8s.io
+  resources:
+  - apiservices
+  verbs:
+  - '*'
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - datavolumes
+  verbs:
+  - list
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - cdis
+  verbs:
+  - get
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - cdis/finalizers
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  - volumesnapshots
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims/finalizers
+  - pods/finalizers
+  - volumesnapshots/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+- apiGroups:
+  - storage.k8s.io
+  resources:
+  - storageclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - snapshot.storage.k8s.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    operator.cdi.kubevirt.io: ""
+  name: cdi-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cdi-operator-cluster
+subjects:
+- kind: ServiceAccount
+  name: cdi-operator
+  namespace: {{.CDINamespace}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    operator.cdi.kubevirt.io: ""
+  name: cdi-operator
+  namespace: {{.CDINamespace}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    cdi.kubevirt.io: ""
+  name: cdi-operator
+  namespace: {{.CDINamespace}}
+rules:
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  - roles
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  - configmaps
+  - events
+  - secrets
+  - services
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - deployments/finalizers
+  verbs:
+  - '*'
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes
+  - routes/custom-host
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    cdi.kubevirt.io: ""
+  name: cdi-operator
+  namespace: {{.CDINamespace}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: cdi-operator
+subjects:
+- kind: ServiceAccount
+  name: cdi-operator
+  namespace: {{.CDINamespace}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdi-operator
+  namespace: {{.CDINamespace}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: cdi-operator
+      operator.cdi.kubevirt.io: ""
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        name: cdi-operator
+        operator.cdi.kubevirt.io: ""
+    spec:
+      containers:
+      - env:
+        - name: DEPLOY_CLUSTER_RESOURCES
+          value: "true"
+        - name: OPERATOR_VERSION
+          value: v1.21.0
+        - name: CONTROLLER_IMAGE
+          value: kubevirt/cdi-controller:v1.21.0
+        - name: IMPORTER_IMAGE
+          value: kubevirt/cdi-importer:v1.21.0
+        - name: CLONER_IMAGE
+          value: kubevirt/cdi-cloner:v1.21.0
+        - name: APISERVER_IMAGE
+          value: kubevirt/cdi-apiserver:v1.21.0
+        - name: UPLOAD_SERVER_IMAGE
+          value: kubevirt/cdi-uploadserver:v1.21.0
+        - name: UPLOAD_PROXY_IMAGE
+          value: kubevirt/cdi-uploadproxy:v1.21.0
+        - name: VERBOSITY
+          value: "3"
+        - name: PULL_POLICY
+          value: IfNotPresent
+        image: kubevirt/cdi-operator:v1.21.0
+        imagePullPolicy: IfNotPresent
+        name: cdi-operator
+        ports:
+        - containerPort: 60000
+          name: metrics
+          protocol: TCP
+        resources: {}
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: cdi-operator
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    operator.cdi.kubevirt.io: ""
+  name: cdi-operator-leader-election-helper
+  namespace: {{.CDINamespace}}

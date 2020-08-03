@@ -15,6 +15,7 @@ go_library(
         "cpu_linux.go",
         "cpu_linux_arm.go",
         "cpu_linux_arm64.go",
+        "cpu_linux_mips64x.go",
         "cpu_linux_noinit.go",
         "cpu_linux_ppc64x.go",
         "cpu_linux_s390x.go",
