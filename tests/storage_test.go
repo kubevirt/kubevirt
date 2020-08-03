@@ -201,7 +201,7 @@ var _ = Describe("Storage", func() {
 					&expect.BSnd{S: "sudo mkfs.ext4 /dev/vdc\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.Retcode("0", "\\$ ")},
+					&expect.BExp{R: tests.RetValue("0", "\\$ ")},
 				}, 20*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -302,7 +302,7 @@ var _ = Describe("Storage", func() {
 					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.Retcode("0", "\\#")},
+					&expect.BExp{R: tests.RetValue("0", "\\#")},
 					&expect.BSnd{S: "echo content > /mnt/checkpoint\n"},
 					// The QEMU process will be killed, therefore the write must be flushed to the disk.
 					&expect.BSnd{S: "sync\n"},
@@ -330,10 +330,10 @@ var _ = Describe("Storage", func() {
 					// Same story as when first starting the VirtualMachineInstance - the checkpoint, if persisted, is located at /dev/sda2.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.Retcode("0", "\\#")},
+					&expect.BExp{R: tests.RetValue("0", "\\#")},
 					&expect.BSnd{S: "cat /mnt/checkpoint &> /dev/null\n"},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.Retcode("1", "\\#")},
+					&expect.BExp{R: tests.RetValue("1", "\\#")},
 				}, 200*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			})
