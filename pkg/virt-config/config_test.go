@@ -35,17 +35,17 @@ var _ = Describe("ConfigMap", func() {
 		close(stopChan)
 	})
 
-	table.DescribeTable("when memBalloonStatsPeriod", func(value string, result int) {
+	table.DescribeTable("when memBalloonStatsPeriod", func(value string, result uint32) {
 		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{"memBalloonStatsPeriod": value},
 		})
 
 		Expect(clusterConfig.GetMemBalloonStatsPeriod()).To(Equal(result))
 	},
-		table.Entry("is positive, GetMemBalloonStatsPeriod should return period", "3", 3),
-		table.Entry("is negative, GetMemBalloonStatsPeriod should return 10", "-1", 10),
-		table.Entry("when unset, GetMemBalloonStatsPeriod should return 10", "", 10),
-		table.Entry("when invalid, GetMemBalloonStatsPeriod should return 10", "invalid", 10))
+		table.Entry("is positive, GetMemBalloonStatsPeriod should return period", "3", uint32(3)),
+		table.Entry("is negative, GetMemBalloonStatsPeriod should return 10", "-1", uint32(10)),
+		table.Entry("when unset, GetMemBalloonStatsPeriod should return 10", "", uint32(10)),
+		table.Entry("when invalid, GetMemBalloonStatsPeriod should return 10", "invalid", uint32(10)))
 
 	table.DescribeTable(" when useEmulation", func(value string, result bool) {
 		clusterConfig, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{

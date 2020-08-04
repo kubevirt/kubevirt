@@ -2060,7 +2060,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				Sku:          smbios.Sku,
 				Version:      smbios.Version,
 			},
-			MemBalloonStatsPeriod: uint32(period),
+			MemBalloonStatsPeriod: period,
 		}
 
 		err = client.SyncVirtualMachine(vmi, options)

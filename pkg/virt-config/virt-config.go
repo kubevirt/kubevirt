@@ -60,7 +60,7 @@ const (
 	DefaultSELinuxLauncherType                      = "virt_launcher.process"
 	SupportedGuestAgentVersions                     = "3.*,4.*"
 	DefaultOVMFPath                                 = "/usr/share/OVMF"
-	DefaultMemBalloonStatsPeriod                    = 10
+	DefaultMemBalloonStatsPeriod             uint32 = 10
 	DefaultCPUAllocationRatio                       = 10.0
 )
 
@@ -74,8 +74,8 @@ func getDefaultMachinesForArch() (string, string) {
 
 var DefaultMachineType, DefaultEmulatedMachines = getDefaultMachinesForArch()
 
-func (c *ClusterConfig) GetMemBalloonStatsPeriod() int {
-	return c.GetConfig().MemBalloonStatsPeriod
+func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
+	return *c.GetConfig().MemBalloonStatsPeriod
 }
 
 func (c *ClusterConfig) IsUseEmulation() bool {
