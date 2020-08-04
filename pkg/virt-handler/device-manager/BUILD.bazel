@@ -7,11 +7,14 @@ go_library(
     srcs = [
         "device_controller.go",
         "generic_device.go",
+        "mediated_device.go",
+        "pci_device.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/device-manager",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/util:go_default_library",
+        "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/device-manager/deviceplugin/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/fsnotify/fsnotify:go_default_library",
