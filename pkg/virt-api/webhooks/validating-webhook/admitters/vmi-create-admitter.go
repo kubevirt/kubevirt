@@ -925,7 +925,23 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				Field:   field.Child("evictionStrategy").String(),
 			})
 		}
-
+	} else if *spec.EvictionStrategy == v1.EvictionStrategyLiveMigrate {
+		for _, iface := range spec.Domain.Devices.Interfaces {
+			if iface.SRIOV != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "SRIOV interfaces are incompatible with the LiveMigrate eviction strategy",
+					Field:   field.Child("evictionStrategy").String(),
+				})
+			}
+		}
+		if spec.Domain.Devices.GPUs != nil && len(spec.Domain.Devices.GPUs) > 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "GPU passthrough is incompatible with the LiveMigrate eviction strategy",
+				Field:   field.Child("evictionStrategy").String(),
+			})
+		}
 	}
 
 	if spec.Domain.Devices.GPUs != nil && !config.GPUPassthroughEnabled() {
