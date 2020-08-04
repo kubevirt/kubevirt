@@ -71,6 +71,7 @@ func (c *DeviceController) nodeHasDevice(devicePath string) bool {
 func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct{}) {
 	logger := log.DefaultLogger()
 	deviceName := dev.GetDeviceName()
+	logger.Infof("Starting a device pluging for device: %s", deviceName)
 	retries := 0
 
 	for {
@@ -93,10 +94,59 @@ func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct
 	}
 }
 
+// addPermittedHostDevicePlugins will add device pluging for permitted devices which are present on the node
+func (c *DeviceController) addPermittedHostDevicePlugins() {
+	logger := log.DefaultLogger()
+	if hostDevs := c.virtConfig.GetPermittedHostDevices(); hostDevs != nil {
+		supportedPCIDeviceMap := make(map[string]string)
+		if len(hostDevs.PciHostDevices) != 0 {
+			for _, pciDev := range hostDevs.PciHostDevices {
+				// do not add a device plugin for this resource if it's being provided via an external device plugin
+				if !pciDev.ExternalResourceProvider {
+					supportedPCIDeviceMap[pciDev.Selector] = pciDev.ResourceName
+				}
+			}
+			pciHostDevices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
+			pciDevicePlugins := []GenericDevice{}
+			for pciID, pciDevices := range pciHostDevices {
+				pciResourceName := supportedPCIDeviceMap[pciID]
+				pciDevicePlugins = append(pciDevicePlugins, NewPCIDevicePlugin(pciDevices, pciResourceName))
+			}
+			c.devicePlugins = append(c.devicePlugins, pciDevicePlugins...)
+		}
+		if len(hostDevs.MediatedDevices) != 0 {
+			supportedMdevsMap := make(map[string]string)
+			for _, supportedMdev := range hostDevs.MediatedDevices {
+				// do not add a device plugin for this resource if it's being provided via an external device plugin
+				if !supportedMdev.ExternalResourceProvider {
+					selector := removeSelectorSpaces(supportedMdev.Selector)
+					supportedMdevsMap[selector] = supportedMdev.ResourceName
+				}
+			}
+
+			hostMdevs := discoverPermittedHostMediatedDevices(supportedMdevsMap)
+			mdevPlugins := []GenericDevice{}
+			for mdevTypeName, mdevUUIDs := range hostMdevs {
+				mdevResourceName := supportedMdevsMap[mdevTypeName]
+				mdevPlugins = append(mdevPlugins, NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName))
+			}
+			c.devicePlugins = append(c.devicePlugins, mdevPlugins...)
+		}
+	}
+}
+
+func removeSelectorSpaces(selectorName string) string {
+	// The name usually contain spaces which should be replaced with _
+	// Such as GRID T4-1Q
+	typeNameStr := strings.Replace(string(selectorName), " ", "_", -1)
+	typeNameStr = strings.TrimSpace(typeNameStr)
+	return typeNameStr
+
+}
+
 func (c *DeviceController) Run(stop chan struct{}) error {
 	logger := log.DefaultLogger()
-	logger.Info("Starting device plugin controller")
-
+	c.addPermittedHostDevicePlugins()
 	for _, dev := range c.devicePlugins {
 		go c.startDevicePlugin(dev, stop)
 	}
