@@ -622,23 +622,21 @@ var _ = Describe("SRIOV", func() {
 	})
 
 	Context("VirtualMachineInstance with sriov plugin interface", func() {
-		getSriovVmi := func(networks []string) (vmi *v1.VirtualMachineInstance) {
-			// If we run on a host with Mellanox SR-IOV cards then we'll need to load in corresponding kernel modules.
-			// Stop NetworkManager to not interfere with manual IP configuration for SR-IOV interfaces.
-			// Use agent to signal about cloud-init phase completion.
-			userData := fmt.Sprintf(`#!/bin/sh
-			    echo "fedora" |passwd fedora --stdin
-			    dnf install -y kernel-modules-$(uname -r)
-			    modprobe mlx5_ib
-			    systemctl stop NetworkManager
-			    mkdir -p /usr/local/bin
-			    curl %s > /usr/local/bin/qemu-ga
-			    chmod +x /usr/local/bin/qemu-ga
-			    systemd-run --unit=guestagent /usr/local/bin/qemu-ga`, tests.GetUrl(tests.GuestAgentHttpUrl))
+		getSriovVmi := func(networks []string) *v1.VirtualMachineInstance {
+			// Pre-configured container-disk image for sriov-lane
+			vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedoraSRIOVLane))
 
-			ports := []v1.Port{}
-			vmi = tests.NewRandomVMIWithMasqueradeInterfaceEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskFedora), userData, ports)
+			// fedora requires some more memory to boot without kernel panics
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
 
+			// newer fedora kernels may require hardware RNG to boot
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+
+			// pod network interface
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: []v1.Port{}, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+			// sriov network interfaces
 			for _, name := range networks {
 				iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
 				network := v1.Network{Name: name, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: name}}}
@@ -646,10 +644,7 @@ var _ = Describe("SRIOV", func() {
 				vmi.Spec.Networks = append(vmi.Spec.Networks, network)
 			}
 
-			// fedora requires some more memory to boot without kernel panics
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
-
-			return
+			return vmi
 		}
 
 		startVmi := func(vmi *v1.VirtualMachineInstance) {
