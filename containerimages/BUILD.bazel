@@ -77,3 +77,16 @@ container_image(
     files = ["@virtio_win_image//file"],
     visibility = ["//visibility:public"],
 )
+
+container_image(
+    name = "fedora-sriov-lane-container-disk-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "ppc64le",
+        "//conditions:default": "amd64",
+    }),
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_ppc64le": "@fedora_sriov_lane_ppc64le//image",
+        "//conditions:default": "@fedora_sriov_lane//image",
+    }),
+    visibility = ["//visibility:public"],
+)
