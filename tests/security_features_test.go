@@ -58,6 +58,13 @@ var _ = Describe("SecurityFeatures", func() {
 			BeforeEach(func() {
 				tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, "")
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+
+				// VMIs with selinuxLauncherType container_t cannot have network interfaces, since that requires
+				// the `virt_launcher.process` selinux context
+				autoattachPodInterface := false
+				vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoattachPodInterface
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{}
+				vmi.Spec.Networks = []v1.Network{}
 			})
 
 			It("[test_id:2953]Ensure virt-launcher pod securityContext type is not forced", func() {
