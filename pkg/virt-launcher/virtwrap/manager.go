@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
@@ -1134,6 +1135,32 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 	return networkToAddressesMap
 }
 
+func updateDeviceResourcesMap(devicePrefix string, resourceToAddressesMap map[string][]string, elementName string, resourceName string) {
+	varName := kutil.ResourceNameToEnvvar(devicePrefix, resourceName)
+	addrString, isSet := os.LookupEnv(varName)
+	if isSet {
+		addrs := parseDeviceAddress(addrString)
+		resourceToAddressesMap[resourceName] = addrs
+	} else {
+		log.DefaultLogger().Warningf("%s not set for device %s", varName, resourceName)
+	}
+}
+
+// There is an overlap between HostDevices and GPUs. Both can provide PCI devices and MDEVs
+// However, both will be mapped to a hostdev struct with some differences.
+func getDevicesForAssignment(envVarPrefix string, devices v1.Devices) map[string][]string {
+	resourceToAddressesMap := make(map[string][]string)
+
+	for _, hostDev := range devices.HostDevices {
+		updateDeviceResourcesMap(envVarPrefix, resourceToAddressesMap, hostDev.Name, hostDev.DeviceName)
+	}
+	for _, gpu := range devices.GPUs {
+		updateDeviceResourcesMap(envVarPrefix, resourceToAddressesMap, gpu.Name, gpu.DeviceName)
+	}
+	return resourceToAddressesMap
+
+}
+
 // This function parses all environment variables with prefix string that is set by a Device Plugin.
 // Device plugin that passes GPU devices by setting these env variables is https://github.com/NVIDIA/kubevirt-gpu-device-plugin
 // It returns address list for devices set in the env variable.
@@ -1233,6 +1260,8 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		SRIOVDevices:      getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
 		GpuDevices:        getEnvAddressListByPrefix(gpuEnvPrefix),
 		VgpuDevices:       getEnvAddressListByPrefix(vgpuEnvPrefix),
+		PCIDevices:        getDevicesForAssignment("PCI_RESOURCE", vmi.Spec.Domain.Devices),
+		MediatedDevices:   getDevicesForAssignment("MDEV_PCI_RESOURCE", vmi.Spec.Domain.Devices),
 		EmulatorThreadCpu: emulatorThreadCpu,
 		OVMFPath:          l.ovmfPath,
 	}

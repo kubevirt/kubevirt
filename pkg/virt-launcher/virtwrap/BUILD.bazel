@@ -19,6 +19,7 @@ go_library(
         "//pkg/hooks:go_default_library",
         "//pkg/host-disk:go_default_library",
         "//pkg/ignition:go_default_library",
+        "//pkg/util:go_default_library",
         "//pkg/util/net/ip:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
