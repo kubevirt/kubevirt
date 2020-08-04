@@ -3033,6 +3033,13 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		&expect.BSnd{S: "\n"},
 		&expect.BCas{C: []expect.Caser{
 			&expect.Case{
+				// In case the VM's did not get hostname form DHCP server try the default hostname
+				R:  regexp.MustCompile(`localhost login: `),
+				S:  "fedora\n",
+				T:  expect.Next(),
+				Rt: 10,
+			},
+			&expect.Case{
 				// Using only "login: " would match things like "Last failed login: Tue Jun  9 22:25:30 UTC 2020 on ttyS0"
 				R:  regexp.MustCompile(vmi.Name + ` login: `),
 				S:  "fedora\n",
