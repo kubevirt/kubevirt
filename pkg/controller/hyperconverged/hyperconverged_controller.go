@@ -79,6 +79,8 @@ const (
 	metricsAggregationOldCrdName    = "kubevirtmetricsaggregations.kubevirt.io"
 	nodeLabellerBundlesOldCrdName   = "kubevirtnodelabellerbundles.kubevirt.io"
 	templateValidatorsOldCrdName    = "kubevirttemplatevalidators.kubevirt.io"
+
+	kubevirtDefaultNetworkInterfaceValue = "masquerade"
 )
 
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -764,11 +766,12 @@ func newKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *co
 			Namespace: namespace,
 		},
 		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey and
-		// "debug.useEmulation" are going to be manipulated and only on HCO upgrades
+		// virtconfig.UseEmulationKey are going to be manipulated and only on HCO upgrades
 		Data: map[string]string{
 			virtconfig.FeatureGatesKey:        "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery,Sidecar",
 			virtconfig.MigrationsConfigKey:    `{"nodeDrainTaintKey" : "node.kubernetes.io/unschedulable"}`,
 			virtconfig.SELinuxLauncherTypeKey: "virt_launcher.process",
+			virtconfig.NetworkInterfaceKey:    kubevirtDefaultNetworkInterfaceValue,
 		},
 	}
 	val, ok := os.LookupEnv("SMBIOS")
@@ -781,7 +784,7 @@ func newKubeVirtConfigForCR(cr *hcov1beta1.HyperConverged, namespace string) *co
 	}
 	val, ok = os.LookupEnv("KVM_EMULATION")
 	if ok && val != "" {
-		cm.Data["debug.useEmulation"] = val
+		cm.Data[virtconfig.UseEmulationKey] = val
 	}
 	return cm
 }
@@ -818,12 +821,12 @@ func (r *ReconcileHyperConverged) ensureKubeVirtConfig(req *hcoRequest) (upgrade
 
 	if r.upgradeMode {
 		// only virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey and
-		// "debug.useEmulation" are going to be manipulated and only on HCO upgrades
+		// virtconfig.UseEmulationKey are going to be manipulated and only on HCO upgrades
 		for _, k := range []string{
 			virtconfig.SmbiosConfigKey,
 			virtconfig.MachineTypeKey,
 			virtconfig.SELinuxLauncherTypeKey,
-			"debug.useEmulation",
+			virtconfig.UseEmulationKey,
 		} {
 			if found.Data[k] != kubevirtConfig.Data[k] {
 				req.logger.Info(fmt.Sprintf("Updating %s on existing KubeVirt config", k))

@@ -124,7 +124,7 @@ var _ = Describe("HyperConverged Components", func() {
 		var req *hcoRequest
 
 		updatableKeys := [...]string{virtconfig.SmbiosConfigKey, virtconfig.MachineTypeKey, virtconfig.SELinuxLauncherTypeKey}
-		unupdatableKeys := [...]string{virtconfig.FeatureGatesKey, virtconfig.MigrationsConfigKey}
+		unupdatableKeys := [...]string{virtconfig.FeatureGatesKey, virtconfig.MigrationsConfigKey, virtconfig.NetworkInterfaceKey}
 
 		BeforeEach(func() {
 			hco = newHco()
@@ -182,6 +182,7 @@ var _ = Describe("HyperConverged Components", func() {
 			// values we should preserve
 			outdatedResource.Data[virtconfig.FeatureGatesKey] = "old-featuregates-value-that-we-should-preserve"
 			outdatedResource.Data[virtconfig.MigrationsConfigKey] = "old-migrationsconfig-value-that-we-should-preserve"
+			outdatedResource.Data[virtconfig.NetworkInterfaceKey] = "old-defaultnetworkinterface-value-that-we-should-preserve"
 
 			cl := initClient([]runtime.Object{hco, outdatedResource})
 			r := initReconciler(cl)
@@ -221,6 +222,7 @@ var _ = Describe("HyperConverged Components", func() {
 			// values we should preserve
 			outdatedResource.Data[virtconfig.FeatureGatesKey] = "old-featuregates-value-that-we-should-preserve"
 			outdatedResource.Data[virtconfig.MigrationsConfigKey] = "old-migrationsconfig-value-that-we-should-preserve"
+			outdatedResource.Data[virtconfig.DefaultNetworkInterface] = "old-defaultnetworkinterface-value-that-we-should-preserve"
 
 			cl := initClient([]runtime.Object{hco, outdatedResource})
 			r := initReconciler(cl)
