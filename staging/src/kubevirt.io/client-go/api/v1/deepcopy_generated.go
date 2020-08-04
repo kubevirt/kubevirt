@@ -1457,6 +1457,11 @@ func (in *KubeVirtConfiguration) DeepCopyInto(out *KubeVirtConfiguration) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.MemBalloonStatsPeriod != nil {
+		in, out := &in.MemBalloonStatsPeriod, &out.MemBalloonStatsPeriod
+		*out = new(uint32)
+		**out = **in
+	}
 	return
 }
 

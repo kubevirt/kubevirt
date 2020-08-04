@@ -164,6 +164,7 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	defaultNetworkInterface := DefaultNetworkInterface
+	defaultMemBalloonStatsPeriod := DefaultMemBalloonStatsPeriod
 	SmbiosDefaultConfig := &v1.SMBiosConfiguration{
 		Family:       SmbiosConfigDefaultFamily,
 		Manufacturer: SmbiosConfigDefaultManufacturer,
@@ -203,7 +204,7 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 		SELinuxLauncherType:         DefaultSELinuxLauncherType,
 		SupportedGuestAgentVersions: supportedQEMUGuestAgentVersions,
 		OVMFPath:                    DefaultOVMFPath,
-		MemBalloonStatsPeriod:       DefaultMemBalloonStatsPeriod,
+		MemBalloonStatsPeriod:       &defaultMemBalloonStatsPeriod,
 	}
 }
 
@@ -390,7 +391,8 @@ func setConfigFromConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.C
 			return fmt.Errorf("invalid memBalloonStatsPeriod in config, %s", memBalloonStatsPeriod)
 		}
 		if i >= 0 {
-			config.MemBalloonStatsPeriod = i
+			mem := uint32(i)
+			config.MemBalloonStatsPeriod = &mem
 		} else {
 			return fmt.Errorf("invalid memBalloonStatsPeriod (negative) in config, %d", i)
 		}

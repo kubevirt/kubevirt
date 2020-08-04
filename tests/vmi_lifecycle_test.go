@@ -51,8 +51,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-const kubevirtConfig = "kubevirt-config"
-
 func newCirrosVMI() *v1.VirtualMachineInstance {
 	return tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 }
