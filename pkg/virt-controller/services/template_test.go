@@ -257,7 +257,7 @@ var _ = Describe("Template", func() {
 			})
 		})
 		Context("with SELinux types", func() {
-			It("should run under the SELinux type container_t if none specified", func() {
+			It("should run under the SELinux type virt_launcher.process if none specified", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",
@@ -267,7 +267,8 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				if pod.Spec.SecurityContext != nil {
-					Expect(pod.Spec.SecurityContext.SELinuxOptions).To(BeNil())
+					Expect(pod.Spec.SecurityContext.SELinuxOptions).ToNot(BeNil())
+					Expect(pod.Spec.SecurityContext.SELinuxOptions.Type).To(Equal("virt_launcher.process"))
 				}
 			})
 			It("should run under the corresponding SELinux type if specified", func() {

@@ -56,7 +56,7 @@ const (
 	SmbiosConfigDefaultManufacturer                 = "KubeVirt"
 	SmbiosConfigDefaultProduct                      = "None"
 	DefaultPermitBridgeInterfaceOnPodNetwork        = true
-	DefaultSELinuxLauncherType                      = ""
+	DefaultSELinuxLauncherType                      = "virt_launcher.process"
 	SupportedGuestAgentVersions                     = "3.*,4.*"
 	DefaultOVMFPath                                 = "/usr/share/OVMF"
 	DefaultMemBalloonStatsPeriod                    = 10
