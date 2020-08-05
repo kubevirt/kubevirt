@@ -66,7 +66,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		When("paused via API", func() {
-			It("should signal paused state with condition", func() {
+			It("[test_id:4597]should signal paused state with condition", func() {
 				runVMI()
 
 				virtClient.VirtualMachineInstance(vmi.Namespace).Pause(vmi.Name)
@@ -157,7 +157,7 @@ var _ = Describe("[rfe_id:3064][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		When("paused via API", func() {
-			It("should signal paused state with condition", func() {
+			It("[test_id:4598]should signal paused state with condition", func() {
 
 				runVM()
 
