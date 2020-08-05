@@ -48,6 +48,7 @@ const (
 	VmiPVC               = "vmi-pvc"
 	VmiBlockPVC          = "vmi-block-pvc"
 	VmiWindows           = "vmi-windows"
+	VmiKernelBoot        = "vmi-kernel-boot"
 	VmiSlirp             = "vmi-slirp"
 	VmiMasquerade        = "vmi-masquerade"
 	VmiSRIOV             = "vmi-sriov"

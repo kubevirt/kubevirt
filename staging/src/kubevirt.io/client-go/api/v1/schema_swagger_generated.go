@@ -171,6 +171,7 @@ func (Firmware) SwaggerDoc() map[string]string {
 		"uuid":       "UUID reported by the vmi bios.\nDefaults to a random generated uid.",
 		"bootloader": "Settings to control the bootloader that is used.\n+optional",
 		"serial":     "The system-serial-number in SMBIOS",
+		"kernelBoot": "Settings to set the kernel for booting.\n+optional",
 	}
 }
 

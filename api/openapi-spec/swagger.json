@@ -7109,6 +7109,10 @@
       "description": "Settings to control the bootloader that is used.",
       "$ref": "#/definitions/v1.Bootloader"
      },
+     "kernelBoot": {
+      "description": "Settings to set the kernel for booting.",
+      "$ref": "#/definitions/v1.KernelBoot"
+     },
      "serial": {
       "description": "The system-serial-number in SMBIOS",
       "type": "string"
@@ -7382,6 +7386,28 @@
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer. Defaults to true.",
       "type": "boolean"
+     }
+    }
+   },
+   "v1.KernelBoot": {
+    "description": "Represents the firmware blob used to assist in the kernel boot process. Used for setting the kernel, initrd and cmdline",
+    "type": "object",
+    "properties": {
+     "cmdline": {
+      "description": "Arguments to be passed to the kernel at boot time",
+      "type": "string"
+     },
+     "initrdPath": {
+      "description": "the fully-qualified path to the ramdisk image in the host OS",
+      "type": "string"
+     },
+     "kernelPath": {
+      "description": "The fully-qualified path to the kernel image in the host OS",
+      "type": "string"
+     },
+     "name": {
+      "description": "Name for the kernel disk",
+      "type": "string"
      }
     }
    },

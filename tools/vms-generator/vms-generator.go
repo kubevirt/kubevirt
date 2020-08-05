@@ -85,6 +85,7 @@ func main() {
 		utils.VmiMasquerade:        utils.GetVMIMasquerade(),
 		utils.VmiHostDisk:          utils.GetVMIHostDisk(),
 		utils.VmiGPU:               utils.GetVMIGPU(),
+		utils.VmiKernelBoot:        utils.GetVMIKernelBoot(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{

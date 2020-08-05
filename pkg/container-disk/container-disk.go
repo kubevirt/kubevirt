@@ -33,7 +33,6 @@ import (
 
 	v1 "kubevirt.io/client-go/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -49,28 +48,6 @@ func GetLegacyVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) string {
 
 func GetVolumeMountDirOnGuest(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(mountBaseDir, string(vmi.UID))
-}
-
-func GetMountPath(vmi *v1.VirtualMachineInstance, volumeIndex int) string {
-	sock, err := containerdisk.GetSocketPathFromHostView(vmi, volumeIndex)
-	if err != nil {
-		return err
-	}
-	nodeRes := isolation.NodeIsolationResult()
-	res, err := isolation.PodIsolationDetector.DetectForSocket(vmi, sock)
-	if err != nil {
-		return fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
-	}
-
-	mountInfo, err := res.MountInfoRoot()
-	if err != nil {
-		return fmt.Errorf("failed to detect root mount info of containerDisk  %v: %v", volume.Name, err)
-	}
-	nodeMountInfo, err := nodeRes.ParentMountInfoFor(mountInfo)
-	if err != nil {
-		return fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
-	}
-	return filepath.Join(nodeRes.MountRoot(), nodeMountInfo.Root, nodeMountInfo.MountPoint)
 }
 
 func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (string, bool, error) {

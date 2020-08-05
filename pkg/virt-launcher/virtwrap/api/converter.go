@@ -752,8 +752,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				}
 			}
 		}
-		
-		
+
 		if len(vmi.Spec.Domain.Firmware.Serial) > 0 {
 			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
 		}
@@ -772,19 +771,20 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			log.Log.Infof("Conv to kernel boot..")
 			if vmi.Spec.Domain.Firmware.KernelBoot.KernelPath != "" {
 				log.Log.Infof("Coverting it to libvirt domain XML..")
-				
+
 				log.Log.Infof(ephemeraldisk.GetFilePath(vmi.Spec.Domain.Firmware.KernelBoot.Name))
 				log.Log.Infof(hostdisk.GetMountedHostDiskDir(vmi.Spec.Domain.Firmware.KernelBoot.Name))
-				log.Log.Infof(containerdisk.GetMountPath(vmi, volumeIndices[vmi.Spec.Domain.Firmware.KernelBoot.Name]))
+				s, _, _ := containerdisk.GetVolumeMountDirOnHost(vmi)
+				log.Log.Infof(filepath.Join(s, vmi.Spec.Domain.Firmware.KernelBoot.KernelPath))
 				domain.Spec.OS.Kernel = filepath.Join(hostdisk.GetMountedHostDiskDir(vmi.Spec.Domain.Firmware.KernelBoot.Name), vmi.Spec.Domain.Firmware.KernelBoot.KernelPath)
 
 			} else {
 				//TODO: see for ways on how to add default path for a vmlinuz image
 				domain.Spec.OS.Kernel = "some default path for vmlinuz"
 			}
-			if vmi.Spec.Domain.Firmware.KernelBoot.InitrdPath != "" {
-				domain.Spec.OS.Initrd = filepath.Join(hostdisk.GetMountedHostDiskDir(vmi.Spec.Domain.Firmware.KernelBoot.Name), vmi.Spec.Domain.Firmware.KernelBoot.InitrdPath)
-			}
+			// if vmi.Spec.Domain.Firmware.KernelBoot.InitrdPath != "" {
+			domain.Spec.OS.Initrd = filepath.Join(ephemeraldisk.GetFilePath(vmi.Spec.Domain.Firmware.KernelBoot.Name), vmi.Spec.Domain.Firmware.KernelBoot.KernelPath)
+			// }
 			if vmi.Spec.Domain.Firmware.KernelBoot.Cmdline != "" {
 				domain.Spec.OS.KernelArgs = vmi.Spec.Domain.Firmware.KernelBoot.Cmdline
 			} else {

@@ -327,6 +327,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.InterfaceSRIOV":                                      schema_kubevirtio_client_go_api_v1_InterfaceSRIOV(ref),
 		"kubevirt.io/client-go/api/v1.InterfaceSlirp":                                      schema_kubevirtio_client_go_api_v1_InterfaceSlirp(ref),
 		"kubevirt.io/client-go/api/v1.KVMTimer":                                            schema_kubevirtio_client_go_api_v1_KVMTimer(ref),
+		"kubevirt.io/client-go/api/v1.KernelBoot":                                          schema_kubevirtio_client_go_api_v1_KernelBoot(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirt":                                            schema_kubevirtio_client_go_api_v1_KubeVirt(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy":                   schema_kubevirtio_client_go_api_v1_KubeVirtCertificateRotateStrategy(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirtCondition":                                   schema_kubevirtio_client_go_api_v1_KubeVirtCondition(ref),
@@ -14633,11 +14634,17 @@ func schema_kubevirtio_client_go_api_v1_Firmware(ref common.ReferenceCallback) c
 							Format:      "",
 						},
 					},
+					"kernelBoot": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Settings to set the kernel for booting.",
+							Ref:         ref("kubevirt.io/client-go/api/v1.KernelBoot"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/client-go/api/v1.Bootloader"},
+			"kubevirt.io/client-go/api/v1.Bootloader", "kubevirt.io/client-go/api/v1.KernelBoot"},
 	}
 }
 
