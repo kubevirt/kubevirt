@@ -460,7 +460,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				metadataStruct := cloudinit.Metadata{
+				metadataStruct := cloudinit.ConfigDriveMetadata{
 					InstanceID: fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
 					Hostname:   dns.SanitizeHostname(vmi),
 					UUID:       string(vmi.UID),
@@ -636,5 +636,63 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		})
 
+	})
+
+	Describe("Access Credentials", func() {
+		Context("with secret and configDrive propagation", func() {
+			FIt("should have ssh-key under authorized keys", func() {
+				secretID := "my-pub-key"
+				userData := fmt.Sprintf(
+					"#cloud-config\npassword: %s\nchpasswd: { expire: False }\n",
+					fedoraPassword,
+				)
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(cd.ContainerDiskFor(cd.ContainerDiskFedora), userData)
+				vmi.Spec.AccessCredentials = []v1.AccessCredential{
+					{
+						SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+							Source: v1.SSHPublicKeyAccessCredentialSource{
+								Secret: &v1.AccessCredentialSecretSource{
+									Name: secretID,
+								},
+							},
+							PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+								ConfigDrive: &v1.ConfigDriveAccessCredentialPropagation{},
+							},
+						},
+					},
+				}
+
+				By("Creating a secret with ssh key")
+				secret := kubev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      secretID,
+						Namespace: vmi.Namespace,
+						Labels: map[string]string{
+							tests.SecretLabel: secretID,
+						},
+					},
+					Type: "Opaque",
+					Data: map[string][]byte{
+						"my-key": []byte(sshAuthorizedKey),
+					},
+				}
+				_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
+				Expect(err).To(BeNil())
+
+				LaunchVMI(vmi)
+
+				VerifyUserDataVMI(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "login:"},
+					&expect.BSnd{S: "fedora\n"},
+					&expect.BExp{R: "Password:"},
+					&expect.BSnd{S: fedoraPassword + "\n"},
+					&expect.BExp{R: "\\$"},
+					&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+					&expect.BExp{R: "test-ssh-key"},
+				}, time.Second*300)
+			})
+		})
 	})
 })
