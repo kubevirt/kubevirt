@@ -46,9 +46,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource := hco.NewKubeVirtPriorityClass()
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtPriorityClass(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtPriorityClass(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			key, err := client.ObjectKeyFromObject(expectedResource)
 			Expect(err).ToNot(HaveOccurred())
@@ -63,9 +63,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource := hco.NewKubeVirtPriorityClass()
 			cl := initClient([]runtime.Object{expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtPriorityClass(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtPriorityClass(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			objectRef, err := reference.GetReference(r.scheme, expectedResource)
 			Expect(err).To(BeNil())
@@ -75,9 +75,9 @@ var _ = Describe("HyperConverged Components", func() {
 		DescribeTable("should update if something changed", func(modifiedResource *schedulingv1.PriorityClass) {
 			cl := initClient([]runtime.Object{modifiedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtPriorityClass(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtPriorityClass(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			expectedResource := hco.NewKubeVirtPriorityClass()
 			key, err := client.ObjectKeyFromObject(expectedResource)
@@ -138,9 +138,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource := newKubeVirtConfigForCR(req.instance, namespace)
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtConfig(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtConfig(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &corev1.ConfigMap{}
 			Expect(
@@ -158,9 +158,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtConfig(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtConfig(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -189,9 +189,9 @@ var _ = Describe("HyperConverged Components", func() {
 
 			// force upgrade mode
 			r.upgradeMode = true
-			upgradeDone, err := r.ensureKubeVirtConfig(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtConfig(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &corev1.ConfigMap{}
 			Expect(
@@ -230,9 +230,9 @@ var _ = Describe("HyperConverged Components", func() {
 			// ensure that we are not in upgrade mode
 			r.upgradeMode = false
 
-			upgradeDone, err := r.ensureKubeVirtConfig(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtConfig(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &corev1.ConfigMap{}
 			Expect(
@@ -325,9 +325,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource := hco.NewKubeVirt(namespace)
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirt(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirt(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &kubevirtv1.KubeVirt{}
 			Expect(
@@ -345,9 +345,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirt(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirt(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -385,9 +385,9 @@ var _ = Describe("HyperConverged Components", func() {
 
 			cl := initClient([]runtime.Object{hco, missingUSResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirt(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirt(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &kubevirtv1.KubeVirt{}
 			Expect(
@@ -423,9 +423,9 @@ var _ = Describe("HyperConverged Components", func() {
 			}
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirt(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirt(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -474,9 +474,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource := hco.NewCDI()
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureCDI(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureCDI(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &cdiv1alpha1.CDI{}
 			Expect(
@@ -494,9 +494,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureCDI(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureCDI(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -534,9 +534,9 @@ var _ = Describe("HyperConverged Components", func() {
 
 			cl := initClient([]runtime.Object{hco, missingUSResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureCDI(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureCDI(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &cdiv1alpha1.CDI{}
 			Expect(
@@ -572,9 +572,9 @@ var _ = Describe("HyperConverged Components", func() {
 			}
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureCDI(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureCDI(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -623,9 +623,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource := hco.NewNetworkAddons()
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureNetworkAddons(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureNetworkAddons(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &networkaddonsv1alpha1.NetworkAddonsConfig{}
 			Expect(
@@ -646,9 +646,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureNetworkAddons(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureNetworkAddons(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -702,9 +702,9 @@ var _ = Describe("HyperConverged Components", func() {
 			}
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureNetworkAddons(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureNetworkAddons(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -753,9 +753,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource := hco.NewKubeVirtCommonTemplateBundle()
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtCommonTemplateBundle(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtCommonTemplateBundle(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtCommonTemplatesBundle{}
 			Expect(
@@ -773,9 +773,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtCommonTemplateBundle(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtCommonTemplateBundle(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -863,9 +863,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource := newKubeVirtNodeLabellerBundleForCR(hco, namespace)
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtNodeLabellerBundle(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtNodeLabellerBundle(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtNodeLabellerBundle{}
 			Expect(
@@ -883,9 +883,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtNodeLabellerBundle(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtNodeLabellerBundle(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -998,9 +998,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource := newKubeVirtTemplateValidatorForCR(hco, namespace)
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtTemplateValidator(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtTemplateValidator(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &sspv1.KubevirtTemplateValidator{}
 			Expect(
@@ -1018,9 +1018,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureKubeVirtTemplateValidator(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureKubeVirtTemplateValidator(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
@@ -1101,9 +1101,9 @@ var _ = Describe("HyperConverged Components", func() {
 
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureIMSConfig(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).ToNot(BeNil())
+			res := r.ensureIMSConfig(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).ToNot(BeNil())
 		})
 	})
 
@@ -1122,9 +1122,9 @@ var _ = Describe("HyperConverged Components", func() {
 			cl := initClient([]runtime.Object{})
 			r := initReconciler(cl)
 
-			upgradeDone, err := r.ensureVMImport(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureVMImport(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			foundResource := &vmimportv1.VMImportConfig{}
 			Expect(
@@ -1142,9 +1142,9 @@ var _ = Describe("HyperConverged Components", func() {
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/vmimportconfigs/%s", expectedResource.Namespace, expectedResource.Name)
 			cl := initClient([]runtime.Object{hco, expectedResource})
 			r := initReconciler(cl)
-			upgradeDone, err := r.ensureVMImport(req)
-			Expect(upgradeDone).To(BeFalse())
-			Expect(err).To(BeNil())
+			res := r.ensureVMImport(req)
+			Expect(res.UpgradeDone).To(BeFalse())
+			Expect(res.Err).To(BeNil())
 
 			// Check HCO's status
 			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))

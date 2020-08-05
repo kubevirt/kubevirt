@@ -165,7 +165,8 @@ func main() {
 	}
 
 	eventEmitter := hcoutil.GetEventEmitter()
-	err = eventEmitter.Init(ctx, mgr, ci, log)
+	// Set temporary configuration, until the regular client is ready
+	eventEmitter.Init(ctx, mgr, ci, log)
 	if err != nil {
 		log.Error(err, "failed to initiate event emitter")
 		os.Exit(1)
@@ -192,7 +193,7 @@ func main() {
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr, ci); err != nil {
 		log.Error(err, "")
-		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "unable to register component; "+err.Error())
+		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register component; "+err.Error())
 		os.Exit(1)
 	}
 
@@ -228,7 +229,7 @@ func main() {
 	// necessary to configure Prometheus to scrape metrics from this operator.
 	if err = (&hcov1beta1.HyperConverged{}).SetupWebhookWithManager(ctx, mgr); err != nil {
 		log.Error(err, "unable to create webhook", "webhook", "HyperConverged")
-		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "unable to create webhook")
+		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to create webhook")
 		os.Exit(1)
 	}
 

@@ -296,6 +296,7 @@ func initReconciler(client client.Client) *ReconcileHyperConverged {
 		scheme:       s,
 		clusterInfo:  clusterInfoMock{},
 		eventEmitter: &eventEmitterMock{},
+		firstLoop:    true,
 	}
 }
 
@@ -327,9 +328,11 @@ func checkHcoReady() (bool, error) {
 
 type eventEmitterMock struct{}
 
-func (eventEmitterMock) Init(_ context.Context, _ manager.Manager, _ hcoutil.ClusterInfo, _ logr.Logger) error {
-	return nil
+func (eventEmitterMock) Init(_ context.Context, _ manager.Manager, _ hcoutil.ClusterInfo, _ logr.Logger) {
 }
 
 func (eventEmitterMock) EmitEvent(_ runtime.Object, _, _, _ string) {
+}
+
+func (eventEmitterMock) UpdateClient(_ context.Context, _ client.Reader, _ logr.Logger) {
 }

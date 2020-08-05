@@ -22,7 +22,17 @@ It is required to deploy some CRDs and deployments before running the HCO itself
 ```shell script
 $ make local
 ```
+
 This will set all the CRDs and run all the KubeVirt operators except for the HCO itself, as it's going to be run from the IDE.
+
+In addition, the `make local` also creates a file, with the required environment variables. By default, the script will 
+create a semicolon separated list environment variables. The default file is `_local/envs.txt`. It is also possible to 
+generate an env file instead by setting `FORMAT` to `env`:
+```shell script
+$ FORMAT=env make local
+``` 
+
+This will genrate the `local/envs.env` file instead of `_local/envs.txt`.
 
 ## Running HCO from an IDE
 ### Running From goland (or Intellij with golang plugin)
@@ -32,8 +42,10 @@ Add new "Go Build" run configuration.
 * Set the `Run kind` to `package`.
 * Set `Package path` to `github.com/kubevirt/hyperconverged-cluster-operator/cmd/hyperconverged-cluster-operator`.
 * Make sure the working directory is the project's root directory.
-* Set the following environment variables:
+* Set the environment variables:
 ![](../images/local_goland_env.png)
+`make local` creates the `_local/envs.txt` file that includes all the required environment variables in GoLand/Intellij
+format. Copy  the content of this file to the `Environment` field. The minimum requirement environment variables are:
   * `WATCH_NAMESPACE=kubevirt-hyperconverged`
   * `KUBECONFIG=_kubevirtci/_ci-configs/k8s-1.17/.kubeconfig` (example)
   * `OSDK_FORCE_RUN_MODE=local`
@@ -41,7 +53,14 @@ Add new "Go Build" run configuration.
   * `CONVERSION_CONTAINER=v2.0.0` (example)
   * `VMWARE_CONTAINER=v2.0.0-4` (example)
 
+**Tip**: Instead of setting the environment variables as text, install the [EnvFile](https://plugins.jetbrains.com/plugin/7861-envfile) 
+plugin, then run `FORMAT=env make local` to generate the `_local.envs.env` file. Then change the run configurations to 
+use this new env file.
+
+![](../images/env_file.png)
+
 Now it is possible to run or debug as any golang software.
+
 ![](../images/running_local_from_goland.png)
 ### Running from microsoft VS Code
 Use the following `launch.json` file for configurations:
@@ -69,6 +88,8 @@ Use the following `launch.json` file for configurations:
     ]
 }
 ```
+Take the actual environment variables from the `_local/envs.txt` file.
+
 **Note**: `KUBECONFIG`, `CONVERSION_CONTAINER` and `VMWARE_CONTAINER` above are examples. Set the values that match your
 environment.
 
