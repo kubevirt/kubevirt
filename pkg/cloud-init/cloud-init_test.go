@@ -370,7 +370,7 @@ var _ = Describe("CloudInit", func() {
 							"userdata":    "secret-userdata",
 							"networkdata": "secret-networkdata",
 						})
-						err := ResolveNoCloudSecrets(vmi, tmpDir)
+						err := resolveNoCloudSecrets(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
 						Expect(testVolume.CloudInitNoCloud.UserData).To(Equal("secret-userdata"))
 						Expect(testVolume.CloudInitNoCloud.NetworkData).To(Equal("secret-networkdata"))
@@ -378,14 +378,14 @@ var _ = Describe("CloudInit", func() {
 
 					It("should resolve empty no-cloud volume and do nothing", func() {
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{})
-						err := ResolveNoCloudSecrets(vmi, tmpDir)
+						err := resolveNoCloudSecrets(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "failed to resolve empty volumes")
 					})
 
 					It("should fail if both userdata and network data does not exist", func() {
 						testVolume := createCloudInitSecretRefVolume("test-volume", "test-secret")
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
-						err := ResolveNoCloudSecrets(vmi, tmpDir)
+						err := resolveNoCloudSecrets(vmi, tmpDir)
 						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
 						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
 					})
@@ -476,31 +476,54 @@ var _ = Describe("CloudInit", func() {
 					It("should resolve config-drive data from volume", func() {
 						testVolume := createCloudInitConfigDriveVolume("test-volume", "test-secret")
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+
+						vmi.Spec.AccessCredentials = []v1.AccessCredential{
+							{
+								SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+									Source: v1.SSHPublicKeyAccessCredentialSource{
+										Secret: &v1.AccessCredentialSecretSource{
+											Name: "my-pkey",
+										},
+									},
+									PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+										ConfigDrive: &v1.ConfigDriveAccessCredentialPropagation{},
+									},
+								},
+							},
+						}
+
 						fakeVolumeMountDir("test-volume", map[string]string{
 							"userdata":    "secret-userdata",
 							"networkdata": "secret-networkdata",
 						})
-						err := ResolveConfigDriveSecrets(vmi, tmpDir)
+
+						fakeVolumeMountDir("my-pkey-access-cred", map[string]string{
+							"somekey":      "ssh-1234",
+							"someotherkey": "ssh-5678",
+						})
+						keys, err := resolveConfigDriveSecrets(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
 						Expect(testVolume.CloudInitConfigDrive.UserData).To(Equal("secret-userdata"))
 						Expect(testVolume.CloudInitConfigDrive.NetworkData).To(Equal("secret-networkdata"))
+						Expect(len(keys)).To(Equal(2))
 					})
 
 					It("should resolve empty config-drive volume and do nothing", func() {
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{})
-						err := ResolveConfigDriveSecrets(vmi, tmpDir)
+						keys, err := resolveConfigDriveSecrets(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "failed to resolve empty volumes")
+						Expect(len(keys)).To(Equal(0))
 					})
 
 					It("should fail if both userdata and network data does not exist", func() {
 						testVolume := createCloudInitConfigDriveVolume("test-volume", "test-secret")
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
-						err := ResolveConfigDriveSecrets(vmi, tmpDir)
+						keys, err := resolveConfigDriveSecrets(vmi, tmpDir)
 						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
 						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
+						Expect(len(keys)).To(Equal(0))
 
 					})
-
 				})
 			})
 		})

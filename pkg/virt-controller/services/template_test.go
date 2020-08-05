@@ -362,6 +362,65 @@ var _ = Describe("Template", func() {
 				Expect(debugLogsValue).To(Equal("1"))
 			})
 		})
+
+		Context("with access credentials", func() {
+			It("should add volume with secret referenced by cloud-init user secret ref", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Volumes: []v1.Volume{
+							{
+								Name: "cloud-init-user-data-secret-ref",
+								VolumeSource: v1.VolumeSource{
+									CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+
+										UserData: "somedata",
+									},
+								},
+							},
+						},
+						AccessCredentials: []v1.AccessCredential{
+							{
+								SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+									Source: v1.SSHPublicKeyAccessCredentialSource{
+										Secret: &v1.AccessCredentialSecretSource{
+											Name: "my-pkey",
+										},
+									},
+									PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+										ConfigDrive: &v1.ConfigDriveAccessCredentialPropagation{},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				volumeFound := false
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Name == "my-pkey-access-cred" {
+						volumeFound = true
+					}
+				}
+				Expect(volumeFound).To(BeTrue(), "could not find ssh key secret volume")
+
+				volumeMountFound := false
+				for _, volumeMount := range pod.Spec.Containers[0].VolumeMounts {
+					if volumeMount.Name == "my-pkey-access-cred" {
+						volumeMountFound = true
+					}
+				}
+				Expect(volumeMountFound).To(BeTrue(), "could not find ssh key secret volume mount")
+			})
+		})
+
 		Context("with cloud-init user secret", func() {
 			It("should add volume with secret referenced by cloud-init user secret ref", func() {
 				vmi := v1.VirtualMachineInstance{
