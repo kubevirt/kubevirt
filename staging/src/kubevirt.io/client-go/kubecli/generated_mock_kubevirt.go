@@ -971,6 +971,28 @@ func (_mr *_MockReplicaSetInterfaceRecorder) Patch(arg0, arg1, arg2 interface{},
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
+func (_m *MockReplicaSetInterface) UpdateStatus(_param0 *v114.VirtualMachineInstanceReplicaSet) (*v114.VirtualMachineInstanceReplicaSet, error) {
+	ret := _m.ctrl.Call(_m, "UpdateStatus", _param0)
+	ret0, _ := ret[0].(*v114.VirtualMachineInstanceReplicaSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockReplicaSetInterfaceRecorder) UpdateStatus(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0)
+}
+
+func (_m *MockReplicaSetInterface) PatchStatus(name string, pt types.PatchType, data []byte) (*v114.VirtualMachineInstanceReplicaSet, error) {
+	ret := _m.ctrl.Call(_m, "PatchStatus", name, pt, data)
+	ret0, _ := ret[0].(*v114.VirtualMachineInstanceReplicaSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockReplicaSetInterfaceRecorder) PatchStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PatchStatus", arg0, arg1, arg2)
+}
+
 // Mock of VirtualMachineInstancePresetInterface interface
 type MockVirtualMachineInstancePresetInterface struct {
 	ctrl     *gomock.Controller
@@ -1153,6 +1175,28 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Patch(arg0, arg1, arg2 interfac
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
+func (_m *MockVirtualMachineInterface) UpdateStatus(_param0 *v114.VirtualMachine) (*v114.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "UpdateStatus", _param0)
+	ret0, _ := ret[0].(*v114.VirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) UpdateStatus(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0)
+}
+
+func (_m *MockVirtualMachineInterface) PatchStatus(name string, pt types.PatchType, data []byte) (*v114.VirtualMachine, error) {
+	ret := _m.ctrl.Call(_m, "PatchStatus", name, pt, data)
+	ret0, _ := ret[0].(*v114.VirtualMachine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) PatchStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PatchStatus", arg0, arg1, arg2)
+}
+
 func (_m *MockVirtualMachineInterface) Restart(name string) error {
 	ret := _m.ctrl.Call(_m, "Restart", name)
 	ret0, _ := ret[0].(error)
@@ -1304,6 +1348,28 @@ func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Patch(arg0, ar
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }
 
+func (_m *MockVirtualMachineInstanceMigrationInterface) UpdateStatus(_param0 *v114.VirtualMachineInstanceMigration) (*v114.VirtualMachineInstanceMigration, error) {
+	ret := _m.ctrl.Call(_m, "UpdateStatus", _param0)
+	ret0, _ := ret[0].(*v114.VirtualMachineInstanceMigration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) UpdateStatus(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0)
+}
+
+func (_m *MockVirtualMachineInstanceMigrationInterface) PatchStatus(name string, pt types.PatchType, data []byte) (*v114.VirtualMachineInstanceMigration, error) {
+	ret := _m.ctrl.Call(_m, "PatchStatus", name, pt, data)
+	ret0, _ := ret[0].(*v114.VirtualMachineInstanceMigration)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) PatchStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PatchStatus", arg0, arg1, arg2)
+}
+
 // Mock of KubeVirtInterface interface
 type MockKubeVirtInterface struct {
 	ctrl     *gomock.Controller
@@ -1393,4 +1459,26 @@ func (_m *MockKubeVirtInterface) Patch(name string, pt types.PatchType, data []b
 func (_mr *_MockKubeVirtInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
+}
+
+func (_m *MockKubeVirtInterface) UpdateStatus(_param0 *v114.KubeVirt) (*v114.KubeVirt, error) {
+	ret := _m.ctrl.Call(_m, "UpdateStatus", _param0)
+	ret0, _ := ret[0].(*v114.KubeVirt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockKubeVirtInterfaceRecorder) UpdateStatus(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateStatus", arg0)
+}
+
+func (_m *MockKubeVirtInterface) PatchStatus(name string, pt types.PatchType, data []byte) (*v114.KubeVirt, error) {
+	ret := _m.ctrl.Call(_m, "PatchStatus", name, pt, data)
+	ret0, _ := ret[0].(*v114.KubeVirt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockKubeVirtInterfaceRecorder) PatchStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PatchStatus", arg0, arg1, arg2)
 }

@@ -131,3 +131,30 @@ func (v *kv) Patch(name string, pt types.PatchType, data []byte, subresources ..
 		Into(result)
 	return result, err
 }
+
+func (v *kv) PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.KubeVirt, err error) {
+	result = &v1.KubeVirt{}
+	err = v.restClient.Patch(pt).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Name(name).
+		Body(data).
+		Do().
+		Into(result)
+	return
+}
+
+func (v *kv) UpdateStatus(vmi *v1.KubeVirt) (result *v1.KubeVirt, err error) {
+	result = &v1.KubeVirt{}
+	err = v.restClient.Put().
+		Name(vmi.ObjectMeta.Name).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Body(vmi).
+		Do().
+		Into(result)
+	result.SetGroupVersionKind(v1.KubeVirtGroupVersionKind)
+	return
+}

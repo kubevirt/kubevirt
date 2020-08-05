@@ -20,17 +20,14 @@
 package admitters
 
 import (
-	"fmt"
 	"reflect"
-
-	"kubevirt.io/client-go/log"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+
 	v1 "kubevirt.io/client-go/api/v1"
-	clientutil "kubevirt.io/client-go/util"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
@@ -43,7 +40,7 @@ func (admitter *VMIUpdateAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 		return resp
 	}
 	// Get new VMI from admission response
-	newVMI, oldVMI, err := getAdmissionReviewVMI(ar)
+	newVMI, oldVMI, err := webhookutils.GetVMIFromAdmissionReview(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -73,7 +70,7 @@ func admitVMILabelsUpdate(
 	ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	// Skip admission for internal components
-	allowed := getAllowedServiceAccounts()
+	allowed := webhooks.GetAllowedServiceAccounts()
 	if _, ok := allowed[ar.Request.UserInfo.Username]; ok {
 		return nil
 	}
@@ -91,24 +88,6 @@ func admitVMILabelsUpdate(
 	}
 
 	return nil
-}
-
-func getAllowedServiceAccounts() map[string]struct{} {
-	ns, err := clientutil.GetNamespace()
-	logger := log.DefaultLogger()
-
-	if err != nil {
-		logger.Info("Failed to get namespace. Fallback to default: 'kubevirt'")
-		ns = "kubevirt"
-	}
-
-	// system:serviceaccount:{namespace}:{kubevirt-component}
-	prefix := fmt.Sprintf("%s:%s:%s", "system", "serviceaccount", ns)
-	return map[string]struct{}{
-		fmt.Sprintf("%s:%s", prefix, rbac.ApiServiceAccountName):        {},
-		fmt.Sprintf("%s:%s", prefix, rbac.HandlerServiceAccountName):    {},
-		fmt.Sprintf("%s:%s", prefix, rbac.ControllerServiceAccountName): {},
-	}
 }
 
 func filterKubevirtLabels(labels map[string]string) map[string]string {

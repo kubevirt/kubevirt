@@ -137,6 +137,33 @@ func (v *vm) Patch(name string, pt types.PatchType, data []byte, subresources ..
 	return result, err
 }
 
+func (v *vm) PatchStatus(name string, pt types.PatchType, data []byte) (result *v1.VirtualMachine, err error) {
+	result = &v1.VirtualMachine{}
+	err = v.restClient.Patch(pt).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Name(name).
+		Body(data).
+		Do().
+		Into(result)
+	return
+}
+
+func (v *vm) UpdateStatus(vmi *v1.VirtualMachine) (result *v1.VirtualMachine, err error) {
+	result = &v1.VirtualMachine{}
+	err = v.restClient.Put().
+		Name(vmi.ObjectMeta.Name).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Body(vmi).
+		Do().
+		Into(result)
+	result.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	return
+}
+
 func (v *vm) Restart(name string) error {
 	uri := fmt.Sprintf(vmSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restart")
 	return v.restClient.Put().RequestURI(uri).Do().Error()

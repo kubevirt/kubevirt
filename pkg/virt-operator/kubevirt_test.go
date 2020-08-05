@@ -1355,7 +1355,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	}
 
 	shouldExpectKubeVirtUpdate := func(times int) {
-		update := kvInterface.EXPECT().Update(gomock.Any())
+		update := kvInterface.EXPECT().UpdateStatus(gomock.Any())
 		update.Do(func(kv *v1.KubeVirt) {
 			kvInformer.GetStore().Update(kv)
 			update.Return(kv, nil)
@@ -1363,7 +1363,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	}
 
 	shouldExpectKubeVirtUpdateVersion := func(times int, config *util.KubeVirtDeploymentConfig) {
-		update := kvInterface.EXPECT().Update(gomock.Any())
+		update := kvInterface.EXPECT().UpdateStatus(gomock.Any())
 		update.Do(func(kv *v1.KubeVirt) {
 
 			Expect(kv.Status.TargetKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
@@ -1374,7 +1374,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	}
 
 	shouldExpectKubeVirtUpdateFailureCondition := func(reason string) {
-		update := kvInterface.EXPECT().Update(gomock.Any())
+		update := kvInterface.EXPECT().UpdateStatus(gomock.Any())
 		update.Do(func(kv *v1.KubeVirt) {
 			Expect(len(kv.Status.Conditions)).To(Equal(1))
 			Expect(kv.Status.Conditions[0].Reason).To(Equal(reason))

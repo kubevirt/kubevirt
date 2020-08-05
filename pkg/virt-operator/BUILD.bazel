@@ -13,6 +13,7 @@ go_library(
         "//pkg/controller:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util/cluster:go_default_library",
+        "//pkg/util/status:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/util/webhooks/validating-webhooks:go_default_library",
         "//pkg/virt-controller/leaderelectionconfig:go_default_library",

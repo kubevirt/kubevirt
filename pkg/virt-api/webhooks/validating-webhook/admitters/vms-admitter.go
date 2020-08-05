@@ -103,6 +103,27 @@ func (admitter *VMsAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	return &reviewResponse
 }
 
+func (admitter *VMsAdmitter) AdmitStatus(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	vm, _, err := webhookutils.GetVMFromAdmissionReview(ar)
+	if err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	causes := validateStateChangeRequests(ar.Request, vm)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes = validateSnapshotStatus(ar.Request, vm)
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	return &reviewResponse
+}
+
 func (admitter *VMsAdmitter) authorizeVirtualMachineSpec(ar *v1beta1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
 	var causes []metav1.StatusCause
 

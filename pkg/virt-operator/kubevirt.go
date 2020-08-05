@@ -34,6 +34,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/util/status"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -60,6 +62,7 @@ type KubeVirtController struct {
 	installStrategyMap   map[string]*installstrategy.InstallStrategy
 	operatorNamespace    string
 	aggregatorClient     installstrategy.APIServiceInterface
+	statusUpdater        *status.KVStatusUpdater
 }
 
 func NewKubeVirtController(
@@ -104,6 +107,7 @@ func NewKubeVirtController(
 		},
 		installStrategyMap: make(map[string]*installstrategy.InstallStrategy),
 		operatorNamespace:  operatorNamespace,
+		statusUpdater:      status.NewKubeVirtStatusUpdater(clientset),
 	}
 
 	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -601,6 +605,10 @@ func (c *KubeVirtController) execute(key string) error {
 		kv := kv.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(kv)
 		_, err = c.clientset.KubeVirt(kv.ObjectMeta.Namespace).Update(kv)
+		if err != nil {
+			logger.Reason(err).Errorf("Could not update the KubeVirt resource.")
+		}
+
 		return err
 	}
 
@@ -639,9 +647,7 @@ func (c *KubeVirtController) execute(key string) error {
 	if !reflect.DeepEqual(kv.Status, kvCopy.Status) ||
 		!reflect.DeepEqual(kv.Finalizers, kvCopy.Finalizers) {
 
-		_, err := c.clientset.KubeVirt(kv.Namespace).Update(kvCopy)
-
-		if err != nil {
+		if err := c.statusUpdater.UpdateStatus(kvCopy); err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource.")
 			return err
 		}
