@@ -905,6 +905,9 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
+
+	causes = append(causes, validateAccessCredentials(field.Child("accessCredentials"), spec.AccessCredentials, spec.Volumes, config)...)
+
 	if spec.DNSPolicy != "" {
 		causes = append(causes, validateDNSPolicy(&spec.DNSPolicy, field.Child("dnsPolicy"))...)
 	}
@@ -1146,6 +1149,81 @@ func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.Stat
 			Message: fmt.Sprintf("%s has EFI SecureBoot enabled. SecureBoot requires SMM, which is currently disabled.", field.String()),
 			Field:   field.String(),
 		})
+	}
+
+	return causes
+}
+
+func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.AccessCredential, volumes []v1.Volume, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if len(accessCredentials) > arrayLenMax {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s list exceeds the %d element limit in length", field.String(), arrayLenMax),
+			Field:   field.String(),
+		})
+		// We won't process anything over the limit
+		return causes
+	}
+
+	hasConfigDriveVolume := false
+	for _, volume := range volumes {
+		if volume.CloudInitConfigDrive != nil {
+			hasConfigDriveVolume = true
+			break
+		}
+	}
+
+	for idx, accessCred := range accessCredentials {
+
+		count := 0
+		// one access cred type must be selected
+		if accessCred.SSHPublicKey != nil {
+			count++
+
+			sourceCount := 0
+			methodCount := 0
+			if accessCred.SSHPublicKey.Source.Secret != nil {
+				sourceCount++
+			}
+
+			if accessCred.SSHPublicKey.PropagationMethod.ConfigDrive != nil {
+				methodCount++
+				if !hasConfigDriveVolume {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("%s requires a configDrive volume to exist when the configDrive propagationMethod is in use.", field.Index(idx).String()),
+						Field:   field.Index(idx).Child("sshPublicKey", "propagationMethod").String(),
+					})
+
+				}
+			}
+
+			if sourceCount != 1 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s must have exactly one source set", field.Index(idx).String()),
+					Field:   field.Index(idx).Child("sshPublicKey", "source").String(),
+				})
+			}
+			if methodCount != 1 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s must have exactly one propagationMethod set", field.Index(idx).String()),
+					Field:   field.Index(idx).Child("sshPublicKey", "propagationMethod").String(),
+				})
+			}
+		}
+
+		if count != 1 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must have exactly one access credential type set", field.Index(idx).String()),
+				Field:   field.Index(idx).String(),
+			})
+		}
+
 	}
 
 	return causes
