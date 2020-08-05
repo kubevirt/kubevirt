@@ -479,7 +479,7 @@ func (r *KubernetesReporter) logConfigMaps(virtCli kubecli.KubevirtClient) {
 	}
 	defer f.Close()
 
-	configmaps, err := virtCli.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).List(metav1.ListOptions{})
+	configmaps, err := virtCli.CoreV1().ConfigMaps(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to fetch configmaps: %v\n", err)
 		return
