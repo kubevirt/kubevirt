@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"syscall"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/opencontainers/selinux/go-selinux"
@@ -382,6 +383,7 @@ func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool,
 		return fmt.Errorf("failed to switch selinux context to %s. Reason: %v", launcherSELinuxLabel, err)
 	}
 
+	preventFDLeakOntoChild()
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to create tap device %s: %v", tapName, err)
 	}
@@ -396,6 +398,13 @@ func getProcessCurrentSELinuxLabel(pid int) (string, error) {
 		return "", fmt.Errorf("could not retrieve pid %d selinux label: %v", pid, err)
 	}
 	return launcherSELinuxLabel, nil
+}
+
+func preventFDLeakOntoChild() {
+	// we want to share the parent process std{in|out|err}
+	for fd := 3; fd < 256; fd++ {
+		syscall.CloseOnExec(fd)
+	}
 }
 
 func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName string) error {
