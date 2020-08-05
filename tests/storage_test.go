@@ -128,7 +128,7 @@ var _ = Describe("Storage", func() {
 			},
 				table.Entry("[test_id:3130]with Disk PVC", tests.NewRandomVMIWithPVC, ""),
 				table.Entry("[test_id:3131]with CDRom PVC", tests.NewRandomVMIWithCDRom, ""),
-				table.Entry("with NFS Disk PVC", tests.NewRandomVMIWithPVC, "nfs"),
+				table.Entry("[test_id:4618]with NFS Disk PVC", tests.NewRandomVMIWithPVC, "nfs"),
 			)
 
 			table.DescribeTable("should be successfully started and stopped multiple times", func(newVMI VMICreationFunc) {
@@ -276,7 +276,7 @@ var _ = Describe("Storage", func() {
 				expecter.Close()
 			},
 				table.Entry("[test_id:3136]with Ephemeral PVC", tests.NewRandomVMIWithEphemeralPVC, ""),
-				table.Entry("with Ephemeral PVC from NFS", tests.NewRandomVMIWithEphemeralPVC, "nfs"),
+				table.Entry("[test_id:4619]with Ephemeral PVC from NFS", tests.NewRandomVMIWithEphemeralPVC, "nfs"),
 			)
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
@@ -418,7 +418,7 @@ var _ = Describe("Storage", func() {
 						tests.DisableFeatureGate(virtconfig.HostDiskGate)
 					})
 
-					It("Should fail to start a VMI", func() {
+					It("[test_id:4620]Should fail to start a VMI", func() {
 						diskName := "disk-" + uuid.NewRandom().String() + ".img"
 						diskPath := filepath.Join(hostDiskDir, diskName)
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, "")

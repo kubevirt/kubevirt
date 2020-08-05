@@ -57,7 +57,7 @@ var _ = Describe("Health Monitoring", func() {
 	})
 
 	Describe("A VirtualMachineInstance with a watchdog device", func() {
-		It("should be shut down when the watchdog expires", func() {
+		It("[test_id:4641]should be shut down when the watchdog expires", func() {
 			vmi := tests.NewRandomVMIWithWatchdog()
 			Expect(err).ToNot(HaveOccurred())
 			launchVMI(vmi)

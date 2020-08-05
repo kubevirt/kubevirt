@@ -112,7 +112,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
 			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
 		})
-		It("should be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
+		It("[test_id:4643]should be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
 			dv := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 			Expect(err).To(BeNil())
@@ -153,7 +153,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).Should(HaveOccurred())
 		})
-		It("should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
+		It("[test_id:4644]should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
 			dv := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 			Expect(err).To(BeNil())
@@ -721,7 +721,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			}
 		})
 
-		It("should set the Ready condition on VM", func() {
+		It("[test_id:4645]should set the Ready condition on VM", func() {
 			vm := newVirtualMachine(false)
 
 			vmReadyConditionStatus := func() k8sv1.ConditionStatus {
@@ -1387,20 +1387,20 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				vm1 = newVirtualMachine(false)
 			})
 
-			It("should rename a stopped VM only once", func() {
+			It("[test_id:4646]should rename a stopped VM only once", func() {
 				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm1.Name, vm1.Name+"new",
 					"--namespace", vm1.Namespace)
 				Expect(renameCommand()).To(Succeed())
 				Expect(renameCommand()).ToNot(Succeed())
 			})
 
-			It("should rename a stopped VM", func() {
+			It("[test_id:4647]should rename a stopped VM", func() {
 				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm1.Name, vm1.Name+"new",
 					"--namespace", vm1.Namespace)
 				Expect(renameCommand()).To(Succeed())
 			})
 
-			It("should reject renaming a running VM", func() {
+			It("[test_id:4648]should reject renaming a running VM", func() {
 				vm2 := newVirtualMachine(true)
 
 				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm2.Name, vm2.Name+"new",
@@ -1408,25 +1408,25 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(renameCommand()).ToNot(Succeed())
 			})
 
-			It("should reject renaming a VM to the same name", func() {
+			It("[test_id:4649]should reject renaming a VM to the same name", func() {
 				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm1.Name, vm1.Name,
 					"--namespace", vm1.Namespace)
 				Expect(renameCommand()).ToNot(Succeed())
 			})
 
-			It("should reject renaming a VM with an empty name", func() {
+			It("[test_id:4650]should reject renaming a VM with an empty name", func() {
 				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm1.Name, "",
 					"--namespace", vm1.Namespace)
 				Expect(renameCommand()).ToNot(Succeed())
 			})
 
-			It("should reject renaming a VM with invalid name", func() {
+			It("[test_id:4651]should reject renaming a VM with invalid name", func() {
 				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm1.Name, "invalid name <>?:;",
 					"--namespace", vm1.Namespace)
 				Expect(renameCommand()).ToNot(Succeed())
 			})
 
-			It("should reject renaming a VM if the new name is taken", func() {
+			It("[test_id:4652]should reject renaming a VM if the new name is taken", func() {
 				vm2 := newVirtualMachine(true)
 
 				renameCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RENAME, vm1.Name, vm2.Name,
@@ -1689,7 +1689,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				cli.Create(vm1)
 			})
 
-			It("should fail if the new name is already taken", func() {
+			It("[test_id:4654]should fail if the new name is already taken", func() {
 				vm2 := tests.NewRandomVMWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 				cli.Create(vm2)
 
@@ -1698,25 +1698,25 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err.Error()).To(ContainSubstring("name already exists"))
 			})
 
-			It("should fail if the new name is empty", func() {
+			It("[test_id:4655]should fail if the new name is empty", func() {
 				err := cli.Rename(vm1.Name, &v1.RenameOptions{})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("Please provide a new name for the VM"))
 			})
 
-			It("should fail if the new name is invalid", func() {
+			It("[test_id:4656]should fail if the new name is invalid", func() {
 				err := cli.Rename(vm1.Name, &v1.RenameOptions{NewName: "invalid name <>?:;"})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("The VM's new name is not valid"))
 			})
 
-			It("should fail if the new name is identical to the current name", func() {
+			It("[test_id:4657]should fail if the new name is identical to the current name", func() {
 				err := cli.Rename(vm1.Name, &v1.RenameOptions{NewName: vm1.Name})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("identical"))
 			})
 
-			It("should fail if the VM is running", func() {
+			It("[test_id:4658]should fail if the VM is running", func() {
 				err := cli.Start(vm1.Name)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1725,7 +1725,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err.Error()).To(ContainSubstring("running"))
 			})
 
-			It("should succeed", func() {
+			It("[test_id:4659]should succeed", func() {
 				err := cli.Rename(vm1.Name, &v1.RenameOptions{NewName: vm1.Name + "new"})
 				Expect(err).ToNot(HaveOccurred())
 

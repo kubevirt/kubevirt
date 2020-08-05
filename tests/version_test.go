@@ -43,7 +43,7 @@ var _ = Describe("Version", func() {
 	})
 
 	Describe("Check that version parameters where loaded by ldflags in build time", func() {
-		It("Should return a good version information struct", func() {
+		It("[test_id:555]Should return a good version information struct", func() {
 			info, err := virtClient.ServerVersion().Get()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(info.Compiler).To(Equal(runtime.Compiler))
