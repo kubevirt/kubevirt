@@ -572,6 +572,9 @@ func (app *virtAPIApp) registerValidatingWebhooks() {
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeStatusValidation(w, r)
 	})
+	http.HandleFunc(components.LauncherEvictionValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServePodEviction(w, r, app.clusterConfig, app.virtCli)
+	})
 }
 
 func (app *virtAPIApp) registerMutatingWebhook() {

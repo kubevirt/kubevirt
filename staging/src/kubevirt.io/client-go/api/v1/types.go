@@ -695,6 +695,11 @@ const (
 	VirtualMachineInstanceReplicaSetReplicaPaused VirtualMachineInstanceReplicaSetConditionType = "ReplicaPaused"
 )
 
+const (
+	// LauncherMarkedForEviction is added to a virt-launcher pod when we intercept an eviction request on it.
+	LauncherMarkedForEviction k8sv1.PodConditionType = "LauncherMarkedForEviction"
+)
+
 //
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceTemplateSpec struct {

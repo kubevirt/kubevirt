@@ -63,3 +63,7 @@ func ServeVMSnapshots(resp http.ResponseWriter, req *http.Request, clusterConfig
 func ServeStatusValidation(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, &admitters.StatusAdmitter{})
 }
+
+func ServePodEviction(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	validating_webhooks.Serve(resp, req, &admitters.PodEvictionAdmitter{ClusterConfig: clusterConfig, VirtClient: virtCli})
+}
