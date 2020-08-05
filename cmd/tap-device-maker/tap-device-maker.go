@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"syscall"
 
 	"github.com/golang/glog"
 	"github.com/songgao/water"
@@ -64,6 +65,8 @@ func main() {
 	if err := configLogger(); err != nil {
 		os.Exit(1)
 	}
+
+	for fd := 3; fd < 256; fd++ { _ = syscall.Close(fd) }
 
 	flag.Parse()
 	glog.V(4).Info("Started app")

@@ -29,6 +29,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"syscall"
 
 	"github.com/opencontainers/selinux/go-selinux"
 
@@ -367,9 +368,14 @@ func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool,
 	createTapDeviceArgs := append(synchNamespaces, tapDeviceArgs...)
 
 	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
-	out, err := cmd.CombinedOutput()
+
+	for fd := 3; fd < 256; fd++ { syscall.CloseOnExec(fd) }
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err = cmd.Run()
 	if err != nil {
-		log.Log.Reason(err).Criticalf("Failed to create tap device %s. Reason: %s", tapName, out)
+		log.Log.Reason(err).Criticalf("Failed to create tap device %s", tapName)
 		return err
 	}
 
