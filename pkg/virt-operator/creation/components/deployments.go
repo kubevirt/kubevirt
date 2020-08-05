@@ -402,6 +402,9 @@ func NewHandlerDaemonSet(namespace string, repository string, imagePrefix string
 	}
 	container.SecurityContext = &corev1.SecurityContext{
 		Privileged: boolPtr(true),
+		SELinuxOptions: &corev1.SELinuxOptions{
+			Level: "s0",
+		},
 	}
 	containerEnv := []corev1.EnvVar{
 		{
