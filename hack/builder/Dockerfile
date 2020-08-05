@@ -12,94 +12,63 @@ RUN dnf install -y dnf-plugins-core && \
     dnf copr enable -y @virtmaint-sig/virt-preview && \
     dnf copr enable -y vbatts/bazel && \
     dnf -y install \
-        libvirt-devel-${LIBVIRT_VERSION} \
-        bazel-${BAZEL_VERSION} \
-        cpio \
-        patch \
-        make \
-        git \
-        mercurial \
-        sudo \
-        gcc \
-        gcc-c++ \
-        glibc-static \
-        libstdc++-static \
-        glibc-devel \
-        findutils \
-        gradle \
-        rsync-daemon \
-        rsync \
-        qemu-img \
-        protobuf-compiler \
-        python3-devel \
-        redhat-rpm-config \
-        jq && \
+    libvirt-devel-${LIBVIRT_VERSION} \
+    bazel-${BAZEL_VERSION} \
+    cpio \
+    patch \
+    make \
+    git \
+    mercurial \
+    sudo \
+    gcc \
+    gcc-c++ \
+    glibc-static \
+    libstdc++-static \
+    glibc-devel \
+    findutils \
+    gradle \
+    rsync-daemon \
+    rsync \
+    qemu-img \
+    protobuf-compiler \
+    python3-devel \
+    redhat-rpm-config \
+    jq && \
     dnf -y clean all
 
-ENV GIMME_GO_VERSION=1.12.8
+ENV GIMME_GO_VERSION=1.13.14
 
-RUN mkdir -p /gimme && curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | HOME=/gimme bash >> /etc/profile.d/gimme.sh
+RUN mkdir -p /gimme && curl -sL \
+    https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
+    HOME=/gimme bash >> /etc/profile.d/gimme.sh
 
-ENV GOPATH="/go" GOBIN="/usr/bin"
+ENV GOPATH="/go" GOBIN="/usr/bin" GO111MODULE="on"
 
-# Install persisten go packages
-RUN \
+# Install persistent go packages
+RUN set -x && \
     mkdir -p /go && \
     source /etc/profile.d/gimme.sh && \
-    # Install goimports
-    go get -d golang.org/x/tools/cmd/goimports && \
-    cd $GOPATH/src/golang.org/x/tools/cmd/goimports && \
-    git checkout release-branch.go1.12 && \
-    go install && \
-    # Install mvdan/sh
-    git clone https://github.com/mvdan/sh.git $GOPATH/src/mvdan.cc/sh && \
-    cd $GOPATH/src/mvdan.cc/sh/cmd/shfmt && \
-    git checkout v2.5.0 && \
-    go get mvdan.cc/sh/cmd/shfmt && \
-    go install && \
-    go get -u -d k8s.io/code-generator/cmd/deepcopy-gen && \
-    go get -u -d k8s.io/code-generator/cmd/defaulter-gen && \
-    go get -u -d k8s.io/kube-openapi/cmd/openapi-gen && \
-    go get -u -d github.com/golang/protobuf/protoc-gen-go && \
-    # Install deepcopy-gen
-    cd $GOPATH/src/k8s.io/code-generator/cmd/deepcopy-gen && \
-    git checkout v0.16.4 && \
-    go install && \
-    # Install defaulter-gen
-    cd $GOPATH/src/k8s.io/code-generator/cmd/defaulter-gen && \
-    git checkout v0.16.4 && \
-    go install && \
-    # Install client-gen
-    cd $GOPATH/src/k8s.io/code-generator/cmd/client-gen && \
-    git checkout v0.16.4 && \
-    go install && \
-    # Install openapi-gen
-    cd $GOPATH/src/k8s.io/kube-openapi/cmd/openapi-gen && \
-    git checkout 30be4d16710ac61bce31eb28a01054596fe6a9f1 && \
-    go install && \
-    # Install protoc-gen-go
-    cd $GOPATH/src/github.com/golang/protobuf/protoc-gen-go && \
-    git checkout 1643683e1b54a9e88ad26d98f81400c8c9d9f4f9 && \
-    go install && \
-    cd /go && \
-    go clean -cache -modcache -r && \
-    rm -rf /go && mkdir /go
+    go get -v golang.org/x/tools/cmd/goimports@d5fe738 && \
+    go get -v mvdan.cc/sh/v3/cmd/shfmt@v3.1.1 && \
+    go get -v k8s.io/code-generator/cmd/deepcopy-gen@v0.18.2 && \
+    go get -v k8s.io/code-generator/cmd/defaulter-gen@v0.15.12  && \
+    go get -v k8s.io/kube-openapi/cmd/openapi-gen@30be4d1 && \
+    go get -v github.com/golang/protobuf/protoc-gen-go@1643683 && \
+    go get -v k8s.io/code-generator/cmd/client-gen@v0.16.4 && \
+    go get -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0 && \
+    go clean -cache -modcache
 
-RUN \
-    mkdir -p /go && \
+RUN set -x && \
     source /etc/profile.d/gimme.sh && \
-    go get github.com/mattn/goveralls && \
-    go get -u github.com/golang/mock/gomock && \
-    go get -u github.com/rmohr/mock/mockgen && \
-    go get -u github.com/rmohr/go-swagger-utils/swagger-doc && \
-    go get -u github.com/onsi/ginkgo/ginkgo && \
-    cd /go && \
-    go clean -cache -modcache -r && \
-    rm -rf /go && mkdir /go
+    go get -v -u github.com/mattn/goveralls@v0.0.5 && \
+    go get -v -u github.com/golang/mock/gomock@v1.4.3 && \
+    go get -v -u github.com/rmohr/mock/mockgen@v0.0.0-20170327080805-5980f5d9a70d && \
+    go get -v -u github.com/rmohr/go-swagger-utils/swagger-doc@v0.0.0-20181110145135-878f7deb1d17 && \
+    go get -v -u github.com/onsi/ginkgo/ginkgo@v1.12.0 && \
+    go clean -cache -modcache
 
-RUN \
+RUN set -x && \
     cd / && \
-    export GO111MODULE=on && \
     source /etc/profile.d/gimme.sh && \
     git clone https://github.com/kubernetes/test-infra.git && \
     cd /test-infra && \
@@ -110,8 +79,7 @@ RUN \
     go install && \
     cd /test-infra/robots/pr-labeler && \
     go install && \
-    cd /go && \
-    go clean -cache -modcache -r && \
+    go clean -cache -modcache && \
     rm -rf /test-infra && \
     rm -rf /go && mkdir /go
 
