@@ -5032,6 +5032,6 @@ func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	return false
 }
 
-func RetValue(retcode string, prompt string) string {
+func RetValue(retcode, prompt string) string {
 	return "\n" + retcode + "\r\n" + ".*" + prompt
 }
