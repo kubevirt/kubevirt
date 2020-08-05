@@ -44,7 +44,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should successfully create a snapshot", func() {
+		It("[test_id:4609]should successfully create a snapshot", func() {
 			snapshotName := "snapshot-" + vm.Name
 			snapshot := &snapshotv1.VirtualMachineSnapshot{
 				ObjectMeta: metav1.ObjectMeta{
@@ -78,7 +78,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 			Expect(content.Spec.VolumeBackups).To(BeEmpty())
 		})
 
-		It("should not create a snapshot when VM is running", func() {
+		It("[test_id:4610]should not create a snapshot when VM is running", func() {
 			patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(vm.Name, types.JSONPatchType, patch)
 			Expect(err).ToNot(HaveOccurred())
@@ -124,7 +124,7 @@ var _ = Describe("VirtualMachineSnapshot Tests", func() {
 			vm.Spec.Running = &running
 		})
 
-		It("should successfully create a snapshot", func() {
+		It("[test_id:4611]should successfully create a snapshot", func() {
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 

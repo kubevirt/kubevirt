@@ -843,7 +843,7 @@ var _ = Describe("Infrastructure", func() {
 		})
 
 		Context("when the controller pod is not running and an election happens", func() {
-			It("should succeed afterwards", func() {
+			It("[test_id:4642]should succeed afterwards", func() {
 				newLeaderPod := getNewLeaderPod(virtClient)
 				Expect(newLeaderPod).NotTo(BeNil())
 

@@ -66,7 +66,7 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Context("with all devices on the root PCI bus", func() {
-		It("should start run the guest as usual", func() {
+		It("[test_id:4623]should start run the guest as usual", func() {
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			vmi.Annotations = map[string]string{
 				v1.PlacePCIDevicesOnRootComplex: "true",
@@ -230,7 +230,7 @@ var _ = Describe("Configurations", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 			})
-			It("should set a correct memory units", func() {
+			It("[test_id:4624]should set a correct memory units", func() {
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
 						kubev1.ResourceMemory: resource.MustParse("512Mi"),
@@ -1162,7 +1162,7 @@ var _ = Describe("Configurations", func() {
 
 			})
 
-			It("should remove condition when agent is off", func() {
+			It("[test_id:4625]should remove condition when agent is off", func() {
 				agentVMI := prepareAgentVM()
 				getOptions := metav1.GetOptions{}
 
@@ -1198,7 +1198,7 @@ var _ = Describe("Configurations", func() {
 					tests.UpdateClusterConfigValueAndWait(supportedGuestAgentKey, "X.*")
 				})
 
-				It("[test_id:]VMI condition should signal unsupported agent presence", func() {
+				It("VMI condition should signal unsupported agent presence", func() {
 					agentVMI := prepareAgentVM()
 					getOptions := metav1.GetOptions{}
 
@@ -1219,7 +1219,7 @@ var _ = Describe("Configurations", func() {
 				})
 			})
 
-			It("should have guestosinfo in status when agent is present", func() {
+			It("[test_id:4626]should have guestosinfo in status when agent is present", func() {
 				agentVMI := prepareAgentVM()
 				getOptions := metav1.GetOptions{}
 				var updatedVmi *v1.VirtualMachineInstance
@@ -1238,7 +1238,7 @@ var _ = Describe("Configurations", func() {
 				Expect(updatedVmi.Status.GuestOSInfo.Name).To(Equal("Fedora"))
 			})
 
-			It("should return the whole data when agent is present", func() {
+			It("[test_id:4627]should return the whole data when agent is present", func() {
 				agentVMI := prepareAgentVM()
 
 				By("Expecting the Guest VM information")
@@ -1259,7 +1259,7 @@ var _ = Describe("Configurations", func() {
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in subresource")
 			})
 
-			It("should not return the whole data when agent is not present", func() {
+			It("[test_id:4628]should not return the whole data when agent is not present", func() {
 				agentVMI := prepareAgentVM()
 
 				By("Expecting the VirtualMachineInstance console")
@@ -1284,7 +1284,7 @@ var _ = Describe("Configurations", func() {
 				}, 240*time.Second, 2).Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
 			})
 
-			It("should return user list", func() {
+			It("[test_id:4629]should return user list", func() {
 				agentVMI := prepareAgentVM()
 
 				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
@@ -1308,7 +1308,7 @@ var _ = Describe("Configurations", func() {
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have fedora users")
 			})
 
-			It("should return filesystem list", func() {
+			It("[test_id:4630]should return filesystem list", func() {
 				agentVMI := prepareAgentVM()
 
 				By("Expecting the Guest VM information")
@@ -1627,7 +1627,7 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Context("with a custom scheduler", func() {
-		It("schould set the custom scheduler on the pod", func() {
+		It("[test_id:4631]schould set the custom scheduler on the pod", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.SchedulerName = "my-custom-scheduler"
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
@@ -1983,7 +1983,7 @@ var _ = Describe("Configurations", func() {
 				log.DefaultLogger().Object(cpuVmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
 			})
-			It("should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
+			It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
 				Skip("Skip test till issue https://github.com/kubevirt/kubevirt/issues/3910 is fixed")
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
