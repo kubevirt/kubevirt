@@ -7048,11 +7048,11 @@
    "v1.AccessCredentialSecretSource": {
     "type": "object",
     "required": [
-     "name"
+     "secretName"
     ],
     "properties": {
-     "name": {
-      "description": "Name represents the name of the secret in the VMI's namespace",
+     "secretName": {
+      "description": "SecretName represents the name of the secret in the VMI's namespace",
       "type": "string"
      }
     }

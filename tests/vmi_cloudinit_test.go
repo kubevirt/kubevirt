@@ -652,7 +652,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
 							Source: v1.SSHPublicKeyAccessCredentialSource{
 								Secret: &v1.AccessCredentialSecretSource{
-									Name: secretID,
+									SecretName: secretID,
 								},
 							},
 							PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{

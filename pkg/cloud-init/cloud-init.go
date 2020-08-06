@@ -179,8 +179,8 @@ func resolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir s
 		}
 
 		secretName := ""
-		if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.Source.Secret != nil {
-			secretName = accessCred.SSHPublicKey.Source.Secret.Name
+		if accessCred.SSHPublicKey.Source.Secret != nil {
+			secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
 		}
 
 		if secretName == "" {
@@ -197,10 +197,10 @@ func resolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir s
 			if file.IsDir() || strings.HasPrefix(file.Name(), "..") {
 				continue
 			}
-			keyData, keyDataError := readFileFromDir(baseDir, file.Name())
+			keyData, err := readFileFromDir(baseDir, file.Name())
 
-			if keyDataError != nil {
-				return keys, fmt.Errorf("no public keys found at at volume: %s/%s", baseDir, file.Name())
+			if err != nil {
+				return keys, fmt.Errorf("Unable to read public keys found at volume: %s/%s error: %v", baseDir, file.Name(), err)
 			}
 
 			if keyData == "" {

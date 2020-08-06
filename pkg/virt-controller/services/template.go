@@ -595,7 +595,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	for _, accessCred := range vmi.Spec.AccessCredentials {
 		secretName := ""
 		if accessCred.SSHPublicKey != nil && accessCred.SSHPublicKey.Source.Secret != nil {
-			secretName = accessCred.SSHPublicKey.Source.Secret.Name
+			secretName = accessCred.SSHPublicKey.Source.Secret.SecretName
 		}
 
 		if secretName == "" {

@@ -388,7 +388,7 @@ var _ = Describe("Template", func() {
 								SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
 									Source: v1.SSHPublicKeyAccessCredentialSource{
 										Secret: &v1.AccessCredentialSecretSource{
-											Name: "my-pkey",
+											SecretName: "my-pkey",
 										},
 									},
 									PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{

@@ -1076,8 +1076,8 @@ type Port struct {
 //
 // +k8s:openapi-gen=true
 type AccessCredentialSecretSource struct {
-	// Name represents the name of the secret in the VMI's namespace
-	Name string `json:"name"`
+	// SecretName represents the name of the secret in the VMI's namespace
+	SecretName string `json:"secretName"`
 }
 
 //

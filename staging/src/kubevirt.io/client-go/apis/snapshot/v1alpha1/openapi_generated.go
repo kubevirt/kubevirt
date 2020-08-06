@@ -13358,15 +13358,15 @@ func schema_kubevirtio_client_go_api_v1_AccessCredentialSecretSource(ref common.
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"name": {
+					"secretName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Name represents the name of the secret in the VMI's namespace",
+							Description: "SecretName represents the name of the secret in the VMI's namespace",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"name"},
+				Required: []string{"secretName"},
 			},
 		},
 	}

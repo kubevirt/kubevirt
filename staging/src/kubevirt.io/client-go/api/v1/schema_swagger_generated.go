@@ -537,8 +537,8 @@ func (Port) SwaggerDoc() map[string]string {
 
 func (AccessCredentialSecretSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "+k8s:openapi-gen=true",
-		"name": "Name represents the name of the secret in the VMI's namespace",
+		"":           "+k8s:openapi-gen=true",
+		"secretName": "SecretName represents the name of the secret in the VMI's namespace",
 	}
 }
 
