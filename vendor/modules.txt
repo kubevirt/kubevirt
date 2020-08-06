@@ -30,7 +30,6 @@ github.com/coreos/go-iptables/iptables
 # github.com/coreos/go-semver v0.3.0
 github.com/coreos/go-semver/semver
 # github.com/coreos/prometheus-operator v0.35.0
-github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
 github.com/coreos/prometheus-operator/pkg/apis/monitoring
 github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1
 # github.com/davecgh/go-spew v1.1.1
@@ -219,6 +218,7 @@ github.com/onsi/gomega/matchers/support/goraph/bipartitegraph
 github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
+github.com/onsi/gomega/types
 # github.com/opencontainers/selinux v1.6.0
 github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/pkg/pwalk
@@ -258,6 +258,7 @@ github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.6.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
+github.com/prometheus/common/model
 # github.com/prometheus/procfs v0.0.3
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
@@ -275,23 +276,23 @@ github.com/vishvananda/netns
 # github.com/willf/bitset v1.1.11-0.20200630133818-d5bec3311243
 github.com/willf/bitset
 # golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad
-golang.org/x/crypto/ssh/terminal
-golang.org/x/crypto/ssh
-golang.org/x/crypto/openpgp
+golang.org/x/crypto/cast5
 golang.org/x/crypto/curve25519
 golang.org/x/crypto/ed25519
-golang.org/x/crypto/internal/chacha20
-golang.org/x/crypto/poly1305
-golang.org/x/crypto/openpgp/armor
-golang.org/x/crypto/openpgp/errors
-golang.org/x/crypto/openpgp/packet
-golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/chacha20
 golang.org/x/crypto/internal/subtle
-golang.org/x/crypto/cast5
+golang.org/x/crypto/openpgp
+golang.org/x/crypto/openpgp/armor
 golang.org/x/crypto/openpgp/elgamal
+golang.org/x/crypto/openpgp/errors
+golang.org/x/crypto/openpgp/packet
+golang.org/x/crypto/openpgp/s2k
+golang.org/x/crypto/poly1305
+golang.org/x/crypto/ssh
+golang.org/x/crypto/ssh/terminal
 # golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
+golang.org/x/net/bpf
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/html
@@ -313,6 +314,7 @@ golang.org/x/oauth2/internal
 golang.org/x/oauth2/jws
 golang.org/x/oauth2/jwt
 # golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae
+golang.org/x/sys/cpu
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/text v0.3.2
@@ -348,6 +350,8 @@ google.golang.org/appengine/internal/datastore
 google.golang.org/appengine/internal/log
 google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
+google.golang.org/appengine/internal/urlfetch
+google.golang.org/appengine/urlfetch
 # google.golang.org/genproto v0.0.0-20191220175831-5c49e3ecc1c1
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.30.0
@@ -356,6 +360,7 @@ google.golang.org/grpc/attributes
 google.golang.org/grpc/backoff
 google.golang.org/grpc/balancer
 google.golang.org/grpc/balancer/base
+google.golang.org/grpc/balancer/grpclb/state
 google.golang.org/grpc/balancer/roundrobin
 google.golang.org/grpc/binarylog/grpc_binarylog_v1
 google.golang.org/grpc/codes
@@ -372,12 +377,15 @@ google.golang.org/grpc/internal/binarylog
 google.golang.org/grpc/internal/buffer
 google.golang.org/grpc/internal/channelz
 google.golang.org/grpc/internal/envconfig
+google.golang.org/grpc/internal/grpclog
 google.golang.org/grpc/internal/grpcrand
 google.golang.org/grpc/internal/grpcsync
 google.golang.org/grpc/internal/grpcutil
 google.golang.org/grpc/internal/resolver/dns
 google.golang.org/grpc/internal/resolver/passthrough
 google.golang.org/grpc/internal/serviceconfig
+google.golang.org/grpc/internal/status
+google.golang.org/grpc/internal/syscall
 google.golang.org/grpc/internal/transport
 google.golang.org/grpc/keepalive
 google.golang.org/grpc/metadata
@@ -387,13 +395,6 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
-google.golang.org/grpc/internal/status
-google.golang.org/grpc/attributes
-google.golang.org/grpc/credentials/internal
-google.golang.org/grpc/internal/grpclog
-google.golang.org/grpc/binarylog/grpc_binarylog_v1
-google.golang.org/grpc/balancer/grpclb/state
-google.golang.org/grpc/internal/syscall
 # gopkg.in/cheggaaa/pb.v1 v1.0.28
 gopkg.in/cheggaaa/pb.v1
 # gopkg.in/fsnotify.v1 v1.4.7
@@ -407,18 +408,7 @@ gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.2.4
 gopkg.in/yaml.v2
 # k8s.io/api v0.17.0 => k8s.io/api v0.16.4
-k8s.io/api/core/v1
-k8s.io/api/admissionregistration/v1beta1
-k8s.io/api/apps/v1
-k8s.io/api/batch/v1
-k8s.io/api/policy/v1beta1
-k8s.io/api/rbac/v1
-k8s.io/api/storage/v1
 k8s.io/api/admission/v1beta1
-k8s.io/api/authorization/v1beta1
-k8s.io/api/scheduling/v1
-k8s.io/api/autoscaling/v1
-k8s.io/api/settings/v1alpha1
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
 k8s.io/api/apps/v1
@@ -453,6 +443,8 @@ k8s.io/api/rbac/v1beta1
 k8s.io/api/scheduling/v1
 k8s.io/api/scheduling/v1alpha1
 k8s.io/api/scheduling/v1beta1
+k8s.io/api/settings/v1alpha1
+k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
 # k8s.io/apiextensions-apiserver v0.16.4 => k8s.io/apiextensions-apiserver v0.16.4
@@ -467,12 +459,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextension
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1/fake
 # k8s.io/apimachinery v0.17.1-beta.0 => k8s.io/apimachinery v0.16.4
-k8s.io/apimachinery/pkg/fields
-k8s.io/apimachinery/pkg/labels
-k8s.io/apimachinery/pkg/types
-k8s.io/apimachinery/pkg/util/wait
-k8s.io/apimachinery/pkg/watch
-k8s.io/apimachinery/pkg/api/resource
+k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/api/meta
 k8s.io/apimachinery/pkg/api/resource
@@ -488,21 +475,6 @@ k8s.io/apimachinery/pkg/fields
 k8s.io/apimachinery/pkg/labels
 k8s.io/apimachinery/pkg/runtime
 k8s.io/apimachinery/pkg/runtime/schema
-k8s.io/apimachinery/pkg/util/clock
-k8s.io/apimachinery/pkg/util/errors
-k8s.io/apimachinery/pkg/util/sets
-k8s.io/apimachinery/pkg/util/json
-k8s.io/apimachinery/pkg/util/rand
-k8s.io/apimachinery/pkg/version
-k8s.io/apimachinery/pkg/util/validation
-k8s.io/apimachinery/pkg/util/yaml
-k8s.io/apimachinery/pkg/util/validation/field
-k8s.io/apimachinery/pkg/api/validation
-k8s.io/apimachinery/pkg/util/runtime
-k8s.io/apimachinery/pkg/util/intstr
-k8s.io/apimachinery/pkg/api/meta
-k8s.io/apimachinery/pkg/apis/meta/v1/unstructured
-k8s.io/apimachinery/pkg/util/strategicpatch
 k8s.io/apimachinery/pkg/runtime/serializer
 k8s.io/apimachinery/pkg/runtime/serializer/json
 k8s.io/apimachinery/pkg/runtime/serializer/protobuf
@@ -510,6 +482,7 @@ k8s.io/apimachinery/pkg/runtime/serializer/recognizer
 k8s.io/apimachinery/pkg/runtime/serializer/streaming
 k8s.io/apimachinery/pkg/runtime/serializer/versioning
 k8s.io/apimachinery/pkg/selection
+k8s.io/apimachinery/pkg/types
 k8s.io/apimachinery/pkg/util/cache
 k8s.io/apimachinery/pkg/util/clock
 k8s.io/apimachinery/pkg/util/diff
@@ -777,39 +750,27 @@ k8s.io/utils/pointer
 k8s.io/utils/trace
 # kubevirt.io/client-go v0.0.0-00010101000000-000000000000 => ./staging/src/kubevirt.io/client-go
 kubevirt.io/client-go/api/v1
-kubevirt.io/client-go/log
-kubevirt.io/client-go/util
-kubevirt.io/client-go/precond
-kubevirt.io/client-go/apis/snapshot/v1alpha1
-kubevirt.io/client-go/version
-kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
-kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned
-kubevirt.io/client-go/generated/kubevirt/clientset/versioned
-kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1
-kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned
-kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned
-kubevirt.io/client-go/subresources
 kubevirt.io/client-go/apis/snapshot
-kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake
+kubevirt.io/client-go/apis/snapshot/v1alpha1
+kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake
-kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/fake
-kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake
-kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/fake
+kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1alpha1
-kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1alpha1
-kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/typed/volumesnapshot/v1beta1
-kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme
-kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/typed/k8s.cni.cncf.io/v1
-kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1
-kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/core/v1alpha1/fake
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1alpha1
 kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/typed/upload/v1alpha1/fake
-kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/typed/volumesnapshot/v1beta1/fake
-kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1/fake
-kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned/typed/monitoring/v1/fake
-kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/scheme
+kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned
+kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/fake
 kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/scheme
+kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/typed/volumesnapshot/v1beta1
+kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned/typed/volumesnapshot/v1beta1/fake
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1
+kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1alpha1/fake
+kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned
+kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/fake
 kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/scheme
 kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/typed/k8s.cni.cncf.io/v1
 kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake
