@@ -2811,6 +2811,9 @@ func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batch
 			}
 			expectFlag = true
 			sendFlag = false
+			if _, ok := batch[i].(*expect.BExp); !ok {
+				return nil, fmt.Errorf("ExpectBatchWithValidatedSend support only expect of type BExp")
+			}
 			bExp, _ := batch[i].(*expect.BExp)
 			previousSend := regexp.QuoteMeta(previousSend)
 
