@@ -191,7 +191,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
 		sockFile = cmdclient.SocketFilePathOnHost(string(podTestUUID))
-		os.MkdirAll(filepath.Dir(sockFile), 0755)
+		Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
 		f, err := os.Create(sockFile)
 		Expect(err).ToNot(HaveOccurred())
 		f.Close()
@@ -214,7 +214,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		time.Sleep(1 * time.Second)
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
-		controller.addLauncherClient(vmiTestUUID, client, sockFile)
+		controller.addLauncherClient(vmiTestUUID, client, sockFile, true)
 
 	})
 
@@ -268,7 +268,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			legacyMockSockFile := filepath.Join(shareDir, "sockets", uid+"_sock")
 
-			controller.addLauncherClient(types.UID(uid), client, legacyMockSockFile)
+			controller.addLauncherClient(types.UID(uid), client, legacyMockSockFile, true)
 			err := virtcache.AddGhostRecord(namespace, name, legacyMockSockFile, types.UID(uid))
 			Expect(err).ToNot(HaveOccurred())
 
@@ -811,6 +811,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
+			vmi.Status.ActivePods = map[types.UID]string{podTestUUID: ""}
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
