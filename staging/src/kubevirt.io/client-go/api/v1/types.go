@@ -197,6 +197,15 @@ func (v *VirtualMachineInstance) IsRunning() bool {
 	return v.Status.Phase == Running
 }
 
+func (v *VirtualMachineInstance) IsMigratable() bool {
+	for _, cond := range v.Status.Conditions {
+		if cond.Type == VirtualMachineInstanceIsMigratable && cond.Status == k8sv1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
 func (v *VirtualMachineInstance) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
@@ -442,10 +451,16 @@ const (
 	// libvirt XML domains with their pods. Among other things, the annotation is
 	// used to detect virtual machines with dead pods. Used on Pod.
 	DomainAnnotation string = "kubevirt.io/domain"
+	// MigrationForEvictedPodLabel is set on migration objects that were created due to an intercepted pod eviction
+	// request.
+	MigrationForEvictedPodLabel string = "kubevirt.io/migration-for-evicted-pod"
 	// Represents the name of the migration job this target pod is associated with
 	MigrationJobNameAnnotation                    string = "kubevirt.io/migrationJobName"
 	ControllerAPILatestVersionObservedAnnotation  string = "kubevirt.io/latest-observed-api-version"
 	ControllerAPIStorageVersionObservedAnnotation string = "kubevirt.io/storage-observed-api-version"
+	// PickedByLauncherEvictionControllerAnnotation is set on pods that were marked for eviction and are now being
+	// processed by the launcher eviction controller.
+	PickedByLauncherEvictionControllerAnnotation string = "kubevirt.io/picked-by-launcher-eviction-controller"
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
 	// Internal use only.

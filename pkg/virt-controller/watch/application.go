@@ -132,6 +132,8 @@ type VirtControllerApp struct {
 	migrationController *MigrationController
 	migrationInformer   cache.SharedIndexInformer
 
+	launcherEvictionController *LauncherEvictionController
+
 	snapshotController        *SnapshotController
 	vmSnapshotInformer        cache.SharedIndexInformer
 	vmSnapshotContentInformer cache.SharedIndexInformer
@@ -169,6 +171,7 @@ type VirtControllerApp struct {
 	disruptionBudgetControllerThreads int
 	launcherSubGid                    int64
 	snapshotControllerThreads         int
+	launcherEvictionControllerThreads int
 	snapshotControllerResyncPeriod    time.Duration
 }
 
@@ -267,6 +270,7 @@ func Execute() {
 
 	app.initCommon()
 	app.initReplicaSet()
+	app.initLauncherEviction()
 	app.initVirtualMachines()
 	app.initDisruptionBudgetController()
 	app.initEvacuationController()
@@ -362,6 +366,7 @@ func (vca *VirtControllerApp) Run() {
 					go vca.vmController.Run(vca.vmControllerThreads, stop)
 					go vca.migrationController.Run(vca.migrationControllerThreads, stop)
 					go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
+					go vca.launcherEvictionController.Run(vca.launcherEvictionControllerThreads, stop)
 					cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 					close(vca.readyChan)
 				},
@@ -411,6 +416,11 @@ func (vca *VirtControllerApp) initCommon() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
 	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
+}
+
+func (vca *VirtControllerApp) initLauncherEviction() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "launcher-eviction-controller")
+	vca.launcherEvictionController = NewLauncherEvictionController(vca.clientSet, vca.podInformer, recorder)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -539,6 +549,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.snapshotControllerThreads, "snapshot-controller-threads", 1,
 		"Number of goroutines to run for snapshot controller")
+
+	flag.IntVar(&vca.launcherEvictionControllerThreads, "launcher-eviction-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for launcher eviction controller")
 
 	flag.DurationVar(&vca.snapshotControllerResyncPeriod, "snapshot-controller-resync-period", defaultSnapshotControllerResyncPeriod,
 		"Number of goroutines to run for snapshot controller")

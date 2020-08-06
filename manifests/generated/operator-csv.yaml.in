@@ -346,6 +346,12 @@ spec:
           - delete
           - patch
         - apiGroups:
+          - ""
+          resources:
+          - pods/status
+          verbs:
+          - update
+        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachines
@@ -429,6 +435,12 @@ spec:
           - create
           - patch
         - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/stop
+          verbs:
+          - update
+        - apiGroups:
           - ""
           resources:
           - pods
@@ -441,6 +453,7 @@ spec:
           - delete
           - update
           - create
+          - patch
         - apiGroups:
           - ""
           resources:

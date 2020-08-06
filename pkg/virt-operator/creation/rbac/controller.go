@@ -78,13 +78,24 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"subresources.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachines/stop",
+				},
+				Verbs: []string{
+					"update",
+				},
+			},
+			{
+				APIGroups: []string{
 					"",
 				},
 				Resources: []string{
 					"pods", "configmaps", "endpoints",
 				},
 				Verbs: []string{
-					"get", "list", "watch", "delete", "update", "create",
+					"get", "list", "watch", "delete", "update", "create", "patch",
 				},
 			},
 			{
