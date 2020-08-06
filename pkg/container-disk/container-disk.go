@@ -152,12 +152,6 @@ func GetImage(root string, imagePath string) (string, error) {
 func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, binVolumeName string) []kubev1.Container {
 	var containers []kubev1.Container
 
-	initialDelaySeconds := 1
-	timeoutSeconds := 1
-	periodSeconds := 1
-	successThreshold := 1
-	failureThreshold := 5
-
 	// Make VirtualMachineInstance Image Wrapper Containers
 	for index, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
@@ -198,24 +192,6 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, bi
 					},
 				},
 				Resources: resources,
-
-				// The readiness probes ensure the volume coversion and copy finished
-				// before the container is marked as "Ready: True"
-				ReadinessProbe: &kubev1.Probe{
-					Handler: kubev1.Handler{
-						Exec: &kubev1.ExecAction{
-							Command: []string{
-								"/usr/bin/container-disk",
-								"--health-check",
-							},
-						},
-					},
-					InitialDelaySeconds: int32(initialDelaySeconds),
-					PeriodSeconds:       int32(periodSeconds),
-					TimeoutSeconds:      int32(timeoutSeconds),
-					SuccessThreshold:    int32(successThreshold),
-					FailureThreshold:    int32(failureThreshold),
-				},
 			}
 
 			containers = append(containers, container)
