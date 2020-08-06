@@ -147,8 +147,12 @@ func GetObservedConfigFromKV(kv *v1.KubeVirt) (*KubeVirtDeploymentConfig, error)
 		return nil, fmt.Errorf("unable to load observed config from kubevirt custom resource: %v", err)
 	}
 	additionalProperties[ImagePrefixKey] = imagePrefix
-	additionalProperties[ProductNameKey] = kv.Spec.ProductName
-	additionalProperties[ProductVersionKey] = kv.Spec.ProductVersion
+	if kv.Spec.ProductName != "" {
+		additionalProperties[ProductNameKey] = kv.Spec.ProductName
+	}
+	if kv.Spec.ProductVersion != "" {
+		additionalProperties[ProductVersionKey] = kv.Spec.ProductVersion
+	}
 
 	return getConfig(kv.Status.ObservedKubeVirtRegistry, kv.Status.ObservedKubeVirtVersion, kv.Namespace, additionalProperties), nil
 }
