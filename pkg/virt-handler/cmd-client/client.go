@@ -74,6 +74,7 @@ type MigrationOptions struct {
 	CompletionTimeoutPerGiB int64
 	UnsafeMigration         bool
 	AllowAutoConverge       bool
+	PostCopy                bool
 }
 
 type LauncherClient interface {

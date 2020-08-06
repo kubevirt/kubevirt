@@ -707,7 +707,8 @@ var _ = Describe("Manager", func() {
 			isBlockMigration := migrationType == "block"
 			isUnsafeMigration := migrationType == "unsafe"
 			allowAutoConverge := migrationType == "autoConverge"
-			flags := prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge)
+			usePostCopy := migrationType == "postCopy"
+			flags := prepareMigrationFlags(isBlockMigration, isUnsafeMigration, allowAutoConverge, usePostCopy)
 			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 			if isBlockMigration {
@@ -718,12 +719,16 @@ var _ = Describe("Manager", func() {
 			if allowAutoConverge {
 				expectedMigrateFlags |= libvirt.MIGRATE_AUTO_CONVERGE
 			}
+			if usePostCopy {
+				expectedMigrateFlags |= libvirt.MIGRATE_POSTCOPY
+			}
 			Expect(flags).To(Equal(expectedMigrateFlags))
 		},
 		table.Entry("with block migration", "block"),
 		table.Entry("without block migration", "live"),
 		table.Entry("unsafe migration", "unsafe"),
 		table.Entry("migration auto converge", "autoConverge"),
+		table.Entry("migration using postcopy", "postCopy"),
 	)
 
 	table.DescribeTable("on successful list all domains",

@@ -150,6 +150,10 @@ type VirtualMachineInstanceSpec struct {
 	// configuration based on DNSPolicy.
 	// +optional
 	DNSConfig *k8sv1.PodDNSConfig `json:"dnsConfig,omitempty" protobuf:"bytes,26,opt,name=dnsConfig"`
+
+	// Overwrite any system migration configuration
+	// +optional
+	MigrationConfiguration *PerVMIMigrationConfiguration `json:"migrationConfiguration,omitempty"`
 }
 
 // VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual
@@ -402,6 +406,8 @@ type VirtualMachineInstanceMigrationState struct {
 	AbortStatus MigrationAbortStatus `json:"abortStatus,omitempty"`
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
+	// Lets us know if the vmi is currenly running pre or post copy migration
+	Mode MigrationMode `json:"mode,omitempty"`
 }
 
 //
@@ -415,6 +421,17 @@ const (
 	MigrationAbortFailed MigrationAbortStatus = "Failed"
 	// MigrationAbortInProgress mean that the vmi live migration is aborting
 	MigrationAbortInProgress MigrationAbortStatus = "Aborting"
+)
+
+//
+// +k8s:openapi-gen=true
+type MigrationMode string
+
+const (
+	// MigrationPreCopy means the VMI migrations that is currenly running is in pre copy mode
+	MigrationPreCopy MigrationMode = "pre-copy"
+	// MigrationPostCopy means the VMI migrations that is currenly running is in post copy mode
+	MigrationPostCopy MigrationMode = "post-copy"
 )
 
 //
@@ -1428,14 +1445,21 @@ type SMBiosConfiguration struct {
 // MigrationConfiguration holds migration options
 // +k8s:openapi-gen=true
 type MigrationConfiguration struct {
-	AllowAutoConverge                 bool               `json:"allowAutoConverge,string"`
-	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
-	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
-	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
-	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,string,omitempty"`
-	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,string,omitempty"`
-	ProgressTimeout                   *int64             `json:"progressTimeout,string,omitempty"`
-	UnsafeMigrationOverride           bool               `json:"unsafeMigrationOverride,string"`
+	NodeDrainTaintKey                 *string `json:"nodeDrainTaintKey,omitempty"`
+	ParallelOutboundMigrationsPerNode *uint32 `json:"parallelOutboundMigrationsPerNode,string,omitempty"`
+	ParallelMigrationsPerCluster      *uint32 `json:"parallelMigrationsPerCluster,string,omitempty"`
+	*PerVMIMigrationConfiguration     `json:",inline"`
+}
+
+// PerVMIMigrationConfiguration holds migration options that can be configurated per vmi
+// +k8s:openapi-gen=true
+type PerVMIMigrationConfiguration struct {
+	AllowAutoConverge       *bool              `json:"allowAutoConverge,string,omitempty"`
+	BandwidthPerMigration   *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
+	CompletionTimeoutPerGiB *int64             `json:"completionTimeoutPerGiB,string,omitempty"`
+	ProgressTimeout         *int64             `json:"progressTimeout,string,omitempty"`
+	UnsafeMigrationOverride *bool              `json:"unsafeMigrationOverride,string,omitempty"`
+	UsePostCopy             *bool              `json:"usePostCopy,string,omitempty"`
 }
 
 // DeveloperConfiguration holds developer options

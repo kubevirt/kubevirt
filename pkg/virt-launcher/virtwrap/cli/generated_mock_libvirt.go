@@ -74,6 +74,16 @@ func (_mr *_MockConnectionRecorder) DomainEventLifecycleRegister(arg0 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventLifecycleRegister", arg0)
 }
 
+func (_m *MockConnection) DomainEventMigrationIterationRegister(callback libvirt_go.DomainEventMigrationIterationCallback) error {
+	ret := _m.ctrl.Call(_m, "DomainEventMigrationIterationRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockConnectionRecorder) DomainEventMigrationIterationRegister(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventMigrationIterationRegister", arg0)
+}
+
 func (_m *MockConnection) AgentEventLifecycleRegister(callback libvirt_go.DomainEventAgentLifecycleCallback) error {
 	ret := _m.ctrl.Call(_m, "AgentEventLifecycleRegister", callback)
 	ret0, _ := ret[0].(error)
@@ -365,6 +375,16 @@ func (_m *MockVirDomain) MigrateToURI3(_param0 string, _param1 *libvirt_go.Domai
 
 func (_mr *_MockVirDomainRecorder) MigrateToURI3(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrateToURI3", arg0, arg1, arg2)
+}
+
+func (_m *MockVirDomain) MigrateStartPostCopy(flags uint32) error {
+	ret := _m.ctrl.Call(_m, "MigrateStartPostCopy", flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) MigrateStartPostCopy(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrateStartPostCopy", arg0)
 }
 
 func (_m *MockVirDomain) MemoryStats(nrStats uint32, flags uint32) ([]libvirt_go.DomainMemoryStat, error) {

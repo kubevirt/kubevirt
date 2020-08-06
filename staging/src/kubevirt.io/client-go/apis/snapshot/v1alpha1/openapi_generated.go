@@ -352,6 +352,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.NetworkSource":                                       schema_kubevirtio_client_go_api_v1_NetworkSource(ref),
 		"kubevirt.io/client-go/api/v1.NodePlacement":                                       schema_kubevirtio_client_go_api_v1_NodePlacement(ref),
 		"kubevirt.io/client-go/api/v1.PITTimer":                                            schema_kubevirtio_client_go_api_v1_PITTimer(ref),
+		"kubevirt.io/client-go/api/v1.PerVMIMigrationConfiguration":                        schema_kubevirtio_client_go_api_v1_PerVMIMigrationConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.PodNetwork":                                          schema_kubevirtio_client_go_api_v1_PodNetwork(ref),
 		"kubevirt.io/client-go/api/v1.Port":                                                schema_kubevirtio_client_go_api_v1_Port(ref),
 		"kubevirt.io/client-go/api/v1.Probe":                                               schema_kubevirtio_client_go_api_v1_Probe(ref),
@@ -15822,23 +15823,6 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 				Description: "MigrationConfiguration holds migration options",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"allowAutoConverge": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"bandwidthPerMigration": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
-						},
-					},
-					"completionTimeoutPerGiB": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"nodeDrainTaintKey": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -15857,24 +15841,9 @@ func schema_kubevirtio_client_go_api_v1_MigrationConfiguration(ref common.Refere
 							Format: "",
 						},
 					},
-					"progressTimeout": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"unsafeMigrationOverride": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 				},
-				Required: []string{"allowAutoConverge", "unsafeMigrationOverride"},
 			},
 		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -16072,6 +16041,56 @@ func schema_kubevirtio_client_go_api_v1_PITTimer(ref common.ReferenceCallback) c
 				},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_PerVMIMigrationConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PerVMIMigrationConfiguration holds migration options that can be configurated per vmi",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"allowAutoConverge": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"bandwidthPerMigration": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"completionTimeoutPerGiB": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"progressTimeout": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"unsafeMigrationOverride": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"usePostCopy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -17304,6 +17323,13 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceMigrationState(ref
 							Format:      "",
 						},
 					},
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Lets us know if the vmi is currenly running pre or post copy migration",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -17883,12 +17909,18 @@ func schema_kubevirtio_client_go_api_v1_VirtualMachineInstanceSpec(ref common.Re
 							Ref:         ref("k8s.io/api/core/v1.PodDNSConfig"),
 						},
 					},
+					"migrationConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Overwrite any system migration configuration",
+							Ref:         ref("kubevirt.io/client-go/api/v1.PerVMIMigrationConfiguration"),
+						},
+					},
 				},
 				Required: []string{"domain"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.Toleration", "kubevirt.io/client-go/api/v1.DomainSpec", "kubevirt.io/client-go/api/v1.Network", "kubevirt.io/client-go/api/v1.Probe", "kubevirt.io/client-go/api/v1.Volume"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.Toleration", "kubevirt.io/client-go/api/v1.DomainSpec", "kubevirt.io/client-go/api/v1.Network", "kubevirt.io/client-go/api/v1.PerVMIMigrationConfiguration", "kubevirt.io/client-go/api/v1.Probe", "kubevirt.io/client-go/api/v1.Volume"},
 	}
 }
 

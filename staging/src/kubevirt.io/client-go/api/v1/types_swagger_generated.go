@@ -35,6 +35,7 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"networks":                      "List of networks that can be attached to a vm's virtual interface.",
 		"dnsPolicy":                     "Set DNS policy for the pod.\nDefaults to \"ClusterFirst\".\nValid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'.\nDNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy.\nTo have DNS options set along with hostNetwork, you have to specify DNS policy\nexplicitly to 'ClusterFirstWithHostNet'.\n+optional",
 		"dnsConfig":                     "Specifies the DNS parameters of a pod.\nParameters specified here will be merged to the generated DNS\nconfiguration based on DNSPolicy.\n+optional",
+		"migrationConfiguration":        "Overwrite any system migration configuration\n+optional",
 	}
 }
 
@@ -112,6 +113,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"abortRequested":                 "Indicates that the migration has been requested to abort",
 		"abortStatus":                    "Indicates the final status of the live migration abortion",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
+		"mode":                           "Lets us know if the vmi is currenly running pre or post copy migration",
 	}
 }
 
@@ -425,6 +427,12 @@ func (SMBiosConfiguration) SwaggerDoc() map[string]string {
 func (MigrationConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "MigrationConfiguration holds migration options\n+k8s:openapi-gen=true",
+	}
+}
+
+func (PerVMIMigrationConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "PerVMIMigrationConfiguration holds migration options that can be configurated per vmi\n+k8s:openapi-gen=true",
 	}
 }
 

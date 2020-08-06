@@ -9323,20 +9323,7 @@
    "v1.MigrationConfiguration": {
     "description": "MigrationConfiguration holds migration options",
     "type": "object",
-    "required": [
-     "allowAutoConverge",
-     "unsafeMigrationOverride"
-    ],
     "properties": {
-     "allowAutoConverge": {
-      "type": "string"
-     },
-     "bandwidthPerMigration": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
-     },
-     "completionTimeoutPerGiB": {
-      "type": "string"
-     },
      "nodeDrainTaintKey": {
       "type": "string"
      },
@@ -9344,12 +9331,6 @@
       "type": "string"
      },
      "parallelOutboundMigrationsPerNode": {
-      "type": "string"
-     },
-     "progressTimeout": {
-      "type": "string"
-     },
-     "unsafeMigrationOverride": {
       "type": "string"
      }
     }
@@ -9439,6 +9420,30 @@
      },
      "tickPolicy": {
       "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest. One of \"delay\", \"catchup\", \"discard\".",
+      "type": "string"
+     }
+    }
+   },
+   "v1.PerVMIMigrationConfiguration": {
+    "description": "PerVMIMigrationConfiguration holds migration options that can be configurated per vmi",
+    "type": "object",
+    "properties": {
+     "allowAutoConverge": {
+      "type": "string"
+     },
+     "bandwidthPerMigration": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "completionTimeoutPerGiB": {
+      "type": "string"
+     },
+     "progressTimeout": {
+      "type": "string"
+     },
+     "unsafeMigrationOverride": {
+      "type": "string"
+     },
+     "usePostCopy": {
       "type": "string"
      }
     }
@@ -10115,6 +10120,10 @@
       "description": "The VirtualMachineInstanceMigration object associated with this migration",
       "type": "string"
      },
+     "mode": {
+      "description": "Lets us know if the vmi is currenly running pre or post copy migration",
+      "type": "string"
+     },
      "sourceNode": {
       "description": "The source node that the VMI originated on",
       "type": "string"
@@ -10428,6 +10437,10 @@
      "livenessProbe": {
       "description": "Periodic probe of VirtualMachineInstance liveness. VirtualmachineInstances will be stopped if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
       "$ref": "#/definitions/v1.Probe"
+     },
+     "migrationConfiguration": {
+      "description": "Overwrite any system migration configuration",
+      "$ref": "#/definitions/v1.PerVMIMigrationConfiguration"
      },
      "networks": {
       "description": "List of networks that can be attached to a vm's virtual interface.",
