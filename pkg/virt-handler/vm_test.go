@@ -101,6 +101,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var podTestUUID types.UID
 	var stop chan struct{}
 	var eventChan chan watch.Event
+	var sockFile string
 
 	var host string
 
@@ -191,8 +192,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
-		sockFile := cmdclient.SocketFilePathOnHost(string(podTestUUID))
-		os.MkdirAll(filepath.Dir(sockFile), 0755)
+		sockFile = cmdclient.SocketFilePathOnHost(string(podTestUUID))
+		Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
 		f, err := os.Create(sockFile)
 		Expect(err).ToNot(HaveOccurred())
 		f.Close()
@@ -217,7 +218,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		time.Sleep(1 * time.Second)
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
-		controller.addLauncherClient(vmiTestUUID, client, sockFile)
+		controller.addLauncherClient(vmiTestUUID, client, sockFile, true)
 
 	})
 
@@ -271,7 +272,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			legacyMockSockFile := filepath.Join(shareDir, "sockets", uid+"_sock")
 
-			controller.addLauncherClient(types.UID(uid), client, legacyMockSockFile)
+			controller.addLauncherClient(types.UID(uid), client, legacyMockSockFile, true)
 			err := virtcache.AddGhostRecord(namespace, name, legacyMockSockFile, types.UID(uid))
 			Expect(err).ToNot(HaveOccurred())
 
