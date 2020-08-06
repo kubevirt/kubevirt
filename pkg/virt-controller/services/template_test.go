@@ -242,7 +242,6 @@ var _ = Describe("Template", func() {
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks",
 					"--container-disk-dir", "/var/run/kubevirt/container-disks",
-					"--readiness-file", "/var/run/kubevirt-infra/healthy",
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
 					"--less-pvc-space-toleration", "10",
@@ -660,7 +659,6 @@ var _ = Describe("Template", func() {
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks",
 					"--container-disk-dir", "/var/run/kubevirt/container-disks",
-					"--readiness-file", "/var/run/kubevirt-infra/healthy",
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
 					"--less-pvc-space-toleration", "10",
@@ -1273,11 +1271,11 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
-				Expect(len(pod.Spec.Volumes)).To(Equal(7))
+				Expect(len(pod.Spec.Volumes)).To(Equal(6))
 				Expect(pod.Spec.Volumes[1].EmptyDir).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[1].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
 
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6))
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(5))
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/dev/hugepages"))
 			},
 				table.Entry("hugepages-2Mi", "2Mi"),
@@ -1325,11 +1323,11 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
-				Expect(len(pod.Spec.Volumes)).To(Equal(7))
+				Expect(len(pod.Spec.Volumes)).To(Equal(6))
 				Expect(pod.Spec.Volumes[1].EmptyDir).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[1].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
 
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6))
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(5))
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/dev/hugepages"))
 			})
 		})
@@ -1367,11 +1365,11 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty(), "No devices in manifest for 1st container")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Some mounts in manifest for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(6), "6 mounts in manifest for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(5), "5 mounts in manifest for 1st container")
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(7), "Found 7 volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(6), "Found 6 volumes in manifest")
 				Expect(pod.Spec.Volumes[1].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
 				Expect(pod.Spec.Volumes[1].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
@@ -1415,10 +1413,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName), "Found device for 1st container with correct name")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(5), "Found 6 mounts in manifest for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(4), "Found 4 mounts in manifest for 1st container")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(7), "Found 7 volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(6), "Found 6 volumes in manifest")
 				Expect(pod.Spec.Volumes[1].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
 				Expect(pod.Spec.Volumes[1].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
@@ -1771,7 +1769,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(7))
+				Expect(len(pod.Spec.Volumes)).To(Equal(6))
 				Expect(pod.Spec.Volumes[1].ConfigMap).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[1].ConfigMap.LocalObjectReference.Name).To(Equal("test-configmap"))
 			})
@@ -1800,7 +1798,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(7))
+				Expect(len(pod.Spec.Volumes)).To(Equal(6))
 				Expect(pod.Spec.Volumes[1].Secret).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[1].Secret.SecretName).To(Equal("test-secret"))
 			})
@@ -1872,11 +1870,11 @@ var _ = Describe("Template", func() {
 				Expect(readinessProbe.FailureThreshold).To(Equal(vmi.Spec.ReadinessProbe.FailureThreshold))
 			})
 
-			It("should set a readiness probe on the pod, if no one was specified on the vmi", func() {
+			It("should not set a readiness probe on the pod, if no one was specified on the vmi", func() {
 				vmi.Spec.ReadinessProbe = nil
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.Containers[0].ReadinessProbe).To(Not(BeNil()))
+				Expect(pod.Spec.Containers[0].ReadinessProbe).To(BeNil())
 			})
 		})
 
