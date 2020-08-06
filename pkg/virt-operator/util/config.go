@@ -55,10 +55,10 @@ const (
 	AdditionalPropertiesNamePullPolicy = "ImagePullPolicy"
 
 	// lookup key in AdditionalProperties
-	AdditionalPropertiesMonitorNamespace = "monitorNamespace"
+	AdditionalPropertiesMonitorNamespace = "MonitorNamespace"
 
 	// lookup key in AdditionalProperties
-	AdditionalPropertiesMonitorServiceAccount = "monitorAccount"
+	AdditionalPropertiesMonitorServiceAccount = "MonitorAccount"
 
 	// account to use if one is not explicitly named
 	DefaultMonitorNamespace = "openshift-monitoring"
