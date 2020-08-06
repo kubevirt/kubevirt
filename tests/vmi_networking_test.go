@@ -22,7 +22,6 @@ package tests_test
 import (
 	"fmt"
 	"net"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -647,22 +646,18 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			err = tests.CheckForTextExpecter(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\#"},
-				&expect.BSnd{S: "sudo dhclient -1 -r -d eth0\n"},
+				&expect.BSnd{S: "dhclient -1 -r -d eth0\n"},
 				&expect.BExp{R: "\\#"},
-				&expect.BSnd{S: "sudo dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
+				&expect.BSnd{S: "dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
 				&expect.BExp{R: "\\#"},
-				&expect.BSnd{S: "cat /dhcp-env\n"},
-				&expect.BExp{R: "new_tftp_server_name=tftp.kubevirt.io"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\#"},
-				&expect.BSnd{S: "cat /dhcp-env\n"},
-				&expect.BExp{R: "new_bootfile_name=config"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\#"},
-				&expect.BSnd{S: "cat /dhcp-env\n"},
-				&expect.BExp{R: regexp.QuoteMeta("new_ntp_servers=127.0.0.1 127.0.0.2") + "((?s).*)" + regexp.QuoteMeta("new_unknown_240=private.options.kubevirt.io")},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\#"},
+				&expect.BSnd{S: "grep -q 'new_tftp_server_name=tftp.kubevirt.io' /dhcp-env; echo $?\n"},
+				&expect.BExp{R: tests.RetValue("0", "\\# ")},
+				&expect.BSnd{S: "grep -q 'new_bootfile_name=config' /dhcp-env; echo $?\n"},
+				&expect.BExp{R: tests.RetValue("0", "\\# ")},
+				&expect.BSnd{S: "grep -q 'new_ntp_servers=127.0.0.1 127.0.0.2' /dhcp-env; echo $?\n"},
+				&expect.BExp{R: tests.RetValue("0", "\\# ")},
+				&expect.BSnd{S: "grep -q 'new_unknown_240=private.options.kubevirt.io' /dhcp-env; echo $?\n"},
+				&expect.BExp{R: tests.RetValue("0", "\\# ")},
 			}, 15)
 
 			Expect(err).ToNot(HaveOccurred())
