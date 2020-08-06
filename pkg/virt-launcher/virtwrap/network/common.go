@@ -29,9 +29,10 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
 
 	"github.com/coreos/go-iptables/iptables"
-
+	"github.com/opencontainers/selinux/go-selinux"
 	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
 
@@ -350,17 +351,51 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 }
 
 func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool, launcherPID int) error {
-	args := []string{"tuntap", "add", "mode", "tap", "user", "qemu", "group", "qemu", "name", tapName}
-	if isMultiqueue {
-		args = append(args, "multi_queue")
-	}
-	cmd := exec.Command("ip", args...)
-	err := cmd.Run()
+	currentHandlerSELinuxLabel, err := getProcessCurrentSELinuxLabel(os.Getpid())
 	if err != nil {
-		return fmt.Errorf("failed to create tap device %s; %v", tapName, err)
+		return fmt.Errorf("error reading virt-handler selinux label: %v", err)
 	}
-	log.Log.Infof("Created tap device: %s", tapName)
+
+	launcherSELinuxLabel, err := getProcessCurrentSELinuxLabel(launcherPID)
+	if err != nil {
+		return fmt.Errorf("error reading virt-launcher PID %s selinux label; %v", tapName, err)
+	}
+
+	createTapDeviceArgs := []string{
+		"create-tap",
+		"--tap-name", tapName,
+		"--uid", "107",
+		"--gid", "107",
+	}
+	if isMultiqueue {
+		createTapDeviceArgs = append(createTapDeviceArgs, "--multiqueue")
+	}
+	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
+
+	runtime.LockOSThread()
+	defer func() {
+		_ = selinux.SetExecLabel(currentHandlerSELinuxLabel)
+		runtime.UnlockOSThread()
+	}()
+
+	if err = selinux.SetExecLabel(launcherSELinuxLabel); err != nil {
+		return fmt.Errorf("failed to switch selinux context to %s. Reason: %v", launcherSELinuxLabel, err)
+	}
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to create tap device %s: %v", tapName, err)
+	}
+
+	log.Log.Infof("Created tap device: %s in PID: %s using selinux label: %s", tapName, launcherPID, launcherSELinuxLabel)
 	return nil
+}
+
+func getProcessCurrentSELinuxLabel(pid int) (string, error) {
+	launcherSELinuxLabel, err := selinux.FileLabel(fmt.Sprintf("/proc/%d/attr/current", pid))
+	if err != nil {
+		return "", fmt.Errorf("could not retrieve pid %d selinux label: %v", pid, err)
+	}
+	return launcherSELinuxLabel, nil
 }
 
 func (h *NetworkUtilsHandler) BindTapDeviceToBridge(tapName string, bridgeName string) error {
