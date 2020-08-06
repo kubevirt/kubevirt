@@ -20,12 +20,15 @@
 package ephemeraldisk
 
 import (
+	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
@@ -71,14 +74,54 @@ func GetFilePath(volumeName string) string {
 	return filepath.Join(volumeMountDir, "disk.qcow2")
 }
 
-func CreateBackedImageForVolume(volume v1.Volume, backingFile string) error {
+func CreateBackedImageForVolumeWithMD5(volume v1.Volume, backingFile string, imagePath string, md5Path string) error {
+	err := CreateBackedImageForVolume(volume, backingFile, imagePath)
+	if err != nil {
+		return err
+	}
+
+	curMd5, err := diskutils.Md5CheckSum(backingFile)
+	if err != nil {
+		return err
+	}
+
+	curMd5Str := hex.EncodeToString(curMd5)
+
+	_, err = os.Stat(md5Path)
+	if err == nil {
+		// compare hashes if the previous hash exists
+		prevMd5, err := ioutil.ReadFile(md5Path)
+		if err != nil {
+			return err
+		}
+		prevMd5Str := string(prevMd5)
+
+		if curMd5Str != prevMd5Str {
+			return fmt.Errorf("md5 hash for CopyOnWrite volume %s does not match. The Backing volume does not match.", volume.Name)
+		}
+
+	} else if os.IsNotExist(err) {
+		// write new md5
+		err := ioutil.WriteFile(md5Path, []byte(curMd5Str), 0644)
+		if err != nil {
+			return err
+		}
+
+	} else {
+		// there was an err calling stat
+		return err
+	}
+
+	return nil
+}
+
+func CreateBackedImageForVolume(volume v1.Volume, backingFile string, imagePath string) error {
 	err := createVolumeDirectory(volume.Name)
 	if err != nil {
 		return err
 	}
 
-	imagePath := GetFilePath(volume.Name)
-
+	log.Log.Infof("DEBUG - qcow being created at %s with backing %s for volume %s", imagePath, backingFile, volume.Name)
 	if _, err := os.Stat(imagePath); err == nil {
 		return nil
 	} else if !os.IsNotExist(err) {
@@ -117,7 +160,8 @@ func CreateEphemeralImages(vmi *v1.VirtualMachineInstance) error {
 	// for each disk that requires it.
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.Ephemeral != nil {
-			if err := CreateBackedImageForVolume(volume, getBackingFilePath(volume.Name)); err != nil {
+			imagePath := GetFilePath(volume.Name)
+			if err := CreateBackedImageForVolume(volume, getBackingFilePath(volume.Name), imagePath); err != nil {
 				return err
 			}
 		}

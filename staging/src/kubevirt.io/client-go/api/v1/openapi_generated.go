@@ -302,6 +302,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.ComponentConfig":                                            schema_kubevirtio_client_go_api_v1_ComponentConfig(ref),
 		"kubevirt.io/client-go/api/v1.ConfigMapVolumeSource":                                      schema_kubevirtio_client_go_api_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ContainerDiskSource":                                        schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref),
+		"kubevirt.io/client-go/api/v1.CopyOnWriteBaseVolumeSource":                                schema_kubevirtio_client_go_api_v1_CopyOnWriteBaseVolumeSource(ref),
+		"kubevirt.io/client-go/api/v1.CopyOnWriteDeltaVolumeSource":                               schema_kubevirtio_client_go_api_v1_CopyOnWriteDeltaVolumeSource(ref),
+		"kubevirt.io/client-go/api/v1.CopyOnWriteVolumeSource":                                    schema_kubevirtio_client_go_api_v1_CopyOnWriteVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.CustomizeComponents":                                        schema_kubevirtio_client_go_api_v1_CustomizeComponents(ref),
 		"kubevirt.io/client-go/api/v1.CustomizeComponentsPatch":                                   schema_kubevirtio_client_go_api_v1_CustomizeComponentsPatch(ref),
 		"kubevirt.io/client-go/api/v1.DHCPOptions":                                                schema_kubevirtio_client_go_api_v1_DHCPOptions(ref),
@@ -13981,10 +13984,81 @@ func schema_kubevirtio_client_go_api_v1_ContainerDiskSource(ref common.Reference
 							Format:      "",
 						},
 					},
+					"copyOnWrite": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CopyOnWrite is a volume source that allows creating a copy on write delta file for a containerDisk source",
+							Ref:         ref("kubevirt.io/client-go/api/v1.CopyOnWriteVolumeSource"),
+						},
+					},
 				},
 				Required: []string{"image"},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.CopyOnWriteVolumeSource"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_CopyOnWriteBaseVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Represents the source of a volume to mount. Only one of its members may be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"containerDisk": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
+							Ref:         ref("kubevirt.io/client-go/api/v1.ContainerDiskSource"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.ContainerDiskSource"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_CopyOnWriteDeltaVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Represents the source of a volume to mount. Only one of its members may be specified.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"persistentVolumeClaim": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_CopyOnWriteVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CopyOnWriteVolumeSource allows creating a cow delta file for another volume source",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"persistentVolumeClaim": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"},
 	}
 }
 

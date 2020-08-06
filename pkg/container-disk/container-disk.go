@@ -29,6 +29,8 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -182,7 +184,6 @@ func generateContainersHelper(vmi *v1.VirtualMachineInstance, podVolumeName stri
 	// Make VirtualMachineInstance Image Wrapper Containers
 	for index, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
-
 			volumeMountDir := GetVolumeMountDirOnGuest(vmi)
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
 			diskContainerImage := volume.ContainerDisk.Image
@@ -242,12 +243,24 @@ func CreateEphemeralImages(vmi *v1.VirtualMachineInstance) error {
 	// for each disk that requires it.
 
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.VolumeSource.ContainerDisk != nil {
-			if backingFile, err := GetDiskTargetPartFromLauncherView(i); err != nil {
-				return err
-			} else if err := ephemeraldisk.CreateBackedImageForVolume(volume, backingFile); err != nil {
-				return err
-			}
+		if volume.ContainerDisk == nil {
+			continue
+		}
+
+		imagePath := ephemeraldisk.GetFilePath(volume.Name)
+
+		if volume.ContainerDisk.CopyOnWrite != nil && volume.ContainerDisk.CopyOnWrite.PersistentVolumeClaim != nil {
+			imagePath = filepath.Join(hostdisk.GetMountedHostDiskDir(volume.Name), "disk.qcow2")
+		}
+
+		md5Path := imagePath + ".backing.file.md5"
+		backingFile, err := GetDiskTargetPartFromLauncherView(i)
+		if err != nil {
+			return err
+		}
+
+		if err := ephemeraldisk.CreateBackedImageForVolumeWithMD5(volume, backingFile, imagePath, md5Path); err != nil {
+			return err
 		}
 	}
 

@@ -303,6 +303,10 @@ func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType con
 	return nil
 }
 
+func GetCOWFilesystemVolumePath(volumeName string) string {
+	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt-private", "vmi-disks", volumeName, "disk.qcow2")
+}
+
 func GetFilesystemVolumePath(volumeName string) string {
 	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt-private", "vmi-disks", volumeName, "disk.img")
 }
@@ -386,22 +390,26 @@ func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 	return nil
 }
 
-func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *Disk, c *ConverterContext, diskIndex int) error {
+func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, source *v1.ContainerDiskSource, disk *Disk, c *ConverterContext, diskIndex int) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
 	}
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
-	disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
+	if source.CopyOnWrite != nil && source.CopyOnWrite.PersistentVolumeClaim != nil {
+		disk.Source.File = GetCOWFilesystemVolumePath(volumeName)
+	} else {
+		disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
+	}
 	disk.BackingStore = &BackingStore{
 		Format: &BackingStoreFormat{},
 		Source: &DiskSource{},
 	}
 
-	source := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
+	backingVolumeSource := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
 
 	disk.BackingStore.Format.Type = c.DiskType[volumeName].Format
-	disk.BackingStore.Source.File = source
+	disk.BackingStore.Source.File = backingVolumeSource
 	disk.BackingStore.Type = "file"
 
 	return nil

@@ -181,22 +181,24 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 	record := vmiMountTargetRecord{}
 
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.ContainerDisk != nil {
-			targetFile, err := containerdisk.GetDiskTargetPathFromHostView(vmi, i)
-			if err != nil {
-				return err
-			}
-
-			sock, err := m.pathGetter(vmi, i)
-			if err != nil {
-				return err
-			}
-
-			record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
-				TargetFile: targetFile,
-				SocketFile: sock,
-			})
+		if volume.ContainerDisk == nil {
+			continue
 		}
+
+		targetFile, err := containerdisk.GetDiskTargetPathFromHostView(vmi, i)
+		if err != nil {
+			return err
+		}
+
+		sock, err := m.pathGetter(vmi, i)
+		if err != nil {
+			return err
+		}
+
+		record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
+			TargetFile: targetFile,
+			SocketFile: sock,
+		})
 	}
 
 	if len(record.MountTargetEntries) > 0 {
@@ -207,67 +209,69 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 	}
 
 	for i, volume := range vmi.Spec.Volumes {
-		if volume.ContainerDisk != nil {
-			targetFile, err := containerdisk.GetDiskTargetPathFromHostView(vmi, i)
+		if volume.ContainerDisk == nil {
+			continue
+		}
+
+		targetFile, err := containerdisk.GetDiskTargetPathFromHostView(vmi, i)
+		if err != nil {
+			return err
+		}
+
+		nodeRes := isolation.NodeIsolationResult()
+
+		if isMounted, err := nodeRes.IsMounted(targetFile); err != nil {
+			return fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
+		} else if !isMounted {
+			sock, err := m.pathGetter(vmi, i)
 			if err != nil {
 				return err
 			}
 
-			nodeRes := isolation.NodeIsolationResult()
-
-			if isMounted, err := nodeRes.IsMounted(targetFile); err != nil {
-				return fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
-			} else if !isMounted {
-				sock, err := m.pathGetter(vmi, i)
-				if err != nil {
-					return err
-				}
-
-				res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
-				if err != nil {
-					return fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
-				}
-				mountInfo, err := res.MountInfoRoot()
-				if err != nil {
-					return fmt.Errorf("failed to detect root mount info of containerDisk  %v: %v", volume.Name, err)
-				}
-				nodeMountInfo, err := nodeRes.ParentMountInfoFor(mountInfo)
-				if err != nil {
-					return fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
-				}
-				sourceFile, err := containerdisk.GetImage(filepath.Join(nodeRes.MountRoot(), nodeMountInfo.Root, nodeMountInfo.MountPoint), volume.ContainerDisk.Path)
-				if err != nil {
-					return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
-				}
-				f, err := os.Create(targetFile)
-				if err != nil {
-					return fmt.Errorf("failed to create mount point target %v: %v", targetFile, err)
-				}
-				f.Close()
-
-				if err = os.Chmod(sourceFile, 0444); err != nil {
-					return fmt.Errorf("failed to change permisions on %s", sourceFile)
-				}
-
-				log.DefaultLogger().Object(vmi).Infof("Bind mounting container disk at %s to %s", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile)
-				out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "mount", "-o", "ro,bind", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile).CombinedOutput()
-				if err != nil {
-					return fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
-				}
+			res, err := m.podIsolationDetector.DetectForSocket(vmi, sock)
+			if err != nil {
+				return fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
 			}
-			if verify {
-				res, err := m.podIsolationDetector.Detect(vmi)
-				if err != nil {
-					return fmt.Errorf("failed to detect VMI pod: %v", err)
-				}
-				imageInfo, err := isolation.GetImageInfo(containerdisk.GetDiskTargetPathFromLauncherView(i), res)
-				if err != nil {
-					return fmt.Errorf("failed to get image info: %v", err)
-				}
+			mountInfo, err := res.MountInfoRoot()
+			if err != nil {
+				return fmt.Errorf("failed to detect root mount info of containerDisk  %v: %v", volume.Name, err)
+			}
+			nodeMountInfo, err := nodeRes.ParentMountInfoFor(mountInfo)
+			if err != nil {
+				return fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
+			}
+			sourceFile, err := containerdisk.GetImage(filepath.Join(nodeRes.MountRoot(), nodeMountInfo.Root, nodeMountInfo.MountPoint), volume.ContainerDisk.Path)
+			if err != nil {
+				return fmt.Errorf("failed to find a sourceFile in containerDisk %v: %v", volume.Name, err)
+			}
+			f, err := os.Create(targetFile)
+			if err != nil {
+				return fmt.Errorf("failed to create mount point target %v: %v", targetFile, err)
+			}
+			f.Close()
 
-				if err := containerdisk.VerifyImage(imageInfo); err != nil {
-					return fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
-				}
+			if err = os.Chmod(sourceFile, 0444); err != nil {
+				return fmt.Errorf("failed to change permisions on %s", sourceFile)
+			}
+
+			log.DefaultLogger().Object(vmi).Infof("Bind mounting container disk at %s to %s", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile)
+			out, err := exec.Command("/usr/bin/virt-chroot", "--mount", "/proc/1/ns/mnt", "mount", "-o", "ro,bind", strings.TrimPrefix(sourceFile, nodeRes.MountRoot()), targetFile).CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("failed to bindmount containerDisk %v: %v : %v", volume.Name, string(out), err)
+			}
+		}
+		if verify {
+			res, err := m.podIsolationDetector.Detect(vmi)
+			if err != nil {
+				return fmt.Errorf("failed to detect VMI pod: %v", err)
+			}
+			imageInfo, err := isolation.GetImageInfo(containerdisk.GetDiskTargetPathFromLauncherView(i), res)
+			if err != nil {
+				return fmt.Errorf("failed to get image info: %v", err)
+			}
+
+			if err := containerdisk.VerifyImage(imageInfo); err != nil {
+				return fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
 			}
 		}
 	}

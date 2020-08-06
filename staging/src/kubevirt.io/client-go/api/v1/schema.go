@@ -73,6 +73,17 @@ type ConfigMapVolumeSource struct {
 	VolumeLabel string `json:"volumeLabel,omitempty"`
 }
 
+// CopyOnWriteVolumeSource allows creating a cow delta file for another volume source
+//
+// +k8s:openapi-gen=true
+type CopyOnWriteVolumeSource struct {
+	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+	// Directly attached to the vmi via qemu.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+	// +optional
+	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+}
+
 // SecretVolumeSource adapts a Secret into a volume.
 //
 // +k8s:openapi-gen=true
@@ -546,6 +557,29 @@ type Volume struct {
 // Only one of its members may be specified.
 //
 // +k8s:openapi-gen=true
+type CopyOnWriteBaseVolumeSource struct {
+	// ContainerDisk references a docker image, embedding a qcow or raw disk.
+	// More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
+	// +optional
+	ContainerDisk *ContainerDiskSource `json:"containerDisk,omitempty"`
+}
+
+// Represents the source of a volume to mount.
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
+type CopyOnWriteDeltaVolumeSource struct {
+	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
+	// Directly attached to the vmi via qemu.
+	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+	// +optional
+	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+}
+
+// Represents the source of a volume to mount.
+// Only one of its members may be specified.
+//
+// +k8s:openapi-gen=true
 type VolumeSource struct {
 	// HostDisk represents a disk created on the cluster level
 	// +optional
@@ -637,6 +671,11 @@ type ContainerDiskSource struct {
 	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
 	// +optional
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
+	// CopyOnWrite is a volume source that allows creating a copy on write delta file
+	// for a containerDisk source
+	// +optional
+	CopyOnWrite *CopyOnWriteVolumeSource `json:"copyOnWrite,omitempty"`
 }
 
 // Exactly one of its members must be set.

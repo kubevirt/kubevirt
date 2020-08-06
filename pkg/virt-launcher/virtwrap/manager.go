@@ -868,6 +868,10 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 				return err
 			}
 			diskInfo[volume.Name] = info
+			if volume.VolumeSource.ContainerDisk.CopyOnWrite != nil &&
+				volume.VolumeSource.ContainerDisk.CopyOnWrite.PersistentVolumeClaim != nil {
+				isBlockPVCMap[volume.Name] = false
+			}
 		} else if volume.VolumeSource.DataVolume != nil {
 			isBlockDV, err := isBlockDeviceVolume(volume.Name)
 			if err != nil {
@@ -1206,6 +1210,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 				return nil, err
 			}
 			diskInfo[volume.Name] = info
+			if volume.VolumeSource.ContainerDisk.CopyOnWrite != nil &&
+				volume.VolumeSource.ContainerDisk.CopyOnWrite.PersistentVolumeClaim != nil {
+				isBlockPVCMap[volume.Name] = false
+			}
 		} else if volume.VolumeSource.DataVolume != nil {
 			isBlockDV, err := isBlockDeviceVolume(volume.Name)
 			if err != nil {

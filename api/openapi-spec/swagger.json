@@ -8278,6 +8278,10 @@
      "image"
     ],
     "properties": {
+     "copyOnWrite": {
+      "description": "CopyOnWrite is a volume source that allows creating a copy on write delta file for a containerDisk source",
+      "$ref": "#/definitions/v1.CopyOnWriteVolumeSource"
+     },
      "image": {
       "description": "Image is the name of the image with the embedded disk.",
       "type": "string"
@@ -8293,6 +8297,16 @@
      "path": {
       "description": "Path defines the path to disk file in the container",
       "type": "string"
+     }
+    }
+   },
+   "v1.CopyOnWriteVolumeSource": {
+    "description": "CopyOnWriteVolumeSource allows creating a cow delta file for another volume source",
+    "type": "object",
+    "properties": {
+     "persistentVolumeClaim": {
+      "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+      "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimVolumeSource"
      }
     }
    },

@@ -381,9 +381,20 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			Name:      volume.Name,
 			MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
 		}
-		if volume.PersistentVolumeClaim != nil {
+
+		var pvc *k8sv1.PersistentVolumeClaimVolumeSource
+
+		if volume.ContainerDisk != nil &&
+			volume.ContainerDisk.CopyOnWrite != nil &&
+			volume.ContainerDisk.CopyOnWrite.PersistentVolumeClaim != nil {
+			pvc = volume.ContainerDisk.CopyOnWrite.PersistentVolumeClaim
+		} else if volume.PersistentVolumeClaim != nil {
+			pvc = volume.PersistentVolumeClaim
+		}
+
+		if pvc != nil {
 			logger := log.DefaultLogger()
-			claimName := volume.PersistentVolumeClaim.ClaimName
+			claimName := pvc.ClaimName
 			_, exists, isBlock, err := types.IsPVCBlockFromStore(t.persistentVolumeClaimStore, namespace, claimName)
 			if err != nil {
 				logger.Errorf("error getting PVC: %v", claimName)
@@ -404,7 +415,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: volume.PersistentVolumeClaim,
+					PersistentVolumeClaim: pvc,
 				},
 			})
 		}
@@ -417,11 +428,13 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				},
 			})
 		}
+
 		if volume.ContainerDisk != nil && volume.ContainerDisk.ImagePullSecret != "" {
 			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
 				Name: volume.ContainerDisk.ImagePullSecret,
 			})
 		}
+
 		if volume.HostDisk != nil {
 			var hostPathType k8sv1.HostPathType
 
@@ -446,6 +459,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				},
 			})
 		}
+
 		if volume.DataVolume != nil {
 			logger := log.DefaultLogger()
 			claimName := volume.DataVolume.Name

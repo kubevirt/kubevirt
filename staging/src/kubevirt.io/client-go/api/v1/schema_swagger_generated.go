@@ -20,6 +20,13 @@ func (ConfigMapVolumeSource) SwaggerDoc() map[string]string {
 	}
 }
 
+func (CopyOnWriteVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                      "CopyOnWriteVolumeSource allows creating a cow delta file for another volume source\n\n+k8s:openapi-gen=true",
+		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+	}
+}
+
 func (SecretVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "SecretVolumeSource adapts a Secret into a volume.\n\n+k8s:openapi-gen=true",
@@ -277,6 +284,20 @@ func (Volume) SwaggerDoc() map[string]string {
 	}
 }
 
+func (CopyOnWriteBaseVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":              "Represents the source of a volume to mount.\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"containerDisk": "ContainerDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
+	}
+}
+
+func (CopyOnWriteDeltaVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                      "Represents the source of a volume to mount.\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
+		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+	}
+}
+
 func (VolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                      "Represents the source of a volume to mount.\nOnly one of its members may be specified.\n\n+k8s:openapi-gen=true",
@@ -322,6 +343,7 @@ func (ContainerDiskSource) SwaggerDoc() map[string]string {
 		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
 		"path":            "Path defines the path to disk file in the container",
 		"imagePullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n+optional",
+		"copyOnWrite":     "CopyOnWrite is a volume source that allows creating a copy on write delta file\nfor a containerDisk source\n+optional",
 	}
 }
 

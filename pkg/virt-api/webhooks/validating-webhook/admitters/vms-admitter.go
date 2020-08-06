@@ -215,9 +215,8 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 
 			dataVolumeRefFound := false
 			for _, volume := range spec.Template.Spec.Volumes {
-				if volume.VolumeSource.DataVolume == nil {
-					continue
-				} else if volume.VolumeSource.DataVolume.Name == dataVolume.Name {
+				if volume.VolumeSource.DataVolume != nil &&
+					volume.VolumeSource.DataVolume.Name == dataVolume.Name {
 					dataVolumeRefFound = true
 					break
 				}
