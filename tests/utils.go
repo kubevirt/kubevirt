@@ -581,6 +581,13 @@ func CleanNodes() {
 		Expect(err).ToNot(HaveOccurred())
 		new := node.DeepCopy()
 
+		k8sClient := GetK8sCmdClient()
+		if k8sClient == "oc" {
+			RunCommandWithNS("", k8sClient, "adm", "uncordon", node.Name)
+		} else {
+			RunCommandWithNS("", k8sClient, "uncordon", node.Name)
+		}
+
 		found := false
 		taints := []k8sv1.Taint{}
 		for _, taint := range node.Spec.Taints {
