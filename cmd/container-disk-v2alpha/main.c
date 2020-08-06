@@ -17,7 +17,6 @@
 #include <time.h>
 
 #define LISTEN_BACKLOG 50
-#define READINESS_PROBE_FILE "/healthy"
 
 char copy_path[108];
 
@@ -93,7 +92,6 @@ static void *socket_check(int fd, void *arg) {
 int main(int argc, char **argv) {
     char *copy_path_dir;
     char *copy_path_tmp;
-    bool health_check = false;
 
     if (signal(SIGTERM, sig_handler) == SIG_ERR) {
         error_log("failed to register SIGTERM callback\n");
@@ -106,12 +104,11 @@ int main(int argc, char **argv) {
             /* These options don’t set a flag.
                 We distinguish them by their indices. */
             {"copy-path",    required_argument, 0, 'c'},
-            {"health-check", no_argument,       0, 'p'},
             {0, 0, 0, 0}
         };
         /* getopt_long stores the option index here. */
         int option_index = 0;
-        c = getopt_long(argc, argv, "c:p", long_options, &option_index);
+        c = getopt_long(argc, argv, "c:", long_options, &option_index);
 
         /* Detect the end of the options. */
         if (c == -1) {
@@ -131,11 +128,6 @@ int main(int argc, char **argv) {
                 copy_path_tmp = strndup(copy_path, strlen(copy_path));
                 copy_path_dir = dirname(copy_path_tmp);
                 break;
-
-            case 'p':
-                health_check = true;
-                break;
-
             case '?':
                 exit(1);
             default:
@@ -144,14 +136,6 @@ int main(int argc, char **argv) {
     }
 
     struct stat st = {0};
-    if (health_check) {
-        if (stat(READINESS_PROBE_FILE, &st) == -1) {
-            error_log("readiness probe %s does not exist, errno: %d\n", READINESS_PROBE_FILE, errno);
-            exit(1);
-        } else {
-            exit(0);
-        }
-    }
 
     if (stat(copy_path_dir, &st) == -1) {
         if (mkdir(copy_path_dir, 0777) != 0) {
@@ -190,15 +174,6 @@ int main(int argc, char **argv) {
         error_log("failed to listen socket %s\n", copy_path);
         exit(1);
     }
-
-    // Create readiness probe
-    FILE *probe;
-    probe = fopen(READINESS_PROBE_FILE, "w");
-    if (probe == NULL) {
-        error_log("failed to create readiness probe\n");
-        exit(1);
-    }
-    fclose(probe);
 
     socket_check(fd, (void *)copy_path);
 }
