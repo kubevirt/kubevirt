@@ -49,18 +49,24 @@ func (admitter *PodEvictionAdmitter) Admit(ar *v1beta1.AdmissionReview) *v1beta1
 			"VMI %s is configured with an eviction strategy but is not live-migratable", vmi.Name))
 	}
 
-	vmiCopy := vmi.DeepCopy()
-	vmiCopy.Status.EvacuationNodeName = vmi.Status.NodeName
-
-	_, err = admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Update(vmiCopy)
-	if err != nil {
-		// As with the previous case, it is up to the user to issue a retry.
-		return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
+	if !vmi.IsMarkedForEviction() {
+		err := admitter.markVMI(ar, vmi, err)
+		if err != nil {
+			// As with the previous case, it is up to the user to issue a retry.
+			return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
+		}
 	}
 
 	// We can let the request go through because the pod is protected by a PDB if the VMI wants to be live-migrated on
 	// eviction. Otherwise, we can just evict it.
 	return allowed()
+}
+
+func (admitter *PodEvictionAdmitter) markVMI(ar *v1beta1.AdmissionReview, vmi *virtv1.VirtualMachineInstance, err error) error {
+	vmiCopy := vmi.DeepCopy()
+	vmiCopy.Status.EvacuationNodeName = vmi.Status.NodeName
+	_, err = admitter.VirtClient.VirtualMachineInstance(ar.Request.Namespace).Update(vmiCopy)
+	return err
 }
 
 func denied(message string) *v1beta1.AdmissionResponse {
