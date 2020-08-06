@@ -587,6 +587,7 @@ var _ = Describe("Migration watcher", func() {
 				TargetNode:   "node01",
 				SourceNode:   "node02",
 				TargetPod:    pod.Name,
+				Mode:         v1.MigrationPreCopy,
 			}
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "node01"
 			addMigration(migration)

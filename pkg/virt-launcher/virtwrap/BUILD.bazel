@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "generated_mock_manager.go",
         "manager.go",
+        "postcopy.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap",
     visibility = ["//visibility:public"],
@@ -45,6 +46,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "manager_test.go",
+        "postcopy_test.go",
         "virtwrap_suite_test.go",
     ],
     embed = [":go_default_library"],
