@@ -5,11 +5,13 @@ go_library(
     srcs = [
         "main.go",
         "selinux.go",
+        "tap-device-maker.go",
     ],
     importpath = "kubevirt.io/kubevirt/cmd/virt-chroot",
     visibility = ["//visibility:private"],
     deps = [
         "//vendor/github.com/opencontainers/selinux/go-selinux:go_default_library",
+        "//vendor/github.com/songgao/water:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
     ],

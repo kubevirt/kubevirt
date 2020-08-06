@@ -1,0 +1,31 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "if.go",
+        "if_linux.go",
+        "params_darwin.go",
+        "params_linux.go",
+        "params_others.go",
+        "params_windows.go",
+        "syscalls_darwin.go",
+        "syscalls_darwin_go1.11.go",
+        "syscalls_darwin_legacy.go",
+        "syscalls_linux.go",
+        "syscalls_linux_go1.11.go",
+        "syscalls_linux_legacy.go",
+        "syscalls_other.go",
+        "syscalls_windows.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/songgao/water",
+    importpath = "github.com/songgao/water",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:windows": [
+            "//vendor/golang.org/x/sys/windows/registry:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)
