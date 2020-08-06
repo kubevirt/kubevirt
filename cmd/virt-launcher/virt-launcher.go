@@ -63,12 +63,11 @@ func init() {
 	libvirt.EventRegisterDefaultImpl()
 }
 
-func markReady(readinessFile string) {
-	f, err := os.OpenFile(readinessFile, os.O_RDONLY|os.O_CREATE, 0666)
+func markReady() {
+	err := os.Rename(cmdclient.UninitializedSocketOnGuest(), cmdclient.SocketOnGuest())
 	if err != nil {
 		panic(err)
 	}
-	f.Close()
 	log.Log.Info("Marked as ready")
 }
 
@@ -299,7 +298,6 @@ func main() {
 	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
 	uid := pflag.String("uid", "", "UID of the VirtualMachineInstance")
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
-	readinessFile := pflag.String("readiness-file", "/var/run/kubevirt-infra/healthy", "Pod looks for this file to determine when virt-launcher is initialized")
 	gracePeriodSeconds := pflag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
 	useEmulation := pflag.Bool("use-emulation", false, "Use software emulation")
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
@@ -373,8 +371,7 @@ func main() {
 	// to start/stop virtual machines
 	options := cmdserver.NewServerOptions(*useEmulation)
 	cmdclient.SetLegacyBaseDir(*virtShareDir)
-	socketPath := cmdclient.SocketOnGuest()
-	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
+	cmdServerDone := startCmdServer(cmdclient.UninitializedSocketOnGuest(), domainManager, stopChan, options)
 
 	gracefulShutdownCallback := func() {
 		err := wait.PollImmediate(time.Second, 15*time.Second, func() (bool, error) {
@@ -424,7 +421,7 @@ func main() {
 	// Marking Ready allows the container's readiness check to pass.
 	// This informs virt-controller that virt-launcher is ready to handle
 	// managing virtual machines.
-	markReady(*readinessFile)
+	markReady()
 
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
 	if domain != nil {
