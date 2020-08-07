@@ -217,7 +217,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 		time.Sleep(1 * time.Second)
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
-		controller.addLauncherClient(vmiTestUUID, client, sockFile, true)
+		clientInfo := &launcherClientInfo{
+			client:             client,
+			socketFile:         sockFile,
+			domainPipeStopChan: make(chan struct{}),
+			ready:              true,
+		}
+		controller.addLauncherClient(vmiTestUUID, clientInfo)
 
 	})
 
@@ -270,8 +276,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 			uid := "1234"
 
 			legacyMockSockFile := filepath.Join(shareDir, "sockets", uid+"_sock")
-
-			controller.addLauncherClient(types.UID(uid), client, legacyMockSockFile, true)
+			clientInfo := &launcherClientInfo{
+				client:             client,
+				socketFile:         legacyMockSockFile,
+				domainPipeStopChan: make(chan struct{}),
+				ready:              true,
+			}
+			controller.addLauncherClient(types.UID(uid), clientInfo)
 			err := virtcache.AddGhostRecord(namespace, name, legacyMockSockFile, types.UID(uid))
 			Expect(err).ToNot(HaveOccurred())
 
@@ -401,6 +412,56 @@ var _ = Describe("VirtualMachineInstance", func() {
 			_, err := os.Stat(mockWatchdog.File(oldVMI))
 			Expect(os.IsNotExist(err)).To(BeFalse())
 		}, 3)
+
+		It("should silently retry if the commmand socket is not yet ready", func() {
+			vmi := NewScheduledVMI(vmiTestUUID, "notexisingpoduid", host)
+			// the socket dir must exist, to not go immediately to failed
+			sockFile = cmdclient.SocketFilePathOnHost("notexisingpoduid")
+			Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
+
+			vmiFeeder.Add(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
+				Expect(vmi.Status.Phase).To(Equal(v1.Scheduled))
+			})
+
+			//Did not initialize yet
+			clientInfo := &launcherClientInfo{
+				domainPipeStopChan:  make(chan struct{}),
+				ready:               false,
+				notInitializedSince: time.Now().Add(-1 * time.Minute),
+			}
+			controller.addLauncherClient(vmi.UID, clientInfo)
+
+			controller.Execute()
+			Expect(mockQueue.Len()).To(Equal(0))
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(BeNumerically(">", 1))
+		})
+
+		It("should fail if the commmand socket is not ready after the suppress timeout of three minutes", func() {
+			vmi := NewScheduledVMI(vmiTestUUID, "notexisingpoduid", host)
+			// the socket dir must exist, to not go immediately to failed
+			sockFile = cmdclient.SocketFilePathOnHost("notexisingpoduid")
+			Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
+
+			vmiFeeder.Add(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
+				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
+			})
+
+			//Did not initialize yet
+			clientInfo := &launcherClientInfo{
+				domainPipeStopChan:  make(chan struct{}),
+				ready:               false,
+				notInitializedSince: time.Now().Add(-4 * time.Minute),
+			}
+			controller.addLauncherClient(vmi.UID, clientInfo)
+
+			controller.Execute()
+			Expect(mockQueue.Len()).To(Equal(0))
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
+		})
 
 		It("should cleanup if vmi and domain do not match and watchdog is expired", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -2158,17 +2219,22 @@ func addActivePods(vmi *v1.VirtualMachineInstance, podUID types.UID, hostName st
 }
 
 func NewScheduledVMIWithContainerDisk(vmiUID types.UID, podUID types.UID, hostname string) *v1.VirtualMachineInstance {
-	vmi := v1.NewMinimalVMI("testvmi")
-	vmi.UID = vmiUID
-	vmi.ObjectMeta.ResourceVersion = "1"
-	vmi.Status.Phase = v1.Scheduled
+	vmi := NewScheduledVMI(vmiUID, podUID, hostname)
 
-	vmi = addActivePods(vmi, podUID, hostname)
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: "test",
 		VolumeSource: v1.VolumeSource{
 			ContainerDisk: &v1.ContainerDiskSource{},
 		},
 	})
+	return vmi
+}
+func NewScheduledVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.VirtualMachineInstance {
+	vmi := v1.NewMinimalVMI("testvmi")
+	vmi.UID = vmiUID
+	vmi.ObjectMeta.ResourceVersion = "1"
+	vmi.Status.Phase = v1.Scheduled
+
+	vmi = addActivePods(vmi, podUID, hostname)
 	return vmi
 }
