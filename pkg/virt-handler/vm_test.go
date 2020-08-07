@@ -506,6 +506,35 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(len(controller.phase1NetworkSetupCache)).To(Equal(0))
 		}, 3)
 
+		It("should do final cleanup if vmi is being deleted and not finalized", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.Phase = v1.Scheduled
+			now := metav1.Time{Time: time.Now()}
+			vmi.DeletionTimestamp = &now
+			vmi.Status.MigrationMethod = v1.LiveMigration
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+
+			controller.phase1NetworkSetupCache[vmi.UID] = 1
+			vmiFeeder.Add(vmi)
+
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+
+			controller.Execute()
+			Expect(mockQueue.Len()).To(Equal(0))
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			_, err := os.Stat(mockWatchdog.File(vmi))
+			Expect(os.IsNotExist(err)).To(BeFalse())
+			Expect(len(controller.phase1NetworkSetupCache)).To(Equal(1))
+		}, 3)
+
 		It("should attempt force terminate Domain if grace period expires", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
