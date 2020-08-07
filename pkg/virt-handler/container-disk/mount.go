@@ -10,7 +10,9 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
+	"kubevirt.io/client-go/log"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -20,14 +22,19 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
+type socketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
+
 type mounter struct {
-	podIsolationDetector isolation.PodIsolationDetector
-	mountStateDir        string
-	mountRecords         map[types.UID]*vmiMountTargetRecord
-	mountRecordsLock     sync.Mutex
+	podIsolationDetector   isolation.PodIsolationDetector
+	mountStateDir          string
+	mountRecords           map[types.UID]*vmiMountTargetRecord
+	mountRecordsLock       sync.Mutex
+	suppressWarningTimeout time.Duration
+	pathGetter             socketPathGetter
 }
 
 type Mounter interface {
+	ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error)
 	Mount(vmi *v1.VirtualMachineInstance, verify bool) error
 	Unmount(vmi *v1.VirtualMachineInstance) error
 }
@@ -43,9 +50,11 @@ type vmiMountTargetRecord struct {
 
 func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string) Mounter {
 	return &mounter{
-		mountRecords:         make(map[types.UID]*vmiMountTargetRecord),
-		podIsolationDetector: isoDetector,
-		mountStateDir:        mountStateDir,
+		mountRecords:           make(map[types.UID]*vmiMountTargetRecord),
+		podIsolationDetector:   isoDetector,
+		mountStateDir:          mountStateDir,
+		suppressWarningTimeout: 1 * time.Minute,
+		pathGetter:             containerdisk.GetSocketPathFromHostView,
 	}
 }
 
@@ -178,7 +187,7 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 				return err
 			}
 
-			sock, err := containerdisk.GetSocketPathFromHostView(vmi, i)
+			sock, err := m.pathGetter(vmi, i)
 			if err != nil {
 				return err
 			}
@@ -209,7 +218,7 @@ func (m *mounter) Mount(vmi *v1.VirtualMachineInstance, verify bool) error {
 			if isMounted, err := nodeRes.IsMounted(targetFile); err != nil {
 				return fmt.Errorf("failed to determine if %s is already mounted: %v", targetFile, err)
 			} else if !isMounted {
-				sock, err := containerdisk.GetSocketPathFromHostView(vmi, i)
+				sock, err := m.pathGetter(vmi, i)
 				if err != nil {
 					return err
 				}
@@ -334,4 +343,21 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 		}
 	}
 	return nil
+}
+
+func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error) {
+	for i, volume := range vmi.Spec.Volumes {
+		if volume.ContainerDisk != nil {
+			_, err := m.pathGetter(vmi, i)
+			if err != nil {
+				log.DefaultLogger().Object(vmi).Infof("containerdisk %s not yet ready", volume.Name)
+				if time.Now().After(notInitializedSince.Add(m.suppressWarningTimeout)) {
+					return false, fmt.Errorf("containerdisk %s still not ready after one minute", volume.Name)
+				}
+				return false, nil
+			}
+		}
+	}
+	log.DefaultLogger().Object(vmi).V(4).Info("all containerdisks are ready")
+	return true, nil
 }
