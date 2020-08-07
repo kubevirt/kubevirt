@@ -531,7 +531,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedVM.Finalizers = []string{}
 				updatedVM.ResourceVersion = "1"
 				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(updatedVM).Return(updatedVM, nil)
+				vmInterface.EXPECT().Update(updatedVM).Return(updatedVM, nil)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -603,7 +603,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
 
 				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(vmUpdate).Return(vmUpdate, nil)
+				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -617,7 +617,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
 
 				vmSnapshotSource.Add(vmSnapshot)
-				vmInterface.EXPECT().UpdateStatus(vmUpdate).Return(vmUpdate, nil)
+				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil)
 				addVM(vm)
 				controller.processVMSnapshotWorkItem()
 			})
