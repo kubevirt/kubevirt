@@ -43,7 +43,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
 )
 
-const randomMacGenerationAttempts = 10
+const (
+	randomMacGenerationAttempts = 10
+	qemuUID                     = "107"
+	qemuGID                     = "107"
+)
 
 type VIF struct {
 	Name         string
@@ -109,6 +113,14 @@ type NetworkHandler interface {
 }
 
 type NetworkUtilsHandler struct{}
+
+type tapDeviceMaker struct {
+	tapName                  string
+	isMultiqueue             bool
+	virtLauncherSELinuxLabel string
+	virtHandlerSELinuxLabel  string
+	tapMakingCmd             *exec.Cmd
+}
 
 var Handler NetworkHandler
 
@@ -352,43 +364,60 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 }
 
 func (h *NetworkUtilsHandler) CreateTapDevice(tapName string, isMultiqueue bool, launcherPID int) error {
-	currentHandlerSELinuxLabel, err := getProcessCurrentSELinuxLabel(os.Getpid())
+	tapDeviceMaker, err := buildTapDeviceMaker(tapName, isMultiqueue, launcherPID)
 	if err != nil {
-		return fmt.Errorf("error reading virt-handler selinux label: %v", err)
+		return fmt.Errorf("error creating tap device named %s; %v", tapName, err)
 	}
 
-	launcherSELinuxLabel, err := getProcessCurrentSELinuxLabel(launcherPID)
+	if err := tapDeviceMaker.makeTapDevice(); err != nil {
+		return fmt.Errorf("error creating tap device named %s; %v", tapName, err)
+	}
+
+	log.Log.Infof("Created tap device: %s in PID: %d using selinux label: %s", tapName, launcherPID, tapDeviceMaker.virtLauncherSELinuxLabel)
+	return nil
+}
+
+func buildTapDeviceMaker(tapName string, isMultiqueue bool, virtLauncherPID int) (*tapDeviceMaker, error) {
+	virtHandlerSELinuxLabel := "system_u:system_r:spc_t:s0"
+	virtLauncherSELinuxLabel, err := getProcessCurrentSELinuxLabel(virtLauncherPID)
 	if err != nil {
-		return fmt.Errorf("error reading virt-launcher PID %s selinux label; %v", tapName, err)
+		return nil, fmt.Errorf("error reading virt-launcher %d selinux label", virtLauncherPID)
 	}
 
 	createTapDeviceArgs := []string{
 		"create-tap",
 		"--tap-name", tapName,
-		"--uid", "107",
-		"--gid", "107",
+		"--uid", qemuUID,
+		"--gid", qemuGID,
 	}
 	if isMultiqueue {
 		createTapDeviceArgs = append(createTapDeviceArgs, "--multiqueue")
 	}
 	cmd := exec.Command("virt-chroot", createTapDeviceArgs...)
+	return &tapDeviceMaker{
+		virtLauncherSELinuxLabel: virtLauncherSELinuxLabel,
+		virtHandlerSELinuxLabel:  virtHandlerSELinuxLabel,
+		tapMakingCmd:             cmd,
+		tapName:                  tapName,
+		isMultiqueue:             isMultiqueue,
+	}, nil
+}
 
+func (tmc *tapDeviceMaker) makeTapDevice() error {
 	runtime.LockOSThread()
 	defer func() {
-		_ = selinux.SetExecLabel(currentHandlerSELinuxLabel)
+		_ = selinux.SetExecLabel(tmc.virtHandlerSELinuxLabel)
 		runtime.UnlockOSThread()
 	}()
 
-	if err = selinux.SetExecLabel(launcherSELinuxLabel); err != nil {
-		return fmt.Errorf("failed to switch selinux context to %s. Reason: %v", launcherSELinuxLabel, err)
+	if err := selinux.SetExecLabel(tmc.virtLauncherSELinuxLabel); err != nil {
+		return fmt.Errorf("failed to switch selinux context to %s. Reason: %v", tmc.virtLauncherSELinuxLabel, err)
 	}
 
 	preventFDLeakOntoChild()
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to create tap device %s: %v", tapName, err)
+	if err := tmc.tapMakingCmd.Run(); err != nil {
+		return fmt.Errorf("failed to create tap device %s: %v", tmc.tapName, err)
 	}
-
-	log.Log.Infof("Created tap device: %s in PID: %s using selinux label: %s", tapName, launcherPID, launcherSELinuxLabel)
 	return nil
 }
 
