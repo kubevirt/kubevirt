@@ -12,28 +12,28 @@ RUN dnf install -y dnf-plugins-core && \
     dnf copr enable -y @virtmaint-sig/virt-preview && \
     dnf copr enable -y vbatts/bazel && \
     dnf -y install \
-    libvirt-devel-${LIBVIRT_VERSION} \
-    bazel-${BAZEL_VERSION} \
-    cpio \
-    patch \
-    make \
-    git \
-    mercurial \
-    sudo \
-    gcc \
-    gcc-c++ \
-    glibc-static \
-    libstdc++-static \
-    glibc-devel \
-    findutils \
-    gradle \
-    rsync-daemon \
-    rsync \
-    qemu-img \
-    protobuf-compiler \
-    python3-devel \
-    redhat-rpm-config \
-    jq && \
+        libvirt-devel-${LIBVIRT_VERSION} \
+        bazel-${BAZEL_VERSION} \
+        cpio \
+        patch \
+        make \
+        git \
+        mercurial \
+        sudo \
+        gcc \
+        gcc-c++ \
+        glibc-static \
+        libstdc++-static \
+        glibc-devel \
+        findutils \
+        gradle \
+        rsync-daemon \
+        rsync \
+        qemu-img \
+        protobuf-compiler \
+        python3-devel \
+        redhat-rpm-config \
+        jq && \
     dnf -y clean all
 
 ENV GIMME_GO_VERSION=1.13.14
