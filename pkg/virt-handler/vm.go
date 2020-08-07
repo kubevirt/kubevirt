@@ -1398,17 +1398,12 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 }
 
 // used by unit tests to add mock clients
-func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, client cmdclient.LauncherClient, socketFile string, ready bool) error {
+func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, info *launcherClientInfo) error {
 	// maps require locks for concurrent access
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 
-	d.launcherClients[vmUID] = &launcherClientInfo{
-		client:             client,
-		socketFile:         socketFile,
-		domainPipeStopChan: make(chan struct{}),
-		ready:              ready,
-	}
+	d.launcherClients[vmUID] = info
 
 	return nil
 }
