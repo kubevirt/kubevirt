@@ -2795,6 +2795,47 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	}, timeout, opts...)
 }
 
+// ExpectBatchWithValidatedSend adds the expect.BSnd command to the exect.BExp expression.
+// It is done to make sure the match was found in the result of the expect.BSnd
+// command and not in a leftover that wasn't removed from the buffer.
+// NOTE: the method doesn't support multiline commands in the sent value.
+func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batcher, timeout time.Duration) ([]expect.BatchRes, error) {
+	sendFlag := false
+	expectFlag := false
+	previousSend := ""
+	for i, batcher := range batch {
+		switch batcher.Cmd() {
+		case expect.BatchExpect:
+			if expectFlag == true {
+				return nil, fmt.Errorf("Two sequential expect.BExp are not allowed")
+			}
+			expectFlag = true
+			sendFlag = false
+			bExp, _ := batch[i].(*expect.BExp)
+			previousSend := regexp.QuoteMeta(previousSend)
+
+			// Remove the \n since it is translated by the console to \r\n.
+			previousSend = strings.TrimSuffix(previousSend, "\n")
+			bExp.R = fmt.Sprintf("%s%s%s", previousSend, "((?s).*)", bExp.R)
+			previousSend = ""
+		case expect.BatchSend:
+			if sendFlag == true {
+				return nil, fmt.Errorf("Two sequential expect.BSend are not allowed")
+			}
+			sendFlag = true
+			expectFlag = false
+			previousSend = batcher.Arg()
+		case expect.BatchSwitchCase:
+			return nil, fmt.Errorf("ExpectBatchWithValidatedSend doesn't support BatchSwitchCase")
+		default:
+			return nil, fmt.Errorf("Unkown command: ExpectBatchWithValidatedSend supports only BatchExpect and BatchSend")
+		}
+	}
+
+	res, err := expecter.ExpectBatch(batch, timeout)
+	return res, err
+}
+
 func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -2804,9 +2845,30 @@ func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batc
 	}
 	defer expecter.Close()
 
-	resp, err := expecter.ExpectBatch(expected, time.Second*time.Duration(wait))
+	resp, err := ExpectBatchWithValidatedSend(expecter, expected, time.Second*time.Duration(wait))
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("%v", resp)
+	}
+	return err
+}
+
+func configureConsole(expecter expect.Expecter, prompt string, shouldSudo bool) error {
+	sudoString := ""
+	if shouldSudo {
+		sudoString = "sudo "
+	}
+	batch := append([]expect.Batcher{
+		&expect.BSnd{S: "stty columns 500\n"},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: RetValue("0", prompt)},
+		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: RetValue("0", prompt)}})
+	resp, err := expecter.ExpectBatch(batch, 30*time.Second)
+	if err != nil {
+		log.DefaultLogger().Infof("%v", resp)
 	}
 	return err
 }
@@ -2817,8 +2879,8 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "ip a | grep -q eth0; echo $?\n"},
-			&expect.BExp{R: retcode("0")}})
-		_, err := expecter.ExpectBatch(hasNetEth0Batch, 30*time.Second)
+			&expect.BExp{R: RetValue("0", prompt)}})
+		_, err := ExpectBatchWithValidatedSend(expecter, hasNetEth0Batch, 30*time.Second)
 		return err == nil
 	}
 
@@ -2827,8 +2889,8 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "ip -6 address show dev eth0 scope global | grep -q inet6; echo $?\n"},
-			&expect.BExp{R: retcode("0")}})
-		_, err := expecter.ExpectBatch(hasGlobalIPv6Batch, 30*time.Second)
+			&expect.BExp{R: RetValue("0", prompt)}})
+		_, err := ExpectBatchWithValidatedSend(expecter, hasGlobalIPv6Batch, 30*time.Second)
 		return err == nil
 	}
 
@@ -2850,8 +2912,8 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "sudo ip -6 addr add fd10:0:2::2/120 dev eth0; echo $?\n"},
-		&expect.BExp{R: retcode("0")}})
-	resp, err := expecter.ExpectBatch(addIPv6Address, 30*time.Second)
+		&expect.BExp{R: RetValue("0", prompt)}})
+	resp, err := ExpectBatchWithValidatedSend(expecter, addIPv6Address, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("addIPv6Address failed: %v", resp)
 		expecter.Close()
@@ -2863,8 +2925,8 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2; echo $?\n"},
-		&expect.BExp{R: retcode("0")}})
-	resp, err = expecter.ExpectBatch(addIPv6DefaultRoute, 30*time.Second)
+		&expect.BExp{R: RetValue("0", prompt)}})
+	resp, err = ExpectBatchWithValidatedSend(expecter, addIPv6DefaultRoute, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("addIPv6DefaultRoute failed: %v", resp)
 		expecter.Close()
@@ -2912,6 +2974,12 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		return nil, err
 	}
 
+	err = configureConsole(expecter, "\\$ ", true)
+	if err != nil {
+		expecter.Close()
+		return nil, err
+	}
+
 	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "\\$ ")
 }
 
@@ -2932,6 +3000,12 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
+		expecter.Close()
+		return nil, err
+	}
+
+	err = configureConsole(expecter, "localhost:~\\#", false)
+	if err != nil {
 		expecter.Close()
 		return nil, err
 	}
@@ -2982,6 +3056,12 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
 		expecter.Close()
 		return expecter, err
+	}
+
+	err = configureConsole(expecter, "\\#", false)
+	if err != nil {
+		expecter.Close()
+		return nil, err
 	}
 
 	return expecter, configureIPv6OnVMI(vmi, expecter, virtClient, "\\#")
@@ -4174,13 +4254,13 @@ func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
 	Expect(err).ToNot(HaveOccurred())
 	defer expecter.Close()
 
-	resp, err := expecter.ExpectBatch([]expect.Batcher{
+	resp, err := ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", port)},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: "0"},
+		&expect.BExp{R: RetValue("0", "\\$ ")},
 	}, 60*time.Second)
 	log.DefaultLogger().Infof("%v", resp)
 	Expect(err).ToNot(HaveOccurred())
@@ -4205,13 +4285,13 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) 
 	}
 	defer expecter.Close()
 
-	resp, err := expecter.ExpectBatch([]expect.Batcher{
+	resp, err := ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: httpServerMaker},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: "0"},
+		&expect.BExp{R: RetValue("0", prompt)},
 	}, 60*time.Second)
 	log.DefaultLogger().Infof("%v", resp)
 	Expect(err).ToNot(HaveOccurred())
@@ -4328,13 +4408,13 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 	serverCommand := fmt.Sprintf("screen -d -m sudo nc -klp %d -e echo -e 'Hello World!'\n", testPort)
 	if protocol == "udp" {
 		// nc has to be in a while loop in case of UDP, since it exists after one message
-		serverCommand = fmt.Sprintf("screen -d -m sh -c \"while true\n do nc -uklp %d -e echo -e 'Hello UDP World!'\ndone\n\"\n", testPort)
+		serverCommand = fmt.Sprintf("screen -d -m sh -c \"while true; do nc -uklp %d -e echo -e 'Hello UDP World!';done\"\n", testPort)
 	}
-	_, err = expecter.ExpectBatch([]expect.Batcher{
+	_, err = ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 		&expect.BSnd{S: serverCommand},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: "0"},
+		&expect.BExp{R: RetValue("0", "\\$ ")},
 	}, 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 }
@@ -4952,6 +5032,6 @@ func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	return false
 }
 
-func retcode(retcode string) string {
-	return "\n" + retcode
+func RetValue(retcode, prompt string) string {
+	return "\n" + retcode + "\r\n" + ".*" + prompt
 }

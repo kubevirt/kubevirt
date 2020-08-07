@@ -100,7 +100,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					&expect.BSnd{S: cmdCheck},
 					&expect.BExp{R: prompt},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: "0"},
+					&expect.BExp{R: tests.RetValue("0", prompt)},
 				}, 15)
 				Expect(err).ToNot(HaveOccurred())
 			}
