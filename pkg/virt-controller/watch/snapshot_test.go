@@ -527,11 +527,27 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("should unlock source VirtualMachine", func() {
 				vmSnapshot := createVMSnapshotSuccess()
 				vm := createLockedVM()
-				updatedVM := createVM()
+				updatedVM := vm.DeepCopy()
 				updatedVM.Finalizers = []string{}
 				updatedVM.ResourceVersion = "1"
 				vmSource.Add(vm)
 				vmInterface.EXPECT().Update(updatedVM).Return(updatedVM, nil)
+				statusUpdate := updatedVM.DeepCopy()
+				statusUpdate.Status.SnapshotInProgress = nil
+				vmInterface.EXPECT().UpdateStatus(statusUpdate).Return(statusUpdate, nil)
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+			})
+
+			It("should finish unlock source VirtualMachine", func() {
+				vmSnapshot := createVMSnapshotSuccess()
+				vm := createLockedVM()
+				vm.Finalizers = []string{}
+				statusUpdate := vm.DeepCopy()
+				statusUpdate.ResourceVersion = "1"
+				statusUpdate.Status.SnapshotInProgress = nil
+				vmSource.Add(vm)
+				vmInterface.EXPECT().UpdateStatus(statusUpdate).Return(statusUpdate, nil)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 			})
@@ -597,10 +613,26 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("should lock source", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
-				vmUpdate := vm.DeepCopy()
+				vmStatusUpdate := vm.DeepCopy()
+				vmStatusUpdate.ResourceVersion = "1"
+				vmStatusUpdate.Status.SnapshotInProgress = &vmSnapshotName
+				vmUpdate := vmStatusUpdate.DeepCopy()
 				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
+
+				vmSource.Add(vm)
+				vmInterface.EXPECT().UpdateStatus(vmStatusUpdate).Return(vmStatusUpdate, nil)
+				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil)
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+			})
+
+			It("should finish lock source", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createVM()
+				vm.Status.SnapshotInProgress = &vmSnapshotName
+				vmUpdate := vm.DeepCopy()
 				vmUpdate.ResourceVersion = "1"
-				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
+				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
 
 				vmSource.Add(vm)
 				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil)
@@ -611,12 +643,14 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("should lock source when VM updated", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
-				vmUpdate := vm.DeepCopy()
+				vmStatusUpdate := vm.DeepCopy()
+				vmStatusUpdate.ResourceVersion = "1"
+				vmStatusUpdate.Status.SnapshotInProgress = &vmSnapshotName
+				vmUpdate := vmStatusUpdate.DeepCopy()
 				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
-				vmUpdate.ResourceVersion = "1"
-				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
 
 				vmSnapshotSource.Add(vmSnapshot)
+				vmInterface.EXPECT().UpdateStatus(vmStatusUpdate).Return(vmStatusUpdate, nil)
 				vmInterface.EXPECT().Update(vmUpdate).Return(vmUpdate, nil)
 				addVM(vm)
 				controller.processVMSnapshotWorkItem()
