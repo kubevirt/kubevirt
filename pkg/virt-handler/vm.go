@@ -1514,10 +1514,11 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 	}
 
 	d.launcherClients[vmi.UID] = &launcherClientInfo{
-		client:             client,
-		socketFile:         socketFile,
-		domainPipeStopChan: domainPipeStopChan,
-		ready:              true,
+		client:              client,
+		socketFile:          socketFile,
+		domainPipeStopChan:  domainPipeStopChan,
+		notInitializedSince: time.Now(),
+		ready:               true,
 	}
 
 	return client, nil

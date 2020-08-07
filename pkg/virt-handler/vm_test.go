@@ -28,6 +28,8 @@ import (
 	"path/filepath"
 	"time"
 
+	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -85,6 +87,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var mockGracefulShutdown *MockGracefulShutdown
 	var mockIsolationDetector *isolation.MockPodIsolationDetector
 	var mockIsolationResult *isolation.MockIsolationResult
+	var mockContainerDiskMounter *container_disk.MockMounter
 
 	var vmiFeeder *testutils.VirtualMachineFeeder
 	var domainFeeder *testutils.DomainFeeder
@@ -172,6 +175,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
 		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any()).Return(nil).AnyTimes()
 
+		mockContainerDiskMounter = container_disk.NewMockMounter(ctrl)
 		controller = NewController(recorder,
 			virtClient,
 			host,
@@ -837,6 +841,60 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiInterface.EXPECT().Update(updatedVMI)
 
 			controller.Execute()
+		})
+
+		Context("reacting to a VMI with a containerDisk", func() {
+			BeforeEach(func() {
+				controller.containerDiskMounter = mockContainerDiskMounter
+			})
+			It("should retry silently if a containerDisk is not yet ready", func() {
+				vmi := NewScheduledVMIWithContainerDisk(vmiTestUUID, podTestUUID, host)
+
+				mockWatchdog.CreateFile(vmi)
+				vmiFeeder.Add(vmi)
+				mockContainerDiskMounter.EXPECT().ContainerDisksReady(vmi, gomock.Any()).Return(false, nil)
+				vmiInterface.EXPECT().Update(gomock.Any()).AnyTimes()
+
+				controller.Execute()
+				Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+				Expect(mockQueue.Len()).To(Equal(0))
+				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			})
+
+			It("should retry noisy if a containerDisk is not yet ready and the suppress timeout is over", func() {
+				vmi := NewScheduledVMIWithContainerDisk(vmiTestUUID, podTestUUID, host)
+
+				mockWatchdog.CreateFile(vmi)
+				vmiFeeder.Add(vmi)
+				mockContainerDiskMounter.EXPECT().ContainerDisksReady(vmi, gomock.Any()).DoAndReturn(func(vmi *v1.VirtualMachineInstance, notReadySince time.Time) (bool, error) {
+					Expect(notReadySince.Before(time.Now())).To(BeTrue())
+					return false, fmt.Errorf("out of time")
+				})
+				vmiInterface.EXPECT().Update(gomock.Any()).AnyTimes()
+
+				controller.Execute()
+				Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
+				Expect(mockQueue.Len()).To(Equal(0))
+				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+			})
+
+			It("should continue to mount containerDisks if the containerDisks are ready", func() {
+				vmi := NewScheduledVMIWithContainerDisk(vmiTestUUID, podTestUUID, host)
+
+				mockWatchdog.CreateFile(vmi)
+				vmiFeeder.Add(vmi)
+				mockContainerDiskMounter.EXPECT().ContainerDisksReady(vmi, gomock.Any()).DoAndReturn(func(vmi *v1.VirtualMachineInstance, notReadySince time.Time) (bool, error) {
+					Expect(notReadySince.Before(time.Now())).To(BeTrue())
+					return true, nil
+				})
+				mockContainerDiskMounter.EXPECT().Mount(gomock.Any(), gomock.Any()).Return(fmt.Errorf("aborting since we only want to reach this point"))
+				vmiInterface.EXPECT().Update(gomock.Any()).AnyTimes()
+
+				controller.Execute()
+				Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
+				Expect(mockQueue.Len()).To(Equal(0))
+				Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+			})
 		})
 
 		table.DescribeTable("should leave the VirtualMachineInstance alone if it is in the final phase", func(phase v1.VirtualMachineInstancePhase) {
@@ -1937,5 +1995,21 @@ func addActivePods(vmi *v1.VirtualMachineInstance, podUID types.UID, hostName st
 			podUID: hostName,
 		}
 	}
+	return vmi
+}
+
+func NewScheduledVMIWithContainerDisk(vmiUID types.UID, podUID types.UID, hostname string) *v1.VirtualMachineInstance {
+	vmi := v1.NewMinimalVMI("testvmi")
+	vmi.UID = vmiUID
+	vmi.ObjectMeta.ResourceVersion = "1"
+	vmi.Status.Phase = v1.Scheduled
+
+	vmi = addActivePods(vmi, podUID, hostname)
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: "test",
+		VolumeSource: v1.VolumeSource{
+			ContainerDisk: &v1.ContainerDiskSource{},
+		},
+	})
 	return vmi
 }

@@ -22,6 +22,8 @@ import (
 	v1 "kubevirt.io/client-go/api/v1"
 )
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
 type socketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
 
 type mounter struct {
