@@ -1802,6 +1802,12 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 	return nil
 }
 
+func (d *VirtualMachineController) getLauncherClinetInfo(vmi *v1.VirtualMachineInstance) *launcherClientInfo {
+	d.launcherClientLock.Lock()
+	defer d.launcherClientLock.Unlock()
+	return d.launcherClients[vmi.UID]
+}
+
 func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
 	vmi := origVMI.DeepCopy()
 
@@ -1834,6 +1840,16 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 
 	if d.isPreMigrationTarget(vmi) {
 		if !isMigrating(vmi) {
+
+			// give containerDisks some time to become ready before throwing errors on retries
+			info := d.getLauncherClinetInfo(vmi)
+			if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
+				if err != nil {
+					return err
+				}
+				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
+				return nil
+			}
 
 			// Mount container disks
 			if err := d.containerDiskMounter.Mount(vmi, false); err != nil {
@@ -1883,6 +1899,17 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	} else {
 
 		if !vmi.IsRunning() && !vmi.IsFinal() {
+
+			// give containerDisks some time to become ready before throwing errors on retries
+			info := d.getLauncherClinetInfo(vmi)
+			if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
+				if err != nil {
+					return err
+				}
+				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
+				return nil
+			}
+
 			if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
 				return err
 			}
