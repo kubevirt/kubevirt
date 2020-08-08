@@ -2858,7 +2858,7 @@ func configureConsole(expecter expect.Expecter, prompt string, shouldSudo bool) 
 		sudoString = "sudo "
 	}
 	batch := append([]expect.Batcher{
-		&expect.BSnd{S: "stty columns 500\n"},
+		&expect.BSnd{S: "stty cols 500 rows 500\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: RetValue("0", prompt)},
