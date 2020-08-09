@@ -225,7 +225,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BSnd{S: addrShow},
 				&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
 				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0", "\\$ ")},
+				&expect.BExp{R: tests.RetValue("0")},
 			}, 180*time.Second)
 			log.Log.Infof("%v", resp)
 			Expect(err).ToNot(HaveOccurred())
@@ -244,7 +244,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BSnd{S: cmdCheck},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0", "\\$ ")},
+				&expect.BExp{R: tests.RetValue("0")},
 			}, 180)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -255,7 +255,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BSnd{S: "curl --silent http://kubevirt.io > /dev/null\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0", "\\$ ")},
+				&expect.BExp{R: tests.RetValue("0")},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		},
@@ -651,13 +651,13 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BSnd{S: "dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
 				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "grep -q 'new_tftp_server_name=tftp.kubevirt.io' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0", "\\# ")},
+				&expect.BExp{R: tests.RetValue("0")},
 				&expect.BSnd{S: "grep -q 'new_bootfile_name=config' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0", "\\# ")},
+				&expect.BExp{R: tests.RetValue("0")},
 				&expect.BSnd{S: "grep -q 'new_ntp_servers=127.0.0.1 127.0.0.2' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0", "\\# ")},
+				&expect.BExp{R: tests.RetValue("0")},
 				&expect.BSnd{S: "grep -q 'new_unknown_240=private.options.kubevirt.io' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0", "\\# ")},
+				&expect.BExp{R: tests.RetValue("0")},
 			}, 15)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -901,11 +901,11 @@ func createExpectTraceroute6(address string) []expect.Batcher {
 		&expect.BSnd{S: "traceroute -6 " + address + " -w1 > tr\n"},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("0", "\\$ ")},
+		&expect.BExp{R: tests.RetValue("0")},
 		&expect.BSnd{S: "cat tr | grep -q \"*\\|!\"\n"},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("1", "\\$ ")},
+		&expect.BExp{R: tests.RetValue("1")},
 	}
 }
 
@@ -916,7 +916,7 @@ func createExpectStartTcpServer(port string) []expect.Batcher {
 		&expect.BSnd{S: "screen -d -m sudo nc -klp " + port + " -e echo -e 'Hello World!'\n"},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("0", "\\$ ")},
+		&expect.BExp{R: tests.RetValue("0")},
 	}
 }
 
@@ -931,7 +931,7 @@ func createExpectConnectToServer(serverIP, tcpPort string, expectSuccess bool) [
 		&expect.BSnd{S: fmt.Sprintf("echo test | nc %s %s -i 1 -w 1 1> /dev/null\n", serverIP, tcpPort)},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue(expectResult, "\\$ ")},
+		&expect.BExp{R: tests.RetValue(expectResult)},
 	}
 }
 

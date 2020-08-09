@@ -72,7 +72,7 @@ var _ = Describe("Health Monitoring", func() {
 				&expect.BSnd{S: "watchdog -t 2000ms -T 4000ms /dev/watchdog && sleep 5 && killall -9 watchdog\n"},
 				&expect.BExp{R: "\\#"},
 				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0", "\\#")},
+				&expect.BExp{R: tests.RetValue("0")},
 			}, 250*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 

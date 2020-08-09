@@ -243,6 +243,11 @@ type ObjectEventWatcher struct {
 	dontFailOnMissingEvent bool
 }
 
+const (
+	PromptExpression = `(\$ |\# )`
+	CRLF             = "\r\n"
+)
+
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
 	return &ObjectEventWatcher{object: object, startType: invalidWatch}
 }
@@ -2864,11 +2869,11 @@ func configureConsole(expecter expect.Expecter, prompt string, shouldSudo bool) 
 		&expect.BSnd{S: "stty cols 500 rows 500\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0", prompt)},
+		&expect.BExp{R: RetValue("0")},
 		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0", prompt)}})
+		&expect.BExp{R: RetValue("0")}})
 	resp, err := expecter.ExpectBatch(batch, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Infof("%v", resp)
@@ -2882,7 +2887,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "ip a | grep -q eth0; echo $?\n"},
-			&expect.BExp{R: RetValue("0", prompt)}})
+			&expect.BExp{R: RetValue("0")}})
 		_, err := ExpectBatchWithValidatedSend(expecter, hasNetEth0Batch, 30*time.Second)
 		return err == nil
 	}
@@ -2892,7 +2897,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
 			&expect.BSnd{S: "ip -6 address show dev eth0 scope global | grep -q inet6; echo $?\n"},
-			&expect.BExp{R: RetValue("0", prompt)}})
+			&expect.BExp{R: RetValue("0")}})
 		_, err := ExpectBatchWithValidatedSend(expecter, hasGlobalIPv6Batch, 30*time.Second)
 		return err == nil
 	}
@@ -2915,7 +2920,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "sudo ip -6 addr add fd10:0:2::2/120 dev eth0; echo $?\n"},
-		&expect.BExp{R: RetValue("0", prompt)}})
+		&expect.BExp{R: RetValue("0")}})
 	resp, err := ExpectBatchWithValidatedSend(expecter, addIPv6Address, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("addIPv6Address failed: %v", resp)
@@ -2928,7 +2933,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "sudo ip -6 route add default via fd10:0:2::1 src fd10:0:2::2; echo $?\n"},
-		&expect.BExp{R: RetValue("0", prompt)}})
+		&expect.BExp{R: RetValue("0")}})
 	resp, err = ExpectBatchWithValidatedSend(expecter, addIPv6DefaultRoute, 30*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("addIPv6DefaultRoute failed: %v", resp)
@@ -4263,7 +4268,7 @@ func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
 		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", port)},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0", "\\$ ")},
+		&expect.BExp{R: RetValue("0")},
 	}, 60*time.Second)
 	log.DefaultLogger().Infof("%v", resp)
 	Expect(err).ToNot(HaveOccurred())
@@ -4294,7 +4299,7 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) 
 		&expect.BSnd{S: httpServerMaker},
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0", prompt)},
+		&expect.BExp{R: RetValue("0")},
 	}, 60*time.Second)
 	log.DefaultLogger().Infof("%v", resp)
 	Expect(err).ToNot(HaveOccurred())
@@ -4417,7 +4422,7 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 		&expect.BSnd{S: serverCommand},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0", "\\$ ")},
+		&expect.BExp{R: RetValue("0")},
 	}, 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 }
@@ -5035,6 +5040,6 @@ func IsLauncherCapabilityValid(capability k8sv1.Capability) bool {
 	return false
 }
 
-func RetValue(retcode, prompt string) string {
-	return "\n" + retcode + "\r\n" + ".*" + prompt
+func RetValue(retcode string) string {
+	return "\n" + retcode + CRLF + ".*" + PromptExpression
 }

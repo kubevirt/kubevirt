@@ -563,11 +563,11 @@ var _ = Describe("Configurations", func() {
 
 				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass'\n"},
-					&expect.BExp{R: tests.RetValue("pass", "\\$ ")},
+					&expect.BExp{R: tests.RetValue("pass")},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0", "\\$ ")},
+					&expect.BExp{R: tests.RetValue("0")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -621,7 +621,7 @@ var _ = Describe("Configurations", func() {
 				// Check on the VM, if the Free memory is roughly what we expected
 				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 95 ] && echo 'pass'\n"},
-					&expect.BExp{R: tests.RetValue("pass", "\\$ ")},
+					&expect.BExp{R: tests.RetValue("pass")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -2024,11 +2024,11 @@ var _ = Describe("Configurations", func() {
 
 				res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass'\n"},
-					&expect.BExp{R: tests.RetValue("pass", "\\$ ")},
+					&expect.BExp{R: tests.RetValue("pass")},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
 					&expect.BExp{R: "\\$ "},
 					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: tests.RetValue("0", "\\$ ")},
+					&expect.BExp{R: tests.RetValue("0")},
 				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -2373,7 +2373,7 @@ var _ = Describe("Configurations", func() {
 			// Check on the VM, if expected values are there with dmidecode
 			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s chassis-asset-tag | tr -s ' ') = Test-123 ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass", "\\# ")},
+				&expect.BExp{R: tests.RetValue("pass")},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -2417,11 +2417,11 @@ var _ = Describe("Configurations", func() {
 			// Check on the VM, if expected values are there with dmidecode
 			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = KubeVirt ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass", "\\# ")},
+				&expect.BExp{R: tests.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = None ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass", "\\# ")},
+				&expect.BExp{R: tests.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = KubeVirt ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass", "\\# ")},
+				&expect.BExp{R: tests.RetValue("pass")},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 			Expect(err).ToNot(HaveOccurred())
@@ -2457,11 +2457,11 @@ var _ = Describe("Configurations", func() {
 			// Check on the VM, if expected values are there with dmidecode
 			res, err := tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-family | tr -s ' ') = test ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass", "\\# ")},
+				&expect.BExp{R: tests.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-product-name | tr -s ' ') = test ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass", "\\# ")},
+				&expect.BExp{R: tests.RetValue("pass")},
 				&expect.BSnd{S: "[ $(sudo dmidecode -s system-manufacturer | tr -s ' ') = None ] && echo 'pass'\n"},
-				&expect.BExp{R: tests.RetValue("pass", "\\# ")},
+				&expect.BExp{R: tests.RetValue("pass")},
 			}, 1*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 			Expect(err).ToNot(HaveOccurred())
