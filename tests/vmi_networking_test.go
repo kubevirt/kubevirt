@@ -904,6 +904,8 @@ func createExpectTraceroute6(address string) []expect.Batcher {
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "traceroute -6 " + address + " -w1 > tr\n"},
 		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: tests.RetValue("0", "\\$ ")},
 		&expect.BSnd{S: "cat tr | grep -q \"*\\|!\"\n"},
 		&expect.BExp{R: "\\$ "},
 		&expect.BSnd{S: "echo $?\n"},
