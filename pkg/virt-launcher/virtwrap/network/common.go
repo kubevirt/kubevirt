@@ -35,6 +35,8 @@ import (
 	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
 
+	netutils "k8s.io/utils/net"
+
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -93,6 +95,7 @@ type NetworkHandler interface {
 	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error
 	HasNatIptables(proto iptables.Protocol) bool
 	IsIpv6Enabled(interfaceName string) (bool, error)
+	IsIpv4Primary() (bool, error)
 	ConfigureIpv6Forwarding() error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
 	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
@@ -173,6 +176,15 @@ func (h *NetworkUtilsHandler) IsIpv6Enabled(interfaceName string) (bool, error) 
 		}
 	}
 	return false, nil
+}
+
+func (h *NetworkUtilsHandler) IsIpv4Primary() (bool, error) {
+	podIP, exist := os.LookupEnv("MY_POD_IP")
+	if !exist {
+		return false, fmt.Errorf("MY_POD_IP doesnt exists")
+	}
+
+	return !netutils.IsIPv6String(podIP), nil
 }
 
 func (h *NetworkUtilsHandler) IptablesNewChain(proto iptables.Protocol, table, chain string) error {
