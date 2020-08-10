@@ -24,15 +24,13 @@ import (
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
-type socketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
-
 type mounter struct {
 	podIsolationDetector   isolation.PodIsolationDetector
 	mountStateDir          string
 	mountRecords           map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock       sync.Mutex
 	suppressWarningTimeout time.Duration
-	pathGetter             socketPathGetter
+	pathGetter             containerdisk.SocketPathGetter
 }
 
 type Mounter interface {
@@ -56,7 +54,7 @@ func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string
 		podIsolationDetector:   isoDetector,
 		mountStateDir:          mountStateDir,
 		suppressWarningTimeout: 1 * time.Minute,
-		pathGetter:             containerdisk.GetSocketPathFromHostView,
+		pathGetter:             containerdisk.NewSocketPathGetter(""),
 	}
 }
 
