@@ -38,6 +38,10 @@ aliases:
       - jerry7z
       - ILpinto
       - rnetser
+      - kbidarkar
+  test-approvers:
+      - ILpinto
+      - kbidarkar
   ci-approvers:
       - dhiller
       - danielBelenky
