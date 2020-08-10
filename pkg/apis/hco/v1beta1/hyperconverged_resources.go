@@ -1,10 +1,14 @@
 package v1beta1
 
 import (
+	"fmt"
+	"os"
+
 	networkaddonsv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
+	consolev1 "github.com/openshift/api/console/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
@@ -99,5 +103,37 @@ func (r *HyperConverged) NewKubeVirtPriorityClass() *schedulingv1.PriorityClass 
 		Value:         1000000000,
 		GlobalDefault: false,
 		Description:   "This priority class should be used for KubeVirt core components only.",
+	}
+}
+
+func (r *HyperConverged) NewConsoleCLIDownload() *consolev1.ConsoleCLIDownload {
+	kv := os.Getenv(hcoutil.KubevirtVersionEnvV)
+	url := fmt.Sprintf("https://github.com/kubevirt/kubevirt/releases/%s", kv)
+	text := fmt.Sprintf("KubeVirt %s release downloads", kv)
+
+	if val, ok := os.LookupEnv("VIRTCTL_DOWNLOAD_URL"); ok && val != "" {
+		url = val
+	}
+
+	if val, ok := os.LookupEnv("VIRTCTL_DOWNLOAD_TEXT"); ok && val != "" {
+		text = val
+	}
+
+	return &consolev1.ConsoleCLIDownload{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "virtctl-clidownloads-" + r.Name,
+			Labels: r.getLabels(),
+		},
+
+		Spec: consolev1.ConsoleCLIDownloadSpec{
+			Description: "The virtctl client is a supplemental command-line utility for managing virtualization resources from the command line.",
+			DisplayName: "virtctl - KubeVirt command line interface",
+			Links: []consolev1.CLIDownloadLink{
+				{
+					Href: url,
+					Text: text,
+				},
+			},
+		},
 	}
 }

@@ -471,7 +471,7 @@ var _ = Describe("HyperconvergedController", func() {
 				).To(BeNil())
 
 				Expect(foundResource.Status.RelatedObjects).ToNot(BeNil())
-				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(14))
+				Expect(len(foundResource.Status.RelatedObjects)).Should(Equal(15))
 				Expect(foundResource.ObjectMeta.Finalizers).Should(Equal([]string{FinalizerName}))
 
 				// Now, delete HCO
@@ -1183,6 +1183,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				rsc := schema.GroupResource{Group: hcoutil.APIVersionGroup, Resource: "hyperconvergeds.hco.kubevirt.io"}
 				cl.initiateWriteErrors(
+					nil,
 					apierrors.NewConflict(rsc, "hco", errors.New("test error")),
 				)
 				r := initReconciler(cl)

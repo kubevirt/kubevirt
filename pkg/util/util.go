@@ -16,6 +16,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -140,7 +141,19 @@ func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 	return u, nil
 }
 
-func ComponentResourceRemoval(obj interface{}, c client.Client, ctx context.Context, hcoName string, logger logr.Logger, dryRun bool) error {
+// GetRuntimeObject will query the apiserver for the object
+func GetRuntimeObject(ctx context.Context, c client.Client, obj runtime.Object, logger logr.Logger) error {
+	key, err := client.ObjectKeyFromObject(obj)
+	if err != nil {
+		logger.Error(err, "Failed to get object key", "Kind", obj.GetObjectKind())
+		return err
+	}
+
+	return c.Get(ctx, key, obj)
+}
+
+// ComponentResourceRemoval removes the resource `obj` if it exists and belongs to the HCO
+func ComponentResourceRemoval(ctx context.Context, c client.Client, obj interface{}, hcoName string, logger logr.Logger, dryRun bool) error {
 	resource, err := toUnstructured(obj)
 	if err != nil {
 		logger.Error(err, "Failed to convert object to Unstructured")
@@ -168,28 +181,45 @@ func ComponentResourceRemoval(obj interface{}, c client.Client, ctx context.Cont
 		opts.DryRun = []string{metav1.DryRunAll}
 	}
 
-	logger.Info("Removing resource", "Kind", resource.GetObjectKind(), "DryRun", dryRun)
+	logger.Info("Removing resource", "GVK", resource.GetObjectKind().GroupVersionKind(), "DryRun", dryRun)
 
 	return c.Delete(ctx, resource, opts)
 }
 
-func EnsureDeleted(c client.Client, ctx context.Context, hcoName string, obj runtime.Object, logger logr.Logger, dryRun bool) error {
-	key, err := client.ObjectKeyFromObject(obj)
-	if err != nil {
-		logger.Error(err, "Failed to get object key", "Kind", obj.GetObjectKind())
-		return err
-	}
+// EnsureDeleted calls ComponentResourceRemoval if the runtime object exists
+func EnsureDeleted(ctx context.Context, c client.Client, obj runtime.Object, hcoName string, logger logr.Logger, dryRun bool) error {
+	err := GetRuntimeObject(ctx, c, obj, logger)
 
-	err = c.Get(ctx, key, obj)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			logger.Info("Resource doesn't exist, there is nothing to remove", "Kind", obj.GetObjectKind())
 			return nil
 		}
 
-		logger.Error(err, "Failed to get object from kubernetes", "Kind", obj.GetObjectKind())
+		logger.Error(err, "failed to get object from kubernetes", "Kind", obj.GetObjectKind())
 		return err
 	}
 
-	return ComponentResourceRemoval(obj, c, ctx, hcoName, logger, dryRun)
+	return ComponentResourceRemoval(ctx, c, obj, hcoName, logger, dryRun)
+}
+
+// EnsureCreated creates the runtime object if it does not exist
+func EnsureCreated(ctx context.Context, c client.Client, obj runtime.Object, logger logr.Logger) error {
+	err := GetRuntimeObject(ctx, c, obj, logger)
+
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.Info("Creating object", "kind", obj.GetObjectKind())
+			return c.Create(ctx, obj)
+		}
+
+		if meta.IsNoMatchError(err) {
+			return err
+		}
+
+		logger.Error(err, "failed getting runtime object", "kind", obj.GetObjectKind())
+		return err
+	}
+
+	return nil
 }

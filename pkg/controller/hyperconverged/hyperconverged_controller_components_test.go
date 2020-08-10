@@ -8,6 +8,7 @@ import (
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	sspv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
 	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
+	consolev1 "github.com/openshift/api/console/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	"github.com/openshift/custom-resource-status/testlib"
 	corev1 "k8s.io/api/core/v1"
@@ -1153,5 +1154,104 @@ var _ = Describe("HyperConverged Components", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
+	})
+
+	Context("ConsoleCLIDownload", func() {
+
+		var hco *hcov1beta1.HyperConverged
+		var req *hcoRequest
+
+		BeforeEach(func() {
+			hco = newHco()
+			req = newReq(hco)
+		})
+
+		It("should create if not present", func() {
+			expectedResource := hco.NewConsoleCLIDownload()
+			cl := initClient([]runtime.Object{})
+			r := initReconciler(cl)
+
+			err := r.ensureConsoleCLIDownload(req)
+			Expect(err).To(BeNil())
+
+			foundResource := &consolev1.ConsoleCLIDownload{}
+			Expect(
+				cl.Get(context.TODO(),
+					types.NamespacedName{Name: expectedResource.Name, Namespace: expectedResource.Namespace},
+					foundResource),
+			).To(BeNil())
+			Expect(foundResource.Name).To(Equal(expectedResource.Name))
+			Expect(foundResource.Labels).Should(HaveKeyWithValue(hcoutil.AppLabel, name))
+			Expect(foundResource.Namespace).To(Equal(expectedResource.Namespace))
+		})
+
+		It("should find if present", func() {
+			expectedResource := hco.NewConsoleCLIDownload()
+			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/consoleclidownloads/%s", expectedResource.Namespace, expectedResource.Name)
+			cl := initClient([]runtime.Object{hco, expectedResource})
+			r := initReconciler(cl)
+			err := r.ensureConsoleCLIDownload(req)
+			Expect(err).To(BeNil())
+
+			// Check HCO's status
+			Expect(hco.Status.RelatedObjects).To(Not(BeNil()))
+			objectRef, err := reference.GetReference(r.scheme, expectedResource)
+			Expect(err).To(BeNil())
+			// ObjectReference should have been added
+			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
+		})
+
+		DescribeTable("should update if something changed", func(modifiedResource *consolev1.ConsoleCLIDownload) {
+			os.Setenv(hcoutil.KubevirtVersionEnvV, "100")
+			cl := initClient([]runtime.Object{modifiedResource})
+			r := initReconciler(cl)
+			err := r.ensureConsoleCLIDownload(req)
+			Expect(err).To(BeNil())
+			expectedResource := hco.NewConsoleCLIDownload()
+			key, err := client.ObjectKeyFromObject(expectedResource)
+			Expect(err).ToNot(HaveOccurred())
+			foundResource := &consolev1.ConsoleCLIDownload{}
+			Expect(cl.Get(context.TODO(), key, foundResource))
+			Expect(foundResource.Spec.Links[0].Href).To(Equal(expectedResource.Spec.Links[0].Href))
+			Expect(foundResource.Spec.Links[0].Text).To(Equal(expectedResource.Spec.Links[0].Text))
+		},
+			Entry("with modified download link",
+				&consolev1.ConsoleCLIDownload{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "console.openshift.io/v1",
+						Kind:       "ConsoleCLIDownload",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "virtctl-clidownloads-kubevirt-hyperconverged",
+					},
+
+					Spec: consolev1.ConsoleCLIDownloadSpec{
+						Links: []consolev1.CLIDownloadLink{
+							{
+								Href: "https://dummy.url1.com",
+								Text: "KubeVirt 100 release downloads",
+							},
+						},
+					},
+				}),
+			Entry("with modified download text",
+				&consolev1.ConsoleCLIDownload{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "console.openshift.io/v1",
+						Kind:       "ConsoleCLIDownload",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "virtctl-clidownloads-kubevirt-hyperconverged",
+					},
+					Spec: consolev1.ConsoleCLIDownloadSpec{
+						Links: []consolev1.CLIDownloadLink{
+							{
+								Href: "https://github.com/kubevirt/kubevirt/releases/100",
+								Text: "dummy text 1",
+							},
+						},
+					},
+				}),
+		)
 	})
 })

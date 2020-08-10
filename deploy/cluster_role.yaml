@@ -323,6 +323,17 @@ rules:
   - watch
   - update
   - patch
+- apiGroups:
+  - console.openshift.io
+  resources:
+  - consoleclidownloads
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

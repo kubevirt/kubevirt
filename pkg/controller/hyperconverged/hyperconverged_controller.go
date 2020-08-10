@@ -36,6 +36,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
@@ -329,6 +330,8 @@ func (r *ReconcileHyperConverged) doReconcile(req *hcoRequest) (reconcile.Result
 
 	req.componentUpgradeInProgress = r.upgradeMode
 
+	r.ensureConsoleCLIDownload(req)
+
 	err = r.ensureHco(req)
 	if err != nil {
 		return reconcile.Result{}, r.updateConditions(req)
@@ -430,8 +433,9 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *hcoRequest) (reconcile.R
 		req.instance.NewCDI(),
 		req.instance.NewNetworkAddons(),
 		req.instance.NewKubeVirtCommonTemplateBundle(),
+		req.instance.NewConsoleCLIDownload(),
 	} {
-		err := hcoutil.EnsureDeleted(r.client, req.ctx, req.instance.Name, obj, req.logger, false)
+		err := hcoutil.EnsureDeleted(req.ctx, r.client, obj, req.instance.Name, req.logger, false)
 		if err != nil {
 			req.logger.Error(err, "Failed to manually delete objects")
 
@@ -1460,6 +1464,39 @@ func (r *ReconcileHyperConverged) ensureVMImport(req *hcoRequest) *EnsureResult 
 
 	upgradeDone := req.componentUpgradeInProgress && isReady && r.checkComponentVersion(hcoutil.VMImportEnvV, found.Status.ObservedVersion)
 	return res.SetUpgradeDone(upgradeDone)
+}
+
+func (r *ReconcileHyperConverged) ensureConsoleCLIDownload(req *hcoRequest) error {
+	ccd := req.instance.NewConsoleCLIDownload()
+
+	found := req.instance.NewConsoleCLIDownload()
+	err := hcoutil.EnsureCreated(req.ctx, r.client, found, req.logger)
+	if err != nil {
+		if meta.IsNoMatchError(err) {
+			req.logger.Info("ConsoleCLIDownload was not found, skipping")
+		}
+		return err
+	}
+
+	// Make sure we hold the right link spec
+	if reflect.DeepEqual(found.Spec, ccd.Spec) {
+		objectRef, err := reference.GetReference(r.scheme, found)
+		if err != nil {
+			req.logger.Error(err, "failed getting object reference for ConsoleCLIDownload")
+			return err
+		}
+		objectreferencesv1.SetObjectReference(&req.instance.Status.RelatedObjects, *objectRef)
+		return nil
+	}
+
+	ccd.Spec.DeepCopyInto(&found.Spec)
+
+	err = r.client.Update(req.ctx, found)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // newVMImportForCR returns a VM import CR

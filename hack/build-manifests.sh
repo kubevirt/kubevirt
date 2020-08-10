@@ -4,12 +4,12 @@ set -ex
 # build-manifests is designed to populate the deploy directory
 # with all of the manifests necessary for use in development
 # and for consumption with the operator-lifecycle-manager.
-# 
+#
 # First, we create a temporary directory and filling it with
 # all of the component operator's ClusterServiceVersion (CSV for OLM)
 # and CustomResourceDefinitions (CRDs); being sure to copy the CRDs
 # into the deploy/crds directory.
-# 
+#
 # The CSV manifests contain all of the information we need to 1) generate
 # a combined CSV and 2) other development related manifests (like the
 # operator deployment + rbac).

@@ -19,6 +19,7 @@ import (
 	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	consolev1 "github.com/openshift/api/console/v1"
 	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -286,6 +287,7 @@ func initReconciler(client client.Client) *ReconcileHyperConverged {
 		networkaddons.AddToScheme,
 		sspopv1.AddToScheme,
 		vmimportv1.AddToScheme,
+		consolev1.AddToScheme,
 	} {
 		Expect(f(s)).To(BeNil())
 	}

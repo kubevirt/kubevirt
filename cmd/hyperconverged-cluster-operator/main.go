@@ -27,6 +27,7 @@ import (
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	sspopv1 "github.com/kubevirt/kubevirt-ssp-operator/pkg/apis"
 	vmimportv1 "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1alpha1"
+	consolev1 "github.com/openshift/api/console/v1"
 	csvv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
@@ -183,6 +184,7 @@ func main() {
 		csvv1alpha1.AddToScheme,
 		vmimportv1.AddToScheme,
 		admissionregistrationv1.AddToScheme,
+		consolev1.AddToScheme,
 	} {
 		if err := f(mgr.GetScheme()); err != nil {
 			log.Error(err, "Failed to add to scheme")

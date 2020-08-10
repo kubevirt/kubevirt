@@ -3,12 +3,14 @@ package components
 import (
 	"encoding/json"
 	"fmt"
+
 	"golang.org/x/tools/go/packages"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"time"
+
 	"sigs.k8s.io/controller-tools/pkg/loader"
 	"sigs.k8s.io/controller-tools/pkg/markers"
-	"time"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 
@@ -32,7 +34,7 @@ import (
 const (
 	hcoName           = "hyperconverged-cluster-operator"
 	hcoDeploymentName = "hco-operator"
-	hcoWebhookPath    = "/validate-hco-kubevirt-io-v1alpha1-hyperconverged"
+	hcoWebhookPath    = "/validate-hco-kubevirt-io-v1beta1-hyperconverged"
 )
 
 func GetDeployment(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string) appsv1.Deployment {
@@ -437,6 +439,22 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 				"watch",
 				"update",
 				"patch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"console.openshift.io",
+			},
+			Resources: []string{
+				"consoleclidownloads",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
+				"create",
+				"delete",
+				"update",
 			},
 		},
 	}
