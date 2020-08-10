@@ -167,6 +167,48 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(containers[0].ImagePullPolicy).To(Equal(k8sv1.PullAlways))
 				Expect(containers[1].ImagePullPolicy).To(Equal(k8sv1.PullAlways))
 			})
+
+			Context("which checks socket paths", func() {
+
+				var vmi *v1.VirtualMachineInstance
+				var tmpDir string
+				BeforeEach(func() {
+
+					tmpDir, err = ioutil.TempDir("", "something")
+					Expect(err).ToNot(HaveOccurred())
+					err := os.MkdirAll(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", tmpDir, "poduid"), 0777)
+					Expect(err).ToNot(HaveOccurred())
+					f, err := os.Create(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_0.sock", tmpDir, "poduid"))
+					Expect(err).ToNot(HaveOccurred())
+					f.Close()
+					f, err = os.Create(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_1.sock", tmpDir, "poduid"))
+					Expect(err).ToNot(HaveOccurred())
+					f.Close()
+					vmi = v1.NewMinimalVMI("fake-vmi")
+					vmi.Status.ActivePods = map[types.UID]string{"poduid": ""}
+					appendContainerDisk(vmi, "r0")
+					appendContainerDisk(vmi, "r1")
+					appendContainerDisk(vmi, "r2")
+				})
+
+				AfterEach(func() {
+					os.RemoveAll(tmpDir)
+				})
+
+				It("should fail if the base directory only exists", func() {
+					_, err = NewSocketPathGetter(tmpDir)(vmi, 2)
+					Expect(err).To(HaveOccurred())
+				})
+
+				It("shoud succeed if the the socket is there", func() {
+					path1, err := NewSocketPathGetter(tmpDir)(vmi, 0)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(path1).To(Equal(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_0.sock", tmpDir, "poduid")))
+					path2, err := NewSocketPathGetter(tmpDir)(vmi, 1)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(path2).To(Equal(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_1.sock", tmpDir, "poduid")))
+				})
+			})
 		})
 	})
 })

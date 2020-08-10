@@ -42,6 +42,8 @@ var podsBaseDir = util.KubeletPodsDir
 
 var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
+type SocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
+
 func GetLegacyVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(mountBaseDir, string(vmi.UID))
 }
@@ -112,15 +114,20 @@ func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
 	return "", fmt.Errorf("no supported file disk found for volume with index %d", volumeIndex)
 }
 
-func GetSocketPathFromHostView(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
-	for podUID, _ := range vmi.Status.ActivePods {
-		basepath := fmt.Sprintf("/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", string(podUID))
-		exists, _ := diskutils.FileExists(basepath)
-		if exists {
-			return filepath.Join(basepath, fmt.Sprintf("disk_%d.sock", volumeIndex)), nil
+// NewSocketPathGetter get the socket pat of a containerDisk. For testing a baseDir
+// can be provided which can for instance point to /tmp.
+func NewSocketPathGetter(baseDir string) SocketPathGetter {
+	return func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+		for podUID, _ := range vmi.Status.ActivePods {
+			basepath := fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, string(podUID))
+			socketPath := filepath.Join(basepath, fmt.Sprintf("disk_%d.sock", volumeIndex))
+			exists, _ := diskutils.FileExists(socketPath)
+			if exists {
+				return socketPath, nil
+			}
 		}
+		return "", fmt.Errorf("container disk socket path not found for vmi")
 	}
-	return "", fmt.Errorf("container disk socket path not found for vmi")
 }
 
 func GetImage(root string, imagePath string) (string, error) {

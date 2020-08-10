@@ -53,7 +53,7 @@ var _ = Describe("ContainerDisk", func() {
 			mountRecords:           make(map[types.UID]*vmiMountTargetRecord),
 			mountStateDir:          tmpDir,
 			suppressWarningTimeout: 1 * time.Minute,
-			pathGetter:             containerdisk.GetSocketPathFromHostView,
+			pathGetter:             containerdisk.NewSocketPathGetter(""),
 		}
 	})
 
