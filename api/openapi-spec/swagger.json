@@ -4744,6 +4744,10 @@
       "description": "Attach a volume as a floppy to the vmi.",
       "$ref": "#/definitions/v1.FloppyTarget"
      },
+     "io": {
+      "description": "IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.",
+      "type": "string"
+     },
      "lun": {
       "description": "Attach a volume as a LUN to the vmi.",
       "$ref": "#/definitions/v1.LunTarget"

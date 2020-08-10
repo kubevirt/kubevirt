@@ -14221,6 +14221,13 @@ func schema_kubevirtio_client_go_api_v1_Disk(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
+					"io": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"tag": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If specified, disk address and its tag will be provided to the guest via config drive metadata",
