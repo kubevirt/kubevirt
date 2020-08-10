@@ -2,7 +2,6 @@
 
 # when not on a release do extensive checks
 if [ -z "$TRAVIS_TAG" ]; then
-	make generate-verify
 	make bazel-build-verify
 
 	# The make bazel-test might take longer then the current timeout for a command in Travis-CI of 10 min, so adding a keep alive loop while it runs
