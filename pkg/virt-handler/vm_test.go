@@ -1661,7 +1661,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Iface: &v1.Interface{
 					Name: interfaceName,
 				},
-				PodIP: "1.1.1.1",
+				PodIP:  "1.1.1.1",
+				PodIPs: []string{"1.1.1.1", "fd10:244::8c4c"},
 			}
 			podJson, err := json.Marshal(podCacheInterface)
 			Expect(err).ToNot(HaveOccurred())
@@ -1684,15 +1685,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(podCacheInterface.Iface.Name))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(podCacheInterface.PodIP))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs[0]).To(Equal(podCacheInterface.PodIP))
-
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs).To(Equal(podCacheInterface.PodIPs))
 			}).Return(vmi, nil)
 
 			controller.Execute()
 			Expect(len(controller.podInterfaceCache)).To(Equal(1))
 		})
 
-		It("Should update masquerade interface with the pod IP", func() {
+		table.DescribeTable("Should update masquerade interface with the pod IP", func(podIPs ...string) {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
@@ -1725,7 +1725,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Iface: &v1.Interface{
 					Name: interfaceName,
 				},
-				PodIP: "2.2.2.2",
+				PodIP:  podIPs[0],
+				PodIPs: podIPs,
 			}
 			podJson, err := json.Marshal(podCacheInterface)
 			Expect(err).ToNot(HaveOccurred())
@@ -1763,11 +1764,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(podCacheInterface.Iface.Name))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(podCacheInterface.PodIP))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].MAC).To(Equal(domain.Status.Interfaces[0].Mac))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs[0]).To(Equal(podCacheInterface.PodIP))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs).To(Equal(podCacheInterface.PodIPs))
 			}).Return(vmi, nil)
 
 			controller.Execute()
-		})
+		},
+			table.Entry("IPv4 only", "2.2.2.2"),
+			table.Entry("Dual stack", "2.2.2.2", "fd10:244::8c4c"),
+		)
 	})
 	Context("VirtualMachineInstance controller gets informed about interfaces in a Domain", func() {
 		It("should update existing interface with MAC", func() {

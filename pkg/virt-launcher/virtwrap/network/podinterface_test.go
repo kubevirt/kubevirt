@@ -278,6 +278,7 @@ var _ = Describe("Pod Network", func() {
 
 	Context("on successful setup", func() {
 		It("should define a new VIF bind to a bridge", func() {
+			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 			domain := NewDomainWithBridgeInterface()
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
@@ -310,6 +311,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().AddrDel(dummy, &fakeAddr).Return(errors.New("device is busy"))
 			mockNetwork.EXPECT().CreateTapDevice(tapDeviceName, isTapDeviceMultiqueued, pid).Return(nil)
 			mockNetwork.EXPECT().BindTapDeviceToBridge(tapDeviceName, "k6t-eth0").Return(nil)
+			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(HaveOccurred(), "SetupPodNetworkPhase1 should return an error")
@@ -329,6 +331,7 @@ var _ = Describe("Pod Network", func() {
 			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
 			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
 			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
+			mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 			err := SetupPodNetworkPhase1(vm, pid)
 			Expect(err).To(HaveOccurred())
@@ -406,6 +409,7 @@ var _ = Describe("Pod Network", func() {
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
 				}
 				mockNetwork.EXPECT().IsIpv6Enabled(podInterface).Return(true, nil).Times(3)
+				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -416,6 +420,7 @@ var _ = Describe("Pod Network", func() {
 			It("should define a new VIF bind to a bridge and create a specific nat rule using iptables", func() {
 				// Forward a specific port
 				mockNetwork.EXPECT().IsIpv6Enabled(podInterface).Return(true, nil).Times(3)
+				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
@@ -455,6 +460,7 @@ var _ = Describe("Pod Network", func() {
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(true).Times(2)
 				}
 				mockNetwork.EXPECT().IsIpv6Enabled(podInterface).Return(true, nil).Times(3)
+				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
@@ -465,6 +471,7 @@ var _ = Describe("Pod Network", func() {
 			It("should define a new VIF bind to a bridge and create a specific nat rule using nftables", func() {
 				// Forward a specific port
 				mockNetwork.EXPECT().IsIpv6Enabled(podInterface).Return(true, nil).Times(3)
+				mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 				for _, proto := range ipProtocols() {
 					mockNetwork.EXPECT().HasNatIptables(proto).Return(false).Times(2)
@@ -761,6 +768,7 @@ var _ = Describe("Pod Network", func() {
 		iface := &v1.Interface{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
 		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
+		mockNetwork.EXPECT().IsIpv4Primary().Return(true, nil).Times(1)
 
 		err = setPodInterfaceCache(iface, podInterface, uid)
 		Expect(err).ToNot(HaveOccurred())
