@@ -139,6 +139,17 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			Spec: v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
 					Resources: v1.ResourceRequirements{},
+					Devices: v1.Devices{
+						Disks: []v1.Disk{
+							{
+								Name: "foo",
+							},
+							{
+								Name: "bar",
+								IO:   "threads",
+							},
+						},
+					},
 				},
 			},
 		}
@@ -187,6 +198,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmiSpec, _ := getVMISpecMetaFromResponse()
 		Expect(vmiSpec.Domain.CPU).ToNot(BeNil())
 		Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(4)))
+	})
+
+	It("should apply disk io defaults only if they were not set", func() {
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.Domain.Devices.Disks[0].IO).To(Equal(v1.IOKubeVirtDefault))
+		Expect(vmiSpec.Domain.Devices.Disks[1].IO).To(Equal(v1.IOThreads))
+
 	})
 
 	It("should apply namespace limit ranges on VMI create", func() {

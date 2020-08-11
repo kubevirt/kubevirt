@@ -83,6 +83,7 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 		mutator.setDefaultMachineType(newVMI)
 		mutator.setDefaultResourceRequests(newVMI)
 		mutator.setDefaultPullPoliciesOnContainerDisks(newVMI)
+		mutator.setDefaultDiskDriverIOMode(newVMI)
 		err = mutator.setDefaultNetworkInterface(newVMI)
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
@@ -207,6 +208,14 @@ func (mutator *VMIsMutator) setDefaultPullPoliciesOnContainerDisks(vmi *v1.Virtu
 			} else {
 				volume.ContainerDisk.ImagePullPolicy = k8sv1.PullIfNotPresent
 			}
+		}
+	}
+}
+
+func (mutator *VMIsMutator) setDefaultDiskDriverIOMode(vmi *v1.VirtualMachineInstance) {
+	for i, disk := range vmi.Spec.Domain.Devices.Disks {
+		if disk.IO == "" {
+			vmi.Spec.Domain.Devices.Disks[i].IO = v1.IOKubeVirtDefault
 		}
 	}
 }

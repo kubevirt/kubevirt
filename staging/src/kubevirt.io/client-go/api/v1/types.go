@@ -1025,6 +1025,8 @@ const (
 	// IODefault - Fallback to the default value from the kernel. With recent Kernel versions (for example RHEL-7) the
 	// default is AIO.
 	IODefault DriverIO = "default"
+	// IOKubeVirtDefault - The default value that we set if the user did not specify anything else.
+	IOKubeVirtDefault DriverIO = IONative
 )
 
 // Handler defines a specific action that should be taken
