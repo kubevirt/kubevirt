@@ -2370,10 +2370,10 @@ func SyncAll(queue workqueue.RateLimitingInterface, kv *v1.KubeVirt, prevStrateg
 
 	// Avoid log spam by logging this issue once early instead of for once each object created
 	if !isValidLabel(kv.Spec.ProductVersion) {
-		log.Log.Errorf("invalid kubevirt.spec.productVersion: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash")
+		log.Log.Errorf("invalid kubevirt.spec.productVersion: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
 	}
 	if !isValidLabel(kv.Spec.ProductName) {
-		log.Log.Errorf("invalid kubevirt.spec.productName: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash")
+		log.Log.Errorf("invalid kubevirt.spec.productName: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
 	}
 
 	targetVersion := kv.Status.TargetKubeVirtVersion
