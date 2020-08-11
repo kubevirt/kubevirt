@@ -20,12 +20,16 @@
 package container_disk
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -46,8 +50,10 @@ var _ = Describe("ContainerDisk", func() {
 		vmi.UID = "1234"
 
 		m = &mounter{
-			mountRecords:  make(map[types.UID]*vmiMountTargetRecord),
-			mountStateDir: tmpDir,
+			mountRecords:           make(map[types.UID]*vmiMountTargetRecord),
+			mountStateDir:          tmpDir,
+			suppressWarningTimeout: 1 * time.Minute,
+			pathGetter:             containerdisk.NewSocketPathGetter(""),
 		}
 	})
 
@@ -55,71 +61,113 @@ var _ = Describe("ContainerDisk", func() {
 		os.RemoveAll(tmpDir)
 	})
 
-	Describe("container-disk", func() {
-		Context("verify mount target recording for vmi", func() {
-			It("should set and get same results", func() {
+	BeforeEach(func() {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "test",
+			VolumeSource: v1.VolumeSource{
+				ContainerDisk: &v1.ContainerDiskSource{},
+			},
+		})
+	})
 
-				// verify reading non-existent results just returns empty slice
-				record, err := m.getMountTargetRecord(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(record).To(BeNil())
+	Context("checking if containerDisks are ready", func() {
+		It("should return false and no error if we are still within the tolerated retry period", func() {
+			m.pathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+				return "", fmt.Errorf("not found")
+			}
+			ready, err := m.ContainerDisksReady(vmi, time.Now())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ready).To(BeFalse())
+		})
+		It("should return false and an error if we are outside the tolerated retry period", func() {
+			m.pathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+				return "", fmt.Errorf("not found")
+			}
+			ready, err := m.ContainerDisksReady(vmi, time.Now().Add(-2*time.Minute))
+			Expect(err).To(HaveOccurred())
+			Expect(ready).To(BeFalse())
+		})
+		It("should return true and no error once everything is ready and we are within the tolerated retry period", func() {
+			m.pathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+				return "someting", nil
+			}
+			ready, err := m.ContainerDisksReady(vmi, time.Now())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ready).To(BeTrue())
+		})
+		It("should return true and no error once everything is ready when we are outside of the tolerated retry period", func() {
+			m.pathGetter = func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error) {
+				return "someting", nil
+			}
+			ready, err := m.ContainerDisksReady(vmi, time.Now().Add(-2*time.Minute))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ready).To(BeTrue())
+		})
+	})
 
-				// verify setting a result works
-				record = &vmiMountTargetRecord{
-					MountTargetEntries: []vmiMountTargetEntry{
-						{
-							TargetFile: "sometargetfile",
-							SocketFile: "somesocketfile",
-						},
+	Context("verify mount target recording for vmi", func() {
+		It("should set and get same results", func() {
+
+			// verify reading non-existent results just returns empty slice
+			record, err := m.getMountTargetRecord(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(record).To(BeNil())
+
+			// verify setting a result works
+			record = &vmiMountTargetRecord{
+				MountTargetEntries: []vmiMountTargetEntry{
+					{
+						TargetFile: "sometargetfile",
+						SocketFile: "somesocketfile",
 					},
-				}
-				err = m.setMountTargetRecord(vmi, record)
-				Expect(err).ToNot(HaveOccurred())
+				},
+			}
+			err = m.setMountTargetRecord(vmi, record)
+			Expect(err).ToNot(HaveOccurred())
 
-				// verify the file actually exists
-				recordFile := filepath.Join(tmpDir, string(vmi.UID))
-				exists, err := diskutils.FileExists(recordFile)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(exists).To(BeTrue())
+			// verify the file actually exists
+			recordFile := filepath.Join(tmpDir, string(vmi.UID))
+			exists, err := diskutils.FileExists(recordFile)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
 
-				// verify we can read a result
-				record, err = m.getMountTargetRecord(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(record.MountTargetEntries)).To(Equal(1))
-				Expect(record.MountTargetEntries[0].TargetFile).To(Equal("sometargetfile"))
-				Expect(record.MountTargetEntries[0].SocketFile).To(Equal("somesocketfile"))
+			// verify we can read a result
+			record, err = m.getMountTargetRecord(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(record.MountTargetEntries)).To(Equal(1))
+			Expect(record.MountTargetEntries[0].TargetFile).To(Equal("sometargetfile"))
+			Expect(record.MountTargetEntries[0].SocketFile).To(Equal("somesocketfile"))
 
-				// verify we can read a result directly from disk if the entry
-				// doesn't exist in the map
-				delete(m.mountRecords, vmi.UID)
-				record, err = m.getMountTargetRecord(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(record.MountTargetEntries)).To(Equal(1))
-				Expect(record.MountTargetEntries[0].TargetFile).To(Equal("sometargetfile"))
-				Expect(record.MountTargetEntries[0].SocketFile).To(Equal("somesocketfile"))
+			// verify we can read a result directly from disk if the entry
+			// doesn't exist in the map
+			delete(m.mountRecords, vmi.UID)
+			record, err = m.getMountTargetRecord(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(record.MountTargetEntries)).To(Equal(1))
+			Expect(record.MountTargetEntries[0].TargetFile).To(Equal("sometargetfile"))
+			Expect(record.MountTargetEntries[0].SocketFile).To(Equal("somesocketfile"))
 
-				// verify the cache is populated again with the mount info after reading from disk
-				_, ok := m.mountRecords[vmi.UID]
-				Expect(ok).To(BeTrue())
+			// verify the cache is populated again with the mount info after reading from disk
+			_, ok := m.mountRecords[vmi.UID]
+			Expect(ok).To(BeTrue())
 
-				// verify delete results
-				err = m.deleteMountTargetRecord(vmi)
-				Expect(err).ToNot(HaveOccurred())
+			// verify delete results
+			err = m.deleteMountTargetRecord(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
-				// verify the file is actually removed
-				exists, err = diskutils.FileExists(recordFile)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(exists).To(BeFalse())
+			// verify the file is actually removed
+			exists, err = diskutils.FileExists(recordFile)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeFalse())
 
-				// verify deleting results that don't exist won't fail
-				err = m.deleteMountTargetRecord(vmi)
-				Expect(err).ToNot(HaveOccurred())
+			// verify deleting results that don't exist won't fail
+			err = m.deleteMountTargetRecord(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
-				// verify reading deleted results just returns empty slice
-				record, err = m.getMountTargetRecord(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(record).To(BeNil())
-			})
+			// verify reading deleted results just returns empty slice
+			record, err = m.getMountTargetRecord(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(record).To(BeNil())
 		})
 	})
 })

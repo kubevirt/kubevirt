@@ -69,9 +69,11 @@ import (
 )
 
 type launcherClientInfo struct {
-	client             cmdclient.LauncherClient
-	socketFile         string
-	domainPipeStopChan chan struct{}
+	client              cmdclient.LauncherClient
+	socketFile          string
+	domainPipeStopChan  chan struct{}
+	notInitializedSince time.Time
+	ready               bool
 }
 
 func NewController(
@@ -1367,12 +1369,15 @@ func (d *VirtualMachineController) execute(key string) error {
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
 		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
 		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
-		expired, err := d.isLauncherClientUnresponsive(oldVMI)
+		expired, initialized, err := d.isLauncherClientUnresponsive(oldVMI)
 		if err != nil {
 			return err
 		}
 		// If we found an outdated domain which is also not alive anymore, clean up
-		if expired {
+		if !initialized {
+			d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
+			return nil
+		} else if expired {
 			log.Log.Object(oldVMI).Infof("Detected stale vmi %s that still needs cleanup before new vmi %s with identical name/namespace can be processed", oldVMI.UID, vmi.UID)
 			err = d.processVmCleanup(oldVMI)
 			if err != nil {
@@ -1471,9 +1476,11 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	defer d.launcherClientLock.Unlock()
 
 	clientInfo, ok := d.launcherClients[vmi.UID]
-	if ok {
-		clientInfo.client.Close()
-		close(clientInfo.domainPipeStopChan)
+	if ok && clientInfo.client != nil {
+		if clientInfo.client != nil {
+			clientInfo.client.Close()
+			close(clientInfo.domainPipeStopChan)
+		}
 
 		// With legacy sockets on hostpaths, we have to cleanup the sockets ourselves.
 		if cmdclient.IsLegacySocket(clientInfo.socketFile) {
@@ -1498,38 +1505,62 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 }
 
 // used by unit tests to add mock clients
-func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, client cmdclient.LauncherClient, socketFile string) error {
+func (d *VirtualMachineController) addLauncherClient(vmUID types.UID, info *launcherClientInfo) error {
 	// maps require locks for concurrent access
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 
-	d.launcherClients[vmUID] = &launcherClientInfo{
-		client:             client,
-		socketFile:         socketFile,
-		domainPipeStopChan: make(chan struct{}),
-	}
+	d.launcherClients[vmUID] = info
 
 	return nil
 }
 
-func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (bool, error) {
+func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error) {
 	var socketFile string
-	var err error
 
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 
 	clientInfo, ok := d.launcherClients[vmi.UID]
 	if ok {
-		// use cached socket if we previously established a connection
-		socketFile = clientInfo.socketFile
+		if clientInfo.ready == true {
+			// use cached socket if we previously established a connection
+			socketFile = clientInfo.socketFile
+		} else {
+			socketFile, err = cmdclient.FindSocketOnHost(vmi)
+			if err != nil {
+				// socket does not exist, but let's see if the pod is still there
+				if _, err = cmdclient.FindPodDirOnHost(vmi); err != nil {
+					// no pod meanst that waiting for it to initialize makes no sense
+					return true, true, nil
+				}
+				// pod is still there, if there is no socket let's wait for it to become ready
+				if clientInfo.notInitializedSince.Before(time.Now().Add(-3 * time.Minute)) {
+					return true, true, nil
+				}
+				return false, false, nil
+			}
+			d.launcherClients[vmi.UID].ready = true
+			d.launcherClients[vmi.UID].socketFile = socketFile
+		}
 	} else {
+		d.launcherClients[vmi.UID] = &launcherClientInfo{
+			notInitializedSince: time.Now(),
+			ready:               false,
+		}
 		// attempt to find the socket if the established connection doesn't currently exist.
 		socketFile, err = cmdclient.FindSocketOnHost(vmi)
 		// no socket file, no VMI, so it's unresponsive
 		if err != nil {
-			return true, nil
+			// socket does not exist, but let's see if the pod is still there
+			if _, err = cmdclient.FindPodDirOnHost(vmi); err != nil {
+				// no pod meanst that waiting for it to initialize makes no sense
+				return true, true, nil
+			}
+			return false, false, nil
 		}
+		d.launcherClients[vmi.UID].ready = true
+		d.launcherClients[vmi.UID].socketFile = socketFile
 	}
 	// The new way of detecting unresponsive VMIs monitors the
 	// cmd socket. This requires an updated VMI image. Old VMIs
@@ -1537,11 +1568,12 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 	watchDogExists, _ := watchdog.WatchdogFileExists(d.virtShareDir, vmi)
 	if cmdclient.SocketMonitoringEnabled(socketFile) && !watchDogExists {
 		isUnresponsive := cmdclient.IsSocketUnresponsive(socketFile)
-		return isUnresponsive, nil
+		return isUnresponsive, true, nil
 	}
 
 	// fall back to legacy watchdog support for backwards compatiblity
-	return watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
+	isUnresponsive, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
+	return isUnresponsive, true, err
 }
 
 func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
@@ -1552,7 +1584,7 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 	defer d.launcherClientLock.Unlock()
 
 	clientInfo, ok := d.launcherClients[vmi.UID]
-	if ok {
+	if ok && clientInfo.client != nil {
 		return clientInfo.client, nil
 	}
 
@@ -1584,9 +1616,11 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 	}
 
 	d.launcherClients[vmi.UID] = &launcherClientInfo{
-		client:             client,
-		socketFile:         socketFile,
-		domainPipeStopChan: domainPipeStopChan,
+		client:              client,
+		socketFile:          socketFile,
+		domainPipeStopChan:  domainPipeStopChan,
+		notInitializedSince: time.Now(),
+		ready:               true,
 	}
 
 	return client, nil
@@ -1704,7 +1738,9 @@ func (d *VirtualMachineController) removeStaleClientConnections(vmi *v1.VirtualM
 		return
 	}
 
-	clientInfo.client.Close()
+	if clientInfo.client != nil {
+		clientInfo.client.Close()
+	}
 	delete(d.launcherClients, vmi.UID)
 }
 
@@ -1869,14 +1905,23 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 	return nil
 }
 
+func (d *VirtualMachineController) getLauncherClinetInfo(vmi *v1.VirtualMachineInstance) *launcherClientInfo {
+	d.launcherClientLock.Lock()
+	defer d.launcherClientLock.Unlock()
+	return d.launcherClients[vmi.UID]
+}
+
 func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
 	vmi := origVMI.DeepCopy()
 
-	isUnresponsive, err := d.isLauncherClientUnresponsive(vmi)
+	isUnresponsive, isInitialized, err := d.isLauncherClientUnresponsive(vmi)
 	if err != nil {
 		return err
 	}
-	if isUnresponsive {
+	if !isInitialized {
+		d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
+		return nil
+	} else if isUnresponsive {
 		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
 	}
 
@@ -1898,6 +1943,16 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 
 	if d.isPreMigrationTarget(vmi) {
 		if !isMigrating(vmi) {
+
+			// give containerDisks some time to become ready before throwing errors on retries
+			info := d.getLauncherClinetInfo(vmi)
+			if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
+				if err != nil {
+					return err
+				}
+				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
+				return nil
+			}
 
 			// Mount container disks
 			if err := d.containerDiskMounter.Mount(vmi, false); err != nil {
@@ -1952,6 +2007,17 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	} else {
 
 		if !vmi.IsRunning() && !vmi.IsFinal() {
+
+			// give containerDisks some time to become ready before throwing errors on retries
+			info := d.getLauncherClinetInfo(vmi)
+			if ready, err := d.containerDiskMounter.ContainerDisksReady(vmi, info.notInitializedSince); !ready {
+				if err != nil {
+					return err
+				}
+				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
+				return nil
+			}
+
 			if err := d.containerDiskMounter.Mount(vmi, true); err != nil {
 				return err
 			}
@@ -2010,13 +2076,15 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 	if domain == nil {
 		switch {
 		case vmi.IsScheduled():
-			isUnresponsive, err := d.isLauncherClientUnresponsive(vmi)
+			isUnresponsive, isInitialized, err := d.isLauncherClientUnresponsive(vmi)
 
 			if err != nil {
 				return vmi.Status.Phase, err
 			}
-
-			if isUnresponsive {
+			if !isInitialized {
+				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Second*1)
+				return vmi.Status.Phase, err
+			} else if isUnresponsive {
 				// virt-launcher is gone and VirtualMachineInstance never transitioned
 				// from scheduled to Running.
 				return v1.Failed, nil
