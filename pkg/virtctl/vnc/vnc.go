@@ -101,7 +101,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Can't resolve the address: %s", err.Error())
 	}
 
-	// The local tcp server is used to proxy the podExec websock connection to remote-viewer
+	// The local tcp server is used to proxy the podExec websock connection to vnc client
 	ln, err := net.ListenTCP("tcp", lnAddr)
 	if err != nil {
 		return fmt.Errorf("Can't listen on unix socket: %s", err.Error())
@@ -131,11 +131,11 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		})
 	}()
 
-	// wait for remote-viewer to connect to our local proxy server
+	// wait for vnc client to connect to our local proxy server
 	go func() {
 		start := time.Now()
 		glog.Infof("connection timeout: %v", LISTEN_TIMEOUT)
-		// exit early if spawning remote-viewer fails
+		// exit early if spawning vnc client fails
 		ln.SetDeadline(time.Now().Add(LISTEN_TIMEOUT))
 
 		fd, err := ln.Accept()
@@ -145,7 +145,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		}
 		defer fd.Close()
 
-		glog.V(2).Infof("remote-viewer connected in %v", time.Now().Sub(start))
+		glog.V(2).Infof("VNC Client connected in %v", time.Now().Sub(start))
 
 		// write to FD <- pipeOutReader
 		go func() {
@@ -159,12 +159,12 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 			writeStop <- err
 		}()
 
-		// don't terminate until remote-viewer is done
+		// don't terminate until vnc client is done
 		<-doneChan
 		listenResChan <- err
 	}()
 
-	// execute VNC
+	// run the VNC client
 	go func() {
 		defer close(doneChan)
 		port := ln.Addr().(*net.TCPAddr).Port
@@ -231,7 +231,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				glog.Errorf("%s execution failed: %v, output: %v", vncBin, err, string(output))
 			} else {
-				glog.V(2).Infof("remote-viewer output: %v", string(output))
+				glog.V(2).Infof("%v output: %v", vncBin, string(output))
 			}
 		}
 		viewResChan <- err
