@@ -40,6 +40,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/tools/util"
 
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -107,6 +108,7 @@ var (
 	hppoVersion     = flag.String("hppo-version", "", "HPP operator version")
 	vmImportVersion = flag.String("vm-import-version", "", "VM-Import operator version")
 	apiSources      = flag.String("api-sources", cwd+"/...", "Project sources")
+	envVars         = flag.String("env-vars", "", "Comma separated list of key=value environment variables")
 )
 
 func gen_hco_crds() {
@@ -136,6 +138,23 @@ func stringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+func getEnvVarList(s string) []corev1.EnvVar {
+	var envVars []corev1.EnvVar
+
+	if len(s) == 0 {
+		return envVars
+	}
+
+	for _, kvPair := range strings.Split(s, ",") {
+		kv := strings.Split(kvPair, "=")
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  kv[0],
+			Value: kv[1],
+		})
+	}
+	return envVars
 }
 
 func validateNoApiOverlap(crdDir string) bool {
@@ -282,6 +301,7 @@ func main() {
 			*nmoVersion,
 			*hppoVersion,
 			*vmImportVersion,
+			getEnvVarList(*envVars),
 		)
 
 		for _, image := range strings.Split(*relatedImagesList, ",") {

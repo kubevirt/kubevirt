@@ -31,6 +31,7 @@ import (
 
 	csvv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -138,6 +139,7 @@ func main() {
 			*nmoVersion,
 			*hppoVersion,
 			*vmImportVersion,
+			[]corev1.EnvVar{},
 		),
 	}
 	serviceAccounts := map[string]v1.ServiceAccount{
