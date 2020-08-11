@@ -37,7 +37,7 @@ const (
 	hcoWebhookPath    = "/validate-hco-kubevirt-io-v1beta1-hyperconverged"
 )
 
-func GetDeployment(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) appsv1.Deployment {
+func GetDeployment(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) appsv1.Deployment {
 	return appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -49,11 +49,11 @@ func GetDeployment(namespace, image, imagePullPolicy, conversionContainer, vmwar
 				"name": hcoName,
 			},
 		},
-		Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion, env),
+		Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainerString, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, hppoVersion, vmImportVersion, env),
 	}
 }
 
-func GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) appsv1.DeploymentSpec {
+func GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
 		Replicas: int32Ptr(1),
 		Selector: &metav1.LabelSelector{
@@ -153,10 +153,6 @@ func GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, v
 							{
 								Name:  util.SspVersionEnvV,
 								Value: sspVersion,
-							},
-							{
-								Name:  util.NmoVersionEnvV,
-								Value: nmoVersion,
 							},
 							{
 								Name:  util.HppoVersionEnvV,
@@ -709,12 +705,12 @@ func GetOperatorCR() *hcov1beta1.HyperConverged {
 }
 
 // GetInstallStrategyBase returns the basics of an HCO InstallStrategy
-func GetInstallStrategyBase(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) *csvv1alpha1.StrategyDetailsDeployment {
+func GetInstallStrategyBase(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, hppoVersion, vmImportVersion string, env []corev1.EnvVar) *csvv1alpha1.StrategyDetailsDeployment {
 	return &csvv1alpha1.StrategyDetailsDeployment{
 		DeploymentSpecs: []csvv1alpha1.StrategyDeploymentSpec{
 			csvv1alpha1.StrategyDeploymentSpec{
 				Name: hcoDeploymentName,
-				Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, nmoVersion, hppoVersion, vmImportVersion, env),
+				Spec: GetDeploymentSpec(namespace, image, imagePullPolicy, conversionContainer, vmwareContainer, smbios, machinetype, hcoKvIoVersion, kubevirtVersion, cdiVersion, cnaoVersion, sspVersion, hppoVersion, vmImportVersion, env),
 			},
 		},
 		Permissions: []csvv1alpha1.StrategyDeploymentPermissions{},
@@ -883,7 +879,13 @@ func GetCSVBase(name, namespace, displayName, description, image, replaces strin
 						Description: "V2V oVirt",
 					},
 				},
-				Required: []csvv1alpha1.CRDDescription{},
+				Required: []csvv1alpha1.CRDDescription{
+					{
+						Name:    "nodemaintenances.nodemaintenance.kubevirt.io",
+						Version: "v1beta1",
+						Kind:    "NodeMaintenance",
+					},
+				},
 			},
 		},
 	}

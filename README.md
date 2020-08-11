@@ -9,13 +9,15 @@ A unified operator deploying and controlling [KubeVirt](https://github.com/kubev
 - [Containerized Data Importer](https://github.com/kubevirt/containerized-data-importer)
 - [Scheduling, Scale and Performance](https://github.com/kubevirt/kubevirt-ssp-operator)
 - [Cluster Network Addons](https://github.com/kubevirt/cluster-network-addons-operator)
-- [Node Maintenance](https://github.com/kubevirt/node-maintenance-operator)
 
 This operator is typically installed from the Operator Lifecycle Manager (OLM),
 and creates operator CustomResources (CRs) for its underlying operators as can be seen in the diagrom below.
 Use it to obtain an opinionated deployment of KubeVirt and its helper operators.
 
 ![](images/HCO-design.jpg)
+
+## Dependencies
+- [Node Maintenance](https://github.com/kubevirt/node-maintenance-operator)
 
 ## Installing HCO using kustomize (Openshift OLM Only)
 To install the default community HyperConverged Cluster Operator, along with its underlying components, run:

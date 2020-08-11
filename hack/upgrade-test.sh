@@ -50,7 +50,9 @@ HCO_KIND="hyperconvergeds"
 HCO_RESOURCE_NAME="kubevirt-hyperconverged"
 HCO_SUBSCRIPTION_NAME="hco-subscription-example"
 HCO_CATALOGSOURCE_NAME="hco-catalogsource-example"
+NMO_CATALOGSOURCE_NAME="nmo-catalogsource"
 HCO_OPERATORGROUP_NAME="hco-operatorgroup"
+NMO_INDEX_IMAGE="quay.io/kubevirt/node-maintenance-operator-index:latest"
 PACKAGE_DIR="./deploy/olm-catalog/kubevirt-hyperconverged"
 INITIAL_CHANNEL=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==${RELEASE_DELTA}" | cut -d '/' -f 5)
 TARGET_VERSION=100.0.0
@@ -100,6 +102,7 @@ fi
 "${CMD}" delete ${HCO_KIND} ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} || true
 "${CMD}" delete subscription ${HCO_SUBSCRIPTION_NAME} -n ${HCO_NAMESPACE} || true
 "${CMD}" delete catalogsource ${HCO_CATALOGSOURCE_NAME} -n ${HCO_CATALOG_NAMESPACE} || true
+"${CMD}" delete catalogsource ${NMO_CATALOGSOURCE_NAME} -n ${HCO_CATALOG_NAMESPACE} || true
 "${CMD}" delete operatorgroup ${HCO_OPERATORGROUP_NAME} -n ${HCO_NAMESPACE} || true
 
 source hack/compare_scc.sh
@@ -114,6 +117,23 @@ if [ -n "$KUBEVIRT_PROVIDER" ]; then
 else
   Msg "Openshift CI detected." "Image build skipped. Images are built through Prow."
 fi
+
+Msg "create catalogsource for NMO index image"
+
+cat <<EOF | ${CMD} create -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: ${NMO_CATALOGSOURCE_NAME}
+  namespace: ${HCO_CATALOG_NAMESPACE}
+spec:
+  sourceType: grpc
+  image: ${NMO_INDEX_IMAGE}
+  displayName: KubeVirt Node Maintenance Operator
+  publisher: Red Hat
+EOF
+
+sleep 15
 
 Msg "create catalogsource and subscription to install HCO"
 
@@ -182,7 +202,7 @@ EOF
 
 ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="1200s"
 
-CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE})
+CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE} | grep kubevirt-hyperconverged-operator )
 HCO_API_VERSION=$( ${CMD} get -n ${HCO_NAMESPACE} "${CSV}" -o jsonpath="{ .spec.customresourcedefinitions.owned[?(@.kind=='HyperConverged')].version }")
 sed -e "s|hco.kubevirt.io/v1beta1|hco.kubevirt.io/${HCO_API_VERSION}|g" deploy/hco.cr.yaml | ${CMD} apply -n kubevirt-hyperconverged -f -
 
