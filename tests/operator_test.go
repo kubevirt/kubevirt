@@ -310,7 +310,7 @@ var _ = Describe("Operator", func() {
 		patchKvProductNameAndVersion = func(name, productName string, productVersion string) {
 			data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/productName", "value": "%s"},{ "op": "replace", "path": "/spec/productVersion", "value": "%s"}]`, productName, productVersion))
 			Eventually(func() error {
-				_, err := virtClient.KubeVirt(tests.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
 
 				return err
 			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -1217,7 +1217,7 @@ spec:
 			for _, deployment := range []string{"virt-api", "virt-controller"} {
 				By(fmt.Sprintf("Ensuring that the %s deployment is updated", deployment))
 				Eventually(func() bool {
-					dep, err := virtClient.AppsV1().Deployments(tests.KubeVirtInstallNamespace).Get(deployment, metav1.GetOptions{})
+					dep, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(deployment, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return dep.ObjectMeta.Labels[v1.AppVersionLabel] == productVersion && dep.ObjectMeta.Labels[v1.AppPartOfLabel] == productName
 				}, 240*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("Expected labels to be updated for %s deployment", deployment))
@@ -1225,7 +1225,7 @@ spec:
 
 			By("Ensuring that the virt-handler daemonset is updated")
 			Eventually(func() bool {
-				dms, err := virtClient.AppsV1().DaemonSets(tests.KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+				dms, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return dms.ObjectMeta.Labels[v1.AppVersionLabel] == productVersion && dms.ObjectMeta.Labels[v1.AppPartOfLabel] == productName
 			}, 240*time.Second, 1*time.Second).Should(BeTrue(), "Expected labels to be updated for virt-handler daemonset")
