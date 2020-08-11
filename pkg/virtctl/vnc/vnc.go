@@ -40,7 +40,6 @@ import (
 
 const (
 	LISTEN_TIMEOUT = 60 * time.Second
-	FLAG           = "vnc"
 
 	//#### Tiger VNC ####
 	//# https://github.com/TigerVNC/tigervnc/releases
