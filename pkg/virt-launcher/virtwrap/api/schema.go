@@ -675,6 +675,7 @@ type Entry struct {
 
 type Clock struct {
 	Offset     string  `xml:"offset,attr,omitempty"`
+	Timezone   string  `xml:"timezone,attr,omitempty"`
 	Adjustment string  `xml:"adjustment,attr,omitempty"`
 	Timer      []Timer `xml:"timer,omitempty"`
 }
