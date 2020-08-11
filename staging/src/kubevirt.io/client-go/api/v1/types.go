@@ -1149,7 +1149,7 @@ type KubeVirtSpec struct {
 
 	// Designate the apps.kubevirt.io/version label for KubeVirt components.
 	// Useful if KubeVirt is included as part of a product.
-	// If ProductVersion is not specified, the version label will be omitted.
+	// If ProductVersion is not specified, KubeVirt's version will be used.
 	ProductVersion string `json:"productVersion,omitempty"`
 
 	// Designate the apps.kubevirt.io/part-of label for KubeVirt components.

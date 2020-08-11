@@ -15547,14 +15547,14 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref common.ReferenceCallbac
 					},
 					"productVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Designate the apps.kubevirt.io/version label for KubeVirt components Useful if KubeVirt is included as part of a product If ProductVersion is not specified, the version label will be omitted.",
+							Description: "Designate the apps.kubevirt.io/version label for KubeVirt components. Useful if KubeVirt is included as part of a product. If ProductVersion is not specified, KubeVirt's version will be used.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"productName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Designate the apps.kubevirt.io/part-of label for KubeVirt components Useful if KubeVirt is included as part of a product If ProductName is not specified, the part-of label will be omitted.",
+							Description: "Designate the apps.kubevirt.io/part-of label for KubeVirt components. Useful if KubeVirt is included as part of a product. If ProductName is not specified, the part-of label will be omitted.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
