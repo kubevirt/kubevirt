@@ -16,10 +16,6 @@ limitations under the License.
 
 package v1alpha1
 
-//go:generate swagger-doc
-//go:generate deepcopy-gen -i . --go-header-file ../../../../hack/custom-boilerplate.go.txt
-//go:generate openapi-gen -i . --output-package=kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1  --go-header-file ../../../../hack/custom-boilerplate.go.txt
-
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
