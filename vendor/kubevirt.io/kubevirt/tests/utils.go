@@ -104,62 +104,8 @@ import (
 	"github.com/google/go-github/v32/github"
 )
 
-var KubeVirtUtilityVersionTag = ""
-var KubeVirtVersionTag = "latest"
-var KubeVirtVersionTagAlt = ""
-var KubeVirtUtilityRepoPrefix = ""
-var KubeVirtRepoPrefix = "kubevirt"
-var ImagePrefixAlt = ""
-var ContainerizedDataImporterNamespace = "cdi"
-var KubeVirtKubectlPath = ""
-var KubeVirtOcPath = ""
-var KubeVirtVirtctlPath = ""
-var KubeVirtGoCliPath = ""
-var KubeVirtInstallNamespace string
-var PreviousReleaseTag = ""
-var PreviousReleaseRegistry = ""
-var ConfigFile = ""
 var Config *KubeVirtTestsConfiguration
-var SkipShasumCheck bool
 var KubeVirtDefaultConfig map[string]string
-
-var DeployTestingInfrastructureFlag = false
-var PathToTestingInfrastrucureManifests = ""
-
-func init() {
-	kubecli.Init()
-	flag.StringVar(&KubeVirtUtilityVersionTag, "utility-container-tag", "", "Set the image tag or digest to use")
-	flag.StringVar(&KubeVirtVersionTag, "container-tag", "latest", "Set the image tag or digest to use")
-	flag.StringVar(&KubeVirtVersionTagAlt, "container-tag-alt", "", "An alternate tag that can be used to test operator deployments")
-	flag.StringVar(&KubeVirtUtilityRepoPrefix, "utility-container-prefix", "", "Set the repository prefix for all images")
-	flag.StringVar(&KubeVirtRepoPrefix, "container-prefix", "kubevirt", "Set the repository prefix for all images")
-	flag.StringVar(&ImagePrefixAlt, "image-prefix-alt", "", "Optional prefix for virt-* image names for additional imagePrefix operator test")
-	flag.StringVar(&ContainerizedDataImporterNamespace, "cdi-namespace", "cdi", "Set the repository prefix for CDI components")
-	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
-	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
-	flag.StringVar(&KubeVirtVirtctlPath, "virtctl-path", "", "Set path to virtctl binary")
-	flag.StringVar(&KubeVirtGoCliPath, "gocli-path", "", "Set path to gocli binary")
-	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kubevirt", "Set the namespace KubeVirt is installed in")
-	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
-	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
-	flag.StringVar(&PreviousReleaseTag, "previous-release-tag", "", "Set tag of the release to test updating from")
-	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "index.docker.io/kubevirt", "Set registry of the release to test updating from")
-	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
-	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
-}
-
-func FlagParse() {
-	flag.Parse()
-
-	// When the flags are not provided, copy the values from normal version tag and prefix
-	if KubeVirtUtilityVersionTag == "" {
-		KubeVirtUtilityVersionTag = KubeVirtVersionTag
-	}
-
-	if KubeVirtUtilityRepoPrefix == "" {
-		KubeVirtUtilityRepoPrefix = KubeVirtRepoPrefix
-	}
-}
 
 type EventType string
 
@@ -748,6 +694,8 @@ func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
 }
 
 func BeforeTestSuitSetup() {
+	NormalizeFlags()
+
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -827,14 +775,15 @@ func AdjustKubeVirtResource() {
 }
 
 func RestoreKubeVirtResource() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	data, err := json.Marshal(originalKV.Spec)
-	Expect(err).ToNot(HaveOccurred())
-	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
-	_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(originalKV.Name, types.JSONPatchType, []byte(patchData))
-	PanicOnError(err)
+	if originalKV != nil {
+		virtClient, err := kubecli.GetKubevirtClient()
+		PanicOnError(err)
+		data, err := json.Marshal(originalKV.Spec)
+		Expect(err).ToNot(HaveOccurred())
+		patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
+		_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(originalKV.Name, types.JSONPatchType, []byte(patchData))
+		PanicOnError(err)
+	}
 }
 
 func createStorageClass(name string) {
@@ -2843,31 +2792,6 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	}, timeout, opts...)
 }
 
-type ContainerDisk string
-
-const (
-	ContainerDiskCirrosCustomLocation ContainerDisk = "cirros-custom"
-	ContainerDiskCirros               ContainerDisk = "cirros"
-	ContainerDiskAlpine               ContainerDisk = "alpine"
-	ContainerDiskFedora               ContainerDisk = "fedora-cloud"
-	ContainerDiskMicroLiveCD          ContainerDisk = "microlivecd"
-	ContainerDiskVirtio               ContainerDisk = "virtio-container-disk"
-	ContainerDiskEmpty                ContainerDisk = "empty"
-)
-
-// ContainerDiskFor takes the name of an image and returns the full
-// registry diks image path.
-// Supported values are: cirros, fedora, alpine, guest-agent
-func ContainerDiskFor(name ContainerDisk) string {
-	switch name {
-	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora, ContainerDiskMicroLiveCD, ContainerDiskCirrosCustomLocation:
-		return fmt.Sprintf("%s/%s-container-disk-demo:%s", KubeVirtUtilityRepoPrefix, name, KubeVirtUtilityVersionTag)
-	case ContainerDiskVirtio:
-		return fmt.Sprintf("%s/virtio-container-disk:%s", KubeVirtUtilityRepoPrefix, KubeVirtUtilityVersionTag)
-	}
-	panic(fmt.Sprintf("Unsupported registry disk %s", name))
-}
-
 func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -4273,7 +4197,7 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) 
 	} else {
 		expecter, err = LoggedInCirrosExpecter(vmi)
 		Expect(err).NotTo(HaveOccurred())
-		httpServerMaker = fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\n\\nHello World!\"\n", port)
+		httpServerMaker = fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\nContent-Length: 11\\n\\nHello World!\"\n", port)
 		prompt = "\\$"
 	}
 	defer expecter.Close()
@@ -4878,6 +4802,18 @@ func SkipPVCTestIfRunnigOnKindInfra() {
 func SkipNFSTestIfRunnigOnKindInfra() {
 	if IsRunningOnKindInfra() {
 		Skip("Skip NFS tests till issue https://github.com/kubevirt/kubevirt/issues/3322 is fixed")
+	}
+}
+
+func SkipSELinuxTestIfRunnigOnKindInfra() {
+	if IsRunningOnKindInfra() {
+		Skip("Skip SELinux tests till issue https://github.com/kubevirt/kubevirt/issues/3780 is fixed")
+	}
+}
+
+func SkipDmidecodeTestIfRunningOnKindInfraIPv6() {
+	if IsRunningOnKindInfraIPv6() {
+		Skip("Skip dmidecode tests till issue https://github.com/kubevirt/kubevirt/issues/3901 is fixed")
 	}
 }
 

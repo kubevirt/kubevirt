@@ -328,9 +328,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.InterfaceSlirp":                                      schema_kubevirtio_client_go_api_v1_InterfaceSlirp(ref),
 		"kubevirt.io/client-go/api/v1.KVMTimer":                                            schema_kubevirtio_client_go_api_v1_KVMTimer(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirt":                                            schema_kubevirtio_client_go_api_v1_KubeVirt(ref),
+		"kubevirt.io/client-go/api/v1.KubeVirtCertificateRotateStrategy":                   schema_kubevirtio_client_go_api_v1_KubeVirtCertificateRotateStrategy(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirtCondition":                                   schema_kubevirtio_client_go_api_v1_KubeVirtCondition(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirtConfiguration":                               schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirtList":                                        schema_kubevirtio_client_go_api_v1_KubeVirtList(ref),
+		"kubevirt.io/client-go/api/v1.KubeVirtSelfSignConfiguration":                       schema_kubevirtio_client_go_api_v1_KubeVirtSelfSignConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirtSpec":                                        schema_kubevirtio_client_go_api_v1_KubeVirtSpec(ref),
 		"kubevirt.io/client-go/api/v1.KubeVirtStatus":                                      schema_kubevirtio_client_go_api_v1_KubeVirtStatus(ref),
 		"kubevirt.io/client-go/api/v1.LunTarget":                                           schema_kubevirtio_client_go_api_v1_LunTarget(ref),
@@ -349,6 +351,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/client-go/api/v1.ResourceRequirements":                                schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref),
 		"kubevirt.io/client-go/api/v1.RestartOptions":                                      schema_kubevirtio_client_go_api_v1_RestartOptions(ref),
 		"kubevirt.io/client-go/api/v1.Rng":                                                 schema_kubevirtio_client_go_api_v1_Rng(ref),
+		"kubevirt.io/client-go/api/v1.SMBiosConfiguration":                                 schema_kubevirtio_client_go_api_v1_SMBiosConfiguration(ref),
 		"kubevirt.io/client-go/api/v1.SecretVolumeSource":                                  schema_kubevirtio_client_go_api_v1_SecretVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.ServiceAccountVolumeSource":                          schema_kubevirtio_client_go_api_v1_ServiceAccountVolumeSource(ref),
 		"kubevirt.io/client-go/api/v1.Timer":                                               schema_kubevirtio_client_go_api_v1_Timer(ref),
@@ -15080,6 +15083,25 @@ func schema_kubevirtio_client_go_api_v1_KubeVirt(ref common.ReferenceCallback) c
 	}
 }
 
+func schema_kubevirtio_client_go_api_v1_KubeVirtCertificateRotateStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"selfSigned": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/client-go/api/v1.KubeVirtSelfSignConfiguration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/client-go/api/v1.KubeVirtSelfSignConfiguration"},
+	}
+}
+
 func schema_kubevirtio_client_go_api_v1_KubeVirtCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -15201,7 +15223,7 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtConfiguration(ref common.Referen
 							Format: "",
 						},
 					},
-					"smbiOS": {
+					"smbios": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/client-go/api/v1.SMBiosConfiguration"),
 						},
@@ -15271,6 +15293,35 @@ func schema_kubevirtio_client_go_api_v1_KubeVirtList(ref common.ReferenceCallbac
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/client-go/api/v1.KubeVirt"},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_KubeVirtSelfSignConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"caRotateInterval": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+					"certRotateInterval": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+					"caOverlapInterval": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
 	}
 }
 
@@ -15946,6 +15997,48 @@ func schema_kubevirtio_client_go_api_v1_Rng(ref common.ReferenceCallback) common
 			SchemaProps: spec.SchemaProps{
 				Description: "Rng represents the random device passed from host",
 				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_client_go_api_v1_SMBiosConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manufacturer": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"product": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sku": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"family": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 	}

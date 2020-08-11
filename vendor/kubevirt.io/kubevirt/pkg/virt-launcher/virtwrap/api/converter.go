@@ -1506,11 +1506,11 @@ func SecretToLibvirtSecret(vmi *v1.VirtualMachineInstance, secretName string) st
 func QuantityToByte(quantity resource.Quantity) (Memory, error) {
 	memorySize, _ := quantity.AsInt64()
 	if memorySize < 0 {
-		return Memory{Unit: "B"}, fmt.Errorf("Memory size '%s' must be greater than or equal to 0", quantity.String())
+		return Memory{Unit: "b"}, fmt.Errorf("Memory size '%s' must be greater than or equal to 0", quantity.String())
 	}
 	return Memory{
 		Value: uint64(memorySize),
-		Unit:  "B",
+		Unit:  "b",
 	}, nil
 }
 

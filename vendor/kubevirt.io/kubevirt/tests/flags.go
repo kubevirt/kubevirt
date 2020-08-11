@@ -1,0 +1,79 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2020 Red Hat, Inc.
+ *
+ */
+
+package tests
+
+import (
+	"flag"
+
+	"kubevirt.io/client-go/kubecli"
+)
+
+var KubeVirtUtilityVersionTag = ""
+var KubeVirtVersionTag = "latest"
+var KubeVirtVersionTagAlt = ""
+var KubeVirtUtilityRepoPrefix = ""
+var KubeVirtRepoPrefix = "kubevirt"
+var ImagePrefixAlt = ""
+var ContainerizedDataImporterNamespace = "cdi"
+var KubeVirtKubectlPath = ""
+var KubeVirtOcPath = ""
+var KubeVirtVirtctlPath = ""
+var KubeVirtGoCliPath = ""
+var KubeVirtInstallNamespace string
+var PreviousReleaseTag = ""
+var PreviousReleaseRegistry = ""
+var ConfigFile = ""
+var SkipShasumCheck bool
+
+var DeployTestingInfrastructureFlag = false
+var PathToTestingInfrastrucureManifests = ""
+
+func init() {
+	kubecli.Init()
+	flag.StringVar(&KubeVirtUtilityVersionTag, "utility-container-tag", "", "Set the image tag or digest to use")
+	flag.StringVar(&KubeVirtVersionTag, "container-tag", "latest", "Set the image tag or digest to use")
+	flag.StringVar(&KubeVirtVersionTagAlt, "container-tag-alt", "", "An alternate tag that can be used to test operator deployments")
+	flag.StringVar(&KubeVirtUtilityRepoPrefix, "utility-container-prefix", "", "Set the repository prefix for all images")
+	flag.StringVar(&KubeVirtRepoPrefix, "container-prefix", "kubevirt", "Set the repository prefix for all images")
+	flag.StringVar(&ImagePrefixAlt, "image-prefix-alt", "", "Optional prefix for virt-* image names for additional imagePrefix operator test")
+	flag.StringVar(&ContainerizedDataImporterNamespace, "cdi-namespace", "cdi", "Set the repository prefix for CDI components")
+	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
+	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
+	flag.StringVar(&KubeVirtVirtctlPath, "virtctl-path", "", "Set path to virtctl binary")
+	flag.StringVar(&KubeVirtGoCliPath, "gocli-path", "", "Set path to gocli binary")
+	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kubevirt", "Set the namespace KubeVirt is installed in")
+	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
+	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
+	flag.StringVar(&PreviousReleaseTag, "previous-release-tag", "", "Set tag of the release to test updating from")
+	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "index.docker.io/kubevirt", "Set registry of the release to test updating from")
+	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
+	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
+}
+
+func NormalizeFlags() {
+	// When the flags are not provided, copy the values from normal version tag and prefix
+	if KubeVirtUtilityVersionTag == "" {
+		KubeVirtUtilityVersionTag = KubeVirtVersionTag
+	}
+
+	if KubeVirtUtilityRepoPrefix == "" {
+		KubeVirtUtilityRepoPrefix = KubeVirtRepoPrefix
+	}
+}

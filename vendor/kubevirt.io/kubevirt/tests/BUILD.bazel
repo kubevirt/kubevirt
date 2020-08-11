@@ -4,6 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "config.go",
+        "containerdisk.go",
+        "flags.go",
         "test.go",
         "utils.go",
     ],

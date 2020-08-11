@@ -1076,12 +1076,16 @@ type KubeVirtList struct {
 	Items           []KubeVirt `json:"items"`
 }
 
+// ---
+// +k8s:openapi-gen=true
 type KubeVirtSelfSignConfiguration struct {
 	CARotateInterval   *metav1.Duration `json:"caRotateInterval,omitempty"`
 	CertRotateInterval *metav1.Duration `json:"certRotateInterval,omitempty"`
 	CAOverlapInterval  *metav1.Duration `json:"caOverlapInterval,omitempty"`
 }
 
+// ---
+// +k8s:openapi-gen=true
 type KubeVirtCertificateRotateStrategy struct {
 	SelfSigned *KubeVirtSelfSignConfiguration `json:"selfSigned,omitempty"`
 }
@@ -1298,10 +1302,12 @@ type KubeVirtConfiguration struct {
 	NetworkConfiguration        *NetworkConfiguration   `json:"network,omitempty"`
 	OVMFPath                    string                  `json:"ovmfPath,omitempty"`
 	SELinuxLauncherType         string                  `json:"selinuxLauncherType,omitempty"`
-	SMBIOSConfig                *SMBiosConfiguration    `json:"smbiOS,omitempty"`
+	SMBIOSConfig                *SMBiosConfiguration    `json:"smbios,omitempty"`
 	SupportedGuestAgentVersions []string                `json:"supportedGuestAgentVersions,omitempty"`
 }
 
+// ---
+// +k8s:openapi-gen=true
 type SMBiosConfiguration struct {
 	Manufacturer string `json:"manufacturer,omitempty"`
 	Product      string `json:"product,omitempty"`

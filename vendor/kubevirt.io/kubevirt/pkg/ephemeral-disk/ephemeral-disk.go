@@ -102,6 +102,10 @@ func CreateBackedImageForVolume(volume v1.Volume, backingFile string) error {
 		return fmt.Errorf("qemu-img failed with output '%s': %v", string(output), err)
 	}
 
+	if err = os.Chmod(imagePath, 0640); err != nil {
+		return fmt.Errorf("failed to change permisions on %s", imagePath)
+	}
+
 	// We need to ensure that the permissions are setup correctly.
 	err = diskutils.DefaultOwnershipManager.SetFileOwnership(imagePath)
 	return err
