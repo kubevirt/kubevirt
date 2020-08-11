@@ -67,7 +67,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 		}()
 
 		By("Checking that the console output equals to expected one")
-		_, err = expecter.ExpectBatch([]expect.Batcher{
+		_, err = tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: expected},
 		}, 120*time.Second)
