@@ -766,11 +766,12 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					ipv4NetworkCIDR = api.DefaultVMCIDR
 				}
 				By("Checking ping to gateway")
-				pingVirtualMachine(serverVMI, gatewayIPFromCIDR(ipv4NetworkCIDR), "\\$ ")
+				ipAddr := gatewayIPFromCIDR(ipv4NetworkCIDR)
+				Expect(tests.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
 
 				By("Checking ping to google")
-				pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
-				pingVirtualMachine(clientVMI, "google.com", "\\$ ")
+				Expect(tests.PingFromVMConsole(serverVMI, "8.8.8.8")).To(Succeed())
+				Expect(tests.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
 			}
 
 			By("starting a tcp server")

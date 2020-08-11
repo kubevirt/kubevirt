@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	netutils "k8s.io/utils/net"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -170,7 +168,7 @@ var _ = Describe("Multus", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
-				pingVirtualMachine(detachedVMI, "10.1.1.1", "\\$ ")
+				Expect(tests.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 			})
 
 			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
@@ -188,7 +186,7 @@ var _ = Describe("Multus", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
-				pingVirtualMachine(detachedVMI, "10.1.1.1", "\\$ ")
+				Expect(tests.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 			})
 
 			It("[test_id:1753]should create a virtual machine with two interfaces", func() {
@@ -224,7 +222,7 @@ var _ = Describe("Multus", func() {
 				checkInterface(detachedVMI, "eth0", "\\$ ")
 				checkInterface(detachedVMI, "eth1", "\\$ ")
 
-				pingVirtualMachine(detachedVMI, "10.1.1.1", "\\$ ")
+				Expect(tests.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 			})
 		})
 
@@ -246,7 +244,7 @@ var _ = Describe("Multus", func() {
 				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
 				By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
-				pingVirtualMachine(detachedVMI, "10.1.1.1", "\\$ ")
+				Expect(tests.PingFromVMConsole(detachedVMI, "10.1.1.1")).To(Succeed())
 
 				By("checking virtual machine instance only has one interface")
 				// lo0, eth0
@@ -338,7 +336,7 @@ var _ = Describe("Multus", func() {
 				checkInterface(vmiTwo, "eth0", "localhost:~#")
 
 				By("ping between virtual machines")
-				pingVirtualMachine(vmiOne, "10.1.1.2", "localhost:~#")
+				Expect(tests.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
 			})
 
 			It("[test_id:1578]should create two virtual machines with two interfaces", func() {
@@ -367,7 +365,7 @@ var _ = Describe("Multus", func() {
 				checkInterface(vmiTwo, "eth1", "localhost:~#")
 
 				By("ping between virtual machines")
-				pingVirtualMachine(vmiOne, "10.1.1.2", "localhost:~#")
+				Expect(tests.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
 			})
 		})
 
@@ -411,7 +409,7 @@ var _ = Describe("Multus", func() {
 				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
 
 				By("Ping from the VM with the custom MAC to the other VM.")
-				pingVirtualMachine(vmiOne, "10.1.1.2", "localhost:~#")
+				Expect(tests.PingFromVMConsole(vmiOne, "10.1.1.2")).To(Succeed())
 			})
 		})
 		Context("Single VirtualMachineInstance with Linux bridge CNI plugin interface", func() {
@@ -866,8 +864,8 @@ var _ = Describe("SRIOV", func() {
 			configInterface(vmi2, "eth1", cidrB, "#")
 
 			// now check ICMP goes both ways
-			pingVirtualMachine(vmi1, cidrToIP(cidrB), "#")
-			pingVirtualMachine(vmi2, cidrToIP(cidrA), "#")
+			Expect(tests.PingFromVMConsole(vmi1, cidrToIP(cidrB))).To(Succeed())
+			Expect(tests.PingFromVMConsole(vmi2, cidrToIP(cidrA))).To(Succeed())
 		}
 
 		It("[test_id:3956]should connect to another machine with sriov interface over IPv4", func() {
@@ -935,23 +933,6 @@ func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 		&expect.BExp{R: tests.RetValue("0", "\\#")},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred(), "MAC %q was not found in the VMI %s within the given timeout", macAddress, vmi.Name)
-}
-
-func pingVirtualMachine(vmi *v1.VirtualMachineInstance, ipAddr, prompt string) {
-	pingString := "ping"
-	if netutils.IsIPv6String(ipAddr) {
-		pingString = "ping -6"
-	}
-	cmdCheck := fmt.Sprintf("%s %s -c 1 -w 5\n", pingString, ipAddr)
-	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("0", prompt)},
-	}, 30)
-	Expect(err).ToNot(HaveOccurred(), "Failed to ping VMI %s within the given timeout", vmi.Name)
 }
 
 // Tests in Multus suite are expecting a Linux bridge to be available on each node, with iptables allowing
