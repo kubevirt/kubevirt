@@ -2226,6 +2226,23 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[1].Field).To(Equal("fake[1].lun.bus"))
 		})
 
+		It("should reject disks with unsupported I/O modes", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk1",
+				IO:   "native",
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk2",
+				IO:   "unsupported",
+			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[1].io"))
+		})
+
 		It("should reject disk with invalid cache mode", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{

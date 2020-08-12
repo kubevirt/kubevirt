@@ -205,6 +205,7 @@ func (Disk) SwaggerDoc() map[string]string {
 		"serial":            "Serial provides the ability to specify a serial number for the disk device.\n+optional",
 		"dedicatedIOThread": "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
 		"cache":             "Cache specifies which kvm disk cache mode should be used.\n+optional",
+		"io":                "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",
 		"tag":               "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
 	}
 }

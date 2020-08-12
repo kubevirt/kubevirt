@@ -1003,11 +1003,25 @@ const (
 // +k8s:openapi-gen=true
 type DriverCache string
 
+//
+// +k8s:openapi-gen=true
+type DriverIO string
+
 const (
 	// CacheNone - I/O from the guest is not cached on the host, but may be kept in a writeback disk cache.
 	CacheNone DriverCache = "none"
 	// CacheWriteThrough - I/O from the guest is cached on the host but written through to the physical medium.
 	CacheWriteThrough DriverCache = "writethrough"
+
+	// IOThreads - User mode based threads with a shared lock that perform I/O tasks. Can impact performance but offers
+	// more predictable behaviour. This method is also takes fewer CPU cycles to submit I/O requests.
+	IOThreads DriverIO = "threads"
+	// IONative - Kernel native I/O tasks (AIO) offer a better performance but can block the VM if the file is not fully
+	// allocated so this method recommended only when the backing file/disk/etc is fully preallocated.
+	IONative DriverIO = "native"
+	// IODefault - Fallback to the default value from the kernel. With recent Kernel versions (for example RHEL-7) the
+	// default is AIO.
+	IODefault DriverIO = "default"
 )
 
 // Handler defines a specific action that should be taken
