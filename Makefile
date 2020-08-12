@@ -135,7 +135,7 @@ builder-publish:
 olm-verify:
 	hack/dockerized "./hack/olm.sh verify"
 
-current-dir := $(shell pwd)
+current-dir := $(realpath .)
 
 build-prom-spec-dumper:
 	hack/dockerized "go build -o rule-spec-dumper ./hack/prom-rule-ci/rule-spec-dumper.go"
