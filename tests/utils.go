@@ -3005,18 +3005,17 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "localhost login:"},
 		&expect.BSnd{S: "root\n"},
-		&expect.BExp{R: "localhost:~\\#"}})
-	res, err := expecter.ExpectBatch(b, 180*time.Second)
+		&expect.BExp{R: PromptExpression}})
+	res, err := ExpectBatchWithValidatedSend(expecter, b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
 		expecter.Close()
 		return nil, err
 	}
 
-	err = configureConsole(expecter, "localhost:~\\#", false)
+	err = configureConsole(expecter,PromptExpression , false)
 	if err != nil {
 		expecter.Close()
 		return nil, err
