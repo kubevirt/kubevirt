@@ -498,32 +498,25 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 }
 
 // isPodReady treats the pod as ready to be handed over to virt-handler, as soon as all pods except
-// the compute pod are ready. That includes kubevirt-infra and sidecars.
+// the compute pod are ready.
 func isPodReady(pod *k8sv1.Pod) bool {
 	if isPodDownOrGoingDown(pod) {
 		return false
 	}
-	infraContainerExists := false
+
 	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if containerStatus.Name == "kubevirt-infra" {
-			infraContainerExists = true
-			break
-		}
-	}
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		// If there is a kubevirt-infra pod, we should not check "compute" here.
-		// Otherwise all containers including "compute" should be "ready before we go on.
-		if infraContainerExists {
-			if containerStatus.Name != "compute" && containerStatus.Ready == false {
+		// The compute container potentially holds a readiness probe for the VMI. Therefore
+		// don't wait for the compute container to become ready (the VMI later on will trigger the change to ready)
+		// and only check that the container started
+		if containerStatus.Name == "compute" {
+			if containerStatus.State.Running == nil {
 				return false
 			}
-		} else {
+		} else if containerStatus.Name != "istio-proxy" && containerStatus.Ready == false {
 			// When using istio the istio-proxy container will not be ready
 			// until there is a service pointing to this pod.
 			// We need to start the VM anyway
-			if containerStatus.Name != "istio-proxy" && containerStatus.Ready == false {
-				return false
-			}
+			return false
 		}
 	}
 

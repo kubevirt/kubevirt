@@ -659,14 +659,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			controller.Execute()
 		},
-			table.Entry("with ready infra container and not ready compute container",
-				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}, {Name: "kubevirt-infra", Ready: true}},
+			table.Entry("with running compute container and no infra container",
+				[]k8sv1.ContainerStatus{{
+					Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+				}},
 			),
-			table.Entry("with ready compute container and no infra container",
-				[]k8sv1.ContainerStatus{{Name: "compute", Ready: true}},
-			),
-			table.Entry("with ready compute container and no ready istio-proxy container",
-				[]k8sv1.ContainerStatus{{Name: "compute", Ready: true}, {Name: "istio-proxy", Ready: false}},
+			table.Entry("with running compute container and no ready istio-proxy container",
+				[]k8sv1.ContainerStatus{{
+					Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+				}, {Name: "istio-proxy", Ready: false}},
 			),
 		)
 		table.DescribeTable("should not hand over pod to virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
@@ -1097,8 +1098,7 @@ func NewPodForVirtualMachine(vmi *v1.VirtualMachineInstance, phase k8sv1.PodPhas
 		Status: k8sv1.PodStatus{
 			Phase: phase,
 			ContainerStatuses: []k8sv1.ContainerStatus{
-				{Ready: true, Name: "kubevirt-infra"},
-				{Ready: false, Name: "compute"},
+				{Ready: false, Name: "compute", State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}}},
 			},
 		},
 	}

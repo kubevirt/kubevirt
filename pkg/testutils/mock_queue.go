@@ -3,6 +3,7 @@ package testutils
 import (
 	"sync"
 	"sync/atomic"
+	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
@@ -36,6 +37,8 @@ type MockWorkQueue struct {
 	workqueue.RateLimitingInterface
 	addWG            *sync.WaitGroup
 	rateLimitedEnque int32
+	addAfterEnque    int32
+	wgLock           sync.Mutex
 }
 
 func (q *MockWorkQueue) Add(obj interface{}) {
@@ -50,8 +53,17 @@ func (q *MockWorkQueue) AddRateLimited(item interface{}) {
 	atomic.AddInt32(&q.rateLimitedEnque, 1)
 }
 
+func (q *MockWorkQueue) AddAfter(item interface{}, duration time.Duration) {
+	q.RateLimitingInterface.AddAfter(item, duration)
+	atomic.AddInt32(&q.addAfterEnque, 1)
+}
+
 func (q *MockWorkQueue) GetRateLimitedEnqueueCount() int {
 	return int(atomic.LoadInt32(&q.rateLimitedEnque))
+}
+
+func (q *MockWorkQueue) GetAddAfterEnqueueCount() int {
+	return int(atomic.LoadInt32(&q.addAfterEnque))
 }
 
 // ExpectAdds allows setting the amount of expected enqueues.
@@ -70,7 +82,7 @@ func (q *MockWorkQueue) Wait() {
 }
 
 func NewMockWorkQueue(queue workqueue.RateLimitingInterface) *MockWorkQueue {
-	return &MockWorkQueue{queue, nil, 0}
+	return &MockWorkQueue{queue, nil, 0, 0, sync.Mutex{}}
 }
 
 func NewFakeInformerFor(obj runtime.Object) (cache.SharedIndexInformer, *framework.FakeControllerSource) {
