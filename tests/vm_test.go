@@ -121,7 +121,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Deleting the DataVolume")
 				ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
 			}(dv)
-			tests.WaitForSuccessfulDataVolumeImport(dv, 60)
+			tests.WaitForSuccessfulDataVolumeImport(dv, 240)
 
 			vmi := tests.NewRandomVMI()
 
@@ -162,7 +162,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Deleting the DataVolume")
 				ExpectWithOffset(1, virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Delete(dv.Name, &metav1.DeleteOptions{})).To(Succeed())
 			}(dv)
-			tests.WaitForSuccessfulDataVolumeImport(dv, 60)
+			tests.WaitForSuccessfulDataVolumeImport(dv, 240)
 
 			vmi := tests.NewRandomVMI()
 
