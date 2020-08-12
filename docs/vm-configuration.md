@@ -9,7 +9,7 @@ so there is a need to convert between the public resource descriptions and the
 libvirt XML document formats.
 
 This document will only consider the configuration associated with a specific
-instance  of a virtual machine. It will ignore the topic of 'templating' by
+instance of a virtual machine. It will ignore the topic of 'templating' by
 which a higher level generalised config can be used as a cookie cutter for
 creating many guests.
 
@@ -150,7 +150,7 @@ NIC was unplugged since the snapshot was taken, even if the snapshot
 configuration has kept track of the existence of this NIC, the tenant may not
 be permitted to plug it into any host network. A snapshot can be taken
 regardless of whether a guest is running or inactive. The latter case, the
-snapshot would only cover disks, while in the format case, the snapshot would
+snapshot would only cover disks, while in the former case, the snapshot would
 cover disks, and optionally memory too.
 
 Bearing all this in mind there can be multiple configurations associated with
@@ -186,7 +186,7 @@ the domain XML, when managing individual virtual machines.
 The secret APIs in libvirt and their associated secret XML format provide a way
 to push security sensitive credentials into libvirt. This covers items such as
 network service client login passwords to be used by QEMU, credentials to be
-required for network servers run by QEMU (such as SPICE) and disk encryption
+required for network servers run by QEMU (such as VNC) and disk encryption
 keys or passphrases. These are not included in the domain XML document since
 these documents are widely shared and logged without concern for security
 sensitive data. Thus any part of the domain XML configuration that requires
@@ -223,7 +223,7 @@ the frontend virtual hardware, in order to enable a stable ABI to be attained.
 
 For the backend configuration, some parts can be automatically determined by
 kubevirt without requiring any user specification. For example, there is no need
-for the user to specify what VNC/SPICE port to use, or where to find the UEFI
+for the user to specify what VNC port to use, or where to find the UEFI
 BIOS files. It is sufficient to know that VNC or UEFI must be enabled. Other
 areas of backend configuration will require the user to specify resources in an
 abstracted manner. For example, instead of providing a file path for a disk,
@@ -389,8 +389,8 @@ status.
 ### Disks
 
 `disk`, `lun`, `floppy` and `cdrom` are different structs within
-`devices.disks` array. They soley contain the guest side information of the
-disk. Each `devices.disks` entry continas one of them and `volumeName`
+`devices.disks` array. They solely contain the guest side information of the
+disk. Each `devices.disks` entry contains one of them and `volumeName`
 attribute, which references a named entry in  `spec.volumes`:
 
 ```yaml
