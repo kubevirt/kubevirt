@@ -34,12 +34,9 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-const promptExpression = `(\$ |\# )`
-const termNLExpression = "\r\n"
-
 var (
-	shellSuccess = regexp.MustCompile("\n0" + termNLExpression + ".*" + promptExpression)
-	shellFail    = regexp.MustCompile("\n[1-9].*" + termNLExpression + ".*" + promptExpression)
+	shellSuccess = regexp.MustCompile(RetValue("0"))
+	shellFail    = regexp.MustCompile(RetValue("[1-9].*"))
 )
 
 // PingFromVMConsole performs a ping through the provided VMI console.
@@ -62,9 +59,9 @@ func PingFromVMConsole(vmi *v1.VirtualMachineInstance, ipAddr string, args ...st
 
 	err := vmiConsoleExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: promptExpression},
+		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: promptExpression},
+		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BCas{C: []expect.Caser{
 			&expect.Case{
