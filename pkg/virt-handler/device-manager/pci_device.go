@@ -41,9 +41,9 @@ import (
 )
 
 const (
-	vfioDevicePath    = "/dev/vfio/"
-	vfioMount         = "/dev/vfio/vfio"
-	pciBasePath       = "/sys/bus/pci/devices"
+	vfioDevicePath      = "/dev/vfio/"
+	vfioMount           = "/dev/vfio/vfio"
+	pciBasePath         = "/sys/bus/pci/devices"
 	PCI_RESOURCE_PREFIX = "PCI_RESOURCE"
 )
 
@@ -56,18 +56,18 @@ type PCIDevice struct {
 }
 
 type PCIDevicePlugin struct {
-	devs       []*pluginapi.Device
-	server     *grpc.Server
-	socketPath string
-	stop       chan struct{}
-	health     chan string
-	devicePath string
-	deviceName string
-	resourceName string
-	done       chan struct{}
-	deviceRoot string
-	healthy    chan string
-	unhealthy  chan string
+	devs          []*pluginapi.Device
+	server        *grpc.Server
+	socketPath    string
+	stop          chan struct{}
+	health        chan string
+	devicePath    string
+	deviceName    string
+	resourceName  string
+	done          chan struct{}
+	deviceRoot    string
+	healthy       chan string
+	unhealthy     chan string
 	iommuToPCIMap map[string]string
 }
 
@@ -78,15 +78,15 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 
 	devs := constructDPIdevices(pciDevices, iommuToPCIMap)
 	dpi := &PCIDevicePlugin{
-		devs:       devs,
-		socketPath: serverSock,
-		deviceName: resourceName,
-		resourceName: resourceName,
-		devicePath: vfioDevicePath,
-		deviceRoot: util.HostRootMount,
+		devs:          devs,
+		socketPath:    serverSock,
+		deviceName:    resourceName,
+		resourceName:  resourceName,
+		devicePath:    vfioDevicePath,
+		deviceRoot:    util.HostRootMount,
 		iommuToPCIMap: iommuToPCIMap,
-		healthy:    make(chan string),
-		unhealthy:  make(chan string),
+		healthy:       make(chan string),
+		unhealthy:     make(chan string),
 	}
 	return dpi
 }
@@ -218,7 +218,7 @@ func (dpi *PCIDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateR
 	for _, request := range r.ContainerRequests {
 		deviceSpecs := make([]*pluginapi.DeviceSpec, 0)
 		for _, devID := range request.DevicesIDs {
-			// translate device's iommu group to its pci address 
+			// translate device's iommu group to its pci address
 			devPCIAddress, exist := dpi.iommuToPCIMap[devID]
 			if !exist {
 				continue

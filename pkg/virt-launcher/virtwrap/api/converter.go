@@ -49,37 +49,45 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
+type HostDeviceType string
+
 const (
-	CPUModeHostPassthrough = "host-passthrough"
-	CPUModeHostModel       = "host-model"
-	defaultIOThread        = uint(1)
-	EFICode                = "OVMF_CODE.fd"
-	EFIVars                = "OVMF_VARS.fd"
-	EFICodeSecureBoot      = "OVMF_CODE.secboot.fd"
-	EFIVarsSecureBoot      = "OVMF_VARS.secboot.fd"
+	CPUModeHostPassthrough                = "host-passthrough"
+	CPUModeHostModel                      = "host-model"
+	defaultIOThread                       = uint(1)
+	EFICode                               = "OVMF_CODE.fd"
+	EFIVars                               = "OVMF_VARS.fd"
+	EFICodeSecureBoot                     = "OVMF_CODE.secboot.fd"
+	EFIVarsSecureBoot                     = "OVMF_VARS.secboot.fd"
+	HostDevicePCI          HostDeviceType = "pci"
+	HostDeviceMDEV         HostDeviceType = "mdev"
 )
 const (
 	multiQueueMaxQueues = uint32(256)
 )
 
+type HostDevicesList struct {
+	Type     HostDeviceType
+	AddrList []string
+}
+
 // +k8s:deepcopy-gen=false
 type ConverterContext struct {
-	Architecture      string
-	UseEmulation      bool
-	Secrets           map[string]*k8sv1.Secret
-	VirtualMachine    *v1.VirtualMachineInstance
-	CPUSet            []int
-	IsBlockPVC        map[string]bool
-	IsBlockDV         map[string]bool
-	DiskType          map[string]*containerdisk.DiskInfo
-	SRIOVDevices      map[string][]string
-	SMBios            *cmdv1.SMBios
-	GpuDevices        []string
-	VgpuDevices       []string
-	PCIDevices        map[string][]string
-	MediatedDevices   map[string][]string
-	EmulatorThreadCpu *int
-	OVMFPath          string
+	Architecture          string
+	UseEmulation          bool
+	Secrets               map[string]*k8sv1.Secret
+	VirtualMachine        *v1.VirtualMachineInstance
+	CPUSet                []int
+	IsBlockPVC            map[string]bool
+	IsBlockDV             map[string]bool
+	DiskType              map[string]*containerdisk.DiskInfo
+	SRIOVDevices          map[string][]string
+	SMBios                *cmdv1.SMBios
+	GpuDevices            []string
+	VgpuDevices           []string
+	HostDevices           map[string]HostDevicesList
+	EmulatorThreadCpu     *int
+	OVMFPath              string
 	MemBalloonStatsPeriod uint
 }
 
@@ -94,25 +102,16 @@ func popDeviceIDFromList(addrList []string) (string, []string) {
 }
 
 func getHostDeviceByResourceName(c *ConverterContext, resourceName string, name string) (HostDevice, error) {
-	if addresses, exist := c.PCIDevices[resourceName]; len(addresses) != 0 && exist {
-		addr, remainingAddresses := popDeviceIDFromList(addresses)
-		domainHostDev, err := createHostDevicesFromPCIAddress(addr, name)
+	if device, exist := c.HostDevices[resourceName]; len(device.AddrList) != 0 && exist {
+		addr, remainingAddresses := popDeviceIDFromList(device.AddrList)
+		domainHostDev, err := createHostDevicesFromAddress(device.Type, addr, name)
 		if err != nil {
-			return hostDevices, err
+			return domainHostDev, err
 		}
-		c.PCIDevices[resourceName] = remainingAddresses
+		device.AddrList = remainingAddresses
+		c.HostDevices[resourceName] = device
 		return domainHostDev, nil
 	}
-	if addresses, exist := c.MediatedDevices[resourceName]; len(addresses) != 0 && exist {
-		addr, remainingAddresses := popDeviceIDFromList(addresses)
-		domainMDev, err := createHostDevicesFromMdevUUID(addr, name)
-		if err != nil {
-			return hostDevices, err
-		}
-		c.MediatedDevices[resourceName] = remainingAddresses
-		return domainMDev, nil
-	}
-
 	return HostDevice{}, fmt.Errorf("failed to allocated a host device for resource: %s", resourceName)
 }
 
@@ -1218,7 +1217,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			}
 		}
 	}
-	err := Convert_HostDevices_And_GPU(vmi.Spec.Domain.Devices, domain, c)
+	err = Convert_HostDevices_And_GPU(vmi.Spec.Domain.Devices, domain, c)
 	if err != nil {
 		return err
 	}
@@ -1774,6 +1773,16 @@ func decoratePciAddressField(addressField string) (*Address, error) {
 		Function: "0x" + dbsfFields[3],
 	}
 	return decoratedAddrField, nil
+}
+
+func createHostDevicesFromAddress(devType HostDeviceType, deviceID string, name string) (HostDevice, error) {
+	switch devType {
+	case HostDevicePCI:
+		return createHostDevicesFromPCIAddress(deviceID, name)
+	case HostDeviceMDEV:
+		return createHostDevicesFromMdevUUID(deviceID, name)
+	}
+	return HostDevice{}, fmt.Errorf("failed to create host devices for invalid type %s", devType)
 }
 
 func createHostDevicesFromPCIAddress(pciAddr string, name string) (HostDevice, error) {

@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	mdevBasePath = "/sys/bus/mdev/devices"
+	mdevBasePath         = "/sys/bus/mdev/devices"
 	MDEV_RESOURCE_PREFIX = "MDEV_PCI_RESOURCE"
 )
 
@@ -51,18 +51,18 @@ type MDEV struct {
 }
 
 type MediatedDevicePlugin struct {
-	devs       []*pluginapi.Device
-	server     *grpc.Server
-	socketPath string
-	stop       chan struct{}
-	health     chan string
-	devicePath string
-	deviceName string
-	resourceName string
-	done       chan struct{}
-	deviceRoot string
-	healthy    chan string
-	unhealthy  chan string
+	devs           []*pluginapi.Device
+	server         *grpc.Server
+	socketPath     string
+	stop           chan struct{}
+	health         chan string
+	devicePath     string
+	deviceName     string
+	resourceName   string
+	done           chan struct{}
+	deviceRoot     string
+	healthy        chan string
+	unhealthy      chan string
 	iommuToMDEVMap map[string]string
 }
 
@@ -74,15 +74,15 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 
 	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap)
 	dpi := &MediatedDevicePlugin{
-		devs:       devs,
-		socketPath: serverSock,
-		health:     make(chan string),
-		deviceName: resourceName,
-		resourceName: resourceName,
-		devicePath: vfioDevicePath,
-		deviceRoot: util.HostRootMount,
-		healthy:    make(chan string),
-		unhealthy:  make(chan string),
+		devs:           devs,
+		socketPath:     serverSock,
+		health:         make(chan string),
+		deviceName:     resourceName,
+		resourceName:   resourceName,
+		devicePath:     vfioDevicePath,
+		deviceRoot:     util.HostRootMount,
+		healthy:        make(chan string),
+		unhealthy:      make(chan string),
 		iommuToMDEVMap: iommuToMDEVMap,
 	}
 
@@ -162,7 +162,6 @@ func (dpi *MediatedDevicePlugin) GetDevicePath() string {
 func (dpi *MediatedDevicePlugin) GetDeviceName() string {
 	return dpi.deviceName
 }
-
 
 func (dpi *MediatedDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	resourceName := dpi.deviceName
