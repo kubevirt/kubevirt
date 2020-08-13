@@ -1,5 +1,10 @@
 export GO15VENDOREXPERIMENT := 1
 
+TIME_STAMP:
+	@date +"Time: %F %T %z"
+
+%: TIME_STAMP
+	@echo
 
 all:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh && \
@@ -151,6 +156,7 @@ bump-kubevirtci:
 	./hack/bump-kubevirtci.sh
 
 .PHONY: \
+	TIME_STAMP \
 	build-verify \
 	go-build \
 	go-test \
