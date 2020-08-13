@@ -44,6 +44,7 @@ func (r *HyperConverged) NewKubeVirt(opts ...string) *kubevirtv1.KubeVirt {
 		Spec: kubevirtv1.KubeVirtSpec{
 			UninstallStrategy: kubevirtv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist,
 		},
+		// TODO: propagate NodePlacement
 	}
 }
 
@@ -58,6 +59,7 @@ func (r *HyperConverged) NewCDI(opts ...string) *cdiv1alpha1.CDI {
 		Spec: cdiv1alpha1.CDISpec{
 			UninstallStrategy: &uninstallStrategy,
 		},
+		// TODO: propagate NodePlacement
 	}
 }
 
@@ -75,6 +77,7 @@ func (r *HyperConverged) NewNetworkAddons(opts ...string) *networkaddonsv1alpha1
 			NMState:     &networkaddonsv1alpha1.NMState{},
 			KubeMacPool: &networkaddonsv1alpha1.KubeMacPool{},
 		},
+		// TODO: propagate NodePlacement
 	}
 }
 
@@ -85,6 +88,7 @@ func (r *HyperConverged) NewKubeVirtCommonTemplateBundle(opts ...string) *sspv1.
 			Labels:    r.getLabels(),
 			Namespace: r.getNamespace(hcoutil.OpenshiftNamespace, opts),
 		},
+		// TODO: propagate NodePlacement
 	}
 }
 

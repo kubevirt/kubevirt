@@ -292,5 +292,8 @@ var _ = Describe("HyperconvergedTypes", func() {
 				Expect(ver).Should(Equal(testVersion))
 			})
 		})
+
+		// TODO: add tests on nodeselectors and tolerations
+
 	})
 })

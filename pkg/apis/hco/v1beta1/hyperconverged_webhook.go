@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -103,6 +104,33 @@ func (r *HyperConverged) ValidateCreate() error {
 
 func (r *HyperConverged) ValidateUpdate(old runtime.Object) error {
 	hcolog.Info("Validating update", "name", r.Name)
+
+	ctx := context.TODO()
+
+	oldR, ok := old.(*HyperConverged)
+	if !ok {
+		return fmt.Errorf("expect old object to be a %T instead of %T", oldR, old)
+	}
+
+	if !reflect.DeepEqual(
+		oldR.Spec.Workloads,
+		r.Spec.Workloads) {
+		for _, obj := range []runtime.Object{
+			r.NewKubeVirt(),
+			r.NewCDI(),
+		} {
+
+			// TODO: try a dry-run update KubeVirt and CDI CR and refuse the update
+			// if one of them refuses the update due to existing workloads
+			err := hcoutil.EnsureDeleted(ctx, cli, obj, r.Name, hcolog, true)
+			if err != nil {
+				msg := "updating HCO nodeselectors is not allowed due to existing workload"
+				hcolog.Error(err, msg, "GVK", obj.GetObjectKind().GroupVersionKind())
+				return fmt.Errorf(msg)
+			}
+		}
+
+	}
 	return nil
 }
 

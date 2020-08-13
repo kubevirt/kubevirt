@@ -399,6 +399,8 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(foundResource.Spec.UninstallStrategy).To(Equal(expectedResource.Spec.UninstallStrategy))
 		})
 
+		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
+
 		It("should handle conditions", func() {
 			expectedResource := hco.NewKubeVirt(namespace)
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
@@ -548,6 +550,8 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(*foundResource.Spec.UninstallStrategy).To(Equal(*expectedResource.Spec.UninstallStrategy))
 		})
 
+		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
+
 		It("should handle conditions", func() {
 			expectedResource := hco.NewCDI()
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
@@ -678,6 +682,8 @@ var _ = Describe("HyperConverged Components", func() {
 			}))
 		})
 
+		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
+
 		It("should handle conditions", func() {
 			expectedResource := hco.NewNetworkAddons()
 			expectedResource.ObjectMeta.SelfLink = fmt.Sprintf("/apis/v1/namespaces/%s/dummies/%s", expectedResource.Namespace, expectedResource.Name)
@@ -785,6 +791,8 @@ var _ = Describe("HyperConverged Components", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
+
+		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
 
 		// TODO: temporary avoid checking conditions on KubevirtCommonTemplatesBundle because it's currently
 		// broken on k8s. Revert this when we will be able to fix it
@@ -895,6 +903,8 @@ var _ = Describe("HyperConverged Components", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
+
+		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
 
 		// TODO: temporary avoid checking conditions on KubevirtNodeLabellerBundle because it's currently
 		// broken on k8s. Revert this when we will be able to fix it
@@ -1031,6 +1041,8 @@ var _ = Describe("HyperConverged Components", func() {
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
 
+		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
+
 		// TODO: temporary avoid checking conditions on KubevirtTemplateValidator because it's currently
 		// broken on k8s. Revert this when we will be able to fix it
 		/*It("should handle conditions", func() {
@@ -1154,6 +1166,9 @@ var _ = Describe("HyperConverged Components", func() {
 			// ObjectReference should have been added
 			Expect(hco.Status.RelatedObjects).To(ContainElement(*objectRef))
 		})
+
+		// TODO: add tests to ensure that HCO properly propagates NodePlacement from its CR
+
 	})
 
 	Context("ConsoleCLIDownload", func() {

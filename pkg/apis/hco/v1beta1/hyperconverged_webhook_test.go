@@ -38,5 +38,7 @@ var _ = Describe("Hyperconverged Webhooks", func() {
 			err := cr.ValidateCreate()
 			Expect(err).To(HaveOccurred())
 		})
+
+		// TODO: add tests for update validation with existing workload
 	})
 })

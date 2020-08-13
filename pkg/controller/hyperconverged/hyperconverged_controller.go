@@ -1302,6 +1302,7 @@ func newKubeVirtNodeLabellerBundleForCR(cr *hcov1beta1.HyperConverged, namespace
 		Spec: sspv1.ComponentSpec{
 			// UseKVM: isKVMAvailable(),
 		},
+		// TODO: propagate NodePlacement
 	}
 }
 
@@ -1511,6 +1512,7 @@ func newVMImportForCR(cr *hcov1beta1.HyperConverged, namespace string) *vmimport
 			Labels:    labels,
 			Namespace: namespace,
 		},
+		// TODO: propagate NodePlacement
 	}
 }
 
@@ -1524,6 +1526,7 @@ func newKubeVirtTemplateValidatorForCR(cr *hcov1beta1.HyperConverged, namespace 
 			Labels:    labels,
 			Namespace: namespace,
 		},
+		// TODO: propagate NodePlacement
 	}
 }
 
@@ -1760,6 +1763,7 @@ func newKubeVirtMetricsAggregationForCR(cr *hcov1beta1.HyperConverged, namespace
 			Labels:    labels,
 			Namespace: namespace,
 		},
+		// TODO: propagate NodePlacement
 	}
 }
 
