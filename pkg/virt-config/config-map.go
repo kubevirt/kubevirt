@@ -80,13 +80,13 @@ func NewClusterConfig(configMapInformer cache.SharedIndexInformer,
 	defaultConfig := defaultClusterConfig()
 
 	c := &ClusterConfig{
-		configMapInformer: configMapInformer,
-		crdInformer:       crdInformer,
-		kubeVirtInformer:  kubeVirtInformer,
-		lock:              &sync.Mutex{},
-		namespace:         namespace,
-		lastValidConfig:   defaultConfig,
-		defaultConfig:     defaultConfig,
+		configMapInformer:        configMapInformer,
+		crdInformer:              crdInformer,
+		kubeVirtInformer:         kubeVirtInformer,
+		lock:                     &sync.Mutex{},
+		namespace:                namespace,
+		lastValidConfig:          defaultConfig,
+		defaultConfig:            defaultConfig,
 		hostDevConfigMapInformer: hostDevConfigMapInformer,
 	}
 
@@ -219,19 +219,19 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 }
 
 type ClusterConfig struct {
-	configMapInformer                cache.SharedIndexInformer
-	hostDevConfigMapInformer         cache.SharedIndexInformer
-	crdInformer                      cache.SharedIndexInformer
-	kubeVirtInformer                 cache.SharedIndexInformer
-	namespace                        string
-	lock                             *sync.Mutex
-	lastValidConfig                  *v1.KubeVirtConfiguration
-	defaultConfig                    *v1.KubeVirtConfiguration
-	lastInvalidConfigResourceVersion string
-	lastValidConfigResourceVersion   string
+	configMapInformer                       cache.SharedIndexInformer
+	hostDevConfigMapInformer                cache.SharedIndexInformer
+	crdInformer                             cache.SharedIndexInformer
+	kubeVirtInformer                        cache.SharedIndexInformer
+	namespace                               string
+	lock                                    *sync.Mutex
+	lastValidConfig                         *v1.KubeVirtConfiguration
+	defaultConfig                           *v1.KubeVirtConfiguration
+	lastInvalidConfigResourceVersion        string
+	lastValidConfigResourceVersion          string
 	lastInvalidHostDevConfigResourceVersion string
 	lastValidHostDevConfigResourceVersion   string
-	configModifiedCallback           ConfigModifiedFn
+	configModifiedCallback                  ConfigModifiedFn
 }
 
 func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
@@ -528,7 +528,7 @@ func (c *ClusterConfig) GetConfig() (config *v1.KubeVirtConfiguration) {
 			c.lastValidConfig = config
 		}
 	}
-	if hostDevConfigMap != nil && c.lastValidHostDevConfigResourceVersion != hostDevResourceVersion && c.lastInvalidHostDevConfigResourceVersion != hostDevResourceVersion{
+	if hostDevConfigMap != nil && c.lastValidHostDevConfigResourceVersion != hostDevResourceVersion && c.lastInvalidHostDevConfigResourceVersion != hostDevResourceVersion {
 		workingConf := c.lastValidConfig
 		hostDevErr := updateConfigFromHostDevConfigMap(workingConf, hostDevConfigMap)
 		if hostDevErr != nil {

@@ -73,9 +73,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
-const LibvirtLocalConnectionPort = 22222
-const gpuEnvPrefix = "GPU_PASSTHROUGH_DEVICES"
-const vgpuEnvPrefix = "VGPU_PASSTHROUGH_DEVICES"
+const (
+	LibvirtLocalConnectionPort = 22222
+	gpuEnvPrefix               = "GPU_PASSTHROUGH_DEVICES"
+	vgpuEnvPrefix              = "VGPU_PASSTHROUGH_DEVICES"
+	PCI_RESOURCE_PREFIX        = "PCI_RESOURCE"
+	MDEV_RESOURCE_PREFIX       = "MDEV_PCI_RESOURCE"
+)
 
 type contextStore struct {
 	ctx    context.Context
@@ -122,6 +126,11 @@ type LibvirtDomainManager struct {
 type migrationDisks struct {
 	shared    map[string]bool
 	generated map[string]bool
+}
+
+type hostDeviceTypePrefix struct {
+	Type   api.HostDeviceType
+	Prefix string
 }
 
 type pausedVMIs struct {
@@ -1135,12 +1144,16 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 	return networkToAddressesMap
 }
 
-func updateDeviceResourcesMap(devicePrefix string, resourceToAddressesMap map[string][]string, elementName string, resourceName string) {
-	varName := kutil.ResourceNameToEnvvar(devicePrefix, resourceName)
+func updateDeviceResourcesMap(supportedDevice hostDeviceTypePrefix, resourceToAddressesMap map[string]api.HostDevicesList, resourceName string) {
+	varName := kutil.ResourceNameToEnvvar(supportedDevice.Prefix, resourceName)
 	addrString, isSet := os.LookupEnv(varName)
 	if isSet {
 		addrs := parseDeviceAddress(addrString)
-		resourceToAddressesMap[resourceName] = addrs
+		device := api.HostDevicesList{
+			Type:     supportedDevice.Type,
+			AddrList: addrs,
+		}
+		resourceToAddressesMap[resourceName] = device
 	} else {
 		log.DefaultLogger().Warningf("%s not set for device %s", varName, resourceName)
 	}
@@ -1148,14 +1161,34 @@ func updateDeviceResourcesMap(devicePrefix string, resourceToAddressesMap map[st
 
 // There is an overlap between HostDevices and GPUs. Both can provide PCI devices and MDEVs
 // However, both will be mapped to a hostdev struct with some differences.
-func getDevicesForAssignment(envVarPrefix string, devices v1.Devices) map[string][]string {
-	resourceToAddressesMap := make(map[string][]string)
-
-	for _, hostDev := range devices.HostDevices {
-		updateDeviceResourcesMap(envVarPrefix, resourceToAddressesMap, hostDev.Name, hostDev.DeviceName)
+func getDevicesForAssignment(devices v1.Devices) map[string]api.HostDevicesList {
+	supportedHostDeviceTypes := []hostDeviceTypePrefix{
+		{
+			Type:   api.HostDevicePCI,
+			Prefix: PCI_RESOURCE_PREFIX,
+		},
+		{
+			Type:   api.HostDeviceMDEV,
+			Prefix: MDEV_RESOURCE_PREFIX,
+		},
 	}
-	for _, gpu := range devices.GPUs {
-		updateDeviceResourcesMap(envVarPrefix, resourceToAddressesMap, gpu.Name, gpu.DeviceName)
+	resourceToAddressesMap := make(map[string]api.HostDevicesList)
+
+	for _, supportedHostDeviceType := range supportedHostDeviceTypes {
+		for _, hostDev := range devices.HostDevices {
+			updateDeviceResourcesMap(
+				supportedHostDeviceType,
+				resourceToAddressesMap,
+				hostDev.DeviceName,
+			)
+		}
+		for _, gpu := range devices.GPUs {
+			updateDeviceResourcesMap(
+				supportedHostDeviceType,
+				resourceToAddressesMap,
+				gpu.DeviceName,
+			)
+		}
 	}
 	return resourceToAddressesMap
 
@@ -1260,8 +1293,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		SRIOVDevices:      getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
 		GpuDevices:        getEnvAddressListByPrefix(gpuEnvPrefix),
 		VgpuDevices:       getEnvAddressListByPrefix(vgpuEnvPrefix),
-		PCIDevices:        getDevicesForAssignment("PCI_RESOURCE", vmi.Spec.Domain.Devices),
-		MediatedDevices:   getDevicesForAssignment("MDEV_PCI_RESOURCE", vmi.Spec.Domain.Devices),
+		HostDevices:       getDevicesForAssignment(vmi.Spec.Domain.Devices),
 		EmulatorThreadCpu: emulatorThreadCpu,
 		OVMFPath:          l.ovmfPath,
 	}

@@ -22,8 +22,8 @@ package device_manager
 import (
 	"math"
 	"os"
-	"time"
 	"strings"
+	"time"
 
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -96,7 +96,6 @@ func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct
 
 // addPermittedHostDevicePlugins will add device pluging for permitted devices which are present on the node
 func (c *DeviceController) addPermittedHostDevicePlugins() {
-	logger := log.DefaultLogger()
 	if hostDevs := c.virtConfig.GetPermittedHostDevices(); hostDevs != nil {
 		supportedPCIDeviceMap := make(map[string]string)
 		if len(hostDevs.PciHostDevices) != 0 {
