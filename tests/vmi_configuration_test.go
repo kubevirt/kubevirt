@@ -1373,6 +1373,46 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
+		Context("with Clock and timezone", func() {
+
+			It("guest should see timezone", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				timezone := "America/New_York"
+				tz := v1.ClockOffsetTimezone(timezone)
+				vmi.Spec.Domain.Clock = &v1.Clock{
+					ClockOffset: v1.ClockOffset{
+						Timezone: &tz,
+					},
+					Timer: &v1.Timer{},
+				}
+
+				By("Creating a VMI with timezone set")
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for succesful start of VMI")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Logging to VMI")
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				loc, err := time.LoadLocation(timezone)
+				Expect(err).ToNot(HaveOccurred())
+				now := time.Now().In(loc)
+
+				By("Checking hardware clock time")
+				expected := fmt.Sprintf("%02d:%02d:", now.Hour(), now.Minute())
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "sudo hwclock --localtime \n"},
+					&expect.BExp{R: expected},
+				}, 15*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
+			})
+		})
+
 	})
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU spec", func() {

@@ -486,6 +486,7 @@ func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterC
 		}
 	} else if source.Timezone != nil {
 		clock.Offset = "timezone"
+		clock.Timezone = string(*source.Timezone)
 	}
 
 	if source.Timer != nil {
