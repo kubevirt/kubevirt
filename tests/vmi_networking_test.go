@@ -721,43 +721,45 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			serverVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(serverVMI.Name, &v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(serverVMI.Status.Interfaces)).To(Equal(1))
-
-			serverIP := serverVMI.Status.Interfaces[0].IP
-			if netutils.IsIPv6String(serverIP) {
-				By("Checking traceroute from vmi to cluster nodes gateway")
-				// Cluster nodes subnet (docker network gateway)
-				// Docker network subnet cidr definition https://bit.ly/2wZTgMK
-				err := tests.CheckForTextExpecter(serverVMI, createExpectTraceroute6("2001:db8:1::1"), 30)
-				Expect(err).ToNot(HaveOccurred(), "Failed to traceroute to VMI %s within the given timeout", serverVMI.Name)
-			} else {
-				if ipv4NetworkCIDR == "" {
-					ipv4NetworkCIDR = api.DefaultVMCIDR
-				}
-				By("Checking ping to gateway")
-				ipAddr := gatewayIPFromCIDR(ipv4NetworkCIDR)
-				Expect(tests.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
-
-				By("Checking ping to google")
-				Expect(tests.PingFromVMConsole(serverVMI, "8.8.8.8")).To(Succeed())
-				Expect(tests.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
-			}
+			Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
 			By("starting a tcp server")
 			tcpPort := "8080"
 			err = tests.CheckForTextExpecter(serverVMI, createExpectStartTcpServer(tcpPort), 30)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Connecting from the client vm")
-			err = tests.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, tcpPort, true), 30)
-			Expect(err).ToNot(HaveOccurred())
+			for _, serverIP := range serverVMI.Status.Interfaces[0].IPs {
+				if netutils.IsIPv6String(serverIP) {
+					By("Checking traceroute (IPv6) from vmi to cluster nodes gateway")
+					// Cluster nodes subnet (docker network gateway)
+					// Docker network subnet cidr definition:
+					// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
+					err := tests.CheckForTextExpecter(serverVMI, createExpectTraceroute6("2001:db8:1::1"), 30)
+					Expect(err).ToNot(HaveOccurred(), "Failed to traceroute to VMI %s within the given timeout", serverVMI.Name)
+				} else {
+					if ipv4NetworkCIDR == "" {
+						ipv4NetworkCIDR = api.DefaultVMCIDR
+					}
+					By("Checking ping (IPv4) to gateway")
+					ipAddr := gatewayIPFromCIDR(ipv4NetworkCIDR)
+					Expect(tests.PingFromVMConsole(serverVMI, ipAddr)).To(Succeed())
 
-			By("Rejecting the connection from the client to unregistered port")
-			err = tests.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, "8081", false), 30)
-			Expect(err).ToNot(HaveOccurred())
+					By("Checking ping (IPv4) to google")
+					Expect(tests.PingFromVMConsole(serverVMI, "8.8.8.8")).To(Succeed())
+					Expect(tests.PingFromVMConsole(clientVMI, "google.com")).To(Succeed())
+				}
+
+				By("Connecting from the client vm")
+				err = tests.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, tcpPort, true), 30)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Rejecting the connection from the client to unregistered port")
+				err = tests.CheckForTextExpecter(clientVMI, createExpectConnectToServer(serverIP, "8081", false), 30)
+				Expect(err).ToNot(HaveOccurred())
+			}
 
 			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(serverVMI.Name, &v13.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
-
 		}, table.Entry("with a specific port number", []v1.Port{{Name: "http", Port: 8080}}, defaultCIDR),
 			table.Entry("without a specific port number", []v1.Port{}, defaultCIDR),
 			table.Entry("with custom CIDR", []v1.Port{}, customCIDR),
