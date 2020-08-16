@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -58,37 +59,19 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
 	var outboundVMI *v1.VirtualMachineInstance
 
-	var logPodLogs func(*v12.Pod)
-	var waitForPodToFinish func(*v12.Pod) v12.PodPhase
-
 	const testPort = 1500
 
 	tests.BeforeAll(func() {
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
-
-		logPodLogs = func(pod *v12.Pod) {
-			defer GinkgoRecover()
-
-			var s int64 = 500
-			logs := virtClient.CoreV1().Pods(inboundVMI.Namespace).GetLogs(pod.Name, &v12.PodLogOptions{SinceSeconds: &s})
-			rawLogs, err := logs.DoRaw()
-			Expect(err).ToNot(HaveOccurred())
-			log.Log.Infof("%s", string(rawLogs))
-		}
-
-		waitForPodToFinish = func(pod *v12.Pod) v12.PodPhase {
-			Eventually(func() v12.PodPhase {
-				j, err := virtClient.CoreV1().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return j.Status.Phase
-			}, 90*time.Second, 1*time.Second).Should(Or(Equal(v12.PodSucceeded), Equal(v12.PodFailed)))
-			j, err := virtClient.CoreV1().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			logPodLogs(pod)
-			return j.Status.Phase
-		}
 	})
+
+	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
+		job := tests.NewHelloWorldJob(host, port)
+		job, err := virtClient.BatchV1().Jobs(namespace).Create(job)
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		return job
+	}
 
 	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string, prompt string) {
 		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
@@ -269,7 +252,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			ip := inboundVMI.Status.Interfaces[0].IP
 
-			//TODO if node count 1, skip whe nv12.NodeSelectorOpOut
+			//TODO if node count 1, skip the nv12.NodeSelectorOpOut
 			nodes, err := virtClient.CoreV1().Nodes().List(v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nodes.Items).ToNot(BeEmpty())
@@ -277,9 +260,8 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Skip("Skip network test that requires multiple nodes when only one node is present.")
 			}
 
-			// Run netcat and give it one second to ghet "Hello World!" back from the VM
 			job := tests.NewHelloWorldJob(ip, strconv.Itoa(testPort))
-			job.Spec.Affinity = &v12.Affinity{
+			job.Spec.Template.Spec.Affinity = &v12.Affinity{
 				NodeAffinity: &v12.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &v12.NodeSelector{
 						NodeSelectorTerms: []v12.NodeSelectorTerm{
@@ -292,12 +274,11 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					},
 				},
 			}
-			job.Spec.HostNetwork = hostNetwork
+			job.Spec.Template.Spec.HostNetwork = hostNetwork
 
-			job, err = virtClient.CoreV1().Pods(inboundVMI.ObjectMeta.Namespace).Create(job)
+			job, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(job)
 			Expect(err).ToNot(HaveOccurred())
-			phase := waitForPodToFinish(job)
-			Expect(phase).To(Equal(v12.PodSucceeded))
+			tests.WaitForJobToSucceed(&virtClient, job, 90)
 		},
 			table.Entry("[test_id:1543]on the same node from Pod", v12.NodeSelectorOpIn, false),
 			table.Entry("[test_id:1544]on a different node from Pod", v12.NodeSelectorOpNotIn, false),
@@ -327,24 +308,19 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
 
-				By("starting a pod which tries to reach the vmi via the defined service")
-				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVMI.Namespace), strconv.Itoa(testPort))
-				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
-				Expect(err).ToNot(HaveOccurred())
+				By("starting a job which tries to reach the vmi via the defined service")
+				job := runHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVMI.Namespace), strconv.Itoa(testPort), inboundVMI.Namespace)
 
-				By("waiting for the pod to report a successful connection attempt")
-				phase := waitForPodToFinish(job)
-				Expect(phase).To(Equal(v12.PodSucceeded))
+				By("waiting for the job to report a successful connection attempt")
+				tests.WaitForJobToSucceed(&virtClient, job, 90)
 			})
 			It("[test_id:1548]should fail to reach the vmi if an invalid servicename is used", func() {
 
-				By("starting a pod which tries to reach the vmi via a non-existent service")
-				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace), strconv.Itoa(testPort))
-				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
-				Expect(err).ToNot(HaveOccurred())
-				By("waiting for the pod to report an  unsuccessful connection attempt")
-				phase := waitForPodToFinish(job)
-				Expect(phase).To(Equal(v12.PodFailed))
+				By("starting a job which tries to reach the vmi via a non-existent service")
+				job := runHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace), strconv.Itoa(testPort), inboundVMI.Namespace)
+
+				By("waiting for the job to report an  unsuccessful connection attempt")
+				tests.WaitForJobToFail(&virtClient, job, 90)
 			})
 
 			AfterEach(func() {
@@ -376,14 +352,11 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 
 			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
-				By("starting a pod which tries to reach the vm via the defined service")
-				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain, inboundVMI.Namespace), strconv.Itoa(testPort))
-				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
-				Expect(err).ToNot(HaveOccurred())
+				By("starting a job which tries to reach the vm via the defined service")
+				job := runHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain, inboundVMI.Namespace), strconv.Itoa(testPort), inboundVMI.Namespace)
 
-				By("waiting for the pod to report a successful connection attempt")
-				phase := waitForPodToFinish(job)
-				Expect(phase).To(Equal(v12.PodSucceeded))
+				By("waiting for the job to report a successful connection attempt")
+				tests.WaitForJobToSucceed(&virtClient, job, 90)
 			})
 
 			AfterEach(func() {
