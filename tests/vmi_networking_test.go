@@ -278,7 +278,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			job, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(job)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForJobToSucceed(&virtClient, job, 90)
+			Expect(tests.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())
 		},
 			table.Entry("[test_id:1543]on the same node from Pod", v12.NodeSelectorOpIn, false),
 			table.Entry("[test_id:1544]on a different node from Pod", v12.NodeSelectorOpNotIn, false),
@@ -312,7 +312,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job := runHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVMI.Namespace), strconv.Itoa(testPort), inboundVMI.Namespace)
 
 				By("waiting for the job to report a successful connection attempt")
-				tests.WaitForJobToSucceed(&virtClient, job, 90)
+				Expect(tests.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())
 			})
 			It("[test_id:1548]should fail to reach the vmi if an invalid servicename is used", func() {
 
@@ -320,7 +320,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job := runHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace), strconv.Itoa(testPort), inboundVMI.Namespace)
 
 				By("waiting for the job to report an  unsuccessful connection attempt")
-				tests.WaitForJobToFail(&virtClient, job, 90)
+				Expect(tests.WaitForJobToFail(job, 90*time.Second)).To(Succeed())
 			})
 
 			AfterEach(func() {
@@ -356,7 +356,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				job := runHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain, inboundVMI.Namespace), strconv.Itoa(testPort), inboundVMI.Namespace)
 
 				By("waiting for the job to report a successful connection attempt")
-				tests.WaitForJobToSucceed(&virtClient, job, 90)
+				Expect(tests.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())
 			})
 
 			AfterEach(func() {
