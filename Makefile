@@ -45,9 +45,9 @@ generate-verify: TARGET_TO_RUN='make generate'
 generate-verify: generate check-for-binaries check-git-tree-state
 
 apidocs:
-	hack/dockerized "./hack/generate.sh && ./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
+	hack/dockerized "./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
 
-client-python: generate
+client-python:
 	hack/dockerized "TRAVIS_TAG=${TRAVIS_TAG} ./hack/gen-client-python/generate.sh"
 
 go-build:
