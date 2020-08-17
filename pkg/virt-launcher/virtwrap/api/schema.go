@@ -340,7 +340,12 @@ type Memory struct {
 
 // MemoryBacking mirroring libvirt XML under https://libvirt.org/formatdomain.html#elementsMemoryBacking
 type MemoryBacking struct {
-	HugePages *HugePages `xml:"hugepages,omitempty"`
+	HugePages *HugePages           `xml:"hugepages,omitempty"`
+	Source    *MemoryBackingSource `xml:"source,omitempty"`
+}
+
+type MemoryBackingSource struct {
+	Type string `xml:"type,attr"`
 }
 
 // HugePages mirroring libvirt XML under memoryBacking

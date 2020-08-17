@@ -816,6 +816,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 		domain.Spec.MemoryBacking = &MemoryBacking{
 			HugePages: &HugePages{},
+			// Set memfd as memory backend to solve SELinux restrictions
+			// See the issue: https://github.com/kubevirt/kubevirt/issues/3781
+			Source: &MemoryBackingSource{Type: "memfd"},
 		}
 		// NUMA is required in order to use memfd
 		domain.Spec.CPU.NUMA = &NUMA{
