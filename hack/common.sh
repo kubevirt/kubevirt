@@ -5,6 +5,7 @@ if [ -f cluster-up/hack/common.sh ]; then
 fi
 
 export GOFLAGS=-mod=vendor
+export GO111MODULE=off
 # export GOPROXY=off
 
 KUBEVIRT_DIR="$(
