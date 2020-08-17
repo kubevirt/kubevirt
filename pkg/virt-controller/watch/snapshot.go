@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 const (
@@ -62,9 +63,10 @@ type snapshotSource interface {
 }
 
 type vmSnapshotSource struct {
-	client   kubecli.KubevirtClient
-	vm       *kubevirtv1.VirtualMachine
-	snapshot *snapshotv1.VirtualMachineSnapshot
+	client          kubecli.KubevirtClient
+	vmStatusUpdater *status.VMStatusUpdater
+	vm              *kubevirtv1.VirtualMachine
+	snapshot        *snapshotv1.VirtualMachineSnapshot
 }
 
 func cacheKeyFunc(namespace, name string) string {
@@ -362,9 +364,10 @@ func (ctrl *SnapshotController) getSnapshotSource(vmSnapshot *snapshotv1.Virtual
 		}
 
 		return &vmSnapshotSource{
-			client:   ctrl.client,
-			vm:       vm,
-			snapshot: vmSnapshot,
+			client:          ctrl.client,
+			vmStatusUpdater: ctrl.vmStatusUpdater,
+			vm:              vm,
+			snapshot:        vmSnapshot,
 		}, nil
 	}
 
@@ -691,10 +694,9 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 
 	if vmCopy.Status.SnapshotInProgress == nil {
 		vmCopy.Status.SnapshotInProgress = &s.snapshot.Name
-		vmCopy, err = s.client.VirtualMachine(vmCopy.Namespace).UpdateStatus(vmCopy)
-		if err != nil {
-			return false, err
-		}
+		// unfortunately, status updater does not return the updated resource
+		// but the controller is watching VMs so will get notified
+		return false, s.vmStatusUpdater.UpdateStatus(vmCopy)
 	}
 
 	if !controller.HasFinalizer(vmCopy, sourceFinalizer) {
@@ -725,7 +727,7 @@ func (s *vmSnapshotSource) Unlock() error {
 	}
 
 	vmCopy.Status.SnapshotInProgress = nil
-	_, err = s.client.VirtualMachine(vmCopy.Namespace).UpdateStatus(vmCopy)
+	err = s.vmStatusUpdater.UpdateStatus(vmCopy)
 	if err != nil {
 		return err
 	}
