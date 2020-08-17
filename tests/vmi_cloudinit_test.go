@@ -640,7 +640,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	Describe("Access Credentials", func() {
 		Context("with secret and configDrive propagation", func() {
-			FIt("should have ssh-key under authorized keys", func() {
+			It("should have ssh-key under authorized keys", func() {
 				secretID := "my-pub-key"
 				userData := fmt.Sprintf(
 					"#cloud-config\npassword: %s\nchpasswd: { expire: False }\n",
@@ -662,7 +662,11 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					},
 				}
 
-				By("Creating a secret with ssh key")
+				key1 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"
+				key2 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key2"
+				key3 := "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"
+
+				By("Creating a secret with three ssh keys")
 				secret := kubev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      secretID,
@@ -673,7 +677,9 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					},
 					Type: "Opaque",
 					Data: map[string][]byte{
-						"my-key": []byte(sshAuthorizedKey),
+						"my-key1": []byte(key1),
+						"my-key2": []byte(key2),
+						"my-key3": []byte(key3),
 					},
 				}
 				_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
@@ -681,6 +687,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				LaunchVMI(vmi)
 
+				By("Verifying all three pub ssh keys in secret are in VMI guest")
 				VerifyUserDataVMI(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BSnd{S: "\n"},
@@ -690,7 +697,11 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					&expect.BSnd{S: fedoraPassword + "\n"},
 					&expect.BExp{R: "\\$"},
 					&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
-					&expect.BExp{R: "test-ssh-key"},
+					&expect.BExp{R: "test-ssh-key1"},
+					&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+					&expect.BExp{R: "test-ssh-key2"},
+					&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+					&expect.BExp{R: "test-ssh-key3"},
 				}, time.Second*300)
 			})
 		})
