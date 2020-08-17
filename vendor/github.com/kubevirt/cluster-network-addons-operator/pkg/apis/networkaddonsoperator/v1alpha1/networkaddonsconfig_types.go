@@ -9,13 +9,21 @@ import (
 // NetworkAddonsConfigSpec defines the desired state of NetworkAddonsConfig
 // +k8s:openapi-gen=true
 type NetworkAddonsConfigSpec struct {
-	Multus          *Multus           `json:"multus,omitempty"`
-	LinuxBridge     *LinuxBridge      `json:"linuxBridge,omitempty"`
-	Ovs             *Ovs              `json:"ovs,omitempty"`
-	KubeMacPool     *KubeMacPool      `json:"kubeMacPool,omitempty"`
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-	NMState         *NMState          `json:"nmstate,omitempty"`
-	MacvtapCni      *MacvtapCni       `json:"macvtap,omitempty"`
+	Multus           *Multus           `json:"multus,omitempty"`
+	LinuxBridge      *LinuxBridge      `json:"linuxBridge,omitempty"`
+	Ovs              *Ovs              `json:"ovs,omitempty"`
+	KubeMacPool      *KubeMacPool      `json:"kubeMacPool,omitempty"`
+	ImagePullPolicy  corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	NMState          *NMState          `json:"nmstate,omitempty"`
+	MacvtapCni       *MacvtapCni       `json:"macvtap,omitempty"`
+	SelfSignConfiguration *SelfSignConfiguration `json:"selfSignConfiguration,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type SelfSignConfiguration struct {
+	CARotateInterval   string `json:"caRotateInterval,omitempty"`
+	CAOverlapInterval  string `json:"caOverlapInterval,omitempty"`
+	CertRotateInterval string `json:"certRotateInterval,omitempty"`
 }
 
 // +k8s:openapi-gen=true
