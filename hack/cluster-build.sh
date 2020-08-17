@@ -65,7 +65,7 @@ if [[ $KUBEVIRT_PROVIDER =~ ocp.* ]]; then
 elif [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
     nodes=("master-0" "worker-0")
     pull_command="podman"
-elif [[ $KUBEVIRT_PROVIDER == "external" ]] || [[ $KUBEVIRT_PROVIDER =~ kind.* ]]; then
+elif [[ $KUBEVIRT_PROVIDER == "external" ]] || [[ $KUBEVIRT_PROVIDER =~ kind.* ]] || [[ $KUBEVIRT_PROVIDER == "local" ]]; then
     nodes=() # in case of external provider / kind we have no control over the nodes
 else
     nodes=()
