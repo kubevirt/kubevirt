@@ -559,7 +559,12 @@ func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 		return err
 	}
 
-	if Handler.IsIpv6Enabled() {
+	ipv6Enabled, err := Handler.IsIpv6Enabled(p.podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to verify whether ipv6 is configured on %s", p.podInterfaceName)
+		return err
+	}
+	if ipv6Enabled {
 		err = configureVifV6Addresses(p, err)
 		if err != nil {
 			return err
@@ -670,7 +675,13 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 	} else {
 		return fmt.Errorf("Couldn't configure ipv4 nat rules")
 	}
-	if Handler.IsIpv6Enabled() {
+
+	ipv6Enabled, err := Handler.IsIpv6Enabled(p.podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to verify whether ipv6 is configured on %s", p.podInterfaceName)
+		return err
+	}
+	if ipv6Enabled {
 		if Handler.HasNatIptables(iptables.ProtocolIPv6) || Handler.NftablesLoad("ipv6-nat") == nil {
 			err = Handler.ConfigureIpv6Forwarding()
 			if err != nil {
@@ -787,7 +798,12 @@ func (p *MasqueradePodInterface) createBridge() error {
 		return err
 	}
 
-	if Handler.IsIpv6Enabled() {
+	ipv6Enabled, err := Handler.IsIpv6Enabled(p.podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to verify whether ipv6 is configured on %s", p.podInterfaceName)
+		return err
+	}
+	if ipv6Enabled {
 		if err := Handler.AddrAdd(bridge, p.gatewayIpv6Addr); err != nil {
 			log.Log.Reason(err).Errorf("failed to set bridge IPv6")
 			return err
