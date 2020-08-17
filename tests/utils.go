@@ -2906,14 +2906,17 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		return err == nil
 	}
 
-	dnsServerIP, err := getClusterDnsServiceIP(virtClient)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Couldn't get DNS Service IP while configuring ipv6: %v", err)
-		expecter.Close()
-		return err
+	clusterSupportsIpv6 := func() bool {
+		pod := GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		for _, ip := range pod.Status.PodIPs {
+			if netutils.IsIPv6String(ip.IP) {
+				return true
+			}
+		}
+		return false
 	}
 
-	if !netutils.IsIPv6String(dnsServerIP) ||
+	if !clusterSupportsIpv6() ||
 		(vmi.Spec.Domain.Devices.Interfaces == nil || len(vmi.Spec.Domain.Devices.Interfaces) == 0 || vmi.Spec.Domain.Devices.Interfaces[0].InterfaceBindingMethod.Masquerade == nil) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface != nil && !*vmi.Spec.Domain.Devices.AutoattachPodInterface) ||
 		(!hasEth0Iface(vmi) || hasGlobalIPv6(vmi)) {
