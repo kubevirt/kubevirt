@@ -46,9 +46,9 @@ bazel run \
 
 # linux
 bazel run \
-    --config=${ARCHITECTURE} \
+    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
     --stamp \
-    :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-${ARCHITECTURE}
+    :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-amd64
 
 # darwin
 bazel run \
