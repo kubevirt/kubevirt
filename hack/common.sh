@@ -5,7 +5,7 @@ if [ -f cluster-up/hack/common.sh ]; then
 fi
 
 export GOFLAGS=-mod=vendor
-export GOPROXY=off
+# export GOPROXY=off
 
 KUBEVIRT_DIR="$(
     cd "$(dirname "$BASH_SOURCE[0]")/../"
@@ -23,7 +23,7 @@ ARCHITECTURE=$(uname -m)
 
 function build_func_tests() {
     mkdir -p "${TESTS_OUT_DIR}/"
-    go test -c "${KUBEVIRT_DIR}/tests" -o "${TESTS_OUT_DIR}/tests.test"
+    GOPROXY=off go test -c "${KUBEVIRT_DIR}/tests" -o "${TESTS_OUT_DIR}/tests.test"
 }
 
 function build_func_tests_image() {
@@ -61,7 +61,7 @@ function kubevirt_version() {
 KUBEVIRT_VERSION="$(kubevirt_version)"
 
 function go_build() {
-    go build "$@"
+    GOPROXY=off go build "$@"
 }
 
 # Use this environment variable to set a local path to a custom CA certificate for
