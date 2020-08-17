@@ -490,11 +490,11 @@ var _ = Describe("Infrastructure", func() {
 			defer expecter.Close()
 
 			By("Writing some data to the disk")
-			_, err = expecter.ExpectBatch([]expect.Batcher{
+			_, err = tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				&expect.BSnd{S: "dd if=/dev/zero of=/dev/vdb bs=1M count=1\n"},
-				&expect.BExp{R: `localhost:~#`},
+				&expect.BExp{R: tests.PromptExpression},
 				&expect.BSnd{S: "sync\n"},
-				&expect.BExp{R: `localhost:~#`},
+				&expect.BExp{R: tests.PromptExpression},
 			}, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
