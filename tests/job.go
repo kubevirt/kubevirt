@@ -17,20 +17,37 @@ import (
 func WaitForJobToSucceed(virtClient *kubecli.KubevirtClient, job *batchv1.Job, timeoutSec time.Duration) {
 	EventuallyWithOffset(1, func() bool {
 		job, err := (*virtClient).BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		Expect(job.Status.Failed).NotTo(Equal(*job.Spec.BackoffLimit), "Job was expected to succeed but failed")
-		return job.Status.Succeeded > 0
+		ExpectWithOffset(2, err).ToNot(HaveOccurred())
+		for _, c := range job.Status.Conditions {
+			switch c.Type {
+			case batchv1.JobComplete:
+				if c.Status == k8sv1.ConditionTrue {
+					return true
+				}
+			case batchv1.JobFailed:
+				ExpectWithOffset(2, c.Status).NotTo(Equal(k8sv1.ConditionTrue), "Job should succeed")
+			}
+		}
+		return false
 	}, timeoutSec*time.Second, 1*time.Second).Should(BeTrue(), "Job should succeed")
-
 }
 
 func WaitForJobToFail(virtClient *kubecli.KubevirtClient, job *batchv1.Job, timeoutSec time.Duration) {
-	EventuallyWithOffset(1, func() int32 {
+	EventuallyWithOffset(1, func() bool {
 		job, err := (*virtClient).BatchV1().Jobs(job.Namespace).Get(job.Name, metav1.GetOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		Expect(job.Status.Succeeded).ToNot(BeNumerically(">", 0), "Job should not succeed")
-		return job.Status.Failed
-	}, timeoutSec*time.Second, 1*time.Second).Should(BeNumerically(">", 0), "Job should fail")
+		ExpectWithOffset(2, err).ToNot(HaveOccurred())
+		for _, c := range job.Status.Conditions {
+			switch c.Type {
+			case batchv1.JobFailed:
+				if c.Status == k8sv1.ConditionTrue {
+					return true
+				}
+			case batchv1.JobComplete:
+				ExpectWithOffset(2, c.Status).NotTo(Equal(k8sv1.ConditionTrue), "Job should fail")
+			}
+		}
+		return false
+	}, timeoutSec*time.Second, 1*time.Second).Should(BeTrue(), "Job should fail")
 }
 
 func RenderJob(name string, cmd, args []string) *batchv1.Job {
