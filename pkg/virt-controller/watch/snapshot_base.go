@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 const (
@@ -78,6 +79,8 @@ type SnapshotController struct {
 	recorder record.EventRecorder
 
 	resyncPeriod time.Duration
+
+	vmStatusUpdater *status.VMStatusUpdater
 }
 
 // NewSnapshotController creates a new SnapshotController
@@ -106,6 +109,7 @@ func NewSnapshotController(
 		crdInformer:               crdInformer,
 		recorder:                  recorder,
 		resyncPeriod:              resyncPeriod,
+		vmStatusUpdater:           status.NewVMStatusUpdater(client),
 	}
 
 	ctrl.dynamicInformerMap = map[string]*dynamicInformer{
