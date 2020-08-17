@@ -71,6 +71,25 @@ type ClusterServiceVersionExtended struct {
 	Status csvv1alpha1.ClusterServiceVersionStatus `json:"status"`
 }
 
+type EnvVarFlags []corev1.EnvVar
+
+func (i *EnvVarFlags) String() string {
+	es := []string{}
+	for _, ev := range *i {
+		es = append(es, fmt.Sprintf("%s=%s", ev.Name, ev.Value))
+	}
+	return strings.Join(es, ",")
+}
+
+func (i *EnvVarFlags) Set(value string) error {
+	kv := strings.Split(value, "=")
+	*i = append(*i, corev1.EnvVar{
+		Name:  kv[0],
+		Value: kv[1],
+	})
+	return nil
+}
+
 var (
 	cwd, _              = os.Getwd()
 	outputMode          = flag.String("output-mode", CSVMode, "Working mode: "+strings.Join(validOutputModes, "|"))
@@ -106,7 +125,7 @@ var (
 	hppoVersion     = flag.String("hppo-version", "", "HPP operator version")
 	vmImportVersion = flag.String("vm-import-version", "", "VM-Import operator version")
 	apiSources      = flag.String("api-sources", cwd+"/...", "Project sources")
-	envVars         = flag.String("env-vars", "", "Comma separated list of key=value environment variables")
+	envVars         EnvVarFlags
 )
 
 func gen_hco_crds() {
@@ -136,23 +155,6 @@ func stringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
-}
-
-func getEnvVarList(s string) []corev1.EnvVar {
-	var envVars []corev1.EnvVar
-
-	if len(s) == 0 {
-		return envVars
-	}
-
-	for _, kvPair := range strings.Split(s, ",") {
-		kv := strings.Split(kvPair, "=")
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  kv[0],
-			Value: kv[1],
-		})
-	}
-	return envVars
 }
 
 func validateNoApiOverlap(crdDir string) bool {
@@ -230,6 +232,8 @@ func validateNoApiOverlap(crdDir string) bool {
 }
 
 func main() {
+	flag.Var(&envVars, "env-var", "HCO environment variable (key=value), may be used multiple times")
+
 	flag.Parse()
 
 	if *crdDir != "" {
@@ -297,7 +301,7 @@ func main() {
 			*sspVersion,
 			*hppoVersion,
 			*vmImportVersion,
-			getEnvVarList(*envVars),
+			envVars,
 		)
 
 		for _, image := range strings.Split(*relatedImagesList, ",") {
