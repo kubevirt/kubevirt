@@ -146,9 +146,9 @@ var _ = Describe("[Serial]Slirp Networking", func() {
 		defer expecter.Close()
 		Expect(err).ToNot(HaveOccurred())
 
-		out, err := expecter.ExpectBatch([]expect.Batcher{
+		out, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: "\\$ "},
+			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: "curl -o /dev/null -s -w \"%{http_code}\\n\" -k https://google.com\n"},
 			&expect.BExp{R: "301"},
 		}, 180*time.Second)

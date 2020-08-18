@@ -37,13 +37,13 @@ func parseDeviceAddress(addrString string) []string {
 	return addrs
 }
 
-func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string, prompt string) {
+func checkGPUDevice(vmi *v1.VirtualMachineInstance, gpuName string) {
 	cmdCheck := fmt.Sprintf("lspci -m %s\n", gpuName)
 	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: prompt},
+		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: prompt},
+		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
@@ -136,7 +136,7 @@ var _ = Describe("[Serial]GPU", func() {
 				Expect(domSpec.Devices.HostDevices[n].Source.Address.Function).To(Equal("0x" + dbsfFields[3]))
 			}
 
-			checkGPUDevice(randomVMI, "10de", "$")
+			checkGPUDevice(randomVMI, "10de")
 		})
 	})
 })
