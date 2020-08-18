@@ -285,6 +285,8 @@ func (app *virtHandlerApp) Run() {
 	if err := app.setupTLS(factory); err != nil {
 		glog.Fatalf("Error constructing migration tls config: %v", err)
 	}
+	// add a host deivces informer
+	hostDevConfigMapInformer := factory.HostDevicesConfigMap()
 
 	// Legacy support, Remove this informer once we no longer support
 	// VMIs with graceful shutdown trigger
@@ -296,7 +298,7 @@ func (app *virtHandlerApp) Run() {
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
 	vmiInformer := factory.VMI()
-	app.clusterConfig = virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), factory.KubeVirt(), factory.HostDevicesConfigMap(), app.namespace)
+	app.clusterConfig = virtconfig.NewClusterConfig(factory.ConfigMap(), factory.CRD(), factory.KubeVirt(), hostDevConfigMapInformer, app.namespace)
 
 	vmController := virthandler.NewController(
 		recorder,
@@ -309,6 +311,7 @@ func (app *virtHandlerApp) Run() {
 		vmTargetSharedInformer,
 		domainSharedInformer,
 		gracefulShutdownInformer,
+		hostDevConfigMapInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
 		app.clusterConfig,
@@ -360,7 +363,7 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiInformer.HasSynced, factory.CRD().HasSynced, factory.HostDevicesConfigMap().HasSynced)
+	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced, vmiInformer.HasSynced, factory.CRD().HasSynced, hostDevConfigMapInformer.HasSynced)
 
 	go vmController.Run(10, stop)
 
