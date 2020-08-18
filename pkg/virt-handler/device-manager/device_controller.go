@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/client-go/log"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -44,9 +46,11 @@ type DeviceController struct {
 	maxDevices    int
 	backoff       []time.Duration
 	virtConfig    *virtconfig.ClusterConfig
+	hostDevConfigMapInformer cache.SharedIndexInformer
+
 }
 
-func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.ClusterConfig) *DeviceController {
+func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.ClusterConfig, hostDevConfigMapInformer cache.SharedIndexInformer) *DeviceController {
 	controller := &DeviceController{
 		devicePlugins: []GenericDevice{
 			NewGenericDevicePlugin(KVMName, KVMPath, maxDevices, false),
@@ -58,8 +62,36 @@ func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.
 		backoff:    []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
 	}
 	controller.virtConfig = clusterConfig
+	controller.hostDevConfigMapInformer = hostDevConfigMapInformer
+	hostDevConfigMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    controller.hostDevAddFunc,
+		DeleteFunc: controller.hostDevDeleteFunc,
+		UpdateFunc: controller.hostDevUpdateFunc,
+	})
 
 	return controller
+}
+
+func (c *DeviceController) hostDevAddFunc(obj interface{}) {
+	logger := log.DefaultLogger()
+	logger.Infof("in hostDevAddFunc, obj: %v", obj)
+	hostDevs := c.virtConfig.GetPermittedHostDevices()
+	logger.Infof("got hostDevs: %v", hostDevs)
+}
+
+func (c *DeviceController) hostDevDeleteFunc(obj interface{}) {
+	logger := log.DefaultLogger()
+	logger.Infof("in hostDevDeleteFunc, obj: %v", obj)
+	hostDevs := c.virtConfig.GetPermittedHostDevices()
+	logger.Infof("got hostDevs: %v", hostDevs)
+
+}
+
+func (c *DeviceController) hostDevUpdateFunc(oldObj, newObj interface{}) {
+	logger := log.DefaultLogger()
+	logger.Infof("in hostDevUpdateFunc, oldObj: %v, newObj: %v", oldObj, newObj)
+	hostDevs := c.virtConfig.GetPermittedHostDevices()
+	logger.Infof("got hostDevs: %v", hostDevs)
 }
 
 func (c *DeviceController) nodeHasDevice(devicePath string) bool {
@@ -145,6 +177,9 @@ func removeSelectorSpaces(selectorName string) string {
 
 func (c *DeviceController) Run(stop chan struct{}) error {
 	logger := log.DefaultLogger()
+	// Wait for the hostDevConfigMapInformer cache to be synced
+	go c.hostDevConfigMapInformer.Run(stop)
+	cache.WaitForCacheSync(stop, c.hostDevConfigMapInformer.HasSynced)
 	c.addPermittedHostDevicePlugins()
 	for _, dev := range c.devicePlugins {
 		go c.startDevicePlugin(dev, stop)
