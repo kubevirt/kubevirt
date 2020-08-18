@@ -48,6 +48,7 @@ type GenericDevice interface {
 	GetDevicePath() string
 	GetDeviceName() string
 	GetInitialized() bool
+	Stop() error
 }
 
 type GenericDevicePlugin struct {

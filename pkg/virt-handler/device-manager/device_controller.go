@@ -41,57 +41,47 @@ const (
 )
 
 type DeviceController struct {
-	devicePlugins []GenericDevice
-	host          string
-	maxDevices    int
-	backoff       []time.Duration
-	virtConfig    *virtconfig.ClusterConfig
+	devicePlugins            map[string]GenericDevice
+	host                     string
+	maxDevices               int
+	backoff                  []time.Duration
+	virtConfig               *virtconfig.ClusterConfig
 	hostDevConfigMapInformer cache.SharedIndexInformer
+	stop                     chan struct{}
+}
 
+func getPermanentHostDevicePlugins(maxDevices int) map[string]GenericDevice {
+	return map[string]GenericDevice{
+		KVMName:      NewGenericDevicePlugin(KVMName, KVMPath, maxDevices, false),
+		TunName:      NewGenericDevicePlugin(TunName, TunPath, maxDevices, true),
+		VhostNetName: NewGenericDevicePlugin(VhostNetName, VhostNetPath, maxDevices, true),
+	}
 }
 
 func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.ClusterConfig, hostDevConfigMapInformer cache.SharedIndexInformer) *DeviceController {
 	controller := &DeviceController{
-		devicePlugins: []GenericDevice{
-			NewGenericDevicePlugin(KVMName, KVMPath, maxDevices, false),
-			NewGenericDevicePlugin(TunName, TunPath, maxDevices, true),
-			NewGenericDevicePlugin(VhostNetName, VhostNetPath, maxDevices, true),
-		},
-		host:       host,
-		maxDevices: maxDevices,
-		backoff:    []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
+		devicePlugins: getPermanentHostDevicePlugins(maxDevices),
+		host:          host,
+		maxDevices:    maxDevices,
+		backoff:       []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
 	}
 	controller.virtConfig = clusterConfig
 	controller.hostDevConfigMapInformer = hostDevConfigMapInformer
 	hostDevConfigMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.hostDevAddFunc,
-		DeleteFunc: controller.hostDevDeleteFunc,
+		AddFunc:    controller.hostDevAddDeleteFunc,
+		DeleteFunc: controller.hostDevAddDeleteFunc,
 		UpdateFunc: controller.hostDevUpdateFunc,
 	})
 
 	return controller
 }
 
-func (c *DeviceController) hostDevAddFunc(obj interface{}) {
-	logger := log.DefaultLogger()
-	logger.Infof("in hostDevAddFunc, obj: %v", obj)
-	hostDevs := c.virtConfig.GetPermittedHostDevices()
-	logger.Infof("got hostDevs: %v", hostDevs)
-}
-
-func (c *DeviceController) hostDevDeleteFunc(obj interface{}) {
-	logger := log.DefaultLogger()
-	logger.Infof("in hostDevDeleteFunc, obj: %v", obj)
-	hostDevs := c.virtConfig.GetPermittedHostDevices()
-	logger.Infof("got hostDevs: %v", hostDevs)
-
+func (c *DeviceController) hostDevAddDeleteFunc(obj interface{}) {
+	c.refreshPermittedDevices()
 }
 
 func (c *DeviceController) hostDevUpdateFunc(oldObj, newObj interface{}) {
-	logger := log.DefaultLogger()
-	logger.Infof("in hostDevUpdateFunc, oldObj: %v, newObj: %v", oldObj, newObj)
-	hostDevs := c.virtConfig.GetPermittedHostDevices()
-	logger.Infof("got hostDevs: %v", hostDevs)
+	c.refreshPermittedDevices()
 }
 
 func (c *DeviceController) nodeHasDevice(devicePath string) bool {
@@ -126,9 +116,26 @@ func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct
 	}
 }
 
-// addPermittedHostDevicePlugins will add device pluging for permitted devices which are present on the node
-func (c *DeviceController) addPermittedHostDevicePlugins() {
+func (c *DeviceController) stopDevicePlugin(dev GenericDevice) {
+	logger := log.DefaultLogger()
+	deviceName := dev.GetDeviceName()
+	logger.Infof("Stopping a device pluging for device: %s", deviceName)
+	err := dev.Stop()
+	if err != nil {
+		logger.Reason(err).Errorf("Error stopping %s device plugin", deviceName)
+	}
+}
+
+// updatePermittedHostDevicePlugins will return a map of device plugings for permitted devices which are present on the node
+// and a map of restricted devices that should be removed
+func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]GenericDevice, map[string]GenericDevice) {
+	devicePluginsToRun := make(map[string]GenericDevice)
+	devicePluginsToStop := make(map[string]GenericDevice)
 	if hostDevs := c.virtConfig.GetPermittedHostDevices(); hostDevs != nil {
+		// generate a map of currently started device plugins
+		for resourceName, hostDevDP := range c.devicePlugins {
+			devicePluginsToStop[resourceName] = hostDevDP
+		}
 		supportedPCIDeviceMap := make(map[string]string)
 		if len(hostDevs.PciHostDevices) != 0 {
 			for _, pciDev := range hostDevs.PciHostDevices {
@@ -138,12 +145,15 @@ func (c *DeviceController) addPermittedHostDevicePlugins() {
 				}
 			}
 			pciHostDevices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
-			pciDevicePlugins := []GenericDevice{}
 			for pciID, pciDevices := range pciHostDevices {
 				pciResourceName := supportedPCIDeviceMap[pciID]
-				pciDevicePlugins = append(pciDevicePlugins, NewPCIDevicePlugin(pciDevices, pciResourceName))
+				// add a device plugin only for new devices
+				if _, isRunning := c.devicePlugins[pciResourceName]; !isRunning {
+					devicePluginsToRun[pciResourceName] = NewPCIDevicePlugin(pciDevices, pciResourceName)
+				} else {
+					delete(devicePluginsToStop, pciResourceName)
+				}
 			}
-			c.devicePlugins = append(c.devicePlugins, pciDevicePlugins...)
 		}
 		if len(hostDevs.MediatedDevices) != 0 {
 			supportedMdevsMap := make(map[string]string)
@@ -156,14 +166,18 @@ func (c *DeviceController) addPermittedHostDevicePlugins() {
 			}
 
 			hostMdevs := discoverPermittedHostMediatedDevices(supportedMdevsMap)
-			mdevPlugins := []GenericDevice{}
 			for mdevTypeName, mdevUUIDs := range hostMdevs {
 				mdevResourceName := supportedMdevsMap[mdevTypeName]
-				mdevPlugins = append(mdevPlugins, NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName))
+				// add a device plugin only for new devices
+				if _, isRunning := c.devicePlugins[mdevResourceName]; !isRunning {
+					devicePluginsToRun[mdevResourceName] = NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName)
+				} else {
+					delete(devicePluginsToStop, mdevResourceName)
+				}
 			}
-			c.devicePlugins = append(c.devicePlugins, mdevPlugins...)
 		}
 	}
+	return devicePluginsToRun, devicePluginsToStop
 }
 
 func removeSelectorSpaces(selectorName string) string {
@@ -174,14 +188,43 @@ func removeSelectorSpaces(selectorName string) string {
 	return typeNameStr
 
 }
+func (c *DeviceController) refreshPermittedDevices() error {
+	logger := log.DefaultLogger()
+	debugDevAdded := []string{}
+	debugDevRemoved := []string{}
+	// Wait for the hostDevConfigMapInformer cache to be synced
+	enabledDevicePlugins, disabledDevicePlugins := c.updatePermittedHostDevicePlugins()
+
+	// start device plugin for newly permitted devices
+	for resourceName, dev := range enabledDevicePlugins {
+		go c.startDevicePlugin(dev, c.stop)
+		c.devicePlugins[resourceName] = dev
+		debugDevAdded = append(debugDevAdded, resourceName)
+	}
+	// remove device plugin for now forbidden devices
+	for resourceName, dev := range disabledDevicePlugins {
+		staticDPs := getPermanentHostDevicePlugins(0)
+		if _, isStaticResource := staticDPs[resourceName]; !isStaticResource {
+			go c.stopDevicePlugin(dev)
+			delete(c.devicePlugins, resourceName)
+			debugDevRemoved = append(debugDevRemoved, resourceName)
+		}
+	}
+
+	logger.Info("refreshed device plugins for permitted/forbidden host devices")
+	logger.Infof("enabled device-pluings for: %v", debugDevAdded)
+	logger.Infof("disabled device-pluings for: %v", debugDevRemoved)
+	return nil
+}
 
 func (c *DeviceController) Run(stop chan struct{}) error {
 	logger := log.DefaultLogger()
+	c.stop = stop
 	// Wait for the hostDevConfigMapInformer cache to be synced
 	go c.hostDevConfigMapInformer.Run(stop)
 	cache.WaitForCacheSync(stop, c.hostDevConfigMapInformer.HasSynced)
-	c.addPermittedHostDevicePlugins()
-	for _, dev := range c.devicePlugins {
+	enabledDevicePlugins, _ := c.updatePermittedHostDevicePlugins()
+	for _, dev := range enabledDevicePlugins {
 		go c.startDevicePlugin(dev, stop)
 	}
 
