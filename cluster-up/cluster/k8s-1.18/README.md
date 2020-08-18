@@ -55,3 +55,27 @@ volume contains corrupt data, it can be deleted with
 ```bash
 docker volume rm kubevirt_registry
 ```
+
+## Enabling IPv6 connectivity
+
+In order to be able to reach from the cluster to the host's IPv6 network, IPv6
+has to be enabled on your Docker. Add following to your
+`/etc/docker/daemon.json` and restart docker service:
+
+```json
+{
+    "ipv6": true,
+    "fixed-cidr-v6": "2001:db8:1::/64"
+}
+```  
+
+```bash
+systemctl restart docker
+```
+
+With an IPv6-connected host, you may want the pods to be able to reach the rest
+of the IPv6 world, too. In order to allow that, enable IPv6 NAT on your host:
+
+```bash
+ip6tables -t nat -A POSTROUTING -s 2001:db8:1::/64 -j MASQUERADE
+```
