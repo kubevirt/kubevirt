@@ -24,9 +24,14 @@ import (
 	"strings"
 	"time"
 
+	expect "github.com/google/goexpect"
+	"google.golang.org/grpc/codes"
 	"k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/util/net/ip"
 )
 
 // PingFromVMConsole performs a ping through the provided VMI console.
@@ -51,5 +56,47 @@ func PingFromVMConsole(vmi *v1.VirtualMachineInstance, ipAddr string, args ...st
 	if err != nil {
 		return fmt.Errorf("Failed to ping VMI %s, error: %v", vmi.Name, err)
 	}
+	return nil
+}
+
+// PingHTTPFromVMConsole performs an HTTP ping through the provided VMI console.
+// Note: The VM serving as a source of the ping must have `curl` installed.
+func PingHTTPFromVMConsole(vmi *v1.VirtualMachineInstance, host string, port int) error {
+	const maxCommandTimeout = 10 * time.Second
+
+	host = ip.NormalizeIPAddress(host)
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return err
+	}
+
+	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 30*time.Second)
+	if err != nil {
+		return err
+	}
+	defer expecter.Close()
+
+	resp, err := expecter.ExpectBatch([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: PromptExpression},
+		&expect.BSnd{S: fmt.Sprintf("curl --head %s:%d --connect-timeout 5\n", host, port)},
+		&expect.BExp{R: PromptExpression},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BCas{C: []expect.Caser{
+			&expect.Case{
+				R: shellSuccess,
+				T: expect.OK(),
+			},
+			&expect.Case{
+				R: shellFail,
+				T: expect.Fail(expect.NewStatus(codes.Unavailable, "curl failed")),
+			},
+		}}}, maxCommandTimeout)
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("%v", resp)
+		return fmt.Errorf("Failed to HTTP GET %s:%d from VMI %s, error: %v", host, port, vmi.GetName(), err)
+	}
+
 	return nil
 }

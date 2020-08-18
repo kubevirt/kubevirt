@@ -54,7 +54,6 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	var virtClient kubecli.KubevirtClient
 
 	var inboundVMI *v1.VirtualMachineInstance
-	var inboundVMIWithPodNetworkSet *v1.VirtualMachineInstance
 	var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
 	var outboundVMI *v1.VirtualMachineInstance
 
@@ -112,14 +111,6 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			outboundVMI.Spec.Domain.Devices.Interfaces = nil
 			outboundVMI.Spec.Networks = nil
 
-			// inboudnVMIWithPodNetworkSet adds itself in an explicit fashion to the pod network
-			inboundVMIWithPodNetworkSet = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			// Remove the masquerade interface to use the default bridge one
-			inboundVMIWithPodNetworkSet.Spec.Domain.Devices.Interfaces = nil
-			inboundVMIWithPodNetworkSet.Spec.Networks = nil
-			v1.SetDefaults_NetworkInterface(inboundVMIWithPodNetworkSet)
-			Expect(inboundVMIWithPodNetworkSet.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
-
 			// inboundVMIWithCustomMacAddress specifies a custom MAC address
 			inboundVMIWithCustomMacAddress = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			// Remove the masquerade interface to use the default bridge one
@@ -130,7 +121,7 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 
 			// Create VMIs
-			for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI, inboundVMIWithPodNetworkSet, inboundVMIWithCustomMacAddress} {
+			for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI, inboundVMIWithCustomMacAddress} {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(networkVMI)
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -138,7 +129,6 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			// Wait for VMIs to become ready
 			inboundVMI = tests.WaitUntilVMIReady(inboundVMI, tests.LoggedInCirrosExpecter)
 			outboundVMI = tests.WaitUntilVMIReady(outboundVMI, tests.LoggedInCirrosExpecter)
-			inboundVMIWithPodNetworkSet = tests.WaitUntilVMIReady(inboundVMIWithPodNetworkSet, tests.LoggedInCirrosExpecter)
 			inboundVMIWithCustomMacAddress = tests.WaitUntilVMIReady(inboundVMIWithCustomMacAddress, tests.LoggedInCirrosExpecter)
 
 			tests.StartTCPServer(inboundVMI, testPort)
@@ -154,10 +144,6 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			switch destination {
 			case "Internet":
 				addr = "kubevirt.io"
-			case "InboundVMI":
-				addr = inboundVMI.Status.Interfaces[0].IP
-			case "InboundVMIWithPodNetworkSet":
-				addr = inboundVMIWithPodNetworkSet.Status.Interfaces[0].IP
 			case "InboundVMIWithCustomMacAddress":
 				addr = inboundVMIWithCustomMacAddress.Status.Interfaces[0].IP
 			}
@@ -231,8 +217,6 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		},
-			table.Entry("[test_id:1539]the Inbound VirtualMachineInstance", "InboundVMI"),
-			table.Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", "InboundVMIWithPodNetworkSet"),
 			table.Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", "InboundVMIWithCustomMacAddress"),
 			table.Entry("[test_id:1542]the internet", "Internet"),
 		)
