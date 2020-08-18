@@ -31,14 +31,11 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-const (
-	KVMPath      = "/dev/kvm"
-	KVMName      = "kvm"
-	TunPath      = "/dev/net/tun"
-	TunName      = "tun"
-	VhostNetPath = "/dev/vhost-net"
-	VhostNetName = "vhost-net"
-)
+var permanentDevicePluginPaths = map[string]string{
+	"kvm":       "/dev/kvm",
+	"tun":       "/dev/net/tun",
+	"vhost-net": "/dev/vhost-net",
+}
 
 type DeviceController struct {
 	devicePlugins            map[string]GenericDevice
@@ -51,11 +48,11 @@ type DeviceController struct {
 }
 
 func getPermanentHostDevicePlugins(maxDevices int) map[string]GenericDevice {
-	return map[string]GenericDevice{
-		KVMName:      NewGenericDevicePlugin(KVMName, KVMPath, maxDevices, false),
-		TunName:      NewGenericDevicePlugin(TunName, TunPath, maxDevices, true),
-		VhostNetName: NewGenericDevicePlugin(VhostNetName, VhostNetPath, maxDevices, true),
+	ret := map[string]GenericDevice{}
+	for name, path := range permanentDevicePluginPaths {
+		ret[name] = NewGenericDevicePlugin(name, path, maxDevices, (name != "kvm"))
 	}
+	return ret
 }
 
 func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.ClusterConfig, hostDevConfigMapInformer cache.SharedIndexInformer) *DeviceController {
@@ -203,8 +200,7 @@ func (c *DeviceController) refreshPermittedDevices() error {
 	}
 	// remove device plugin for now forbidden devices
 	for resourceName, dev := range disabledDevicePlugins {
-		staticDPs := getPermanentHostDevicePlugins(0)
-		if _, isStaticResource := staticDPs[resourceName]; !isStaticResource {
+		if _, isStaticResource := permanentDevicePluginPaths[resourceName]; !isStaticResource {
 			go c.stopDevicePlugin(dev)
 			delete(c.devicePlugins, resourceName)
 			debugDevRemoved = append(debugDevRemoved, resourceName)
