@@ -57,7 +57,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = setupVMI(virtClient, vmiWithDefaultBinding())
+				vmi = setupVMI(virtClient, vmiWithImplicitBinding())
 			})
 
 			AfterEach(func() {
@@ -122,22 +122,22 @@ func cleanupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstanc
 	}
 }
 
-func vmiWithDefaultBinding() *v1.VirtualMachineInstance {
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+func vmiWithImplicitBinding() *v1.VirtualMachineInstance {
+	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 	vmi.Spec.Domain.Devices.Interfaces = nil
 	vmi.Spec.Networks = nil
 	return vmi
 }
 
 func vmiWithBridgeBinding() *v1.VirtualMachineInstance {
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	return vmi
 }
 
 func vmiWithMasqueradeBinding() *v1.VirtualMachineInstance {
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
+	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	return vmi
