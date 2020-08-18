@@ -109,7 +109,7 @@ func NewController(
 		vmiTargetInformer:        vmiTargetInformer,
 		domainInformer:           domainInformer,
 		gracefulShutdownInformer: gracefulShutdownInformer,
-	        hostDevConfigMapInformer: hostDevConfigMapInformer,
+		hostDevConfigMapInformer: hostDevConfigMapInformer,
 		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(serverTLSConfig, clientTLSConfig),
