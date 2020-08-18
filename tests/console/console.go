@@ -131,7 +131,7 @@ func SecureBootExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error)
 	b := append([]expect.Batcher{
 		&expect.BExp{R: "secureboot: Secure boot enabled"},
 	})
-	res, err := expecter.ExpectBatch(b, 180*time.Second)
+	res, err := ExpectBatchWithValidatedSend(expecter, b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Kernel: %+v", res)
 		expecter.Close()

@@ -208,13 +208,16 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(err).ToNot(HaveOccurred(), "expected alpine to login properly")
 				defer expecter.Close()
 
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					// mount virtio cdrom and check files are there
 					&expect.BSnd{S: "mount -t iso9600 /dev/cdrom\n"},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cd /media/cdrom\n"},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "ls virtio-win_license.txt guest-agent\n"},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 200*time.Second)

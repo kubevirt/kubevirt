@@ -386,13 +386,13 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				if device != "" {
 					batch = append(batch, []expect.Batcher{
 						&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 %s\n", device)},
-						&expect.BExp{R: "\\$ "},
+						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: "echo $?\n"},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: "sudo mkdir -p /test\n"},
-						&expect.BExp{R: "\\$ "},
+						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
-						&expect.BExp{R: "\\$ "},
+						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: "echo $?\n"},
 						&expect.BExp{R: console.RetValue("0")},
 					}...)
@@ -400,20 +400,20 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 				batch = append(batch, []expect.Batcher{
 					&expect.BSnd{S: "sudo mkdir -p /test/data\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "sudo chmod a+w /test/data\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: fmt.Sprintf("echo '%s' > /test/data/message\n", vm.UID)},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "cat /test/data/message\n"},
 					&expect.BExp{R: string(vm.UID)},
 					&expect.BSnd{S: "sync\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "sync\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 				}...)
 
-				res, err := expecter.ExpectBatch(batch, 20*time.Second)
+				res, err := console.ExpectBatchWithValidatedSend(expecter, batch, 20*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				expecter.Close()
 				Expect(err).ToNot(HaveOccurred())
@@ -438,9 +438,9 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				if device != "" {
 					batch = append(batch, []expect.Batcher{
 						&expect.BSnd{S: "sudo mkdir -p /test\n"},
-						&expect.BExp{R: "\\$ "},
+						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
-						&expect.BExp{R: "\\$ "},
+						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: "echo $?\n"},
 						&expect.BExp{R: console.RetValue("0")},
 					}...)
@@ -448,22 +448,22 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 				batch = append(batch, []expect.Batcher{
 					&expect.BSnd{S: "sudo mkdir -p /test/data\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "sudo chmod a+w /test/data\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "cat /test/data/message\n"},
 					&expect.BExp{R: string(vm.UID)},
 					&expect.BSnd{S: fmt.Sprintf("echo '%s' > /test/data/message\n", snapshot.UID)},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "cat /test/data/message\n"},
 					&expect.BExp{R: string(snapshot.UID)},
 					&expect.BSnd{S: "sync\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "sync\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 				}...)
 
-				res, err = expecter.ExpectBatch(batch, 20*time.Second)
+				res, err = console.ExpectBatchWithValidatedSend(expecter, batch, 20*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				expecter.Close()
 				Expect(err).ToNot(HaveOccurred())
@@ -493,9 +493,9 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 				if device != "" {
 					batch = append(batch, []expect.Batcher{
 						&expect.BSnd{S: "sudo mkdir -p /test\n"},
-						&expect.BExp{R: "\\$ "},
+						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: fmt.Sprintf("sudo mount %s /test \n", device)},
-						&expect.BExp{R: "\\$ "},
+						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: "echo $?\n"},
 						&expect.BExp{R: console.RetValue("0")},
 					}...)
@@ -503,14 +503,14 @@ var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 				batch = append(batch, []expect.Batcher{
 					&expect.BSnd{S: "sudo mkdir -p /test/data\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "sudo chmod a+w /test/data\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "cat /test/data/message\n"},
 					&expect.BExp{R: string(vm.UID)},
 				}...)
 
-				res, err = expecter.ExpectBatch(batch, 20*time.Second)
+				res, err = console.ExpectBatchWithValidatedSend(expecter, batch, 20*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				expecter.Close()
 				Expect(err).ToNot(HaveOccurred())

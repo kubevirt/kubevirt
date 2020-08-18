@@ -207,9 +207,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the number of CPU cores under guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
-					&expect.BExp{R: "3"},
+					&expect.BExp{R: console.RetValue("3")},
 				}, 15*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should report number of cores")
 
@@ -272,9 +272,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the number of sockets under guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
-					&expect.BExp{R: "3"},
+					&expect.BExp{R: console.RetValue("3")},
 				}, 60*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should report number of sockets")
 			})
@@ -299,9 +299,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the number of sockets under guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
-					&expect.BExp{R: "2"},
+					&expect.BExp{R: console.RetValue("2")},
 				}, 60*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should report number of sockets")
 			})
@@ -328,9 +328,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the number of sockets under guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
-					&expect.BExp{R: "2"},
+					&expect.BExp{R: console.RetValue("2")},
 				}, 60*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should report number of sockets")
 			})
@@ -358,9 +358,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the number of vCPUs under guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
-					&expect.BExp{R: "4"},
+					&expect.BExp{R: console.RetValue("4")},
 				}, 60*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should report number of threads")
 			})
@@ -569,9 +569,9 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				res, err := expecter.ExpectBatch([]expect.Batcher{
+				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: "104"},
+					&expect.BExp{R: console.RetValue("104")},
 				}, 10*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -594,9 +594,9 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				res, err := expecter.ExpectBatch([]expect.Batcher{
+				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: "104"},
+					&expect.BExp{R: console.RetValue("104")},
 				}, 10*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -626,7 +626,7 @@ var _ = Describe("Configurations", func() {
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass'\n"},
 					&expect.BExp{R: console.RetValue("pass")},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 15*time.Second)
@@ -710,9 +710,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the number of usb under guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* | wc -l\n"},
-					&expect.BExp{R: "2"},
+					&expect.BExp{R: console.RetValue("2")},
 				}, 60*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
 			})
@@ -736,9 +736,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the number of usb under guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* | wc -l\n"},
-					&expect.BExp{R: "2"},
+					&expect.BExp{R: console.RetValue("2")},
 				}, 60*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
 			})
@@ -756,9 +756,9 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 				By("Checking the number of usb under guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* 2>/dev/null | wc -l\n"},
-					&expect.BExp{R: "0"},
+					&expect.BExp{R: console.RetValue("0")},
 				}, 60*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
 			})
@@ -813,9 +813,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the tablet input under guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "grep -rs '^QEMU Virtio Tablet' /sys/devices | wc -l\n"},
-					&expect.BExp{R: "1"},
+					&expect.BExp{R: console.RetValue("1")},
 				}, 60*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should report input device")
 			})
@@ -840,9 +840,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the tablet input under guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "grep -rs '^QEMU USB Tablet' /sys/devices | wc -l\n"},
-					&expect.BExp{R: "1"},
+					&expect.BExp{R: console.RetValue("1")},
 				}, 60*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should report input device")
 			})
@@ -1151,9 +1151,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the virtio rng presence")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^virtio /sys/devices/virtual/misc/hw_random/rng_available\n"},
-					&expect.BExp{R: "1"},
+					&expect.BExp{R: console.RetValue("1")},
 				}, 400*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -1170,9 +1170,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the virtio rng presence")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "[[ ! -e /sys/devices/virtual/misc/hw_random/rng_available ]] && echo non\n"},
-					&expect.BExp{R: "non"},
+					&expect.BExp{R: console.RetValue("non")},
 				}, 400*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -1255,8 +1255,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Terminating guest agent and waiting for it to dissappear.")
-				res, err := expecter.ExpectBatch([]expect.Batcher{
+				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "systemctl stop guestagent\n"},
+					&expect.BExp{R: console.PromptExpression},
 				}, 400*time.Second)
 				log.DefaultLogger().Object(agentVMI).Infof("Login: %v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -1353,8 +1354,9 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Terminating guest agent and waiting for it to dissappear.")
-				res, err := expecter.ExpectBatch([]expect.Batcher{
+				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "systemctl stop guestagent\n"},
+					&expect.BExp{R: console.PromptExpression},
 				}, 400*time.Second)
 				log.DefaultLogger().Object(agentVMI).Infof("Login: %v", res)
 				Expect(err).ToNot(HaveOccurred())
@@ -1489,7 +1491,7 @@ var _ = Describe("Configurations", func() {
 
 				By("Checking hardware clock time")
 				expected := fmt.Sprintf("%02d:%02d:", now.Hour(), now.Minute())
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "sudo hwclock --localtime \n"},
 					&expect.BExp{R: expected},
 				}, 20*time.Second)
@@ -1591,7 +1593,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the CPU model under the guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", vmiModel)},
 					&expect.BExp{R: "model name"},
 				}, 10*time.Second)
@@ -1616,7 +1618,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the CPU model under the guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", cpuModelName)},
 					&expect.BExp{R: "model name"},
 				}, 10*time.Second)
@@ -1637,7 +1639,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the CPU model under the guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", libvirtCpuModel)},
 					&expect.BExp{R: "model name"},
 				}, 10*time.Second)
@@ -1665,7 +1667,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the CPU features under the guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuFeatures[0])},
 					&expect.BExp{R: "flags"},
 				}, 10*time.Second)
@@ -1881,10 +1883,10 @@ var _ = Describe("Configurations", func() {
 			tests.AddEphemeralDisk(vmi, "disk2", "sata", containerImage)
 			// NOTE: we have one disk per bus, so we expect vda, sda
 		})
-		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
+		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string) {
 			err := console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: prompt},
+				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: "grep DEVNAME /sys/bus/pci/devices/" + expectedPciAddress + "/*/block/vda/uevent|awk -F= '{ print $2 }'\n"},
 				&expect.BExp{R: "vda"},
 			}, 15)
@@ -1900,10 +1902,12 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 			defer expecter.Close()
 
-			res, err := expecter.ExpectBatch([]expect.Batcher{
+			res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 				// keep the ordering!
-				&expect.BSnd{S: "ls /dev/sda  /dev/vda  /dev/vdb\n"},
-				&expect.BExp{R: "/dev/sda  /dev/vda  /dev/vdb"},
+				&expect.BSnd{S: "ls /dev/vda  /dev/vdb\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: console.RetValue("0")},
 			}, 10*time.Second)
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 
@@ -1918,7 +1922,7 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 
-			checkPciAddress(vmi, vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress, "\\$")
+			checkPciAddress(vmi, vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress)
 		})
 
 		It("[test_id:1020]should not create the VM with wrong PCI adress", func() {
@@ -2074,7 +2078,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the number of CPU cores under guest OS")
-				res, err := expecter.ExpectBatch([]expect.Batcher{
+				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "2"},
 				}, 15*time.Second)
@@ -2124,7 +2128,7 @@ var _ = Describe("Configurations", func() {
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 80 ] && echo 'pass'\n"},
 					&expect.BExp{R: console.RetValue("pass")},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k\n"},
-					&expect.BExp{R: "\\$ "},
+					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 15*time.Second)
@@ -2208,7 +2212,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the number of CPU cores under guest OS")
-				res, err := expecter.ExpectBatch([]expect.Batcher{
+				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "2"},
 				}, 15*time.Second)
@@ -2256,7 +2260,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the number of CPU cores under guest OS")
-				res, err := expecter.ExpectBatch([]expect.Batcher{
+				res, err := console.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "2"},
 				}, 15*time.Second)
