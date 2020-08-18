@@ -330,11 +330,11 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 	runStressTest := func(expecter expect.Expecter) {
 		By("Run a stress test to dirty some pages and slow down the migration")
-		_, err = expecter.ExpectBatch([]expect.Batcher{
+		_, err = tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: "\\#"},
+			&expect.BExp{R: tests.PromptExpression},
 			&expect.BSnd{S: "stress --vm 1 --vm-bytes 800M --vm-keep --timeout 1600s&\n\n"},
-			&expect.BExp{R: "\\#"},
+			&expect.BExp{R: tests.PromptExpression},
 		}, 15*time.Second)
 		Expect(err).ToNot(HaveOccurred(), "should run a stress test")
 		// give stress tool some time to trash more memory pages before returning control to next steps
@@ -584,7 +584,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Set wrong time on the guest")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "date +%T -s 23:26:00\n"},
 				}, 15*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should set guest time")
@@ -615,7 +615,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					log.DefaultLogger().Infof("expoected time: %v", expectedTime)
 
 					By("Checking that the guest has an updated time")
-					resp, err := expecterNew.ExpectBatch([]expect.Batcher{
+					resp, err := tests.ExpectBatchWithValidatedSend(expecterNew, []expect.Batcher{
 						&expect.BSnd{S: "date +%H:%M\n"},
 						&expect.BExp{R: expectedTime},
 					}, 30*time.Second)
@@ -954,7 +954,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 				Expect(err).ToNot(HaveOccurred(), "Should stay logged in to the migrated VM")
 
 				By("Checking that the service account is mounted")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				_, err = tests.ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
 					&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
 					&expect.BExp{R: tests.NamespaceTestDefault},
 				}, 30*time.Second)
