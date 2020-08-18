@@ -2886,7 +2886,7 @@ func configureConsole(expecter expect.Expecter, prompt string, shouldSudo bool) 
 }
 
 func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter, virtClient kubecli.KubevirtClient, prompt string) error {
-	hasEth0Iface := func(vmi *v1.VirtualMachineInstance) bool {
+	hasEth0Iface := func() bool {
 		hasNetEth0Batch := append([]expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
@@ -2896,7 +2896,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 		return err == nil
 	}
 
-	hasGlobalIPv6 := func(vmi *v1.VirtualMachineInstance) bool {
+	hasGlobalIPv6 := func() bool {
 		hasGlobalIPv6Batch := append([]expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: prompt},
@@ -2919,7 +2919,7 @@ func configureIPv6OnVMI(vmi *v1.VirtualMachineInstance, expecter expect.Expecter
 	if !clusterSupportsIpv6() ||
 		(vmi.Spec.Domain.Devices.Interfaces == nil || len(vmi.Spec.Domain.Devices.Interfaces) == 0 || vmi.Spec.Domain.Devices.Interfaces[0].InterfaceBindingMethod.Masquerade == nil) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface != nil && !*vmi.Spec.Domain.Devices.AutoattachPodInterface) ||
-		(!hasEth0Iface(vmi) || hasGlobalIPv6(vmi)) {
+		(!hasEth0Iface() || hasGlobalIPv6()) {
 		return nil
 	}
 
