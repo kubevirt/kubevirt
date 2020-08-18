@@ -44,7 +44,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = libvmi.SetupVMI(vmiWithImplicitBinding())
+				vmi = libvmi.SetupVMI(vmiWithImplicitBinding(), tests.LoggedInCirrosExpecter)
 			})
 
 			AfterEach(func() {
@@ -58,7 +58,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = libvmi.SetupVMI(vmiWithBridgeBinding())
+				vmi = libvmi.SetupVMI(vmiWithBridgeBinding(), tests.LoggedInCirrosExpecter)
 			})
 
 			AfterEach(func() {
@@ -72,7 +72,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = libvmi.SetupVMI(vmiWithMasqueradeBinding())
+				vmi = libvmi.SetupVMI(vmiWithMasqueradeBinding(), tests.LoggedInCirrosExpecter)
 			})
 
 			AfterEach(func() {
