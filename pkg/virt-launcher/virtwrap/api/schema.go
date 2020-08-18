@@ -224,17 +224,16 @@ type CPU struct {
 }
 
 type NUMA struct {
-       Cells []NUMACell `xml:"cell"`
+	Cells []NUMACell `xml:"cell"`
 }
 
 type NUMACell struct {
-       ID           string `xml:"id,attr"`
-       CPUs         string `xml:"cpus,attr"`
-       Memory       string `xml:"memory,attr,omitempty"`
-       Unit         string `xml:"unit,attr,omitempty"`
-       MemoryAccess string `xml:"memAccess,attr,omitempty"`
+	ID           string `xml:"id,attr"`
+	CPUs         string `xml:"cpus,attr"`
+	Memory       string `xml:"memory,attr,omitempty"`
+	Unit         string `xml:"unit,attr,omitempty"`
+	MemoryAccess string `xml:"memAccess,attr,omitempty"`
 }
-
 
 type CPUFeature struct {
 	Name   string `xml:"name,attr"`
