@@ -817,6 +817,18 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.MemoryBacking = &MemoryBacking{
 			HugePages: &HugePages{},
 		}
+		// NUMA is required in order to use memfd
+		domain.Spec.CPU.NUMA = &NUMA{
+			Cells: []NUMACell{
+				{
+					ID:     "0",
+					CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
+					Memory: fmt.Sprintf("%d", getVirtualMemory(vmi).Value()/int64(1024)),
+					Unit:   "KiB",
+				},
+			},
+		}
+
 	}
 
 	volumeIndices := map[string]int{}
