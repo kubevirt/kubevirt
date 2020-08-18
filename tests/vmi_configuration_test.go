@@ -597,7 +597,7 @@ var _ = Describe("Configurations", func() {
 				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("128M")
 				vmi.Spec.Domain.Resources.OvercommitGuestOverhead = true
 
-				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 			})
@@ -1426,13 +1426,14 @@ var _ = Describe("Configurations", func() {
 		var cpuModelName string
 		var cpuFeatures []string
 		var cpuVmi *v1.VirtualMachineInstance
+		var node string
 
 		// Collect capabilities once for all tests
 		tests.BeforeAll(func() {
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			node := tests.WaitForSuccessfulVMIStart(vmi)
+			node = tests.WaitForSuccessfulVMIStart(vmi)
 
 			virshCaps := tests.GetNodeLibvirtCapabilities(vmi)
 
@@ -1455,6 +1456,19 @@ var _ = Describe("Configurations", func() {
 			Expect(len(modelName)).To(Equal(2))
 			cpuModelName = modelName[1]
 
+			// Best to also delete the VMI, in the case that there is only one spot free for scheduling
+			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return true
+				}
+				return false
+			}, 60*time.Second, 1*time.Second).Should(BeTrue())
+		})
+
+		BeforeEach(func() {
 			cpuVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			cpuVmi.Spec.Affinity = &kubev1.Affinity{
 				NodeAffinity: &kubev1.NodeAffinity{
@@ -1469,17 +1483,6 @@ var _ = Describe("Configurations", func() {
 					},
 				},
 			}
-
-			// Best to also delete the VMI, in the case that there is only one spot free for scheduling
-			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() bool {
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return true
-				}
-				return false
-			}, 60*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
@@ -1493,7 +1496,7 @@ var _ = Describe("Configurations", func() {
 				}
 
 				By("Starting a VirtualMachineInstance")
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				cpuVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
@@ -1517,7 +1520,7 @@ var _ = Describe("Configurations", func() {
 				}
 
 				By("Starting a VirtualMachineInstance")
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				cpuVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
@@ -1537,7 +1540,7 @@ var _ = Describe("Configurations", func() {
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model not defined", func() {
 			It("[test_id:1680]should report CPU model from libvirt capabilities", func() {
 				By("Starting a VirtualMachineInstance")
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				cpuVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
@@ -1565,7 +1568,7 @@ var _ = Describe("Configurations", func() {
 				}
 
 				By("Starting a VirtualMachineInstance")
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				cpuVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
 
@@ -1929,7 +1932,7 @@ var _ = Describe("Configurations", func() {
 				}
 
 				By("Starting a VirtualMachineInstance")
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				cpuVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
 
@@ -2062,7 +2065,7 @@ var _ = Describe("Configurations", func() {
 				}
 
 				By("Starting a VirtualMachineInstance")
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				cpuVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
 
@@ -2147,7 +2150,7 @@ var _ = Describe("Configurations", func() {
 					},
 				}
 				By("Starting a VirtualMachineInstance")
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				cpuVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
 				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
@@ -2292,7 +2295,7 @@ var _ = Describe("Configurations", func() {
 			It("[test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
 
 				By("Starting a VirtualMachineInstance with dedicated cpus")
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuvmi)
+				cpuvmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuvmi)
 				Expect(err).ToNot(HaveOccurred())
 				node1 := tests.WaitForSuccessfulVMIStart(cpuvmi)
 				Expect(isNodeHasCPUManagerLabel(node1)).To(BeTrue())
@@ -2304,7 +2307,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter1.Close()
 
 				By("Starting a VirtualMachineInstance without dedicated cpus")
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				node2 := tests.WaitForSuccessfulVMIStart(vmi)
 				Expect(isNodeHasCPUManagerLabel(node2)).To(BeTrue())
@@ -2319,7 +2322,7 @@ var _ = Describe("Configurations", func() {
 			It("[test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", func() {
 
 				By("Starting a VirtualMachineInstance without dedicated cpus")
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				node2 := tests.WaitForSuccessfulVMIStart(vmi)
 				Expect(isNodeHasCPUManagerLabel(node2)).To(BeTrue())
@@ -2331,7 +2334,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter1.Close()
 
 				By("Starting a VirtualMachineInstance with dedicated cpus")
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuvmi)
+				cpuvmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuvmi)
 				Expect(err).ToNot(HaveOccurred())
 				node1 := tests.WaitForSuccessfulVMIStart(cpuvmi)
 				Expect(isNodeHasCPUManagerLabel(node1)).To(BeTrue())
