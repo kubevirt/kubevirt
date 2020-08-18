@@ -349,7 +349,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					vmi.Spec.Domain.Devices.Disks[i].Disk = &v1.DiskTarget{Bus: "virtio"}
 				}
 
-				tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Checking if ConfigMap has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -464,7 +464,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					cd.ContainerDiskFor(
 						cd.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
 				tests.AddSecretDisk(vmi, secretName, secretName)
-				tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Checking if Secret has been attached to the pod")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
