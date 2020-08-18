@@ -204,10 +204,6 @@ func initializeDirs(virtShareDir string,
 func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan struct{}, domainManager virtwrap.DomainManager) *api.Domain {
 
 	ticker := time.NewTicker(timeout).C
-	fmt.Println("-----------------------------")
-	fmt.Println(ticker)
-	fmt.Println(domainManager)
-	log.Log.Infof(timeout.String())
 	select {
 	case <-ticker:
 		panic(fmt.Errorf("timed out waiting for domain to be defined"))
@@ -367,7 +363,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// log.Log.Infof(string(domainManager))
 
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
@@ -426,7 +421,7 @@ func main() {
 	// This informs virt-controller that virt-launcher is ready to handle
 	// managing virtual machines.
 	markReady(*readinessFile)
-	log.Log.Infof((*qemuTimeout).String())
+
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
 	if domain != nil {
 		mon := virtlauncher.NewProcessMonitor(domain.Spec.UUID,

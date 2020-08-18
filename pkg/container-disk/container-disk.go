@@ -144,9 +144,6 @@ func GetImage(root string, imagePath string) (string, error) {
 		}
 		imagePath = filepath.Join(fallbackPath, files[0].Name())
 	}
-	fmt.Println("---------kuvh toh-------------")
-	fmt.Println(fallbackPath)
-	fmt.Println(imagePath)
 	return imagePath, nil
 }
 
