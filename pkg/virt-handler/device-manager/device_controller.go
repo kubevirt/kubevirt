@@ -90,7 +90,7 @@ func (c *DeviceController) nodeHasDevice(devicePath string) bool {
 func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct{}) {
 	logger := log.DefaultLogger()
 	deviceName := dev.GetDeviceName()
-	logger.Infof("Starting a device pluging for device: %s", deviceName)
+	logger.Infof("Starting a device plugin for device: %s", deviceName)
 	retries := 0
 
 	for {
@@ -116,14 +116,14 @@ func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct
 func (c *DeviceController) stopDevicePlugin(dev GenericDevice) {
 	logger := log.DefaultLogger()
 	deviceName := dev.GetDeviceName()
-	logger.Infof("Stopping a device pluging for device: %s", deviceName)
+	logger.Infof("Stopping a device plugin for device: %s", deviceName)
 	err := dev.Stop()
 	if err != nil {
 		logger.Reason(err).Errorf("Error stopping %s device plugin", deviceName)
 	}
 }
 
-// updatePermittedHostDevicePlugins will return a map of device plugings for permitted devices which are present on the node
+// updatePermittedHostDevicePlugins will return a map of device plugins for permitted devices which are present on the node
 // and a map of restricted devices that should be removed
 func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]GenericDevice, map[string]GenericDevice) {
 	devicePluginsToRun := make(map[string]GenericDevice)
@@ -219,8 +219,7 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	// Wait for the hostDevConfigMapInformer cache to be synced
 	go c.hostDevConfigMapInformer.Run(stop)
 	cache.WaitForCacheSync(stop, c.hostDevConfigMapInformer.HasSynced)
-	enabledDevicePlugins, _ := c.updatePermittedHostDevicePlugins()
-	for _, dev := range enabledDevicePlugins {
+	for _, dev := range c.devicePlugins {
 		go c.startDevicePlugin(dev, stop)
 	}
 
