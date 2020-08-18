@@ -835,6 +835,14 @@ var _ = Describe("Infrastructure", func() {
 			Expect(in).To(BeTrue())
 			Expect(out).To(BeTrue())
 		})
+
+		It("[test_id:4556]should include unused memory metric for running VM", func() {
+			metrics := collectMetrics("kubevirt_vmi_memory_unused_bytes")
+			for _, v := range metrics {
+				fmt.Fprintf(GinkgoWriter, "unused memory was %f", v)
+				Expect(v).To(BeNumerically(">=", float64(0.0)))
+			}
+		})
 	})
 
 	Describe("Start a VirtualMachineInstance", func() {
