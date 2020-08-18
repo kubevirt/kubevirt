@@ -128,7 +128,6 @@ func (dpi *PCIDevicePlugin) Start(stop chan struct{}) (err error) {
 	}
 
 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer dpi.Stop()
 
 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 	err = dpi.Register()
