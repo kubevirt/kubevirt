@@ -174,7 +174,10 @@ var _ = Describe("Certificate Management", func() {
 			crt, err := LoadCertificates(crtSecret)
 
 			deadline := now.Add(time.Duration(float64(crtDuration.Duration) * 0.8))
-			Expect(NextRotationDeadline(crt, caCrt, crtDuration).Unix()).To(BeNumerically("==", deadline.Unix(), 1))
+			// Generating certificates may take a little bit of time to execute (entropy, ...). Since we can't
+			// inject a fake time into the foreign code which generates the certificates, allow a generous diff of three
+			// seconds.
+			Expect(NextRotationDeadline(crt, caCrt, crtDuration).Unix()).To(BeNumerically("==", deadline.Unix(), 3))
 		},
 			table.Entry("with a long valid CA", 24*time.Hour),
 			table.Entry("with a CA which expires before the certificate rotation", 1*time.Hour),
