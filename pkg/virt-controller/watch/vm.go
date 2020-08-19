@@ -509,7 +509,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 				return ready, fmt.Errorf("Failed to create DataVolume: %v", err)
 			}
 			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDataVolumeCreateReason, "Created DataVolume %s", curDataVolume.Name)
-		} else if curDataVolume.Status.Phase != cdiv1.Succeeded {
+		} else if curDataVolume.Status.Phase != cdiv1.Succeeded && curDataVolume.Status.Phase != cdiv1.WaitForFirstConsumer {
 			// ready = false because encountered DataVolume that is not populated yet
 			ready = false
 			if curDataVolume.Status.Phase == cdiv1.Failed {

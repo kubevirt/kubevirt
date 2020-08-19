@@ -64,4 +64,5 @@ replace (
 
 	kubevirt.io/containerized-data-importer => kubevirt.io/containerized-data-importer v1.26.1
 	sigs.k8s.io/structured-merge-diff => sigs.k8s.io/structured-merge-diff v0.0.0-20190302045857-e85c7b244fd2
+
 )

@@ -305,6 +305,15 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		}
 	}
 
+	hasWffcDataVolume := false
+	if !hasFailedDataVolume {
+		for _, dataVolume := range dataVolumes {
+			if dataVolume.Status.Phase == cdiv1.WaitForFirstConsumer {
+				hasWffcDataVolume = true
+			}
+		}
+	}
+
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	vmiCopy := vmi.DeepCopy()
 	podExists := podExists(pod)
@@ -315,7 +324,25 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	switch {
+	case vmi.IsProvisioning():
+		if hasFailedDataVolume {
+			vmiCopy.Status.Phase = virtv1.Failed
+		} else if vmi.DeletionTimestamp != nil {
+			vmiCopy.Status.Phase = virtv1.Failed
+		} else if !hasWffcDataVolume {
+			// should we check if this is actually the provisioning pod?
+			// can this be a problem when the pod still exists and the state moves to Pending, then to Scheduling
+			if podExists {
+				err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(pod.Name, &v1.DeleteOptions{})
 
+				if err != nil {
+					return fmt.Errorf("Error deleting vmi pod: %v", err)
+				}
+				vmiCopy.Status.Phase = virtv1.Pending
+			} else {
+				vmiCopy.Status.Phase = virtv1.Pending
+			}
+		}
 	case vmi.IsUnprocessed():
 		if podExists {
 			vmiCopy.Status.Phase = virtv1.Scheduling
@@ -323,6 +350,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			vmiCopy.Status.Phase = virtv1.Failed
 		} else if hasFailedDataVolume {
 			vmiCopy.Status.Phase = virtv1.Failed
+		} else if hasWffcDataVolume {
+			vmiCopy.Status.Phase = virtv1.Provisioning
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
 			if syncErr != nil && syncErr.Reason() == FailedPvcNotFoundReason {
@@ -572,15 +601,23 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 
 		// ensure that all dataVolumes associated with the VMI are ready before creating the pod
-		dataVolumesReady, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
+		dataVolumesReady, wffc, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
 		if syncErr != nil {
 			return syncErr
 		} else if !dataVolumesReady {
 			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates")
 			return nil
 		}
-
-		templatePod, err := c.templateService.RenderLaunchManifest(vmi)
+		var templatePod *k8sv1.Pod
+		var err error
+		if wffc {
+			//TODO: BR 4215 handle pod template here!
+			// need to ensure pod is not scheduled more than once!
+			log.Log.V(3).Object(vmi).Infof("WFFC")
+			templatePod, err = c.templateService.RenderLaunchManifestNoVm(vmi)
+		} else {
+			templatePod, err = c.templateService.RenderLaunchManifest(vmi)
+		}
 		if _, ok := err.(services.PvcNotFoundError); ok {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPvcNotFoundReason, "failed to render launch manifest: %v", err)
 			return &syncErrorImpl{fmt.Errorf("failed to render launch manifest: %v", err), FailedPvcNotFoundReason}
@@ -602,22 +639,25 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	return nil
 }
 
-func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) (bool, syncError) {
+func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) (bool, bool, syncError) {
 
 	ready := true
+	wffc := false
 
 	for _, volume := range vmi.Spec.Volumes {
 		// Check both DVs and PVCs
 		if volume.VolumeSource.DataVolume != nil {
 			for _, dataVolume := range dataVolumes {
 				if dataVolume.Name == volume.VolumeSource.DataVolume.Name {
-					if dataVolume.Status.Phase != cdiv1.Succeeded {
+					if dataVolume.Status.Phase == cdiv1.WaitForFirstConsumer {
+						wffc = true
+					} else if dataVolume.Status.Phase != cdiv1.Succeeded {
 						log.Log.V(3).Object(vmi).Infof("DataVolume %s not ready. Phase=%s", dataVolume.Name, dataVolume.Status.Phase)
 						ready = false
 						// This isn't needed anymore because datavolumes are eventually consistent.
 						if dataVolume.Status.Phase == cdiv1.Failed {
 							c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDataVolumeImportReason, "DataVolume %s failed", dataVolume.Name)
-							return ready, &syncErrorImpl{fmt.Errorf("DataVolume %s for volume %s failed", dataVolume.Name, volume.Name), FailedDataVolumeImportReason}
+							return ready, wffc, &syncErrorImpl{fmt.Errorf("DataVolume %s for volume %s failed", dataVolume.Name, volume.Name), FailedDataVolumeImportReason}
 						}
 					}
 					break
@@ -637,7 +677,7 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 					return dv.(*cdiv1.DataVolume), nil
 				})
 				if err != nil {
-					return false, &syncErrorImpl{fmt.Errorf("Error determining if PVC %s is ready %v", pvc.Name, err), FailedDataVolumeImportReason}
+					return false, false, &syncErrorImpl{fmt.Errorf("Error determining if PVC %s is ready %v", pvc.Name, err), FailedDataVolumeImportReason}
 				}
 				if !populated {
 					log.Log.V(3).Object(vmi).Infof("PVC %s not ready.", pvc.Name)
@@ -647,7 +687,7 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 		}
 	}
 
-	return ready, nil
+	return ready, wffc, nil
 }
 
 func (c *VMIController) addDataVolume(obj interface{}) {
