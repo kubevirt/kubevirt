@@ -731,11 +731,10 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			for _, serverIP := range serverVMI.Status.Interfaces[0].IPs {
 				if netutils.IsIPv6String(serverIP) {
 					By("Testing IPv6")
-					By("Checking traceroute (IPv6) from vmi to cluster nodes gateway")
+					By("Checking ping (IPv6) from vmi to cluster nodes gateway")
 					// Cluster nodes subnet (docker network gateway)
 					// Docker network subnet cidr definition https://bit.ly/2wZTgMK
-					err := tests.CheckForTextExpecter(serverVMI, createExpectTraceroute6("2001:db8:1::1"), 30)
-					Expect(err).ToNot(HaveOccurred(), "Failed to traceroute to VMI %s within the given timeout", serverVMI.Name)
+					Expect(tests.PingFromVMConsole(serverVMI, "2001:db8:1::1")).To(Succeed())
 				} else {
 					By("Testing IPv4")
 					if ipv4NetworkCIDR == "" {
@@ -844,21 +843,6 @@ func NewRandomVMIWithInvalidNetworkInterface() *v1.VirtualMachineInstance {
 	tests.AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].Model = "gibberish"
 	return vmi
-}
-
-func createExpectTraceroute6(address string) []expect.Batcher {
-	return []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "traceroute -6 " + address + " -w1 > tr\n"},
-		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("0")},
-		&expect.BSnd{S: "cat tr | grep -q \"*\\|!\"\n"},
-		&expect.BExp{R: "\\$ "},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: tests.RetValue("1")},
-	}
 }
 
 func createExpectStartTcpServer(port string) []expect.Batcher {
