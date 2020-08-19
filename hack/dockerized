@@ -101,8 +101,8 @@ fi
 # Ensure that a bazel server which is running is the correct one
 if [ -n "$(docker ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
     # check if the image is correct
-    builder_id=$(docker inspect ${KUBEVIRT_BUILDER_IMAGE} | docker run --rm -i imega/jq:1.6 ".[0].Id")
-    bazel_server_id=$(docker inspect ${BUILDER}-bazel-server | docker run --rm -i imega/jq:1.6 ".[0].Image")
+    builder_id=$(docker inspect ${KUBEVIRT_BUILDER_IMAGE} | docker run --security-opt label:disable --rm -i imega/jq:1.6 ".[0].Id")
+    bazel_server_id=$(docker inspect ${BUILDER}-bazel-server | docker run --security-opt label:disable --rm -i imega/jq:1.6 ".[0].Image")
     if [ "${builder_id}" != "${bazel_server_id}" ]; then
         echo "Bazel server is outdated, restarting ..."
         docker stop ${BUILDER}-bazel-server
