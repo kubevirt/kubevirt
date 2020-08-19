@@ -338,7 +338,41 @@ func NewDomainFromName(name string, vmiUID types.UID) *api.Domain {
 	return domain
 }
 
-func SetupLibvirt() error {
+func waitForDevices(devices []string, deviceSettleTimeout time.Time) error {
+	for {
+		var missingDevices []string
+		for _, name := range devices {
+			stat, err := os.Stat(name)
+			if os.IsNotExist(err) {
+				missingDevices = append(missingDevices, name)
+				log.DefaultLogger().Infof("Device %s did not yet show up", name)
+			} else if err != nil {
+				return err
+			} else {
+				log.DefaultLogger().Infof("Device %s with permissions %s found", name, stat.Mode().Perm().String())
+			}
+		}
+		if len(missingDevices) == 0 {
+			return nil
+		} else if deviceSettleTimeout.After(time.Now()) {
+			return fmt.Errorf("Devices %v did not appear, even after waiting for some time", missingDevices)
+		} else {
+			time.Sleep(1 * time.Second)
+		}
+	}
+}
+
+func SetupLibvirt(useEmulation bool, deviceSettleTimeout time.Time) error {
+
+	devices := []string{"/dev/null"}
+	if !useEmulation {
+		devices = append(devices, "/dev/kvm")
+	}
+	// different combinations of kubelet, container runtimes and device plugins may lead to a situation
+	// where the pod is already started but the devices have not yet settled.
+	if err := waitForDevices(devices, deviceSettleTimeout); err != nil {
+		return err
+	}
 
 	// TODO: setting permissions and owners is not part of device plugins.
 	// Configure these manually right now on "/dev/kvm"

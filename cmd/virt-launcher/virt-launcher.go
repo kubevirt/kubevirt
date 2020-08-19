@@ -340,7 +340,7 @@ func main() {
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
 
-	err = util.SetupLibvirt()
+	err = util.SetupLibvirt(*useEmulation, time.Now().Add(10*time.Second))
 	if err != nil {
 		panic(err)
 	}
