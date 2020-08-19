@@ -38,7 +38,7 @@ var permanentDevicePluginPaths = map[string]string{
 }
 
 type DeviceController struct {
-	devicePlugins            map[string]GenericDevice
+	devicePlugins            map[string]ControlledDevice
 	host                     string
 	maxDevices               int
 	backoff                  []time.Duration
@@ -47,10 +47,18 @@ type DeviceController struct {
 	stop                     chan struct{}
 }
 
-func getPermanentHostDevicePlugins(maxDevices int) map[string]GenericDevice {
-	ret := map[string]GenericDevice{}
+type ControlledDevice struct {
+	devicePlugin	GenericDevice
+	stopChan	chan struct{}
+}
+
+func getPermanentHostDevicePlugins(maxDevices int) map[string]ControlledDevice {
+	ret := map[string]ControlledDevice{}
 	for name, path := range permanentDevicePluginPaths {
-		ret[name] = NewGenericDevicePlugin(name, path, maxDevices, (name != "kvm"))
+		ret[name] = ControlledDevice{
+			devicePlugin: NewGenericDevicePlugin(name, path, maxDevices, (name != "kvm")),
+			stopChan: make(chan struct{}),
+		}
 	}
 	return ret
 }
@@ -87,10 +95,12 @@ func (c *DeviceController) nodeHasDevice(devicePath string) bool {
 	return (err == nil)
 }
 
-func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct{}) {
+func (c *DeviceController) startDevicePlugin(controlledDev ControlledDevice) {
 	logger := log.DefaultLogger()
+	dev := controlledDev.devicePlugin
 	deviceName := dev.GetDeviceName()
-	logger.Infof("Starting a device plugin for device: %s", deviceName)
+	stop := controlledDev.stopChan
+	logger.Infof("Starting a device pluging for device: %s", deviceName)
 	retries := 0
 
 	for {
@@ -113,21 +123,11 @@ func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct
 	}
 }
 
-func (c *DeviceController) stopDevicePlugin(dev GenericDevice) {
-	logger := log.DefaultLogger()
-	deviceName := dev.GetDeviceName()
-	logger.Infof("Stopping a device plugin for device: %s", deviceName)
-	err := dev.Stop()
-	if err != nil {
-		logger.Reason(err).Errorf("Error stopping %s device plugin", deviceName)
-	}
-}
-
 // updatePermittedHostDevicePlugins will return a map of device plugins for permitted devices which are present on the node
 // and a map of restricted devices that should be removed
-func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]GenericDevice, map[string]GenericDevice) {
-	devicePluginsToRun := make(map[string]GenericDevice)
-	devicePluginsToStop := make(map[string]GenericDevice)
+func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]ControlledDevice, map[string]ControlledDevice) {
+	devicePluginsToRun := make(map[string]ControlledDevice)
+	devicePluginsToStop := make(map[string]ControlledDevice)
 	if hostDevs := c.virtConfig.GetPermittedHostDevices(); hostDevs != nil {
 		// generate a map of currently started device plugins
 		for resourceName, hostDevDP := range c.devicePlugins {
@@ -146,7 +146,10 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Generi
 				pciResourceName := supportedPCIDeviceMap[pciID]
 				// add a device plugin only for new devices
 				if _, isRunning := c.devicePlugins[pciResourceName]; !isRunning {
-					devicePluginsToRun[pciResourceName] = NewPCIDevicePlugin(pciDevices, pciResourceName)
+					devicePluginsToRun[pciResourceName] = ControlledDevice{
+						devicePlugin: NewPCIDevicePlugin(pciDevices, pciResourceName),
+						stopChan: make(chan struct{}),
+					}
 				} else {
 					delete(devicePluginsToStop, pciResourceName)
 				}
@@ -167,7 +170,10 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Generi
 				mdevResourceName := supportedMdevsMap[mdevTypeName]
 				// add a device plugin only for new devices
 				if _, isRunning := c.devicePlugins[mdevResourceName]; !isRunning {
-					devicePluginsToRun[mdevResourceName] = NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName)
+					devicePluginsToRun[mdevResourceName] = ControlledDevice{
+						devicePlugin: NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName),
+						stopChan: make(chan struct{}),
+					}
 				} else {
 					delete(devicePluginsToStop, mdevResourceName)
 				}
@@ -194,14 +200,14 @@ func (c *DeviceController) refreshPermittedDevices() error {
 
 	// start device plugin for newly permitted devices
 	for resourceName, dev := range enabledDevicePlugins {
-		go c.startDevicePlugin(dev, c.stop)
+		go c.startDevicePlugin(dev)
 		c.devicePlugins[resourceName] = dev
 		debugDevAdded = append(debugDevAdded, resourceName)
 	}
 	// remove device plugin for now forbidden devices
 	for resourceName, dev := range disabledDevicePlugins {
 		if _, isStaticResource := permanentDevicePluginPaths[resourceName]; !isStaticResource {
-			go c.stopDevicePlugin(dev)
+			dev.stopChan <- struct{}{}
 			delete(c.devicePlugins, resourceName)
 			debugDevRemoved = append(debugDevRemoved, resourceName)
 		}
@@ -215,18 +221,33 @@ func (c *DeviceController) refreshPermittedDevices() error {
 
 func (c *DeviceController) Run(stop chan struct{}) error {
 	logger := log.DefaultLogger()
-	c.stop = stop
+	// start the permanent DevicePlugins
+	for _, dev := range c.devicePlugins {
+		go c.startDevicePlugin(dev)
+	}
 	// Wait for the hostDevConfigMapInformer cache to be synced
 	go c.hostDevConfigMapInformer.Run(stop)
 	cache.WaitForCacheSync(stop, c.hostDevConfigMapInformer.HasSynced)
-	for _, dev := range c.devicePlugins {
-		go c.startDevicePlugin(dev, stop)
+	enabledDevicePlugins, _ := c.updatePermittedHostDevicePlugins()
+	for _, dev := range enabledDevicePlugins {
+		go c.startDevicePlugin(dev)
 	}
 
-	<-stop
+	// keep running until stop
+	for {
+		select {
+			case <-stop:
+				// stop all device plugings
+				for _, dev := range c.devicePlugins {
+					dev.stopChan <- struct{}{}
+				}
+				logger.Info("Shutting down device plugin controller")
+				return nil
+			default:
+				time.Sleep(100 * time.Millisecond)
+			}
+	}
 
-	logger.Info("Shutting down device plugin controller")
-	return nil
 }
 
 func (c *DeviceController) Initialized() bool {
