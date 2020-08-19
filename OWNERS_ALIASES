@@ -42,6 +42,7 @@ aliases:
   test-approvers:
       - ILpinto
       - kbidarkar
+      - phoracek
   ci-approvers:
       - dhiller
       - danielBelenky
