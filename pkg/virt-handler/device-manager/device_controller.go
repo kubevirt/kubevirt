@@ -48,8 +48,8 @@ type DeviceController struct {
 }
 
 type ControlledDevice struct {
-	devicePlugin	GenericDevice
-	stopChan	chan struct{}
+	devicePlugin GenericDevice
+	stopChan     chan struct{}
 }
 
 func getPermanentHostDevicePlugins(maxDevices int) map[string]ControlledDevice {
@@ -57,7 +57,7 @@ func getPermanentHostDevicePlugins(maxDevices int) map[string]ControlledDevice {
 	for name, path := range permanentDevicePluginPaths {
 		ret[name] = ControlledDevice{
 			devicePlugin: NewGenericDevicePlugin(name, path, maxDevices, (name != "kvm")),
-			stopChan: make(chan struct{}),
+			stopChan:     make(chan struct{}),
 		}
 	}
 	return ret
@@ -148,7 +148,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 				if _, isRunning := c.devicePlugins[pciResourceName]; !isRunning {
 					devicePluginsToRun[pciResourceName] = ControlledDevice{
 						devicePlugin: NewPCIDevicePlugin(pciDevices, pciResourceName),
-						stopChan: make(chan struct{}),
+						stopChan:     make(chan struct{}),
 					}
 				} else {
 					delete(devicePluginsToStop, pciResourceName)
@@ -172,7 +172,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 				if _, isRunning := c.devicePlugins[mdevResourceName]; !isRunning {
 					devicePluginsToRun[mdevResourceName] = ControlledDevice{
 						devicePlugin: NewMediatedDevicePlugin(mdevUUIDs, mdevResourceName),
-						stopChan: make(chan struct{}),
+						stopChan:     make(chan struct{}),
 					}
 				} else {
 					delete(devicePluginsToStop, mdevResourceName)
@@ -236,16 +236,16 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	// keep running until stop
 	for {
 		select {
-			case <-stop:
-				// stop all device plugings
-				for _, dev := range c.devicePlugins {
-					dev.stopChan <- struct{}{}
-				}
-				logger.Info("Shutting down device plugin controller")
-				return nil
-			default:
-				time.Sleep(100 * time.Millisecond)
+		case <-stop:
+			// stop all device plugings
+			for _, dev := range c.devicePlugins {
+				dev.stopChan <- struct{}{}
 			}
+			logger.Info("Shutting down device plugin controller")
+			return nil
+		default:
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 
 }

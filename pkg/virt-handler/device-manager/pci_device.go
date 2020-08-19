@@ -128,6 +128,7 @@ func (dpi *PCIDevicePlugin) Start(stop chan struct{}) (err error) {
 	}
 
 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
+	defer dpi.Stop()
 
 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 	err = dpi.Register()
@@ -317,7 +318,11 @@ func (dpi *PCIDevicePlugin) GetDeviceName() string {
 
 // Stop stops the gRPC server
 func (dpi *PCIDevicePlugin) Stop() error {
-	defer close(dpi.done)
+	defer func() {
+		if !IsChanClosed(dpi.done) {
+			close(dpi.done)
+		}
+	}()
 	dpi.server.Stop()
 	return dpi.cleanup()
 }
