@@ -341,21 +341,31 @@ func NewDomainFromName(name string, vmiUID types.UID) *api.Domain {
 func waitForDevices(devices []string, deviceSettleTimeout time.Time) error {
 	for {
 		var missingDevices []string
+		var deniedDevices []string
 		for _, name := range devices {
 			stat, err := os.Stat(name)
 			if os.IsNotExist(err) {
 				missingDevices = append(missingDevices, name)
-				log.DefaultLogger().Infof("Device %s did not yet show up", name)
+				log.DefaultLogger().Errorf("Device %s did not yet show up", name)
+				panic("wow")
 			} else if err != nil {
 				return err
 			} else {
 				log.DefaultLogger().Infof("Device %s with permissions %s found", name, stat.Mode().Perm().String())
+				f, err := os.Open(name)
+				if err != nil {
+					deniedDevices = append(deniedDevices, name)
+					log.DefaultLogger().Reason(err).Errorf("Access to device %s denied", name)
+					panic("wow")
+					// continue
+				}
+				f.Close()
 			}
 		}
-		if len(missingDevices) == 0 {
+		if len(missingDevices) == 0 && len(deniedDevices) == 0 {
 			return nil
 		} else if deviceSettleTimeout.After(time.Now()) {
-			return fmt.Errorf("Devices %v did not appear, even after waiting for some time", missingDevices)
+			return fmt.Errorf("Devices %v did not appear, even after waiting for some time and %v devices denied access", missingDevices, deniedDevices)
 		} else {
 			time.Sleep(1 * time.Second)
 		}
