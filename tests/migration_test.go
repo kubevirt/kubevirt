@@ -1117,7 +1117,21 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 		})
 
 		Context("migration monitor", func() {
+			var createdPods []string
+			AfterEach(func() {
+				for _, podName := range createdPods {
+					Eventually(func() error {
+						err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(podName, &metav1.DeleteOptions{})
+
+						if err != nil && errors.IsNotFound(err) {
+							return nil
+						}
+						return err
+					}, 10*time.Second, 1*time.Second).Should(Succeed(), "Should delete helper pod")
+				}
+			})
 			BeforeEach(func() {
+				createdPods = []string{}
 				data := map[string]string{
 					"progressTimeout":         "5",
 					"completionTimeoutPerGiB": "5",
@@ -1151,6 +1165,70 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigrationFailed(vmi, migrationUID)
+
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
+
+			It(" Should detect a failed migration", func() {
+				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				Expect(expecterErr).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				// launch killer pod on every node that isn't the vmi's node
+				By("Starting our migration killer pods")
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+				for _, entry := range nodes.Items {
+					if entry.Name == vmi.Status.NodeName {
+						continue
+					}
+
+					pod := tests.RenderPod(fmt.Sprintf("migration-killer-%s", entry.Name), []string{"/bin/bash", "-c"}, []string{"while true; do ps aux | grep \"[q]emu-kvm\" && pkill -9 virt-handler && exit 0; done"})
+					pod.Spec.NodeName = entry.Name
+					createdPod, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
+					Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
+
+					createdPods = append(createdPods, createdPod.Name)
+				}
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndExpectFailure(migration, 180)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigrationFailed(vmi, migrationUID)
+
+				By("Removing our migration killer pods")
+				for _, podName := range createdPods {
+					Eventually(func() error {
+						err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(podName, &metav1.DeleteOptions{})
+
+						if err != nil && errors.IsNotFound(err) {
+							return nil
+						}
+						return err
+					}, 10*time.Second, 1*time.Second).Should(Succeed(), "Should delete helper pod")
+				}
+
+				By("Starting new migration")
+				migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID = runMigrationAndExpectCompletion(migration, migrationWaitTime)
+
+				By("Verifying Second Migration Succeeeds")
+				confirmVMIPostMigration(vmi, migrationUID)
 
 				// delete VMI
 				By("Deleting the VMI")
