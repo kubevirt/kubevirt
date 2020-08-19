@@ -227,6 +227,10 @@ func (v *VirtualMachineInstance) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
 
+func (v *VirtualMachineInstance) IsProvisioning() bool {
+	return v.Status.Phase == Provisioning
+}
+
 func (v *VirtualMachineInstance) IsUnknown() bool {
 	return v.Status.Phase == Unknown
 }
@@ -464,6 +468,8 @@ type VirtualMachineInstancePhase string
 const (
 	//When a VirtualMachineInstance Object is first initialized and no phase, or Pending is present.
 	VmPhaseUnset VirtualMachineInstancePhase = ""
+	// A VMI depends on DataVolumes which are in Pending/WaitForFirstConsumer status.
+	Provisioning VirtualMachineInstancePhase = "Provisioning"
 	// Pending means the VirtualMachineInstance has been accepted by the system.
 	Pending VirtualMachineInstancePhase = "Pending"
 	// A target Pod exists but is not yet scheduled and in running state.

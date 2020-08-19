@@ -85,6 +85,8 @@ const ENV_VAR_VIRTIOFSD_DEBUG_LOGS = "VIRTIOFSD_DEBUG_LOGS"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
+
+	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 }
 
 type templateService struct {
@@ -302,8 +304,14 @@ func requestResource(resources *k8sv1.ResourceRequirements, resourceName string)
 		resources.Requests[name] = unitQuantity
 	}
 }
-
+func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
+	return t.renderLaunchManifest(vmi, false)
+}
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
+	return t.renderLaunchManifest(vmi, true)
+}
+
+func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, runVM bool) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
@@ -808,18 +816,29 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	lessPVCSpaceToleration := t.clusterConfig.GetLessPVCSpaceToleration()
 	ovmfPath := t.clusterConfig.GetOVMFPath()
 
-	command := []string{"/usr/bin/virt-launcher",
-		"--qemu-timeout", "5m",
-		"--name", domain,
-		"--uid", string(vmi.UID),
-		"--namespace", namespace,
-		"--kubevirt-share-dir", t.virtShareDir,
-		"--ephemeral-disk-dir", t.ephemeralDiskDir,
-		"--container-disk-dir", t.containerDiskDir,
-		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
-		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
-		"--less-pvc-space-toleration", strconv.Itoa(lessPVCSpaceToleration),
-		"--ovmf-path", ovmfPath,
+	//TODO: BR: 4215 NOOP command for doppleganger vm (wffc)
+	var command []string
+
+	if runVM {
+		command = []string{"/usr/bin/virt-launcher",
+			"--qemu-timeout", "5m",
+			"--name", domain,
+			"--uid", string(vmi.UID),
+			"--namespace", namespace,
+			"--kubevirt-share-dir", t.virtShareDir,
+			"--ephemeral-disk-dir", t.ephemeralDiskDir,
+			"--container-disk-dir", t.containerDiskDir,
+			"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
+			"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
+			"--less-pvc-space-toleration", strconv.Itoa(lessPVCSpaceToleration),
+			"--ovmf-path", ovmfPath,
+		}
+	} else {
+		logger := log.DefaultLogger()
+		logger.Infof("RUNNING doppleganger pod for %s", vmi.Name)
+		command = []string{"/bin/bash",
+			"-c",
+			"echo", "aaa"}
 	}
 
 	useEmulation := t.clusterConfig.IsUseEmulation()
