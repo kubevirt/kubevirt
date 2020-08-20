@@ -64,8 +64,10 @@ go-test: go-build
 
 test: bazel-test
 
-functest:
+build-functests:
 	hack/dockerized "hack/build-func-tests.sh"
+
+functest: build-functests
 	hack/functests.sh
 
 dump: bazel-build
@@ -175,4 +177,5 @@ bump-kubevirtci:
 	cluster-deploy \
 	cluster-sync \
 	olm-verify \
-	olm-push
+	olm-push \
+	build-functests

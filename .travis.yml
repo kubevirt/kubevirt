@@ -39,6 +39,12 @@ deploy:
   on:
     tags: true
     condition: $TRAVIS_CPU_ARCH = amd64
+- provider: script
+  script: make build-functests
+  skip_cleanup: true
+  on:
+    branch: master
+    condition: $TRAVIS_CPU_ARCH = amd64
 - provider: releases
   skip_cleanup: true
   api_key:
