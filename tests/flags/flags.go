@@ -41,6 +41,7 @@ var PreviousReleaseTag = ""
 var PreviousReleaseRegistry = ""
 var ConfigFile = ""
 var SkipShasumCheck bool
+var SkipDualStackTests bool
 
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
@@ -65,6 +66,7 @@ func init() {
 	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "index.docker.io/kubevirt", "Set registry of the release to test updating from")
 	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
+	flag.BoolVar(&SkipDualStackTests, "skip-dual-stack-test", false, "Skip test that actively checks for the presense of IPv6 address in the cluster pods.")
 }
 
 func NormalizeFlags() {
