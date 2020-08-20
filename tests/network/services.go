@@ -32,12 +32,23 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/net"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
+
+type vmiServiceManager struct {
+	vmi                    *v1.VirtualMachineInstance
+	primaryPodInterfaceIPs []string
+	services               []k8sv1.Service
+	port                   int
+	serviceNamePrefix      string
+	labelKey               string
+	labelValue             string
+}
 
 var _ = SIGDescribe("Services", func() {
 	var virtClient kubecli.KubevirtClient
@@ -169,11 +180,97 @@ var _ = SIGDescribe("Services", func() {
 			})
 		})
 	})
+
+	Context("Masquerade interface binding", func() {
+		var inboundVMI *v1.VirtualMachineInstance
+
+		const (
+			selectorLabelKey   = "expose"
+			selectorLabelValue = "me"
+			servicePort        = 1500
+		)
+
+		createReadyVMIWithMasqueradeBindingAndExposedService := func(hostname string, subdomain string) *v1.VirtualMachineInstance {
+			vmi := libvmi.NewCirros(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()))
+			return readyVMI(
+				exposeExistingVMISpec(vmi, subdomain, hostname, selectorLabelKey, selectorLabelValue))
+		}
+
+		BeforeEach(func() {
+			subdomain := "vmi"
+			hostname := "inbound"
+
+			inboundVMI = createReadyVMIWithMasqueradeBindingAndExposedService(hostname, subdomain)
+			tests.StartTCPServer(inboundVMI, servicePort)
+		})
+
+		AfterEach(func() {
+			Expect(inboundVMI).NotTo(BeNil(), "the VMI object must exist in order to be deleted.")
+			cleanupVMI(virtClient, inboundVMI)
+		})
+
+		Context("with a service matching the vmi exposed", func() {
+			var serviceManager *vmiServiceManager
+			var serviceNamePrefix string
+
+			BeforeEach(func() {
+				serviceNamePrefix = "myservice"
+				serviceManager = newVMIServiceManager(inboundVMI, servicePort, serviceNamePrefix, selectorLabelKey, selectorLabelValue)
+
+				services := serviceManager.buildK8sServicesSpec()
+				Expect(services).NotTo(BeEmpty(), "a service should be exposed per each iface. At least one *must* be present.")
+
+				for _, exposedService := range services {
+					_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(&exposedService)
+					Expect(err).NotTo(HaveOccurred())
+				}
+			})
+
+			AfterEach(func() {
+				var errors []error
+				for _, exposedService := range serviceManager.services {
+					err := virtClient.CoreV1().Services(inboundVMI.Namespace).Delete(exposedService.Name, &k8smetav1.DeleteOptions{})
+					errors = append(errors, err)
+				}
+				for _, err := range errors {
+					Expect(err).NotTo(HaveOccurred())
+				}
+			})
+
+			It("should be able to reach the vmi based on labels specified on the vmi", func() {
+				for _, exposedService := range serviceManager.services {
+					By("starting a job which tries to reach the vmi via the defined service")
+					job := runTCPClientExpectingHelloWorldFromServer(fmt.Sprintf("%s.%s", exposedService.Name, inboundVMI.Namespace), strconv.Itoa(servicePort), inboundVMI.Namespace)
+
+					By("waiting for the job to report a successful connection attempt")
+					tests.WaitForJobToSucceed(job, 90)
+				}
+			})
+
+			It("should fail to reach the vmi if an invalid servicename is used", func() {
+				By("starting a job which tries to reach the vmi via a non-existent service")
+				job := runTCPClientExpectingHelloWorldFromServer(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace), strconv.Itoa(servicePort), inboundVMI.Namespace)
+
+				By("waiting for the job to report an  unsuccessful connection attempt")
+				tests.WaitForJobToFail(job, 90)
+			})
+		})
+	})
 })
 
 func buildHeadlessServiceSpec(serviceName string, exposedPort int, portToExpose int, selectorKey string, selectorValue string) *k8sv1.Service {
 	service := buildServiceSpec(serviceName, exposedPort, portToExpose, selectorKey, selectorValue)
 	service.Spec.ClusterIP = k8sv1.ClusterIPNone
+	return service
+}
+
+func buildIPv6ServiceSpec(serviceName string, exposedPort int, portToExpose int, selectorKey string, selectorValue string) *k8sv1.Service {
+	service := buildServiceSpec(serviceName, exposedPort, portToExpose, selectorKey, selectorValue)
+	ipv6Family := k8sv1.IPv6Protocol
+	service.Spec.IPFamily = &ipv6Family
+
 	return service
 }
 
@@ -191,4 +288,37 @@ func buildServiceSpec(serviceName string, exposedPort int, portToExpose int, sel
 			},
 		},
 	}
+}
+
+func newVMIServiceManager(vmi *v1.VirtualMachineInstance, port int, serviceNamePrefix string, selectorLabelKey string, selectorLabelValue string) *vmiServiceManager {
+	primaryIfaceIPs := []string{}
+	ifaces := vmi.Status.Interfaces
+	if len(ifaces) > 0 {
+		primaryIfaceIPs = ifaces[0].IPs
+	}
+
+	return &vmiServiceManager{
+		vmi:                    vmi,
+		primaryPodInterfaceIPs: primaryIfaceIPs,
+		port:                   port,
+		serviceNamePrefix:      serviceNamePrefix,
+		labelKey:               selectorLabelKey,
+		labelValue:             selectorLabelValue,
+	}
+}
+
+func (si *vmiServiceManager) buildK8sServicesSpec() []k8sv1.Service {
+	for _, ipAddr := range si.primaryPodInterfaceIPs {
+		isIpv6 := net.IsIPv6String(ipAddr)
+		var service *k8sv1.Service
+
+		if isIpv6 {
+			service = buildIPv6ServiceSpec(si.serviceNamePrefix+"v6", si.port, si.port, si.labelKey, si.labelValue)
+		} else {
+			service = buildServiceSpec(si.serviceNamePrefix, si.port, si.port, si.labelKey, si.labelValue)
+		}
+
+		si.services = append(si.services, *service)
+	}
+	return si.services
 }
