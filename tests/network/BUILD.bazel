@@ -6,6 +6,7 @@ go_library(
         "dual_stack_cluster.go",
         "framework.go",
         "primary_pod_network.go",
+        "services.go",
         "validation.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/network",
@@ -19,8 +20,10 @@ go_library(
         "//tests/libnet:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/api/batch/v1:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
     ],
 )

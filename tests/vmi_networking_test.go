@@ -30,13 +30,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	netutils "k8s.io/utils/net"
 
@@ -66,13 +64,6 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 	})
-
-	runHelloWorldJob := func(host, port, namespace string) *batchv1.Job {
-		job := tests.NewHelloWorldJob(host, port)
-		job, err := virtClient.BatchV1().Jobs(namespace).Create(job)
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		return job
-	}
 
 	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string, prompt string) {
 		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
@@ -111,9 +102,6 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			// inboundVMI expects implicitly to be added to the pod network
 			inboundVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			inboundVMI.Labels = map[string]string{"expose": "me"}
-			inboundVMI.Spec.Subdomain = "myvmi"
-			inboundVMI.Spec.Hostname = "my-subdomain"
 			// Remove the masquerade interface to use the default bridge one
 			inboundVMI.Spec.Domain.Devices.Interfaces = nil
 			inboundVMI.Spec.Networks = nil
@@ -286,84 +274,6 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			table.Entry("[test_id:1545]on the same node from Node", v12.NodeSelectorOpIn, true),
 			table.Entry("[test_id:1546]on a different node from Node", v12.NodeSelectorOpNotIn, true),
 		)
-
-		Context("with a service matching the vmi exposed", func() {
-			BeforeEach(func() {
-				service := &v12.Service{
-					ObjectMeta: v13.ObjectMeta{
-						Name: "myservice",
-					},
-					Spec: v12.ServiceSpec{
-						Selector: map[string]string{
-							"expose": "me",
-						},
-						Ports: []v12.ServicePort{
-							{Protocol: v12.ProtocolTCP, Port: testPort, TargetPort: intstr.FromInt(testPort)},
-						},
-					},
-				}
-
-				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
-				Expect(err).ToNot(HaveOccurred())
-
-			})
-			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
-
-				By("starting a job which tries to reach the vmi via the defined service")
-				job := runHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVMI.Namespace), strconv.Itoa(testPort), inboundVMI.Namespace)
-
-				By("waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())
-			})
-			It("[test_id:1548]should fail to reach the vmi if an invalid servicename is used", func() {
-
-				By("starting a job which tries to reach the vmi via a non-existent service")
-				job := runHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace), strconv.Itoa(testPort), inboundVMI.Namespace)
-
-				By("waiting for the job to report an  unsuccessful connection attempt")
-				Expect(tests.WaitForJobToFail(job, 90*time.Second)).To(Succeed())
-			})
-
-			AfterEach(func() {
-				Expect(virtClient.CoreV1().Services(inboundVMI.Namespace).Delete("myservice", &v13.DeleteOptions{})).To(Succeed())
-			})
-		})
-
-		Context("with a subdomain and a headless service given", func() {
-			BeforeEach(func() {
-				service := &v12.Service{
-					ObjectMeta: v13.ObjectMeta{
-						Name: inboundVMI.Spec.Subdomain,
-					},
-					Spec: v12.ServiceSpec{
-						ClusterIP: v12.ClusterIPNone,
-						Selector: map[string]string{
-							"expose": "me",
-						},
-						/* Normally ports are not required on headless services, but there is a bug in kubedns:
-						https://github.com/kubernetes/kubernetes/issues/55158
-						*/
-						Ports: []v12.ServicePort{
-							{Protocol: v12.ProtocolTCP, Port: testPort, TargetPort: intstr.FromInt(testPort)},
-						},
-					},
-				}
-				_, err := virtClient.CoreV1().Services(inboundVMI.Namespace).Create(service)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
-				By("starting a job which tries to reach the vm via the defined service")
-				job := runHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain, inboundVMI.Namespace), strconv.Itoa(testPort), inboundVMI.Namespace)
-
-				By("waiting for the job to report a successful connection attempt")
-				Expect(tests.WaitForJobToSucceed(job, 90*time.Second)).To(Succeed())
-			})
-
-			AfterEach(func() {
-				Expect(virtClient.CoreV1().Services(inboundVMI.Namespace).Delete(inboundVMI.Spec.Subdomain, &v13.DeleteOptions{})).To(Succeed())
-			})
-		})
 
 		Context("VirtualMachineInstance with default interface model", func() {
 			// Unless an explicit interface model is specified, the default interface model is virtio.
