@@ -18,6 +18,7 @@ go_library(
         "//tests/containerdisk:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/libnet:go_default_library",
+        "//tests/libvmi:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/batch/v1:go_default_library",
