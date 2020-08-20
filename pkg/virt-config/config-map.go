@@ -446,7 +446,7 @@ func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) er
 }
 
 // updateConfigFromHostDevConfigMap parses the provided config map and updates hostdevs in the config.
-// Default values in the provided config stay in tact.
+// Default values in the provided config stay intact.
 func updateConfigFromHostDevConfigMap(config *v1.KubeVirtConfiguration, configMap *k8sv1.ConfigMap) error {
 	// set migration options
 	rawConfig := strings.TrimSpace(configMap.Data[PermittedHostDevicesKey])

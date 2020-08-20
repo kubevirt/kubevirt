@@ -23,6 +23,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"k8s.io/client-go/tools/cache"
@@ -39,6 +40,7 @@ var permanentDevicePluginPaths = map[string]string{
 
 type DeviceController struct {
 	devicePlugins            map[string]ControlledDevice
+	devicePluginsMutex       sync.Mutex
 	host                     string
 	maxDevices               int
 	backoff                  []time.Duration
@@ -72,11 +74,6 @@ func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.
 	}
 	controller.virtConfig = clusterConfig
 	controller.hostDevConfigMapInformer = hostDevConfigMapInformer
-	hostDevConfigMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    controller.hostDevAddDeleteFunc,
-		DeleteFunc: controller.hostDevAddDeleteFunc,
-		UpdateFunc: controller.hostDevUpdateFunc,
-	})
 
 	return controller
 }
@@ -100,7 +97,7 @@ func (c *DeviceController) startDevicePlugin(controlledDev ControlledDevice) {
 	dev := controlledDev.devicePlugin
 	deviceName := dev.GetDeviceName()
 	stop := controlledDev.stopChan
-	logger.Infof("Starting a device pluging for device: %s", deviceName)
+	logger.Infof("Starting a device plugin for device: %s", deviceName)
 	retries := 0
 
 	for {
@@ -195,6 +192,14 @@ func (c *DeviceController) refreshPermittedDevices() error {
 	logger := log.DefaultLogger()
 	debugDevAdded := []string{}
 	debugDevRemoved := []string{}
+
+	// This function can be called multiple times in parallel, either because of multiple
+	//   informer callbacks for the same event, or because the configmap was quickly updated
+	//   multiple times in a row. To avoid starting/stopping device plugins multiple times,
+	//   we need to protect c.devicePlugins, which we read from in
+	//   c.updatePermittedHostDevicePlugins() and write to below.
+	c.devicePluginsMutex.Lock()
+
 	// Wait for the hostDevConfigMapInformer cache to be synced
 	enabledDevicePlugins, disabledDevicePlugins := c.updatePermittedHostDevicePlugins()
 
@@ -207,11 +212,13 @@ func (c *DeviceController) refreshPermittedDevices() error {
 	// remove device plugin for now forbidden devices
 	for resourceName, dev := range disabledDevicePlugins {
 		if _, isStaticResource := permanentDevicePluginPaths[resourceName]; !isStaticResource {
-			dev.stopChan <- struct{}{}
+			close(dev.stopChan)
 			delete(c.devicePlugins, resourceName)
 			debugDevRemoved = append(debugDevRemoved, resourceName)
 		}
 	}
+
+	c.devicePluginsMutex.Unlock()
 
 	logger.Info("refreshed device plugins for permitted/forbidden host devices")
 	logger.Infof("enabled device-pluings for: %v", debugDevAdded)
@@ -225,29 +232,25 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	for _, dev := range c.devicePlugins {
 		go c.startDevicePlugin(dev)
 	}
+	c.hostDevConfigMapInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.hostDevAddDeleteFunc,
+		DeleteFunc: c.hostDevAddDeleteFunc,
+		UpdateFunc: c.hostDevUpdateFunc,
+	})
 	// Wait for the hostDevConfigMapInformer cache to be synced
 	go c.hostDevConfigMapInformer.Run(stop)
 	cache.WaitForCacheSync(stop, c.hostDevConfigMapInformer.HasSynced)
-	enabledDevicePlugins, _ := c.updatePermittedHostDevicePlugins()
-	for _, dev := range enabledDevicePlugins {
-		go c.startDevicePlugin(dev)
-	}
+	c.refreshPermittedDevices()
 
 	// keep running until stop
-	for {
-		select {
-		case <-stop:
-			// stop all device plugings
-			for _, dev := range c.devicePlugins {
-				dev.stopChan <- struct{}{}
-			}
-			logger.Info("Shutting down device plugin controller")
-			return nil
-		default:
-			time.Sleep(100 * time.Millisecond)
-		}
-	}
+	<-stop
 
+	// stop all device plugins
+	for _, dev := range c.devicePlugins {
+		dev.stopChan <- struct{}{}
+	}
+	logger.Info("Shutting down device plugin controller")
+	return nil
 }
 
 func (c *DeviceController) Initialized() bool {
