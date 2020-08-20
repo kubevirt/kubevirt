@@ -1,19 +1,18 @@
 ARG ARCH
-FROM ${ARCH}/fedora:30
+FROM ${ARCH}/fedora:31
 
 COPY qemu-ppc64le-static /usr/bin/qemu-ppc64le-static
 
-ENV LIBVIRT_VERSION 5.1.0
+ENV LIBVIRT_VERSION 5.6.0
 
 ENV BAZEL_VERSION 1.2.1
 
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
-    dnf copr enable -y @virtmaint-sig/virt-preview && \
     dnf copr enable -y vbatts/bazel && \
     dnf -y install \
         libvirt-devel-${LIBVIRT_VERSION} \
-        bazel-${BAZEL_VERSION} \
+        bazel \
         cpio \
         patch \
         make \
@@ -26,7 +25,6 @@ RUN dnf install -y dnf-plugins-core && \
         libstdc++-static \
         glibc-devel \
         findutils \
-        gradle \
         rsync-daemon \
         rsync \
         qemu-img \
@@ -97,6 +95,9 @@ RUN \
     go clean -cache -modcache -r && \
     rm -rf /go && mkdir /go
 
+# TODO: remove this and the patch below after https://github.com/fvbommel/util/issues/6 got fixed
+COPY vbom_ml.diff /tmp/vbom_ml.diff
+
 RUN \
     cd / && \
     export GO111MODULE=on && \
@@ -104,12 +105,14 @@ RUN \
     git clone https://github.com/kubernetes/test-infra.git && \
     cd /test-infra && \
     git checkout fd0699b906b0593a33ba2bddd3b1ae8822f42dd8 && \
+    git apply /tmp/vbom_ml.diff && \
+    go mod vendor && \
     cd /test-infra/robots/pr-creator && \
-    go install && \
+    GOPROXY=off GOFLAGS=-mod=vendor go install && \
     cd /test-infra/robots/issue-creator && \
-    go install && \
+    GOPROXY=off GOFLAGS=-mod=vendor go install && \
     cd /test-infra/robots/pr-labeler && \
-    go install && \
+    GOPROXY=off GOFLAGS=-mod=vendor go install && \
     cd /go && \
     go clean -cache -modcache -r && \
     rm -rf /test-infra && \
