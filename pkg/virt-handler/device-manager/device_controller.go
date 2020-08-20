@@ -128,7 +128,10 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() (map[string]Contro
 	if hostDevs := c.virtConfig.GetPermittedHostDevices(); hostDevs != nil {
 		// generate a map of currently started device plugins
 		for resourceName, hostDevDP := range c.devicePlugins {
-			devicePluginsToStop[resourceName] = hostDevDP
+			_, isPermanent := permanentDevicePluginPaths[resourceName]
+			if !isPermanent {
+				devicePluginsToStop[resourceName] = hostDevDP
+			}
 		}
 		supportedPCIDeviceMap := make(map[string]string)
 		if len(hostDevs.PciHostDevices) != 0 {
@@ -211,11 +214,9 @@ func (c *DeviceController) refreshPermittedDevices() error {
 	}
 	// remove device plugin for now forbidden devices
 	for resourceName, dev := range disabledDevicePlugins {
-		if _, isStaticResource := permanentDevicePluginPaths[resourceName]; !isStaticResource {
-			close(dev.stopChan)
-			delete(c.devicePlugins, resourceName)
-			debugDevRemoved = append(debugDevRemoved, resourceName)
-		}
+		close(dev.stopChan)
+		delete(c.devicePlugins, resourceName)
+		debugDevRemoved = append(debugDevRemoved, resourceName)
 	}
 
 	c.devicePluginsMutex.Unlock()
