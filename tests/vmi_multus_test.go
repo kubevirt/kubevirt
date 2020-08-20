@@ -920,10 +920,9 @@ func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
 	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: "#"},
+		&expect.BExp{R: tests.PromptExpression},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: macAddress},
-		&expect.BExp{R: "#"},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: tests.RetValue("0")},
 	}, 15)
