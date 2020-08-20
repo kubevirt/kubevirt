@@ -1159,13 +1159,13 @@ spec:
 			deleteAllKvAndWait(true)
 		})
 
-		It("should create non-namespaces resources without owner references", func() {
+		It("[test_id:4612]should create non-namespaces resources without owner references", func() {
 			crd, err := virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get("virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(crd.ObjectMeta.OwnerReferences).To(HaveLen(0))
 		})
 
-		It("should remove owner references on non-namespaces resources when updating a resource", func() {
+		It("[test_id:4613]should remove owner references on non-namespaces resources when updating a resource", func() {
 			By("adding an owner reference")
 			origCRD, err := virtClient.ExtensionsClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get("virtualmachineinstances.kubevirt.io", metav1.GetOptions{})
 			crd := origCRD.DeepCopy()
@@ -1359,7 +1359,7 @@ spec:
 			}
 		})
 
-		It("Checks if the kubevirt PrometheusRule cr exists and verify it's spec", func() {
+		It("[test_id:4614]Checks if the kubevirt PrometheusRule cr exists and verify it's spec", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
 			prometheusRule, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -1376,7 +1376,7 @@ spec:
 			}
 		})
 
-		It("Checks that we do not deploy a PrometheusRule cr when not needed", func() {
+		It("[test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
 			_, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
 			Expect(err).To(HaveOccurred())
@@ -1409,7 +1409,7 @@ spec:
 			}, 90*time.Second, 3*time.Second).Should(ContainSubstring(flags.KubeVirtInstallNamespace), "Prometheus should be monitoring KubeVirt")
 		})
 
-		It("Should patch our namespace labels with openshift.io/cluster-monitoring=true", func() {
+		It("[test_id:4616]Should patch our namespace labels with openshift.io/cluster-monitoring=true", func() {
 			By("Inspecting the labels on our namespace")
 			namespace, err := virtClient.CoreV1().Namespaces().Get(flags.KubeVirtInstallNamespace, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1419,7 +1419,7 @@ spec:
 		})
 	})
 
-	It("should adopt previously unmanaged entities by updating its metadata", func() {
+	It("[test_id:4617]should adopt previously unmanaged entities by updating its metadata", func() {
 		By("removing registration metadata")
 		patchData := []byte(fmt.Sprint(`[{ "op": "replace", "path": "/metadata/labels", "value": {} }]`))
 		_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Patch(components.VirtApiCertSecretName, types.JSONPatchType, patchData)
