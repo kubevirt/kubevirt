@@ -30,6 +30,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	s7smetrics "kubevirt.io/kubevirt/pkg/monitoring/snapshots/prometheus"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -370,6 +371,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			crdInformer, crdSource = testutils.NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
 
 			recorder = record.NewFakeRecorder(100)
+			snapshotMetrics := s7smetrics.NewSnapshotMetrics()
 
 			controller = NewSnapshotController(
 				virtClient,
@@ -381,6 +383,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				crdInformer,
 				recorder,
 				60*time.Second,
+				snapshotMetrics,
 			)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates

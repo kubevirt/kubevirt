@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
+	s7smetrics "kubevirt.io/kubevirt/pkg/monitoring/snapshots/prometheus"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -454,6 +455,8 @@ func (vca *VirtControllerApp) initEvacuationController() {
 }
 
 func (vca *VirtControllerApp) initSnapshotController() {
+	snapshotMetrics := s7smetrics.NewSnapshotMetrics()
+	prometheus.MustRegister(snapshotMetrics.SnapshotDuration)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "snapshot-controller")
 	vca.snapshotController = NewSnapshotController(
 		vca.clientSet,
@@ -465,6 +468,7 @@ func (vca *VirtControllerApp) initSnapshotController() {
 		vca.crdInformer,
 		recorder,
 		vca.snapshotControllerResyncPeriod,
+		snapshotMetrics,
 	)
 }
 
