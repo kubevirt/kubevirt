@@ -223,9 +223,6 @@ func readCloudInitData(userData, userDataBase64, networkData, networkDataBase64 
 	if err != nil {
 		return "", "", err
 	}
-	if readUserData == "" {
-		return "", "", fmt.Errorf("userDataBase64 or userData is required for a cloud-init data source")
-	}
 
 	readNetworkData, err := readRawOrBase64Data(networkData, networkDataBase64)
 	if err != nil {
@@ -396,10 +393,14 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		return err
 	}
 
-	if data.UserData == "" {
-		return fmt.Errorf("UserData is required for cloud-init data source")
+	if data.UserData == "" && data.NetworkData == "" {
+		return fmt.Errorf("At least one source is required for cloud-init")
 	}
-	userData := []byte(data.UserData)
+
+	var userData []byte
+	if data.UserData != "" {
+		userData = []byte(data.UserData)
+	}
 
 	var networkData []byte
 	if data.NetworkData != "" {

@@ -322,13 +322,13 @@ var _ = Describe("CloudInit", func() {
 					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
 				})
 
-				It("should fail to verify networkData without userData", func() {
+				It("should succeed to verify networkData without userData", func() {
 					networkData := "FakeNetwork"
 					source := &v1.CloudInitNoCloudSource{
 						NetworkData: networkData,
 					}
 					_, err := readCloudInitNoCloudSource(source)
-					Expect(err).Should(MatchError("userDataBase64 or userData is required for a cloud-init data source"))
+					Expect(err).Should(Succeed())
 				})
 
 				Context("with secretRefs", func() {
@@ -433,13 +433,13 @@ var _ = Describe("CloudInit", func() {
 					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
 				})
 
-				It("should fail to verify networkData without userData", func() {
+				It("should succeed to verify networkData without userData", func() {
 					networkData := "FakeNetwork"
 					source := &v1.CloudInitConfigDriveSource{
 						NetworkData: networkData,
 					}
 					_, err := readCloudInitConfigDriveSource(source)
-					Expect(err).Should(MatchError("userDataBase64 or userData is required for a cloud-init data source"))
+					Expect(err).Should(Succeed())
 				})
 
 				Context("with secretRefs", func() {

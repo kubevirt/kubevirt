@@ -2479,6 +2479,54 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(1))
 		})
 	})
+
+	Context("with CloudInitNoCloud", func() {
+		const exampleUserData = `
+#!/usr/bin/bash
+echo "Hello World"
+`
+		const exampleNetworkData = `
+version: 2
+ethernets:
+  eth0:
+    dhcp4: true
+`
+
+		table.DescribeTable("validation",
+			func(cloudInitNoCloudSource v1.CloudInitNoCloudSource, isValid bool) {
+				vmi := v1.NewMinimalVMI("testvmi")
+
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "cloudinitdisk",
+					VolumeSource: v1.VolumeSource{
+						CloudInitNoCloud: &cloudInitNoCloudSource,
+					},
+				})
+
+				causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
+				if isValid {
+					Expect(causes).To(BeEmpty(), "Validation should pass")
+				} else {
+					Expect(len(causes)).To(BeNumerically(">=", 1), "Validation should return one or more errors")
+				}
+			},
+			table.Entry("should fail when no data are provided",
+				v1.CloudInitNoCloudSource{}, false),
+			table.Entry("should pass when both NetworkData and UserData are provided",
+				v1.CloudInitNoCloudSource{
+					UserData:    exampleUserData,
+					NetworkData: exampleNetworkData,
+				}, true),
+			table.Entry("should pass when NetworkData is provided",
+				v1.CloudInitNoCloudSource{
+					NetworkData: exampleNetworkData,
+				}, true),
+			table.Entry("should pass when UserData is provided",
+				v1.CloudInitNoCloudSource{
+					UserData: exampleUserData,
+				}, true),
+		)
+	})
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {

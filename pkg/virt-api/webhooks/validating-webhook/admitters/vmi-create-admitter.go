@@ -1288,10 +1288,10 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 				userDataLen = len(userData)
 			}
 
-			if userDataSourceCount != 1 {
+			if userDataSourceCount > 1 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s must have one exactly one userdata source set.", field.Index(idx).Child(dataSourceType).String()),
+					Message: fmt.Sprintf("%s must have only one userdata source set.", field.Index(idx).Child(dataSourceType).String()),
 					Field:   field.Index(idx).Child(dataSourceType).String(),
 				})
 			}
@@ -1336,6 +1336,14 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("%s networkdata exceeds %d byte limit. Should use NetworkDataSecretRef for larger data.", field.Index(idx).Child(dataSourceType).String(), cloudInitNetworkMaxLen),
+					Field:   field.Index(idx).Child(dataSourceType).String(),
+				})
+			}
+
+			if networkDataSourceCount+userDataSourceCount == 0 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s must have at least one source set.", field.Index(idx).Child(dataSourceType).String()),
 					Field:   field.Index(idx).Child(dataSourceType).String(),
 				})
 			}
