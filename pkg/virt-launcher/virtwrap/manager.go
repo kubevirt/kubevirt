@@ -162,7 +162,7 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, not
 	return &manager, nil
 }
 
-func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachineInstance) (bool, error) {
+func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachineInstance, migrationMode v1.MigrationMode) (bool, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
 
@@ -196,7 +196,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 	domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 		UID:            vmi.Status.MigrationState.MigrationUID,
 		StartTimestamp: &now,
-		Mode:           v1.MigrationPreCopy,
+		Mode:           migrationMode,
 	}
 	_, err = l.setDomainSpecWithHooks(vmi, domainSpec)
 	if err != nil {
@@ -793,7 +793,7 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, option
 		return fmt.Errorf("cannot migration VMI until migrationState is ready")
 	}
 
-	inProgress, err := l.initializeMigrationMetadata(vmi)
+	inProgress, err := l.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
 	if err != nil {
 		return err
 	}
