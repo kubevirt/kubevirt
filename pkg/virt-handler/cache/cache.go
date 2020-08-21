@@ -176,6 +176,16 @@ func findGhostRecordBySocket(socketFile string) (ghostRecord, bool) {
 	return ghostRecord{}, false
 }
 
+func HasGhostRecord(namespace string, name string) bool {
+	ghostRecordGlobalMutex.Lock()
+	defer ghostRecordGlobalMutex.Unlock()
+
+	key := namespace + "/" + name
+	_, ok := ghostRecordGlobalCache[key]
+
+	return ok
+}
+
 func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) error {
 	ghostRecordGlobalMutex.Lock()
 	defer ghostRecordGlobalMutex.Unlock()
@@ -226,6 +236,10 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 	// properly handle cleanup of local data.
 	if ok && record.UID != uid {
 		return fmt.Errorf("can not add ghost record when entry already exists with differing UID")
+	}
+
+	if ok && record.SocketFile != socketFile {
+		return fmt.Errorf("can not add ghost record when entry already exists with differing socket file location")
 	}
 
 	return nil
