@@ -2149,6 +2149,12 @@ func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage string, 
 	return vmi
 }
 
+func NewRandomVMIWithEphemeralDiskAndNetworkData(containerImage, networkData string, b64encode bool) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+	AddCloudInitNoCloudData(vmi, "disk1", "", networkData, b64encode)
+	return vmi
+}
+
 func NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
 	AddCloudInitNoCloudData(vmi, "disk1", userData, networkData, b64encode)
@@ -2161,6 +2167,12 @@ func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(containerIma
 	return vmi
 }
 
+func NewRandomVMIWithEphemeralDiskAndConfigDriveNetworkData(containerImage, networkData string, b64encode bool) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+	AddCloudInitConfigDriveData(vmi, "disk1", "", networkData, b64encode)
+	return vmi
+}
+
 func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
 	AddCloudInitNoCloudData(vmi, name, userData, "", true)
 }
@@ -2168,12 +2180,16 @@ func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
 func AddCloudInitNoCloudData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
 	cloudInitNoCloudSource := v1.CloudInitNoCloudSource{}
 	if b64encode {
-		cloudInitNoCloudSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
+		if userData != "" {
+			cloudInitNoCloudSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
+		}
 		if networkData != "" {
 			cloudInitNoCloudSource.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(networkData))
 		}
 	} else {
-		cloudInitNoCloudSource.UserData = userData
+		if userData != "" {
+			cloudInitNoCloudSource.UserData = userData
+		}
 		if networkData != "" {
 			cloudInitNoCloudSource.NetworkData = networkData
 		}

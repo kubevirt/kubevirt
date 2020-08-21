@@ -321,8 +321,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
 		})
 
-		Context("with cloudInitNoCloud networkData", func() {
-			It("[test_id:3181]should have cloud-init network-config with NetworkData source", func() {
+		Context("with cloudInitNoCloud userData and networkData", func() {
+			It("[test_id:3181]should have cloud-init user-data and network-config with the respective source", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), testUserData, testNetworkData, false)
 				LaunchVMI(vmi)
@@ -337,9 +337,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("checking cloudinit user-data")
 				CheckCloudInitFile(vmi, "#", "user-data", testUserData)
 			})
-			It("[test_id:3182]should have cloud-init network-config with NetworkDataBase64 source", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros), testUserData, testNetworkData, true)
+		})
+
+		Context("with cloudInitNoCloud networkData", func() {
+			It("[test_id:3181]should have cloud-init network-config with NetworkData source", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndNetworkData(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros), testNetworkData, false)
 				LaunchVMI(vmi)
 				tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 
@@ -348,13 +351,22 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("checking cloudinit network-config")
 				CheckCloudInitFile(vmi, "#", "network-config", testNetworkData)
+			})
+			It("[test_id:3182]should have cloud-init network-config with NetworkDataBase64 source", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndNetworkData(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros), testNetworkData, true)
+				LaunchVMI(vmi)
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 
-				By("checking cloudinit user-data")
-				CheckCloudInitFile(vmi, "#", "user-data", testUserData)
+				By("mouting cloudinit iso")
+				MountCloudInitNoCloud(vmi, "#")
+
+				By("checking cloudinit network-config")
+				CheckCloudInitFile(vmi, "#", "network-config", testNetworkData)
 			})
 			It("[test_id:3183]should have cloud-init network-config from k8s secret", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", "", false)
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndNetworkData(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", false)
 
 				idx := 0
 				for i, volume := range vmi.Spec.Volumes {
@@ -365,7 +377,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					secretID := fmt.Sprintf("%s-test-secret", uuid.NewRandom().String())
 					spec := volume.CloudInitNoCloud
-					spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
 					spec.NetworkDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
 
 					// Store cloudinit data as k8s secret
@@ -381,7 +392,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						Type: "Opaque",
 						Data: map[string][]byte{
 							// The client encrypts the secret for us
-							"userdata":    []byte(testUserData),
 							"networkdata": []byte(testNetworkData),
 						},
 					}
@@ -400,22 +410,17 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("checking cloudinit network-config")
 				CheckCloudInitFile(vmi, "#", "network-config", testNetworkData)
 
-				By("checking cloudinit user-data")
-				CheckCloudInitFile(vmi, "#", "user-data", testUserData)
-
 				// Expect that the secret is not present on the vmi itself
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
-				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.NetworkData).To(BeEmpty())
 				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.NetworkDataBase64).To(BeEmpty())
 			})
 
 		})
 
-		Context("with cloudInitConfigDrive networkData", func() {
-			It("[test_id:3184]should have cloud-init network-config with NetworkData source", func() {
+		Context("with cloudInitConfigDrive userData and networkData", func() {
+			It("[test_id:3184]should have cloud-init user-data and network-config with respective source", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
 					cd.ContainerDiskFor(cd.ContainerDiskCirros), testUserData, testNetworkData, false)
 
@@ -431,9 +436,25 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("checking cloudinit user-data")
 				CheckCloudInitFile(vmi, "#", "openstack/latest/user_data", testUserData)
 			})
+		})
+
+		Context("with cloudInitConfigDrive networkData", func() {
+			It("[test_id:3184]should have cloud-init network-config with NetworkData source", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveNetworkData(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros), testNetworkData, false)
+
+				LaunchVMI(vmi)
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+
+				By("mouting cloudinit iso")
+				MountCloudInitConfigDrive(vmi, "#")
+
+				By("checking cloudinit network-config")
+				CheckCloudInitFile(vmi, "#", "openstack/latest/network_data.json", testNetworkData)
+			})
 			It("[test_id:4622]should have cloud-init meta_data with tagged devices", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros), testUserData, testNetworkData, false)
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveNetworkData(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros), testNetworkData, false)
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Tag: "specialNet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
 				vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 				LaunchVMI(vmi)
@@ -474,14 +495,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("checking cloudinit network-config")
 				CheckCloudInitFile(vmi, "#", "openstack/latest/network_data.json", testNetworkData)
 
-				By("checking cloudinit user-data")
-				CheckCloudInitFile(vmi, "#", "openstack/latest/user_data", testUserData)
 				By("checking cloudinit meta-data")
 				CheckCloudInitMetaData(vmi, "#", "openstack/latest/meta_data.json", string(buf))
 			})
 			It("[test_id:3185]should have cloud-init network-config with NetworkDataBase64 source", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros), testUserData, testNetworkData, true)
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveNetworkData(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros), testNetworkData, true)
 				LaunchVMI(vmi)
 				tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 
@@ -490,13 +509,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("checking cloudinit network-config")
 				CheckCloudInitFile(vmi, "#", "openstack/latest/network_data.json", testNetworkData)
-
-				By("checking cloudinit user-data")
-				CheckCloudInitFile(vmi, "#", "openstack/latest/user_data", testUserData)
 			})
 			It("[test_id:3186]should have cloud-init network-config from k8s secret", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", "", false)
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveNetworkData(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", false)
 
 				idx := 0
 				for i, volume := range vmi.Spec.Volumes {
@@ -542,9 +558,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("checking cloudinit network-config")
 				CheckCloudInitFile(vmi, "#", "openstack/latest/network_data.json", testNetworkData)
 
-				By("checking cloudinit user-data")
-				CheckCloudInitFile(vmi, "#", "openstack/latest/user_data", testUserData)
-
 				// Expect that the secret is not present on the vmi itself
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -555,8 +568,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:3187]should have cloud-init userdata and network-config from separate k8s secrets", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(
-					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", "", false)
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveNetworkData(
+					cd.ContainerDiskFor(cd.ContainerDiskCirros), "", false)
 
 				idx := 0
 				for i, volume := range vmi.Spec.Volumes {
@@ -620,9 +633,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("checking cloudinit network-config")
 				CheckCloudInitFile(vmi, "#", "openstack/latest/network_data.json", testNetworkData)
-
-				By("checking cloudinit user-data")
-				CheckCloudInitFile(vmi, "#", "openstack/latest/user_data", testUserData)
 
 				// Expect that the secret is not present on the vmi itself
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
