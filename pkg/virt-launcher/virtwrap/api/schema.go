@@ -578,7 +578,8 @@ type Model struct {
 }
 
 type InterfaceTarget struct {
-	Device string `xml:"dev,attr"`
+	Device  string `xml:"dev,attr"`
+	Managed string `xml:"managed,attr,omitempty"`
 }
 
 type Alias struct {

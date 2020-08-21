@@ -303,3 +303,23 @@ func (_m *MockNetworkHandler) GetNFTIPString(proto iptables.Protocol) string {
 func (_mr *_MockNetworkHandlerRecorder) GetNFTIPString(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetNFTIPString", arg0)
 }
+
+func (_m *MockNetworkHandler) CreateTapDevice(tapName string, isMultiqueue bool, launcherPID int) error {
+	ret := _m.ctrl.Call(_m, "CreateTapDevice", tapName, isMultiqueue, launcherPID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) CreateTapDevice(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateTapDevice", arg0, arg1, arg2)
+}
+
+func (_m *MockNetworkHandler) BindTapDeviceToBridge(tapName string, bridgeName string) error {
+	ret := _m.ctrl.Call(_m, "BindTapDeviceToBridge", tapName, bridgeName)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) BindTapDeviceToBridge(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "BindTapDeviceToBridge", arg0, arg1)
+}

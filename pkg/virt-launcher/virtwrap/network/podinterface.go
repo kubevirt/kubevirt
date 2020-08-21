@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 
 	"github.com/coreos/go-iptables/iptables"
-
 	"github.com/vishvananda/netlink"
 
 	v1 "kubevirt.io/client-go/api/v1"
@@ -46,7 +45,7 @@ var bridgeFakeIP = "169.254.75.1%d/32"
 
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
-	preparePodNetworkInterfaces() error
+	preparePodNetworkInterfaces(isMultiqueue bool, launcherPID int) error
 
 	loadCachedInterface(pid, name string) (bool, error)
 	setCachedInterface(pid, name string) error
@@ -147,7 +146,8 @@ func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Inte
 			return err
 		}
 
-		if err := driver.preparePodNetworkInterfaces(); err != nil {
+		isMultiqueue := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
+		if err := driver.preparePodNetworkInterfaces(isMultiqueue, pid); err != nil {
 			log.Log.Reason(err).Error("failed to prepare pod networking")
 			return createCriticalNetworkError(err)
 		}
@@ -368,7 +368,7 @@ func (b *BridgePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
+func (b *BridgePodInterface) preparePodNetworkInterfaces(isMultiqueue bool, launcherPID int) error {
 	// Set interface link to down to change its MAC address
 	if err := Handler.LinkSetDown(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podInterfaceName)
@@ -385,6 +385,13 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 	}
 
 	if err := b.createBridge(); err != nil {
+		return err
+	}
+
+	tapDeviceName := generateTapDeviceName(podInterfaceName)
+	err := createAndBindTapToBridge(b.vif, tapDeviceName, b.bridgeInterfaceName, isMultiqueue, launcherPID)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
 	}
 
@@ -405,6 +412,10 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 
 	b.virtIface.MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
 	b.virtIface.MAC = &api.MAC{MAC: b.vif.MAC.String()}
+	b.virtIface.Target = &api.InterfaceTarget{
+		Device:  b.vif.TapDevice,
+		Managed: "no",
+	}
 
 	return nil
 }
@@ -415,6 +426,7 @@ func (b *BridgePodInterface) decorateConfig() error {
 		if iface.Alias.Name == b.iface.Name {
 			ifaces[i].MTU = b.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: b.vif.MAC.String()}
+			ifaces[i].Target = b.virtIface.Target
 			break
 		}
 	}
@@ -634,7 +646,7 @@ func (p *MasqueradePodInterface) startDHCP(vmi *v1.VirtualMachineInstance) error
 	return Handler.StartDHCP(p.vif, fakeServerAddr, p.bridgeInterfaceName, p.iface.DHCPOptions)
 }
 
-func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
+func (p *MasqueradePodInterface) preparePodNetworkInterfaces(isMultiqueue bool, launcherPID int) error {
 	// Create an master bridge interface
 	bridgeNicName := fmt.Sprintf("%s-nic", p.bridgeInterfaceName)
 	bridgeNic := &netlink.Dummy{
@@ -663,6 +675,13 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 	}
 
 	if err := p.createBridge(); err != nil {
+		return err
+	}
+
+	tapDeviceName := generateTapDeviceName(podInterfaceName)
+	err = createAndBindTapToBridge(p.vif, tapDeviceName, p.bridgeInterfaceName, isMultiqueue, launcherPID)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create tap device named %s", tapDeviceName)
 		return err
 	}
 
@@ -701,6 +720,10 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 
 	p.virtIface.MTU = &api.MTU{Size: strconv.Itoa(p.podNicLink.Attrs().MTU)}
 	p.virtIface.MAC = &api.MAC{MAC: p.vif.MAC.String()}
+	p.virtIface.Target = &api.InterfaceTarget{
+		Device:  p.vif.TapDevice,
+		Managed: "no",
+	}
 
 	return nil
 }
@@ -711,6 +734,7 @@ func (p *MasqueradePodInterface) decorateConfig() error {
 		if iface.Alias.Name == p.iface.Name {
 			ifaces[i].MTU = p.virtIface.MTU
 			ifaces[i].MAC = &api.MAC{MAC: p.vif.MAC.String()}
+			ifaces[i].Target = p.virtIface.Target
 			break
 		}
 	}
@@ -1007,7 +1031,7 @@ func (s *SlirpPodInterface) discoverPodNetworkInterface() error {
 	return nil
 }
 
-func (s *SlirpPodInterface) preparePodNetworkInterfaces() error {
+func (s *SlirpPodInterface) preparePodNetworkInterfaces(isMultiqueue bool, launcherPID int) error {
 	return nil
 }
 
@@ -1057,4 +1081,17 @@ func (b *SlirpPodInterface) setCachedVIF(pid, name string) error {
 
 func (s *SlirpPodInterface) setCachedInterface(pid, name string) error {
 	return nil
+}
+
+func createAndBindTapToBridge(virtualInterface *VIF, deviceName string, bridgeIfaceName string, isMultiqueue bool, launcherPID int) error {
+	err := Handler.CreateTapDevice(deviceName, isMultiqueue, launcherPID)
+	if err != nil {
+		return err
+	}
+	virtualInterface.TapDevice = deviceName
+	return Handler.BindTapDeviceToBridge(deviceName, bridgeIfaceName)
+}
+
+func generateTapDeviceName(podInterfaceName string) string {
+	return "tap" + podInterfaceName[3:]
 }

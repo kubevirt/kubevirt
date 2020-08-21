@@ -54,13 +54,20 @@ var _ = Describe("SecurityFeatures", func() {
 		var container k8sv1.Container
 		var vmi *v1.VirtualMachineInstance
 
-		Context("With selinuxLauncherType undefined", func() {
+		Context("With selinuxLauncherType as container_t", func() {
 			BeforeEach(func() {
-				tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, "")
+				tests.UpdateClusterConfigValueAndWait(virtconfig.SELinuxLauncherTypeKey, "container_t")
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+
+				// VMIs with selinuxLauncherType container_t cannot have network interfaces, since that requires
+				// the `virt_launcher.process` selinux context
+				autoattachPodInterface := false
+				vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoattachPodInterface
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{}
+				vmi.Spec.Networks = []v1.Network{}
 			})
 
-			It("[test_id:2953]Ensure virt-launcher pod securityContext type is not forced", func() {
+			It("[test_id:2953]Ensure virt-launcher pod securityContext type is correctly set", func() {
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -69,7 +76,7 @@ var _ = Describe("SecurityFeatures", func() {
 
 				By("Check virt-launcher pod SecurityContext values")
 				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-				Expect(vmiPod.Spec.SecurityContext.SELinuxOptions).To(BeNil())
+				Expect(vmiPod.Spec.SecurityContext.SELinuxOptions).To(Equal(&k8sv1.SELinuxOptions{Type: "container_t"}))
 			})
 
 			It("[test_id:2895]Make sure the virt-launcher pod is not priviledged", func() {
