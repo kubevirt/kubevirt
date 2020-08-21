@@ -538,7 +538,6 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				TargetNode:   pod.Spec.NodeName,
 				SourceNode:   vmi.Status.NodeName,
 				TargetPod:    pod.Name,
-				Mode:         virtv1.MigrationPreCopy,
 			}
 
 			// By setting this label, virt-handler on the target node will receive
