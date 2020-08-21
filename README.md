@@ -54,7 +54,7 @@ $ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operato
 
 ## Developer Workflow
 If you want to make changes to the HCO, here's how you can test your changes
-through [OLM](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/Documentation/install/install.md#installing-olm).
+through [OLM](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/install/install.md#installing-olm).
 
 Build the HCO container using the Makefile recipes `make container-build` and
 `make container-push` with vars `IMAGE_REGISTRY`, `OPERATOR_IMAGE`, and `IMAGE_TAG`
