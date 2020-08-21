@@ -86,6 +86,26 @@ var _ = SIGDescribe("Services", func() {
 		}, 2*time.Minute, time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), "The VMI should be gone within the given timeout")
 	}
 
+	assertConnectivityToService := func(serviceName, namespace string, servicePort int) {
+		serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
+
+		By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s", serviceFQDN))
+		job := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace)
+
+		By(fmt.Sprintf("waiting for the job to report a SUCCESSFUL connection attempt to service %s on port %d", serviceFQDN, servicePort))
+		tests.WaitForJobToSucceed(job, 90)
+	}
+
+	assertNoConnectivityToService := func(serviceName, namespace string, servicePort int) {
+		serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)
+
+		By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s", serviceFQDN))
+		job := runTCPClientExpectingHelloWorldFromServer(serviceFQDN, strconv.Itoa(servicePort), namespace)
+
+		By(fmt.Sprintf("waiting for the job to report a FAILED connection attempt to service %s on port %d", serviceFQDN, servicePort))
+		tests.WaitForJobToFail(job, 90)
+	}
+
 	BeforeEach(func() {
 		var err error
 		virtClient, err = kubecli.GetKubevirtClient()
@@ -141,20 +161,11 @@ var _ = SIGDescribe("Services", func() {
 			})
 
 			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
-				By("starting a job which tries to reach the vmi via the defined service")
-				job := runTCPClientExpectingHelloWorldFromServer(fmt.Sprintf("%s.%s", serviceName, inboundVMI.Namespace), strconv.Itoa(servicePort), inboundVMI.Namespace)
-
-				By("waiting for the job to report a successful connection attempt")
-				tests.WaitForJobToSucceed(job, 90)
+				assertConnectivityToService(serviceName, inboundVMI.Namespace, servicePort)
 			})
 
 			It("[test_id:1548] should fail to reach the vmi if an invalid servicename is used", func() {
-
-				By("starting a job which tries to reach the vmi via a non-existent service")
-				job := runTCPClientExpectingHelloWorldFromServer(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace), strconv.Itoa(servicePort), inboundVMI.Namespace)
-
-				By("waiting for the job to report an  unsuccessful connection attempt")
-				tests.WaitForJobToFail(job, 90)
+				assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
 			})
 		})
 
@@ -172,11 +183,8 @@ var _ = SIGDescribe("Services", func() {
 			})
 
 			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
-				By("starting a job which tries to reach the vm via the defined service")
-				job := runTCPClientExpectingHelloWorldFromServer(fmt.Sprintf("%s.%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain, inboundVMI.Namespace), strconv.Itoa(servicePort), inboundVMI.Namespace)
-
-				By("waiting for the job to report a successful connection attempt")
-				tests.WaitForJobToSucceed(job, 90)
+				serviceHostnameWithSubdomain := fmt.Sprintf("%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain)
+				assertConnectivityToService(serviceHostnameWithSubdomain, inboundVMI.Namespace, servicePort)
 			})
 		})
 	})
@@ -241,20 +249,12 @@ var _ = SIGDescribe("Services", func() {
 
 			It("should be able to reach the vmi based on labels specified on the vmi", func() {
 				for _, exposedService := range serviceManager.services {
-					By("starting a job which tries to reach the vmi via the defined service")
-					job := runTCPClientExpectingHelloWorldFromServer(fmt.Sprintf("%s.%s", exposedService.Name, inboundVMI.Namespace), strconv.Itoa(servicePort), inboundVMI.Namespace)
-
-					By("waiting for the job to report a successful connection attempt")
-					tests.WaitForJobToSucceed(job, 90)
+					assertConnectivityToService(exposedService.Name, inboundVMI.Namespace, servicePort)
 				}
 			})
 
 			It("should fail to reach the vmi if an invalid servicename is used", func() {
-				By("starting a job which tries to reach the vmi via a non-existent service")
-				job := runTCPClientExpectingHelloWorldFromServer(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace), strconv.Itoa(servicePort), inboundVMI.Namespace)
-
-				By("waiting for the job to report an  unsuccessful connection attempt")
-				tests.WaitForJobToFail(job, 90)
+				assertNoConnectivityToService("wrongservice", inboundVMI.Namespace, servicePort)
 			})
 		})
 	})
