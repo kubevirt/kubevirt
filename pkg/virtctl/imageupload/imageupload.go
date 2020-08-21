@@ -503,6 +503,9 @@ func ensurePVCSupportsUpload(client kubernetes.Interface, pvc *v1.PersistentVolu
 	_, hasAnnotation := pvc.Annotations[uploadRequestAnnotation]
 
 	if !hasAnnotation {
+		if pvc.GetAnnotations() == nil {
+			pvc.SetAnnotations(make(map[string]string, 0))
+		}
 		pvc.Annotations[uploadRequestAnnotation] = ""
 		pvc, err = client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(pvc)
 		if err != nil {
