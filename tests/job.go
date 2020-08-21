@@ -111,7 +111,7 @@ func NewJob(name string, cmd, args []string, retry, ttlAfterFinished int32, time
 // which tries to contact the host on the provided port.
 // It expects to receive "Hello World!" to succeed.
 func NewHelloWorldJob(host string, port string) *batchv1.Job {
-	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(nc %s %s -i 3 -w 3))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)}
+	check := []string{fmt.Sprintf(`set -x; ping -c 1 %s; x="$(head -n 1 < <(nc %s %s -i 3 -w 3))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, host, port)}
 	job := NewJob("netcat", []string{"/bin/bash", "-c"}, check, JobRetry, JobTTL, JobTimeout)
 	return job
 }
