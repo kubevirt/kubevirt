@@ -182,7 +182,7 @@ var _ = Describe("Storage", func() {
 						},
 					},
 				})
-				tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -232,7 +232,7 @@ var _ = Describe("Storage", func() {
 						},
 					},
 				})
-				tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -268,7 +268,7 @@ var _ = Describe("Storage", func() {
 					pvName = tests.DiskAlpineHostPath
 				}
 				vmi = newVMI(pvName)
-				tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
+				vmi = tests.RunVMIAndExpectLaunchWithIgnoreWarningArg(vmi, 120, ignoreWarnings)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
@@ -714,7 +714,7 @@ var _ = Describe("Storage", func() {
 				// Without userdata the hostname isn't set correctly and the login expecter fails...
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
-				tests.RunVMIAndExpectLaunch(vmi, 90)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)

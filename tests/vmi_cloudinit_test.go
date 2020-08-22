@@ -56,7 +56,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	var virtClient kubecli.KubevirtClient
 
 	var (
-		LaunchVMI                 func(*v1.VirtualMachineInstance)
+		LaunchVMI                 func(*v1.VirtualMachineInstance) *v1.VirtualMachineInstance
 		VerifyUserDataVMI         func(*v1.VirtualMachineInstance, []expect.Batcher, time.Duration)
 		MountCloudInitNoCloud     func(*v1.VirtualMachineInstance, string)
 		MountCloudInitConfigDrive func(*v1.VirtualMachineInstance, string)
@@ -68,15 +68,16 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		virtClient, err = kubecli.GetKubevirtClient()
 		tests.PanicOnError(err)
 
-		LaunchVMI = func(vmi *v1.VirtualMachineInstance) {
+		LaunchVMI = func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 			By("Starting a VirtualMachineInstance")
 			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
 			Expect(err).To(BeNil())
 
 			By("Waiting the VirtualMachineInstance start")
-			_, ok := obj.(*v1.VirtualMachineInstance)
+			vmi, ok := obj.(*v1.VirtualMachineInstance)
 			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
 			Expect(tests.WaitForSuccessfulVMIStart(obj)).ToNot(BeEmpty())
+			return vmi
 		}
 
 		VerifyUserDataVMI = func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
@@ -225,7 +226,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
 
-				LaunchVMI(vmi)
+				vmi = LaunchVMI(vmi)
 
 				By("executing a user-data script")
 				VerifyUserDataVMI(vmi, []expect.Batcher{
@@ -252,7 +253,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), userData)
 
-				LaunchVMI(vmi)
+				vmi = LaunchVMI(vmi)
 
 				By("executing a user-data script")
 				VerifyUserDataVMI(vmi, []expect.Batcher{
