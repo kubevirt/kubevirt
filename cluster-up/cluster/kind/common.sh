@@ -201,9 +201,9 @@ function _kubectl() {
 
 function down() {
     _fetch_kind
-    if [ -z $($KIND get clusters | grep ${CLUSTER_NAME}) ]; then
+    if [ -z "$($KIND get clusters | grep ${CLUSTER_NAME})" ]; then
         return
     fi
     $KIND delete cluster --name=${CLUSTER_NAME}
-    rm ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+    rm -f ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
 }
