@@ -97,6 +97,26 @@ var _ = Describe("ImageUpload", func() {
 		return pvc
 	}
 
+	pvcSpecNoAnnotationMap := func() *v1.PersistentVolumeClaim {
+		quantity, _ := resource.ParseQuantity(pvcSize)
+
+		pvc := &v1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      dvName,
+				Namespace: "default",
+			},
+			Spec: v1.PersistentVolumeClaimSpec{
+				Resources: v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						v1.ResourceStorage: quantity,
+					},
+				},
+			},
+		}
+
+		return pvc
+	}
+
 	pvcSpecWithUploadAnnotation := func() *v1.PersistentVolumeClaim {
 		spec := pvcSpec()
 		spec.Annotations = map[string]string{
@@ -356,6 +376,7 @@ var _ = Describe("ImageUpload", func() {
 		},
 			Entry("PVC with upload annotation", pvcSpecWithUploadAnnotation()),
 			Entry("PVC without upload annotation", pvcSpec()),
+			Entry("PVC without upload annotation and no annotation map", pvcSpecNoAnnotationMap()),
 		)
 
 		It("PVC exists deprecated args", func() {
