@@ -12,6 +12,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[ref_id:1182]Probes", func() {
@@ -57,7 +58,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			By("Specifying a VMI with a readiness probe")
 			var vmi *v12.VirtualMachineInstance
 			if useFedoraVM {
-				vmi = tests.NewRandomFedora32VMIWithFedoraUser()
+				vmi = libvmi.NewFedora()
 			} else {
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			}
