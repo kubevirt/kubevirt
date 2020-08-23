@@ -7,7 +7,7 @@ require (
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.7
-	github.com/imdario/mergo v0.3.8
+	github.com/imdario/mergo v0.3.9
 	github.com/kubevirt/cluster-network-addons-operator v0.3.1-0.20200811112905-01995b8729bc
 	github.com/kubevirt/kubevirt-ssp-operator v1.0.41
 	github.com/kubevirt/vm-import-operator v0.1.0
@@ -20,15 +20,15 @@ require (
 	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/tools v0.0.0-20200403190813-44a64ad78b9b
-	k8s.io/api v0.18.3
-	k8s.io/apiextensions-apiserver v0.18.2
-	k8s.io/apimachinery v0.18.3
+	k8s.io/api v0.18.6
+	k8s.io/apiextensions-apiserver v0.18.6
+	k8s.io/apimachinery v0.18.6
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/kube-openapi v0.0.0-20200204173128-addea2498afe
+	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	kubevirt.io/client-go v0.32.0-rc.2
-	kubevirt.io/containerized-data-importer v1.21.0
+	kubevirt.io/containerized-data-importer v1.22.0
 	kubevirt.io/kubevirt v0.32.0-rc.2
-	sigs.k8s.io/controller-runtime v0.6.0
+	sigs.k8s.io/controller-runtime v0.6.2
 	sigs.k8s.io/controller-tools v0.3.0
 )
 
@@ -72,7 +72,7 @@ replace (
 	kubevirt.io/client-go => kubevirt.io/client-go v0.32.0-rc.2
 )
 
-// Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.21.0
+// Aligning with https://github.com/kubevirt/containerized-data-importer/blob/release-v1.22.0
 replace (
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20191125132246-f6563a70e19a
