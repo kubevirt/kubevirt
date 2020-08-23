@@ -52,7 +52,11 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 			By("Making sure IP reported on the VMI matches the one on the pod")
 			Expect(vmi.Status.Interfaces[0].IP).To(Equal(vmiPod.Status.PodIP))
 			Expect(vmi.Status.Interfaces[0].IPs).NotTo(BeEmpty())
-			Expect(vmi.Status.Interfaces[0].IPs[0]).To(Equal(vmiPod.Status.PodIP))
+			Expect(len(vmi.Status.Interfaces[0].IPs)).To(Equal(len(vmiPod.Status.PodIPs)))
+
+			for i, ip := range vmiPod.Status.PodIPs {
+				Expect(vmi.Status.Interfaces[0].IPs[i]).To(Equal(ip.IP))
+			}
 		}
 
 		Context("VMI connected to the pod network using the default (implicit) binding", func() {
