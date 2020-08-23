@@ -54,7 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = Describe("Infrastructure", func() {
+var _ = Describe("[Serial]Infrastructure", func() {
 	var virtClient kubecli.KubevirtClient
 	var aggregatorClient *aggregatorclient.Clientset
 	var err error

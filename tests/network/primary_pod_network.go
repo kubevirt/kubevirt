@@ -35,7 +35,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = SIGDescribe("Primary Pod Network", func() {
+var _ = SIGDescribe("[Serial]Primary Pod Network", func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

@@ -48,7 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
+var _ = Describe("[Serial][rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

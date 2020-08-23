@@ -44,7 +44,7 @@ const (
 	labelValue                           = "selected"
 )
 
-var _ = Describe("[ref_id:2717]KubeVirt control plane resilience", func() {
+var _ = Describe("[Serial][ref_id:2717]KubeVirt control plane resilience", func() {
 
 	var err error
 	var virtCli kubecli.KubevirtClient
