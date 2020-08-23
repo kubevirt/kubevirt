@@ -42,7 +42,7 @@ import (
 
 const hookSidecarImage = "example-hook-sidecar"
 
-var _ = Describe("HookSidecars", func() {
+var _ = Describe("[Serial]HookSidecars", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

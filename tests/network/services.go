@@ -50,7 +50,7 @@ type vmiServiceManager struct {
 	labelValue             string
 }
 
-var _ = SIGDescribe("Services", func() {
+var _ = SIGDescribe("[Serial]Services", func() {
 	var virtClient kubecli.KubevirtClient
 
 	runTCPClientExpectingHelloWorldFromServer := func(host, port, namespace string) *batchv1.Job {

@@ -26,7 +26,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("VirtualMachineRestore Tests", func() {
+var _ = Describe("[Serial]VirtualMachineRestore Tests", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

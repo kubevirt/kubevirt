@@ -37,7 +37,7 @@ import (
 
 const cloudinitHookSidecarImage = "example-cloudinit-hook-sidecar"
 
-var _ = Describe("CloudInitHookSidecars", func() {
+var _ = Describe("[Serial]CloudInitHookSidecars", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

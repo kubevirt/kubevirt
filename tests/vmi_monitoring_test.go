@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Health Monitoring", func() {
+var _ = Describe("[Serial]Health Monitoring", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

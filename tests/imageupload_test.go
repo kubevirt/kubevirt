@@ -27,7 +27,7 @@ const (
 	imagePath            = "/tmp/alpine.iso"
 )
 
-var _ = Describe("ImageUpload", func() {
+var _ = Describe("[Serial]ImageUpload", func() {
 	var kubectlCmd *exec.Cmd
 
 	namespace := tests.NamespaceTestDefault

@@ -39,7 +39,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("Slirp Networking", func() {
+var _ = Describe("[Serial]Slirp Networking", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient

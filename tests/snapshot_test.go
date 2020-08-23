@@ -20,7 +20,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("VirtualMachineSnapshot Tests", func() {
+var _ = Describe("[Serial]VirtualMachineSnapshot Tests", func() {
 
 	var (
 		err        error
