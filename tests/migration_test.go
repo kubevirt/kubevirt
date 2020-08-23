@@ -1766,11 +1766,15 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(newvmi, tests.NamespaceTestDefault)
 
-						if newvmi.Status.Interfaces[0].IP == vmiPod.Status.PodIP {
-							return nil
+						Expect(newvmi.Status.Interfaces[0].IP).To(Equal(vmiPod.Status.PodIP))
+						Expect(newvmi.Status.Interfaces[0].IPs).NotTo(BeEmpty())
+						Expect(len(newvmi.Status.Interfaces[0].IPs)).To(Equal(len(vmiPod.Status.PodIPs)))
+
+						for i, ip := range vmiPod.Status.PodIPs {
+							Expect(newvmi.Status.Interfaces[0].IPs[i]).To(Equal(ip.IP))
 						}
 
-						return fmt.Errorf("interface not updated with latest IP")
+						return nil
 					}, 1*time.Minute, 1*time.Second).Should(BeNil(), "Should match PodIP with latest VMI Status after migration")
 				}
 			})
