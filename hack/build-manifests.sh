@@ -232,7 +232,7 @@ annotations:
   operators.operatorframework.io.bundle.manifests.v1: manifests/
   operators.operatorframework.io.bundle.mediatype.v1: registry+v1
   operators.operatorframework.io.bundle.metadata.v1: metadata/
-  operators.operatorframework.io.bundle.package.v1: kubevirt-hyperconverged-operator
+  operators.operatorframework.io.bundle.package.v1: kubevirt-hyperconverged
 EOF
 
 SMBIOS=$(cat <<- EOM
