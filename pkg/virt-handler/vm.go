@@ -46,6 +46,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	container_disk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
+	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -60,7 +61,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -2209,7 +2209,13 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 				log.DefaultLogger().Reason(err).Errorf("Can't determine date")
 				return
 			}
-			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}, "annotations": {"%s": %s}}}`, v1.NodeSchedulable, v1.VirtHandlerHeartbeat, string(now)))
+
+			kubevirtSchedulable := "true"
+			if !d.kvmController.Initialized() {
+				kubevirtSchedulable = "false"
+			}
+
+			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s"}, "annotations": {"%s": %s}}}`, v1.NodeSchedulable, kubevirtSchedulable, v1.VirtHandlerHeartbeat, string(now)))
 			_, err = d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", d.host)
