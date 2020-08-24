@@ -1038,7 +1038,7 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 		shouldUpdate = true
 	}
 
-	if !vmiExists && vmi.DeletionTimestamp != nil {
+	if !vmiExists || vmi.DeletionTimestamp != nil {
 		shouldAbort = true
 	} else if vmi.IsFinal() {
 		shouldAbort = true
