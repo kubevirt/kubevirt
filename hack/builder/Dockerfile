@@ -3,13 +3,14 @@ FROM ${ARCH}/fedora:31
 
 COPY qemu-ppc64le-static /usr/bin/qemu-ppc64le-static
 
-ENV LIBVIRT_VERSION 5.6.0
+ENV LIBVIRT_VERSION 5.0.0
 
 ENV BAZEL_VERSION 1.2.1
 
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
     dnf copr enable -y vbatts/bazel && \
+    dnf copr enable -y @virtmaint-sig/for-kubevirt && \
     dnf -y install \
         libvirt-devel-${LIBVIRT_VERSION} \
         bazel \
