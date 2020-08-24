@@ -69,37 +69,19 @@ http_archive(
 # Libvirt dependencies
 http_file(
     name = "libvirt_libs",
-    sha256 = "9ff62eb0ed238882a652444e0feb876a9d7878a45fd026a18f64e7ab98faebf0",
+    sha256 = "59f119cf1347d07c0fa048d0c85b3e0e4a34987c481b26229d0c86fc4a8b0a22",
     urls = [
-        "https://copr-be.cloud.fedoraproject.org/results/%40virtmaint-sig/for-kubevirt/fedora-30-x86_64/01034621-libvirt/libvirt-libs-5.0.0-2.fc30.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/9ff62eb0ed238882a652444e0feb876a9d7878a45fd026a18f64e7ab98faebf0",
-    ],
-)
-
-http_file(
-    name = "libvirt_libs_ppc64le",
-    sha256 = "7993e9fa2a3455aacde56833c476f5900fb0c4a76dc9f0468676a94422d53e3b",
-    urls = [
-        "https://copr-be.cloud.fedoraproject.org/results/%40virtmaint-sig/for-kubevirt/fedora-30-ppc64le/01113510-libvirt/libvirt-libs-5.0.0-2.fc30.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/7993e9fa2a3455aacde56833c476f5900fb0c4a76dc9f0468676a94422d53e3b",
+        "https://copr-be.cloud.fedoraproject.org/results/%40virtmaint-sig/for-kubevirt/fedora-31-x86_64/01113510-libvirt/libvirt-libs-5.0.0-2.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/59f119cf1347d07c0fa048d0c85b3e0e4a34987c481b26229d0c86fc4a8b0a22",
     ],
 )
 
 http_file(
     name = "libvirt_devel",
-    sha256 = "e34ca39bb94786b901a626143527f86cae1b6f1c8d1414165465d89e146a612e",
+    sha256 = "bf566d24c6657c8c28cf266c8ba796436b605dfa8c5162e1add4c8a56f0706b0",
     urls = [
-        "https://copr-be.cloud.fedoraproject.org/results/%40virtmaint-sig/for-kubevirt/fedora-30-x86_64/01034621-libvirt/libvirt-devel-5.0.0-2.fc30.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/e34ca39bb94786b901a626143527f86cae1b6f1c8d1414165465d89e146a612e",
-    ],
-)
-
-http_file(
-    name = "libvirt_devel_ppc64le",
-    sha256 = "45ddd9ba4508c72c4b6a6f03c2198ae4f918fa1324abf566e7b2e80ab51618f2",
-    urls = [
-        "https://copr-be.cloud.fedoraproject.org/results/%40virtmaint-sig/for-kubevirt/fedora-30-ppc64le/01113510-libvirt/libvirt-devel-5.0.0-2.fc30.ppc64le.rpm",
-        "https://storage.googleapis.com/builddeps/45ddd9ba4508c72c4b6a6f03c2198ae4f918fa1324abf566e7b2e80ab51618f2",
+        "https://copr-be.cloud.fedoraproject.org/results/%40virtmaint-sig/for-kubevirt/fedora-31-x86_64/01113510-libvirt/libvirt-devel-5.0.0-2.fc31.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/bf566d24c6657c8c28cf266c8ba796436b605dfa8c5162e1add4c8a56f0706b0",
     ],
 )
 
