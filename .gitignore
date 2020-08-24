@@ -39,3 +39,4 @@ manifests/**/*.tmp
 _ci-configs/
 .history
 hack/builder/manifests/
+*~
