@@ -33,7 +33,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 )
 
-var _ = Describe("[Serial][rfe_id:609]VMIheadless", func() {
+var _ = Describe("[rfe_id:609]VMIheadless", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
