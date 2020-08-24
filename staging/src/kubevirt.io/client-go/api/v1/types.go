@@ -467,9 +467,25 @@ const (
 	// if a particular node is alive and hence should be available for new
 	// virtual machine instance scheduling. Used on Node.
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
+	// Namespace recommended by Kubernetes for commonly recognized labels
+	AppLabelPrefix = "app.kubernetes.io"
+	// This label is commonly used by 3rd party management tools to identify
+	// an application's name.
+	AppNameLabel = AppLabelPrefix + "/name"
+	// This label is commonly used by 3rd party management tools to identify
+	// an application's version.
+	AppVersionLabel = AppLabelPrefix + "/version"
+	// This label is commonly used by 3rd party management tools to identify
+	// a higher level application.
+	AppPartOfLabel = AppLabelPrefix + "/part-of"
+	// This label is commonly used by 3rd party management tools to identify
+	// the component this application is a part of.
+	AppComponentLabel = AppLabelPrefix + "/component"
+	// This label identifies each resource as part of KubeVirt
+	AppComponent = "kubevirt"
 	// This label will be set on all resources created by the operator
-	ManagedByLabel              = "app.kubernetes.io/managed-by"
-	ManagedByLabelOperatorValue = "kubevirt-operator"
+	ManagedByLabel              = AppLabelPrefix + "/managed-by"
+	ManagedByLabelOperatorValue = "virt-operator"
 	// This annotation represents the kubevirt version for an install strategy configmap.
 	InstallStrategyVersionAnnotation = "kubevirt.io/install-strategy-version"
 	// This annotation represents the kubevirt registry used for an install strategy configmap.
@@ -1130,6 +1146,16 @@ type KubeVirtSpec struct {
 	UninstallStrategy KubeVirtUninstallStrategy `json:"uninstallStrategy,omitempty"`
 
 	CertificateRotationStrategy KubeVirtCertificateRotateStrategy `json:"certificateRotateStrategy,omitempty"`
+
+	// Designate the apps.kubevirt.io/version label for KubeVirt components.
+	// Useful if KubeVirt is included as part of a product.
+	// If ProductVersion is not specified, KubeVirt's version will be used.
+	ProductVersion string `json:"productVersion,omitempty"`
+
+	// Designate the apps.kubevirt.io/part-of label for KubeVirt components.
+	// Useful if KubeVirt is included as part of a product.
+	// If ProductName is not specified, the part-of label will be omitted.
+	ProductName string `json:"productName,omitempty"`
 
 	// holds kubevirt configurations.
 	// same as the virt-configMap

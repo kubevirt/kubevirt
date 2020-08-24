@@ -87,6 +87,7 @@ var _ = Describe("Operator", func() {
 		waitForUpdateCondition            func(*v1.KubeVirt)
 		waitForKvWithTimeout              func(*v1.KubeVirt, int)
 		waitForKv                         func(*v1.KubeVirt)
+		patchKvProductNameAndVersion      func(string, string, string)
 		patchKvVersionAndRegistry         func(string, string, string)
 		patchKvVersion                    func(string, string)
 		parseDaemonset                    func(string) (*v12.DaemonSet, string, string, string, string)
@@ -304,6 +305,15 @@ var _ = Describe("Operator", func() {
 
 		waitForKv = func(newKv *v1.KubeVirt) {
 			waitForKvWithTimeout(newKv, 300)
+		}
+
+		patchKvProductNameAndVersion = func(name, productName string, productVersion string) {
+			data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/productName", "value": "%s"},{ "op": "replace", "path": "/spec/productVersion", "value": "%s"}]`, productName, productVersion))
+			Eventually(func() error {
+				_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+
+				return err
+			}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 		}
 
 		patchKvVersionAndRegistry = func(name string, version string, registry string) {
@@ -1191,6 +1201,37 @@ spec:
 				return crd.OwnerReferences
 			}, 10*time.Second, 1*time.Second).Should(BeEmpty())
 			Expect(crd.ObjectMeta.OwnerReferences).To(HaveLen(0))
+		})
+
+		It("should be able to update product related labels of kubevirt install", func() {
+			productName := "kubevirt-test"
+			productVersion := "0.0.0"
+			allPodsAreReady(originalKv)
+			sanityCheckDeploymentsExist()
+
+			kv := copyOriginalKv()
+
+			By("Patching kubevirt resource with productName and productVersion")
+			patchKvProductNameAndVersion(kv.Name, productName, productVersion)
+
+			for _, deployment := range []string{"virt-api", "virt-controller"} {
+				By(fmt.Sprintf("Ensuring that the %s deployment is updated", deployment))
+				Eventually(func() bool {
+					dep, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(deployment, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return dep.ObjectMeta.Labels[v1.AppVersionLabel] == productVersion && dep.ObjectMeta.Labels[v1.AppPartOfLabel] == productName
+				}, 240*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("Expected labels to be updated for %s deployment", deployment))
+			}
+
+			By("Ensuring that the virt-handler daemonset is updated")
+			Eventually(func() bool {
+				dms, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return dms.ObjectMeta.Labels[v1.AppVersionLabel] == productVersion && dms.ObjectMeta.Labels[v1.AppPartOfLabel] == productName
+			}, 240*time.Second, 1*time.Second).Should(BeTrue(), "Expected labels to be updated for virt-handler daemonset")
+
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
 		})
 
 		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {

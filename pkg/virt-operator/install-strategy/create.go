@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 
@@ -110,10 +111,26 @@ func controllerDeployments(strategy *InstallStrategy) []*appsv1.Deployment {
 	return deployments
 }
 
+func isValidLabel(label string) bool {
+	// First and last character must be alphanumeric
+	// middle chars can be alphanumeric, or dot hyphen or dash
+	// entire string must not exceed 63 chars
+	r := regexp.MustCompile(`^([a-z0-9A-Z]([a-z0-9A-Z\-\_\.]{0,61}[a-z0-9A-Z])?)?$`)
+	return r.Match([]byte(label))
+}
+
 func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, version string, imageRegistry string, id string) {
 	if objectMeta.Labels == nil {
 		objectMeta.Labels = make(map[string]string)
 	}
+	if kv.Spec.ProductVersion != "" && isValidLabel(kv.Spec.ProductVersion) {
+		objectMeta.Labels[v1.AppVersionLabel] = kv.Spec.ProductVersion
+	}
+	if kv.Spec.ProductName != "" && isValidLabel(kv.Spec.ProductName) {
+		objectMeta.Labels[v1.AppPartOfLabel] = kv.Spec.ProductName
+	}
+	objectMeta.Labels[v1.AppComponentLabel] = v1.AppComponent
+
 	objectMeta.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
 
 	if objectMeta.Annotations == nil {
@@ -2349,6 +2366,14 @@ func SyncAll(queue workqueue.RateLimitingInterface, kv *v1.KubeVirt, prevStrateg
 	gracePeriod := int64(0)
 	deleteOptions := &metav1.DeleteOptions{
 		GracePeriodSeconds: &gracePeriod,
+	}
+
+	// Avoid log spam by logging this issue once early instead of for once each object created
+	if !isValidLabel(kv.Spec.ProductVersion) {
+		log.Log.Errorf("invalid kubevirt.spec.productVersion: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
+	}
+	if !isValidLabel(kv.Spec.ProductName) {
+		log.Log.Errorf("invalid kubevirt.spec.productName: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
 	}
 
 	targetVersion := kv.Status.TargetKubeVirtVersion

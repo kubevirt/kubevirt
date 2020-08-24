@@ -3,10 +3,12 @@ package installstrategy
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -125,7 +127,7 @@ var _ = Describe("Create", func() {
 			clientset.EXPECT().ExtensionsClient().Return(extClient).AnyTimes()
 			kv = &v1.KubeVirt{}
 
-			deployment, err = components.NewApiServerDeployment(Namespace, Registry, "", Version, corev1.PullIfNotPresent, "verbosity", map[string]string{})
+			deployment, err = components.NewApiServerDeployment(Namespace, Registry, "", Version, "", "", corev1.PullIfNotPresent, "verbosity", map[string]string{})
 			Expect(err).ToNot(HaveOccurred())
 
 			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
@@ -276,4 +278,22 @@ var _ = Describe("Create", func() {
 		})
 	})
 
+	Context("Product Names and Versions", func() {
+		table.DescribeTable("label validation", func(testVector string, expectedResult bool) {
+			Expect(isValidLabel(testVector)).To(Equal(expectedResult))
+		},
+			table.Entry("should allow 1 character strings", "a", true),
+			table.Entry("should allow 2 character strings", "aa", true),
+			table.Entry("should allow 3 character strings", "aaa", true),
+			table.Entry("should allow 63 character strings", strings.Repeat("a", 63), true),
+			table.Entry("should reject 64 character strings", strings.Repeat("a", 64), false),
+			table.Entry("should reject strings that begin with .", ".a", false),
+			table.Entry("should reject strings that end with .", "a.", false),
+			table.Entry("should reject strings that contain junk characters", `a\a`, false),
+			table.Entry("should allow strings that contain dots", "a.a", true),
+			table.Entry("should allow strings that contain dashes", "a-a", true),
+			table.Entry("should allow strings that contain underscores", "a_a", true),
+			table.Entry("should allow empty strings", "", true),
+		)
+	})
 })

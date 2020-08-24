@@ -7579,6 +7579,14 @@
       "description": "The namespace Prometheus is deployed in Defaults to openshift-monitor",
       "type": "string"
      },
+     "productName": {
+      "description": "Designate the apps.kubevirt.io/part-of label for KubeVirt components. Useful if KubeVirt is included as part of a product. If ProductName is not specified, the part-of label will be omitted.",
+      "type": "string"
+     },
+     "productVersion": {
+      "description": "Designate the apps.kubevirt.io/version label for KubeVirt components. Useful if KubeVirt is included as part of a product. If ProductVersion is not specified, KubeVirt's version will be used.",
+      "type": "string"
+     },
      "uninstallStrategy": {
       "description": "Specifies if kubevirt can be deleted if workloads are still present. This is mainly a precaution to avoid accidental data loss",
       "type": "string"
