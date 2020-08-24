@@ -333,23 +333,6 @@ var _ = Describe("[Serial][rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][leve
 
 		Context("with user-data", func() {
 
-			findLauncherForVMI := func(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
-				By("Finding a launcher for VMI: " + vmi.Name)
-				launchers, err := virtClient.
-					CoreV1().
-					Pods(tests.NamespaceTestDefault).
-					List(metav1.ListOptions{LabelSelector: "kubevirt.io=virt-launcher"})
-				Expect(err).To(BeNil(), "Should list virt-launchers")
-				var found bool
-				for _, launcherPod := range launchers.Items {
-					if domain, ok := launcherPod.ObjectMeta.Annotations[v1.DomainAnnotation]; ok && domain == vmi.Name {
-						return &launcherPod
-					}
-				}
-				Expect(found).To(BeTrue(), fmt.Sprintf("Could not find virt-launcher pod for VMI: %s", vmi.GetName()))
-				return nil
-			}
-
 			Context("without k8s secret", func() {
 				It("[test_id:1629][posneg:negative]should not be able to start virt-launcher pod", func() {
 					userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
@@ -364,11 +347,10 @@ var _ = Describe("[Serial][rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][leve
 						}
 					}
 					By("Starting a VirtualMachineInstance")
-					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-					Expect(err).To(BeNil(), "Should create VMI successfully")
+					vmi = tests.RunVMIAndExpectScheduling(vmi, 30)
 					stopChan := make(chan struct{})
 					defer close(stopChan)
-					launcher := findLauncherForVMI(vmi)
+					launcher := tests.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					tests.NewObjectEventWatcher(launcher).
 						SinceWatchedObjectResourceVersion().
 						Timeout(60*time.Second).
@@ -396,9 +378,8 @@ var _ = Describe("[Serial][rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][leve
 						}
 					}
 					By("Starting a VirtualMachineInstance")
-					createdVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-					Expect(err).To(BeNil(), "Should create VMI successfully")
-					launcher := findLauncherForVMI(vmi)
+					createdVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+					launcher := tests.GetPodByVirtualMachineInstance(createdVMI, createdVMI.Namespace)
 					// Wait until we see that starting the VirtualMachineInstance is failing
 					By("Checking that VirtualMachineInstance start failed")
 					stopChan := make(chan struct{})
