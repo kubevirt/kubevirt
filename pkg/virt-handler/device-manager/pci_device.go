@@ -20,15 +20,11 @@
 package device_manager
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
@@ -75,6 +71,8 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 	deviceIDStr := strings.Replace(pciDevices[0].pciID, ":", "-", -1)
 	serverSock := SocketPath(deviceIDStr)
 	iommuToPCIMap := make(map[string]string)
+
+	initHandler()
 
 	devs := constructDPIdevices(pciDevices, iommuToPCIMap)
 	dpi := &PCIDevicePlugin{
@@ -376,14 +374,14 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 		if info.IsDir() {
 			return nil
 		}
-		pciID, err := getDevicePCIID(pciBasePath, info.Name())
+		pciID, err := Handler.GetDevicePCIID(pciBasePath, info.Name())
 		if err != nil {
 			log.DefaultLogger().Reason(err).Errorf("failed get vendor:device ID for device: %s", info.Name())
 			return nil
 		}
 		if _, supported := supportedPCIDeviceMap[pciID]; supported {
 			// check device driver
-			driver, err := getDeviceDriver(pciBasePath, info.Name())
+			driver, err := Handler.GetDeviceDriver(pciBasePath, info.Name())
 			if err != nil || driver != "vfio-pci" {
 				return nil
 			}
@@ -392,13 +390,13 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 				pciID:      pciID,
 				pciAddress: info.Name(),
 			}
-			iommuGroup, err := getDeviceIOMMUGroup(pciBasePath, info.Name())
+			iommuGroup, err := Handler.GetDeviceIOMMUGroup(pciBasePath, info.Name())
 			if err != nil {
 				return nil
 			}
 			pcidev.iommuGroup = iommuGroup
 			pcidev.driver = driver
-			pcidev.numaNode = getDeviceNumaNode(pciBasePath, info.Name())
+			pcidev.numaNode = Handler.GetDeviceNumaNode(pciBasePath, info.Name())
 			pciDevicesMap[pciID] = append(pciDevicesMap[pciID], pcidev)
 		}
 		return nil
@@ -407,64 +405,4 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 		log.DefaultLogger().Reason(err).Errorf("failed to discover host devices")
 	}
 	return pciDevicesMap
-}
-
-// getDeviceIOMMUGroup gets devices iommu_group
-// e.g. /sys/bus/pci/devices/0000\:65\:00.0/iommu_group -> ../../../../../kernel/iommu_groups/45
-func getDeviceIOMMUGroup(basepath string, devID string) (string, error) {
-	iommuLink := filepath.Join(basepath, devID, "iommu_group")
-	iommuPath, err := os.Readlink(iommuLink)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("failed to read iommu_group link %s for device %s", iommuLink, devID)
-		return "", err
-	}
-	_, iommuGroup := filepath.Split(iommuPath)
-	return iommuGroup, nil
-}
-
-// gets device driver
-func getDeviceDriver(basepath string, pciAddress string) (string, error) {
-	driverLink := filepath.Join(basepath, pciAddress, "driver")
-	driverPath, err := os.Readlink(driverLink)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("failed to read driver link %s for device %s", driverLink, pciAddress)
-		return "", err
-	}
-	_, driver := filepath.Split(driverPath)
-	return driver, nil
-}
-
-func getDeviceNumaNode(basepath string, pciAddress string) (numaNode int) {
-	numaNode = -1
-	numaNodePath := filepath.Join(basepath, pciAddress, "numa_node")
-	numaNodeStr, err := ioutil.ReadFile(numaNodePath)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("failed to read numa_node %s for device %s", numaNodePath, pciAddress)
-		return
-	}
-	numaNodeStr = bytes.TrimSpace(numaNodeStr)
-	numaNode, err = strconv.Atoi(string(numaNodeStr))
-	if err != nil {
-		return
-	}
-	return
-}
-
-func getDevicePCIID(basepath string, pciAddress string) (string, error) {
-	file, err := os.Open(filepath.Join(basepath, pciAddress, "uevent"))
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "PCI_ID") {
-			equal := strings.Index(line, "=")
-			value := strings.TrimSpace(line[equal+1:])
-			return value, nil
-		}
-	}
-	return "", fmt.Errorf("no pci_id is found")
 }
