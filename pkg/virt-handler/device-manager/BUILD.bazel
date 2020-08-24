@@ -5,7 +5,9 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "common.go",
         "device_controller.go",
+        "generated_mock_common.go",
         "generic_device.go",
         "mediated_device.go",
         "pci_device.go",
@@ -18,6 +20,7 @@ go_library(
         "//pkg/virt-handler/device-manager/deviceplugin/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/fsnotify/fsnotify:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/golang.org/x/net/context:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
@@ -30,6 +33,7 @@ go_test(
         "device_controller_test.go",
         "device_manager_suite_test.go",
         "generic_device_test.go",
+        "pci_device_test.go",
     ],
     embed = [":go_default_library"],
     deps = [

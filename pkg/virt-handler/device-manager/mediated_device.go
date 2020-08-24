@@ -72,6 +72,8 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 	serverSock := SocketPath(mdevTypeName)
 	iommuToMDEVMap := make(map[string]string)
 
+	initHandler()
+
 	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap)
 	dpi := &MediatedDevicePlugin{
 		devs:           devs,
@@ -312,8 +314,8 @@ func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) m
 				return nil
 			}
 
-			mdev.numaNode = getDeviceNumaNode(pciBasePath, parentPCIAddr)
-			iommuGroup, err := getDeviceIOMMUGroup(mdevBasePath, info.Name())
+			mdev.numaNode = Handler.GetDeviceNumaNode(pciBasePath, parentPCIAddr)
+			iommuGroup, err := Handler.GetDeviceIOMMUGroup(mdevBasePath, info.Name())
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("failed to get iommu group of mdev: %s", info.Name())
 				return nil
