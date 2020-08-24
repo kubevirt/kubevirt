@@ -27,36 +27,45 @@ import (
 	"testing"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/config"
+	ginkgo_reporters "github.com/onsi/ginkgo/reporters"
+
+	"kubevirt.io/kubevirt/tests/flags"
 
 	"kubevirt.io/kubevirt/tests/reporter"
 
 	"kubevirt.io/kubevirt/tests"
-	ginkgo_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
+	qe_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 
 	_ "kubevirt.io/kubevirt/tests/network"
 )
 
 func TestTests(t *testing.T) {
+	flags.NormalizeFlags()
+	tests.CalculateNamespaces()
 	maxFails := getMaxFailsFromEnv()
+	artifactsPath := path.Join(flags.ArtifactsDir, "k8s-reporter")
+	junitOutput := path.Join(flags.ArtifactsDir, "junit.functest.xml")
+	if qe_reporters.JunitOutput != "" {
+		junitOutput = qe_reporters.JunitOutput
+	}
+	if config.GinkgoConfig.ParallelTotal > 1 {
+		artifactsPath = path.Join(artifactsPath, strconv.Itoa(config.GinkgoConfig.ParallelNode))
+		junitOutput = path.Join(flags.ArtifactsDir, fmt.Sprintf("junit.functest.%d.xml", config.GinkgoConfig.ParallelNode))
+	}
 	reporters := []Reporter{
-		reporter.NewKubernetesReporter(path.Join(os.Getenv("ARTIFACTS"), "k8s-reporter"), maxFails),
+		ginkgo_reporters.NewJUnitReporter(junitOutput),
+		reporter.NewKubernetesReporter(artifactsPath, maxFails),
 	}
-	if ginkgo_reporters.Polarion.Run {
-		reporters = append(reporters, &ginkgo_reporters.Polarion)
-	}
-	if ginkgo_reporters.JunitOutput != "" {
-		reporters = append(reporters, ginkgo_reporters.NewJunitReporter())
+	if qe_reporters.Polarion.Run {
+		reporters = append(reporters, &qe_reporters.Polarion)
 	}
 	RunSpecsWithDefaultAndCustomReporters(t, "Tests Suite", reporters)
 }
 
-var _ = BeforeSuite(func() {
-	tests.BeforeTestSuitSetup()
-})
+var _ = SynchronizedBeforeSuite(tests.SynchronizedBeforeTestSetup, tests.BeforeTestSuitSetup)
 
-var _ = AfterSuite(func() {
-	tests.AfterTestSuitCleanup()
-})
+var _ = SynchronizedAfterSuite(tests.AfterTestSuitCleanup, tests.SynchronizedAfterTestSuiteCleanup)
 
 func getMaxFailsFromEnv() int {
 	maxFailsEnv := os.Getenv("REPORTER_MAX_FAILS")

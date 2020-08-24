@@ -47,6 +47,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/onsi/ginkgo/config"
 	netutils "k8s.io/utils/net"
 
 	expect "github.com/google/goexpect"
@@ -144,14 +145,14 @@ const SubresourceTestLabel = "subresource-access-test-pod"
 const namespaceKubevirt = "kubevirt"
 const kubevirtConfig = "kubevirt-config"
 
-const (
-	// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
-	NamespaceTestDefault = "kubevirt-test-default"
-	// NamespaceTestAlternative is used to test controller-namespace independency.
-	NamespaceTestAlternative = "kubevirt-test-alternative"
-	// NamespaceTestOperator is used to test if namespaces can still be deleted when kubevirt is uninstalled
-	NamespaceTestOperator = "kubevirt-test-operator"
-)
+// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
+var NamespaceTestDefault = "kubevirt-test-default"
+
+// NamespaceTestAlternative is used to test controller-namespace independency.
+var NamespaceTestAlternative = "kubevirt-test-alternative"
+
+// NamespaceTestOperator is used to test if namespaces can still be deleted when kubevirt is uninstalled
+var NamespaceTestOperator = "kubevirt-test-operator"
 
 const (
 	NFSTargetName   = "test-nfs-target"
@@ -526,37 +527,38 @@ func GenerateRESTReport() error {
 	return nil
 }
 
-func AfterTestSuitCleanup() {
-
+func SynchronizedAfterTestSuiteCleanup() {
 	RestoreKubeVirtResource()
 
-	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
-	createNamespaces()
-	cleanNamespaces()
 	cleanupServiceAccounts()
-
-	DeletePVC(osWindows)
-	DeletePVC(osRhel)
-
-	DeletePVC(osAlpineHostPath)
 	DeletePV(osAlpineHostPath)
 
 	if Config.ManageStorageClasses {
 		deleteStorageClass(Config.StorageClassHostPath)
 		deleteStorageClass(Config.StorageClassBlockVolume)
 	}
-
-	if flags.DeployTestingInfrastructureFlag {
-		WipeTestingInfrastructure()
-	}
-	removeNamespaces()
-
 	CleanNodes()
 
 	// Generate REST API coverage report
 	if err := GenerateRESTReport(); err != nil {
 		log.Log.Errorf("Could not generate REST coverage report %v", err)
 	}
+}
+
+func AfterTestSuitCleanup() {
+
+	DeletePVC(osWindows)
+	DeletePVC(osRhel)
+
+	DeletePVC(osAlpineHostPath)
+	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
+	createNamespaces()
+	cleanNamespaces()
+
+	if flags.DeployTestingInfrastructureFlag {
+		WipeTestingInfrastructure()
+	}
+	removeNamespaces()
 }
 
 func BeforeTestCleanup() {
@@ -695,12 +697,18 @@ func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func BeforeTestSuitSetup() {
-	flags.NormalizeFlags()
+// CalculateNamespaces checks on which ginkgo gest node the tests are run and sets the namespaces accordingly
+func CalculateNamespaces() {
+	worker := config.GinkgoConfig.ParallelNode
+	NamespaceTestDefault = fmt.Sprintf("%s%d", NamespaceTestDefault, worker)
+	NamespaceTestAlternative = fmt.Sprintf("%s%d", NamespaceTestAlternative, worker)
+	// TODO, that is not needed, just a shortcut to not have to treat this namespace
+	// differently when running in parallel
+	NamespaceTestOperator = fmt.Sprintf("%s%d", NamespaceTestOperator, worker)
+	testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative, NamespaceTestOperator}
+}
 
-	log.InitializeLogging("tests")
-	log.Log.SetIOWriter(GinkgoWriter)
-
+func SynchronizedBeforeTestSetup() []byte {
 	var err error
 	Config, err = loadConfig()
 	Expect(err).ToNot(HaveOccurred())
@@ -716,6 +724,11 @@ func BeforeTestSuitSetup() {
 		DeployTestingInfrastructure()
 	}
 
+	if Config.ManageStorageClasses {
+		createStorageClass(Config.StorageClassHostPath)
+		createStorageClass(Config.StorageClassBlockVolume)
+	}
+
 	// Wait for schedulable nodes
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -727,26 +740,9 @@ func BeforeTestSuitSetup() {
 		return len(nodes.Items)
 	}, 5*time.Minute, 10*time.Second).ShouldNot(BeZero(), "no schedulable nodes found")
 
-	if Config.ManageStorageClasses {
-		createStorageClass(Config.StorageClassHostPath)
-		createStorageClass(Config.StorageClassBlockVolume)
-	}
-
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
-	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
-
-	CreatePVC(osWindows, defaultWindowsDiskSize, Config.StorageClassWindows)
-	CreatePVC(osRhel, defaultRhelDiskSize, Config.StorageClassRhel)
-
-	if IsRunningOnKindInfraIPv6() {
-		createPodPreset("fix-node-uuid", "fake-product-uuid", "virt-launcher", "/kind/product_uuid", "/sys/class/dmi/id/product_uuid")
-	}
 
 	EnsureKVMPresent()
-
-	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
-	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
-
 	AdjustKubeVirtResource()
 
 	// TODO, if a previous run was really killed, we could not restore the map and we may pick up a config here which is bad
@@ -755,6 +751,29 @@ func BeforeTestSuitSetup() {
 		PanicOnError(err)
 	}
 	KubeVirtDefaultConfig = cfgMap.Data
+	return nil
+}
+
+func BeforeTestSuitSetup(_ []byte) {
+	log.InitializeLogging("tests")
+	log.Log.SetIOWriter(GinkgoWriter)
+	var err error
+	Config, err = loadConfig()
+	Expect(err).ToNot(HaveOccurred())
+
+	createNamespaces()
+	createServiceAccounts()
+
+	if IsRunningOnKindInfraIPv6() {
+		createPodPreset("fix-node-uuid", "fake-product-uuid", "virt-launcher", "/kind/product_uuid", "/sys/class/dmi/id/product_uuid")
+	}
+
+	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
+	CreatePVC(osWindows, defaultWindowsDiskSize, Config.StorageClassWindows)
+	CreatePVC(osRhel, defaultRhelDiskSize, Config.StorageClassRhel)
+
+	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
+	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 }
 
 var originalKV *v1.KubeVirt
@@ -4111,6 +4130,9 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 // UpdateClusterConfigValueAndWait updates the given configuration in the kubevirt config map and then waits
 // to allow the configuration events to be propagated to the consumers.
 func UpdateClusterConfigValueAndWait(key string, value string) string {
+	if config.GinkgoConfig.ParallelTotal > 1 {
+		Fail("Tests which alter the global kubevirt configuration must not be executed in parallel")
+	}
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	cfgMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})
@@ -4131,6 +4153,12 @@ func UpdateClusterConfigValueAndWait(key string, value string) string {
 // be propagated to all components before it returns. It will only update the config map and wait for it to be
 // propagated if the current config in use does not match the original one.
 func resetToDefaultConfig() {
+	if config.GinkgoConfig.ParallelTotal > 1 {
+		// Tests which alter the global kubevirt config must be run serial, therefor, if we don't run in parallel
+		// we can just skip the restore step.
+		return
+	}
+
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	cfgMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(virtconfig.ConfigMapName, metav1.GetOptions{})

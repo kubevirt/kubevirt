@@ -38,6 +38,7 @@ go_library(
         "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/mfranczy/crd-rest-coverage/pkg/report:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/config:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/golang.org/x/crypto/ssh:go_default_library",
@@ -110,7 +111,6 @@ container_image(
 
 go_test(
     name = "go_default_test",
-    visibility = ["//visibility:public"],
     srcs = [
         "access_test.go",
         "config_test.go",
@@ -159,6 +159,7 @@ go_test(
         "windows_test.go",
     ],
     embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
     deps = [
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
@@ -203,7 +204,9 @@ go_test(
         "//vendor/github.com/gorilla/websocket:go_default_library",
         "//vendor/github.com/mitchellh/go-vnc:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/config:go_default_library",
         "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/reporters:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/onsi/gomega/gstruct:go_default_library",
         "//vendor/github.com/onsi/gomega/types:go_default_library",
