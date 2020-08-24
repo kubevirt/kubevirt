@@ -1191,6 +1191,7 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 						continue
 					}
 
+					// kill the handler right as we detect the qemu target process come online
 					pod := tests.RenderPod(fmt.Sprintf("migration-killer-%s", entry.Name), []string{"/bin/bash", "-c"}, []string{"while true; do ps aux | grep \"[q]emu-kvm\" && pkill -9 virt-handler && exit 0; done"})
 					pod.Spec.NodeName = entry.Name
 					createdPod, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
@@ -1219,9 +1220,22 @@ var _ = Describe("[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system
 					}, 10*time.Second, 1*time.Second).Should(Succeed(), "Should delete helper pod")
 				}
 
-				By("Starting new migration")
+				By("Waiting for virt-handler to come back online")
+				Eventually(func() error {
+					handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					if handler.Status.CurrentNumberScheduled == handler.Status.NumberAvailable {
+						return nil
+					}
+					return fmt.Errorf("waiting for virt-handler pod to come back online")
+				}, 120*time.Second, 1*time.Second).Should(Succeed(), "Virt handler should come online")
+
+				By("Starting new migration and waiting for it to succeed")
 				migration = tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migrationUID = runMigrationAndExpectCompletion(migration, migrationWaitTime)
+				migrationUID = runMigrationAndExpectCompletion(migration, 340)
 
 				By("Verifying Second Migration Succeeeds")
 				confirmVMIPostMigration(vmi, migrationUID)
