@@ -110,6 +110,7 @@ container_image(
 
 go_test(
     name = "go_default_test",
+    visibility = ["//visibility:public"],
     srcs = [
         "access_test.go",
         "config_test.go",

@@ -22,4 +22,10 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-build_func_tests
+mkdir -p "${TESTS_OUT_DIR}/tests"
+bazel run \
+    --stamp \
+    :build-ginkgo -- ${TESTS_OUT_DIR}/ginkgo
+bazel run \
+    --stamp \
+    :build-functests -- ${TESTS_OUT_DIR}/tests.test
