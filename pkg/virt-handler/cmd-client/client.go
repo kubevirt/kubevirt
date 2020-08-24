@@ -252,6 +252,8 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 		}
 	}
 
+	socketsFound := 0
+	foundSocket := ""
 	// It is possible for multiple pods to be active on a single VMI
 	// during migrations. This loop will discover the active pod on
 	// this particular local node if it exists. A active pod not
@@ -261,8 +263,15 @@ func FindSocketOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
 		socket := SocketFilePathOnHost(string(podUID))
 		exists, _ := diskutils.FileExists(socket)
 		if exists {
-			return socket, nil
+			foundSocket = socket
+			socketsFound++
 		}
+	}
+
+	if socketsFound == 1 {
+		return foundSocket, nil
+	} else if socketsFound > 1 {
+		return "", fmt.Errorf("Found multiple sockets for vmi %s/%s. waiting for only one to exist", vmi.Namespace, vmi.Name)
 	}
 
 	return "", fmt.Errorf("No command socket found for vmi %s", vmi.UID)
