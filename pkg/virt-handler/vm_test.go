@@ -1685,9 +1685,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(podCacheInterface.Iface.Name))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(podCacheInterface.PodIP))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs[0]).To(Equal(podCacheInterface.PodIPs[0]))
-				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs[1]).To(Equal(podCacheInterface.PodIPs[1]))
-				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs)).To(Equal(len(podCacheInterface.PodIPs)))
+				Expect(reflect.DeepEqual(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs, podCacheInterface.PodIPs)).To(BeTrue())
 			}).Return(vmi, nil)
 
 			controller.Execute()
@@ -1727,7 +1725,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Iface: &v1.Interface{
 					Name: interfaceName,
 				},
-				PodIP:  "2.2.2.2",
+				PodIP:  podIPs[0],
 				PodIPs: podIPs,
 			}
 			podJson, err := json.Marshal(podCacheInterface)
@@ -1775,7 +1773,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			controller.Execute()
 		},
-			table.Entry("Ipv4 only", []string{"2.2.2.2"}),
+			table.Entry("IPv4 only", []string{"2.2.2.2"}),
 			table.Entry("Dual stack", []string{"2.2.2.2", "fd10:244::8c4c"}),
 		)
 	})

@@ -85,34 +85,11 @@ func writeVifFile(buf []byte, pid, name string) error {
 }
 
 func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid string) error {
-	link, err := Handler.LinkByName(podInterfaceName)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterfaceName)
-		return err
-	}
-	// get IP address
-	addrList, err := Handler.AddrList(link, netlink.FAMILY_ALL)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a address for interface: %s", podInterfaceName)
-		return err
-	}
-	// no ip assigned. ipam disabled
-	if len(addrList) == 0 {
-		return nil
-	}
-
 	cache := PodCacheInterface{Iface: iface}
 
-	ipv4 := ""
-	ipv6 := ""
-	for _, addr := range addrList {
-		if addr.IP.IsGlobalUnicast() {
-			if netutils.IsIPv6(addr.IP) {
-				ipv6 = addr.IP.String()
-			} else {
-				ipv4 = addr.IP.String()
-			}
-		}
+	ipv4, ipv6, err := readIPAddressesFromLink(podInterfaceName)
+	if err != nil || (ipv4 == "" && ipv6 == "") {
+		return err
 	}
 
 	if ipv4 != "" && ipv6 != "" {
@@ -129,20 +106,51 @@ func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid stri
 		}
 	} else if ipv4 != "" {
 		cache.PodIPs = []string{ipv4}
-	} else if ipv6 != "" {
+	} else {
 		cache.PodIPs = []string{ipv6}
 	}
 
-	if len(cache.PodIPs) != 0 {
-		cache.PodIP = cache.PodIPs[0]
-		err = writeToCachedFile(cache, util.VMIInterfacepath, uid, iface.Name)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
-			return err
-		}
+	cache.PodIP = cache.PodIPs[0]
+	err = writeToCachedFile(cache, util.VMIInterfacepath, uid, iface.Name)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
+		return err
 	}
 
 	return nil
+}
+
+func readIPAddressesFromLink(podInterfaceName string) (string, string, error) {
+	link, err := Handler.LinkByName(podInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterfaceName)
+		return "", "", err
+	}
+
+	// get IP address
+	addrList, err := Handler.AddrList(link, netlink.FAMILY_ALL)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a address for interface: %s", podInterfaceName)
+		return "", "", err
+	}
+
+	// no ip assigned. ipam disabled
+	if len(addrList) == 0 {
+		return "", "", nil
+	}
+
+	var ipv4, ipv6 string
+	for _, addr := range addrList {
+		if addr.IP.IsGlobalUnicast() {
+			if netutils.IsIPv6(addr.IP) && ipv6 == "" {
+				ipv6 = addr.IP.String()
+			} else if !netutils.IsIPv6(addr.IP) && ipv4 == "" {
+				ipv4 = addr.IP.String()
+			}
+		}
+	}
+
+	return ipv4, ipv6, nil
 }
 
 func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
