@@ -249,36 +249,41 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		)
 
 		table.DescribeTable("should be reachable via the propagated IP from a Pod", func(op v12.NodeSelectorOperator, hostNetwork bool) {
-
-			ip := inboundVMI.Status.Interfaces[0].IP
-
-			//TODO if node count 1, skip the nv12.NodeSelectorOpOut
 			nodes, err := virtClient.CoreV1().Nodes().List(v13.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nodes.Items).ToNot(BeEmpty())
 			if len(nodes.Items) == 1 && op == v12.NodeSelectorOpNotIn {
 				Skip("Skip network test that requires multiple nodes when only one node is present.")
 			}
+			Expect(inboundVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
-			job := tests.NewHelloWorldJob(ip, strconv.Itoa(testPort))
-			job.Spec.Template.Spec.Affinity = &v12.Affinity{
-				NodeAffinity: &v12.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &v12.NodeSelector{
-						NodeSelectorTerms: []v12.NodeSelectorTerm{
-							{
-								MatchExpressions: []v12.NodeSelectorRequirement{
-									{Key: "kubernetes.io/hostname", Operator: op, Values: []string{inboundVMI.Status.NodeName}},
+			for _, ip := range inboundVMI.Status.Interfaces[0].IPs {
+				if netutils.IsIPv6String(ip) {
+					By("Testing IPv6")
+				} else {
+					By("Testing IPv4")
+				}
+
+				job := tests.NewHelloWorldJob(ip, strconv.Itoa(testPort))
+				job.Spec.Template.Spec.Affinity = &v12.Affinity{
+					NodeAffinity: &v12.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &v12.NodeSelector{
+							NodeSelectorTerms: []v12.NodeSelectorTerm{
+								{
+									MatchExpressions: []v12.NodeSelectorRequirement{
+										{Key: "kubernetes.io/hostname", Operator: op, Values: []string{inboundVMI.Status.NodeName}},
+									},
 								},
 							},
 						},
 					},
-				},
-			}
-			job.Spec.Template.Spec.HostNetwork = hostNetwork
+				}
+				job.Spec.Template.Spec.HostNetwork = hostNetwork
 
-			job, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(job)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForJobToSucceed(&virtClient, job, 90)
+				job, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(job)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForJobToSucceed(&virtClient, job, 90)
+			}
 		},
 			table.Entry("[test_id:1543]on the same node from Pod", v12.NodeSelectorOpIn, false),
 			table.Entry("[test_id:1544]on a different node from Pod", v12.NodeSelectorOpNotIn, false),
