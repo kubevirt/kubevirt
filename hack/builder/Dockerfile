@@ -13,7 +13,7 @@ RUN dnf install -y dnf-plugins-core && \
     dnf copr enable -y @virtmaint-sig/for-kubevirt && \
     dnf -y install \
         libvirt-devel-${LIBVIRT_VERSION} \
-        bazel \
+        bazel-${BAZEL_VERSION} \
         cpio \
         patch \
         make \
