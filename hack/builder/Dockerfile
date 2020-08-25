@@ -32,8 +32,19 @@ RUN dnf install -y dnf-plugins-core && \
         protobuf-compiler \
         python3-devel \
         redhat-rpm-config \
-        jq && \
+        jq \
+        wget && \
     dnf -y clean all
+
+# install gradle (required for swagger)
+RUN wget https://services.gradle.org/distributions/gradle-6.6-bin.zip && \
+    mkdir /opt/gradle && \
+    unzip -d /opt/gradle gradle-6.6-bin.zip && \
+    echo 'export JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:/bin/java::")' >> $HOME/.bashrc && \
+    echo 'export PATH=$PATH:/opt/gradle/gradle-6.6/bin' >> $HOME/.bashrc
+
+ENV PATH=$PATH:/opt/gradle/gradle-6.6/bin \
+    JAVA_HOME=/usr/lib/jvm/java-11-openjdk-11.0.8.10-2.fc31.x86_64
 
 ENV GIMME_GO_VERSION=1.12.8
 
