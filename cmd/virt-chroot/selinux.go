@@ -31,3 +31,30 @@ func NewGetEnforceCommand() *cobra.Command {
 	}
 	return cmd
 }
+
+func RelabelCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:       "relabel",
+		Short:     "relabel a file with the given selinux label, if the path is not labeled like this already",
+		Example:   "virt-chroot selinux relabel <new-label> <file-path>",
+		ValidArgs: nil,
+		Args:      cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			label := args[0]
+			filePath := args[1]
+
+			currentFileLabel, err := selinux.FileLabel(filePath)
+			if err != nil {
+				return fmt.Errorf("could not retrieve label of file %s. Reason: %v", filePath, err)
+			}
+
+			if currentFileLabel != label {
+				if err := selinux.Chcon(filePath, label, false); err != nil {
+					return fmt.Errorf("error relabeling file %s with label %s. Reason: %v", filePath, label, err)
+				}
+			}
+
+			return nil
+		},
+	}
+}
