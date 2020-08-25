@@ -42,6 +42,8 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 
 	fedoraOptions := append(
 		defaultOptions(),
+		WithInterface(InterfaceDeviceWithMasqueradeBinding()),
+		WithNetwork(kvirtv1.DefaultPodNetwork()),
 		WithResourceMemory("512M"),
 		WithRng(),
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedora)),
@@ -66,8 +68,6 @@ func NewCirros(opts ...Option) *kvirtv1.VirtualMachineInstance {
 // defaultOptions returns a list of "default" options.
 func defaultOptions() []Option {
 	return []Option{
-		WithInterface(InterfaceDeviceWithMasqueradeBinding()),
-		WithNetwork(kvirtv1.DefaultPodNetwork()),
 		WithTerminationGracePeriod(DefaultTestGracePeriod),
 		WithResourceMemory(DefaultResourceMemory),
 	}

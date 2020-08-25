@@ -30,7 +30,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests"
-	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
@@ -144,24 +143,21 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 })
 
 func vmiWithImplicitBinding() *v1.VirtualMachineInstance {
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-	vmi.Spec.Domain.Devices.Interfaces = nil
-	vmi.Spec.Networks = nil
-	return vmi
+	return libvmi.NewCirros()
 }
 
 func vmiWithBridgeBinding() *v1.VirtualMachineInstance {
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	return vmi
+	return libvmi.NewCirros(
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding()),
+	)
 }
 
 func vmiWithMasqueradeBinding() *v1.VirtualMachineInstance {
-	vmi := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskCirros))
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	return vmi
+	return libvmi.NewCirros(
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+	)
 }
 
 func getPodNetworkMTU(vmi *v1.VirtualMachineInstance) int {
