@@ -156,25 +156,12 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		table.DescribeTable("should be able to reach", func(destination string) {
-			var cmdCheck, addrShow, addr string
+			var addrShow string
+			var vmi *v1.VirtualMachineInstance
 
 			if destination == "InboundVMIWithCustomMacAddress" {
 				tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
 			}
-
-			switch destination {
-			case "Internet":
-				addr = "kubevirt.io"
-			case "InboundVMI":
-				addr = inboundVMI.Status.Interfaces[0].IP
-			case "InboundVMIWithPodNetworkSet":
-				addr = inboundVMIWithPodNetworkSet.Status.Interfaces[0].IP
-			case "InboundVMIWithCustomMacAddress":
-				addr = inboundVMIWithCustomMacAddress.Status.Interfaces[0].IP
-			}
-
-			payloadSize := 0
-			ipHeaderSize := 28 // IPv4 specific
 
 			By("checking k6t-eth0 MTU inside the pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(outboundVMI, tests.NamespaceTestDefault)
@@ -193,7 +180,6 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			Expect(mtu > 1000).To(BeTrue())
 
-			payloadSize = mtu - ipHeaderSize
 			expectedMtuString := fmt.Sprintf("mtu %d", mtu)
 
 			By("checking eth0 MTU inside the VirtualMachineInstance")
@@ -213,23 +199,24 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			log.Log.Infof("%v", resp)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance")
-			// NOTE: VirtualMachineInstance is not directly accessible from inside the pod because
-			// we transferred its IP address under DHCP server control, so the
-			// only thing we can validate is connectivity between VMIs
-			//
-			// NOTE: cirros ping doesn't support -M do that could be used to
-			// validate end-to-end connectivity with Don't Fragment flag set
-			cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
-			err = tests.CheckForTextExpecter(outboundVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: cmdCheck},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: tests.RetValue("0")},
-			}, 180)
-			Expect(err).ToNot(HaveOccurred())
+			if destination == "Internet" {
+				ipv4HeaderSize := 28
+				checkPing(outboundVMI, "kubevirt.io", mtu-ipv4HeaderSize)
+			} else {
+				switch destination {
+				case "InboundVMI":
+					vmi = inboundVMI
+				case "InboundVMIWithPodNetworkSet":
+					vmi = inboundVMIWithPodNetworkSet
+				case "InboundVMIWithCustomMacAddress":
+					vmi = inboundVMIWithCustomMacAddress
+				}
+
+				Expect(vmi.Status.Interfaces[0].IPs).NotTo(BeEmpty())
+				for _, ip := range vmi.Status.Interfaces[0].IPs {
+					checkPing(outboundVMI, ip, mtu)
+				}
+			}
 
 			By("checking the VirtualMachineInstance can fetch via HTTP")
 			err = tests.CheckForTextExpecter(outboundVMI, []expect.Batcher{
@@ -891,4 +878,37 @@ func gatewayIPFromCIDR(cidr string) string {
 	oct := len(ip) - 1
 	ip[oct]++
 	return ip.String()
+}
+
+func checkPing(outboundVMI *v1.VirtualMachineInstance, addr string, mtu int) {
+	// NOTE: VirtualMachineInstance is not directly accessible from inside the pod because
+	// we transferred its IP address under DHCP server control, so the
+	// only thing we can validate is connectivity between VMIs
+	//
+	// NOTE: cirros ping doesn't support -M do that could be used to
+	// validate end-to-end connectivity with Don't Fragment flag set
+	var cmdCheck string
+	var payloadSize int
+
+	ip4HeaderSize := 28
+	ip6HeaderSize := 40
+
+	if netutils.IsIPv6String(addr) {
+		payloadSize = mtu - ip6HeaderSize
+		cmdCheck = fmt.Sprintf("ping -6 %s -c 1 -w 5 -s %d\n", addr, payloadSize)
+	} else {
+		payloadSize = mtu - ip4HeaderSize
+		cmdCheck = fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
+	}
+
+	By("checking the VirtualMachineInstance can send MTU sized frames to another VirtualMachineInstance")
+	err := tests.CheckForTextExpecter(outboundVMI, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: cmdCheck},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: tests.RetValue("0")},
+	}, 180)
+	Expect(err).ToNot(HaveOccurred())
 }
