@@ -262,7 +262,7 @@ kubectl version
 
 mkdir -p "$ARTIFACTS_PATH"
 
-ginko_params="--ginkgo.noColor --junit-output=$ARTIFACTS_PATH/junit.functest.xml --ginkgo.seed=42"
+ginko_params="--ginkgo.noColor -ginkgo.v --junit-output=$ARTIFACTS_PATH/junit.functest.xml --ginkgo.seed=42"
 
 # Prepare PV for Windows testing
 if [[ $TARGET =~ windows.* ]]; then
