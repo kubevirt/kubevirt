@@ -52,7 +52,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = Describe("[Serial][rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachine", func() {
+var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachine", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -153,7 +153,7 @@ var _ = Describe("[Serial][rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][l
 			_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).Should(HaveOccurred())
 		})
-		It("[test_id:4644]should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
+		It("[Serial][test_id:4644]should fail to start when a volume is backed by PVC created by DataVolume instead of the DataVolume itself", func() {
 			dv := tests.NewRandomDataVolumeWithHttpImport(tests.GetUrl(tests.AlpineHttpUrl), tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
 			_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dv.Namespace).Create(dv)
 			Expect(err).To(BeNil())
@@ -202,7 +202,7 @@ var _ = Describe("[Serial][rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][l
 		})
 	})
 
-	Context("A mutated VirtualMachine given", func() {
+	Context("[Serial]A mutated VirtualMachine given", func() {
 
 		var testingMachineType string = "pc-q35-2.7"
 
@@ -472,8 +472,8 @@ var _ = Describe("[Serial][rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][l
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
+			table.Entry("[Serial]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
 		)
 
 		table.DescribeTable("[test_id:1521]should remove VirtualMachineInstance once the VM is marked for deletion", func(createTemplate vmiBuilder) {
@@ -490,8 +490,8 @@ var _ = Describe("[Serial][rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][l
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
+			table.Entry("[Serial]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
@@ -618,8 +618,8 @@ var _ = Describe("[Serial][rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][l
 			vm = stopVM(vm)
 		},
 			table.Entry("with ContainerDisk", newVirtualMachineInstanceWithContainerDisk),
-			table.Entry("with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
-			table.Entry("with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
+			table.Entry("[Serial]with OCS Filesystem Disk", newVirtualMachineInstanceWithOCSFileDisk),
+			table.Entry("[Serial]with OCS Block Disk", newVirtualMachineInstanceWithOCSBlockDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {
@@ -812,7 +812,7 @@ var _ = Describe("[Serial][rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][l
 				Expect(err.Error()).To(Equal(fmt.Sprintf(`Error stopping VirtualMachine Operation cannot be fulfilled on virtualmachine.kubevirt.io "%s": VM is not running`, newVM.Name)))
 			})
 
-			It("[test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", func() {
+			It("[Serial][test_id:3007]Should force restart a VM with terminationGracePeriodSeconds>0", func() {
 
 				By("getting a VM with high TerminationGracePeriod")
 				newVMI := tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskFedora))
