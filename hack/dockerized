@@ -22,7 +22,7 @@ if [ -z ${KUBEVIRT_CRI} ]; then
     fi
 fi
 
-KUBEVIRT_BUILDER_IMAGE="kubevirt/builder@sha256:d633dcf4aceabc67293ddcd827d5e24099a61b408d3775dd82289c38857e34bf"
+KUBEVIRT_BUILDER_IMAGE="kubevirt/builder@sha256:f04bca29395f32b2bf7150fd30c909c4ac9ba4ef32b0e84af1c515588ea7e692"
 
 SYNC_OUT=${SYNC_OUT:-true}
 
