@@ -65,7 +65,7 @@ go-test: go-build
 test: bazel-test
 
 build-functests:
-	hack/dockerized "hack/build-func-tests.sh"
+	hack/dockerized "hack/bazel-fmt.sh && hack/build-func-tests.sh"
 
 functest: build-functests
 	hack/functests.sh
