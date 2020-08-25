@@ -261,8 +261,12 @@ done
 kubectl version
 
 mkdir -p "$ARTIFACTS_PATH"
+export KUBEVIRT_E2E_PARALLEL=true
+if [[ $TARGET =~ .*kind.* ]]; then
+  export KUBEVIRT_E2E_PARALLEL=false
+fi
 
-ginko_params="--ginkgo.noColor --junit-output=$ARTIFACTS_PATH/junit.functest.xml --ginkgo.seed=42"
+ginko_params="--noColor --seed=42"
 
 # Prepare PV for Windows testing
 if [[ $TARGET =~ windows.* ]]; then
@@ -285,19 +289,19 @@ spec:
   storageClassName: windows
 EOF
   # Run only Windows tests
-  ginko_params="$ginko_params --ginkgo.focus=Windows"
+  ginko_params="$ginko_params --focus=Windows"
 elif [[ $TARGET =~ (cnao|multus) ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=Multus|Networking|VMIlifecycle|Expose"
+  ginko_params="$ginko_params --focus=Multus|Networking|VMIlifecycle|Expose"
 elif [[ $TARGET =~ sriov.* ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=SRIOV"
+  ginko_params="$ginko_params --focus=SRIOV"
 elif [[ $TARGET =~ gpu.* ]]; then
-  ginko_params="$ginko_params --ginkgo.focus=GPU"
+  ginko_params="$ginko_params --focus=GPU"
 elif [[ $TARGET =~ (okd|ocp).* ]]; then
-  ginko_params="$ginko_params --ginkgo.skip=SRIOV|GPU"
+  ginko_params="$ginko_params --skip=SRIOV|GPU"
 elif [[ $TARGET =~ ipv6.* ]]; then
-  ginko_params="$ginko_params --ginkgo.skip=Multus|SRIOV|GPU|.*slirp.*|.*bridge.*"
+  ginko_params="$ginko_params --skip=Multus|SRIOV|GPU|.*slirp.*|.*bridge.*"
 else
-  ginko_params="$ginko_params --ginkgo.skip=Multus|SRIOV|GPU"
+  ginko_params="$ginko_params --skip=Multus|SRIOV|GPU"
 fi
 
 # Prepare RHEL PV for Template testing
