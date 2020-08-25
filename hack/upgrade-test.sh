@@ -210,7 +210,7 @@ ${CMD} wait -n ${HCO_NAMESPACE} ${HCO_KIND} ${HCO_RESOURCE_NAME} --for condition
 ${CMD} wait deployment ${HCO_DEPLOYMENT_NAME} --for condition=Available -n ${HCO_NAMESPACE} --timeout="30m"
 
 Msg "check that cluster is operational before upgrade"
-timeout 10m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh' 
+timeout 10m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
 
 ${CMD} get subscription -n ${HCO_NAMESPACE} -o yaml
 ${CMD} get pods -n ${HCO_NAMESPACE}
@@ -253,7 +253,7 @@ Msg "verify that the hyperconverged-cluster Pod is using the new image"
 ./hack/retry.sh 10 30 "CMD=${CMD} HCO_NAMESPACE=${HCO_NAMESPACE} ./hack/check_pod_upgrade.sh"
 
 Msg "wait that cluster is operational after upgrade"
-timeout 15m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
+timeout 20m bash -c 'export CMD="${CMD}";exec ./hack/check-state.sh'
 
 Msg "verify new operator version reported after the upgrade"
 ./hack/retry.sh 10 30 "CMD=${CMD} HCO_RESOURCE_NAME=${HCO_RESOURCE_NAME} HCO_NAMESPACE=${HCO_NAMESPACE} TARGET_VERSION=${TARGET_VERSION} hack/check_hco_version.sh"

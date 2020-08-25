@@ -12,7 +12,7 @@ rm -rf _out/
 cp -r deploy _out/
 
 # Sed from quay.io to local registry
-sed -i "s|image: quay.io/kubevirt/hyperconverged-cluster-operator:.*$|image: registry:5000/kubevirt/hyperconverged-cluster-operator:latest|g" _out/operator.yaml
+sed -r -i "s|image: quay.io/kubevirt/hyperconverged-cluster-operator(@sha256)?:.*$|image: registry:5000/kubevirt/hyperconverged-cluster-operator:latest|g" _out/operator.yaml
 
 CMD="./cluster/kubectl.sh" ./hack/clean.sh
 

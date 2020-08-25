@@ -83,16 +83,6 @@ RunCmd "${CMD} get operatorgroups -n kubevirt-hyperconverged -o yaml"
 
 cat <<EOF
 
-============
-InstallPlans
-============
-EOF
-
-RunCmd "${CMD} get installplans -n kubevirt-hyperconverged -o yaml"
-
-
-cat <<EOF
-
 ========================
 HCO operator related CRD
 ========================
