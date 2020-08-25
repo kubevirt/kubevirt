@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/monitoring/snapshots/prometheus"
 )
 
 const (
@@ -78,6 +79,8 @@ type SnapshotController struct {
 	recorder record.EventRecorder
 
 	resyncPeriod time.Duration
+
+	snapshotMetrics *prometheus.SnapshotMetrics
 }
 
 // NewSnapshotController creates a new SnapshotController
@@ -91,6 +94,7 @@ func NewSnapshotController(
 	crdInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	resyncPeriod time.Duration,
+	snapshotMetrics *prometheus.SnapshotMetrics,
 ) *SnapshotController {
 
 	ctrl := &SnapshotController{
@@ -106,6 +110,7 @@ func NewSnapshotController(
 		crdInformer:               crdInformer,
 		recorder:                  recorder,
 		resyncPeriod:              resyncPeriod,
+		snapshotMetrics:           snapshotMetrics,
 	}
 
 	ctrl.dynamicInformerMap = map[string]*dynamicInformer{

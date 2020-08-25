@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -625,6 +626,9 @@ func (ctrl *SnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Virt
 		updateSnapshotCondition(vmSnapshotCpy, newSnapshotReadyCondition(corev1.ConditionUnknown, "Unknown state"))
 	}
 
+	// try to observe snapshot duration after update
+	ctrl.tryToObserveSnapshotDuration(vmSnapshotCpy)
+
 	if !reflect.DeepEqual(vmSnapshot, vmSnapshotCpy) {
 		if _, err := ctrl.client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).Update(vmSnapshotCpy); err != nil {
 			return err
@@ -784,5 +788,24 @@ func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1
 
 	if !found {
 		ss.Status.Conditions = append(ss.Status.Conditions, c)
+	}
+}
+
+// tryToObserveSnapshotDuration will validate if the snapshot was completed and has the necessary fields to add a new sample to the histogram.
+// Will also add the new sample to the histogram if the validation was successful
+func (ctrl *SnapshotController) tryToObserveSnapshotDuration(ss *snapshotv1.VirtualMachineSnapshot) {
+	if !vmSnapshotProgressing(ss) {
+		if vmSnapshotError(ss) != nil {
+			timeSpent := ss.Status.Error.Time.Sub(ss.Status.CreationTime.Time)
+			ctrl.snapshotMetrics.ObserveSnapshotDuration(float64(timeSpent/time.Second), "failed")
+		} else if vmSnapshotReady(ss) {
+			for _, condition := range ss.Status.Conditions {
+				if condition.Type == snapshotv1.VirtualMachineSnapshotConditionReady {
+					timeSpent := condition.LastTransitionTime.Time.Sub(ss.Status.CreationTime.Time)
+					ctrl.snapshotMetrics.ObserveSnapshotDuration(float64(timeSpent/time.Second), "succeeded")
+					continue
+				}
+			}
+		}
 	}
 }
