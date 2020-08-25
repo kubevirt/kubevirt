@@ -332,7 +332,7 @@ func (app *virtHandlerApp) Run() {
 
 		// relabel tun device
 		unprivilegedContainerSELinuxLabel := "system_u:object_r:container_file_t:s0"
-		err = relabelFiles(unprivilegedContainerSELinuxLabel, "/dev/net/tun")
+		err = relabelFiles(unprivilegedContainerSELinuxLabel, "/dev/net/tun", "/dev/null")
 		if err != nil {
 			panic(fmt.Errorf("error relabeling required files: %v", err))
 		}
