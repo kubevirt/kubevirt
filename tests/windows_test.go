@@ -154,7 +154,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 		var winrmcliPod *k8sv1.Pod
 		var cli []string
 		var output string
-		var vmiIp string
+		const ipPlaceHolder int = 2
 
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
@@ -178,51 +178,59 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			windowsVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVMI)
 			Expect(err).To(BeNil())
 			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
+			Expect(windowsVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
 
 			windowsVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(windowsVMI.Name, &metav1.GetOptions{})
-			vmiIp = windowsVMI.Status.Interfaces[0].IP
 			cli = []string{
 				winrmCliCmd,
 				"-hostname",
-				vmiIp,
+				"IP_PLACE_HOLDER",
 				"-username",
 				windowsVMIUser,
 				"-password",
 				windowsVMIPassword,
 			}
+			Expect(cli[ipPlaceHolder]).To(Equal("IP_PLACE_HOLDER"))
 		})
 
 		It("[test_id:240]should have correct UUID", func() {
 			command := append(cli, "wmic csproduct get \"UUID\"")
-			By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
-			Eventually(func() error {
-				output, err = tests.ExecuteCommandOnPod(
-					virtClient,
-					winrmcliPod,
-					winrmcliPod.Spec.Containers[0].Name,
-					command,
-				)
-				return err
-			}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
-			By("Checking that the Windows VirtualMachineInstance has expected UUID")
-			Expect(output).Should(ContainSubstring(strings.ToUpper(windowsFirmware)))
+			for _, vmiIp := range windowsVMI.Status.Interfaces[0].IPs {
+				command[ipPlaceHolder] = vmiIp
+				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
+				Eventually(func() error {
+					output, err = tests.ExecuteCommandOnPod(
+						virtClient,
+						winrmcliPod,
+						winrmcliPod.Spec.Containers[0].Name,
+						command,
+					)
+					return err
+				}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
+
+				By("Checking that the Windows VirtualMachineInstance has expected UUID")
+				Expect(output).Should(ContainSubstring(strings.ToUpper(windowsFirmware)))
+			}
 		}, 360)
 
 		It("[test_id:3159]should have default masquerade IP", func() {
 			command := append(cli, "ipconfig /all")
-			By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
-			Eventually(func() error {
-				output, err = tests.ExecuteCommandOnPod(
-					virtClient,
-					winrmcliPod,
-					winrmcliPod.Spec.Containers[0].Name,
-					command,
-				)
-				return err
-			}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
+			for _, vmiIp := range windowsVMI.Status.Interfaces[0].IPs {
+				command[ipPlaceHolder] = vmiIp
+				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
+				Eventually(func() error {
+					output, err = tests.ExecuteCommandOnPod(
+						virtClient,
+						winrmcliPod,
+						winrmcliPod.Spec.Containers[0].Name,
+						command,
+					)
+					return err
+				}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
 
-			By("Checking that the Windows VirtualMachineInstance has expected IP address")
-			Expect(output).Should(ContainSubstring("10.0.2.2"))
+				By("Checking that the Windows VirtualMachineInstance has expected IP address")
+				Expect(output).Should(ContainSubstring("10.0.2.2"))
+			}
 		}, 360)
 		It("[test_id:3160]should have the domain set properly", func() {
 			command := append(cli, "wmic nicconfig get dnsdomain")
@@ -242,28 +250,31 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			}
 			Expect(searchDomain).To(HavePrefix(windowsVMI.Namespace), "should contain a searchdomain with the namespace of the VMI")
 
-			By("first making sure that we can execute VMI commands")
-			Eventually(func() error {
-				output, err = tests.ExecuteCommandOnPod(
-					virtClient,
-					winrmcliPod,
-					winrmcliPod.Spec.Containers[0].Name,
-					command,
-				)
-				return err
-			}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
+			for _, vmiIp := range windowsVMI.Status.Interfaces[0].IPs {
+				command[ipPlaceHolder] = vmiIp
+				By("first making sure that we can execute VMI commands")
+				Eventually(func() error {
+					output, err = tests.ExecuteCommandOnPod(
+						virtClient,
+						winrmcliPod,
+						winrmcliPod.Spec.Containers[0].Name,
+						command,
+					)
+					return err
+				}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
 
-			By("repeatedly trying to get the search domain, since it may take some time until the domain is set")
-			Eventually(func() string {
-				output, err = tests.ExecuteCommandOnPod(
-					virtClient,
-					winrmcliPod,
-					winrmcliPod.Spec.Containers[0].Name,
-					command,
-				)
-				Expect(err).ToNot(HaveOccurred())
-				return output
-			}, time.Minute*1, time.Second*10).Should(MatchRegexp(`DNSDomain[\n\r\t ]+` + searchDomain + `[\n\r\t ]+`))
+				By("repeatedly trying to get the search domain, since it may take some time until the domain is set")
+				Eventually(func() string {
+					output, err = tests.ExecuteCommandOnPod(
+						virtClient,
+						winrmcliPod,
+						winrmcliPod.Spec.Containers[0].Name,
+						command,
+					)
+					Expect(err).ToNot(HaveOccurred())
+					return output
+				}, time.Minute*1, time.Second*10).Should(MatchRegexp(`DNSDomain[\n\r\t ]+` + searchDomain + `[\n\r\t ]+`))
+			}
 		}, 360)
 	})
 
