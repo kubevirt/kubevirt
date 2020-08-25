@@ -8,6 +8,20 @@ if [ "${KUBEVIRT_RUN_UNNESTED}" == "true" ]; then
     exit $?
 fi
 
+# Select an available container runtime
+if [ -z ${KUBEVIRT_CRI} ]; then
+    if docker ps >/dev/null; then
+        KUBEVIRT_CRI=docker
+        echo "selecting docker as container runtime"
+    elif podman ps >/dev/null; then
+        KUBEVIRT_CRI=podman
+        echo "selecting podman as container runtime"
+    else
+        echo "no working container runtime found. Neither docker nor podman seems to work."
+        exit 1
+    fi
+fi
+
 KUBEVIRT_BUILDER_IMAGE="kubevirt/builder@sha256:e6a76ec71f2de87c3bc648bae87ab43a113540bf57da69f07f76bd0edfd500ab"
 
 SYNC_OUT=${SYNC_OUT:-true}
@@ -28,24 +42,24 @@ run:ppc64le --jobs=1
 EOF
 fi
 
-# Create the persistent docker volume
-if [ -z "$(docker volume list | grep ${BUILDER})" ]; then
-    docker volume create --name ${BUILDER}
+# Create the persistent container volume
+if [ -z "$($KUBEVIRT_CRI volume list | grep ${BUILDER})" ]; then
+    $KUBEVIRT_CRI volume create ${BUILDER}
 fi
 
 # Make sure that the output directory exists
-docker run -v "${BUILDER}:/root:rw,z" --security-opt label:disable --rm ${KUBEVIRT_BUILDER_IMAGE} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
+$KUBEVIRT_CRI run -v "${BUILDER}:/root:rw,z" --security-opt "label=disable" --rm ${KUBEVIRT_BUILDER_IMAGE} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
 
 # Start an rsyncd instance and make sure it gets stopped after the script exits
-RSYNC_CID=$(docker run -d -v "${BUILDER}:/root:rw,z" --security-opt label:disable --expose 873 -P ${KUBEVIRT_BUILDER_IMAGE} /usr/bin/rsync --no-detach --daemon --verbose)
+RSYNC_CID=$($KUBEVIRT_CRI run -d -v "${BUILDER}:/root:rw,z" --security-opt "label=disable" --expose 873 -P ${KUBEVIRT_BUILDER_IMAGE} /usr/bin/rsync --no-detach --daemon --verbose)
 
 function finish() {
-    docker stop ${RSYNC_CID} >/dev/null 2>&1 &
-    docker rm -f ${RSYNC_CID} >/dev/null 2>&1 &
+    $KUBEVIRT_CRI stop ${RSYNC_CID} >/dev/null 2>&1 &
+    $KUBEVIRT_CRI rm -f ${RSYNC_CID} >/dev/null 2>&1 &
 }
 trap finish EXIT
 
-RSYNCD_PORT=$(docker port $RSYNC_CID 873 | cut -d':' -f2)
+RSYNCD_PORT=$($KUBEVIRT_CRI port $RSYNC_CID 873 | cut -d':' -f2)
 
 rsynch_fail_count=0
 
@@ -71,7 +85,7 @@ _rsync() {
     rsync -al "$@"
 }
 
-# Copy kubevirt into the persistent docker volume
+# Copy kubevirt into the persistent container volume
 _rsync \
     --delete \
     --exclude 'bazel-bin' \
@@ -99,29 +113,29 @@ if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
 fi
 
 # Ensure that a bazel server which is running is the correct one
-if [ -n "$(docker ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
+if [ -n "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
     # check if the image is correct
-    builder_id=$(docker inspect ${KUBEVIRT_BUILDER_IMAGE} | docker run --security-opt label:disable --rm -i imega/jq:1.6 ".[0].Id")
-    bazel_server_id=$(docker inspect ${BUILDER}-bazel-server | docker run --security-opt label:disable --rm -i imega/jq:1.6 ".[0].Image")
+    builder_id=$($KUBEVIRT_CRI inspect ${KUBEVIRT_BUILDER_IMAGE} | $KUBEVIRT_CRI run --security-opt "label=disable" --rm -i imega/jq:1.6 ".[0].Id")
+    bazel_server_id=$($KUBEVIRT_CRI inspect ${BUILDER}-bazel-server | $KUBEVIRT_CRI run --security-opt "label=disable" --rm -i imega/jq:1.6 ".[0].Image")
     if [ "${builder_id}" != "${bazel_server_id}" ]; then
         echo "Bazel server is outdated, restarting ..."
-        docker stop ${BUILDER}-bazel-server
+        $KUBEVIRT_CRI stop ${BUILDER}-bazel-server
     fi
 fi
 
 # Ensure that a bazel server is running
-if [ -z "$(docker ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
-    docker run --network host -d ${volumes} --security-opt label:disable --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${KUBEVIRT_BUILDER_IMAGE} hack/bazel-server.sh
+if [ -z "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
+    $KUBEVIRT_CRI run --network host -d ${volumes} --security-opt "label=disable" --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${KUBEVIRT_BUILDER_IMAGE} hack/bazel-server.sh
 fi
 
 # Update cert trust, if custom is provided
 if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
-    docker exec ${BUILDER}-bazel-server /entrypoint.sh "/usr/bin/update-ca-trust"
+    $KUBEVIRT_CRI exec ${BUILDER}-bazel-server /entrypoint.sh "/usr/bin/update-ca-trust"
 fi
 
 # Run the command
 test -t 1 && USE_TTY="-it"
-docker exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"
+$KUBEVIRT_CRI exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
 _rsync \
