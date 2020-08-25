@@ -25,6 +25,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
@@ -328,6 +329,13 @@ func (app *virtHandlerApp) Run() {
 		if err != nil {
 			panic(fmt.Errorf("failed to install virt-launcher selinux policy: %v", err))
 		}
+
+		// relabel tun device
+		unprivilegedContainerSELinuxLabel := "system_u:object_r:container_file_t:s0"
+		err = relabelFiles(unprivilegedContainerSELinuxLabel, "/dev/net/tun")
+		if err != nil {
+			panic(fmt.Errorf("error relabeling required files: %v", err))
+		}
 	} else if err != nil {
 		//an error occured
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
@@ -468,5 +476,18 @@ func copy(sourceFile string, targetFile string) error {
 	if err != nil {
 		return fmt.Errorf("failed to make file executable: %v", err)
 	}
+	return nil
+}
+
+func relabelFiles(newLabel string, files ...string) error {
+	relabelArgs := []string{"selinux", "relabel", newLabel}
+	for _, file := range files {
+		cmd := exec.Command("virt-chroot", append(relabelArgs, file)...)
+		err := cmd.Run()
+		if err != nil {
+			return fmt.Errorf("error relabeling file %s with label %s. Reason: %v", file, newLabel, err)
+		}
+	}
+
 	return nil
 }
