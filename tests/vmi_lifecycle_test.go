@@ -538,7 +538,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						// We want to fail if the file does not exist, but don't want to be asked
 						// if we really want to remove write-protected files
 						"--interactive=never",
-						device_manager.SocketPath(device_manager.KVMName),
+						device_manager.SocketPath("kvm"),
 					})
 				Expect(err).ToNot(HaveOccurred())
 

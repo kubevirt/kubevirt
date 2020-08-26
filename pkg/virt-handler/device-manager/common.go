@@ -35,7 +35,7 @@ import (
 )
 
 type DeviceHandler interface {
-	GetDeviceIOMMUGroup(basepath string, devID string) (string, error)
+	GetDeviceIOMMUGroup(basepath string, pciAddress string) (string, error)
 	GetDeviceDriver(basepath string, pciAddress string) (string, error)
 	GetDeviceNumaNode(basepath string, pciAddress string) (numaNode int)
 	GetDevicePCIID(basepath string, pciAddress string) (string, error)
@@ -47,11 +47,11 @@ var Handler DeviceHandler
 
 // getDeviceIOMMUGroup gets devices iommu_group
 // e.g. /sys/bus/pci/devices/0000\:65\:00.0/iommu_group -> ../../../../../kernel/iommu_groups/45
-func (h *DeviceUtilsHandler) GetDeviceIOMMUGroup(basepath string, devID string) (string, error) {
-	iommuLink := filepath.Join(basepath, devID, "iommu_group")
+func (h *DeviceUtilsHandler) GetDeviceIOMMUGroup(basepath string, pciAddress string) (string, error) {
+	iommuLink := filepath.Join(basepath, pciAddress, "iommu_group")
 	iommuPath, err := os.Readlink(iommuLink)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("failed to read iommu_group link %s for device %s", iommuLink, devID)
+		log.DefaultLogger().Reason(err).Errorf("failed to read iommu_group link %s for device %s", iommuLink, pciAddress)
 		return "", err
 	}
 	_, iommuGroup := filepath.Split(iommuPath)

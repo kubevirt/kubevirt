@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	configMapName = "kubevirt-config"
+	configMapName            = "kubevirt-config"
 	HostDevicesConfigMapName = "kubevirt-host-device-plugin-config"
-	namespace     = "kubevirt"
+	namespace                = "kubevirt"
 )
 
 func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
