@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017, 2018 Red Hat, Inc.
+ * Copyright 2020 Red Hat, Inc.
  *
  */
 
@@ -23,14 +23,71 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/log"
 )
+
+// variable so can be overridden in tests
+var currentTime = func() *metav1.Time {
+	t := metav1.Now()
+	return &t
+}
+
+func cacheKeyFunc(namespace, name string) string {
+	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
+func newError(message string) *snapshotv1.Error {
+	return &snapshotv1.Error{
+		Message: &message,
+		Time:    currentTime(),
+	}
+}
+
+func newReadyCondition(status corev1.ConditionStatus, reason string) snapshotv1.Condition {
+	return snapshotv1.Condition{
+		Type:               snapshotv1.ConditionReady,
+		Status:             status,
+		Reason:             reason,
+		LastTransitionTime: *currentTime(),
+	}
+}
+
+func newProgressingCondition(status corev1.ConditionStatus, reason string) snapshotv1.Condition {
+	return snapshotv1.Condition{
+		Type:               snapshotv1.ConditionProgressing,
+		Status:             status,
+		Reason:             reason,
+		LastTransitionTime: *currentTime(),
+	}
+}
+
+func updateCondition(conditions []snapshotv1.Condition, c snapshotv1.Condition) []snapshotv1.Condition {
+	found := false
+	for i := range conditions {
+		if conditions[i].Type == c.Type {
+			if conditions[i].Status != c.Status || conditions[i].Reason != c.Reason {
+				conditions[i] = c
+			}
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		conditions = append(conditions, c)
+	}
+
+	return conditions
+}
 
 func processWorkItem(queue workqueue.RateLimitingInterface, handler func(string) (time.Duration, error)) bool {
 	obj, shutdown := queue.Get()

@@ -10608,6 +10608,40 @@
      }
     }
    },
+   "v1alpha1.Condition": {
+    "description": "Condition defines conditions",
+    "type": "object",
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lastTransitionTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
    "v1alpha1.DataVolume": {
     "description": "DataVolume is an abstraction on top of PersistentVolumeClaims to allow easy population of those PersistentVolumeClaims with relation to VirtualMachines",
     "type": "object",
@@ -10856,6 +10890,18 @@
      }
     }
    },
+   "v1alpha1.Error": {
+    "description": "Error is the last error encountered during the snapshot/restore",
+    "type": "object",
+    "properties": {
+     "message": {
+      "type": "string"
+     },
+     "time": {
+      "$ref": "#/definitions/v1.Time"
+     }
+    }
+   },
    "v1alpha1.SourceSpec": {
     "description": "SourceSpec contains the appropriate spec for the resource being snapshotted",
     "type": "object",
@@ -10888,40 +10934,6 @@
      },
      "status": {
       "$ref": "#/definitions/v1alpha1.VirtualMachineRestoreStatus"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineRestoreCondition": {
-    "description": "VirtualMachineRestoreCondition defines snapshot conditions",
-    "type": "object",
-    "required": [
-     "type",
-     "status"
-    ],
-    "properties": {
-     "lastProbeTime": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "lastTransitionTime": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "message": {
-      "type": "string"
-     },
-     "reason": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string"
-     },
-     "type": {
-      "type": "string"
      }
     }
    },
@@ -10980,7 +10992,25 @@
      "conditions": {
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1alpha1.VirtualMachineRestoreCondition"
+       "$ref": "#/definitions/v1alpha1.Condition"
+      }
+     },
+     "deletedDataVolumes": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "error": {
+      "$ref": "#/definitions/v1alpha1.Error"
+     },
+     "restoreTime": {
+      "$ref": "#/definitions/v1.Time"
+     },
+     "restores": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1alpha1.VolumeRestore"
       }
      }
     }
@@ -11008,40 +11038,6 @@
      },
      "status": {
       "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotStatus"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineSnapshotCondition": {
-    "description": "VirtualMachineSnapshotCondition defines snapshot conditions",
-    "type": "object",
-    "required": [
-     "type",
-     "status"
-    ],
-    "properties": {
-     "lastProbeTime": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "lastTransitionTime": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "message": {
-      "type": "string"
-     },
-     "reason": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string"
-     },
-     "type": {
-      "type": "string"
      }
     }
    },
@@ -11128,7 +11124,7 @@
       "$ref": "#/definitions/v1.Time"
      },
      "error": {
-      "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotError"
+      "$ref": "#/definitions/v1alpha1.Error"
      },
      "readyToUse": {
       "type": "boolean"
@@ -11138,18 +11134,6 @@
       "items": {
        "$ref": "#/definitions/v1alpha1.VolumeSnapshotStatus"
       }
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineSnapshotError": {
-    "description": "VirtualMachineSnapshotError is the last error encountered while creating the snapshot",
-    "type": "object",
-    "properties": {
-     "message": {
-      "type": "string"
-     },
-     "time": {
-      "$ref": "#/definitions/v1.Time"
      }
     }
    },
@@ -11203,14 +11187,14 @@
      "conditions": {
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotCondition"
+       "$ref": "#/definitions/v1alpha1.Condition"
       }
      },
      "creationTime": {
       "$ref": "#/definitions/v1.Time"
      },
      "error": {
-      "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotError"
+      "$ref": "#/definitions/v1alpha1.Error"
      },
      "readyToUse": {
       "type": "boolean"
@@ -11239,6 +11223,29 @@
      }
     }
    },
+   "v1alpha1.VolumeRestore": {
+    "description": "VolumeRestore contains the data neeed to restore a PVC",
+    "type": "object",
+    "required": [
+     "volumeName",
+     "persistentVolumeClaim",
+     "volumeSnapshotName"
+    ],
+    "properties": {
+     "dataVolumeName": {
+      "type": "string"
+     },
+     "persistentVolumeClaim": {
+      "type": "string"
+     },
+     "volumeName": {
+      "type": "string"
+     },
+     "volumeSnapshotName": {
+      "type": "string"
+     }
+    }
+   },
    "v1alpha1.VolumeSnapshotStatus": {
     "description": "VolumeSnapshotStatus is the status of a VolumeSnapshot",
     "type": "object",
@@ -11250,7 +11257,7 @@
       "$ref": "#/definitions/v1.Time"
      },
      "error": {
-      "$ref": "#/definitions/v1alpha1.VirtualMachineSnapshotError"
+      "$ref": "#/definitions/v1alpha1.Error"
      },
      "readyToUse": {
       "type": "boolean"

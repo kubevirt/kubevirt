@@ -128,7 +128,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"persistentvolumeclaims",
 				},
 				Verbs: []string{
-					"get", "list", "watch",
+					"get", "list", "watch", "create", "update", "delete", "patch",
 				},
 			},
 			{

@@ -34,7 +34,6 @@ import (
 
 	kubevirtv1 "kubevirt.io/client-go/api/v1"
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
 )
@@ -66,21 +65,20 @@ type snapshotSource interface {
 }
 
 type vmSnapshotSource struct {
-	client     kubecli.KubevirtClient
 	vm         *kubevirtv1.VirtualMachine
 	snapshot   *snapshotv1.VirtualMachineSnapshot
 	controller *VMSnapshotController
-}
-
-func cacheKeyFunc(namespace, name string) string {
-	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
 func vmSnapshotReady(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
 	return vmSnapshot.Status != nil && vmSnapshot.Status.ReadyToUse != nil && *vmSnapshot.Status.ReadyToUse
 }
 
-func vmSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshotError {
+func vmSnapshotContentReady(vmSnapshotContent *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return vmSnapshotContent.Status != nil && vmSnapshotContent.Status.ReadyToUse != nil && *vmSnapshotContent.Status.ReadyToUse
+}
+
+func vmSnapshotError(vmSnapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.Error {
 	if vmSnapshot.Status != nil && vmSnapshot.Status.Error != nil {
 		return vmSnapshot.Status.Error
 	}
@@ -100,21 +98,15 @@ func getVMSnapshotContentName(vmSnapshot *snapshotv1.VirtualMachineSnapshot) str
 	return fmt.Sprintf("%s-%s", "vmsnapshot-content", vmSnapshot.UID)
 }
 
-func translateError(e *vsv1beta1.VolumeSnapshotError) *snapshotv1.VirtualMachineSnapshotError {
+func translateError(e *vsv1beta1.VolumeSnapshotError) *snapshotv1.Error {
 	if e == nil {
 		return nil
 	}
 
-	return &snapshotv1.VirtualMachineSnapshotError{
+	return &snapshotv1.Error{
 		Message: e.Message,
 		Time:    e.Time,
 	}
-}
-
-// variable so can be overridden in tests
-var currentTime = func() *metav1.Time {
-	t := metav1.Now()
-	return &t
 }
 
 func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (time.Duration, error) {
@@ -277,7 +269,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 		(contentCpy.Status.Error == nil ||
 			contentCpy.Status.Error.Message == nil ||
 			*contentCpy.Status.Error.Message != errorMessage) {
-		contentCpy.Status.Error = &snapshotv1.VirtualMachineSnapshotError{
+		contentCpy.Status.Error = &snapshotv1.Error{
 			Time:    currentTime(),
 			Message: &errorMessage,
 		}
@@ -367,7 +359,6 @@ func (ctrl *VMSnapshotController) getSnapshotSource(vmSnapshot *snapshotv1.Virtu
 		}
 
 		return &vmSnapshotSource{
-			client:     ctrl.Client,
 			vm:         vm,
 			snapshot:   vmSnapshot,
 			controller: ctrl,
@@ -583,11 +574,11 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 
 	if vmSnapshotCpy.DeletionTimestamp != nil {
 		// go into error state
-		if vmSnapshotProgressing(vmSnapshot) {
+		if vmSnapshotProgressing(vmSnapshotCpy) {
 			reason := "Snapshot cancelled"
-			vmSnapshotCpy.Status.Error = newVirtualMachineSnapshotError(reason)
-			updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionFalse, reason))
-			updateSnapshotCondition(vmSnapshotCpy, newSnapshotReadyCondition(corev1.ConditionFalse, reason))
+			vmSnapshotCpy.Status.Error = newError(reason)
+			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, reason))
+			updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, reason))
 		}
 	} else {
 		content, err := ctrl.getContent(vmSnapshot)
@@ -612,23 +603,23 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 
 		if source != nil {
 			if source.Locked() {
-				updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"))
+				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"))
 			} else {
-				updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionFalse, "Source not locked"))
+				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source not locked"))
 			}
 		} else {
-			updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
+			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
 		}
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotReadyCondition(corev1.ConditionFalse, "Not ready"))
+		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Not ready"))
 	} else if vmSnapshotError(vmSnapshotCpy) != nil {
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionFalse, "In error state"))
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotReadyCondition(corev1.ConditionFalse, "Error"))
+		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "In error state"))
+		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Error"))
 	} else if vmSnapshotReady(vmSnapshotCpy) {
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionFalse, "Operation complete"))
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotReadyCondition(corev1.ConditionTrue, "Operation complete"))
+		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
+		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
 	} else {
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotProgressingCondition(corev1.ConditionUnknown, "Unknown state"))
-		updateSnapshotCondition(vmSnapshotCpy, newSnapshotReadyCondition(corev1.ConditionUnknown, "Unknown state"))
+		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionUnknown, "Unknown state"))
+		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionUnknown, "Unknown state"))
 	}
 
 	if !reflect.DeepEqual(vmSnapshot, vmSnapshotCpy) {
@@ -729,7 +720,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 
 	if !controller.HasFinalizer(vmCopy, sourceFinalizer) {
 		controller.AddFinalizer(vmCopy, sourceFinalizer)
-		_, err = s.client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+		_, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
 		if err != nil {
 			return false, err
 		}
@@ -748,7 +739,7 @@ func (s *vmSnapshotSource) Unlock() error {
 
 	if controller.HasFinalizer(vmCopy, sourceFinalizer) {
 		controller.RemoveFinalizer(vmCopy, sourceFinalizer)
-		vmCopy, err = s.client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
 		if err != nil {
 			return err
 		}
@@ -804,44 +795,6 @@ func getPVCsFromVolumes(volumes []kubevirtv1.Volume) map[string]string {
 	return pvcs
 }
 
-func newVirtualMachineSnapshotError(message string) *snapshotv1.VirtualMachineSnapshotError {
-	return &snapshotv1.VirtualMachineSnapshotError{
-		Message: &message,
-		Time:    currentTime(),
-	}
-}
-
-func newSnapshotReadyCondition(status corev1.ConditionStatus, reason string) snapshotv1.VirtualMachineSnapshotCondition {
-	return snapshotv1.VirtualMachineSnapshotCondition{
-		Type:               snapshotv1.VirtualMachineSnapshotConditionReady,
-		Status:             status,
-		Reason:             reason,
-		LastTransitionTime: *currentTime(),
-	}
-}
-
-func newSnapshotProgressingCondition(status corev1.ConditionStatus, reason string) snapshotv1.VirtualMachineSnapshotCondition {
-	return snapshotv1.VirtualMachineSnapshotCondition{
-		Type:               snapshotv1.VirtualMachineSnapshotConditionProgressing,
-		Status:             status,
-		Reason:             reason,
-		LastTransitionTime: *currentTime(),
-	}
-}
-
-func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.VirtualMachineSnapshotCondition) {
-	found := false
-	for i := range ss.Status.Conditions {
-		if ss.Status.Conditions[i].Type == c.Type {
-			if ss.Status.Conditions[i].Status != c.Status {
-				ss.Status.Conditions[i] = c
-			}
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		ss.Status.Conditions = append(ss.Status.Conditions, c)
-	}
+func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.Condition) {
+	ss.Status.Conditions = updateCondition(ss.Status.Conditions, c)
 }

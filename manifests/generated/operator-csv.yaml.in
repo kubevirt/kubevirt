@@ -473,6 +473,10 @@ spec:
           - get
           - list
           - watch
+          - create
+          - update
+          - delete
+          - patch
         - apiGroups:
           - snapshot.kubevirt.io
           resources:
