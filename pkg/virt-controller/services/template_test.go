@@ -57,7 +57,7 @@ var _ = Describe("Template", func() {
 
 	ctrl := gomock.NewController(GinkgoT())
 	virtClient := kubecli.NewMockKubevirtClient(ctrl)
-	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+	config, configMapInformer, _, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
 
 	enableFeatureGate := func(featureGate string) {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{

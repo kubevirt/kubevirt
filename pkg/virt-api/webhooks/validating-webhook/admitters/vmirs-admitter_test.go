@@ -36,7 +36,7 @@ import (
 )
 
 var _ = Describe("Validating VMIRS Admitter", func() {
-	config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, _, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	vmirsAdmitter := &VMIRSAdmitter{ClusterConfig: config}
 
 	table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse) {
