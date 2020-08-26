@@ -100,13 +100,13 @@ github.com/golang/glog
 github.com/golang/groupcache/lru
 # github.com/golang/mock v1.2.0
 github.com/golang/mock/gomock
-# github.com/golang/protobuf v1.3.3
+# github.com/golang/protobuf v1.4.1
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/google/go-cmp v0.4.0
+# github.com/google/go-cmp v0.5.0
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
@@ -318,8 +318,8 @@ golang.org/x/oauth2/jwt
 # golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae
 golang.org/x/sys/cpu
 golang.org/x/sys/unix
-golang.org/x/sys/windows/registry
 golang.org/x/sys/windows
+golang.org/x/sys/windows/registry
 # golang.org/x/text v0.3.2
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
@@ -355,7 +355,7 @@ google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
-# google.golang.org/genproto v0.0.0-20191220175831-5c49e3ecc1c1
+# google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
 google.golang.org/genproto/googleapis/rpc/status
 # google.golang.org/grpc v1.30.0
 google.golang.org/grpc
@@ -398,6 +398,36 @@ google.golang.org/grpc/serviceconfig
 google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
+# google.golang.org/protobuf v1.25.0
+google.golang.org/protobuf/encoding/prototext
+google.golang.org/protobuf/encoding/protowire
+google.golang.org/protobuf/internal/descfmt
+google.golang.org/protobuf/internal/descopts
+google.golang.org/protobuf/internal/detrand
+google.golang.org/protobuf/internal/encoding/defval
+google.golang.org/protobuf/internal/encoding/messageset
+google.golang.org/protobuf/internal/encoding/tag
+google.golang.org/protobuf/internal/encoding/text
+google.golang.org/protobuf/internal/errors
+google.golang.org/protobuf/internal/fieldsort
+google.golang.org/protobuf/internal/filedesc
+google.golang.org/protobuf/internal/filetype
+google.golang.org/protobuf/internal/flags
+google.golang.org/protobuf/internal/genid
+google.golang.org/protobuf/internal/impl
+google.golang.org/protobuf/internal/mapsort
+google.golang.org/protobuf/internal/pragma
+google.golang.org/protobuf/internal/set
+google.golang.org/protobuf/internal/strs
+google.golang.org/protobuf/internal/version
+google.golang.org/protobuf/proto
+google.golang.org/protobuf/reflect/protoreflect
+google.golang.org/protobuf/reflect/protoregistry
+google.golang.org/protobuf/runtime/protoiface
+google.golang.org/protobuf/runtime/protoimpl
+google.golang.org/protobuf/types/known/anypb
+google.golang.org/protobuf/types/known/durationpb
+google.golang.org/protobuf/types/known/timestamppb
 # gopkg.in/cheggaaa/pb.v1 v1.0.28
 gopkg.in/cheggaaa/pb.v1
 # gopkg.in/fsnotify.v1 v1.4.7
@@ -462,31 +492,22 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextension
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1/fake
 # k8s.io/apimachinery v0.17.1-beta.0 => k8s.io/apimachinery v0.16.4
+k8s.io/apimachinery/pkg/api/equality
+k8s.io/apimachinery/pkg/api/errors
+k8s.io/apimachinery/pkg/api/meta
+k8s.io/apimachinery/pkg/api/resource
+k8s.io/apimachinery/pkg/api/validation
+k8s.io/apimachinery/pkg/apis/meta/internalversion
+k8s.io/apimachinery/pkg/apis/meta/v1
+k8s.io/apimachinery/pkg/apis/meta/v1/unstructured
+k8s.io/apimachinery/pkg/apis/meta/v1/validation
+k8s.io/apimachinery/pkg/apis/meta/v1beta1
+k8s.io/apimachinery/pkg/conversion
+k8s.io/apimachinery/pkg/conversion/queryparams
 k8s.io/apimachinery/pkg/fields
 k8s.io/apimachinery/pkg/labels
-k8s.io/apimachinery/pkg/types
-k8s.io/apimachinery/pkg/util/wait
-k8s.io/apimachinery/pkg/watch
-k8s.io/apimachinery/pkg/apis/meta/v1
-k8s.io/apimachinery/pkg/api/resource
-k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/runtime
 k8s.io/apimachinery/pkg/runtime/schema
-k8s.io/apimachinery/pkg/util/clock
-k8s.io/apimachinery/pkg/util/errors
-k8s.io/apimachinery/pkg/util/sets
-k8s.io/apimachinery/pkg/util/json
-k8s.io/apimachinery/pkg/util/rand
-k8s.io/apimachinery/pkg/version
-k8s.io/apimachinery/pkg/util/validation
-k8s.io/apimachinery/pkg/api/meta
-k8s.io/apimachinery/pkg/apis/meta/v1/unstructured
-k8s.io/apimachinery/pkg/util/yaml
-k8s.io/apimachinery/pkg/util/validation/field
-k8s.io/apimachinery/pkg/api/validation
-k8s.io/apimachinery/pkg/util/runtime
-k8s.io/apimachinery/pkg/util/intstr
-k8s.io/apimachinery/pkg/util/strategicpatch
 k8s.io/apimachinery/pkg/runtime/serializer
 k8s.io/apimachinery/pkg/runtime/serializer/json
 k8s.io/apimachinery/pkg/runtime/serializer/protobuf

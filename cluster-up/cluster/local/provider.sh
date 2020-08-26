@@ -32,8 +32,7 @@ function up() {
 }
 
 function prepare_config() {
-    PROVIDER_CONFIG_FILE_PATH="${BASE_PATH}/$KUBEVIRT_PROVIDER/config-provider-$KUBEVIRT_PROVIDER.sh"
-    cat > "$PROVIDER_CONFIG_FILE_PATH" <<EOF
+    cat >hack/config-provider-local.sh <<EOF
 master_ip=$(_main_ip)
 docker_tag=devel
 kubeconfig=$(_cert_dir)/admin.kubeconfig
