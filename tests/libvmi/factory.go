@@ -40,13 +40,14 @@ func NewFedora(opts ...Option) *kvirtv1.VirtualMachineInstance {
 	echo "fedora" |passwd fedora --stdin
 	echo `
 
-	opts = append(
+	fedoraOptions := append(
 		defaultOptions(),
 		WithResourceMemory("512M"),
 		WithRng(),
 		WithContainerImage(cd.ContainerDiskFor(cd.ContainerDiskFedora)),
 		WithCloudInitNoCloudUserData(configurePassword, true),
 	)
+	opts = append(fedoraOptions, opts...)
 	return New(NamespaceTestDefault, RandName(DefaultVmiName), opts...)
 }
 
