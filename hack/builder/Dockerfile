@@ -39,9 +39,7 @@ RUN dnf install -y dnf-plugins-core && \
 # install gradle (required for swagger)
 RUN wget https://services.gradle.org/distributions/gradle-6.6-bin.zip && \
     mkdir /opt/gradle && \
-    unzip -d /opt/gradle gradle-6.6-bin.zip && \
-    echo 'export JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:/bin/java::")' >> $HOME/.bashrc && \
-    echo 'export PATH=$PATH:/opt/gradle/gradle-6.6/bin' >> $HOME/.bashrc
+    unzip -d /opt/gradle gradle-6.6-bin.zip
 
 ENV PATH=$PATH:/opt/gradle/gradle-6.6/bin \
     JAVA_HOME=/usr/lib/jvm/java-11-openjdk-11.0.8.10-2.fc31.x86_64
@@ -70,31 +68,24 @@ RUN set -x && \
 
 RUN set -x && \
     source /etc/profile.d/gimme.sh && \
-    go get -v -u github.com/mattn/goveralls@v0.0.5 && \
+    go get -v -u github.com/mattn/goveralls@21feffdfd && \
     go get -v -u github.com/golang/mock/gomock@v1.4.3 && \
     go get -v -u github.com/rmohr/mock/mockgen@v0.0.0-20170327080805-5980f5d9a70d && \
     go get -v -u github.com/rmohr/go-swagger-utils/swagger-doc@v0.0.0-20181110145135-878f7deb1d17 && \
     go get -v -u github.com/onsi/ginkgo/ginkgo@v1.12.0 && \
     go clean -cache -modcache
 
-# TODO: remove this and the patch below after https://github.com/fvbommel/util/issues/6 got fixed
-COPY vbom_ml.diff /tmp/vbom_ml.diff
-
-RUN \
-    cd / && \
+RUN set -x && \
     source /etc/profile.d/gimme.sh && \
     git clone https://github.com/kubernetes/test-infra.git && \
     cd /test-infra && \
     git checkout fd0699b906b0593a33ba2bddd3b1ae8822f42dd8 && \
-    git apply /tmp/vbom_ml.diff && \
-    go mod vendor && \
     cd /test-infra/robots/pr-creator && \
-    GOPROXY=off GOFLAGS=-mod=vendor go install && \
+    go install && \
     cd /test-infra/robots/issue-creator && \
-    GOPROXY=off GOFLAGS=-mod=vendor go install && \
+    go install && \
     cd /test-infra/robots/pr-labeler && \
-    GOPROXY=off GOFLAGS=-mod=vendor go install && \
-    cd /go && \
+    go install && \
     go clean -cache -modcache -r && \
     rm -rf /test-infra && \
     rm -rf /go && mkdir /go
