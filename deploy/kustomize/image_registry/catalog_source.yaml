@@ -3,7 +3,6 @@ kind: CatalogSource
 metadata:
   name: kubevirt-hyperconverged
   namespace: openshift-marketplace
-  imagePullPolicy: Always
 spec:
   sourceType: grpc
   image: quay.io/kubevirt/hco-container-registry:latest

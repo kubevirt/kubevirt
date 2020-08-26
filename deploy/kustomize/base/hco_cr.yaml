@@ -4,4 +4,4 @@ metadata:
   name: kubevirt-hyperconverged
   namespace: kubevirt-hyperconverged
 spec:
-  BareMetalPlatform: true
+  bareMetalPlatform: true
