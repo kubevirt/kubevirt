@@ -289,19 +289,19 @@ spec:
   storageClassName: windows
 EOF
   # Run only Windows tests
-  ginko_params="$ginko_params --focus=Windows"
+  export KUBEVIRT_E2E_FOCUS=Windows
 elif [[ $TARGET =~ (cnao|multus) ]]; then
-  ginko_params="$ginko_params --focus=Multus|Networking|VMIlifecycle|Expose"
+  export KUBEVIRT_E2E_FOCUS="Multus|Networking|VMIlifecycle|Expose"
 elif [[ $TARGET =~ sriov.* ]]; then
-  ginko_params="$ginko_params --focus=SRIOV"
+  export KUBEVIRT_E2E_FOCUS=SRIOV
 elif [[ $TARGET =~ gpu.* ]]; then
-  ginko_params="$ginko_params --focus=GPU"
+  export KUBEVIRT_E2E_FOCUS=GPU
 elif [[ $TARGET =~ (okd|ocp).* ]]; then
-  ginko_params="$ginko_params --skip=SRIOV|GPU"
+  export KUBEVIRT_E2E_SKIP="SRIOV|GPU"
 elif [[ $TARGET =~ ipv6.* ]]; then
-  ginko_params="$ginko_params --skip=Multus|SRIOV|GPU|.*slirp.*|.*bridge.*"
+  export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU|.*slirp.*|.*bridge.*"
 else
-  ginko_params="$ginko_params --skip=Multus|SRIOV|GPU"
+  export KUBEVIRT_E2E_SKIP="Multus|SRIOV|GPU"
 fi
 
 # Prepare RHEL PV for Template testing
