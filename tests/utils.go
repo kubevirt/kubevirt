@@ -3962,23 +3962,11 @@ func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, isFedoraVM bool) {
-	var err error
-	var expecter expect.Expecter
-	var httpServerMaker string
-	var prompt string
-
-	if isFedoraVM {
-		expecter, err = LoggedInFedoraExpecter(vmi)
-		Expect(err).NotTo(HaveOccurred())
-		httpServerMaker = fmt.Sprintf("python3 -m http.server %d --bind ::0 &\n", port)
-		prompt = "\\#"
-	} else {
-		expecter, err = LoggedInCirrosExpecter(vmi)
-		Expect(err).NotTo(HaveOccurred())
-		httpServerMaker = fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\nContent-Length: 11\\n\\nHello World!\"\n", port)
-		prompt = "\\$"
-	}
+func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int) {
+	expecter, err := LoggedInCirrosExpecter(vmi)
+	Expect(err).NotTo(HaveOccurred())
+	httpServerMaker := fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\nContent-Length: 11\\n\\nHello World!\"\n", port)
+	prompt := "\\$"
 	defer expecter.Close()
 
 	resp, err := ExpectBatchWithValidatedSend(expecter, []expect.Batcher{

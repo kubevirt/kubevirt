@@ -12,7 +12,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
-	"kubevirt.io/kubevirt/tests/libvmi"
 )
 
 var _ = Describe("[ref_id:1182]Probes", func() {
@@ -49,19 +48,9 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 				},
 			},
 		}
-		table.DescribeTable("should succeed", func(readinessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int, isFedoraVM bool)) {
-			// nc is used to create the HTTP server. The one shipped in CirrOS has a bug where it throws a
-			// 'connection reset by peer' when bound to IPv6 addresses. On those scenarios, we fallback to using a
-			// Fedora VM.
-			useFedoraVM := tests.IsIPv6Cluster(virtClient) && readinessProbe == httpProbe
-
+		table.DescribeTable("should succeed", func(readinessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int)) {
 			By("Specifying a VMI with a readiness probe")
-			var vmi *v12.VirtualMachineInstance
-			if useFedoraVM {
-				vmi = libvmi.NewFedora()
-			} else {
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			}
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
 			vmi.Spec.ReadinessProbe = readinessProbe
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -75,7 +64,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			Expect(vmiReady(vmi)).To(Equal(v1.ConditionFalse))
 
 			By("Starting the server inside the VMI")
-			serverStarter(vmi, 1500, useFedoraVM)
+			serverStarter(vmi, 1500)
 
 			By("Checking that the VMI and the pod will be marked as ready to receive traffic")
 			Eventually(func() v1.ConditionStatus {
@@ -85,7 +74,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			}, 60, 1).Should(Equal(v1.ConditionTrue))
 			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionTrue))
 		},
-			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server", tcpProbe, startTCPServer),
+			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
 			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server", httpProbe, tests.StartHTTPServer),
 		)
 
@@ -139,7 +128,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 				},
 			},
 		}
-		table.DescribeTable("should not fail the VMI", func(livenessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int, isFedoraVM bool)) {
+		table.DescribeTable("should not fail the VMI", func(livenessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int)) {
 			By("Specifying a VMI with a readiness probe")
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			vmi.Spec.LivenessProbe = livenessProbe
@@ -149,7 +138,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
 			By("Starting the server inside the VMI")
-			serverStarter(vmi, 1500, false)
+			serverStarter(vmi, 1500)
 
 			By("Checking that the VMI is still running after a minute")
 			Consistently(func() bool {
@@ -158,7 +147,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(Not(BeTrue()))
 		},
-			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server", tcpProbe, startTCPServer),
+			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
 			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server", httpProbe, tests.StartHTTPServer),
 		)
 
@@ -191,8 +180,4 @@ func vmiReady(vmi *v12.VirtualMachineInstance) v1.ConditionStatus {
 		}
 	}
 	return v1.ConditionFalse
-}
-
-func startTCPServer(vmi *v12.VirtualMachineInstance, port int, useFedoraImg bool) {
-	tests.StartTCPServer(vmi, port)
 }
