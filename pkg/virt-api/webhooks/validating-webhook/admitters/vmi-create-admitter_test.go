@@ -1948,7 +1948,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject GPU devices that are not permitted in the hostdev config", func() {
-		        enableFeatureGate(virtconfig.GPUGate)
+			enableFeatureGate(virtconfig.GPUGate)
 			fakePermittedHostDevicesConfig := `
   pciDevices:
   - pciVendorSelector: "DEAD:BEEF"
@@ -1971,7 +1971,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.GPUs"))
 		})
 		It("should accept permitted GPU devices", func() {
-		        enableFeatureGate(virtconfig.GPUGate)
+			enableFeatureGate(virtconfig.GPUGate)
 			fakePermittedHostDevicesConfig := `
   pciDevices:
   - pciVendorSelector: "DEAD:BEEF"

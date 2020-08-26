@@ -67,13 +67,13 @@ func getPermanentHostDevicePlugins(maxDevices int) map[string]ControlledDevice {
 
 func NewDeviceController(host string, maxDevices int, clusterConfig *virtconfig.ClusterConfig, hostDevConfigMapInformer cache.SharedIndexInformer) *DeviceController {
 	controller := &DeviceController{
-		devicePlugins: getPermanentHostDevicePlugins(maxDevices),
-		host:          host,
-		maxDevices:    maxDevices,
-		backoff:       []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
+		devicePlugins:            getPermanentHostDevicePlugins(maxDevices),
+		host:                     host,
+		maxDevices:               maxDevices,
+		backoff:                  []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
+		virtConfig:               clusterConfig,
+		hostDevConfigMapInformer: hostDevConfigMapInformer,
 	}
-	controller.virtConfig = clusterConfig
-	controller.hostDevConfigMapInformer = hostDevConfigMapInformer
 
 	return controller
 }

@@ -28,8 +28,8 @@ func (_m *MockDeviceHandler) EXPECT() *_MockDeviceHandlerRecorder {
 	return _m.recorder
 }
 
-func (_m *MockDeviceHandler) GetDeviceIOMMUGroup(basepath string, devID string) (string, error) {
-	ret := _m.ctrl.Call(_m, "GetDeviceIOMMUGroup", basepath, devID)
+func (_m *MockDeviceHandler) GetDeviceIOMMUGroup(basepath string, pciAddress string) (string, error) {
+	ret := _m.ctrl.Call(_m, "GetDeviceIOMMUGroup", basepath, pciAddress)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
