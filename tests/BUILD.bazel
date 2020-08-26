@@ -4,7 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "config.go",
+        "expecter.go",
         "job.go",
+        "login.go",
         "ping.go",
         "test.go",
         "utils.go",
