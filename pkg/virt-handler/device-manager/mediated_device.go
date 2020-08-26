@@ -64,6 +64,8 @@ type MediatedDevicePlugin struct {
 	healthy        chan string
 	unhealthy      chan string
 	iommuToMDEVMap map[string]string
+	initialized    bool
+	lock           *sync.Mutex
 }
 
 func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevicePlugin {
@@ -86,6 +88,8 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 		healthy:        make(chan string),
 		unhealthy:      make(chan string),
 		iommuToMDEVMap: iommuToMDEVMap,
+		initialized:   false,
+		lock:          &sync.Mutex{},
 	}
 
 	return dpi
@@ -151,6 +155,7 @@ func (dpi *MediatedDevicePlugin) Start(stop chan struct{}) (err error) {
 		errChan <- dpi.healthCheck()
 	}()
 
+	dpi.setInitialized(true)
 	logger.Infof("%s device plugin started", dpi.deviceName)
 	err = <-errChan
 
@@ -211,6 +216,7 @@ func (dpi *MediatedDevicePlugin) Stop() error {
 		}
 	}()
 	dpi.server.Stop()
+	dpi.setInitialized(false)
 	return dpi.cleanup()
 }
 
@@ -422,4 +428,16 @@ func getMdevTypeName(mdevUUID string) (string, error) {
 	typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
 	typeNameStr = strings.TrimSpace(typeNameStr)
 	return typeNameStr, nil
+}
+
+func (dpi *MediatedDevicePlugin) GetInitialized() bool {
+	dpi.lock.Lock()
+	defer dpi.lock.Unlock()
+	return dpi.initialized
+}
+
+func (dpi *MediatedDevicePlugin) setInitialized(initialized bool) {
+	dpi.lock.Lock()
+	dpi.initialized = initialized
+	dpi.lock.Unlock()
 }
