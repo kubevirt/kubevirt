@@ -73,7 +73,7 @@ functest: build-functests
 dump: bazel-build
 	hack/dump.sh
 
-functest-image-build:
+functest-image-build: manifests build-functests
 	hack/func-tests-image.sh build
 
 functest-image-push: functest-image-build
