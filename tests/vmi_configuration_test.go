@@ -914,7 +914,7 @@ var _ = Describe("Configurations", func() {
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with hugepages", func() {
 			var hugepagesVmi *v1.VirtualMachineInstance
 
-			verifyHugepagesConsumption := func() {
+			verifyHugepagesConsumption := func() bool {
 				// TODO: we need to check hugepages state via node allocated resources, but currently it has the issue
 				// https://github.com/kubernetes/kubernetes/issues/64691
 				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(hugepagesVmi))
@@ -947,15 +947,29 @@ var _ = Describe("Configurations", func() {
 				freeHugepages, err := strconv.Atoi(strings.Trim(output, "\n"))
 				Expect(err).ToNot(HaveOccurred())
 
+				output, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					&pods.Items[0],
+					pods.Items[0].Spec.Containers[0].Name,
+					[]string{"cat", fmt.Sprintf("%s/resv_hugepages", hugepagesDir)},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				resvHugepages, err := strconv.Atoi(strings.Trim(output, "\n"))
+				Expect(err).ToNot(HaveOccurred())
+
 				// Verify that the VM memory equals to a number of consumed hugepages
-				vmHugepagesConsumption := int64(totalHugepages-freeHugepages) * hugepagesSize.Value()
+				vmHugepagesConsumption := int64(totalHugepages-freeHugepages+resvHugepages) * hugepagesSize.Value()
 				vmMemory := hugepagesVmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory]
 				if hugepagesVmi.Spec.Domain.Memory != nil && hugepagesVmi.Spec.Domain.Memory.Guest != nil {
 					vmMemory = *hugepagesVmi.Spec.Domain.Memory.Guest
 				}
-				Expect(vmHugepagesConsumption).To(Equal(vmMemory.Value()))
-			}
 
+				if vmHugepagesConsumption == vmMemory.Value() {
+					return true
+				}
+				return false
+			}
 			BeforeEach(func() {
 				hugepagesVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			})
@@ -997,7 +1011,7 @@ var _ = Describe("Configurations", func() {
 				tests.WaitForSuccessfulVMIStart(hugepagesVmi)
 
 				By("Checking that the VM memory equals to a number of consumed hugepages")
-				verifyHugepagesConsumption()
+				Eventually(func() bool { return verifyHugepagesConsumption() }, 30*time.Second, 5*time.Second).Should(BeTrue())
 			},
 				table.Entry("[test_id:1671]hugepages-2Mi", "2Mi", "64Mi", "None"),
 				table.Entry("[test_id:1672]hugepages-1Gi", "1Gi", "1Gi", "None"),
