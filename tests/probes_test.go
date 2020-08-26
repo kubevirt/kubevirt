@@ -37,13 +37,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 
 		table.DescribeTable("should succeed", func(readinessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int)) {
 			By("Specifying a VMI with a readiness probe")
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-
-			vmi.Spec.ReadinessProbe = readinessProbe
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
-			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+			vmi := createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
 
 			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
@@ -67,12 +61,7 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 
 		table.DescribeTable("should fail", func(readinessProbe *v12.Probe) {
 			By("Specifying a VMI with a readiness probe")
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			vmi.Spec.ReadinessProbe = readinessProbe
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
-			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+			vmi := createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
 
 			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
@@ -103,13 +92,8 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
 
 		table.DescribeTable("should not fail the VMI", func(livenessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int)) {
-			By("Specifying a VMI with a readiness probe")
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			vmi.Spec.LivenessProbe = livenessProbe
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
-			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+			By("Specifying a VMI with a liveness probe")
+			vmi := createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
 
 			By("Starting the server inside the VMI")
 			serverStarter(vmi, 1500)
@@ -126,13 +110,8 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		)
 
 		table.DescribeTable("should fail the VMI", func(livenessProbe *v12.Probe) {
-			By("Specifying a VMI with a readiness probe")
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			vmi.Spec.LivenessProbe = livenessProbe
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
-			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+			By("Specifying a VMI with a livenessProbe probe")
+			vmi := createReadyCirrosVMIWithLivenessProbe(virtClient, livenessProbe)
 
 			By("Checking that the VMI is in a final state after a minute")
 			Eventually(func() bool {
@@ -146,6 +125,37 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		)
 	})
 })
+
+func createReadyCirrosVMIWithReadinessProbe(virtClient kubecli.KubevirtClient, probe *v12.Probe) *v12.VirtualMachineInstance {
+	dummyUserData := "#!/bin/bash\necho 'hello'\n"
+	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(
+		cd.ContainerDiskFor(cd.ContainerDiskCirros), dummyUserData)
+	vmi.Spec.ReadinessProbe = probe
+
+	return createAndBlockUntilVMIHasStarted(virtClient, vmi)
+}
+
+func createReadyCirrosVMIWithLivenessProbe(virtClient kubecli.KubevirtClient, probe *v12.Probe) *v12.VirtualMachineInstance {
+	dummyUserData := "#!/bin/bash\necho 'hello'\n"
+	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(
+		cd.ContainerDiskFor(cd.ContainerDiskCirros), dummyUserData)
+	vmi.Spec.LivenessProbe = probe
+
+	return createAndBlockUntilVMIHasStarted(virtClient, vmi)
+}
+
+func createAndBlockUntilVMIHasStarted(virtClient kubecli.KubevirtClient, vmi *v12.VirtualMachineInstance) *v12.VirtualMachineInstance {
+	_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+	Expect(err).ToNot(HaveOccurred())
+
+	// It may come to modify retries on the VMI because of the kubelet updating the pod, which can trigger controllers more often
+	tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+
+	// read back the created VMI, so it has the UID available on it
+	startedVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &v13.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return startedVMI
+}
 
 func vmiReady(vmi *v12.VirtualMachineInstance) v1.ConditionStatus {
 	for _, cond := range vmi.Status.Conditions {
