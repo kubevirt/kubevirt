@@ -65,6 +65,8 @@ type PCIDevicePlugin struct {
 	healthy       chan string
 	unhealthy     chan string
 	iommuToPCIMap map[string]string
+	initialized   bool
+	lock          *sync.Mutex
 }
 
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
@@ -85,6 +87,8 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 		iommuToPCIMap: iommuToPCIMap,
 		healthy:       make(chan string),
 		unhealthy:     make(chan string),
+		initialized:   false,
+		lock:          &sync.Mutex{},
 	}
 	return dpi
 }
@@ -149,6 +153,7 @@ func (dpi *PCIDevicePlugin) Start(stop chan struct{}) (err error) {
 		errChan <- dpi.healthCheck()
 	}()
 
+	dpi.setInitialized(true)
 	logger.Infof("%s device plugin started", dpi.deviceName)
 	err = <-errChan
 
@@ -322,6 +327,7 @@ func (dpi *PCIDevicePlugin) Stop() error {
 		}
 	}()
 	dpi.server.Stop()
+	dpi.setInitialized(false)
 	return dpi.cleanup()
 }
 
@@ -405,4 +411,16 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 		log.DefaultLogger().Reason(err).Errorf("failed to discover host devices")
 	}
 	return pciDevicesMap
+}
+
+func (dpi *PCIDevicePlugin) GetInitialized() bool {
+	dpi.lock.Lock()
+	defer dpi.lock.Unlock()
+	return dpi.initialized
+}
+
+func (dpi *PCIDevicePlugin) setInitialized(initialized bool) {
+	dpi.lock.Lock()
+	dpi.initialized = initialized
+	dpi.lock.Unlock()
 }
