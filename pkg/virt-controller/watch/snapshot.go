@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util/status"
 )
 
 const (
@@ -62,9 +63,10 @@ type snapshotSource interface {
 }
 
 type vmSnapshotSource struct {
-	client   kubecli.KubevirtClient
-	vm       *kubevirtv1.VirtualMachine
-	snapshot *snapshotv1.VirtualMachineSnapshot
+	client          kubecli.KubevirtClient
+	vmStatusUpdater *status.VMStatusUpdater
+	vm              *kubevirtv1.VirtualMachine
+	snapshot        *snapshotv1.VirtualMachineSnapshot
 }
 
 func cacheKeyFunc(namespace, name string) string {
@@ -126,7 +128,7 @@ func (ctrl *SnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.VirtualM
 	}
 
 	// unlock the source if done/error
-	if !vmSnapshotProgressing(vmSnapshot) && source != nil && source.Locked() {
+	if !vmSnapshotProgressing(vmSnapshot) && source != nil {
 		if err = source.Unlock(); err != nil {
 			return err
 		}
@@ -362,9 +364,10 @@ func (ctrl *SnapshotController) getSnapshotSource(vmSnapshot *snapshotv1.Virtual
 		}
 
 		return &vmSnapshotSource{
-			client:   ctrl.client,
-			vm:       vm,
-			snapshot: vmSnapshot,
+			client:          ctrl.client,
+			vmStatusUpdater: ctrl.vmStatusUpdater,
+			vm:              vm,
+			snapshot:        vmSnapshot,
 		}, nil
 	}
 
@@ -664,7 +667,9 @@ func (ctrl *SnapshotController) getContent(vmSnapshot *snapshotv1.VirtualMachine
 }
 
 func (s *vmSnapshotSource) Locked() bool {
-	return s.vm.Status.SnapshotInProgress != nil && *s.vm.Status.SnapshotInProgress == s.snapshot.Name
+	return s.vm.Status.SnapshotInProgress != nil &&
+		*s.vm.Status.SnapshotInProgress == s.snapshot.Name &&
+		controller.HasFinalizer(s.vm, sourceFinalizer)
 }
 
 func (s *vmSnapshotSource) Lock() (bool, error) {
@@ -684,28 +689,45 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 
 	log.Log.Infof("Adding VM snapshot finalizer to %s", s.vm.Name)
 
+	var err error
 	vmCopy := s.vm.DeepCopy()
-	vmCopy.Status.SnapshotInProgress = &s.snapshot.Name
-	controller.AddFinalizer(vmCopy, sourceFinalizer)
 
-	_, err := s.client.VirtualMachine(vmCopy.Namespace).UpdateStatus(vmCopy)
-	if err != nil {
-		return false, err
+	if vmCopy.Status.SnapshotInProgress == nil {
+		vmCopy.Status.SnapshotInProgress = &s.snapshot.Name
+		// unfortunately, status updater does not return the updated resource
+		// but the controller is watching VMs so will get notified
+		return false, s.vmStatusUpdater.UpdateStatus(vmCopy)
+	}
+
+	if !controller.HasFinalizer(vmCopy, sourceFinalizer) {
+		controller.AddFinalizer(vmCopy, sourceFinalizer)
+		_, err = s.client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+		if err != nil {
+			return false, err
+		}
 	}
 
 	return true, nil
 }
 
 func (s *vmSnapshotSource) Unlock() error {
-	if !s.Locked() {
+	if s.vm.Status.SnapshotInProgress == nil || *s.vm.Status.SnapshotInProgress != s.snapshot.Name {
 		return nil
 	}
 
+	var err error
 	vmCopy := s.vm.DeepCopy()
-	vmCopy.Status.SnapshotInProgress = nil
-	controller.RemoveFinalizer(vmCopy, sourceFinalizer)
 
-	_, err := s.client.VirtualMachine(vmCopy.Namespace).UpdateStatus(vmCopy)
+	if controller.HasFinalizer(vmCopy, sourceFinalizer) {
+		controller.RemoveFinalizer(vmCopy, sourceFinalizer)
+		vmCopy, err = s.client.VirtualMachine(vmCopy.Namespace).Update(vmCopy)
+		if err != nil {
+			return err
+		}
+	}
+
+	vmCopy.Status.SnapshotInProgress = nil
+	err = s.vmStatusUpdater.UpdateStatus(vmCopy)
 	if err != nil {
 		return err
 	}
