@@ -26,28 +26,15 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 	})
 
 	Context("for readiness", func() {
+		const (
+			period         = 5
+			initialSeconds = 5
+			port           = 1500
+		)
 
-		tcpProbe := &v12.Probe{
-			PeriodSeconds:       5,
-			InitialDelaySeconds: 5,
-			Handler: v12.Handler{
+		tcpProbe := createTCPProbe(period, initialSeconds, port)
+		httpProbe := createHTTPProbe(period, initialSeconds, port)
 
-				TCPSocket: &v1.TCPSocketAction{
-					Port: intstr.Parse("1500"),
-				},
-			},
-		}
-
-		httpProbe := &v12.Probe{
-			PeriodSeconds:       5,
-			InitialDelaySeconds: 5,
-			Handler: v12.Handler{
-
-				HTTPGet: &v1.HTTPGetAction{
-					Port: intstr.Parse("1500"),
-				},
-			},
-		}
 		table.DescribeTable("should succeed", func(readinessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int)) {
 			By("Specifying a VMI with a readiness probe")
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
@@ -106,28 +93,15 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 	})
 
 	Context("for liveness", func() {
+		const (
+			period         = 5
+			initialSeconds = 90
+			port           = 1500
+		)
 
-		tcpProbe := &v12.Probe{
-			PeriodSeconds:       5,
-			InitialDelaySeconds: 90,
-			Handler: v12.Handler{
+		tcpProbe := createTCPProbe(period, initialSeconds, port)
+		httpProbe := createHTTPProbe(period, initialSeconds, port)
 
-				TCPSocket: &v1.TCPSocketAction{
-					Port: intstr.Parse("1500"),
-				},
-			},
-		}
-
-		httpProbe := &v12.Probe{
-			PeriodSeconds:       5,
-			InitialDelaySeconds: 90,
-			Handler: v12.Handler{
-
-				HTTPGet: &v1.HTTPGetAction{
-					Port: intstr.Parse("1500"),
-				},
-			},
-		}
 		table.DescribeTable("should not fail the VMI", func(livenessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int)) {
 			By("Specifying a VMI with a readiness probe")
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(cd.ContainerDiskFor(cd.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
@@ -180,4 +154,30 @@ func vmiReady(vmi *v12.VirtualMachineInstance) v1.ConditionStatus {
 		}
 	}
 	return v1.ConditionFalse
+}
+
+func createTCPProbe(period int32, initialSeconds int32, port int) *v12.Probe {
+	httpHandler := v12.Handler{
+		TCPSocket: &v1.TCPSocketAction{
+			Port: intstr.FromInt(port),
+		},
+	}
+	return createProbeSpecification(period, initialSeconds, httpHandler)
+}
+
+func createHTTPProbe(period int32, initialSeconds int32, port int) *v12.Probe {
+	httpHandler := v12.Handler{
+		HTTPGet: &v1.HTTPGetAction{
+			Port: intstr.FromInt(port),
+		},
+	}
+	return createProbeSpecification(period, initialSeconds, httpHandler)
+}
+
+func createProbeSpecification(period int32, initialSeconds int32, handler v12.Handler) *v12.Probe {
+	return &v12.Probe{
+		PeriodSeconds:       period,
+		InitialDelaySeconds: initialSeconds,
+		Handler:             handler,
+	}
 }
