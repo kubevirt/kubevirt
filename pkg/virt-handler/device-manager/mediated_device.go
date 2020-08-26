@@ -27,6 +27,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"golang.org/x/net/context"
@@ -88,8 +89,8 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 		healthy:        make(chan string),
 		unhealthy:      make(chan string),
 		iommuToMDEVMap: iommuToMDEVMap,
-		initialized:   false,
-		lock:          &sync.Mutex{},
+		initialized:    false,
+		lock:           &sync.Mutex{},
 	}
 
 	return dpi

@@ -60,11 +60,11 @@ type GenericDevicePlugin struct {
 	devicePath   string
 	deviceName   string
 	resourceName string
-	done       chan struct{}
-	deviceRoot string
-	preOpen    bool
-	initialized bool
-	lock        *sync.Mutex
+	done         chan struct{}
+	deviceRoot   string
+	preOpen      bool
+	initialized  bool
+	lock         *sync.Mutex
 }
 
 func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int, preOpen bool) *GenericDevicePlugin {
@@ -78,9 +78,9 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 		devicePath:   devicePath,
 		deviceRoot:   util.HostRootMount,
 		resourceName: fmt.Sprintf("%s/%s", DeviceNamespace, deviceName),
-		preOpen:    preOpen,
-		initialized: false,
-		lock:        &sync.Mutex{},
+		preOpen:      preOpen,
+		initialized:  false,
+		lock:         &sync.Mutex{},
 	}
 	for i := 0; i < maxDevices; i++ {
 		dpi.addNewGenericDevice()

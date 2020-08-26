@@ -106,10 +106,12 @@ var _ = Describe("Device Controller", func() {
 			plugin2 = NewFakePlugin(deviceName2, devicePath2)
 		})
 
-		It("should restart the device plugin immeidiately without delays", func() {
+		It("should restart the device plugin immediately without delays", func() {
 			plugin2 = NewFakePlugin("fake-device2", devicePath2)
 			deviceController := NewDeviceController(host, 10, fakeConfigMap, fakeInformer)
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 10 * time.Second}
+			// New device controllers include the permanent device plugins, we don't want those
+			deviceController.devicePlugins = make(map[string]ControlledDevice)
 			deviceController.devicePlugins[deviceName2] = ControlledDevice{
 				devicePlugin: plugin2,
 				stopChan:     stop,
@@ -126,6 +128,8 @@ var _ = Describe("Device Controller", func() {
 			plugin2.Error = fmt.Errorf("failing")
 			deviceController := NewDeviceController(host, 10, fakeConfigMap, fakeInformer)
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 300 * time.Millisecond}
+			// New device controllers include the permanent device plugins, we don't want those
+			deviceController.devicePlugins = make(map[string]ControlledDevice)
 			deviceController.devicePlugins[deviceName2] = ControlledDevice{
 				devicePlugin: plugin2,
 				stopChan:     stop,
@@ -139,6 +143,8 @@ var _ = Describe("Device Controller", func() {
 
 		It("Should not block on other plugins", func() {
 			deviceController := NewDeviceController(host, 10, fakeConfigMap, fakeInformer)
+			// New device controllers include the permanent device plugins, we don't want those
+			deviceController.devicePlugins = make(map[string]ControlledDevice)
 			deviceController.devicePlugins[deviceName1] = ControlledDevice{
 				devicePlugin: plugin1,
 				stopChan:     stop,

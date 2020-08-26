@@ -256,7 +256,7 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 
 func (c *DeviceController) Initialized() bool {
 	for _, dev := range c.devicePlugins {
-		if !dev.GetInitialized() {
+		if !dev.devicePlugin.GetInitialized() {
 			return false
 		}
 	}
