@@ -1992,6 +1992,64 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
+		It("should reject host devices when feature gate is disabled", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				v1.HostDevice{
+					Name:       "hostdev1",
+					DeviceName: "vendor.com/hostdev_name",
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.HostDevices"))
+		})
+		It("should reject host devices that are not permitted in the hostdev config", func() {
+		        enableFeatureGate(virtconfig.HostDevicesGate)
+			fakePermittedHostDevicesConfig := `
+  pciDevices:
+  - pciVendorSelector: "DEAD:BEEF"
+    resourceName: "example.org/deadbeef"`
+
+			configMapData := make(map[string]string)
+			configMapData["permittedHostDevices"] = fakePermittedHostDevicesConfig
+			testutils.UpdateFakeClusterConfigByName(hostDevConfigMapInformer, &k8sv1.ConfigMap{
+				Data: map[string]string{virtconfig.PermittedHostDevicesKey: fakePermittedHostDevicesConfig},
+			}, testutils.HostDevicesConfigMapName)
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				v1.HostDevice{
+					Name:       "hostdev1",
+					DeviceName: "example.org/deadbeef1",
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.HostDevices"))
+		})
+		It("should accept permitted host devices", func() {
+		        enableFeatureGate(virtconfig.HostDevicesGate)
+			fakePermittedHostDevicesConfig := `
+  pciDevices:
+  - pciVendorSelector: "DEAD:BEEF"
+    resourceName: "example.org/deadbeef"`
+
+			configMapData := make(map[string]string)
+			configMapData["permittedHostDevices"] = fakePermittedHostDevicesConfig
+			testutils.UpdateFakeClusterConfigByName(hostDevConfigMapInformer, &k8sv1.ConfigMap{
+				Data: map[string]string{virtconfig.PermittedHostDevicesKey: fakePermittedHostDevicesConfig},
+			}, testutils.HostDevicesConfigMapName)
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				v1.HostDevice{
+					Name:       "hostdev1",
+					DeviceName: "example.org/deadbeef",
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
 		table.DescribeTable("Should accept valid DNSPolicy and DNSConfig",
 			func(dnsPolicy k8sv1.DNSPolicy, dnsConfig *k8sv1.PodDNSConfig) {
 				vmi := v1.NewMinimalVMI("testvmi")
