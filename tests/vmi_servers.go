@@ -4,37 +4,32 @@ import (
 	"fmt"
 	"time"
 
-	expect "github.com/google/goexpect"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/client-go/api/v1"
-	"kubevirt.io/client-go/log"
 )
 
+type server string
+
+const (
+	TCPServer  = server("\"Hello World!\"\n")
+	HTTPServer = server("\"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World!\"\n")
+)
+
+func (s server) composeNetcatServerCommand(port int) string {
+	return fmt.Sprintf("screen -d -m sudo nc -klp %d -e echo -e %s", port, string(s))
+}
+
 func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
-	createServerString := fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", port)
-	startServer(vmi, createServerString)
+	LoginToCirros(vmi)
+	TCPServer.Start(vmi, port)
 }
 
 func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int) {
-	httpServerMaker := fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World!\"\n", port)
-	startServer(vmi, httpServerMaker)
+	LoginToCirros(vmi)
+	HTTPServer.Start(vmi, port)
 }
 
-func startServer(vmi *v1.VirtualMachineInstance, createServer string) {
-	expecter, err := LoggedInCirrosExpecter(vmi)
-	Expect(err).NotTo(HaveOccurred())
-	prompt := "\\$ "
-	defer expecter.Close()
-
-	resp, err := ExpectBatchWithValidatedSend(expecter, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: createServer},
-		&expect.BExp{R: prompt},
-		&expect.BSnd{S: "echo $?\n"},
-		&expect.BExp{R: RetValue("0")},
-	}, 60*time.Second)
-	log.DefaultLogger().Infof("%v", resp)
-	Expect(err).ToNot(HaveOccurred())
+func (s server) Start(vmi *v1.VirtualMachineInstance, port int) {
+	Expect(VmiConsoleRunCommand(vmi, s.composeNetcatServerCommand(port), 60*time.Second)).To(Succeed())
 }

@@ -15,6 +15,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
+// LoginToCirros call LoggedInFedoraExpecter but does not return the expecter
+func LoginToCirros(vmi *v1.VirtualMachineInstance) error {
+	expecter, err := LoggedInCirrosExpecter(vmi)
+	defer expecter.Close()
+	return err
+}
+
 // LoggedInCirrosExpecter return prepared and ready to use console expecter for
 // Alpine test VM
 func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
