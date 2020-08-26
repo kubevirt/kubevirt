@@ -94,6 +94,9 @@ type KubeInformerFactory interface {
 	// Watches VirtualMachineSnapshot objects
 	VirtualMachineSnapshotContent() cache.SharedIndexInformer
 
+	// Watches VirtualMachineRestore objects
+	VirtualMachineRestore() cache.SharedIndexInformer
+
 	// Watches for k8s extensions api configmap
 	ApiAuthConfigMap() cache.SharedIndexInformer
 
@@ -389,6 +392,34 @@ func (f *kubeInformerFactory) VirtualMachineSnapshotContent() cache.SharedIndexI
 					}
 				}
 				return volumeSnapshots, nil
+			},
+		})
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer {
+	return f.getInformer("vmRestoreInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1alpha1().RESTClient(), "virtualmachinerestores", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &snapshotv1.VirtualMachineRestore{}, f.defaultResync, cache.Indexers{
+			"vm": func(obj interface{}) ([]string, error) {
+				vmr, ok := obj.(*snapshotv1.VirtualMachineRestore)
+				if !ok {
+					return nil, fmt.Errorf("unexpected object")
+				}
+
+				if vmr.Spec.Target.APIGroup != nil {
+					gv, err := schema.ParseGroupVersion(*vmr.Spec.Target.APIGroup)
+					if err != nil {
+						return nil, err
+					}
+
+					if gv.Group == kubev1.GroupName &&
+						vmr.Spec.Target.Kind == "VirtualMachine" {
+						return []string{vmr.Spec.Target.Name}, nil
+					}
+				}
+
+				return nil, nil
 			},
 		})
 	})

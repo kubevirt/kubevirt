@@ -5,10 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/onsi/ginkgo/extensions/table"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	vsv1beta1 "github.com/kubernetes-csi/external-snapshotter/v2/pkg/apis/volumesnapshot/v1beta1"
@@ -527,9 +526,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					ReadyToUse: &f,
-					Conditions: []snapshotv1.VirtualMachineSnapshotCondition{
-						newSnapshotProgressingCondition(corev1.ConditionFalse, "Source not locked"),
-						newSnapshotReadyCondition(corev1.ConditionFalse, "Not ready"),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
+						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
 				vmSource.Add(vm)
@@ -544,9 +543,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					ReadyToUse: &f,
-					Conditions: []snapshotv1.VirtualMachineSnapshotCondition{
-						newSnapshotProgressingCondition(corev1.ConditionFalse, "Source does not exist"),
-						newSnapshotReadyCondition(corev1.ConditionFalse, "Not ready"),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionFalse, "Source does not exist"),
+						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
 				expectVMSnapshotUpdate(vmSnapshotClient, updatedSnapshot)
@@ -561,9 +560,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 					ReadyToUse: &f,
-					Conditions: []snapshotv1.VirtualMachineSnapshotCondition{
-						newSnapshotProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
-						newSnapshotReadyCondition(corev1.ConditionFalse, "Not ready"),
+					Conditions: []snapshotv1.Condition{
+						newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
+						newReadyCondition(corev1.ConditionFalse, "Not ready"),
 					},
 				}
 				vmSource.Add(vm)
@@ -605,11 +604,11 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot.DeletionTimestamp = timeFunc()
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
-				updatedSnapshot.Status.Conditions = []snapshotv1.VirtualMachineSnapshotCondition{
-					newSnapshotProgressingCondition(corev1.ConditionFalse, "Snapshot cancelled"),
-					newSnapshotReadyCondition(corev1.ConditionFalse, "Snapshot cancelled"),
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, "Snapshot cancelled"),
+					newReadyCondition(corev1.ConditionFalse, "Snapshot cancelled"),
 				}
-				updatedSnapshot.Status.Error = &snapshotv1.VirtualMachineSnapshotError{
+				updatedSnapshot.Status.Error = &snapshotv1.Error{
 					Time:    timeFunc(),
 					Message: &[]string{"Snapshot cancelled"}[0],
 				}
@@ -795,9 +794,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
 				updatedSnapshot.Status.CreationTime = timeFunc()
 				updatedSnapshot.Status.ReadyToUse = &t
-				updatedSnapshot.Status.Conditions = []snapshotv1.VirtualMachineSnapshotCondition{
-					newSnapshotProgressingCondition(corev1.ConditionFalse, "Operation complete"),
-					newSnapshotReadyCondition(corev1.ConditionTrue, "Operation complete"),
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
+					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
 				}
 
 				vm := createLockedVM()
@@ -934,7 +933,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					ReadyToUse: &f,
-					Error: &snapshotv1.VirtualMachineSnapshotError{
+					Error: &snapshotv1.Error{
 						Message: &message,
 						Time:    timeFunc(),
 					},
@@ -986,7 +985,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					ReadyToUse:   &f,
 					CreationTime: timeFunc(),
-					Error: &snapshotv1.VirtualMachineSnapshotError{
+					Error: &snapshotv1.Error{
 						Message: &errorMessage,
 						Time:    timeFunc(),
 					},

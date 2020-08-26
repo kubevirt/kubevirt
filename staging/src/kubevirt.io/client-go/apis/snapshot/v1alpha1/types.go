@@ -73,14 +73,14 @@ type VirtualMachineSnapshotStatus struct {
 	ReadyToUse *bool `json:"readyToUse,omitempty"`
 
 	// +optional
-	Error *VirtualMachineSnapshotError `json:"error,omitempty"`
+	Error *Error `json:"error,omitempty"`
 
 	// +optional
-	Conditions []VirtualMachineSnapshotCondition `json:"conditions,omitempty"`
+	Conditions []Condition `json:"conditions,omitempty"`
 }
 
-// VirtualMachineSnapshotError is the last error encountered while creating the snapshot
-type VirtualMachineSnapshotError struct {
+// Error is the last error encountered during the snapshot/restore
+type Error struct {
 	// +optional
 	Time *metav1.Time `json:"time,omitempty"`
 
@@ -88,20 +88,20 @@ type VirtualMachineSnapshotError struct {
 	Message *string `json:"message,omitempty"`
 }
 
-// VirtualMachineSnapshotConditionType is the const type for VirtualMachineSnapshotConditions
-type VirtualMachineSnapshotConditionType string
+// ConditionType is the const type for Conditions
+type ConditionType string
 
 const (
-	// VirtualMachineSnapshotConditionReady is the "ready" condition type
-	VirtualMachineSnapshotConditionReady VirtualMachineSnapshotConditionType = "Ready"
+	// ConditionReady is the "ready" condition type
+	ConditionReady ConditionType = "Ready"
 
-	// VirtualMachineSnapshotConditionProgressing is the "progressing" condition type
-	VirtualMachineSnapshotConditionProgressing VirtualMachineSnapshotConditionType = "Progressing"
+	// ConditionProgressing is the "progressing" condition type
+	ConditionProgressing ConditionType = "Progressing"
 )
 
-// VirtualMachineSnapshotCondition defines snapshot conditions
-type VirtualMachineSnapshotCondition struct {
-	Type VirtualMachineSnapshotConditionType `json:"type"`
+// Condition defines conditions
+type Condition struct {
+	Type ConditionType `json:"type"`
 
 	Status corev1.ConditionStatus `json:"status"`
 
@@ -175,7 +175,7 @@ type VirtualMachineSnapshotContentStatus struct {
 	ReadyToUse *bool `json:"readyToUse,omitempty"`
 
 	// +optional
-	Error *VirtualMachineSnapshotError `json:"error,omitempty"`
+	Error *Error `json:"error,omitempty"`
 
 	// +optional
 	VolumeSnapshotStatus []VolumeSnapshotStatus `json:"volumeSnapshotStatus,omitempty"`
@@ -201,7 +201,7 @@ type VolumeSnapshotStatus struct {
 	ReadyToUse *bool `json:"readyToUse,omitempty"`
 
 	// +optional
-	Error *VirtualMachineSnapshotError `json:"error,omitempty"`
+	Error *Error `json:"error,omitempty"`
 }
 
 // VirtualMachineRestore defines the operation of restoring a VM
@@ -228,40 +228,34 @@ type VirtualMachineRestoreSpec struct {
 // VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource
 type VirtualMachineRestoreStatus struct {
 	// +optional
+	Restores []VolumeRestore `json:"restores,omitempty"`
+
+	// +optional
+	RestoreTime *metav1.Time `json:"restoreTime,omitempty"`
+
+	// +optional
+	DeletedDataVolumes []string `json:"deletedDataVolumes,omitempty"`
+
+	// +optional
 	Complete *bool `json:"complete,omitempty"`
 
 	// +optional
-	Conditions []VirtualMachineRestoreCondition `json:"conditions,omitempty"`
+	Error *Error `json:"error,omitempty"`
+
+	// +optional
+	Conditions []Condition `json:"conditions,omitempty"`
 }
 
-// VirtualMachineRestoreConditionType is the type of VirtualMachineRestoreCondition
-type VirtualMachineRestoreConditionType string
+// VolumeRestore contains the data neeed to restore a PVC
+type VolumeRestore struct {
+	VolumeName string `json:"volumeName"`
 
-const (
-	// VirtualMachineRestoreConditionReady is the "ready" condition type
-	VirtualMachineRestoreConditionReady VirtualMachineRestoreConditionType = "Ready"
+	PersistentVolumeClaimName string `json:"persistentVolumeClaim"`
 
-	// VirtualMachineRestoreConditionProgressing is the "progressing" condition type
-	VirtualMachineRestoreConditionProgressing VirtualMachineRestoreConditionType = "Progressing"
-)
-
-// VirtualMachineRestoreCondition defines snapshot conditions
-type VirtualMachineRestoreCondition struct {
-	Type VirtualMachineRestoreConditionType `json:"type"`
-
-	Status corev1.ConditionStatus `json:"status"`
+	VolumeSnapshotName string `json:"volumeSnapshotName"`
 
 	// +optional
-	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"`
-
-	// +optional
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
-
-	// +optional
-	Reason string `json:"reason,omitempty"`
-
-	// +optional
-	Message string `json:"message,omitempty"`
+	DataVolumeName *string `json:"dataVolumeName,omitempty"`
 }
 
 // VirtualMachineRestoreList is a list of VirtualMachineRestore resources

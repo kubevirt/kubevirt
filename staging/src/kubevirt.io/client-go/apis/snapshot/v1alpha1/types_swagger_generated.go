@@ -27,17 +27,17 @@ func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
 	}
 }
 
-func (VirtualMachineSnapshotError) SwaggerDoc() map[string]string {
+func (Error) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "VirtualMachineSnapshotError is the last error encountered while creating the snapshot",
+		"":        "Error is the last error encountered during the snapshot/restore",
 		"time":    "+optional",
 		"message": "+optional",
 	}
 }
 
-func (VirtualMachineSnapshotCondition) SwaggerDoc() map[string]string {
+func (Condition) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                   "VirtualMachineSnapshotCondition defines snapshot conditions",
+		"":                   "Condition defines conditions",
 		"lastProbeTime":      "+optional",
 		"lastTransitionTime": "+optional",
 		"reason":             "+optional",
@@ -120,19 +120,20 @@ func (VirtualMachineRestoreSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineRestoreStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource",
-		"complete":   "+optional",
-		"conditions": "+optional",
+		"":                   "VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource",
+		"restores":           "+optional",
+		"restoreTime":        "+optional",
+		"deletedDataVolumes": "+optional",
+		"complete":           "+optional",
+		"error":              "+optional",
+		"conditions":         "+optional",
 	}
 }
 
-func (VirtualMachineRestoreCondition) SwaggerDoc() map[string]string {
+func (VolumeRestore) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                   "VirtualMachineRestoreCondition defines snapshot conditions",
-		"lastProbeTime":      "+optional",
-		"lastTransitionTime": "+optional",
-		"reason":             "+optional",
-		"message":            "+optional",
+		"":               "VolumeRestore contains the data neeed to restore a PVC",
+		"dataVolumeName": "+optional",
 	}
 }
 

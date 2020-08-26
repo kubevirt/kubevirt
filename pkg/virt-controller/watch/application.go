@@ -134,8 +134,10 @@ type VirtControllerApp struct {
 	migrationInformer   cache.SharedIndexInformer
 
 	snapshotController        *snapshot.VMSnapshotController
+	restoreController         *snapshot.VMRestoreController
 	vmSnapshotInformer        cache.SharedIndexInformer
 	vmSnapshotContentInformer cache.SharedIndexInformer
+	vmRestoreInformer         cache.SharedIndexInformer
 	storageClassInformer      cache.SharedIndexInformer
 	allPodInformer            cache.SharedIndexInformer
 
@@ -171,6 +173,7 @@ type VirtControllerApp struct {
 	disruptionBudgetControllerThreads int
 	launcherSubGid                    int64
 	snapshotControllerThreads         int
+	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
 }
 
@@ -254,6 +257,7 @@ func Execute() {
 
 	app.vmSnapshotInformer = app.informerFactory.VirtualMachineSnapshot()
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
+	app.vmRestoreInformer = app.informerFactory.VirtualMachineRestore()
 	app.storageClassInformer = app.informerFactory.StorageClass()
 	app.allPodInformer = app.informerFactory.Pod()
 
@@ -274,6 +278,7 @@ func Execute() {
 	app.initDisruptionBudgetController()
 	app.initEvacuationController()
 	app.initSnapshotController()
+	app.initRestoreController()
 	go app.Run()
 
 	select {
@@ -365,6 +370,7 @@ func (vca *VirtControllerApp) Run() {
 					go vca.vmController.Run(vca.vmControllerThreads, stop)
 					go vca.migrationController.Run(vca.migrationControllerThreads, stop)
 					go vca.snapshotController.Run(vca.snapshotControllerThreads, stop)
+					go vca.restoreController.Run(vca.restoreControllerThreads, stop)
 					cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 					close(vca.readyChan)
 				},
@@ -474,6 +480,22 @@ func (vca *VirtControllerApp) initSnapshotController() {
 	vca.snapshotController.Init()
 }
 
+func (vca *VirtControllerApp) initRestoreController() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "restore-controller")
+	vca.restoreController = &snapshot.VMRestoreController{
+		Client:                    vca.clientSet,
+		VMRestoreInformer:         vca.vmRestoreInformer,
+		VMSnapshotInformer:        vca.vmSnapshotInformer,
+		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
+		VMInformer:                vca.vmInformer,
+		VMIInformer:               vca.vmiInformer,
+		DataVolumeInformer:        vca.dataVolumeInformer,
+		PVCInformer:               vca.persistentVolumeClaimInformer,
+		Recorder:                  recorder,
+	}
+	vca.restoreController.Init()
+}
+
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {
 	res := map[string]interface{}{}
 
@@ -543,8 +565,11 @@ func (vca *VirtControllerApp) AddFlags() {
 	flag.Int64Var(&vca.launcherSubGid, "launcher-subgid", defaultLauncherSubGid,
 		"ID of subgroup to virt-launcher")
 
-	flag.IntVar(&vca.snapshotControllerThreads, "snapshot-controller-threads", 1,
+	flag.IntVar(&vca.snapshotControllerThreads, "snapshot-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for snapshot controller")
+
+	flag.IntVar(&vca.restoreControllerThreads, "restore-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for restore controller")
 
 	flag.DurationVar(&vca.snapshotControllerResyncPeriod, "snapshot-controller-resync-period", defaultSnapshotControllerResyncPeriod,
 		"Number of goroutines to run for snapshot controller")
