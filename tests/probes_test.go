@@ -26,6 +26,8 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 	})
 
 	Context("for readiness", func() {
+		var vmi *v12.VirtualMachineInstance
+
 		const (
 			period         = 5
 			initialSeconds = 5
@@ -35,24 +37,24 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 		tcpProbe := createTCPProbe(period, initialSeconds, port)
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
 
+		isVMIReady := func() bool {
+			readVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return vmiReady(readVmi) == v1.ConditionTrue
+		}
+
 		table.DescribeTable("should succeed", func(readinessProbe *v12.Probe, serverStarter func(vmi *v12.VirtualMachineInstance, port int)) {
 			By("Specifying a VMI with a readiness probe")
-			vmi := createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
+			vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
 
-			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vmiReady(vmi)).To(Equal(v1.ConditionFalse))
+			// pod is not ready until our probe contacts the server
+			assertPodNotReady(virtClient, vmi)
 
 			By("Starting the server inside the VMI")
 			serverStarter(vmi, 1500)
 
 			By("Checking that the VMI and the pod will be marked as ready to receive traffic")
-			Eventually(func() v1.ConditionStatus {
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return vmiReady(vmi)
-			}, 60, 1).Should(Equal(v1.ConditionTrue))
+			Eventually(isVMIReady, 60, 1).Should(Equal(true))
 			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionTrue))
 		},
 			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
@@ -61,19 +63,13 @@ var _ = Describe("[ref_id:1182]Probes", func() {
 
 		table.DescribeTable("should fail", func(readinessProbe *v12.Probe) {
 			By("Specifying a VMI with a readiness probe")
-			vmi := createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
+			vmi = createReadyCirrosVMIWithReadinessProbe(virtClient, readinessProbe)
 
-			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vmiReady(vmi)).To(Equal(v1.ConditionFalse))
+			// pod is not ready until our probe contacts the server
+			assertPodNotReady(virtClient, vmi)
 
 			By("Checking that the VMI and the pod will consistently stay in a not-ready state")
-			Consistently(func() v1.ConditionStatus {
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return vmiReady(vmi)
-			}, 60, 1).Should(Equal(v1.ConditionFalse))
+			Consistently(isVMIReady).Should(Equal(false))
 			Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
 		},
 			table.Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe),
@@ -164,6 +160,13 @@ func vmiReady(vmi *v12.VirtualMachineInstance) v1.ConditionStatus {
 		}
 	}
 	return v1.ConditionFalse
+}
+
+func assertPodNotReady(virtClient kubecli.KubevirtClient, vmi *v12.VirtualMachineInstance) {
+	Expect(tests.PodReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
+	readVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(vmiReady(readVmi)).To(Equal(v1.ConditionFalse))
 }
 
 func createTCPProbe(period int32, initialSeconds int32, port int) *v12.Probe {
