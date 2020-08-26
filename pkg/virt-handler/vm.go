@@ -2222,7 +2222,7 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 			}
 
 			kubevirtSchedulable := "true"
-			if !d.kvmController.Initialized() {
+			if !d.deviceManagerController.Initialized() {
 				kubevirtSchedulable = "false"
 			}
 
