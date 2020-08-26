@@ -1,0 +1,12 @@
+diff --git a/go.mod b/go.mod
+index 17d37ab1a4..7a523d5a3a 100644
+--- a/go.mod
++++ b/go.mod
+@@ -14,6 +14,7 @@ replace (
+ 	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20190817020851-f2f3a405f61d
+ 	k8s.io/client-go => k8s.io/client-go v0.0.0-20190918200256-06eb1244587a
+ 	k8s.io/code-generator => k8s.io/code-generator v0.0.0-20190612205613-18da4a14b22b
++	vbom.ml/util => github.com/fvbommel/util v0.0.0-20180919145318-efcd4e0f9787
+ )
+ 
+ require (

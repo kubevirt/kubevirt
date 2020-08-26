@@ -3,19 +3,6 @@
 # when not on a release do extensive checks
 if [ -z "$TRAVIS_TAG" ]; then
 	make bazel-build-verify
-
-	# The make bazel-test might take longer then the current timeout for a command in Travis-CI of 10 min, so adding a keep alive loop while it runs
-	while sleep 9m; do echo "Long running job - keep alive"; done &
-	LOOP_PID=$!
-
-	if [[ $TRAVIS_REPO_SLUG == "kubevirt/kubevirt" && $TRAVIS_CPU_ARCH == "amd64" ]]; then
-		make goveralls
-	else
-		make bazel-test
-	fi
-
-	kill $LOOP_PID
-
 else
 	make
 fi
