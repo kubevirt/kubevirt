@@ -37,7 +37,7 @@ import (
 )
 
 var _ = Describe("Validating MigrationCreate Admitter", func() {
-	config, configMapInformer, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, configMapInformer, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 	migrationCreateAdmitter := &MigrationCreateAdmitter{ClusterConfig: config}
 
 	enableFeatureGate := func(featureGate string) {

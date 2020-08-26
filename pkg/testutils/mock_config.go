@@ -13,23 +13,24 @@ import (
 
 const (
 	configMapName = "kubevirt-config"
+	HostDevicesConfigMapName = "kubevirt-host-device-plugin-config"
 	namespace     = "kubevirt"
 )
 
-func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
+func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
 	configMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
 	hostDevConfigMapInformer, _ := NewFakeInformerFor(&v1.ConfigMap{})
 	crdInformer, _ := NewFakeInformerFor(&extv1beta1.CustomResourceDefinition{})
 	kubeVirtInformer, _ := NewFakeInformerFor(&KVv1.KubeVirt{})
 
 	if cfgMap != nil {
-		copy := copy(cfgMap)
+		copy := copyByName(cfgMap, configMapName)
 		configMapInformer.GetStore().Add(copy)
 	}
 
 	AddDataVolumeAPI(crdInformer)
 
-	return virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, hostDevConfigMapInformer, namespace), configMapInformer, crdInformer, kubeVirtInformer
+	return virtconfig.NewClusterConfig(configMapInformer, crdInformer, kubeVirtInformer, hostDevConfigMapInformer, namespace), configMapInformer, crdInformer, kubeVirtInformer, hostDevConfigMapInformer
 }
 
 func NewFakeClusterConfigUsingKV(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.SharedIndexInformer, cache.SharedIndexInformer) {
@@ -61,7 +62,11 @@ func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 }
 
 func UpdateFakeClusterConfig(configMapInformer cache.SharedIndexInformer, cfgMap *v1.ConfigMap) {
-	copy := copy(cfgMap)
+	UpdateFakeClusterConfigByName(configMapInformer, cfgMap, configMapName)
+}
+
+func UpdateFakeClusterConfigByName(configMapInformer cache.SharedIndexInformer, cfgMap *v1.ConfigMap, name string) {
+	copy := copyByName(cfgMap, name)
 	configMapInformer.GetStore().Update(copy)
 }
 
@@ -74,11 +79,11 @@ func UpdateFakeKubeVirtClusterConfig(kubeVirtInformer cache.SharedIndexInformer,
 	kubeVirtInformer.GetStore().Update(copy)
 }
 
-func copy(cfgMap *v1.ConfigMap) *v1.ConfigMap {
+func copyByName(cfgMap *v1.ConfigMap, name string) *v1.ConfigMap {
 	copy := cfgMap.DeepCopy()
 	copy.ObjectMeta = v12.ObjectMeta{
 		Namespace: namespace,
-		Name:      configMapName,
+		Name:      name,
 		// Change the resource version, or the config will not be updated
 		ResourceVersion: rand.String(10),
 	}

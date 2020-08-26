@@ -51,7 +51,7 @@ var _ = Describe("Application", func() {
 
 			app := VirtControllerApp{}
 
-			clusterConfig, _, crdInformer, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+			clusterConfig, _, crdInformer, _, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
 			app.clusterConfig = clusterConfig
 			app.reInitChan = make(chan string, 10)
 			app.hasCDI = hasCDIAtInit
