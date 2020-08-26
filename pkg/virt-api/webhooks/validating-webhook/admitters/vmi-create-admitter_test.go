@@ -64,7 +64,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Phase: v1.KubeVirtPhaseDeploying,
 		},
 	}
-	config, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
+	config, configMapInformer, _, _, kvInformer := testutils.NewFakeClusterConfigUsingKV(kv)
 	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config}
 
 	dnsConfigTestOption := "test"
@@ -1947,6 +1947,51 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(0))
 		})
 
+		It("should reject GPU devices that are not permitted in the hostdev config", func() {
+		        enableFeatureGate(virtconfig.GPUGate)
+			fakePermittedHostDevicesConfig := `
+  pciDevices:
+  - pciVendorSelector: "DEAD:BEEF"
+    resourceName: "example.org/deadbeef"`
+
+			configMapData := make(map[string]string)
+			configMapData["permittedHostDevices"] = fakePermittedHostDevicesConfig
+			testutils.UpdateFakeClusterConfigByName(hostDevConfigMapInformer, &k8sv1.ConfigMap{
+				Data: map[string]string{virtconfig.PermittedHostDevicesKey: fakePermittedHostDevicesConfig},
+			}, testutils.HostDevicesConfigMapName)
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				v1.GPU{
+					Name:       "gpu1",
+					DeviceName: "example.org/deadbeef1",
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.GPUs"))
+		})
+		It("should accept permitted GPU devices", func() {
+		        enableFeatureGate(virtconfig.GPUGate)
+			fakePermittedHostDevicesConfig := `
+  pciDevices:
+  - pciVendorSelector: "DEAD:BEEF"
+    resourceName: "example.org/deadbeef"`
+
+			configMapData := make(map[string]string)
+			configMapData["permittedHostDevices"] = fakePermittedHostDevicesConfig
+			testutils.UpdateFakeClusterConfigByName(hostDevConfigMapInformer, &k8sv1.ConfigMap{
+				Data: map[string]string{virtconfig.PermittedHostDevicesKey: fakePermittedHostDevicesConfig},
+			}, testutils.HostDevicesConfigMapName)
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				v1.GPU{
+					Name:       "gpu1",
+					DeviceName: "example.org/deadbeef",
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(len(causes)).To(Equal(0))
+		})
 		table.DescribeTable("Should accept valid DNSPolicy and DNSConfig",
 			func(dnsPolicy k8sv1.DNSPolicy, dnsConfig *k8sv1.PodDNSConfig) {
 				vmi := v1.NewMinimalVMI("testvmi")
@@ -2636,7 +2681,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
-	config, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	config, _, _, _, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 	It("should work for empty network list", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
