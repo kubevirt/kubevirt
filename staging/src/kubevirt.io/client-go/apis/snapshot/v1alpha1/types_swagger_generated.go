@@ -125,7 +125,6 @@ func (VirtualMachineRestoreStatus) SwaggerDoc() map[string]string {
 		"restoreTime":        "+optional",
 		"deletedDataVolumes": "+optional",
 		"complete":           "+optional",
-		"error":              "+optional",
 		"conditions":         "+optional",
 	}
 }

@@ -34,7 +34,6 @@ import (
 	snapshotv1 "kubevirt.io/client-go/apis/snapshot/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 )
 
 // VMRestoreController is resonsible for restoring VMs
@@ -70,13 +69,6 @@ func (ctrl *VMRestoreController) Init() {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePVC,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
-		},
-	)
-
-	ctrl.DataVolumeInformer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    ctrl.handleDataVolume,
-			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleDataVolume(newObj) },
 		},
 	)
 
@@ -172,24 +164,6 @@ func (ctrl *VMRestoreController) handlePVC(obj interface{}) {
 		objName := cacheKeyFunc(pvc.Namespace, restoreName)
 
 		log.Log.V(3).Infof("Handling PVC %s/%s, Restore %s", pvc.Namespace, pvc.Name, objName)
-		ctrl.vmRestoreQueue.Add(objName)
-	}
-}
-
-func (ctrl *VMRestoreController) handleDataVolume(obj interface{}) {
-	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
-		obj = unknown.Obj
-	}
-
-	if dv, ok := obj.(*cdiv1.DataVolume); ok {
-		restoreName, ok := dv.Annotations[pvcRestoreAnnotation]
-		if !ok {
-			return
-		}
-
-		objName := cacheKeyFunc(dv.Namespace, restoreName)
-
-		log.Log.V(3).Infof("Handling DV %s/%s, Restore %s", dv.Namespace, dv.Name, objName)
 		ctrl.vmRestoreQueue.Add(objName)
 	}
 }
