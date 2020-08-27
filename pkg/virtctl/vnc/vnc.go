@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	LISTEN_TIMEOUT = 180 * time.Second
+	LISTEN_TIMEOUT = 60 * time.Second
 	FLAG           = "vnc"
 
 	//#### Tiger VNC ####
@@ -75,8 +75,8 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&proxyOnly, "proxy-only", proxyOnly, "--proxy-only=false: Setting this true will run only the virtctl vnc proxy and show the localhost port where VNC viewers can connect")
-	cmd.Flags().IntVar(&customPort, "custom-port", customPort,
-		"--custom-port=0: Assigning a port value to this will try to run the proxy on the given port if the port is accessible; If unassigned, the proxy will run on a random port")
+	cmd.Flags().IntVar(&customPort, "port", customPort,
+		"--port=0: Assigning a port value to this will try to run the proxy on the given port if the port is accessible; If unassigned, the proxy will run on a random port")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -143,9 +143,11 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	go func() {
 		start := time.Now()
 		glog.Infof("connection timeout: %v", LISTEN_TIMEOUT)
-		// exit early if spawning remote-viewer fails
-		ln.SetDeadline(time.Now().Add(LISTEN_TIMEOUT))
-
+		// Don't set deadline if only proxy is running and VNC is to be connected manually
+		if !proxyOnly {
+			// exit early if spawning remote-viewer fails
+			ln.SetDeadline(time.Now().Add(LISTEN_TIMEOUT))
+		}
 		fd, err := ln.Accept()
 		if err != nil {
 			glog.V(2).Infof("Failed to accept unix sock connection. %s", err.Error())
