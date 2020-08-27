@@ -48,3 +48,13 @@ func InterfaceDeviceWithMasqueradeBinding() kvirtv1.Interface {
 		},
 	}
 }
+
+// InterfaceDeviceWithBridgeBinding returns an Interface named "default" with bridge binding.
+func InterfaceDeviceWithBridgeBinding() kvirtv1.Interface {
+	return kvirtv1.Interface{
+		Name: "default",
+		InterfaceBindingMethod: kvirtv1.InterfaceBindingMethod{
+			Bridge: &kvirtv1.InterfaceBridge{},
+		},
+	}
+}
