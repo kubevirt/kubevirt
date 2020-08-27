@@ -526,7 +526,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 					ifc := v1.VirtualMachineInstanceNetworkInterface{
 						Name: network.Name,
 						IP:   podIface.PodIP,
-						IPs:  []string{podIface.PodIP},
+						IPs:  podIface.PodIPs,
 					}
 					interfaces = append(interfaces, ifc)
 				}
@@ -586,10 +586,11 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 						if err != nil {
 							return err
 						}
-						if iface.PodIP != existingInterfaceStatusByName[domainInterface.Alias.Name].IP {
+
+						if !reflect.DeepEqual(iface.PodIPs, existingInterfaceStatusByName[domainInterface.Alias.Name].IPs) {
 							newInterface.Name = domainInterface.Alias.Name
 							newInterface.IP = iface.PodIP
-							newInterface.IPs = []string{iface.PodIP}
+							newInterface.IPs = iface.PodIPs
 						}
 					}
 				} else {

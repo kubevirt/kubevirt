@@ -30,6 +30,8 @@ import (
 	"strconv"
 	"strings"
 
+	netutils "k8s.io/utils/net"
+
 	"kubevirt.io/kubevirt/pkg/util"
 
 	"github.com/coreos/go-iptables/iptables"
@@ -83,35 +85,83 @@ func writeVifFile(buf []byte, pid, name string) error {
 }
 
 func setPodInterfaceCache(iface *v1.Interface, podInterfaceName string, uid string) error {
+	cache := PodCacheInterface{Iface: iface}
+
+	ipv4, ipv6, err := readIPAddressesFromLink(podInterfaceName)
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case ipv4 != "" && ipv6 != "":
+		cache.PodIPs, err = sortIPsBasedOnPrimaryIP(ipv4, ipv6)
+		if err != nil {
+			return err
+		}
+	case ipv4 != "":
+		cache.PodIPs = []string{ipv4}
+	case ipv6 != "":
+		cache.PodIPs = []string{ipv6}
+	default:
+		return nil
+	}
+
+	cache.PodIP = cache.PodIPs[0]
+	err = writeToCachedFile(cache, util.VMIInterfacepath, uid, iface.Name)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+func readIPAddressesFromLink(podInterfaceName string) (string, string, error) {
 	link, err := Handler.LinkByName(podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterfaceName)
-		return err
+		return "", "", err
 	}
+
 	// get IP address
 	addrList, err := Handler.AddrList(link, netlink.FAMILY_ALL)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a address for interface: %s", podInterfaceName)
-		return err
-	}
-	// no ip assigned. ipam disabled
-	if len(addrList) == 0 {
-		return nil
+		return "", "", err
 	}
 
+	// no ip assigned. ipam disabled
+	if len(addrList) == 0 {
+		return "", "", nil
+	}
+
+	var ipv4, ipv6 string
 	for _, addr := range addrList {
 		if addr.IP.IsGlobalUnicast() {
-			err = writeToCachedFile(PodCacheInterface{Iface: iface, PodIP: addr.IP.String()},
-				util.VMIInterfacepath, uid, iface.Name)
-			if err != nil {
-				log.Log.Reason(err).Errorf("failed to write pod Interface to cache, %s", err.Error())
-				return err
+			if netutils.IsIPv6(addr.IP) && ipv6 == "" {
+				ipv6 = addr.IP.String()
+			} else if !netutils.IsIPv6(addr.IP) && ipv4 == "" {
+				ipv4 = addr.IP.String()
 			}
-			return nil
 		}
 	}
 
-	return nil
+	return ipv4, ipv6, nil
+}
+
+// sortIPsBasedOnPrimaryIP returns a sorted slice of IP/s based on the detected cluster primary IP.
+// The operation clones the Pod status IP list order logic.
+func sortIPsBasedOnPrimaryIP(ipv4, ipv6 string) ([]string, error) {
+	ipv4Primary, err := Handler.IsIpv4Primary()
+	if err != nil {
+		return nil, err
+	}
+
+	if ipv4Primary {
+		return []string{ipv4, ipv6}, nil
+	}
+
+	return []string{ipv6, ipv4}, nil
 }
 
 func (l *PodInterface) PlugPhase1(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, podInterfaceName string, pid int) error {
