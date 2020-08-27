@@ -123,11 +123,22 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
+				},
+				Verbs: []string{
+					"get",
+				},
+			},
+			{
+				APIGroups: []string{
+					"subresources.kubevirt.io",
+				},
+				Resources: []string{
 					"virtualmachineinstances/pause",
 					"virtualmachineinstances/unpause",
 				},
 				Verbs: []string{
 					"get",
+					"update",
 				},
 			},
 			{
@@ -196,11 +207,22 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachineinstances/console",
 					"virtualmachineinstances/vnc",
+				},
+				Verbs: []string{
+					"get",
+				},
+			},
+			{
+				APIGroups: []string{
+					"subresources.kubevirt.io",
+				},
+				Resources: []string{
 					"virtualmachineinstances/pause",
 					"virtualmachineinstances/unpause",
 				},
 				Verbs: []string{
 					"get",
+					"update",
 				},
 			},
 			{
