@@ -2668,23 +2668,7 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpect
 
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()
-	vmi, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	// Lets make sure that the OS is up by waiting until we can login
-	expecter, err := expecterFactory(vmi)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	expecter.Close()
-	return vmi
-}
-
-func WaitUntilVMIReadyWithNamespace(namespace string, vmi *v1.VirtualMachineInstance, expecterFactory VMIExpecterFactory) *v1.VirtualMachineInstance {
-	// Wait for VirtualMachineInstance start
-	WaitForSuccessfulVMIStart(vmi)
-
-	// Fetch the new VirtualMachineInstance with updated status
-	virtClient, err := kubecli.GetKubevirtClient()
-	vmi, err = virtClient.VirtualMachineInstance(namespace).Get(vmi.Name, &metav1.GetOptions{})
+	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	// Lets make sure that the OS is up by waiting until we can login
