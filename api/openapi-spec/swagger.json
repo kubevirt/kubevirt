@@ -9437,13 +9437,13 @@
      "completionTimeoutPerGiB": {
       "type": "string"
      },
+     "migrationMode": {
+      "type": "string"
+     },
      "progressTimeout": {
       "type": "string"
      },
      "unsafeMigrationOverride": {
-      "type": "string"
-     },
-     "usePostCopy": {
       "type": "string"
      }
     }

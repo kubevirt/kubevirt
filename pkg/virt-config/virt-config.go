@@ -37,7 +37,6 @@ const (
 	ParallelMigrationsPerClusterDefault      uint32 = 5
 	BandwithPerMigrationDefault                     = "64Mi"
 	MigrationAllowAutoConverge               bool   = false
-	MigrationUsePostCopy                     bool   = false
 	MigrationProgressTimeout                 int64  = 150
 	MigrationCompletionTimeoutPerGiB         int64  = 800
 	DefaultAMD64MachineType                         = "q35"

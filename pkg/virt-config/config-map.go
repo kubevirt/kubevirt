@@ -155,7 +155,7 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 	bandwithPerMigrationDefault := resource.MustParse(BandwithPerMigrationDefault)
 	nodeDrainTaintDefaultKey := NodeDrainTaintDefaultKey
 	allowAutoConverge := MigrationAllowAutoConverge
-	usePostCopy := MigrationUsePostCopy
+	migrationMode := v1.MigrationPreCopy
 	defaultUnsafeMigrationOverride := DefaultUnsafeMigrationOverride
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
@@ -189,7 +189,7 @@ func defaultClusterConfig() *v1.KubeVirtConfiguration {
 				CompletionTimeoutPerGiB: &completionTimeoutPerGiB,
 				UnsafeMigrationOverride: &defaultUnsafeMigrationOverride,
 				AllowAutoConverge:       &allowAutoConverge,
-				UsePostCopy:             &usePostCopy,
+				MigrationMode:           &migrationMode,
 			},
 		},
 		MachineType:      DefaultMachineType,

@@ -1998,13 +1998,19 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 		} else {
 			migrationConfiguration := d.clusterConfig.GetMigrationConfiguration()
+
+			if migrationConfiguration.MigrationMode == nil {
+				preCopy := v1.MigrationPreCopy
+				migrationConfiguration.MigrationMode = &preCopy
+			}
+
 			options := &cmdclient.MigrationOptions{
 				Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
 				ProgressTimeout:         *migrationConfiguration.ProgressTimeout,
 				CompletionTimeoutPerGiB: *migrationConfiguration.CompletionTimeoutPerGiB,
 				UnsafeMigration:         *migrationConfiguration.UnsafeMigrationOverride,
 				AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
-				PostCopy:                *migrationConfiguration.UsePostCopy,
+				MigrationMode:           *migrationConfiguration.MigrationMode,
 			}
 
 			err = client.MigrateVirtualMachine(vmi, options)
