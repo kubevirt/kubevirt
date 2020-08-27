@@ -2393,16 +2393,16 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("[test_id:2751]test default SMBios", func() {
+			// Clear up SMBios values if already set in kubevirt-config, for testing default values.
+			test_smbios := &cmdv1.SMBios{Family: "", Product: "", Manufacturer: ""}
+			smbiosJson, err := json.Marshal(test_smbios)
+			Expect(err).ToNot(HaveOccurred())
+			tests.UpdateClusterConfigValueAndWait(virtconfig.SmbiosConfigKey, string(smbiosJson))
 
 			By("Starting a VirtualMachineInstance")
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStart(vmi)
-
-			test_smbios := &cmdv1.SMBios{Family: "", Product: "", Manufacturer: ""}
-			smbiosJson, err := json.Marshal(test_smbios)
-			Expect(err).ToNot(HaveOccurred())
-			tests.UpdateClusterConfigValueAndWait(virtconfig.SmbiosConfigKey, string(smbiosJson))
 
 			By("Check values in domain XML")
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
