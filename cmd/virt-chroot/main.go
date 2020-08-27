@@ -172,7 +172,7 @@ func main() {
 	}
 
 	selinuxCmd.AddCommand(
-		NewGetEnforceCommand(),
+		NewGetEnforceCommand(), RelabelCommand(),
 	)
 
 	createTapCmd := NewCreateTapCommand()
