@@ -1,6 +1,7 @@
 package device_manager
 
 import (
+	"os"
 	"strings"
 
 	"github.com/golang/mock/gomock"
@@ -31,24 +32,35 @@ var _ = Describe("PCI Device", func() {
 	var ctrl *gomock.Controller
 
 	BeforeEach(func() {
+		By("making sure the environment has a PCI device at " + fakeAddress)
+		_, err := os.Stat("/sys/bus/pci/devices/" + fakeAddress)
+		if os.IsNotExist(err) {
+			Skip("No PCI device found at " + fakeAddress + ", can't run PCI tests")
+		}
+
+		By("mocking PCI functions to simulate a vfio-pci device at " + fakeAddress)
 		ctrl = gomock.NewController(GinkgoT())
 		mockPCI = NewMockDeviceHandler(ctrl)
 		Handler = mockPCI
+		// Force pre-definted returned values and ensure the function only get called exacly once each on 0000:00:00.0
 		mockPCI.EXPECT().GetDeviceIOMMUGroup(pciBasePath, fakeAddress).Return(fakeIommuGroup, nil).Times(1)
 		mockPCI.EXPECT().GetDeviceDriver(pciBasePath, fakeAddress).Return(fakeDriver, nil).Times(1)
 		mockPCI.EXPECT().GetDeviceNumaNode(pciBasePath, fakeAddress).Return(fakeNumaNode).Times(1)
 		mockPCI.EXPECT().GetDevicePCIID(pciBasePath, fakeAddress).Return(fakeID, nil).Times(1)
+		// Allow the regular functions to be called for all the other devices, they're harmless.
+		// Just force the driver to NOT vfio-pci to ensure they all get ignored.
 		mockPCI.EXPECT().GetDeviceIOMMUGroup(pciBasePath, gomock.Any()).AnyTimes()
-		mockPCI.EXPECT().GetDeviceDriver(pciBasePath, gomock.Any()).AnyTimes()
+		mockPCI.EXPECT().GetDeviceDriver(pciBasePath, gomock.Any()).Return("definitely-not-vfio-pci", nil).AnyTimes()
 		mockPCI.EXPECT().GetDeviceNumaNode(pciBasePath, gomock.Any()).AnyTimes()
 		mockPCI.EXPECT().GetDevicePCIID(pciBasePath, gomock.Any()).AnyTimes()
 
+		By("creating a list of fake device using the yaml decoder")
 		fakePermittedHostDevicesConfig = `
 pciDevices:
 - pciVendorSelector: "` + fakeID + `"
   resourceName: "` + fakeName + `"
 `
-		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(fakePermittedHostDevicesConfig), 1024).Decode(&fakePermittedHostDevices)
+		err = yaml.NewYAMLOrJSONDecoder(strings.NewReader(fakePermittedHostDevicesConfig), 1024).Decode(&fakePermittedHostDevices)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(fakePermittedHostDevices.PciHostDevices)).To(Equal(1))
 		Expect(fakePermittedHostDevices.PciHostDevices[0].Selector).To(Equal(fakeID))
@@ -60,8 +72,6 @@ pciDevices:
 	})
 
 	It("Should parse the permitted devices and find 1 matching PCI device", func() {
-		// TODO: skip the test if the current environment doesn't have a root PCI device?
-		// i.e. if /sys/bus/pci/devices/0000:00:00.0 doesn't exist
 		supportedPCIDeviceMap := make(map[string]string)
 		Expect(len(fakePermittedHostDevices.PciHostDevices)).To(Equal(1))
 		for _, pciDev := range fakePermittedHostDevices.PciHostDevices {
@@ -83,22 +93,47 @@ pciDevices:
 	})
 
 	It("Should update the device list according to the configmap", func() {
-		//
-		kvLabels := make(map[string]string)
-		kvLabels["kubevirt.io"] = ""
+		By("creating a cluster config")
 		configMapData := make(map[string]string)
 		configMapData[virtconfig.PermittedHostDevicesKey] = fakePermittedHostDevicesConfig
 		fakeClusterConfig, fakeInformer, _, _, fakeHostDevInformer := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+
+		By("creating an empty device controller")
+		deviceController := NewDeviceController("master", 10, fakeClusterConfig, fakeInformer)
+		deviceController.devicePlugins = make(map[string]ControlledDevice)
+
+		By("adding a host device to the cluster config")
 		testutils.UpdateFakeClusterConfigByName(fakeHostDevInformer, &k8sv1.ConfigMap{
 			Data: configMapData,
 		}, testutils.HostDevicesConfigMapName)
-		duh := fakeClusterConfig.GetPermittedHostDevices()
-		Expect(duh).ToNot(BeNil())
-		Expect(len(duh.PciHostDevices)).To(Equal(1))
-		deviceController := NewDeviceController("master", 10, fakeClusterConfig, fakeInformer)
+		permittedDevices := fakeClusterConfig.GetPermittedHostDevices()
+		Expect(permittedDevices).ToNot(BeNil(), "something went wrong while parsing the configmap(s)")
+		Expect(len(permittedDevices.PciHostDevices)).To(Equal(1), "the fake device was not found")
+
+		By("ensuring a device plugin gets created for our fake device")
 		enabledDevicePlugins, disabledDevicePlugins := deviceController.updatePermittedHostDevicePlugins()
-		Expect(len(enabledDevicePlugins)).To(Equal(1))
+		Expect(len(enabledDevicePlugins)).To(Equal(1), "a device plugin wasn't created for the fake device")
 		Expect(len(disabledDevicePlugins)).To(Equal(0))
 		Ω(enabledDevicePlugins).Should(HaveKey(fakeName))
+		// Manually adding the enabled plugin, since the device controller is not actually running
+		deviceController.devicePlugins[fakeName] = enabledDevicePlugins[fakeName]
+
+		By("deletting the device from the configmap")
+		fakePermittedHostDevicesConfig = `
+pciDevices:
+`
+		configMapData[virtconfig.PermittedHostDevicesKey] = fakePermittedHostDevicesConfig
+		testutils.UpdateFakeClusterConfigByName(fakeHostDevInformer, &k8sv1.ConfigMap{
+			Data: configMapData,
+		}, testutils.HostDevicesConfigMapName)
+		permittedDevices = fakeClusterConfig.GetPermittedHostDevices()
+		Expect(permittedDevices).ToNot(BeNil(), "something went wrong while parsing the configmap(s)")
+		Expect(len(permittedDevices.PciHostDevices)).To(Equal(0), "the fake device was not deleted")
+
+		By("ensuring the device plugin gets stopped")
+		enabledDevicePlugins, disabledDevicePlugins = deviceController.updatePermittedHostDevicePlugins()
+		Expect(len(enabledDevicePlugins)).To(Equal(0))
+		Expect(len(disabledDevicePlugins)).To(Equal(1), "the fake device plugin did not get disabled")
+		Ω(disabledDevicePlugins).Should(HaveKey(fakeName))
 	})
 })
