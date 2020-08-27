@@ -1,5 +1,9 @@
 export GO15VENDOREXPERIMENT := 1
 
+ifeq (${TIMESTAMP}, 1)
+  $(info "Timestamp is enabled")
+  SHELL = ./hack/timestamps.sh
+endif
 
 all:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh && \
@@ -135,7 +139,7 @@ builder-publish:
 olm-verify:
 	hack/dockerized "./hack/olm.sh verify"
 
-current-dir := $(shell pwd)
+current-dir := $(realpath .)
 
 build-prom-spec-dumper:
 	hack/dockerized "go build -o rule-spec-dumper ./hack/prom-rule-ci/rule-spec-dumper.go"
