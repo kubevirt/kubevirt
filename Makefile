@@ -61,7 +61,7 @@ coverage:
 	hack/dockerized "./hack/coverage.sh ${WHAT}"
 
 goveralls: go-build
-	SYNC_OUT=false hack/dockerized "COVERALLS_TOKEN_FILE=${COVERALLS_TOKEN_FILE} COVERALLS_TOKEN=${COVERALLS_TOKEN} CI_NAME=prow CI_BUILD_NUMBER=${BUILD_ID} CI_BRANCH=${PULL_BASE_REF} CI_PULL_REQUEST=${PULL_NUMBER} ./hack/goveralls.sh"
+	SYNC_OUT=false hack/dockerized "COVERALLS_TOKEN_FILE=${COVERALLS_TOKEN_FILE} COVERALLS_TOKEN=${COVERALLS_TOKEN} CI_NAME=prow CI_BRANCH=${PULL_REFS} CI_PR_NUMBER=${PULL_NUMBER} ./hack/goveralls.sh"
 
 go-test: go-build
 	SYNC_OUT=false hack/dockerized "./hack/build-go.sh test ${WHAT}"
